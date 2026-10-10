@@ -4,7 +4,9 @@ import (
 	"github.com/spf13/pflag"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
 	"botropolis.city/botropolis/pkg/config"
 	"github.com/spf13/cobra"
@@ -301,4 +303,65 @@ func TestDetailSetting(t *testing.T) {
 			assert.Equal(t, "full", cfg.Detail)
 		})
 	})
+}
+
+// Item 79: refreshing usage is a network call, so the city makes it only
+// when asked unless told how often it may.
+func TestUsageRefreshKey(t *testing.T) {
+	t.Run("when nothing sets it", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t)
+
+		t.Run("it should refresh only by hand", func(t *testing.T) {
+			assert.Equal(t, "manual", cfg.UsageRefresh)
+		})
+	})
+
+	t.Run("when the flag sets an interval", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t, "--usage_refresh", "30m")
+
+		t.Run("it should keep it", func(t *testing.T) {
+			assert.Equal(t, "30m", cfg.UsageRefresh)
+		})
+	})
+
+	t.Run("when the file names something that is not an interval", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Setenv("XDG_CONFIG_HOME", dir)
+		require.NoError(t, config.Save("", config.KeyUsageRefresh, "often"))
+		_, err := config.New(config.NewViper())
+
+		t.Run("it should refuse to start rather than guess", func(t *testing.T) {
+			assert.Error(t, err)
+		})
+	})
+}
+
+func TestParseUsageRefresh(t *testing.T) {
+	for _, c := range []struct {
+		value string
+		every time.Duration
+		ok    bool
+	}{
+		{"manual", 0, true},
+		{"", 0, true},
+		{"0", 0, true},
+		{"5m", 5 * time.Minute, true},
+		{"1h", time.Hour, true},
+		{"often", 0, false},
+		{"-5m", 0, false},
+	} {
+		t.Run("when it reads "+strconv.Quote(c.value), func(t *testing.T) {
+			every, err := config.ParseUsageRefresh(c.value)
+
+			t.Run("it should give the interval it names", func(t *testing.T) {
+				assert.Equal(t, c.every, every)
+			})
+
+			t.Run("it should say whether that was an interval", func(t *testing.T) {
+				assert.Equal(t, c.ok, err == nil)
+			})
+		})
+	}
 }

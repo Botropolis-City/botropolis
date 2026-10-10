@@ -2,8 +2,10 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -27,6 +29,7 @@ const (
 	KeyReducedMotion = "reduced_motion"
 	KeyDailyBudget   = "daily_budget_usd"
 	KeyDetail        = "detail"
+	KeyUsageRefresh  = "usage_refresh"
 
 	DefaultParkedDays = 7
 )
@@ -36,6 +39,24 @@ const DefaultProjection = "iso"
 // DefaultDetail draws the whole city; see city.Detail for why the
 // scenery is the part that can go.
 const DefaultDetail = "full"
+
+// UsageManual is the usage_refresh value that leaves the probe to the
+// u key. It is the default because the probe is a network call. Item 79.
+const UsageManual = "manual"
+
+// ParseUsageRefresh reads usage_refresh: manual, or how often the city
+// may ask Claude Code to fetch the figures. Zero means manual.
+func ParseUsageRefresh(value string) (time.Duration, error) {
+	switch value {
+	case UsageManual, "", "0":
+		return 0, nil
+	}
+	every, err := time.ParseDuration(value)
+	if err != nil || every <= 0 {
+		return 0, fmt.Errorf("unknown usage_refresh %q: use manual or an interval such as 30m", value)
+	}
+	return every, nil
+}
 
 type Config struct {
 	Home          string
@@ -51,6 +72,7 @@ type Config struct {
 	ReducedMotion bool
 	DailyBudget   float64
 	Detail        string
+	UsageRefresh  string
 	File          string
 }
 
@@ -69,6 +91,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyReducedMotion, false)
 	v.SetDefault(KeyDailyBudget, 0.0)
 	v.SetDefault(KeyDetail, DefaultDetail)
+	v.SetDefault(KeyUsageRefresh, UsageManual)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -83,6 +106,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.Bool(KeyReducedMotion, false, "stop every animation and keep the colours")
 	flags.Float64(KeyDailyBudget, 0, "a daily spend to measure the strip and the plant against, in USD (0 for none)")
 	flags.String(KeyDetail, DefaultDetail, "how much of the city to draw: full or plain (plain drops the scenery)")
+	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
 	_ = v.BindPFlag(KeyHome, flags.Lookup(KeyHome))
 	_ = v.BindPFlag(KeySocket, flags.Lookup(KeySocket))
 	_ = v.BindPFlag(KeyParkedDays, flags.Lookup(KeyParkedDays))
@@ -91,6 +115,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyReducedMotion, flags.Lookup(KeyReducedMotion))
 	_ = v.BindPFlag(KeyDailyBudget, flags.Lookup(KeyDailyBudget))
 	_ = v.BindPFlag(KeyDetail, flags.Lookup(KeyDetail))
+	_ = v.BindPFlag(KeyUsageRefresh, flags.Lookup(KeyUsageRefresh))
 }
 
 func New(v *viper.Viper) (*Config, error) {
@@ -114,7 +139,11 @@ func New(v *viper.Viper) (*Config, error) {
 		ReducedMotion: v.GetBool(KeyReducedMotion),
 		DailyBudget:   v.GetFloat64(KeyDailyBudget),
 		Detail:        v.GetString(KeyDetail),
+		UsageRefresh:  v.GetString(KeyUsageRefresh),
 		File:          v.ConfigFileUsed(),
+	}
+	if _, err := ParseUsageRefresh(cfg.UsageRefresh); err != nil {
+		return nil, err
 	}
 	if cfg.Home == "" {
 		home, err := os.UserHomeDir()

@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **APT and RPM repositories at pkg.botropolis.city.**
   Add the repository once and `apt upgrade` or `dnf upgrade` brings each new release.
   Both are signed; every release publishes to them as part of the release.
+- `usage_refresh` sets how often the city fetches plan usage on its own: `manual`, or an interval such as `30m`.
+  It is also a row in the settings panel, offering manual, 5m, 15m, 30m and 1h.
+  The fetch spends no tokens but is a network call, so the default is `manual`.
+
+### Changed
+
+- With `usage_refresh` at `manual`, the usage boats are off the river until `u` is pressed.
+  They then sail in to their readings, stay a minute, and sail off.
+- The usage boats drive to a new reading instead of jumping to it, and only ever forward.
+  A reading that falls, such as a window turning over, sends the boat on past the limit and round from the start.
 
 ## [0.1.5] - 2026-10-10
 

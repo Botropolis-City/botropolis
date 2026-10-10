@@ -61,6 +61,14 @@ func (g *Game) applySetting(s ui.Setting) {
 		}
 	case config.KeyParkedDays:
 		note += " (the daemon reads it when it restarts)"
+	case config.KeyUsageRefresh:
+		every, err := config.ParseUsageRefresh(s.Value)
+		if err != nil {
+			g.SetStatus(err.Error())
+			return
+		}
+		g.usageEvery = every
+		g.scene.SetGaugesManual(every <= 0)
 	}
 	if g.apply != nil {
 		if err := g.apply(s); err != nil {

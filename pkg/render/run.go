@@ -60,6 +60,10 @@ type Options struct {
 	ReducedMotion bool
 	// Detail is how much of the city is drawn; plain drops the scenery.
 	Detail city.Detail
+	// UsageRefresh is how often the city probes for usage on its own;
+	// zero leaves it to the u key, and the boats away until called.
+	// Item 79.
+	UsageRefresh time.Duration
 	// Signage is how a session's title reaches the map. Phase 21 item
 	// 38's prototypes, for comparison frames.
 	Signage city.Signage
@@ -124,6 +128,11 @@ func Run(ctx context.Context, opts Options) error {
 	game.reduced = opts.ReducedMotion
 	scene.SetDetail(opts.Detail)
 	game.signage = opts.Signage
+	game.usageEvery = opts.UsageRefresh
+	// A still or a film shows the boats on station whatever the setting:
+	// the frame is there to show the city, and nothing can call them up
+	// in one.
+	scene.SetGaugesManual(opts.UsageRefresh <= 0 && opts.Screenshot == "" && opts.Record == "")
 	// Read the cache at startup so the river is not empty on the first
 	// frame. No probe: this is a file read. Item 49.
 	game.readUsage()

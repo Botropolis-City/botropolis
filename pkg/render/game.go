@@ -73,6 +73,9 @@ type Game struct {
 	home string
 	// usageRead is the modification time of the usage cache last read.
 	usageRead time.Time
+	// usageEvery is how often the city probes for usage on its own; zero
+	// leaves it to the u key. Item 79.
+	usageEvery time.Duration
 	// player plays a clip's script; play is this frame's share of it.
 	player *player
 	play   playFrame
@@ -142,6 +145,10 @@ type Game struct {
 	// and written under mu.
 	usageAskedAt  time.Time
 	usageInFlight bool
+	// usageFresh says a reading landed that the scene has not taken, and
+	// usageLanded that a probe came back. Item 79.
+	usageFresh  bool
+	usageLanded bool
 	// summarise generates a session's summary; generating is the runs
 	// still out and generatedDone what has come back for the frame loop
 	// to hand over. Item 73. Both are read and written under mu.
@@ -273,6 +280,7 @@ func (g *Game) Update() error {
 			g.shotFrames = 1
 		}
 	}
+	g.followUsageInScene()
 	g.scripted, g.scriptedRune, g.scriptedShift = -1, 0, false
 	g.clicked = -1
 	g.play = playFrame{}

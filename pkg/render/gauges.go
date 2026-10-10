@@ -169,10 +169,37 @@ func gaugeRun(cam *city.Camera, from, to city.Point) (mid, up city.Point, length
 // gaugeAt is where a boat holds station: along the river by its
 // reading, across it by its lane.
 func gaugeAt(cam *city.Camera, from, to city.Point, lane float64, g city.Gauge) city.Point {
+	return gaugeTrackAt(cam, from, to, lane, ui.GaugeShare(g.Percent), 0, 0)
+}
+
+// gaugeTrackAt is where a boat is at a point on its track. 0 to 1 is
+// the run, read as a share; below it the boat is back towards the way
+// in, reaching back at city.GaugeOffLow, and above it on towards the
+// way out, reaching ahead at city.GaugeOffHigh. Item 79.
+func gaugeTrackAt(cam *city.Camera, from, to city.Point, lane, track, back, ahead float64) city.Point {
 	mid, up, length := gaugeRun(cam, from, to)
 	start := mid.Sub(up.Scale(length / 2))
-	along := start.Add(up.Scale(length * ui.GaugeShare(g.Percent)))
-	return along.Add(gaugeRightward(cam).Scale(lane))
+	var along float64
+	switch {
+	case track < 0:
+		along = track / -city.GaugeOffLow * back
+	case track > 1:
+		along = length + (track-1)/(city.GaugeOffHigh-1)*ahead
+	default:
+		along = length * track
+	}
+	return start.Add(up.Scale(along)).Add(gaugeRightward(cam).Scale(lane))
+}
+
+// gaugeReach is how far past each end of the run the river goes, plus
+// a hull, so a boat at either end of its track is off the water and off
+// the map rather than parked at the corner.
+func gaugeReach(cam *city.Camera, from, to, bandFrom, bandTo city.Point) (back, ahead float64) {
+	mid, up, length := gaugeRun(cam, from, to)
+	dot := func(p city.Point) float64 { d := p.Sub(mid); return d.X*up.X + d.Y*up.Y }
+	lo, hi := min(dot(bandFrom), dot(bandTo)), max(dot(bandFrom), dot(bandTo))
+	clear := gaugeHulls[city.GaugeBig].extent
+	return max(0, -lo-length/2) + clear, max(0, hi-length/2) + clear
 }
 
 // gaugeMark is one channel marker: where it floats, and whether it
@@ -275,15 +302,58 @@ func (g *Game) drawGauge(screen *ebiten.Image, cam *city.Camera, at city.Point, 
 	return g.kitSized(screen, cam, hull.piece, turn, at, hull.extent, nil)
 }
 
-// usageGauges is what the boats currently read, and how old it is.
-func (g *Game) usageGauges() ([]city.Gauge, time.Duration) {
+// usageAge is how old the reading the boats carry is.
+func (g *Game) usageAge() time.Duration {
 	g.mu.Lock()
-	u := g.usage
-	g.mu.Unlock()
-	if u.Shape() == claude.ShapeUnknown {
-		return nil, 0
+	defer g.mu.Unlock()
+	return g.usage.Age(timeNow())
+}
+
+// takeUsage hands the game loop a reading that landed since it last
+// looked, and whether a probe came back — the scene is the loop's, so
+// the probe's goroutine leaves both here rather than touching it.
+func (g *Game) takeUsage() (gauges []city.Gauge, fresh, landed bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	fresh, landed = g.usageFresh, g.usageLanded
+	g.usageFresh, g.usageLanded = false, false
+	if fresh && g.usage.Shape() != claude.ShapeUnknown {
+		gauges = city.Gauges(g.usage)
 	}
-	return city.Gauges(u), u.Age(timeNow())
+	return gauges, fresh, landed
+}
+
+// followUsageInScene brings the boats up to date with the last reading
+// and, by hand, calls them up when a probe the user asked for comes
+// back. Item 79.
+func (g *Game) followUsageInScene() {
+	gauges, fresh, landed := g.takeUsage()
+	if fresh {
+		g.scene.SetGauges(gauges)
+	}
+	if landed && g.usageEvery <= 0 {
+		g.scene.VisitGauges()
+	}
+	if g.usageDue() {
+		g.refreshUsage()
+	}
+}
+
+// usageDue is whether the schedule wants a probe: refreshing is on an
+// interval, and neither the reading nor the last probe is younger than
+// it. Never while filming or taking a still, which read a fixture home
+// and must not reach the network.
+func (g *Game) usageDue() bool {
+	if g.usageEvery <= 0 || g.record != "" || g.screenshot != "" {
+		return false
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	last := g.usage.FetchedAt
+	if g.usageAskedAt.After(last) {
+		last = g.usageAskedAt
+	}
+	return timeNow().Sub(last) >= g.usageEvery
 }
 
 // readUsage re-reads Claude Code's cache off disk. It is a file read,
@@ -295,7 +365,7 @@ func (g *Game) readUsage() {
 		return
 	}
 	g.mu.Lock()
-	g.usage = u
+	g.usage, g.usageFresh = u, true
 	g.mu.Unlock()
 }
 
@@ -318,8 +388,9 @@ func (g *Game) followUsage() {
 // This is the only thing the probe is still for. Reading the cache is
 // free, so the boats follow it without any schedule; the probe exists
 // because nothing else makes Claude Code go and ask. It writes a
-// transcript, which is why it runs in a directory of its own and why it
-// is confined to a rare, explicit, user-initiated action.
+// transcript, which is why it runs in a directory of its own. It spends
+// no tokens but it is a network fetch, so it runs when the u key asks,
+// or on usage_refresh's interval when one is set (item 79).
 func (g *Game) refreshUsage() bool {
 	if !g.mayAskUsage() {
 		return false
@@ -327,7 +398,7 @@ func (g *Game) refreshUsage() bool {
 	go func() {
 		defer func() {
 			g.mu.Lock()
-			g.usageInFlight = false
+			g.usageInFlight, g.usageLanded = false, true
 			g.mu.Unlock()
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), usageTimeout)

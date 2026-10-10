@@ -18,12 +18,12 @@ import "botropolis.city/botropolis/pkg/state"
 // The fountain steps through three spray frames a second apart, which a
 // slow tick renders exactly. The lamps' night glow is fixed by the zoom
 // and the hour, not by the clock between frames. And the usage gauges
-// hold still on purpose — `gaugeAt` takes no clock, so a gauge's
-// position along the river *is* its reading, and a boat that drifted
-// between frames would be lying about the number.
+// hold still on purpose once they reach their reading, so a gauge's
+// position along the river *is* its reading. They move only between
+// readings and on their way in and out (item 79), and that is listed.
 
 // Animating reports whether anything is in motion: a tug on the river,
-// a refresh courier crossing it, a train on the loop, a car on an
+// a refresh courier crossing it, a usage boat driving to its reading, a train on the loop, a car on an
 // avenue, a drone over a roof, a worker at a door, a beacon pulsing,
 // smoke rising, or a merge being celebrated. With motion reduced the
 // clock stands still and nothing is, whatever is on the map.
@@ -47,6 +47,9 @@ func (s *Scene) Animating() bool {
 		if courier.Progress(s.now()) < 1 {
 			return true
 		}
+	}
+	if s.gaugesMoving() {
+		return true
 	}
 	for i := range c.Streets {
 		if c.Streets[i].Road != nil && len(c.Streets[i].Path) > 1 {

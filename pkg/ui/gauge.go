@@ -1,5 +1,7 @@
 package ui
 
+import "botropolis.city/botropolis/pkg/city"
+
 // The usage gauges' layout. Bug 52: the percentage is read *along* the
 // river and the boats are separated *across* it, which is the way round
 // Aria asked for — "going bottom to top and face that direction", and
@@ -45,12 +47,6 @@ func GaugeLanes(width float64, beams []float64, margin float64) []float64 {
 	return lanes
 }
 
-// GaugeShare is how far along the run a reading sits, from 0 at the
-// near end to 1 at the limit.
-//
-// A reading past its limit holds at the far end rather than carrying on
-// upstream. The boat is then level with the flagged buoy, which is the
-// legible way to say "at or past it" without needing the number.
-func GaugeShare(percent float64) float64 {
-	return min(1, max(0, percent/100))
-}
+// GaugeShare is how far along the run a reading sits; see
+// city.GaugeShare, which the moving boats need too.
+func GaugeShare(percent float64) float64 { return city.GaugeShare(percent) }

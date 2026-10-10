@@ -250,6 +250,10 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	if !ok {
 		return fmt.Errorf("unknown detail %q: use full or plain", c.config.Detail)
 	}
+	usageEvery, err := config.ParseUsageRefresh(c.config.UsageRefresh)
+	if err != nil {
+		return err
+	}
 	recordDir, recordSeconds := cli.Record(cmd)
 	fps, err := cli.FPS(cmd)
 	if err != nil {
@@ -295,6 +299,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		ReducedMotion: c.config.ReducedMotion,
 		DailyBudget:   c.config.DailyBudget,
 		Detail:        detail,
+		UsageRefresh:  usageEvery,
 		Signage:       signage,
 		Settings:      settingsFor(c.config),
 		Apply: func(s ui.Setting) error {
@@ -343,6 +348,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyDetail, Label: "detail", Options: []string{"full", "plain"}, Value: cfg.Detail},
 		{Key: config.KeyParkedDays, Label: "parked days", Options: withValue([]string{"0", "1", "3", "7", "14", "30", "90"}, strconv.Itoa(cfg.ParkedDays)), Value: strconv.Itoa(cfg.ParkedDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.KnownTerminals()...), terminal), Value: terminal},
+		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 	})
 }
 

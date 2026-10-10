@@ -655,8 +655,13 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	// they are deliberately a different hull from the voyage tugs on
 	// the same water — one river, two meanings, told apart by
 	// silhouette and by what each says when pointed at. Item 49.
-	if gauges, age := g.usageGauges(); len(gauges) > 0 {
+	//
+	// Item 79: they drive between readings and sail in and out, so where
+	// a boat is comes from the scene's track for it, and a river with no
+	// boat on it has no markers either.
+	if boats := g.scene.GaugeBoats(); len(boats) > 0 {
 		if from, to, width, ok := riverRun(c); ok {
+			age := g.usageAge()
 			// The channel markers float with everything else, because
 			// a buoy is a thing on the river rather than a mark on it.
 			for _, m := range gaugeMarks(cam, from, to, width) {
@@ -669,18 +674,22 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 					g.kitSized(screen, cam, piece, 0, m.At, buoyExtent, nil)
 				}))
 			}
+			var back, ahead float64
+			if bandFrom, bandTo, _, ok := c.RiverBand(); ok {
+				back, ahead = gaugeReach(cam, from, to, bandFrom, bandTo)
+			}
 			// One lane per boat, so two boats whose readings converge
 			// are still side by side rather than on top of each other.
 			// Bug 52.
-			lanes := gaugeLanes(width, len(gauges))
+			lanes := gaugeLanes(width, len(boats))
 			facing := gaugeFacing(cam, from, to)
-			for _, gauge := range gauges {
-				gauge := gauge
+			for _, boat := range boats {
+				gauge := boat.Gauge
 				lane := 0.0
 				if gauge.Lane >= 0 && gauge.Lane < len(lanes) {
 					lane = lanes[gauge.Lane]
 				}
-				at := gaugeAt(cam, from, to, lane, gauge)
+				at := gaugeTrackAt(cam, from, to, lane, boat.Track, back, ahead)
 				items = append(items, standingAt(cam, at, func() {
 					r := g.drawGauge(screen, cam, at, gauge.Size, facing)
 					g.noteHit(r, city.Hit{Gauge: &city.GaugeHit{Gauge: gauge, Age: age}})

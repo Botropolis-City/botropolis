@@ -32,3 +32,26 @@ The city refreshes on its own, within limits that belong to the remote call:
 - **Find out whether the probe spends tokens.** `/usage` is a slash command and should not reach a model, but that is a belief, not a measurement. Check the probe transcript for an assistant turn with usage on it before choosing an interval.
 - **Not an option:** calling Anthropic's usage endpoint directly would skip the subprocess, but it means reading Claude Code's OAuth credentials, and botropolis reads `~/.claude` for state, never for secrets.
 - The age is already on each boat's hover card (`GaugeCard`, "read 2h ago (u to refresh)"), so "out of date" is discoverable but not visible. With refreshes automatic it should rarely matter; if a probe keeps failing, the boats should look stale without being pointed at.
+
+## Measured, and what was built (2026-10-10)
+
+**The probe spends no tokens.**
+`claude -p "/usage" --output-format json` reported zero input and output tokens, `total_cost_usd` 0, `duration_api_ms` 0, no turns and an empty `modelUsage`.
+The surviving probe transcript agrees: two user records for the local command, its stdout, and a `cost-state` of zero, with no assistant turn.
+**It is a network call.** `cachedUsageUtilization.fetchedAtMs` in `~/.claude.json` moved to the moment of the run, and the run took 2.2 s wall-clock.
+
+Aria's rule for that case was an interval and a manual-only setting, and then that manual should be the default and the interval customisable:
+
+- **`usage_refresh`** is `manual` (the default) or an interval, from the flag, the config file, or a settings row offering manual, 5m, 15m, 30m and 1h; anything else in the file refuses to start.
+  On an interval, a probe goes out when both the reading and the last probe are older than it (`usageDue`, `pkg/render/gauges.go`); `usageDebounce` and the in-flight guard still apply.
+  An automatic probe sends no courier and sets no status line. It never runs while recording or taking a still.
+- **By hand the boats are away until called.** Aria: "we should have the boats not there by default. We should have them drive up when you update manually and then drive off the screen."
+  When the probe that `u` set going comes back, they sail in from below the run, hold for `GaugeStayFor` (a minute), and sail off past the limit. A press inside the debounce still calls them up with the figures already fetched.
+  Switching to manual sails the boats off; switching away from it brings them in.
+- **The boats drive instead of teleporting.** Aria: "when things change, the boats should drive forward instead of teleporting."
+  Every boat has a track (`pkg/city/gaugeboats.go`) and only moves forward along it, at a run per `GaugeRunFor` (3 s) and never faster than `GaugeDriveMin` (1 s) for a short move. A reading that falls carries on off the top and comes round from the bottom.
+  The first reading places the boats rather than sailing them in, so stills and films are unchanged; reduced motion skips the travel.
+- **Stills and films show the boats on station whatever the setting**, since nothing can call them up in a frame.
+
+Not built from the list above: probing on focus or after a `Stop` hook, backing off after failures, pausing while minimised, and a stale look for a failing probe.
+None is needed while the default is manual; they become worth having if a short interval turns out to be the setting in use.

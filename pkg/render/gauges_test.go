@@ -306,3 +306,30 @@ func TestGaugeInTheFlatView(t *testing.T) {
 		})
 	})
 }
+
+// Item 79: the boats drive between readings and sail in and out, so a
+// track carries on past both ends of the run to wherever the river ends.
+func TestGaugeTrack(t *testing.T) {
+	from, to, _ := testRun()
+	const back, ahead = 50.0, 70.0
+
+	headings(t, func(t *testing.T, cam *city.Camera) {
+		_, up, _ := gaugeRun(cam, from, to)
+		empty := gaugeAt(cam, from, to, 0, city.Gauge{Percent: 0})
+		full := gaugeAt(cam, from, to, 0, city.Gauge{Percent: 100})
+
+		t.Run("it should hold a reading's track at the reading", func(t *testing.T) {
+			assert.Equal(t, gaugeAt(cam, from, to, 0, city.Gauge{Percent: 35}), gaugeTrackAt(cam, from, to, 0, 0.35, back, ahead))
+		})
+
+		t.Run("it should put the way in below the run by its reach", func(t *testing.T) {
+			at := gaugeTrackAt(cam, from, to, 0, city.GaugeOffLow, back, ahead)
+			assert.InDelta(t, -back, at.Sub(empty).X*up.X+at.Sub(empty).Y*up.Y, 1e-9)
+		})
+
+		t.Run("it should put the way out above the run by its reach", func(t *testing.T) {
+			at := gaugeTrackAt(cam, from, to, 0, city.GaugeOffHigh, back, ahead)
+			assert.InDelta(t, ahead, at.Sub(full).X*up.X+at.Sub(full).Y*up.Y, 1e-9)
+		})
+	})
+}

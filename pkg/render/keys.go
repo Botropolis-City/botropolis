@@ -127,6 +127,12 @@ func (g *Game) handleKeys() error {
 			g.scene.SendCourier()
 			g.SetStatus("reading usage…")
 		} else {
+			// By hand, the boats are away until called, so a press
+			// inside the debounce still calls them up with the figures
+			// just fetched. Item 79.
+			if g.usageEvery <= 0 {
+				g.scene.VisitGauges()
+			}
 			g.SetStatus("just asked; the figures do not move that fast")
 		}
 	}

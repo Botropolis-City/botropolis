@@ -106,6 +106,13 @@ type Scene struct {
 	// couriers are the refresh boats: one per usage fetch that actually
 	// went out. Not sessions, so they never reach the plan. Item 56.
 	couriers []*Courier
+	// gaugeBoats are the usage boats and where each is driving, keyed by
+	// title and drawn in gaugeOrder. gaugesManual keeps them away until
+	// called, and gaugeLeaveAt is when called boats sail off. Item 79.
+	gaugeBoats   map[string]*gaugeBoat
+	gaugeOrder   []string
+	gaugesManual bool
+	gaugeLeaveAt time.Time
 	// tools is each live session's tool call at the last snapshot and
 	// trips the workers out on the road because one started.
 	tools map[string]string
