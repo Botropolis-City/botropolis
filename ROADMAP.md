@@ -36,6 +36,7 @@ Phases 7–12 were specified in [`phases-7-12.md`](roadmap/phases-7-12.md) and a
 | [76](roadmap/076-what-the-website-still-needs-filmed.md) | the website's stand-ins: a hero loop, a still per view, a social card, chosen posters, anchors | nobody, filming work |
 | [77](roadmap/077-move-the-repository-into-the-org.md) | move the repo into `Botropolis-City`, with `botropolis.city/botropolis` as the module path | **Aria** |
 | [78](roadmap/078-trains-belong-on-the-main-view.md) | the trains run only on the Spend view; put them on the main view as bug 48 did the cars | nobody, Aria asked for it |
+| [79](roadmap/079-the-usage-boats-wait-for-u.md) | the usage boats refresh only on `u`; probe on a schedule, on focus and after turns, limited as a remote call | Aria, the interval |
 | [phase 20 item 3](roadmap/phase-20-explain-itself.md) | the plant's *reading* — the geometry was fixed at r186 and has not been looked at since | Aria, from a frame |
 
 ## Waiting on Aria
