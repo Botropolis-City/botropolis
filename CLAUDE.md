@@ -27,6 +27,8 @@ There are two bug 18s, left as written, because a dated record that gets tidied 
 **Item status lives in the item's own file**, on the line under its title: `Done`, `Fixed`, `Open`, `Unadjudicated`, with the date and revision.
 `ROADMAP.md`'s open table is derived from those lines, so it is checked rather than remembered — a hand-maintained summary of machine-checkable state always drifts, which it did.
 
+**The skills `roadmap-add`, `roadmap-close` and `roadmap-status`** (in `.claude/skills/`) carry out this contract step by step: search before numbering, number from `git ls-files`, status on line 3, one row in the open table, `make docs-check`, then commit to `main`.
+
 **`make docs-check` enforces all of this**, and runs as part of `make lint`.
 It verifies that every relative link resolves *from its own file's directory*, that no `§N` citation to the pre-split roadmap survives, that every item declares a status, and that `ROADMAP.md`'s open table lists exactly the items whose status is `Open`.
 It also refuses an empty corpus — the four indexes must be non-empty and every item number from 1 to the highest must have a file — because the other checks all pass on nothing.
