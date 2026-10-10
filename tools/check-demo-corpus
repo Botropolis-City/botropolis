@@ -16,8 +16,12 @@ published in effect.
   3. Every working directory a transcript records is under /home/demo/src.
   4. The corpus is not empty: every check above passes on nothing.
 
-A missing .publishable-tokens is said out loud rather than skipped: a
-guard that quietly loses an input reads exactly like a healthy one.
+The token list is the employer's names, so it lives only on a machine
+that already has them and never in CI or anywhere else Aria keeps. Where
+it is missing, check 2's token half is skipped, and the summary says so:
+a guard that quietly loses an input reads exactly like a healthy one, so
+the green names which checks ran. A list that is present but empty is
+broken rather than absent, and fails.
 """
 
 import hashlib
@@ -139,14 +143,15 @@ def main(argv):
     if "--unreviewed" in argv:
         print("\n".join(unreviewed))
         return 0
-    if banned is None:
-        problems.append(".publishable-tokens: missing, so the token check could not run")
+    if banned == []:
+        problems.append(".publishable-tokens: present but empty, so it would match nothing")
     if problems:
         for p in problems:
             print(p, file=sys.stderr)
         print(f"  {len(problems)} problem(s) in {root}", file=sys.stderr)
         return 1
-    print(f"  {len(corpus_files)} corpus files reviewed, {files} files under {root} clean of {len(banned)} tokens, real homes and real addresses.")
+    names = "no .publishable-tokens here, so employer names were NOT checked" if banned is None else f"clean of {len(banned)} tokens"
+    print(f"  {len(corpus_files)} corpus files reviewed, {files} files under {root}: {names}; clean of real homes and real addresses.")
     return 0
 
 

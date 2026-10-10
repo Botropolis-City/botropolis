@@ -21,6 +21,7 @@ Usage: tools/check-publishable [--help]
 
 Checks:
   1. no employer token appears in any blob or any commit message, anywhere in history
+     (only where .publishable-tokens exists; elsewhere it is skipped, and said so)
   2. every ref the remote advertises is an ancestor of main
   3. every image in the tree is on the reviewed list below
 
@@ -43,12 +44,17 @@ note() { printf '  %s\n' "$1"; fail=1; }
 # The list IS the employer's repository names, so committing it would publish the
 # very thing this check exists to remove -- and the first version did exactly
 # that, failing against its own source. It lives in .publishable-tokens, which is
-# gitignored. A missing list is a failure rather than a pass: a check with an
-# empty pattern matches nothing and looks identical to a clean repository.
-if [ ! -s .publishable-tokens ]; then
-    note ".publishable-tokens is missing or empty."
-    note "  It holds one extended-regex alternation per line, and is deliberately"
-    note "  untracked because the patterns are the names being kept out."
+# gitignored, and only on a machine that already has those names: copying the
+# list anywhere else, CI included, would be collecting the employer's data.
+#
+# So a missing list skips this check, and the summary says it was skipped rather
+# than reading as a pass. A list that is present but empty still fails: an empty
+# pattern matches nothing and looks identical to a clean repository.
+tokens_checked=1
+if [ ! -e .publishable-tokens ]; then
+    tokens_checked=0
+elif [ ! -s .publishable-tokens ]; then
+    note ".publishable-tokens is present but empty, so it would match nothing."
 else
     while read -r tokens; do
         [ -n "${tokens}" ] || continue
@@ -100,4 +106,8 @@ if [ "${fail}" -ne 0 ]; then
     printf '\n%s\n' "Not publishable yet."
     exit 1
 fi
-printf '  %s\n' "no employer tokens in history, every remote ref is in main, every image reviewed."
+if [ "${tokens_checked}" -eq 1 ]; then
+    printf '  %s\n' "no employer tokens in history, every remote ref is in main, every image reviewed."
+else
+    printf '  %s\n' "every remote ref is in main, every image reviewed. Employer tokens NOT checked: no .publishable-tokens on this machine."
+fi
