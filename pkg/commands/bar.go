@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auroq/botropolis/pkg/format"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 type BarFormat string

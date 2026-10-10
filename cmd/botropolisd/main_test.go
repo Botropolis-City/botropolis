@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/proto"
-	"github.com/auroq/botropolis/testing/helpers"
+	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/testing/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

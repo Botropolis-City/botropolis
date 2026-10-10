@@ -9,8 +9,8 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/auroq/botropolis/pkg/script"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Scenario is one city to film: which recorded sessions stand where,

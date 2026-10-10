@@ -11,25 +11,25 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/proto"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
-	"github.com/auroq/botropolis/pkg/appd"
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/cli"
-	"github.com/auroq/botropolis/pkg/commands"
-	"github.com/auroq/botropolis/pkg/config"
-	"github.com/auroq/botropolis/pkg/control"
-	"github.com/auroq/botropolis/pkg/events"
-	"github.com/auroq/botropolis/pkg/render"
-	"github.com/auroq/botropolis/pkg/script"
-	"github.com/auroq/botropolis/pkg/state"
-	"github.com/auroq/botropolis/pkg/tui"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/appd"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/cli"
+	"botropolis.city/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/control"
+	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/render"
+	"botropolis.city/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/tui"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 type cliParams struct {

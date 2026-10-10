@@ -1,14 +1,14 @@
 package city_test
 
 import (
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/plan"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 func TestRiver(t *testing.T) {

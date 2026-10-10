@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 func TestNotice(t *testing.T) {

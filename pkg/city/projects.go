@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // ProjectRow is one project as the sidebar lists it: its counts, its

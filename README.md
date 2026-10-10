@@ -62,7 +62,7 @@ Keys: drag to pan, wheel to zoom, `r` to turn, `f` to fit, `tab` for the next se
 
 ## Installing
 
-Packages for each release are on the [releases page](https://github.com/auroq/botropolis/releases), built by CI from the commit they are tagged at.
+Packages for each release are on the [releases page](https://github.com/Botropolis-City/botropolis/releases), built by CI from the commit they are tagged at.
 
 ```
 sudo dpkg -i botropolis_0.1.0_amd64.deb          # Debian, Ubuntu

@@ -7,11 +7,11 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/events"
-	"github.com/auroq/botropolis/pkg/script"
-	"github.com/auroq/botropolis/pkg/state"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 const (

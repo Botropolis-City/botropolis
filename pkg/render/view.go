@@ -6,8 +6,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // Drawing the city in an info view.

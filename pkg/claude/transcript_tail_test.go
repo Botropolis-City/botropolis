@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/claude"
 	"github.com/stretchr/testify/assert"
 )
 

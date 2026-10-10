@@ -77,8 +77,9 @@ GitHub lists it by path rather than by name and fails it before any step runs.
 A single-line `run:` whose value contains `": "` is the way in, and `inputs.some-name` is another — a hyphen parses as subtraction in a GitHub expression.
 `make lint` runs `tools/check-workflows` so both fail locally.
 
-**Before making this repository public, run `make publishable`.**
-It asserts three things, and each exists because the scrub missed something of that shape.
+**The repository is public, at `github.com/Botropolis-City/botropolis`, so every push publishes. Run `make publishable` before pushing anything that adds an image or touches history.**
+The module path is `botropolis.city/botropolis`, served by the website's `go-import` tag, so it does not change if the repository moves again.
+`make publishable` asserts three things, and each exists because the scrub missed something of that shape.
 No employer token in any blob or commit message, anywhere in history.
 Every ref `git ls-remote` advertises is an ancestor of `main` — the first rewrite scrubbed `main` and left `refs/tags/v0.1.0` pointing at unscrubbed history, because the verification swept what was reachable from `main` and a tag is not.
 And every image in the tree is on a reviewed list — `docs/botropolis.gif` showed a project name, MCP vendor names and a real daily spend for nine days after the scrub, because the scrub filtered `docs/screenshots` and the GIF is not in it.

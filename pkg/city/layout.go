@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/plan"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 const (

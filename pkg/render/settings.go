@@ -8,9 +8,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/config"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // settingsKeys answers the keyboard while the settings panel is open;

@@ -9,9 +9,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/state"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // bindings is every key the city answers to, in the order the help lists

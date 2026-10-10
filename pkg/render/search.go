@@ -5,8 +5,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // searchKeys takes typed characters into the query while the search box

@@ -11,7 +11,7 @@ LOG := @sh -c '\
 DEMO_TOKEN_FROM_ENV := $(CLAUDE_CODE_OAUTH_TOKEN)
 -include .env
 
-MODULE := github.com/auroq/botropolis
+MODULE := botropolis.city/botropolis
 BINARIES := botropolis botropolisd botropolis-hook
 VERSION ?= $(shell cat VERSION)
 LDFLAGS := -X ${MODULE}/pkg/version.Version=${VERSION}

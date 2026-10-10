@@ -3,7 +3,7 @@ package render
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // The city under the traffic. Ground, avenues, tower beams, district

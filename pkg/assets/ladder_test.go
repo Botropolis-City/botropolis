@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/assets"
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/assets"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // The zoom ladder and the atlas have to agree about how far in the map

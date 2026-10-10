@@ -1,6 +1,6 @@
 [Unit]
 Description=Botropolis notifier - desktop notification when a session needs you
-Documentation=https://github.com/auroq/botropolis
+Documentation=https://botropolis.city
 After=botropolisd.service
 Wants=botropolisd.service
 

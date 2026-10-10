@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 // Bug 41. Aria: "several trees still land in concrete at the edge of

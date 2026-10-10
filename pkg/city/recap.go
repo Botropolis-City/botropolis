@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/format"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Generated is a summary botropolis asked Claude Code for, as distinct

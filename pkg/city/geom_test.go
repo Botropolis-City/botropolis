@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 func TestRectSize(t *testing.T) {

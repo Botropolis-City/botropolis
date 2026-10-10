@@ -5,8 +5,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 
-	"github.com/auroq/botropolis/pkg/assets/fonts"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/assets/fonts"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // faces is the embedded vector face at each of the theme's four sizes,

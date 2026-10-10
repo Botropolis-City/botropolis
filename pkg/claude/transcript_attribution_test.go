@@ -3,7 +3,7 @@ package claude_test
 import (
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/claude"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

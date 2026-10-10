@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 // The plaza had two deciders and no referee: the plan planted a bush or

@@ -10,10 +10,10 @@ import (
 
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/format"
-	"github.com/auroq/botropolis/pkg/plan"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // World units are pixels at zoom 1; every size is a whole number of 16 px

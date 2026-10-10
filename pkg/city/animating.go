@@ -1,6 +1,6 @@
 package city
 
-import "github.com/auroq/botropolis/pkg/state"
+import "botropolis.city/botropolis/pkg/state"
 
 // Whether anything on the map is moving under its own steam.
 //

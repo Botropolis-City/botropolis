@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/assets"
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/assets"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 func TestTreePiece(t *testing.T) {

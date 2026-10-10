@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/auroq/botropolis/pkg/app"
+	"botropolis.city/botropolis/pkg/app"
 )
 
 func main() {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/script"
 )
 
 func TestPlayer(t *testing.T) {

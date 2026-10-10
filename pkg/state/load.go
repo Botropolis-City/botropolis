@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/claude"
 )
 
 const (

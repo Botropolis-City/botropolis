@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/auroq/botropolis/pkg/cli"
-	"github.com/auroq/botropolis/pkg/version"
+	"botropolis.city/botropolis/pkg/cli"
+	"botropolis.city/botropolis/pkg/version"
 )
 
 func TestVersionCLI(t *testing.T) {

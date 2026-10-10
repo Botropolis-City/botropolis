@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/auroq/botropolis/pkg/city"
+import "botropolis.city/botropolis/pkg/city"
 
 // Help is the overlay listing every key: a titled panel of key chips
 // with their actions in one column.

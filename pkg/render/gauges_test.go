@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/assets"
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/plan"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/assets"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

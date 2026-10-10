@@ -6,8 +6,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
 
-	"github.com/auroq/botropolis/pkg/assets"
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/assets"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 type atlas struct {

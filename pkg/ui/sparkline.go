@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/auroq/botropolis/pkg/city"
+import "botropolis.city/botropolis/pkg/city"
 
 // Sparkline is a series laid along a box: the polyline to stroke, its
 // last point to mark and the peak it was scaled to.

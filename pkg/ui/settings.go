@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/auroq/botropolis/pkg/city"
+import "botropolis.city/botropolis/pkg/city"
 
 // Setting is one row of the settings panel: a config key, its label,
 // the values it can take and the one it has.

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // RowKind says what a sidebar row stands for.

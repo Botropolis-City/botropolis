@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/commands"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

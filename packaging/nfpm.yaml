@@ -11,7 +11,7 @@ description: |
   Districts are projects, buildings are sessions, and everything on the map
   means one thing you can read by hovering it.
 vendor: Aria Vesta
-homepage: https://github.com/auroq/botropolis
+homepage: https://botropolis.city
 license: MIT
 
 # Ebitengine dlopens GL and X11, so the binary's only NEEDED entry is libc and no

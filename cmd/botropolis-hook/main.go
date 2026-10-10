@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/auroq/botropolis/pkg/config"
-	"github.com/auroq/botropolis/pkg/proto"
-	"github.com/auroq/botropolis/pkg/version"
+	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/version"
 )
 
 const maxPayload = 4 << 20

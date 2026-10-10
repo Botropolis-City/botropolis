@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/auroq/botropolis/pkg/city"
+import "botropolis.city/botropolis/pkg/city"
 
 // Text is one run of text placed on screen: what to draw, where its
 // top-left corner goes, and at which of the four sizes.

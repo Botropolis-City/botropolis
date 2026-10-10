@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/auroq/botropolis/pkg/control"
+	"botropolis.city/botropolis/pkg/control"
 )
 
 // Check is one thing the doctor looked at.

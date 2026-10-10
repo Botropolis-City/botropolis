@@ -3,7 +3,7 @@ package render
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // Bug 43. The footer's verbs answer the mouse as well as the keyboard,

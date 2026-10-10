@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 type Controller interface {

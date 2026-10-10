@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/format"
 )
 
 // The five things on the map that move, and what each one means.

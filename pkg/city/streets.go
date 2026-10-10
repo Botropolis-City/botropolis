@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 // Streets are the roads between districts laid on the building-cell grid

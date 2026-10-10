@@ -3,7 +3,7 @@ package ui
 import (
 	"math"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // Sign is a name painted on a building at the map's own scale, the way

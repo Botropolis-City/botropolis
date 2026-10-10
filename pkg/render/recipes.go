@@ -3,8 +3,8 @@ package render
 import (
 	"hash/fnv"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 // Recipes: which kit piece stands for what. A session's building grows

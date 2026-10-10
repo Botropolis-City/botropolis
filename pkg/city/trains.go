@@ -5,8 +5,8 @@ import (
 	"hash/fnv"
 	"math"
 
-	"github.com/auroq/botropolis/pkg/format"
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 // The train is the ledger: one train per model on the freight loop,

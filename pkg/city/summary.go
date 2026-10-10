@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Summary is the city-wide tally drawn along the top of the window, the

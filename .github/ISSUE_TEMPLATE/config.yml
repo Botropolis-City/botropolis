@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security report
-    url: https://github.com/auroq/botropolis/security/advisories/new
+    url: https://github.com/Botropolis-City/botropolis/security/advisories/new
     about: Please report anything exploitable privately rather than in an issue.
   - name: How it is meant to work
-    url: https://github.com/auroq/botropolis/blob/main/DESIGN.md
+    url: https://github.com/Botropolis-City/botropolis/blob/main/DESIGN.md
     about: What exists, and the rules the work is held to.

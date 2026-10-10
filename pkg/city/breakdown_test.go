@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 func hourAgo(h int) int64 { return now.Add(-time.Duration(h)*time.Hour).Unix() / 3600 }

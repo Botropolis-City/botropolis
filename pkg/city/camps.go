@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auroq/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/claude"
 )
 
 // Camp is a team on the map: its lead's building and its members',

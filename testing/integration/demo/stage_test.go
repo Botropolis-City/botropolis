@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/demo"
-	"github.com/auroq/botropolis/pkg/state"
-	"github.com/auroq/botropolis/testing/helpers"
+	"botropolis.city/botropolis/pkg/demo"
+	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 var probes = state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/claude"
 )
 
 // Window is how far back a breakdown or a series looks.

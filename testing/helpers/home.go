@@ -2,7 +2,6 @@ package helpers
 
 import (
 	"fmt"
-	"github.com/auroq/botropolis/pkg/claude"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -10,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/pkg/claude"
 )
 
 type Home struct {

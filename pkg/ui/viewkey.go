@@ -3,7 +3,7 @@ package ui
 import (
 	"strconv"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // The key to the views: what there is to look at, and how to get there.

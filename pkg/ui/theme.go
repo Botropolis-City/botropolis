@@ -5,7 +5,7 @@ package ui
 import (
 	"image/color"
 
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Size is one of the four type sizes the chrome uses.

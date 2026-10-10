@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/cli"
-	"github.com/auroq/botropolis/pkg/commands"
-	"github.com/auroq/botropolis/pkg/config"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/cli"
+	"botropolis.city/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 type fakeStatus struct {

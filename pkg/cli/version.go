@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/auroq/botropolis/pkg/version"
+	"botropolis.city/botropolis/pkg/version"
 )
 
 func NewVersionCLI() *cobra.Command {

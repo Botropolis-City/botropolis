@@ -3,7 +3,7 @@ package ui
 import (
 	"image/color"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // The legend a view is not shippable without.

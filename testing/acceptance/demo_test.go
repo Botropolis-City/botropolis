@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/demo"
-	"github.com/auroq/botropolis/pkg/render"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/demo"
+	"botropolis.city/botropolis/pkg/render"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Every scenario must stage from the committed corpus and load as the

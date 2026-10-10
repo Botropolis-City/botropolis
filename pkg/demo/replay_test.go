@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 func TestReplay(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/assets"
+	"botropolis.city/botropolis/pkg/assets"
 )
 
 func TestLoadKits(t *testing.T) {

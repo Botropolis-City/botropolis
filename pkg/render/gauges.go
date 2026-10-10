@@ -8,9 +8,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // The usage gauges: boats on the river. Item 49, axes corrected by bug

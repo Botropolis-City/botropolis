@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/commands"
 )
 
 func doctorFor(t *testing.T, hooked bool, env map[string]string, onPath []string, dial error) commands.Doctor {

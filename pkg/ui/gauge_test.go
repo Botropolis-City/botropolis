@@ -3,7 +3,7 @@ package ui_test
 import (
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/ui"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

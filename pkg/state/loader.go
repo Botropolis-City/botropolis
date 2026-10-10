@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/claude"
 )
 
 type fileKey struct {

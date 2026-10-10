@@ -14,8 +14,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/auroq/botropolis/pkg/demo"
-	"github.com/auroq/botropolis/pkg/version"
+	"botropolis.city/botropolis/pkg/demo"
+	"botropolis.city/botropolis/pkg/version"
 )
 
 func main() {

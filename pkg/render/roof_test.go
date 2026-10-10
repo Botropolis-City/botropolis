@@ -3,7 +3,7 @@ package render
 import (
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 	"github.com/stretchr/testify/assert"
 )
 

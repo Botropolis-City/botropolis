@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 	"io"
 
 	"github.com/spf13/cobra"

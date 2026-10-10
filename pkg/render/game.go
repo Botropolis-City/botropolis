@@ -3,7 +3,6 @@ package render
 import (
 	"context"
 	"fmt"
-	"github.com/auroq/botropolis/pkg/claude"
 	"image"
 	"image/color"
 	"image/png"
@@ -19,11 +18,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/events"
-	"github.com/auroq/botropolis/pkg/format"
-	"github.com/auroq/botropolis/pkg/state"
-	"github.com/auroq/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 const (

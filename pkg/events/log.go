@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Kind is what happened to a session.

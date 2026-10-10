@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/assets"
+	"botropolis.city/botropolis/pkg/assets"
 	"github.com/stretchr/testify/assert"
 )
 

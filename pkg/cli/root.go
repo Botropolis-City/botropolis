@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/auroq/botropolis/pkg/config"
-	"github.com/auroq/botropolis/pkg/version"
+	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/version"
 )
 
 func NewRootCLI(v *viper.Viper, subcommands ...*cobra.Command) *cobra.Command {

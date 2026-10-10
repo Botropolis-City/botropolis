@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // View is which info view the city is drawn in.

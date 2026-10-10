@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/format"
 )
 
 // BreakdownRow is one share: its name and what it spent.

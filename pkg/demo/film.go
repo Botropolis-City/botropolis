@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/script"
 )
 
 // Shot is one piece of media made from a scenario: a still, or a clip

@@ -1,4 +1,4 @@
-module github.com/auroq/botropolis
+module botropolis.city/botropolis
 
 go 1.27
 

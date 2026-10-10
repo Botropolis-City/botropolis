@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/format"
 )
 
 const maxFooterLines = 4

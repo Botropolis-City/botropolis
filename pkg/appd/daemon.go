@@ -14,11 +14,11 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
-	"github.com/auroq/botropolis/pkg/config"
-	"github.com/auroq/botropolis/pkg/daemon"
-	"github.com/auroq/botropolis/pkg/harness"
-	"github.com/auroq/botropolis/pkg/harness/codex"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/daemon"
+	"botropolis.city/botropolis/pkg/harness"
+	"botropolis.city/botropolis/pkg/harness/codex"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 const maxSocketPath = 107

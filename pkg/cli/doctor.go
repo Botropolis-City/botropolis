@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/auroq/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/config"
 )
 
 type DoctorRunner interface {

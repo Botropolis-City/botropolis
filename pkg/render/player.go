@@ -3,8 +3,8 @@ package render
 import (
 	"math"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/script"
 )
 
 // clickHold is how long a scripted click keeps the button down: long

@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/auroq/botropolis/pkg/city"
+import "botropolis.city/botropolis/pkg/city"
 
 const (
 	minimapWidth  = 160.0

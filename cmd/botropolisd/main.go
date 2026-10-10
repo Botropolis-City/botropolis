@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/auroq/botropolis/pkg/appd"
-	"github.com/auroq/botropolis/pkg/config"
-	"github.com/auroq/botropolis/pkg/version"
+	"botropolis.city/botropolis/pkg/appd"
+	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/version"
 )
 
 func main() {

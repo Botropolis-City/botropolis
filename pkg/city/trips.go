@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // The worker's day. A session's rover leaves the door when a tool call

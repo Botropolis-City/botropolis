@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/assets/fonts"
+	"botropolis.city/botropolis/pkg/assets/fonts"
 )
 
 func TestInter(t *testing.T) {

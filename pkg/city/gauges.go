@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/format"
 )
 
 // A Gauge is one usage limit, drawn as a boat on the river. Item 49.

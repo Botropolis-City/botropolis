@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/version"
+	"botropolis.city/botropolis/pkg/version"
 	"github.com/stretchr/testify/assert"
 )
 

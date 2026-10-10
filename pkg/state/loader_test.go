@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/state"
-	"github.com/auroq/botropolis/testing/helpers"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

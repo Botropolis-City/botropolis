@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/events"
-	"github.com/auroq/botropolis/pkg/proto"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 type Option func(*state.Loader)

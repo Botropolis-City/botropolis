@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/cli"
+	"botropolis.city/botropolis/pkg/cli"
 )
 
 func TestHoverFlag(t *testing.T) {

@@ -3,7 +3,7 @@ package format_test
 import (
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/format"
 	"github.com/stretchr/testify/assert"
 )
 

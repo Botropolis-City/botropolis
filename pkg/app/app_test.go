@@ -13,7 +13,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
-	"github.com/auroq/botropolis/pkg/app"
+	"botropolis.city/botropolis/pkg/app"
 )
 
 func TestModule(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 func live(n int) []plan.District {

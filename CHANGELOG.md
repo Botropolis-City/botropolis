@@ -91,9 +91,9 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/auroq/botropolis/compare/v0.1.4...HEAD
-[0.1.4]: https://github.com/auroq/botropolis/compare/v0.1.3...v0.1.4
-[0.1.3]: https://github.com/auroq/botropolis/compare/v0.1.2...v0.1.3
-[0.1.2]: https://github.com/auroq/botropolis/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/auroq/botropolis/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/auroq/botropolis/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/Botropolis-City/botropolis/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/Botropolis-City/botropolis/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/Botropolis-City/botropolis/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/Botropolis-City/botropolis/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/Botropolis-City/botropolis/releases/tag/v0.1.0

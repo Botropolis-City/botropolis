@@ -3,8 +3,8 @@ package city_test
 import (
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 	"github.com/stretchr/testify/assert"
 )
 

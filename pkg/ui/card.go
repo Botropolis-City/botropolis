@@ -4,7 +4,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // Card is a hover or selection card laid out on a panel: a title at the

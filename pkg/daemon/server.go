@@ -7,8 +7,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/claude"
-	"github.com/auroq/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/proto"
 )
 
 func (d *Daemon) Serve(ctx context.Context, listener net.Listener) error {

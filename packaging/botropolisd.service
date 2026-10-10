@@ -1,6 +1,6 @@
 [Unit]
 Description=Botropolis daemon - watches ~/.claude and serves the city model
-Documentation=https://github.com/auroq/botropolis
+Documentation=https://botropolis.city
 
 [Service]
 ExecStart=/usr/bin/botropolisd

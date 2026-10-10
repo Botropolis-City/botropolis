@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/auroq/botropolis/pkg/city"
+import "botropolis.city/botropolis/pkg/city"
 
 // Monument is the sign that stands outside an office plaza, built to
 // the grammar of Aria's references in docs/references: coursed stone

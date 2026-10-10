@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/auroq/botropolis/pkg/commands"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 type SessionsRunner interface {

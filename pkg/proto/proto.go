@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/events"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 const (

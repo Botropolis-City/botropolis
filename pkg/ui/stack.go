@@ -3,7 +3,7 @@ package ui
 import (
 	"math"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // StackFittings is the curb where a flue passes through a flat roof:

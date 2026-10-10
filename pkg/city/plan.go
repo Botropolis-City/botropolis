@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/auroq/botropolis/pkg/plan"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // The plan works in cells; a cell is one building's footprint.

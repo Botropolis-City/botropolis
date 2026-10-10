@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/events"
 )
 
 // TimelineRow is one event on the timeline.

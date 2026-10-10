@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

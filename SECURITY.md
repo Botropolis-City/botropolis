@@ -2,7 +2,7 @@
 
 ## Reporting
 
-Email **dev@ariavesta.com**, or open a [private advisory](https://github.com/auroq/botropolis/security/advisories/new).
+Email **dev@ariavesta.com**, or open a [private advisory](https://github.com/Botropolis-City/botropolis/security/advisories/new).
 Please do not open a public issue for anything exploitable.
 
 Expect an acknowledgement within a week.

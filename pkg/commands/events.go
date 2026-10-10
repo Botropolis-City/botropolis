@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/proto"
 )
 
 // Events prints the daemon's event log: what happened to sessions

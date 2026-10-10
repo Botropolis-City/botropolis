@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/auroq/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/proto"
 )
 
 const (

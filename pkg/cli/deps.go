@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/auroq/botropolis/pkg/config"
+import "botropolis.city/botropolis/pkg/config"
 
 type Loader func() (*config.Config, error)
 

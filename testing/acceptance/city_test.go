@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/auroq/botropolis/pkg/ui"
-	"github.com/auroq/botropolis/testing/helpers"
+	"botropolis.city/botropolis/pkg/ui"
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // shoot renders one frame of the sample city at a scale with no daemon

@@ -3,7 +3,7 @@ package control_test
 import (
 	"testing"
 
-	"github.com/auroq/botropolis/pkg/control"
+	"botropolis.city/botropolis/pkg/control"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

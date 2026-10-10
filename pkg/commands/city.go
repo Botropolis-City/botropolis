@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/events"
-	"github.com/auroq/botropolis/pkg/proto"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Feed delivers snapshots: streamed from the daemon when it is there,

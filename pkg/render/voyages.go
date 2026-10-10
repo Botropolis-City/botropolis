@@ -3,7 +3,7 @@ package render
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/auroq/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // drawVoyage puts a tug on the river where its voyage has reached, bow

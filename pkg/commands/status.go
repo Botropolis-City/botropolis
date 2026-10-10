@@ -8,9 +8,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/auroq/botropolis/pkg/format"
-	"github.com/auroq/botropolis/pkg/proto"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 type SnapshotSource interface {

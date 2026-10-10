@@ -3,9 +3,9 @@ package ui
 import (
 	"fmt"
 
-	"github.com/auroq/botropolis/pkg/city"
-	"github.com/auroq/botropolis/pkg/format"
-	"github.com/auroq/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Measure is how wide and tall a string is at a type size on the display;

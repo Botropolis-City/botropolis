@@ -5,7 +5,7 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/auroq/botropolis/pkg/hooks"
+	"botropolis.city/botropolis/pkg/hooks"
 )
 
 type Hooks struct {
