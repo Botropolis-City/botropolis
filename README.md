@@ -64,8 +64,9 @@ Keys: drag to pan, wheel to zoom, `r` to turn, `f` to fit, `tab` for the next se
 
 Packages for each release are on the [releases page](https://github.com/Botropolis-City/botropolis/releases), built by CI from the commit they are tagged at.
 
+On Arch, install [botropolis](https://aur.archlinux.org/packages/botropolis) (built from source) or [botropolis-bin](https://aur.archlinux.org/packages/botropolis-bin) (the release binaries) from the AUR, with `makepkg` or your AUR helper of choice, e.g. `paru -S botropolis` or `yay -S botropolis`.
+
 ```
-paru -S botropolis                                     # Arch, from the AUR (or botropolis-bin)
 sudo apt install ./botropolis_<version>_amd64.deb      # Debian, Ubuntu
 sudo dnf install ./botropolis-<version>-1.x86_64.rpm   # Fedora, RHEL, openSUSE
 botropolis --version                                   # should print the version you installed
