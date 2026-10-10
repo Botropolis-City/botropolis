@@ -36,6 +36,17 @@ jobs:
         with:
           version: v2.13.2
           install-only: true
+      # The demo-corpus guard checks demo/ against .publishable-tokens, which is
+      # untracked because its patterns are the names it keeps out of a public
+      # repository. CI gets it from a secret. An unset secret writes nothing, and
+      # the guard then fails saying the list is missing, as it should.
+      - name: The token list the publishing guards read
+        env:
+          PUBLISHABLE_TOKENS: ${{ secrets.PUBLISHABLE_TOKENS }}
+        run: |
+          if [ -n "${PUBLISHABLE_TOKENS}" ]; then
+            printf '%s\n' "${PUBLISHABLE_TOKENS}" > .publishable-tokens
+          fi
       - run: make test lint
 
   # Everything the release publishes is built here, once per architecture, on a
