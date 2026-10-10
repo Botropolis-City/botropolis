@@ -65,11 +65,14 @@ Keys: drag to pan, wheel to zoom, `r` to turn, `f` to fit, `tab` for the next se
 Packages for each release are on the [releases page](https://github.com/Botropolis-City/botropolis/releases), built by CI from the commit they are tagged at.
 
 ```
-sudo dpkg -i botropolis_0.1.0_amd64.deb          # Debian, Ubuntu
-sudo rpm -i botropolis-0.1.0.x86_64.rpm          # Fedora, RHEL, openSUSE
-sudo pacman -U botropolis-0.1.0-x86_64.pkg.tar.zst   # Arch
-botropolis --version                             # should print the version you installed
+paru -S botropolis                                     # Arch, from the AUR (or botropolis-bin)
+sudo apt install ./botropolis_<version>_amd64.deb      # Debian, Ubuntu
+sudo dnf install ./botropolis-<version>-1.x86_64.rpm   # Fedora, RHEL, openSUSE
+botropolis --version                                   # should print the version you installed
 ```
+
+arm64 builds are beside them, named `arm64` and `aarch64`.
+`go install botropolis.city/botropolis/cmd/...@latest` builds the three binaries from source, without the units, desktop entry or shell integration.
 
 Every package installs the three binaries, both systemd user units, the desktop entry and icon, the shell integration, and the licences for the artwork and the typeface that are compiled in.
 `SHA256SUMS` is published beside them.

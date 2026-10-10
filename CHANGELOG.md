@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-10
+
+### Changed
+
+- **Botropolis has moved to [github.com/Botropolis-City/botropolis](https://github.com/Botropolis-City/botropolis), and has a website, [botropolis.city](https://botropolis.city).**
+  The Go module is now `botropolis.city/botropolis`, so `go install botropolis.city/botropolis/cmd/botropolis@latest` works,
+  and the module path stays put if the repository ever moves again.
+  Links to the old repository redirect.
+- The package homepage and the systemd units' documentation link point at botropolis.city.
+
+### Added
+
+- `--script FILE`, with `--record`, plays a choreography while the clip records:
+  a pointer that glides to a session, a district or the power plant, clicks, zooms and pans, drawn into the frames.
+  It is what films the website's clips.
+
+### Fixed
+
+- The usage boats follow Claude Code's figures while the city is open.
+  They were read once at startup, so the river kept whatever the reading was when the city was opened;
+  the city now re-reads the cache whenever Claude Code updates it.
+- Recorded clips play at the speed the city runs.
+  On a slow renderer every recorded frame advanced the animations three or four frames' worth, so clips ran fast and shook;
+  while recording, time now advances by the frame rather than by the clock.
+- Recording no longer stalls the city: frames are encoded off the game loop, and a frame on disk is always whole.
+
 ## [0.1.4] - 2026-10-09
 
 ### Added
@@ -91,7 +117,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/Botropolis-City/botropolis/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/Botropolis-City/botropolis/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Botropolis-City/botropolis/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Botropolis-City/botropolis/compare/v0.1.1...v0.1.2
