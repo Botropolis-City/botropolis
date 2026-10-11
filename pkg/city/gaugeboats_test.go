@@ -226,6 +226,47 @@ func TestGaugeBoatsWhenRefreshingByHand(t *testing.T) {
 		})
 	})
 
+	// Turning round would be the one motion a boat never makes, so boats
+	// called up on their way out finish leaving and come round again.
+	t.Run("when the boats are called up again while sailing off", func(t *testing.T) {
+		clock := start
+		s := boatScene(&clock, true)
+		s.SetGauges(reading(40))
+		s.VisitGauges()
+		clock = clock.Add(city.GaugeRunFor*2 + city.GaugeStayFor)
+		leaving, _ := trackOf(t, s)
+		require.Greater(t, leaving, 0.4)
+		s.VisitGauges()
+		var seen []float64
+		for i := 0; i < 400; i++ {
+			clock = clock.Add(50 * time.Millisecond)
+			if track, ok := trackOf(t, s); ok {
+				seen = append(seen, track)
+			}
+		}
+		firstIn := len(seen)
+		for i, track := range seen {
+			if track < 0 {
+				firstIn = i
+				break
+			}
+		}
+
+		t.Run("it should carry on forward rather than turn back", func(t *testing.T) {
+			for _, track := range seen[:firstIn] {
+				require.GreaterOrEqual(t, track, leaving)
+			}
+		})
+
+		t.Run("it should come back in from below the start", func(t *testing.T) {
+			assert.Less(t, firstIn, len(seen))
+		})
+
+		t.Run("it should end at its reading", func(t *testing.T) {
+			assert.InDelta(t, 0.4, seen[len(seen)-1], 1e-9)
+		})
+	})
+
 	t.Run("when the setting turns to manual while the boats are out", func(t *testing.T) {
 		clock := start
 		s := boatScene(&clock, false)

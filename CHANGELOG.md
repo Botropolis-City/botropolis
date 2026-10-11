@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - With `usage_refresh` at `manual`, the usage boats are off the river until `u` is pressed.
   They then sail in to their readings, stay a minute, and sail off.
+  Pressing `u` again while they are there starts the minute over,
+  and pressing it while they are sailing off sends them on round to come back in rather than turning them back.
 - The usage boats drive to a new reading instead of jumping to it, and only ever forward.
   A reading that falls, such as a window turning over, sends the boat on past the limit and round from the start.
 
