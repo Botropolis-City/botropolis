@@ -66,18 +66,30 @@ Packages for each release are on the [releases page](https://github.com/Botropol
 
 On Arch, install [botropolis](https://aur.archlinux.org/packages/botropolis) (built from source) or [botropolis-bin](https://aur.archlinux.org/packages/botropolis-bin) (the release binaries) from the AUR, with `makepkg` or your AUR helper of choice, e.g. `paru -S botropolis` or `yay -S botropolis`.
 
+On Debian and Ubuntu, add the repository once and `apt upgrade` keeps it current:
+
 ```
-# Debian, Ubuntu
-curl -LO https://github.com/Botropolis-City/botropolis/releases/latest/download/botropolis_amd64.deb
-sudo apt install ./botropolis_amd64.deb
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSLo /etc/apt/keyrings/botropolis.asc https://pkg.botropolis.city/botropolis.asc
+sudo curl -fsSLo /etc/apt/sources.list.d/botropolis.sources https://pkg.botropolis.city/botropolis.sources
+sudo apt update && sudo apt install botropolis
+```
 
-# Fedora, RHEL, openSUSE
-sudo dnf install https://github.com/Botropolis-City/botropolis/releases/latest/download/botropolis.x86_64.rpm
+On Fedora, RHEL and their relatives, the same for `dnf upgrade`; on openSUSE, put the file in `/etc/zypp/repos.d/` and use `zypper`:
 
+```
+sudo curl -fsSLo /etc/yum.repos.d/botropolis.repo https://pkg.botropolis.city/botropolis.repo
+sudo dnf install botropolis
+```
+
+Both are signed by the key at [pkg.botropolis.city/botropolis.asc](https://pkg.botropolis.city/botropolis.asc), fingerprint `2AA4 7C51 3C0D 0C9E 7F0F  8769 956D 666C 68C8 E0E4`, and the APT source trusts it for this repository only.
+
+To install once without adding a repository, the newest packages are always at `https://github.com/Botropolis-City/botropolis/releases/latest/download/` as `botropolis_amd64.deb`, `botropolis_arm64.deb`, `botropolis.x86_64.rpm` and `botropolis.aarch64.rpm`.
+
+```
 botropolis --version    # should print the version you installed
 ```
 
-Those links always serve the newest release; arm64 builds are beside them as `botropolis_arm64.deb` and `botropolis.aarch64.rpm`, and each release also carries the same packages with the version in their names.
 `go install botropolis.city/botropolis/cmd/...@latest` builds the three binaries from source, without the units, desktop entry or shell integration.
 
 Every package installs the three binaries, both systemd user units, the desktop entry and icon, the shell integration, and the licences for the artwork and the typeface that are compiled in.
