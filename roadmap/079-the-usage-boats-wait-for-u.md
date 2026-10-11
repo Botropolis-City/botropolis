@@ -1,6 +1,6 @@
 # 79. The usage boats are always out of date, because only `u` ever refreshes them
 
-**Open. Filed 2026-10-10 (r378) at Aria's request. Her words: "They are always way out of date, and I am always manually hitting u. I thought we were getting live data since it's local. Only remote calls should be limited." Aria's call on the interval; the rest follows from her rule.**
+**Done 2026-10-10 (`6918980`, r390). Filed 2026-10-10 (r378) at Aria's request. Her words: "They are always way out of date, and I am always manually hitting u. I thought we were getting live data since it's local. Only remote calls should be limited." Aria's call on the interval; the rest follows from her rule.**
 
 ## Why the figures are not local
 
@@ -55,3 +55,13 @@ Aria's rule for that case was an interval and a manual-only setting, and then th
 
 Not built from the list above: probing on focus or after a `Stop` hook, backing off after failures, pausing while minimised, and a stale look for a failing probe.
 None is needed while the default is manual; they become worth having if a short interval turns out to be the setting in use.
+
+## Closed
+
+Done in `6918980` (r390), with `a2edff8` (r391) pinning the one visit case it left untested, and closed by Aria the same day.
+It was built to her later rulings rather than to the proposal above: the default is manual, the interval is hers to set, and the boats visit and drive rather than standing on the river and jumping.
+The tests are `pkg/city/gaugeboats_test.go`, `pkg/render/usageschedule_test.go`, `TestGaugeTrack`, `TestUsageRefreshKey`, `TestParseUsageRefresh` and `pkg/app/settings_test.go`; the forward-only rule was mutated red, and fails two of them.
+
+**Flagged for Aria:** there is no frame.
+A still or a film shows the boats on station whatever the setting, so neither can show a visit or a drive; the motion has been checked by tests only, and the live city is where it gets judged.
+And the unbuilt half of the original list stands as written above — if a short interval becomes the setting in use, that is a new item rather than a reason to reopen this one.
