@@ -1,6 +1,6 @@
 # 72. Going public would publish the employer's internal repository structure, and history rewriting is the only way back
 
-**Open, on Aria's decision to flip visibility. Everything blocking it is done as of 2026-09-30, and one thing nearly was not.** She chose to rewrite this repository rather than publish a fresh one, and `main` was rewritten and force-pushed on 2026-09-30: `tools/make-fixtures.py` extended to rename work context, `docs/usage-profile.md` reduced to aggregates, all 225 screenshot blobs dropped, and every employer token replaced across blobs and commit messages. **What the rewrite missed: `refs/tags/v0.1.0`.** It pointed at `af0f775b`, not an ancestor of the rewritten `main`, and that commit still carried the full dump — so the tag and its published release re-exposed everything `main` had just been scrubbed of. Found on 2026-09-30 while surveying the repository for release work, not by the rewrite's own verification, which swept what was reachable from `main` and never asked what else the remote advertised. Release and tag deleted; `git ls-remote` now returns only `refs/heads/main`, and every ref it returns is an ancestor of it.
+**Done by 2026-10-10: Aria made the repository public, now at `github.com/Botropolis-City/botropolis` (item 77). Filed 2026-09-29; the rewrite it called for landed 2026-09-30.** She chose to rewrite this repository rather than publish a fresh one, and `main` was rewritten and force-pushed on 2026-09-30: `tools/make-fixtures.py` extended to rename work context, `docs/usage-profile.md` reduced to aggregates, all 225 screenshot blobs dropped, and every employer token replaced across blobs and commit messages. **What the rewrite missed: `refs/tags/v0.1.0`.** It pointed at `af0f775b`, not an ancestor of the rewritten `main`, and that commit still carried the full dump — so the tag and its published release re-exposed everything `main` had just been scrubbed of. Found on 2026-09-30 while surveying the repository for release work, not by the rewrite's own verification, which swept what was reachable from `main` and never asked what else the remote advertised. Release and tag deleted; `git ls-remote` now returns only `refs/heads/main`, and every ref it returns is an ancestor of it.
 
 The repo is private today and phase 12's publish step is deliberately blocked on that.
 Flipping it is one click and is not reversible in the way it sounds: once public, the clone and the history are out.
@@ -62,3 +62,16 @@ So the two answers meet here: **scrubbing the working tree does not unpublish an
 **Recommendation: (2).** The history's value is to the two of us and to Aria, not to a reader, and it stays available privately. A squashed public repo costs one afternoon, needs no rewrite of the private record, and the commit hashes cited across `roadmap/` keep resolving in the repo where they were written.
 
 **Whatever she picks, `docs/usage-profile.md` has to be rewritten to aggregates before anything is published** — the headline findings at the top of that file are the part the design was actually shaped around, and they are already aggregate. It is only the per-repo table that has to go.
+
+## Closed
+
+Aria made the repository public, and said so on 2026-10-10; it was public before this session knew.
+Checked against the public remote that day:
+
+- Every ref `git ls-remote` advertises (`main` and the tags `v0.1.0` to `v0.1.4`) is an ancestor of `main`.
+- Every image in the tree is on `tools/check-publishable`'s reviewed list.
+- **The token check was not run**: `.publishable-tokens` is not on the machine that checked.
+  Aria ruled the same day that the list stays only where it already is, because copying the employer's names anywhere else, CI included, is itself collecting the employer's data.
+  Both guards now skip the token check when the list is absent and say so in their output rather than passing quietly (`a254cbd`, r384).
+  So the history scan this item rests on has to be run on the machine that holds the list; nothing here says it has been since the 2026-09-30 rewrite.
+
