@@ -275,3 +275,34 @@ kit-district :: kits
 fixtures ::
 	$(LOG) "Generating fixture ${FIXTURE} from ~/.claude"
 	@python3 tools/make-fixtures.py --name ${FIXTURE}
+
+# The APT and RPM repositories at pkg.botropolis.city. CI publishes them
+# from the release workflow; these build and test the same thing locally.
+# The signing key is read from 1Password by reference and reaches the
+# container as an environment variable, never as a file.
+PKG_SIGNING_KEY_REF ?= op:Botropolis/Botropolis Packages Signing Key/botropolis-packages-secret.asc
+PKG_RELEASES ?= 3
+
+package-repos-image ::
+	$(LOG) "Building the package-repository image"
+	@docker build -q -t botropolis-pkgrepo packaging/repo >/dev/null
+
+package-repos-in ::
+	$(LOG) "Downloading the last ${PKG_RELEASES} releases' .deb and .rpm into .pkgrepo-in/"
+	@rm -rf .pkgrepo-in && mkdir -p .pkgrepo-in
+	@for tag in $$(gh release list -R Botropolis-City/botropolis --limit ${PKG_RELEASES} --json tagName -q '.[].tagName'); do \
+		gh release download "$$tag" -R Botropolis-City/botropolis --dir .pkgrepo-in \
+			--pattern 'botropolis_*_*.deb' --pattern 'botropolis-*-*.rpm' || exit 1; \
+	done
+	@ls .pkgrepo-in
+
+package-repos :: package-repos-image
+	$(LOG) "Building signed repositories into .pkgrepo/"
+	@secret-run --env "PKG_SIGNING_KEY=${PKG_SIGNING_KEY_REF}" -- \
+		docker run --rm -e PKG_SIGNING_KEY \
+			-v "$$PWD":/work -u "$$(id -u):$$(id -g)" botropolis-pkgrepo \
+			tools/build-package-repos .pkgrepo-in .pkgrepo
+
+package-repos-test ::
+	$(LOG) "Installing from .pkgrepo/ in clean Debian and Fedora containers"
+	@testing/acceptance/packages/install-test.sh --repo .pkgrepo ${VERSION}

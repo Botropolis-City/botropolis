@@ -148,3 +148,12 @@ jobs:
             fi
           done
           exit $bad
+
+  # The APT and RPM repositories at pkg.botropolis.city, rebuilt with the
+  # release just published. A failure here leaves the release itself intact;
+  # run the packages workflow by hand once it is fixed.
+  packages:
+    needs: release
+    if: ${{ !inputs.dry_run }}
+    uses: ./.github/workflows/packages.yml
+    secrets: inherit

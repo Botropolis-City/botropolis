@@ -72,6 +72,11 @@ It takes a `dry_run` input that validates all of that and creates nothing.
 
 **The release also publishes every package under a fixed name** (`tools/release-aliases`), and botropolis.city's install commands link `/releases/latest/download/<fixed name>`; a final step downloads each through that link and fails if it is not this release's file. That is why a release needs no website edit, and why those names must never change.
 
+**The release then publishes the APT and RPM repositories at pkg.botropolis.city** (`.github/workflows/packages.yml`, also runnable by hand to republish).
+It rebuilds both from the last three releases with `tools/build-package-repos`, installs from the result in clean Debian and Fedora containers before uploading, and installs from the live host after.
+The signing key's master copy is the 1Password item "Botropolis Packages Signing Key"; CI has it as `PKG_SIGNING_KEY`, and the builder refuses any key that is not `packaging/repo/botropolis.asc`. It expires 2029-10-10: extend it with `gpg --quick-set-expire` and republish the public key before then.
+`make package-repos package-repos-test` does the same locally.
+
 To cut one: edit `VERSION`, add the matching `CHANGELOG.md` section, `make version-check`, push to `main`, let CI finish, run the workflow.
 
 **A workflow that does not parse is not a workflow that fails.**

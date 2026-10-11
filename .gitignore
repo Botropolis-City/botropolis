@@ -23,3 +23,6 @@ tools/__pycache__/
 
 # Session worktrees: each is its own checkout, never part of this one.
 .claude/worktrees/
+
+.pkgrepo/
+.pkgrepo-in/

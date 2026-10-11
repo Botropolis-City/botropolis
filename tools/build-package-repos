@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+Usage: $(basename "$0") IN OUT
+       $(basename "$0") --help
+
+Builds the signed APT and RPM repositories served at pkg.botropolis.city
+from the .deb and .rpm files in IN, into OUT:
+
+  OUT/botropolis.asc        the public key
+  OUT/botropolis.sources    for /etc/apt/sources.list.d/
+  OUT/botropolis.repo       for /etc/yum.repos.d/ and /etc/zypp/repos.d/
+  OUT/deb/                  dists/stable (InRelease, Release, Release.gpg) and pool/
+  OUT/rpm/                  signed .rpm files, repodata/ and repomd.xml.asc
+
+Runs inside packaging/repo/Dockerfile, which has apt-ftparchive,
+createrepo_c, rpmsign and gpg; make package-repos runs it there.
+
+Environment:
+  PKG_SIGNING_KEY   the armored secret key (required); never written to OUT
+  PKG_PUBLIC_KEY    the key it must match (default: packaging/repo/botropolis.asc)
+  PKG_BASE_URL      where OUT is served (default: https://pkg.botropolis.city)
+
+Refuses when the signing key is not the published one, and when IN has no
+.deb or no .rpm: a repository built from nothing is empty and valid, and
+publishing one would look like success.
+USAGE
+}
+
+case "${1:-}" in
+  -h | --help) usage; exit 0 ;;
+esac
+[[ $# -eq 2 ]] || { usage >&2; exit 2; }
+
+in=$(realpath "$1")
+out=$2
+public=${PKG_PUBLIC_KEY:-packaging/repo/botropolis.asc}
+base=${PKG_BASE_URL:-https://pkg.botropolis.city}
+[[ -n ${PKG_SIGNING_KEY:-} ]] || { echo "PKG_SIGNING_KEY is not set" >&2; exit 1; }
+
+shopt -s nullglob
+debs=("$in"/*.deb)
+rpms=("$in"/*.rpm)
+((${#debs[@]})) || { echo "no .deb in $in" >&2; exit 1; }
+((${#rpms[@]})) || { echo "no .rpm in $in" >&2; exit 1; }
+
+GNUPGHOME=$(mktemp -d)
+export GNUPGHOME
+trap 'rm -rf "$GNUPGHOME"' EXIT
+printf '%s\n' "$PKG_SIGNING_KEY" | gpg --batch --quiet --import 2>/dev/null
+fpr=$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10; exit}')
+want=$(gpg --batch --show-keys --with-colons "$public" | awk -F: '/^fpr/{print $10; exit}')
+if [[ -z $fpr || $fpr != "$want" ]]; then
+  echo "the signing key (${fpr:-none}) is not the published key in $public ($want)" >&2
+  exit 1
+fi
+sign() { gpg --batch --yes --local-user "$fpr" --digest-algo SHA512 "$@"; }
+
+rm -rf "$out"
+mkdir -p "$out"
+out=$(realpath "$out")
+cp "$public" "$out/botropolis.asc"
+
+# APT
+pool="$out/deb/pool/main/b/botropolis"
+mkdir -p "$pool"
+cp "${debs[@]}" "$pool/"
+cd "$out/deb"
+for arch in amd64 arm64; do
+  dir=dists/stable/main/binary-$arch
+  mkdir -p "$dir"
+  apt-ftparchive --arch "$arch" packages pool > "$dir/Packages"
+  gzip -9nk "$dir/Packages"
+done
+apt-ftparchive \
+  -o APT::FTPArchive::Release::Origin=Botropolis \
+  -o APT::FTPArchive::Release::Label=Botropolis \
+  -o APT::FTPArchive::Release::Suite=stable \
+  -o APT::FTPArchive::Release::Codename=stable \
+  -o APT::FTPArchive::Release::Architectures="amd64 arm64" \
+  -o APT::FTPArchive::Release::Components=main \
+  -o APT::FTPArchive::Release::Description="Botropolis, every Claude Code session drawn as a city" \
+  release dists/stable > Release.tmp
+mv Release.tmp dists/stable/Release
+sign --clearsign -o dists/stable/InRelease dists/stable/Release
+sign --armor --detach-sign -o dists/stable/Release.gpg dists/stable/Release
+
+# RPM
+mkdir -p "$out/rpm"
+cp "${rpms[@]}" "$out/rpm/"
+rpmsign --define "_gpg_name $fpr" --define "_gpg_path $GNUPGHOME" --define "__gpg /usr/bin/gpg" \
+  --addsign "$out"/rpm/*.rpm >/dev/null
+createrepo_c --quiet --general-compress-type=gz "$out/rpm"
+sign --armor --detach-sign -o "$out/rpm/repodata/repomd.xml.asc" "$out/rpm/repodata/repomd.xml"
+
+cat > "$out/botropolis.sources" <<SOURCES
+Types: deb
+URIs: $base/deb
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/botropolis.asc
+SOURCES
+
+cat > "$out/botropolis.repo" <<REPO
+[botropolis]
+name=Botropolis
+baseurl=$base/rpm
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=$base/botropolis.asc
+REPO
+
+echo "  ${#debs[@]} .deb and ${#rpms[@]} .rpm, signed by $fpr, for $base"

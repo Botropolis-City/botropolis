@@ -1,0 +1,81 @@
+name: packages
+
+# Builds the signed APT and RPM repositories from the last few releases and
+# publishes them to pkg.botropolis.city. The release workflow calls this after
+# every release; run it by hand to republish, for example after a key change.
+#
+# Secrets: PKG_SIGNING_KEY (the armored secret key; its master copy is in
+# 1Password), R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (an R2 token scoped
+# to the botropolis-packages bucket, object read and write only).
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packages
+  cancel-in-progress: false
+
+env:
+  PKG_HOST: https://pkg.botropolis.city
+  PACKAGES_BUCKET: botropolis-packages
+  R2_ENDPOINT: https://84f3dbea51f616e22dee2f6a506bc172.r2.cloudflarestorage.com
+  RELEASES: "3"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the last releases' packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .pkgrepo-in
+          for tag in $(gh release list -R "${GITHUB_REPOSITORY}" --limit "${RELEASES}" --json tagName -q '.[].tagName'); do
+            gh release download "$tag" -R "${GITHUB_REPOSITORY}" --dir .pkgrepo-in \
+              --pattern 'botropolis_*_*.deb' --pattern 'botropolis-*-*.rpm'
+          done
+          ls -l .pkgrepo-in
+          latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
+          echo "VERSION=${latest#v}" >> "$GITHUB_ENV"
+
+      - name: Build and sign the repositories
+        env:
+          PKG_SIGNING_KEY: ${{ secrets.PKG_SIGNING_KEY }}
+        run: |
+          docker build -q -t botropolis-pkgrepo packaging/repo
+          docker run --rm -e PKG_SIGNING_KEY -v "$PWD":/work -u "$(id -u):$(id -g)" \
+            botropolis-pkgrepo tools/build-package-repos .pkgrepo-in .pkgrepo 2> >(grep -v GPG_TTY >&2)
+
+      # Before anything is uploaded: install from exactly this tree, with
+      # signature checks on, in clean Debian and Fedora containers.
+      - name: Install from the built repositories
+        run: testing/acceptance/packages/install-test.sh --repo .pkgrepo "${VERSION}"
+
+      # Packages first, indexes last, so a client never reads an index naming
+      # a file that is not there yet. Packages never change under a name, so
+      # they cache forever; indexes for five minutes.
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          s3() { aws s3 "$@" --endpoint-url "${R2_ENDPOINT}" --only-show-errors; }
+          dest="s3://${PACKAGES_BUCKET}"
+          s3 cp --recursive .pkgrepo/deb/pool "$dest/deb/pool" --cache-control "public, max-age=31536000, immutable"
+          s3 cp --recursive .pkgrepo/rpm "$dest/rpm" --exclude 'repodata/*' --cache-control "public, max-age=31536000, immutable"
+          s3 cp --recursive .pkgrepo/rpm/repodata "$dest/rpm/repodata" --cache-control "public, max-age=300"
+          s3 cp --recursive .pkgrepo/deb/dists "$dest/deb/dists" --cache-control "public, max-age=300"
+          for f in botropolis.asc botropolis.sources botropolis.repo; do
+            s3 cp ".pkgrepo/$f" "$dest/$f" --cache-control "public, max-age=300"
+          done
+
+      - name: Install from pkg.botropolis.city
+        run: testing/acceptance/packages/install-test.sh --base "${PKG_HOST}" "${VERSION}"

@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every release carries its packages a second time under names without the version,
   so `https://github.com/Botropolis-City/botropolis/releases/latest/download/botropolis_amd64.deb` (and `.x86_64.rpm`, the tarballs and the Arch packages) is always the newest release.
   The install commands in the README and on botropolis.city use them.
+- **APT and RPM repositories at pkg.botropolis.city.**
+  Add the repository once and `apt upgrade` or `dnf upgrade` brings each new release.
+  Both are signed; every release publishes to them as part of the release.
 
 ## [0.1.5] - 2026-10-10
 
