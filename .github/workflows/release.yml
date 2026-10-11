@@ -85,6 +85,10 @@ jobs:
             ( cd "$d" && sha256sum -c SHA256SUMS )
             find "$d" -maxdepth 1 -type f ! -name SHA256SUMS -exec mv {} dist/ \;
           done
+          # Each package again under a name without the version, so
+          # /releases/latest/download/<name> is always the newest. The website's
+          # install commands link those names; SHA256SUMS below covers them too.
+          tools/release-aliases "${{ steps.v.outputs.version }}" dist
           ( cd dist && sha256sum -- * > SHA256SUMS && sha256sum -c SHA256SUMS )
           ls -l dist/
           cat dist/SHA256SUMS
@@ -121,3 +125,26 @@ jobs:
             --title "v${{ steps.v.outputs.version }}" \
             --notes-file release-notes.md \
             dist/*
+
+      # The website links /releases/latest/download/<fixed name>. Prove those
+      # links serve what was just released, byte for byte, rather than trusting
+      # that "latest" moved.
+      - name: Check latest/download serves this release
+        if: ${{ !inputs.dry_run }}
+        run: |
+          version="${{ steps.v.outputs.version }}"
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download"
+          bad=0
+          for f in dist/*; do
+            name=$(basename "$f")
+            case "$name" in *"${version}"*|SHA256SUMS) continue ;; esac
+            want=$(sha256sum < "$f" | cut -d' ' -f1)
+            got=$(curl -fsSL --retry 5 --retry-delay 5 "${base}/${name}" | sha256sum | cut -d' ' -f1)
+            if [ "$want" = "$got" ]; then
+              echo "ok  ${name}"
+            else
+              echo "::error::${base}/${name} does not serve v${version}'s ${name}"
+              bad=1
+            fi
+          done
+          exit $bad

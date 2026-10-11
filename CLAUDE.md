@@ -70,6 +70,8 @@ Before this there were three copies of the ldflags string carrying three differe
 The release workflow is `workflow_dispatch` only and rebuilds nothing: it reads `VERSION`, refuses a version already tagged, downloads that commit's artifact, takes its notes from the changelog section for that version, and creates the tag with `--target` so the tag points at the commit that was tested.
 It takes a `dry_run` input that validates all of that and creates nothing.
 
+**The release also publishes every package under a fixed name** (`tools/release-aliases`), and botropolis.city's install commands link `/releases/latest/download/<fixed name>`; a final step downloads each through that link and fails if it is not this release's file. That is why a release needs no website edit, and why those names must never change.
+
 To cut one: edit `VERSION`, add the matching `CHANGELOG.md` section, `make version-check`, push to `main`, let CI finish, run the workflow.
 
 **A workflow that does not parse is not a workflow that fails.**

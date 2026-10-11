@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+Usage: $(basename "$0") VERSION DIR
+       $(basename "$0") --help
+
+Copies each release package in DIR to a name without its version, so
+/releases/latest/download/<name> always serves the newest release.
+The website's install commands link those names, which is what lets a
+release go out without a site edit.
+
+  botropolis_0.1.5_amd64.deb             -> botropolis_amd64.deb
+  botropolis-0.1.5-1.x86_64.rpm          -> botropolis.x86_64.rpm
+  botropolis-0.1.5-1-x86_64.pkg.tar.zst  -> botropolis-x86_64.pkg.tar.zst
+  botropolis-0.1.5-linux-amd64.tar.gz    -> botropolis-linux-amd64.tar.gz
+
+Refuses, naming the file, when a package does not carry VERSION, and when
+two packages would share a name. SHA256SUMS is left alone; write it after.
+USAGE
+}
+
+case "${1:-}" in
+  -h | --help) usage; exit 0 ;;
+esac
+[[ $# -eq 2 ]] || { usage >&2; exit 2; }
+
+version=$1
+dir=$2
+pattern="[-_]${version//./\\.}(-[0-9]+)?([._-])"
+
+declare -A taken
+for path in "$dir"/*; do
+  name=$(basename "$path")
+  [[ $name == SHA256SUMS ]] && continue
+  if ! [[ $name =~ $pattern ]]; then
+    echo "$name does not carry version $version" >&2
+    exit 1
+  fi
+  fixed=$(sed -E "s/${pattern}/\\2/" <<<"$name")
+  if [[ -n ${taken[$fixed]:-} ]]; then
+    echo "$name and ${taken[$fixed]} would both be $fixed" >&2
+    exit 1
+  fi
+  taken[$fixed]=$name
+done
+
+for fixed in "${!taken[@]}"; do
+  cp -- "$dir/${taken[$fixed]}" "$dir/$fixed"
+  echo "  ${taken[$fixed]} -> $fixed"
+done

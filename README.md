@@ -67,12 +67,17 @@ Packages for each release are on the [releases page](https://github.com/Botropol
 On Arch, install [botropolis](https://aur.archlinux.org/packages/botropolis) (built from source) or [botropolis-bin](https://aur.archlinux.org/packages/botropolis-bin) (the release binaries) from the AUR, with `makepkg` or your AUR helper of choice, e.g. `paru -S botropolis` or `yay -S botropolis`.
 
 ```
-sudo apt install ./botropolis_<version>_amd64.deb      # Debian, Ubuntu
-sudo dnf install ./botropolis-<version>-1.x86_64.rpm   # Fedora, RHEL, openSUSE
-botropolis --version                                   # should print the version you installed
+# Debian, Ubuntu
+curl -LO https://github.com/Botropolis-City/botropolis/releases/latest/download/botropolis_amd64.deb
+sudo apt install ./botropolis_amd64.deb
+
+# Fedora, RHEL, openSUSE
+sudo dnf install https://github.com/Botropolis-City/botropolis/releases/latest/download/botropolis.x86_64.rpm
+
+botropolis --version    # should print the version you installed
 ```
 
-arm64 builds are beside them, named `arm64` and `aarch64`.
+Those links always serve the newest release; arm64 builds are beside them as `botropolis_arm64.deb` and `botropolis.aarch64.rpm`, and each release also carries the same packages with the version in their names.
 `go install botropolis.city/botropolis/cmd/...@latest` builds the three binaries from source, without the units, desktop entry or shell integration.
 
 Every package installs the three binaries, both systemd user units, the desktop entry and icon, the shell integration, and the licences for the artwork and the typeface that are compiled in.
