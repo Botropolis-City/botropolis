@@ -10,10 +10,6 @@ name: packages
 on:
   workflow_dispatch:
     inputs:
-      new_tap:
-        description: Start the Homebrew tap's history afresh (once, for the first publish)
-        type: boolean
-        default: false
       dry_run:
         description: Build and install-test everything, upload nothing
         type: boolean
@@ -55,7 +51,7 @@ jobs:
             latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
             version=${latest#v}
           fi
-          tools/build-brew-tap ${{ inputs.new_tap && '--new' || '' }} "${version}" .brewtap/brew
+          tools/build-brew-tap "${version}" .brewtap/brew
           echo "${version}" > .brewtap/version
           echo "VERSION=${version}" >> "$GITHUB_ENV"
 

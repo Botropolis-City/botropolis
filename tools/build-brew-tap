@@ -20,8 +20,11 @@ archive here.
 The tap's history is continued from the published one, because brew update
 fetches into the clone it already has and a rewritten history is not a fast
 forward. If the published tap cannot be cloned this refuses, rather than
-quietly starting a new history; --new starts one deliberately, which is
-right exactly once.
+quietly starting a new history.
+
+--new starts a history from nothing, for building a tap to test locally.
+The packages workflow cannot pass it: the tap was started once, on
+2026-10-15, and a second start would strand every Mac that has tapped it.
 
 Environment:
   PKG_BASE_URL   where the tap is published (default: https://pkg.botropolis.city)
@@ -58,7 +61,7 @@ git_() { git -c commit.gpgsign=false -c init.defaultBranch=main "$@"; }
 if ((new)); then
   git_ init -q "$work/tap"
 elif ! git_ clone -q "$base/brew" "$work/tap" 2>"$work/clone.err"; then
-  echo "could not clone the published tap at $base/brew; pass --new to start a new history" >&2
+  echo "could not clone the published tap at $base/brew; a new history would strand every Mac that has tapped it, so the packages workflow cannot start one" >&2
   sed 's/^/  /' "$work/clone.err" >&2
   exit 1
 fi

@@ -79,7 +79,8 @@ The signing key's master copy is the 1Password item "Botropolis Packages Signing
 
 **The same workflow publishes the Homebrew tap to `pkg.botropolis.city/brew`** (`tools/build-brew-tap`), as a bare git repository read over git's static HTTP protocol, which is all a bucket can serve.
 Its formula builds from the release's source archive, so no Mac downloads an unsigned binary; it is install-tested in a Linux Homebrew container and on a macOS runner before upload, and from the live host after.
-Each publish continues the published tap's history, because `brew update` needs a fast-forward, and the builder refuses rather than start a new history when it cannot clone the live one: `new_tap` on a manual run of `packages` starts one deliberately, which is right exactly once.
+Each publish continues the published tap's history, because `brew update` needs a fast-forward, and the builder refuses rather than start a new history when it cannot clone the live one.
+**The workflow has no way to start a new history**, by design: it was started once, on 2026-10-15, and a second start would leave every Mac that has tapped it on a history the published one no longer continues. `tools/build-brew-tap --new` exists for local test builds only.
 `make brew-tap brew-tap-test` does the same locally.
 
 To cut one: edit `VERSION`, add the matching `CHANGELOG.md` section, `make version-check`, push to `main`, let CI finish, run the workflow.
