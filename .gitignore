@@ -26,3 +26,4 @@ tools/__pycache__/
 
 .pkgrepo/
 .pkgrepo-in/
+.brewtap/

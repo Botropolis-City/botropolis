@@ -1,7 +1,7 @@
 name: packages
 
-# Builds the signed APT and RPM repositories from the last few releases and
-# publishes them to pkg.botropolis.city. The release workflow calls this after
+# Builds the signed APT and RPM repositories from the last few releases, and
+# the Homebrew tap for the latest, and publishes them to pkg.botropolis.city. The release workflow calls this after
 # every release; run it by hand to republish, for example after a key change.
 #
 # Secrets: PKG_SIGNING_KEY (the armored secret key; its master copy is in
@@ -9,6 +9,11 @@ name: packages
 # to the botropolis-packages bucket, object read and write only).
 on:
   workflow_dispatch:
+    inputs:
+      new_tap:
+        description: Start the Homebrew tap's history afresh (once, for the first publish)
+        type: boolean
+        default: false
   workflow_call:
 
 permissions:
@@ -25,6 +30,50 @@ env:
   RELEASES: "3"
 
 jobs:
+  # The tap is a bare git repository read over git's static HTTP protocol,
+  # which is all a bucket can serve. Its formula builds from the release's
+  # source archive, so nothing a Mac downloads is an unsigned binary.
+  tap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the tap for the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
+          tools/build-brew-tap ${{ inputs.new_tap && '--new' || '' }} "${latest#v}" .brewtap/brew
+          echo "VERSION=${latest#v}" >> "$GITHUB_ENV"
+
+      - name: Install from the built tap on Linux
+        run: testing/acceptance/packages/brew-test.sh --tap .brewtap/brew "${VERSION}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brew-tap
+          path: .brewtap
+          include-hidden-files: true
+          if-no-files-found: error
+
+  # Nothing in the working arrangement runs macOS (item 80); this is where
+  # the formula is built and tested on one before it is published.
+  tap-macos:
+    needs: tap
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: brew-tap
+          path: .brewtap
+      - name: Install from the built tap on macOS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
+          testing/acceptance/packages/brew-test.sh --native --tap .brewtap/brew "${latest#v}"
+
   publish:
     runs-on: ubuntu-latest
     steps:
@@ -79,3 +128,37 @@ jobs:
 
       - name: Install from pkg.botropolis.city
         run: testing/acceptance/packages/install-test.sh --base "${PKG_HOST}" "${VERSION}"
+
+  # Its own job, so a tap that fails does not hold back APT and RPM.
+  publish-tap:
+    needs: tap-macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: brew-tap
+          path: .brewtap
+
+      # Packs first, refs last, so a client never reads a ref naming a pack
+      # that is not there yet. A pack is named by its contents, so it caches
+      # forever; refs for five minutes.
+      - name: Upload the tap to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          s3() { aws s3 "$@" --endpoint-url "${R2_ENDPOINT}" --only-show-errors; }
+          dest="s3://${PACKAGES_BUCKET}/brew"
+          s3 cp --recursive .brewtap/brew/objects/pack "$dest/objects/pack" --cache-control "public, max-age=31536000, immutable"
+          s3 cp --recursive .brewtap/brew "$dest" --exclude 'objects/pack/*' --exclude 'hooks/*' --cache-control "public, max-age=300"
+
+      - name: Install from the published tap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
+          testing/acceptance/packages/brew-test.sh --base "${PKG_HOST}" "${latest#v}"

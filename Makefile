@@ -309,6 +309,14 @@ package-repos :: package-repos-image
 			-v "$$PWD":/work -u "$$(id -u):$$(id -g)" botropolis-pkgrepo \
 			tools/build-package-repos .pkgrepo-in .pkgrepo
 
+brew-tap ::
+	$(LOG) "Building the Homebrew tap for ${VERSION} into .brewtap/brew"
+	@tools/build-brew-tap ${VERSION} .brewtap/brew
+
+brew-tap-test ::
+	$(LOG) "Installing from .brewtap/ in a clean Homebrew container"
+	@testing/acceptance/packages/brew-test.sh --tap .brewtap/brew ${VERSION}
+
 package-repos-test ::
 	$(LOG) "Installing from .pkgrepo/ in clean Debian and Fedora containers"
 	@testing/acceptance/packages/install-test.sh --repo .pkgrepo ${VERSION}

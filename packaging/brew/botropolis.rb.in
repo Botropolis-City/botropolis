@@ -1,0 +1,31 @@
+class Botropolis < Formula
+  desc "Every Claude Code session on this machine, drawn as a city"
+  homepage "https://botropolis.city"
+  url "https://github.com/Botropolis-City/botropolis/archive/refs/tags/v@VERSION@.tar.gz"
+  sha256 "@SHA256@"
+  license "MIT"
+
+  depends_on "go" => :build
+
+  def install
+    ENV["CGO_ENABLED"] = "0"
+    ldflags = "-X botropolis.city/botropolis/pkg/version.Version=#{version}"
+    %w[botropolis botropolisd botropolis-hook].each do |cmd|
+      system "go", "build", *std_go_args(ldflags:, output: bin/cmd), "./cmd/#{cmd}"
+    end
+    pkgshare.install "packaging/botropolis.bash"
+    (share/"licenses/botropolis").install "pkg/assets/fonts/inter/LICENSE.txt" => "inter-OFL.txt",
+                                          "pkg/assets/kits/nature-kit/License.txt" => "kenney-CC0.txt",
+                                          "pkg/assets/kits/README.md" => "kenney-kits.md",
+                                          "pkg/assets/kenney/README.md" => "kenney-packs.md"
+  end
+
+  service do
+    run opt_bin/"botropolisd"
+    keep_alive true
+  end
+
+  test do
+    assert_equal "botropolis #{version}", shell_output("#{bin}/botropolis --version").strip
+  end
+end

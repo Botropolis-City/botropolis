@@ -77,6 +77,11 @@ It rebuilds both from the last three releases with `tools/build-package-repos`, 
 The signing key's master copy is the 1Password item "Botropolis Packages Signing Key"; CI has it as `PKG_SIGNING_KEY`, and the builder refuses any key that is not `packaging/repo/botropolis.asc`. It expires 2029-10-10: extend it with `gpg --quick-set-expire` and republish the public key before then.
 `make package-repos package-repos-test` does the same locally.
 
+**The same workflow publishes the Homebrew tap to `pkg.botropolis.city/brew`** (`tools/build-brew-tap`), as a bare git repository read over git's static HTTP protocol, which is all a bucket can serve.
+Its formula builds from the release's source archive, so no Mac downloads an unsigned binary; it is install-tested in a Linux Homebrew container and on a macOS runner before upload, and from the live host after.
+Each publish continues the published tap's history, because `brew update` needs a fast-forward, and the builder refuses rather than start a new history when it cannot clone the live one: `new_tap` on a manual run of `packages` starts one deliberately, which is right exactly once.
+`make brew-tap brew-tap-test` does the same locally.
+
 To cut one: edit `VERSION`, add the matching `CHANGELOG.md` section, `make version-check`, push to `main`, let CI finish, run the workflow.
 
 **A workflow that does not parse is not a workflow that fails.**
