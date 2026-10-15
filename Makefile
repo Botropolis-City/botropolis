@@ -135,7 +135,7 @@ test-acceptance :: fixtures
 	$(LOG) "Running acceptance tests"
 	@go test ./testing/acceptance/...
 
-lint :: docs-check version-check workflows-check demo-check
+lint :: docs-check version-check workflows-check demo-check darwin-check
 	$(LOG) "Linting"
 	@go vet ./...
 	@golangci-lint run ./...
@@ -145,6 +145,12 @@ lint :: docs-check version-check workflows-check demo-check
 demo-check ::
 	$(LOG) "Checking the demo corpus came from no real machine"
 	@tools/check-demo-corpus
+
+# Nobody here has a Mac (item 80), so this is what keeps a Linux-only call
+# from landing unnoticed; the macOS CI job is what runs the darwin paths.
+darwin-check ::
+	$(LOG) "Vetting the module for macOS"
+	@GOOS=darwin GOARCH=arm64 go vet ./...
 
 docs-check ::
 	$(LOG) "Checking the documentation structure"

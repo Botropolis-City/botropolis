@@ -38,6 +38,18 @@ jobs:
           install-only: true
       - run: make test lint
 
+  # Nothing in the working arrangement runs macOS (item 80), so this is the
+  # only place the darwin code runs: the netstat attached probe, open, pbcopy
+  # and osascript. Unit tests only -- no window is opened.
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.1"
+      - run: make test-unit
+
   # Everything the release publishes is built here, once per architecture, on a
   # commit that has already passed the gate. The release workflow downloads these
   # artifacts rather than building again, so what ships is what was tested.
