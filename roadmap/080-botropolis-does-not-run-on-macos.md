@@ -50,14 +50,25 @@ Verification is the macOS CI runner and the tap's install test on it, and nothin
 | `3e86480` | `control.Desktop`: `open`, `pbcopy`, Terminal.app over `osascript`; notifications over AppleScript; `doctor` per OS |
 | `ceb0bd1` | `test-macos` in CI, and `darwin-check` in `make lint` |
 | `345bf5c` | the tap: `tools/build-brew-tap`, `packaging/brew/`, the `packages` workflow's `tap`, `tap-macos` and `publish-tap` jobs |
+| `571c2a3` | macOS jobs on Apple silicon (`macos-26`) and Intel (`macos-26-intel`); `dry_run` on `packages` |
+| `cb11e28` | `botropolis shell-init` for bash, zsh and fish |
 
 **The netstat reading is proven, not inferred.**
 The parser rested on BSD copying a listener's path onto each socket it accepts, which nobody here could check.
 `TestUnixSocketConnected` opens a real listener and dials it, and it passed on `macos-latest` (arm64) in run 38693896779.
 
-**The tap is proven on Linux Homebrew, and the macOS half runs at publish.**
-In `homebrew/brew:4.6.20` against a static server: `brew tap`, `brew install` (a source build), `brew test`, and `brew update` moving an existing tap from 0.1.4 to 0.1.5.
+**The tap is proven on both kinds of Mac before any release.**
+A `packages` dry run (38695743320) built the tap and installed from it on `macos-26` ("brew on Darwin arm64 installs botropolis 0.1.5") and `macos-26-intel` ("Darwin x86_64"), with `brew test` passing on each.
+Before that, on Linux Homebrew:
+in `homebrew/brew:4.6.20` against a static server, `brew tap`, `brew install` (a source build), `brew test`, and `brew update` moving an existing tap from 0.1.4 to 0.1.5.
 R2 ignores the `?service=` query git opens with, so git falls back to its static protocol, checked against the live host.
+
+**The shell integration was wrong on a Mac twice over, and is now per shell everywhere.**
+A side session caught it: the instructions said to source `/usr/share/botropolis/botropolis.bash` from `~/.bashrc`, but Homebrew installs under its own prefix, and macOS's default shell is zsh, which never reads `~/.bashrc`.
+Aria widened it: *"We should account for and acknowledge that users could use many different shells and we should support the popular ones on any system."*
+`botropolis shell-init bash|zsh|fish` (`cb11e28`) prints the script, so the rc line names no path; the old file is a one-line shim to it.
+The integration test runs each shell in a real pty, on Linux in CI and on macOS's own bash 3.2 and zsh, and fails rather than skips a missing shell under CI.
+Other shells are named as unsupported rather than silently ignored.
 
 **Found on the way, and fixed:** the settings picker stores a terminal as `BOTROPOLIS_TERMINAL`, which was used verbatim, so picking alacritty on Linux ran it without `-e`. A lone known name there now gets its convention.
 
@@ -66,7 +77,25 @@ R2 ignores the `?service=` query git opens with, so git falls back to its static
 1. **Cut 0.1.6.** No release contains the fixes above; a formula for 0.1.5 would build a city that reads every background session as unattended on a Mac.
 2. **The tap's first publish**: run `packages` by hand with `new_tap`. The automatic run after the release will fail its `tap` job, by design, because there is no published history to continue; APT and RPM publish regardless.
 3. **The website**: a macOS tab in `src/data/install.ts` and a tap check in `testing/acceptance/verify.sh`, after the publish, so neither points at a 404. The README's install section gains the same two lines then.
-4. **Unverified still:** that Claude Code on macOS writes a roster with a `ptySock` at all. Every fixture is a Linux path, and no Mac here has run it. If it does not, the probe is never asked and background sessions read as unattended for a different reason.
+4. ~~**Unverified still:** that Claude Code on macOS writes a roster with a `ptySock` at all.~~ Answered below.
+
+## What Claude Code does on macOS, 2026-10-15
+
+Read from the strings of the 2.1.300 binary on Aria's desk (`strings -n 6 /opt/claude-code/bin/claude`), which is Bun-compiled and so carries its JavaScript as text.
+The function names below are minified and will not survive a release; the logic is what matters.
+
+- **The roster and the pty sockets are the same on macOS as on Linux.** The reaper picks pid files or sockets with `O()==="windows" ? [pid dir, ".pid"] : [pty dir, ".sock"]`; there is no macOS branch, so `ptySock` is written there exactly as here.
+- **The socket directory is `/tmp/cc-daemon-<uid>/<8 hex>/pty`, hardcoded**, not `os.tmpdir()` — only Termux differs. So on a Mac it is not under `/var/folders/...`, and it is the string handed to `bind()`, which is what `netstat` prints even though `/tmp` is a symlink to `/private/tmp` there. The probe's comparison is string-for-string, so that matters, and it holds.
+- **The roster is `<config dir>/daemon/roster.json` and sessions are `<config dir>/sessions/`**, both from the one config-dir function that honours `CLAUDE_CONFIG_DIR`, on every platform; the loader reads them from `~/.claude` already.
+- **Background sessions are supported on macOS, not incidental to it.** The daemon acquires its controlling tty through `/usr/lib/libSystem.B.dylib` on macOS and `libc.so.6` on Linux, and its install telemetry carries `platform_darwin` beside `platform_linux`.
+- **One thing that differs, and does not touch us:** inside Claude Code's own sandbox, `open` and `osascript` are blocked on macOS unless `allowAppleEvents` is set. That is Claude's tool sandbox; Botropolis calls them from its own process.
+
+Public notes agree: background sessions arrived around 2.1.139 as a research preview, a 2.1.142 fix stopped sessions disappearing across macOS sleep, and one report has backgrounding failing in Terminal.app after 2.1.141.
+Those are third-party pages and issue reports rather than Anthropic's documentation, which says only what `--bg`, `attach` and `agents` do.
+
+- https://code.claude.com/docs/en/cli-usage
+- https://newreleases.io/project/github/CometixSpace/claude-code/release/v2.1.142
+- https://claudeissues.com/issue/60616-bug-cant-background-sessions
 
 ## What the fix touched, as filed
 

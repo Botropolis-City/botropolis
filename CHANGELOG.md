@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-15
+
 ### Added
 
+- **macOS, on Apple silicon and on Intel, from a Homebrew tap at pkg.botropolis.city.**
+  `brew tap botropolis-city/botropolis https://pkg.botropolis.city/brew`, then `brew install botropolis-city/botropolis/botropolis`;
+  `brew services start botropolis` runs the daemon.
+  The formula builds from the release's source, and every release is install-tested on both kinds of Mac before the tap is published.
+  Nobody has yet looked at the window on a Mac, so tell us what you see.
+- **Shell integration for zsh and fish, as well as bash**, from `botropolis shell-init <shell>`:
+  `eval "$(botropolis shell-init zsh)"` in `~/.zshrc`, the same with `bash` in `~/.bashrc`,
+  or `botropolis shell-init fish | source` in fish's `config.fish`.
+  It names no install path, so the line is the same from every package and on every system.
+- On macOS, reveal uses `open`, copy uses `pbcopy`, attach falls back to Terminal.app,
+  notifications go through AppleScript, and `botropolis doctor` knows it is on a Mac.
 - Every release carries its packages a second time under names without the version,
   so `https://github.com/Botropolis-City/botropolis/releases/latest/download/botropolis_amd64.deb` (and `.x86_64.rpm`, the tarballs and the Arch packages) is always the newest release.
   The install commands in the README and on botropolis.city use them.
@@ -21,12 +34,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `/usr/share/botropolis/botropolis.bash` now loads `botropolis shell-init bash`,
+  so `~/.bashrc` files that source it keep working and get the same script.
 - With `usage_refresh` at `manual`, the usage boats are off the river until `u` is pressed.
   They then sail in to their readings, stay a minute, and sail off.
   Pressing `u` again while they are there starts the minute over,
   and pressing it while they are sailing off sends them on round to come back in rather than turning them back.
 - The usage boats drive to a new reading instead of jumping to it, and only ever forward.
   A reading that falls, such as a window turning over, sends the boat on past the limit and round from the start.
+
+### Fixed
+
+- Choosing a terminal in the settings panel now launches it the way it expects:
+  picking alacritty, for example, used to run it without `-e`, so attach failed.
 
 ## [0.1.5] - 2026-10-10
 
@@ -138,7 +158,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/Botropolis-City/botropolis/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/Botropolis-City/botropolis/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/Botropolis-City/botropolis/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/Botropolis-City/botropolis/compare/v0.1.2...v0.1.3

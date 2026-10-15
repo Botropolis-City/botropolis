@@ -16,11 +16,17 @@ botropolis doctor                           # the daemon, the hooks, a terminal,
 botropolis                                  # the city
 ```
 
-Then one line in `~/.bashrc`:
+Then one line in your shell's startup file:
 
-```
-source /usr/share/botropolis/botropolis.bash
-```
+| shell | file | line |
+| --- | --- | --- |
+| bash | `~/.bashrc` | `eval "$(botropolis shell-init bash)"` |
+| zsh, the default on macOS | `~/.zshrc` | `eval "$(botropolis shell-init zsh)"` |
+| fish | `~/.config/fish/config.fish` | `botropolis shell-init fish \| source` |
+
+`botropolis shell-init` names no install path, so the line is the same on every system and from every package.
+Those three are tested on Linux and on macOS's own bash and zsh; for any other shell, `botropolis new "$PWD"` and `claude attach` are what the integration runs, and an issue asking for yours is welcome.
+Older setups that source `/usr/share/botropolis/botropolis.bash` keep working.
 
 That line is the one that changes how you work.
 Every session becomes a `claude --bg` job you can close, reopen, park and wake from the map, and the terminal is only ever a view of it.
@@ -82,7 +88,17 @@ sudo curl -fsSLo /etc/yum.repos.d/botropolis.repo https://pkg.botropolis.city/bo
 sudo dnf install botropolis
 ```
 
-Both are signed by the key at [pkg.botropolis.city/botropolis.asc](https://pkg.botropolis.city/botropolis.asc), fingerprint `2AA4 7C51 3C0D 0C9E 7F0F  8769 956D 666C 68C8 E0E4`, and the APT source trusts it for this repository only.
+On macOS, Apple silicon or Intel, add the tap once and `brew upgrade` keeps it current; `brew services` runs the daemon:
+
+```
+brew tap botropolis-city/botropolis https://pkg.botropolis.city/brew
+brew install botropolis-city/botropolis/botropolis
+brew services start botropolis
+```
+
+The formula builds from the release's source, so it needs nothing signed and pulls in Go only to build.
+
+The APT and RPM repositories are signed by the key at [pkg.botropolis.city/botropolis.asc](https://pkg.botropolis.city/botropolis.asc), fingerprint `2AA4 7C51 3C0D 0C9E 7F0F  8769 956D 666C 68C8 E0E4`, and the APT source trusts it for this repository only.
 
 To install once without adding a repository, the newest packages are always at `https://github.com/Botropolis-City/botropolis/releases/latest/download/` as `botropolis_amd64.deb`, `botropolis_arm64.deb`, `botropolis.x86_64.rpm` and `botropolis.aarch64.rpm`.
 
