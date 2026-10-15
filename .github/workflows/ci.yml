@@ -40,9 +40,14 @@ jobs:
 
   # Nothing in the working arrangement runs macOS (item 80), so this is the
   # only place the darwin code runs: the netstat attached probe, open, pbcopy
-  # and osascript. Unit tests only -- no window is opened.
+  # and osascript, on Apple silicon and on Intel. Unit tests only -- no window
+  # is opened.
   test-macos:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-26-intel]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

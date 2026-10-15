@@ -14,6 +14,10 @@ on:
         description: Start the Homebrew tap's history afresh (once, for the first publish)
         type: boolean
         default: false
+      dry_run:
+        description: Build and install-test everything, upload nothing
+        type: boolean
+        default: false
   workflow_call:
 
 permissions:
@@ -57,10 +61,15 @@ jobs:
           if-no-files-found: error
 
   # Nothing in the working arrangement runs macOS (item 80); this is where
-  # the formula is built and tested on one before it is published.
+  # the formula is built and tested on Apple silicon and on Intel before it
+  # is published.
   tap-macos:
     needs: tap
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-26-intel]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
@@ -75,6 +84,7 @@ jobs:
           testing/acceptance/packages/brew-test.sh --native --tap .brewtap/brew "${latest#v}"
 
   publish:
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -132,6 +142,7 @@ jobs:
   # Its own job, so a tap that fails does not hold back APT and RPM.
   publish-tap:
     needs: tap-macos
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

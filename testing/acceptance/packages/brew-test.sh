@@ -74,7 +74,7 @@ else
     "$image" bash -euc "$install" 2>&1 | tail -1)
 fi
 
-where=$( ((native)) && uname -s || echo "$image")
+where=$( ((native)) && echo "$(uname -s) $(uname -m)" || echo "$image")
 if [[ $got == "botropolis $version" ]]; then
   printf '  \033[0;32m✓\033[0m brew on %s installs botropolis %s from %s\n' "$where" "$version" "${base}/brew"
 else
