@@ -4,11 +4,13 @@ import (
 	"github.com/spf13/pflag"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
 
 	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/proto"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,8 +42,8 @@ func TestConfig(t *testing.T) {
 			assert.Equal(t, "/home/someone", cfg.Home)
 		})
 
-		t.Run("it should default the socket to the runtime dir", func(t *testing.T) {
-			assert.Equal(t, "/run/user/1000/botropolis/botropolis.sock", cfg.Socket)
+		t.Run("it should default the socket to where the daemon listens on this OS", func(t *testing.T) {
+			assert.Equal(t, proto.SocketPathFor(runtime.GOOS, os.Getenv, "/home/someone"), cfg.Socket)
 		})
 
 		t.Run("it should default the hook command to the bare binary name", func(t *testing.T) {

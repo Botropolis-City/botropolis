@@ -52,6 +52,7 @@ Verification is the macOS CI runner and the tap's install test on it, and nothin
 | `345bf5c` | the tap: `tools/build-brew-tap`, `packaging/brew/`, the `packages` workflow's `tap`, `tap-macos` and `publish-tap` jobs |
 | `571c2a3` | macOS jobs on Apple silicon (`macos-26`) and Intel (`macos-26-intel`); `dry_run` on `packages` |
 | `cb11e28` | `botropolis shell-init` for bash, zsh and fish |
+| `a507be5` | the socket path on macOS; the daemon started under launchd in the macOS brew test |
 
 **The netstat reading is proven, not inferred.**
 The parser rested on BSD copying a listener's path onto each socket it accepts, which nobody here could check.
@@ -69,6 +70,15 @@ Aria widened it: *"We should account for and acknowledge that users could use ma
 `botropolis shell-init bash|zsh|fish` (`cb11e28`) prints the script, so the rc line names no path; the old file is a one-line shim to it.
 The integration test runs each shell in a real pty, on Linux in CI and on macOS's own bash 3.2 and zsh, and fails rather than skips a missing shell under CI.
 Other shells are named as unsupported rather than silently ignored.
+
+**The daemon under launchd, which nothing had started until `a507be5`.**
+A second side session asked whether `botropolisd`, run by `brew services`, can find what it runs, since launchd's PATH is `/usr/bin:/bin:/usr/sbin:/sbin`.
+It can: the daemon's only bare-name exec is `netstat`, in `/usr/sbin`, and every `claude` exec is in the city's own process, which the user starts from a shell.
+`netstat` is absolute now regardless, and the service sets Homebrew's `std_service_path_env`.
+The question's shape found a real fault next to it: **the socket path came from `XDG_RUNTIME_DIR`, else `TMPDIR`, and launchd gives the daemon neither of the shell's**, so the daemon could listen in one place while every client dialled another.
+On macOS it is now `~/Library/Caches/botropolis/botropolis.sock`, which depends on `HOME` alone, the one variable launchd and the shell agree on.
+The macOS brew test now starts the service and requires `botropolis doctor` to reach the daemon, and a `packages` dry run builds the tap from the commit under test rather than the last release, so that test runs the code about to ship.
+`XDG_CONFIG_HOME` has the same shape and is left: a Mac user who sets it in their shell gets a daemon reading `~/.config` instead, which is a narrower case than every user, and is written here so it is not rediscovered.
 
 **Found on the way, and fixed:** the settings picker stores a terminal as `BOTROPOLIS_TERMINAL`, which was used verbatim, so picking alacritty on Linux ran it without `-e`. A lone known name there now gets its convention.
 
