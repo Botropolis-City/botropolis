@@ -1,0 +1,56 @@
+# 81. Shell completion exists in the binary and is not packaged
+
+**Open. Filed 2026-10-15 (r406) at Aria's request: "shell completion for all the popular shells we support". Nobody's call — the generator is already built in, and what is left is shipping its output.**
+
+Aria: *"shell completion for all the popular shells we support. I think our library has generation for this built in so we just need to build it into the packages."*
+
+**The premise is right, and goes further than stated: the command already exists.**
+Cobra adds a `completion` command to every root that does not disable it, and nothing here does (`grep -rn Completion pkg cmd` finds nothing), so on the current build:
+
+```
+$ bin/botropolis completion --help
+  bash        Generate the autocompletion script for bash
+  fish        Generate the autocompletion script for fish
+  powershell  Generate the autocompletion script for powershell
+  zsh         Generate the autocompletion script for zsh
+```
+
+`botropolisd` has one too, which is worth nothing — it takes no arguments — and `botropolis-hook` is not a cobra root and is never typed by a person.
+So the shells to ship are the three `botropolis shell-init` supports (item 80, `cb11e28`): bash, zsh and fish.
+PowerShell is generated for free but nothing else here supports it, so shipping it would claim more than is tested.
+
+## What the packages need
+
+Packages cannot run a command at build time from nfpm's config, so the scripts are generated into the tree first and packaged as files.
+The output is the same for every architecture, so generate it with the host's binary (`go run ./cmd/botropolis completion bash`) rather than the cross-built one, which an amd64 runner cannot execute for arm64.
+
+| package | bash | zsh | fish |
+| --- | --- | --- | --- |
+| `.deb`, `.rpm`, Arch (`packaging/nfpm.yaml`) | `/usr/share/bash-completion/completions/botropolis` | `/usr/share/zsh/site-functions/_botropolis` | `/usr/share/fish/vendor_completions.d/botropolis.fish` |
+| Homebrew (`packaging/brew/botropolis.rb.in`) | `generate_completions_from_executable(bin/"botropolis", "completion")` puts all three in Homebrew's own completion directories | | |
+
+The AUR packages are built from `~/workspaces/aur/botropolis-git`'s PKGBUILD rather than nfpm, so they need the same three lines there, generated in `package()`.
+`tools/check-packages` (`make packages-check`) already asserts the `.deb`, `.rpm` and Arch package carry the same files, so it will catch one format missing them.
+
+## What completes today, and what is worth fixing with it
+
+`botropolis __complete ""` lists every subcommand with its description, and `__complete shell-init ""` offers bash, zsh and fish, from its `ValidArgs`.
+**No argument completes beyond that, and two of the gaps are actively wrong rather than missing:**
+
+- `attach`, `stop`, `rm` take a job id and `resume` a session id (`pkg/cli/sessions.go`), and `__complete attach ""` returns no candidates with directive `:0`, which tells the shell to fall back to **file names**. Tab after `botropolis attach` offers files from the current directory, the one place completion would help most.
+- `new <dir>` falls back to files too, where only directories make sense.
+
+The first wants a `ValidArgsFunction` on each that reads the snapshot (from the daemon, or directly, as `status` does) and offers job ids with the session's title as the description, with `ShellCompDirectiveNoFileComp`.
+The second is `ShellCompDirectiveFilterDirs` on `new`'s first argument.
+Neither is needed to ship completion, but shipping completion without them makes the id commands worse than no completion at all, so they belong in the same change.
+
+## How to tell it works
+
+Each shell can be asked what it would complete, without a terminal:
+
+- bash: source the script, then `complete -p botropolis` names the function, and setting `COMP_WORDS`/`COMP_CWORD` and calling it fills `COMPREPLY`.
+- zsh: harder to drive non-interactively; `autoload -U compinit && compinit` then checking `$_comps[botropolis]` proves it registered.
+- fish: `complete -C 'botropolis shell-'` prints `shell-init`.
+
+That fits beside `testing/integration/packaging/shell_test.go`, which already runs all three shells in CI on Linux and macOS and fails rather than skips a missing one.
+The Debian and Fedora install test (`testing/acceptance/packages/install-test.sh`) and the brew test can each assert the installed files are where their shell looks.
