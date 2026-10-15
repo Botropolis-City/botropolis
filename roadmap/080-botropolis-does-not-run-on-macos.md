@@ -1,6 +1,6 @@
 # 80. Botropolis does not run on macOS
 
-**Open. Filed 2026-10-15 (r393) at Aria's request: "We need to also support macOS". Decided by Aria the same day; nobody's call now — what is left is cutting 0.1.6, the tap's first publish, and the website's install tab.**
+**Done 2026-10-15 (`b745bc6`, r403), released as 0.1.6. Filed 2026-10-15 (r393) at Aria's request: "We need to also support macOS".**
 
 Aria asked for it in those words.
 Nothing on the roadmap mentioned macOS or darwin before this item.
@@ -82,12 +82,19 @@ The macOS brew test now starts the service and requires `botropolis doctor` to r
 
 **Found on the way, and fixed:** the settings picker stores a terminal as `BOTROPOLIS_TERMINAL`, which was used verbatim, so picking alacritty on Linux ran it without `-e`. A lone known name there now gets its convention.
 
-## Still open
+## Closed, 2026-10-15
 
-1. **Cut 0.1.6.** No release contains the fixes above; a formula for 0.1.5 would build a city that reads every background session as unattended on a Mac.
-2. **The tap's first publish**: run `packages` by hand with `new_tap`. The automatic run after the release will fail its `tap` job, by design, because there is no published history to continue; APT and RPM publish regardless.
-3. **The website**: a macOS tab in `src/data/install.ts` and a tap check in `testing/acceptance/verify.sh`, after the publish, so neither points at a 404. The README's install section gains the same two lines then.
-4. ~~**Unverified still:** that Claude Code on macOS writes a roster with a `ptySock` at all.~~ Answered below.
+Released as **0.1.6**, tagged at `b745bc6`.
+All four things left open were done the same day:
+
+1. **0.1.6 was cut** from `b745bc6`, after CI passed on Linux, `macos-26` and `macos-26-intel` (run 38699796007).
+2. **The tap's first publish** was `packages` with `new_tap` (run 38700199129). Before upload, both Macs installed from it and `brew services` started the daemon under launchd with `botropolis doctor` reaching it; after upload, it installed from `pkg.botropolis.city`. The release's own automatic `packages` run failed its `tap` job exactly as designed, with "could not clone the published tap … pass --new", and published APT and RPM regardless.
+3. **The website** has a macOS tab and a line per shell (`634f908` in the site repo), and `make verify` checks the live tap names the latest release.
+4. **Claude Code on macOS** writes the same roster and `ptySock` as on Linux, below.
+
+**What is not done, by Aria's ruling rather than by omission:** nobody has opened the city's window on a Mac.
+CI runs the code and the tap installs and starts the daemon, but the window, Metal and how a frame looks there are unseen.
+The changelog and the website say so and ask Mac users to report what they see; a report is the trigger for a new item.
 
 ## What Claude Code does on macOS, 2026-10-15
 
