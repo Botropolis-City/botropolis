@@ -20,10 +20,11 @@ import (
 )
 
 type fakeStatus struct {
-	direct bool
-	all    bool
-	asJSON bool
-	err    error
+	direct   bool
+	all      bool
+	asJSON   bool
+	err      error
+	snapshot state.Snapshot
 }
 
 func (f *fakeStatus) Run(out io.Writer, direct, all, asJSON bool) error {
@@ -34,7 +35,7 @@ func (f *fakeStatus) Run(out io.Writer, direct, all, asJSON bool) error {
 
 func (f *fakeStatus) Snapshot(direct bool) (state.Snapshot, error) {
 	f.direct = direct
-	return state.Snapshot{}, f.err
+	return f.snapshot, f.err
 }
 
 type fakeHooks struct{ calls []string }

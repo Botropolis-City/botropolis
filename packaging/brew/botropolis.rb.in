@@ -14,6 +14,7 @@ class Botropolis < Formula
     %w[botropolis botropolisd botropolis-hook].each do |cmd|
       system "go", "build", *std_go_args(ldflags:, output: bin/cmd), "./cmd/#{cmd}"
     end
+    generate_completions_from_executable(bin/"botropolis", "completion", shells: [:bash, :zsh, :fish])
     pkgshare.install "packaging/botropolis.bash"
     (share/"licenses/botropolis").install "pkg/assets/fonts/inter/LICENSE.txt" => "inter-OFL.txt",
                                           "pkg/assets/kits/nature-kit/License.txt" => "kenney-CC0.txt",
@@ -32,6 +33,9 @@ class Botropolis < Formula
         zsh   ~/.zshrc                    eval "$(botropolis shell-init zsh)"
         bash  ~/.bashrc                   eval "$(botropolis shell-init bash)"
         fish  ~/.config/fish/config.fish  botropolis shell-init fish | source
+
+      Completion for zsh and fish works as installed; for bash it needs
+      Homebrew's bash-completion.
     EOS
   end
 

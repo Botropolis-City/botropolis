@@ -67,6 +67,12 @@ contents:
   - src: ./packaging/botropolis-notify.service
     dst: /usr/lib/systemd/user/botropolis-notify.service
 
+  - src: ./bin/completions/botropolis.bash
+    dst: /usr/share/bash-completion/completions/botropolis
+  - src: ./bin/completions/_botropolis
+    dst: /usr/share/zsh/site-functions/_botropolis
+  - src: ./bin/completions/botropolis.fish
+    dst: /usr/share/fish/vendor_completions.d/botropolis.fish
   - src: ./packaging/botropolis.bash
     dst: /usr/share/botropolis/botropolis.bash
   - src: ./packaging/botropolis.desktop

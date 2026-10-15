@@ -28,6 +28,10 @@ Then one line in your shell's startup file:
 Those three are tested on Linux and on macOS's own bash and zsh; for any other shell, `botropolis new "$PWD"` and `claude attach` are what the integration runs, and an issue asking for yours is welcome.
 Older setups that source `/usr/share/botropolis/botropolis.bash` keep working.
 
+Every package also installs completion for those three shells, so `botropolis attach <Tab>` offers the running sessions by title.
+bash completion needs the bash-completion package, which most Linux desktops have; on a Mac, `brew install bash-completion`.
+From a source build, `botropolis completion bash|zsh|fish` prints the script.
+
 That line is the one that changes how you work.
 Every session becomes a `claude --bg` job you can close, reopen, park and wake from the map, and the terminal is only ever a view of it.
 

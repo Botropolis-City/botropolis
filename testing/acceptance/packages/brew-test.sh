@@ -44,6 +44,10 @@ install='
   brew tap botropolis-city/botropolis "$BASE/brew"
   brew install botropolis-city/botropolis/botropolis
   brew test botropolis-city/botropolis/botropolis
+  p=$(brew --prefix)
+  for f in "$p/etc/bash_completion.d/botropolis" "$p/share/zsh/site-functions/_botropolis" "$p/share/fish/vendor_completions.d/botropolis.fish"; do
+    test -s "$f" || { echo "no completion at $f"; exit 1; }
+  done
   botropolis --version'
 
 if ((native)); then

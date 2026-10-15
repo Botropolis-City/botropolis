@@ -135,5 +135,10 @@ func NewSessionCLIs(load Loader, services Services) []*cobra.Command {
 	}
 	prune.Flags().Duration("older-than", 7*24*time.Hour, "prune sessions with no activity for this long")
 	prune.Flags().Bool("dry-run", false, "list what would be removed and change nothing")
+	newCmd.ValidArgsFunction = completeDirThenNothing
+	attach.ValidArgsFunction = completeSessions(load, services, liveBackground)
+	stop.ValidArgsFunction = completeSessions(load, services, liveBackground)
+	rm.ValidArgsFunction = completeSessions(load, services, anyBackground)
+	resume.ValidArgsFunction = completeSessions(load, services, parked)
 	return []*cobra.Command{newCmd, attach, stop, rm, resume, prune}
 }

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Shell completion for bash, zsh and fish**, installed by every package where each shell looks for it:
+  the `.deb`, `.rpm` and Arch packages, the tarball's `completions/`, and Homebrew.
+  Session commands complete what they can act on, with each session's title:
+  job ids for `attach` and `stop` (live background sessions) and `rm` (parked ones too),
+  session ids for `resume` (parked sessions), and directories only for `new`.
+  bash completion needs the bash-completion package, as every bash completion does.
+
 ## [0.1.6] - 2026-10-15
 
 ### Added

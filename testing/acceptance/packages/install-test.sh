@@ -66,6 +66,7 @@ debian() {
     curl -fsSLo /etc/apt/sources.list.d/botropolis.sources $base/botropolis.sources
     apt-get update -qq
     apt-get install -y -qq botropolis >/dev/null
+    for f in /usr/share/bash-completion/completions/botropolis /usr/share/zsh/site-functions/_botropolis /usr/share/fish/vendor_completions.d/botropolis.fish; do test -s \$f || { echo \"no completion at \$f\"; exit 1; }; done
     botropolis --version"
 }
 
@@ -74,6 +75,7 @@ fedora() {
     curl -fsSLo /etc/yum.repos.d/botropolis.repo $base/botropolis.repo
     dnf install -y -q botropolis >/dev/null
     rpm -q --qf '%{SIGPGP:pgpsig}%{RSAHEADER:pgpsig}\n' botropolis | grep -q 'Key ID'
+    for f in /usr/share/bash-completion/completions/botropolis /usr/share/zsh/site-functions/_botropolis /usr/share/fish/vendor_completions.d/botropolis.fish; do test -s \$f || { echo \"no completion at \$f\"; exit 1; }; done
     botropolis --version"
 }
 

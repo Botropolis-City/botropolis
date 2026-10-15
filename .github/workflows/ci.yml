@@ -35,7 +35,7 @@ jobs:
       # Every shell the integration supports. The shell test fails rather than
       # skips a missing one under CI, so this list is enforced.
       - name: Shells for the shell integration test
-        run: sudo apt-get install -y zsh fish
+        run: sudo apt-get install -y zsh fish bash-completion
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.2
@@ -58,11 +58,13 @@ jobs:
         with:
           go-version: "1.27.1"
       - run: make test-unit
-      # macOS's own bash (3.2) and zsh, which are what a Mac user has, and fish.
-      - name: Shell integration on macOS's shells
+      # macOS's own bash (3.2) and zsh, which are what a Mac user has, and fish;
+      # bash-completion is Homebrew's 3.2-compatible one, which bash completion
+      # on a Mac needs.
+      - name: Shell integration and completion on macOS's shells
         run: |
-          brew install fish
-          go test -count=1 ./testing/integration/packaging/ -run TestShellIntegration
+          brew install fish bash-completion
+          go test -count=1 ./testing/integration/packaging/
 
   # Everything the release publishes is built here, once per architecture, on a
   # commit that has already passed the gate. The release workflow downloads these
