@@ -33,7 +33,7 @@ func readDocs(t *testing.T) int {
 	t.Helper()
 	root := filepath.Join("..", "..")
 	seen := 0
-	for _, dir := range []string{".", "design", "rules", "roadmap"} {
+	for _, dir := range []string{".", "design", "rules"} {
 		entries, err := os.ReadDir(filepath.Join(root, dir))
 		if err != nil {
 			t.Fatalf("reading %s: %v", dir, err)

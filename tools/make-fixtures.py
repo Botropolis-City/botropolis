@@ -58,7 +58,7 @@ FORCE_SCRUB_KEYS = {"bridgeSessionId", "pidDomain", "ownerAccountUuid", "ownerOr
 # and the PR's repository -- so these have to keep their shape, their nesting and
 # their distinctness while losing the names, which belong to an employer and are
 # not this project's to publish. Blanking them would change the city; keeping them
-# publishes an org chart. See roadmap/072.
+# publishes an org chart. See roadmap item 72 in the Botropolis-City meta repository.
 MAPPED_PATH_KEYS = {"cwd", "relocatedCwd"}
 MAPPED_SLUG_KEYS = {"gitBranch"}
 MAPPED_REPO_KEYS = {"prRepository"}

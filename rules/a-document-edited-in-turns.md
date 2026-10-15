@@ -12,5 +12,5 @@ Not for truth — every sentence had already been checked against the record —
 Two things make it worth naming rather than assuming.
 The tallies were the *last* contradiction found, and they were the most visible thing in the section: a number in the opening line, disagreeing with a number ten paragraphs down, in a section about numbers that disagree.
 Five careful passes went over it without either of us seeing it, because each pass was reading for whether *its* claim was right.
-And the same shape is already on the record outside this document: the roadmap inventory ([../roadmap/inventory-2026-09-29.md](../roadmap/inventory-2026-09-29.md)) listed items as open after they closed, and item 58 carried "34 re-cuts" in its filing while its own correction block a few paragraphs below read 18.
+And the same shape is already on the record outside this document: the roadmap inventory ([inventory-2026-09-29.md](https://github.com/Botropolis-City/meta/blob/main/roadmap/inventory-2026-09-29.md), in the meta repository) listed items as open after they closed, and item 58 carried "34 re-cuts" in its filing while its own correction block a few paragraphs below read 18.
 **Both were documents that had been edited correctly, repeatedly, and never read through.**

@@ -88,9 +88,6 @@ fi
 reviewed=$(cat <<'LIST'
 docs/screenshots/hero.png
 docs/botropolis.gif
-docs/references/chimney-skirt.png
-docs/references/curb-geometry.png
-docs/references/probe-tugs-aground.png
 packaging/botropolis.svg
 LIST
 )

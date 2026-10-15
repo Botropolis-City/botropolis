@@ -3,7 +3,7 @@
 This file is how the repository works.
 [README.md](README.md) is what Botropolis is and how to install it;
 [DESIGN.md](DESIGN.md) is what exists and the rules the work is held to;
-[ROADMAP.md](ROADMAP.md) is what is open.
+[ROADMAP.md](https://github.com/Botropolis-City/meta/blob/main/ROADMAP.md), in the Botropolis-City meta repository, is what is open.
 
 ## Layout
 
@@ -103,7 +103,8 @@ It exists so a diff shows which sentence changed.
 When you edit one sentence, change only that sentence's lines.
 Do not reflow the paragraph around it, and do not reformat a file in the same commit as a change to what it says.
 
-`make lint` runs `tools/check-docs`, which fails if a relative link does not resolve from its own file's directory, if a document is linked from nowhere, or if `ROADMAP.md`'s open table disagrees with the item files.
+`make lint` runs `tools/check-docs`, which fails if a relative link does not resolve from its own file's directory or if a document is linked from nowhere.
+The roadmap's own checks — status lines, the open table, numbering — live with the roadmap in the meta repository.
 
 ## Cutting a release
 

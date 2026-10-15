@@ -141,7 +141,7 @@ A waybar module, for example:
 "custom/botropolis": { "exec": "botropolis bar --watch", "return-type": "json", "on-click": "botropolis" }
 ```
 
-See [DESIGN.md](DESIGN.md) for the design and the rules, [ROADMAP.md](ROADMAP.md) for where it is going,
+See [DESIGN.md](DESIGN.md) for the design and the rules, [ROADMAP.md](https://github.com/Botropolis-City/meta/blob/main/ROADMAP.md) in the Botropolis-City meta repository for where it is going,
 and [docs/usage-profile.md](docs/usage-profile.md) for the numbers it is built around.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is how the repository works, [CHANGELOG.md](CHANGELOG.md) is what changed,

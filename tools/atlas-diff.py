@@ -23,7 +23,7 @@ import zlib
 
 # Bytes of decoded pixel that may differ in a page before the check
 # calls it a change. Measured on a no-op render; see
-# roadmap/065-a-no-op-render-reproduces-every-atlas.md.
+# roadmap item 65 in the Botropolis-City meta repository.
 DEFAULT_TOLERANCE = 400
 
 

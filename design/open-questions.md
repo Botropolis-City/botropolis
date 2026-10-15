@@ -1,6 +1,6 @@
 ## Open questions
 
-All settled; the decisions are in [../roadmap/design-open-questions.md](../roadmap/design-open-questions.md) and [../roadmap/art-direction.md](../roadmap/art-direction.md).
+All settled; the decisions are in the meta repository's [design-open-questions.md](https://github.com/Botropolis-City/meta/blob/main/roadmap/design-open-questions.md) and [art-direction.md](https://github.com/Botropolis-City/meta/blob/main/roadmap/art-direction.md).
 The history of each is kept here because it explains code that still exists.
 
 - **Foreground-started sessions.**
@@ -29,7 +29,7 @@ The history of each is kept here because it explains code that still exists.
   (`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` with `session_meta`, `turn_context`, `response_item` and `event_msg` lines);
   it is not trusted against the real format and a Cursor adapter is not planned.
 - **Sprites.**
-  Settled 2026-09-18 in [../roadmap/art-direction.md](../roadmap/art-direction.md): Kenney City Kits, Nature Kit, Space Kit, Car, Train and Watercraft kits,
+  Settled 2026-09-18 in [art-direction.md](https://github.com/Botropolis-City/meta/blob/main/roadmap/art-direction.md): Kenney City Kits, Nature Kit, Space Kit, Car, Train and Watercraft kits,
   pre-rendered from Blender to atlases by `tools/render-sprites`; workers are bots.
   Before that: milestone 5 shipped procedural shapes (vendoring third-party assets was Aria's call),
   then on 2026-09-17 three 16 px Kenney packs (Tiny Town, Tiny Factory, Roguelike Modern City),

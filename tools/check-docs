@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 # Verify the documentation structure holds: links resolve, citations are not
-# stale, every item declares a status, and ROADMAP.md's open table matches the
-# statuses the item files actually carry.
-#
-# The last check is the point of this script. A hand-maintained summary of
-# machine-checkable state always drifts, and this one did — see
-# rules/a-plausible-wrong-number.md.
+# stale, the indexes are not empty, and nothing is orphaned. The roadmap and its
+# checks moved to the Botropolis-City meta repository at r410.
 set -euo pipefail
 
 usage() {
@@ -16,9 +12,12 @@ Usage: tools/check-docs [--help]
 
 Checks, all against the working tree:
   1. every relative markdown link resolves from its own file's directory
-  2. no "§N" citation to the pre-r310 ROADMAP survives outside the dated inventory
-  3. every roadmap/NNN-*.md carries a status line under its title
-  4. ROADMAP.md's open table lists exactly the items whose status is Open
+  2. no "§N" citation to the pre-r310 ROADMAP survives
+  3. DESIGN.md, CLAUDE.md and README.md are not empty; design/ and rules/ hold documents
+  4. nothing in design/ or rules/ is linked from nowhere
+
+The roadmap's checks (status lines, the open table, numbering) run in the
+Botropolis-City meta repository, with the roadmap.
 
 Exit 0 if all four hold, 1 otherwise, naming every failure.
 USAGE

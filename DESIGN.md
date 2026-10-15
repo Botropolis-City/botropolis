@@ -62,7 +62,8 @@ Each of these was paid for by a specific mistake, and each is stated so it can b
 
 ## Where the rest is
 
-The plan and its open items are in [ROADMAP.md](ROADMAP.md), with one file per numbered item in [`roadmap/`](roadmap/).
+The plan and its open items are in the [Botropolis-City meta repository](https://github.com/Botropolis-City/meta): [ROADMAP.md](https://github.com/Botropolis-City/meta/blob/main/ROADMAP.md), with one file per numbered item in [`roadmap/`](https://github.com/Botropolis-City/meta/tree/main/roadmap).
+Working under the meta repository's root, that is `../ROADMAP.md`.
 Frames are in `docs/screenshots/`, cited by revision.
 
 This file was 877 lines before the split, holding the record, the rules and the cost tables together.

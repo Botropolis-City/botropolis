@@ -1,9 +1,0 @@
-# 5. The sidebar covers the map instead of reserving width
-
-**Fixed 2026-09-18 (`2f0db49`): chrome insets refit or slide the view, and survive the below-label-zoom fallback.**
-
-With `b` open, the storage district sits under the panel; the scene reserves the strip and footer but not the sidebar.
-
----
-
-Full investigation as originally filed: `git show 99cecc7:ROADMAP.md`
