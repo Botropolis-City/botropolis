@@ -1,6 +1,6 @@
 # 80. Botropolis does not run on macOS
 
-**Open. Filed 2026-10-15 (r393) at Aria's request: "We need to also support macOS". Aria's call — how it is distributed, and what it is verified on.**
+**Open. Filed 2026-10-15 (r393) at Aria's request: "We need to also support macOS". Decided by Aria the same day; nobody's call now — what is left is cutting 0.1.6, the tap's first publish, and the website's install tab.**
 
 Aria asked for it in those words.
 Nothing on the roadmap mentioned macOS or darwin before this item.
@@ -35,23 +35,40 @@ And it has to be checked first that Claude Code on macOS writes the same roster 
 **Out of scope for the shipped program:** `tools/measure-render` reads `/proc/<pid>/stat` and `smaps_rollup`, and `pkg/demo` reads `/proc/<pid>/cmdline` and films in a Linux container.
 They are development tools and can stay Linux-only, but item 69's CPU figure and items 61, 66 and 70's memory figures were measured with them, so none of those numbers transfers to a Mac.
 
-## The decision
+## Decided, 2026-10-15
 
-**How it is installed.**
-The release pipeline publishes packages, and the repo's rule is that installs go through a package manager, so a bare darwin tarball is not an install path.
-On macOS that means Homebrew, and there are two shapes:
-- **A formula in a tap**, `Botropolis-City/homebrew-tap`, that builds from the source tarball. Homebrew compiles it locally, so Gatekeeper never sees a downloaded binary and nothing needs signing.
-- **A cask or formula that downloads a prebuilt binary.** Smaller to install, but an unsigned binary fetched over the network is quarantined, and signing and notarising it needs an Apple Developer Program membership and a CI secret for it.
+Aria: *"We are already hosting deb and dnf registries in ../botropolis.city. Let's just add the tap there like we do for the linux packages. I don't have a mac, so best we can do for now is the ci and tap."*
 
-The first costs nothing and fits the existing pipeline: one more step in `release.yml` that bumps the formula's version and checksum.
-The daemon would ship as a `service do` block in the formula, which is how Homebrew writes a launchd agent, and `brew services start botropolis` replaces the `systemctl` line in `doctor`.
+So the tap is served from `pkg.botropolis.city/brew` beside the APT and RPM repositories, and the formula builds from source, so nothing needs Apple signing.
+Verification is the macOS CI runner and the tap's install test on it, and nothing more: nobody has opened the window on a Mac.
 
-**What it is verified on.**
-There is no Mac in the working arrangement, so nothing in this item can be looked at before it ships.
-CI can run the suite on `macos-latest`, which covers the code paths but not the window, the Metal driver or how a frame looks.
-Someone has to open the city on a Mac before it is called supported, and Aria judges frames.
+## What landed
 
-## What the fix touches
+| commit | what |
+| --- | --- |
+| `3590caa` | the attached probe reads `netstat -f unix -n` on macOS, one file per OS behind `UnixSocketConnected` |
+| `3e86480` | `control.Desktop`: `open`, `pbcopy`, Terminal.app over `osascript`; notifications over AppleScript; `doctor` per OS |
+| `ceb0bd1` | `test-macos` in CI, and `darwin-check` in `make lint` |
+| `345bf5c` | the tap: `tools/build-brew-tap`, `packaging/brew/`, the `packages` workflow's `tap`, `tap-macos` and `publish-tap` jobs |
+
+**The netstat reading is proven, not inferred.**
+The parser rested on BSD copying a listener's path onto each socket it accepts, which nobody here could check.
+`TestUnixSocketConnected` opens a real listener and dials it, and it passed on `macos-latest` (arm64) in run 38693896779.
+
+**The tap is proven on Linux Homebrew, and the macOS half runs at publish.**
+In `homebrew/brew:4.6.20` against a static server: `brew tap`, `brew install` (a source build), `brew test`, and `brew update` moving an existing tap from 0.1.4 to 0.1.5.
+R2 ignores the `?service=` query git opens with, so git falls back to its static protocol, checked against the live host.
+
+**Found on the way, and fixed:** the settings picker stores a terminal as `BOTROPOLIS_TERMINAL`, which was used verbatim, so picking alacritty on Linux ran it without `-e`. A lone known name there now gets its convention.
+
+## Still open
+
+1. **Cut 0.1.6.** No release contains the fixes above; a formula for 0.1.5 would build a city that reads every background session as unattended on a Mac.
+2. **The tap's first publish**: run `packages` by hand with `new_tap`. The automatic run after the release will fail its `tap` job, by design, because there is no published history to continue; APT and RPM publish regardless.
+3. **The website**: a macOS tab in `src/data/install.ts` and a tap check in `testing/acceptance/verify.sh`, after the publish, so neither points at a 404. The README's install section gains the same two lines then.
+4. **Unverified still:** that Claude Code on macOS writes a roster with a `ptySock` at all. Every fixture is a Linux path, and no Mac here has run it. If it does not, the probe is never asked and background sessions read as unattended for a different reason.
+
+## What the fix touched, as filed
 
 - `pkg/state/load.go`: an attached probe per platform behind the existing `Probes.Attached` seam, which `pkg/appd/daemon.go:81` already wires, so nothing above it moves. `load_test.go` writes a `/proc/net/unix`-shaped file and needs a darwin counterpart.
 - `pkg/control`: `Reveal`, `clipboards` and `knownTerminals` chosen by `runtime.GOOS`, with Terminal.app and iTerm2 added. `KnownTerminals` is quoted by `doctor` and by the error text in `errNoTerminal`.
