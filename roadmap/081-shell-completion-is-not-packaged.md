@@ -1,6 +1,6 @@
 # 81. Shell completion exists in the binary and is not packaged
 
-**Open. Filed 2026-10-15 (r406) at Aria's request: "shell completion for all the popular shells we support". Nobody's call — the generator is already built in, and what is left is shipping its output.**
+**Done 2026-10-15 (`e677a69`, released as 0.1.7 at `62c50ee`). Filed 2026-10-15 (r406) at Aria's request: "shell completion for all the popular shells we support".**
 
 Aria: *"shell completion for all the popular shells we support. I think our library has generation for this built in so we just need to build it into the packages."*
 
@@ -65,7 +65,7 @@ The Debian and Fedora install test (`testing/acceptance/packages/install-test.sh
 **One premise the item did not have:** cobra's bash script needs the bash-completion package (`_get_comp_words_by_ref`), found by the test's first run.
 That is inherent rather than a defect — `/usr/share/bash-completion/completions/` is only read through bash-completion — so the test loads it the way a user's shell does, CI installs it, and the README and the formula's caveats say so.
 
-## Left for the next release
+## Left for the next release (done the same day)
 
 The AUR packages are not built by nfpm and still say 0.1.5, so 0.1.6 never reached them.
 At the next AUR update:
@@ -82,3 +82,11 @@ At the next AUR update:
 - `botropolis-bin`: install the same three from the tarball's `completions/` directory, which exists from the first release after `e677a69`.
 
 The Debian and Fedora install tests assert the files after install, but they run only in a real `packages` publish, so they first run at that release.
+
+## Closed, 2026-10-15
+
+Released as **0.1.7** (`62c50ee`, run 38707120867), whose `packages` publish ran the Debian and Fedora install tests' completion checks for the first time, and passed.
+Both AUR packages were stepped through each version, published one at a time: `botropolis` 0.1.6 (`edf14d3`) and 0.1.7 with completion (`e959f16`), `botropolis-bin` 0.1.6 (`f766235`) and 0.1.7 with completion (`aa4d0c6`).
+Each was built with `makepkg` before it was pushed, and the 0.1.7 packages were checked to carry all three scripts; the source package's bash script completed `shell-init` through the packaged binary.
+
+**Not tested:** zsh completion is checked by registration, not by driving a completion, which needs a pty script.
