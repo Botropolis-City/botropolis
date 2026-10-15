@@ -42,13 +42,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Build the tap for the latest release
+      # A real run builds the latest release. A dry run builds this commit at
+      # its VERSION, so what it install-tests is the code about to be released.
+      - name: Build the tap
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
-          tools/build-brew-tap ${{ inputs.new_tap && '--new' || '' }} "${latest#v}" .brewtap/brew
-          echo "VERSION=${latest#v}" >> "$GITHUB_ENV"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            version=$(cat VERSION)
+            export SOURCE_URL="https://github.com/${GITHUB_REPOSITORY}/archive/${GITHUB_SHA}.tar.gz"
+          else
+            latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
+            version=${latest#v}
+          fi
+          tools/build-brew-tap ${{ inputs.new_tap && '--new' || '' }} "${version}" .brewtap/brew
+          echo "${version}" > .brewtap/version
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
 
       - name: Install from the built tap on Linux
         run: testing/acceptance/packages/brew-test.sh --tap .brewtap/brew "${VERSION}"
@@ -76,12 +85,8 @@ jobs:
         with:
           name: brew-tap
           path: .brewtap
-      - name: Install from the built tap on macOS
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          latest=$(gh release list -R "${GITHUB_REPOSITORY}" --limit 1 --json tagName -q '.[0].tagName')
-          testing/acceptance/packages/brew-test.sh --native --tap .brewtap/brew "${latest#v}"
+      - name: Install from the built tap on macOS, and run the daemon under launchd
+        run: testing/acceptance/packages/brew-test.sh --native --tap .brewtap/brew "$(cat .brewtap/version)"
 
   publish:
     if: ${{ !inputs.dry_run }}

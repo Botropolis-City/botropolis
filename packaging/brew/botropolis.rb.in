@@ -1,7 +1,8 @@
 class Botropolis < Formula
   desc "Every Claude Code session on this machine, drawn as a city"
   homepage "https://botropolis.city"
-  url "https://github.com/Botropolis-City/botropolis/archive/refs/tags/v@VERSION@.tar.gz"
+  url "@URL@"
+  version "@VERSION@"
   sha256 "@SHA256@"
   license "MIT"
 
@@ -37,6 +38,9 @@ class Botropolis < Formula
   service do
     run opt_bin/"botropolisd"
     keep_alive true
+    environment_variables PATH: std_service_path_env
+    log_path var/"log/botropolisd.log"
+    error_log_path var/"log/botropolisd.log"
   end
 
   test do

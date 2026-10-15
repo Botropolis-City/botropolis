@@ -99,7 +99,7 @@ func NewViper() *viper.Viper {
 
 func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyHome, "", "home directory holding .claude (default: $HOME)")
-	flags.String(KeySocket, "", "daemon socket (default: $XDG_RUNTIME_DIR/botropolis/botropolis.sock)")
+	flags.String(KeySocket, "", "daemon socket (default: "+proto.SocketPath()+")")
 	flags.Int(KeyParkedDays, DefaultParkedDays, "how many days of parked sessions to catalogue (0 disables)")
 	flags.String(KeyProjection, DefaultProjection, "how the city is drawn: iso or top")
 	flags.Float64(KeyRenderScale, 0, "chrome and pixel scale (default: follow the display)")

@@ -25,7 +25,8 @@ right exactly once.
 
 Environment:
   PKG_BASE_URL   where the tap is published (default: https://pkg.botropolis.city)
-  SOURCE_URL     the source archive (default: GitHub's for vVERSION)
+  SOURCE_URL     the source archive (default: GitHub's for vVERSION). A dry
+                 run points it at a commit's archive, to test unreleased code
 USAGE
 }
 
@@ -63,7 +64,7 @@ elif ! git_ clone -q "$base/brew" "$work/tap" 2>"$work/clone.err"; then
 fi
 
 mkdir -p "$work/tap/Formula"
-sed -e "s/@VERSION@/${version}/g" -e "s/@SHA256@/${sha}/g" "$template" >"$work/tap/Formula/botropolis.rb"
+sed -e "s|@URL@|${source_url}|g" -e "s/@VERSION@/${version}/g" -e "s/@SHA256@/${sha}/g" "$template" >"$work/tap/Formula/botropolis.rb"
 git_ -C "$work/tap" add Formula/botropolis.rb
 if git_ -C "$work/tap" diff --cached --quiet; then
   echo "the tap already has botropolis ${version}" >&2

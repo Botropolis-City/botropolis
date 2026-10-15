@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -17,21 +16,28 @@ import (
 )
 
 func TestSocketPath(t *testing.T) {
-	t.Run("when XDG_RUNTIME_DIR is set", func(t *testing.T) {
-		t.Setenv("XDG_RUNTIME_DIR", "/run/user/1000")
-
-		t.Run("it should live under it", func(t *testing.T) {
-			assert.Equal(t, "/run/user/1000/botropolis/botropolis.sock", proto.SocketPath())
+	uid := strconv.Itoa(os.Getuid())
+	env := func(values map[string]string) func(string) string {
+		return func(k string) string { return values[k] }
+	}
+	cases := []struct {
+		scenario string
+		goos     string
+		env      map[string]string
+		want     string
+	}{
+		{"when the OS is linux and XDG_RUNTIME_DIR is set", "linux", map[string]string{"XDG_RUNTIME_DIR": "/run/user/1000"}, "/run/user/1000/botropolis/botropolis.sock"},
+		{"when the OS is linux and XDG_RUNTIME_DIR is not set", "linux", map[string]string{"TMPDIR": "/var/tmp"}, "/var/tmp/botropolis-" + uid + "/botropolis.sock"},
+		{"when the OS is darwin", "darwin", map[string]string{"TMPDIR": "/var/folders/xy/T/"}, "/Users/aria/Library/Caches/botropolis/botropolis.sock"},
+		{"when the OS is darwin and XDG_RUNTIME_DIR is set in the shell but not under launchd", "darwin", map[string]string{"XDG_RUNTIME_DIR": "/tmp/xdg"}, "/Users/aria/Library/Caches/botropolis/botropolis.sock"},
+	}
+	for _, c := range cases {
+		t.Run(c.scenario, func(t *testing.T) {
+			t.Run("it should put the socket where the daemon and every client agree", func(t *testing.T) {
+				assert.Equal(t, c.want, proto.SocketPathFor(c.goos, env(c.env), "/Users/aria"))
+			})
 		})
-	})
-
-	t.Run("when XDG_RUNTIME_DIR is not set", func(t *testing.T) {
-		t.Setenv("XDG_RUNTIME_DIR", "")
-
-		t.Run("it should fall back to a per-user directory under the temp dir", func(t *testing.T) {
-			assert.Equal(t, filepath.Join(os.TempDir(), "botropolis-"+strconv.Itoa(os.Getuid()), "botropolis.sock"), proto.SocketPath())
-		})
-	})
+	}
 }
 
 func TestCodec(t *testing.T) {

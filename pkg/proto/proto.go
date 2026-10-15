@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -46,10 +47,26 @@ type Update struct {
 }
 
 func SocketPath() string {
-	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
+	home, _ := os.UserHomeDir()
+	return SocketPathFor(runtime.GOOS, os.Getenv, home)
+}
+
+// SocketPathFor is where the daemon listens and every client dials, so it
+// must come out the same in both. On macOS the daemon runs under launchd,
+// which hands it neither the shell's TMPDIR nor anything XDG, so the path
+// there depends on HOME alone, which launchd does set.
+func SocketPathFor(goos string, getenv func(string) string, home string) string {
+	if goos == "darwin" {
+		return filepath.Join(home, "Library", "Caches", socketDir, socketName)
+	}
+	if dir := getenv("XDG_RUNTIME_DIR"); dir != "" {
 		return filepath.Join(dir, socketDir, socketName)
 	}
-	return filepath.Join(os.TempDir(), socketDir+"-"+strconv.Itoa(os.Getuid()), socketName)
+	tmp := getenv("TMPDIR")
+	if tmp == "" {
+		tmp = "/tmp"
+	}
+	return filepath.Join(tmp, socketDir+"-"+strconv.Itoa(os.Getuid()), socketName)
 }
 
 func Write(w io.Writer, v any) error {

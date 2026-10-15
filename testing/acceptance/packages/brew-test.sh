@@ -14,7 +14,10 @@ VERSION.
                the way the bucket does: as static files
   --base URL   use a published tap instead, such as https://pkg.botropolis.city
   --native     use this machine's brew rather than a Linux container; this is
-               how the macOS CI job runs it
+               how the macOS CI job runs it. It also starts the daemon with
+               brew services, which is launchd on a Mac, and requires
+               botropolis doctor to reach it: launchd hands the daemon a
+               different environment from the shell the client runs in
 
 Environment:
   BREW_IMAGE   the container (default: homebrew/brew:4.6.20)
@@ -53,6 +56,22 @@ if ((native)); then
     for _ in $(seq 30); do curl -fsS "$base/brew/HEAD" >/dev/null 2>&1 && break; sleep 1; done
   fi
   got=$(BASE=$base bash -euc "$install" 2>&1 | tail -1)
+  if [[ $got == "botropolis $version" ]]; then
+    trap 'kill "${server:-}" 2>/dev/null; brew services stop botropolis >/dev/null 2>&1; brew untap botropolis-city/botropolis >/dev/null 2>&1' EXIT
+    brew services start botropolis >/dev/null 2>&1
+    daemon=
+    for _ in $(seq 30); do
+      daemon=$(botropolis doctor 2>&1 | awk '$1 == "daemon"')
+      [[ $daemon == *" ok "* ]] && break
+      sleep 1
+    done
+    if [[ $daemon != *" ok "* ]]; then
+      printf '  \033[0;31m✗\033[0m brew services started botropolisd but botropolis doctor says: %s\n' "$daemon"
+      tail -20 "$(brew --prefix)/var/log/botropolisd.log" 2>/dev/null | sed 's/^/    /'
+      exit 1
+    fi
+    printf '  \033[0;32m✓\033[0m brew services runs botropolisd under launchd, and the client reaches it: %s\n' "$(echo "$daemon" | tr -s ' ')"
+  fi
 else
   net="brewtest-$$"
   cleanup() {
