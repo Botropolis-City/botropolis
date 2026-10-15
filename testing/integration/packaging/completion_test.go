@@ -34,12 +34,14 @@ var completions = []completion{
 // bashCompletion finds the bash-completion package's loader. Cobra's bash
 // script is built on it, and the directory packages install into is only
 // read through it, so any bash that completes anything has it loaded.
+// Homebrew's profile.d wrapper is skipped: it only loads the script in an
+// interactive shell, which it judges by PS1.
 func bashCompletion(t *testing.T) string {
 	t.Helper()
 	candidates := []string{"/usr/share/bash-completion/bash_completion"}
 	if prefix, err := exec.Command("brew", "--prefix").Output(); err == nil {
 		p := strings.TrimSpace(string(prefix))
-		candidates = append(candidates, p+"/etc/profile.d/bash_completion.sh", p+"/etc/bash_completion", p+"/share/bash-completion/bash_completion")
+		candidates = append(candidates, p+"/etc/bash_completion", p+"/share/bash-completion/bash_completion")
 	}
 	for _, c := range candidates {
 		if _, err := os.Stat(c); err == nil {
@@ -74,7 +76,9 @@ func TestCompletionScripts(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(dir, name), script, 0o600))
 
 			cmd := exec.Command(c.argv[0], append(c.argv[1:], c.ask)...)
-			cmd.Env = append(os.Environ(), "BASH_COMPLETION="+bashCompletion(t),
+			// PS1 because bash-completion 1.x, the one for macOS's bash 3.2,
+			// returns early outside an interactive shell, judged by PS1.
+			cmd.Env = append(os.Environ(), "BASH_COMPLETION="+bashCompletion(t), "PS1=$ ",
 				"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
 				"SCRIPT="+filepath.Join(dir, name),
 				"TMPDIR="+t.TempDir(),

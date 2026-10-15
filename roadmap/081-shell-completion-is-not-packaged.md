@@ -54,3 +54,31 @@ Each shell can be asked what it would complete, without a terminal:
 
 That fits beside `testing/integration/packaging/shell_test.go`, which already runs all three shells in CI on Linux and macOS and fails rather than skips a missing one.
 The Debian and Fedora install test (`testing/acceptance/packages/install-test.sh`) and the brew test can each assert the installed files are where their shell looks.
+
+## What landed, 2026-10-15 (`e677a69`)
+
+- `make completions` writes `bin/completions/{botropolis.bash,_botropolis,botropolis.fish}` with the host's toolchain, unsetting `GOARCH`; the three `package-*` targets and `tarball` depend on it.
+- `packaging/nfpm.yaml` installs them at the paths in the table above; the tarball carries them in `completions/`; the formula calls `generate_completions_from_executable(bin/"botropolis", "completion", shells: [:bash, :zsh, :fish])`.
+- `pkg/cli/completion.go`: `attach` and `stop` complete live background job ids, `rm` any background job id, `resume` parked session ids, each titled, all with `ShellCompDirectiveNoFileComp`; `new` completes directories only. `pkg/cli/completion_test.go` drives them through cobra's `__complete`, as each shell's script does.
+- `testing/integration/packaging/completion_test.go` asks bash, zsh and fish what `botropolis shell-` completes to through the built binary, on Linux and both macOS runners.
+
+**One premise the item did not have:** cobra's bash script needs the bash-completion package (`_get_comp_words_by_ref`), found by the test's first run.
+That is inherent rather than a defect — `/usr/share/bash-completion/completions/` is only read through bash-completion — so the test loads it the way a user's shell does, CI installs it, and the README and the formula's caveats say so.
+
+## Left for the next release
+
+The AUR packages are not built by nfpm and still say 0.1.5, so 0.1.6 never reached them.
+At the next AUR update:
+
+- `botropolis` (source): in `package()`, after the binaries,
+
+  ```
+  install -d "${pkgdir}/usr/share/bash-completion/completions" "${pkgdir}/usr/share/zsh/site-functions" "${pkgdir}/usr/share/fish/vendor_completions.d"
+  ./bin/botropolis completion bash > "${pkgdir}/usr/share/bash-completion/completions/botropolis"
+  ./bin/botropolis completion zsh  > "${pkgdir}/usr/share/zsh/site-functions/_botropolis"
+  ./bin/botropolis completion fish > "${pkgdir}/usr/share/fish/vendor_completions.d/botropolis.fish"
+  ```
+
+- `botropolis-bin`: install the same three from the tarball's `completions/` directory, which exists from the first release after `e677a69`.
+
+The Debian and Fedora install tests assert the files after install, but they run only in a real `packages` publish, so they first run at that release.
