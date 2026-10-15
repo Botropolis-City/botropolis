@@ -118,3 +118,20 @@ func TestNotify(t *testing.T) {
 		})
 	})
 }
+
+func TestNotifierFor(t *testing.T) {
+	cases := []struct {
+		goos string
+		want []string
+	}{
+		{"linux", []string{"notify-send", "--app-name=botropolis", "--urgency=normal", "Job A", `says "hi"`}},
+		{"darwin", []string{"osascript", "-e", `display notification "says \"hi\"" with title "Job A"`}},
+	}
+	for _, c := range cases {
+		t.Run("when the desktop is "+c.goos, func(t *testing.T) {
+			t.Run("it should build that desktop's notification command", func(t *testing.T) {
+				assert.Equal(t, c.want, commands.NotifierFor(c.goos).Argv("Job A", `says "hi"`))
+			})
+		})
+	}
+}

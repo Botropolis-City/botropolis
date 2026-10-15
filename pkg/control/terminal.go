@@ -2,15 +2,7 @@ package control
 
 import (
 	"path/filepath"
-	"strings"
 )
-
-var knownTerminals = []string{"foot", "kitty", "alacritty", "wezterm", "gnome-terminal", "konsole", "terminator", "xterm"}
-
-// KnownTerminals is the list tried when nothing names a terminal.
-func KnownTerminals() []string {
-	return append([]string(nil), knownTerminals...)
-}
 
 var terminalPrefix = map[string][]string{
 	"foot":           {},
@@ -24,22 +16,23 @@ var terminalPrefix = map[string][]string{
 	"terminator": {"-x"},
 }
 
-func TerminalCommand(getenv func(string) string, onPath func(string) bool, command []string) ([]string, error) {
-	if custom := strings.Fields(getenv("BOTROPOLIS_TERMINAL")); len(custom) > 0 {
-		return append(custom, command...), nil
-	}
-	if terminal := getenv("TERMINAL"); terminal != "" {
-		return withConvention(terminal, command), nil
-	}
-	for _, terminal := range knownTerminals {
-		if onPath(terminal) {
-			return withConvention(terminal, command), nil
-		}
-	}
-	return nil, errNoTerminal
+// scriptedTerminals are launched through something else, so their
+// argv[0] is not their own name.
+var scriptedTerminals = map[string]func(command []string) []string{
+	"Terminal":     appleTerminal,
+	"Terminal.app": appleTerminal,
+}
+
+func knownConvention(terminal string) bool {
+	_, scripted := scriptedTerminals[terminal]
+	_, prefixed := terminalPrefix[filepath.Base(terminal)]
+	return scripted || prefixed
 }
 
 func withConvention(terminal string, command []string) []string {
+	if script, ok := scriptedTerminals[terminal]; ok {
+		return script(command)
+	}
 	prefix, known := terminalPrefix[filepath.Base(terminal)]
 	if !known {
 		prefix = []string{"-e"}

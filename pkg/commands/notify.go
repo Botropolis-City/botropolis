@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -12,10 +13,27 @@ type Notifier interface {
 	Notify(title, body string) error
 }
 
-type NotifySend struct{}
+// CommandNotifier notifies by running the command Argv builds.
+type CommandNotifier struct {
+	Argv func(title, body string) []string
+}
 
-func (NotifySend) Notify(title, body string) error {
-	return exec.Command("notify-send", "--app-name=botropolis", "--urgency=normal", title, body).Run()
+func (n CommandNotifier) Notify(title, body string) error {
+	argv := n.Argv(title, body)
+	return exec.Command(argv[0], argv[1:]...).Run()
+}
+
+// NotifierFor returns the desktop notifier for a GOOS: notify-send, or
+// AppleScript on macOS, which has no notification command of its own.
+func NotifierFor(goos string) CommandNotifier {
+	if goos == "darwin" {
+		return CommandNotifier{Argv: func(title, body string) []string {
+			return []string{"osascript", "-e", `display notification "` + control.AppleScriptString(body) + `" with title "` + control.AppleScriptString(title) + `"`}
+		}}
+	}
+	return CommandNotifier{Argv: func(title, body string) []string {
+		return []string{"notify-send", "--app-name=botropolis", "--urgency=normal", title, body}
+	}}
 }
 
 type Notify struct {

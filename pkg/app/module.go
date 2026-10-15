@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -141,7 +142,7 @@ func (s *services) Bar(cfg *config.Config) cli.BarRunner {
 
 func (s *services) Notify(cfg *config.Config) cli.NotifyRunner {
 	feed := commands.Feed{Socket: cfg.Socket, Source: s.source(cfg), Poll: 2 * time.Second, Retry: 5 * time.Second}
-	n := commands.NewNotify(feed.Run, commands.NotifySend{})
+	n := commands.NewNotify(feed.Run, commands.NotifierFor(runtime.GOOS))
 	n.OnError = func(err error) { fmt.Fprintf(os.Stderr, "botropolis notify: %v\n", err) }
 	return n
 }
@@ -149,8 +150,9 @@ func (s *services) Notify(cfg *config.Config) cli.NotifyRunner {
 func (s *services) Doctor(cfg *config.Config) cli.DoctorRunner {
 	return commands.Doctor{
 		Home: cfg.Home, Socket: cfg.Socket, Terminal: cfg.Terminal, HookCommand: cfg.HookCommand, CodexHome: cfg.CodexHome,
-		Getenv: os.Getenv,
-		OnPath: func(name string) bool { _, err := exec.LookPath(name); return err == nil },
+		Desktop: control.Native(),
+		Getenv:  os.Getenv,
+		OnPath:  func(name string) bool { _, err := exec.LookPath(name); return err == nil },
 		Dial: func(sock string) error {
 			client, err := proto.Dial(sock)
 			if err != nil {
@@ -347,7 +349,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyProjection, Label: "projection", Options: []string{"iso", "top"}, Value: cfg.Projection},
 		{Key: config.KeyDetail, Label: "detail", Options: []string{"full", "plain"}, Value: cfg.Detail},
 		{Key: config.KeyParkedDays, Label: "parked days", Options: withValue([]string{"0", "1", "3", "7", "14", "30", "90"}, strconv.Itoa(cfg.ParkedDays)), Value: strconv.Itoa(cfg.ParkedDays)},
-		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.KnownTerminals()...), terminal), Value: terminal},
+		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 	})
 }

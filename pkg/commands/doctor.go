@@ -33,6 +33,7 @@ type Doctor struct {
 	Terminal    string
 	HookCommand string
 	CodexHome   string
+	Desktop     control.Desktop
 	Getenv      func(string) string
 	OnPath      func(string) bool
 	Dial        func(sock string) error
@@ -42,7 +43,7 @@ type Doctor struct {
 func (d Doctor) Run() []Check {
 	var checks []Check
 	if err := d.Dial(d.Socket); err != nil {
-		checks = append(checks, Check{"daemon", CheckWarn, "not reachable at " + d.Socket, "systemctl --user enable --now botropolisd; without it every client scans ~/.claude itself"})
+		checks = append(checks, Check{"daemon", CheckWarn, "not reachable at " + d.Socket, d.daemonStart() + "; without it every client scans ~/.claude itself"})
 	} else {
 		checks = append(checks, Check{"daemon", CheckOK, "answering at " + d.Socket, ""})
 	}
@@ -62,7 +63,7 @@ func (d Doctor) Run() []Check {
 		}
 		return d.Getenv(key)
 	}
-	if argv, err := control.TerminalCommand(getenv, d.OnPath, []string{"claude", "attach", "<id>"}); err != nil {
+	if argv, err := d.Desktop.TerminalCommand(getenv, d.OnPath, []string{"claude", "attach", "<id>"}); err != nil {
 		checks = append(checks, Check{"terminal", CheckFail, "none found", "set terminal in the config or BOTROPOLIS_TERMINAL / TERMINAL; attach opens the session in it"})
 	} else {
 		checks = append(checks, Check{"terminal", CheckOK, strings.Join(argv, " "), ""})
@@ -87,6 +88,8 @@ func (d Doctor) Run() []Check {
 	}
 
 	switch {
+	case d.Desktop.OS == "darwin":
+		checks = append(checks, Check{"display", CheckOK, "macOS", ""})
 	case d.Getenv("WAYLAND_DISPLAY") != "" && d.Getenv("DISPLAY") != "":
 		checks = append(checks, Check{"display", CheckOK, "Wayland with XWayland", "the city runs under XWayland (Ebitengine via GLFW/X11); float it by WM_CLASS botropolis as on X11"})
 	case d.Getenv("WAYLAND_DISPLAY") != "":
@@ -97,6 +100,13 @@ func (d Doctor) Run() []Check {
 		checks = append(checks, Check{"display", CheckWarn, "none", "the city needs one; status, tui, bar and notify work without"})
 	}
 	return checks
+}
+
+func (d Doctor) daemonStart() string {
+	if d.Desktop.OS == "darwin" {
+		return "brew services start botropolis"
+	}
+	return "systemctl --user enable --now botropolisd"
 }
 
 // Report prints the checks as a table with a hint for anything short of ok.

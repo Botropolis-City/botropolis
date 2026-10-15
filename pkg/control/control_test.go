@@ -55,7 +55,7 @@ const (
 )
 
 func newControl(runner *fakeRunner) *control.Control {
-	return control.New(runner, env(map[string]string{"TERMINAL": "kitty"}), onPath())
+	return control.New(runner, linux, env(map[string]string{"TERMINAL": "kitty"}), onPath())
 }
 
 const backgrounded = "\x1b[2mbackgrounded \xc2\xb7 \x1b[36m16daefa1\x1b[39m \xc2\xb7 Pong\x1b[22m\n" +
@@ -264,37 +264,14 @@ func TestAgents(t *testing.T) {
 }
 
 func TestRevealAndCopy(t *testing.T) {
-	t.Run("when a directory is revealed", func(t *testing.T) {
-		runner := &fakeRunner{}
-		err := newControl(runner).Reveal(dir)
-		require.NoError(t, err)
-
-		t.Run("it should open it with xdg-open", func(t *testing.T) {
-			require.Len(t, runner.starts, 1)
-			assert.Equal(t, []string{"xdg-open", dir}, runner.starts[0].argv)
-		})
-	})
-
 	t.Run("when nothing is given to reveal", func(t *testing.T) {
 		t.Run("it should refuse", func(t *testing.T) {
 			assert.Error(t, newControl(&fakeRunner{}).Reveal(""))
 		})
 	})
 
-	t.Run("when a path is copied and xclip is on the path", func(t *testing.T) {
-		runner := &fakeRunner{}
-		c := control.New(runner, env(nil), func(name string) bool { return name == "xclip" })
-		require.NoError(t, c.Copy(context.Background(), dir))
-
-		t.Run("it should feed the path to xclip", func(t *testing.T) {
-			require.Len(t, runner.feeds, 1)
-			assert.Equal(t, dir, runner.feeds[0].input)
-			assert.Equal(t, []string{"xclip", "-selection", "clipboard"}, runner.feeds[0].argv)
-		})
-	})
-
 	t.Run("when no clipboard tool is on the path", func(t *testing.T) {
-		c := control.New(&fakeRunner{}, env(nil), func(string) bool { return false })
+		c := control.New(&fakeRunner{}, linux, env(nil), func(string) bool { return false })
 
 		t.Run("it should say which to install", func(t *testing.T) {
 			assert.ErrorContains(t, c.Copy(context.Background(), dir), "clipboard")

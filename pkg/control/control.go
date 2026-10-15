@@ -31,13 +31,14 @@ type Runner interface {
 }
 
 type Control struct {
-	runner Runner
-	getenv func(string) string
-	onPath func(string) bool
+	runner  Runner
+	desktop Desktop
+	getenv  func(string) string
+	onPath  func(string) bool
 }
 
-func New(runner Runner, getenv func(string) string, onPath func(string) bool) *Control {
-	return &Control{runner: runner, getenv: getenv, onPath: onPath}
+func New(runner Runner, desktop Desktop, getenv func(string) string, onPath func(string) bool) *Control {
+	return &Control{runner: runner, desktop: desktop, getenv: getenv, onPath: onPath}
 }
 
 func Default(terminal string) *Control {
@@ -47,7 +48,7 @@ func Default(terminal string) *Control {
 		}
 		return os.Getenv(key)
 	}
-	return New(execRunner{}, getenv, func(name string) bool {
+	return New(execRunner{}, Native(), getenv, func(name string) bool {
 		_, err := exec.LookPath(name)
 		return err == nil
 	})
@@ -139,7 +140,7 @@ func (c *Control) Attach(id string) error {
 	if err != nil {
 		return err
 	}
-	argv, err := TerminalCommand(c.getenv, c.onPath, []string{claudeBinary, "attach", jobID})
+	argv, err := c.desktop.TerminalCommand(c.getenv, c.onPath, []string{claudeBinary, "attach", jobID})
 	if err != nil {
 		return err
 	}
@@ -151,24 +152,17 @@ func (c *Control) Reveal(dir string) error {
 	if dir == "" {
 		return errors.New("nothing to reveal")
 	}
-	return c.runner.Start("", "xdg-open", dir)
-}
-
-// clipboards are the tools tried, first on PATH wins.
-var clipboards = [][]string{
-	{"wl-copy"},
-	{"xclip", "-selection", "clipboard"},
-	{"xsel", "--clipboard", "--input"},
+	return c.runner.Start("", c.desktop.Opener, dir)
 }
 
 // Copy puts text on the clipboard through whichever tool is installed.
 func (c *Control) Copy(ctx context.Context, text string) error {
-	for _, tool := range clipboards {
+	for _, tool := range c.desktop.Clipboards {
 		if c.onPath(tool[0]) {
 			return c.runner.Feed(ctx, text, tool[0], tool[1:]...)
 		}
 	}
-	return errors.New("no clipboard tool found: install wl-clipboard, xclip or xsel")
+	return errors.New("no clipboard tool found: " + c.desktop.ClipboardHint)
 }
 
 func (c *Control) Stop(ctx context.Context, id string) error {

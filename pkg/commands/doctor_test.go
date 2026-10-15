@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/control"
 )
 
 func doctorFor(t *testing.T, hooked bool, env map[string]string, onPath []string, dial error) commands.Doctor {
@@ -26,9 +27,10 @@ func doctorFor(t *testing.T, hooked bool, env map[string]string, onPath []string
 	}
 	return commands.Doctor{
 		Home: home, Socket: "/run/none.sock", HookCommand: "botropolis-hook", CodexHome: filepath.Join(home, ".codex"),
-		Getenv: func(k string) string { return env[k] },
-		OnPath: func(n string) bool { return path[n] },
-		Dial:   func(string) error { return dial },
+		Desktop: control.DesktopFor("linux"),
+		Getenv:  func(k string) string { return env[k] },
+		OnPath:  func(n string) bool { return path[n] },
+		Dial:    func(string) error { return dial },
 	}
 }
 
@@ -112,6 +114,26 @@ func TestDoctor(t *testing.T) {
 			c := checkNamed(checks, "display")
 			assert.Equal(t, commands.CheckWarn, c.Status)
 			assert.Contains(t, c.Hint, "status")
+		})
+	})
+
+	t.Run("when the desktop is macOS", func(t *testing.T) {
+		t.Run("and the daemon is down, nothing sets DISPLAY and only osascript is on the path", func(t *testing.T) {
+			d := doctorFor(t, true, nil, []string{"claude", "osascript"}, errors.New("connection refused"))
+			d.Desktop = control.DesktopFor("darwin")
+			checks := d.Run()
+
+			t.Run("it should hint at the Homebrew service", func(t *testing.T) {
+				assert.Contains(t, checkNamed(checks, "daemon").Hint, "brew services start botropolis")
+			})
+
+			t.Run("it should pass the display", func(t *testing.T) {
+				assert.Equal(t, commands.CheckOK, checkNamed(checks, "display").Status)
+			})
+
+			t.Run("it should pass the terminal through Terminal", func(t *testing.T) {
+				assert.Equal(t, commands.CheckOK, checkNamed(checks, "terminal").Status)
+			})
 		})
 	})
 }
