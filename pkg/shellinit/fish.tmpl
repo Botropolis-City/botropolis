@@ -1,0 +1,37 @@
+# botropolis shell integration for fish. In ~/.config/fish/config.fish:
+#
+#   botropolis shell-init fish | source
+#
+# Makes a plain `claude` (or `claude "prompt"`) from an interactive shell start
+# the session in the background and attach to it, so closing the terminal
+# parks the session instead of killing it.  Anything that starts with a flag
+# or is a subcommand (`claude attach`, `claude --resume`, `claude agents`, ...)
+# goes straight to the real CLI.
+#
+# `claude --bg` cannot show the trust prompt, so in a directory nobody has
+# trusted yet `botropolis new` exits 3 and the first session runs in the
+# foreground instead.
+
+function claude
+    if isatty stdin; and isatty stdout; and begin
+            test (count $argv) -eq 0
+            or begin
+                not string match -q -- '-*' $argv[1]
+                and not contains -- $argv[1] {{join .Subcommands " "}}
+            end
+        end
+        set -l id (botropolis new $PWD $argv)
+        set -l rc $status
+        switch $rc
+            case 0
+                command claude attach $id
+            case 3
+                echo "botropolis: starting this one in the foreground so claude can ask whether to trust $PWD" >&2
+                command claude $argv
+            case '*'
+                return $rc
+        end
+    else
+        command claude $argv
+    end
+end

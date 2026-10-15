@@ -30,7 +30,7 @@ There is no TCP listener and no HTTP server.
 
 **Sessions are started through the `claude` CLI**, never by writing to its state directly.
 `botropolis new` shells out to `claude --bg`;
-the shell integration in `packaging/botropolis.bash` wraps the `claude` command in your interactive shell and falls through to the real CLI for anything it does not handle.
+the shell integration (`botropolis shell-init`, from `pkg/shellinit/`) wraps the `claude` command in your interactive shell and falls through to the real CLI for anything it does not handle.
 
 **The usage probe is fenced.**
 Refreshing usage runs `claude -p "/usage"`, which writes a transcript.

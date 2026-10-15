@@ -1,35 +1,4 @@
-# Source from ~/.bashrc:  . /usr/share/botropolis/botropolis.bash
-#
-# Makes a plain `claude` (or `claude "prompt"`) from an interactive shell start
-# the session in the background and attach to it, so closing the terminal
-# parks the session instead of killing it.  Anything that starts with a flag
-# or is a subcommand (`claude attach`, `claude --resume`, `claude agents`, ...)
-# goes straight to the real CLI.
-#
-# `claude --bg` cannot show the trust prompt, so in a directory nobody has
-# trusted yet `botropolis new` exits 3 and the first session runs in the
-# foreground instead.  Once the prompt is accepted, later ones go to the
-# background as usual.
-
-claude() {
-    if [ -t 0 ] && [ -t 1 ] && { [ $# -eq 0 ] || [ "${1#-}" = "$1" ] && ! _botropolis_is_subcommand "$1"; }; then
-        local id rc
-        id=$(botropolis new "$PWD" "$@")
-        rc=$?
-        case $rc in
-            0) command claude attach "$id" ;;
-            3) echo "botropolis: starting this one in the foreground so claude can ask whether to trust $PWD" >&2
-               command claude "$@" ;;
-            *) return $rc ;;
-        esac
-    else
-        command claude "$@"
-    fi
-}
-
-_botropolis_is_subcommand() {
-    case "$1" in
-        agents|attach|logs|stop|rm|mcp|plugin|config|update|doctor|auth|login|logout|install|setup-token|remote-control) return 0 ;;
-        *) return 1 ;;
-    esac
-}
+# Kept for ~/.bashrc files that source this path. New setups should use
+#   eval "$(botropolis shell-init bash)"
+# which is the same thing, and has zsh and fish siblings.
+eval "$(botropolis shell-init bash)"

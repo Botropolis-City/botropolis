@@ -20,6 +20,20 @@ class Botropolis < Formula
                                           "pkg/assets/kenney/README.md" => "kenney-packs.md"
   end
 
+  def caveats
+    <<~EOS
+      Start the daemon and register the hooks:
+        brew services start botropolis
+        botropolis install-hooks
+
+      Then one line in your shell's startup file, so a plain `claude` becomes a
+      background session the city can see:
+        zsh   ~/.zshrc                    eval "$(botropolis shell-init zsh)"
+        bash  ~/.bashrc                   eval "$(botropolis shell-init bash)"
+        fish  ~/.config/fish/config.fish  botropolis shell-init fish | source
+    EOS
+  end
+
   service do
     run opt_bin/"botropolisd"
     keep_alive true

@@ -10,7 +10,10 @@ Botropolis is installed. Three steps to finish:
 
   systemctl --user enable --now botropolisd
   botropolis install-hooks
-  echo 'source /usr/share/botropolis/botropolis.bash' >> ~/.bashrc
+  echo 'eval "$(botropolis shell-init bash)"' >> ~/.bashrc
+
+(zsh: the same with zsh, in ~/.zshrc; fish: `botropolis shell-init fish | source`
+in ~/.config/fish/config.fish.)
 
 Then `botropolis` opens the city, and `botropolis doctor` says what is missing.
 
