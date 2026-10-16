@@ -21,6 +21,7 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
@@ -219,6 +220,13 @@ type Game struct {
 	finderRect  city.Rect
 	finderCaret city.Rect
 	ime         bool
+	// search finds sessions by what was said in them, from the daemon
+	// or an index the city builds; dispatch runs it off the frame.
+	search   func(find.Query) ([]find.Hit, error)
+	dispatch func(func())
+	// findAtOnce searches without waiting for typing to pause, for
+	// scripted frames.
+	findAtOnce bool
 	// query is the map's filter; scriptedRune is a typed character from
 	// --keys; scriptedShift and scriptedCtrl are a shift or Ctrl the
 	// script holds with this frame's key.

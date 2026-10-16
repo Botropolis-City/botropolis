@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
@@ -21,6 +22,11 @@ type Find struct {
 	home   string
 	source SnapshotSource
 	now    func() time.Time
+
+	// index is kept between searches, for a city with no daemon, so each
+	// search reads only what changed since the last.
+	mu    sync.Mutex
+	index *find.Index
 }
 
 func NewFind(socket, home string, source SnapshotSource, now func() time.Time) *Find {
@@ -33,7 +39,12 @@ func (f *Find) Search(q find.Query) ([]find.Hit, error) {
 		defer func() { _ = client.Close() }()
 		return client.Find(q)
 	}
-	ix := find.New(f.home)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.index == nil {
+		f.index = find.New(f.home)
+	}
+	ix := f.index
 	if err := ix.Refresh(); err != nil {
 		return nil, err
 	}

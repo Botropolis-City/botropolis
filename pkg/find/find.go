@@ -45,8 +45,12 @@ type Hit struct {
 	At time.Time `json:"at"`
 	// Gone is set when the session's transcript has been deleted and it
 	// was found by the prompts history.jsonl kept.
-	Gone  bool        `json:"gone,omitempty"`
-	State state.State `json:"state,omitempty"`
+	// Recap is the session's newest recap, and LastPrompt the last thing
+	// typed into it, which says where it was left.
+	Recap      string      `json:"recap,omitempty"`
+	LastPrompt string      `json:"lastPrompt,omitempty"`
+	Gone       bool        `json:"gone,omitempty"`
+	State      state.State `json:"state,omitempty"`
 }
 
 // ToolOutput is the kind a hit found only in tool output carries.
@@ -187,6 +191,12 @@ func (ix *Index) Find(q Query) []Hit {
 			if hit.FirstPrompt == "" && p.Kind == claude.SaidPrompt {
 				hit.FirstPrompt = p.Text
 			}
+			switch p.Kind {
+			case claude.SaidPrompt:
+				hit.LastPrompt = p.Text
+			case claude.SaidRecap:
+				hit.Recap = p.Text
+			}
 			if !matches(p.Text) {
 				continue
 			}
@@ -211,7 +221,7 @@ func (ix *Index) Find(q Query) []Hit {
 			continue
 		}
 		last := prompts[len(prompts)-1]
-		hit := Hit{SessionID: id, Dir: last.Dir, At: last.At, Gone: true, State: q.Live[id], FirstPrompt: prompts[0].Text}
+		hit := Hit{SessionID: id, Dir: last.Dir, At: last.At, Gone: true, State: q.Live[id], FirstPrompt: prompts[0].Text, LastPrompt: last.Text}
 		for _, p := range prompts {
 			if matches(p.Text) {
 				hit.Kind, hit.Passage = claude.SaidPrompt, p.Text

@@ -216,6 +216,26 @@ func tree(t *testing.T, dir string) map[string]string {
 	return out
 }
 
+func TestHit(t *testing.T) {
+	t.Run("when a session has a recap", func(t *testing.T) {
+		hits := newHome(t).write("s1",
+			prompt("s1", t0, "why does the kiln overheat"),
+			recap("s1", t0.Add(time.Minute), "Looking at the thermocouple."),
+			recap("s1", t0.Add(2*time.Minute), "Fixing the kiln's thermocouple."),
+			prompt("s1", t0.Add(3*time.Minute), "now tighten the clamp")).
+			index().Find(find.Query{Words: "kiln overheat"})
+		require.Len(t, hits, 1)
+
+		t.Run("it should carry the recap with the hit", func(t *testing.T) {
+			assert.Equal(t, "Fixing the kiln's thermocouple.", hits[0].Recap)
+		})
+
+		t.Run("it should carry its last prompt", func(t *testing.T) {
+			assert.Equal(t, "now tighten the clamp", hits[0].LastPrompt)
+		})
+	})
+}
+
 func TestRanking(t *testing.T) {
 	fields := []struct {
 		name string

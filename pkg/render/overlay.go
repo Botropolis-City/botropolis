@@ -4,11 +4,17 @@ import (
 	"fmt"
 	"image"
 	"runtime"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/exp/textinput"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/find"
+	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -96,7 +102,10 @@ func (g *Game) openFinder() {
 	if g.finding() {
 		return
 	}
-	f := &finder{}
+	f := &finder{now: timeNow, pause: findPause}
+	if g.findAtOnce {
+		f.pause = 0
+	}
 	f.field.insert(g.query)
 	if g.ime {
 		f.ime = &textinput.Composer{
@@ -118,13 +127,82 @@ func (g *Game) openFinder() {
 	g.overlays.push(f)
 }
 
-// finder is the panel that finds a session. In this slice it holds the
-// map's filter, which is what the / box held before it.
+// finder is the panel that finds a session by what was said in it. It
+// also holds the map's filter, which is what the / box held before it.
 type finder struct {
 	field field
 	// ime carries typing, input methods included; without a window to
 	// type into, as under test, the scripted rune does.
 	ime *textinput.Composer
+	now func() time.Time
+	// pause is how long typing rests before a search: findPause, or none
+	// for a scripted frame.
+	pause time.Duration
+	// typedAt is when the query last changed, and asked the last query
+	// sent to the search, which runs once typing pauses.
+	typedAt time.Time
+	asked   string
+
+	// mu guards what the search hands back from off the frame.
+	mu       sync.Mutex
+	query    string
+	results  []find.Hit
+	selected int
+}
+
+// findPause is how long typing rests before the finder searches, so a
+// word typed at speed is one search rather than one a letter.
+const findPause = 150 * time.Millisecond
+
+// deliver takes a search's results, unless the query has moved on since
+// it was asked, in which case they answer a question nobody is asking.
+func (f *finder) deliver(query string, hits []find.Hit) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if query != f.query {
+		return
+	}
+	f.results, f.selected = hits, 0
+}
+
+// follow notes a change of query, clearing the results when it is
+// emptied, and asks for results once typing has paused.
+func (f *finder) follow(g *Game) {
+	query := f.field.query()
+	f.mu.Lock()
+	if query != f.query {
+		f.query, f.typedAt = query, f.now()
+		if query == "" {
+			f.results, f.selected, f.asked = nil, 0, ""
+		}
+	}
+	f.mu.Unlock()
+	if query == "" || query == f.asked || f.now().Sub(f.typedAt) < f.pause || g.search == nil {
+		return
+	}
+	f.asked = query
+	search, dispatch := g.search, g.dispatch
+	if dispatch == nil {
+		dispatch = func(run func()) { go run() }
+	}
+	dispatch(func() {
+		hits, err := search(find.Query{Words: query, Limit: findLimit})
+		if err != nil {
+			g.SetStatus(err.Error())
+			return
+		}
+		f.deliver(query, hits)
+	})
+}
+
+// findLimit is how many sessions the finder asks for.
+const findLimit = 50
+
+// move steps the selection, stopping at either end.
+func (f *finder) move(by int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.selected = max(0, min(f.selected+by, len(f.results)-1))
 }
 
 func (f *finder) keys(g *Game) bool {
@@ -134,6 +212,7 @@ func (f *finder) keys(g *Game) bool {
 			g.SetStatus(err.Error())
 		} else if handled {
 			g.filterOn(f.field.query())
+			f.follow(g)
 			return true
 		}
 	}
@@ -147,11 +226,16 @@ func (f *finder) keys(g *Game) bool {
 		return false
 	case just(ebiten.KeyBackspace):
 		f.field.backspace()
+	case just(ebiten.KeyArrowDown):
+		f.move(1)
+	case just(ebiten.KeyArrowUp):
+		f.move(-1)
 	}
 	if g.scriptedRune != 0 {
 		f.field.insert(string(g.scriptedRune))
 	}
 	g.filterOn(f.field.query())
+	f.follow(g)
 	return true
 }
 
@@ -181,11 +265,20 @@ func (f *finder) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	scrim.A = 0x60
 	g.roundRect(screen, city.RectAt(0, 0, width, height), 0, scrim)
 	shown, caret := f.field.shown()
-	status := "type to filter by title, project, branch, state or model"
+	f.mu.Lock()
+	hits, selected := f.results, f.selected
+	f.mu.Unlock()
+	status := "type to find a session by what was said in it"
 	if f.field.query() != "" {
-		status = fmt.Sprintf("%d of %d match   enter keeps the filter, esc clears it", g.scene.Matching(), len(g.scene.City().Buildings()))
+		status = fmt.Sprintf("%d sessions found, %d of %d on the map match   ↑ ↓ choose, enter keeps the filter, esc clears it",
+			len(hits), g.scene.Matching(), len(g.scene.City().Buildings()))
 	}
-	p := ui.LayoutFinder(th, width, height, ui.FinderInput{Query: shown, Caret: caret, Status: status}, g.faces.Measure)
+	in := ui.FinderInput{Query: shown, Caret: caret, Status: status, Words: strings.Fields(f.field.query()), Selected: selected}
+	now := g.now()
+	for _, h := range hits {
+		in.Results = append(in.Results, finderResult(h, now))
+	}
+	p := ui.LayoutFinder(th, width, height, in, g.faces.Measure)
 	g.mu.Lock()
 	g.finderRect, g.finderCaret = p.Rect, p.Caret
 	g.mu.Unlock()
@@ -193,6 +286,34 @@ func (f *finder) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.text(screen, p.Query.At, p.Query.Text, p.Query.Size, th.Palette.Text)
 	g.roundRect(screen, p.Caret, 0, th.Palette.Accent)
 	g.text(screen, p.Status.At, p.Status.Text, p.Status.Size, th.Palette.Dim)
+	for _, row := range p.Rows {
+		if row.Selected {
+			g.roundRect(screen, row.Rect, 0, th.Palette.Hairline)
+		}
+		for _, m := range row.Marks {
+			_, h := g.faces.Measure("", m.Line.Size)
+			highlight := th.Palette.Accent
+			highlight.A = 0x50
+			g.roundRect(screen, city.Rect{Min: city.Point{X: m.From, Y: m.Line.At.Y}, Max: city.Point{X: m.To, Y: m.Line.At.Y + h}}, th.Radius()/3, highlight)
+		}
+		g.text(screen, row.Head.At, row.Head.Text, row.Head.Size, th.Palette.Text)
+		g.text(screen, row.Where.At, row.Where.Text, row.Where.Size, th.Palette.Dim)
+		if row.Passage.Text != "" {
+			g.text(screen, row.Passage.At, row.Passage.Text, row.Passage.Size, th.Palette.Dim)
+		}
+	}
+	for _, line := range p.Preview {
+		g.text(screen, line.At, line.Text, line.Size, th.Palette.Dim)
+	}
+}
+
+// finderResult is a hit as the panel shows it.
+func finderResult(h find.Hit, now time.Time) ui.FinderResult {
+	return ui.FinderResult{
+		InPrompt: h.Kind == claude.SaidPrompt, Passage: h.Passage, FirstPrompt: h.FirstPrompt,
+		Dir: h.Dir, Branch: h.Branch, Age: format.Age(now.Sub(h.At)), Gone: h.Gone,
+		Recap: h.Recap, LastPrompt: h.LastPrompt,
+	}
 }
 
 // filterOn sets the map's filter, which dims what does not match.

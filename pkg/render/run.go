@@ -9,6 +9,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
@@ -70,6 +71,9 @@ type Options struct {
 	// DailyBudget is the daily spend in USD the strip and plant measure
 	// against; 0 for none.
 	DailyBudget float64
+	// Search finds sessions by what was said in them, for the finder.
+	// Item 82.
+	Search func(find.Query) ([]find.Hit, error)
 	// Settings is the in-app settings panel's rows; Apply persists a change.
 	Settings ui.Settings
 	Apply    func(ui.Setting) error
@@ -110,6 +114,13 @@ func Run(ctx context.Context, opts Options) error {
 	game := NewGame(scene, opts.Actor, theme, faces, save, sprites)
 	game.kits = kitSprites
 	game.home = opts.Home
+	game.search = opts.Search
+	if opts.Screenshot != "" || opts.Record != "" {
+		// A scripted frame cannot wait for a search to come back, so it
+		// searches on the frame, as soon as it is typed.
+		game.dispatch = func(run func()) { run() }
+		game.findAtOnce = true
+	}
 	game.screenshot = opts.Screenshot
 	game.script = opts.Keys
 	game.hover, game.hoverSet = opts.Hover, opts.HoverSet

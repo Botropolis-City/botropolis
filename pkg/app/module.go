@@ -294,6 +294,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			feed.Run(ctx, offer)
 		},
 		Home:          c.config.Home,
+		Search:        commands.NewFind(c.config.Socket, c.config.Home, c.services.source(c.config), time.Now).Search,
 		Projection:    projection,
 		Screenshot:    cli.Screenshot(cmd),
 		Keys:          cli.Keys(cmd),
