@@ -51,6 +51,59 @@ func TestName(t *testing.T) {
 		})
 	})
 
+	t.Run("when the members say", func(t *testing.T) {
+		cases := []struct {
+			scenario string
+			members  []group.Member
+			want     string
+		}{
+			{
+				scenario: "the group's words in most of a small history, and one member says something else",
+				members: []group.Member{
+					member("a", "/w/ratelimit-lib", 0, "PROJ-123 expose the rate-limit headers"),
+					member("b", "/w/api", 3*time.Hour, "PROJ-123: read the rate-limit headers behind a flag"),
+					member("c", "/w/infra", 6*time.Hour, "PROJ-123 Allow the headers through"),
+					member("d", "/w/meta", 9*time.Hour, "PROJ-123 rate-limit headers in the library and the API"),
+					member("e", "/w/notes", 12*time.Hour, "PROJ-123 notes on the rate-limit headers"),
+					member("f", "/w/site", 30*time.Hour, "fix the footer"),
+					member("g", "/w/config", 40*time.Hour, "tidy the config"),
+				},
+				want: "PROJ-123 · rate-limit headers",
+			},
+			{
+				scenario: "a word only one member said beside words more of them said",
+				members: append(fillers(),
+					member("a", "/w/lib", 0, "PROJ-7 billing ledger xylophone"),
+					member("b", "/w/api", 3*time.Hour, "PROJ-7 billing ledger"),
+					member("c", "/w/infra", 6*time.Hour, "PROJ-7 billing")),
+				want: "PROJ-7 · billing ledger",
+			},
+			{
+				scenario: "the shared words in the opposite order to their rank",
+				members: append(fillers(),
+					member("a", "/w/lib", 0, "PROJ-5 the ledger feeds billing"),
+					member("b", "/w/api", 3*time.Hour, "PROJ-5 ledger for billing")),
+				want: "PROJ-5 · ledger billing",
+			},
+			{
+				scenario: "prompts thick with stop words",
+				members: append(fillers(),
+					member("a", "/w/lib", 0, "PROJ-8 because the cache should go through between requests after deploys"),
+					member("b", "/w/api", 3*time.Hour, "PROJ-8 the cache should go through between requests because after")),
+				want: "PROJ-8 · cache requests",
+			},
+		}
+		for _, c := range cases {
+			t.Run(c.scenario, func(t *testing.T) {
+				g, _ := group.Detect(c.members, group.Memory{}).GroupOf("a")
+
+				t.Run("it should be named "+c.want, func(t *testing.T) {
+					assert.Equal(t, c.want, g.Name)
+				})
+			})
+		}
+	})
+
 	t.Run("when the group was renamed", func(t *testing.T) {
 		result := detect(group.Memory{Groups: []group.Stored{{ID: "g1", Name: "Headers", Renamed: true, Members: []string{"a"}}}},
 			member("a", "/w/lib", 0, "PROJ-123"),

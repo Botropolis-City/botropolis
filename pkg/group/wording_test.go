@@ -44,6 +44,17 @@ func TestWording(t *testing.T) {
 		})
 	})
 
+	t.Run("when they share only stop words", func(t *testing.T) {
+		w := group.NewWording(history(map[string][]string{
+			"a": {"through between against during"},
+			"b": {"through between against during"},
+		}), nil)
+
+		t.Run("it should not count", func(t *testing.T) {
+			assert.False(t, w.Related("a", "b"))
+		})
+	})
+
 	t.Run("when the shared words are only in a later prompt", func(t *testing.T) {
 		w := group.NewWording(history(map[string][]string{
 			"a": {"hi", "add rate-limit headers to the limiter"},

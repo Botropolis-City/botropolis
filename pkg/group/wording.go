@@ -1,6 +1,7 @@
 package group
 
 import (
+	_ "embed"
 	"math"
 	"sort"
 	"strings"
@@ -19,14 +20,17 @@ const (
 	wordingOverlap = 0.1
 )
 
+//go:embed stopwords/english.txt
+var english string
+
 var stopWords = map[string]bool{}
 
 func init() {
-	for _, w := range strings.Fields(`the and for with that this from into onto what when where which while
-	then than them they their there these those have has had was were are not but can could should would
-	will just also about please lets let's you your our out all any some its it's use using make sure need
-	now new add get see look like one two how why who does did done more less very much`) {
+	for _, w := range strings.Fields(english + `
+	onto will just also please lets use using make sure need now new add get see look like one two done
+	less much`) {
 		stopWords[w] = true
+		stopWords[strings.Split(w, "'")[0]] = true
 	}
 }
 
@@ -35,9 +39,10 @@ func init() {
 type Wording struct {
 	words map[string]map[string]bool
 	idf   map[string]float64
-	// weight is every word's rarity, for naming, which has to work on a
-	// history too small for any word to be distinctive.
-	weight map[string]float64
+	// df is how many sessions use each word, for naming, which weighs a
+	// word against the sessions outside the group so that it works on a
+	// history too small for any word to be rare across the whole of it.
+	df map[string]int
 }
 
 func NewWording(prompts map[string][]string, muted []string) *Wording {
@@ -45,8 +50,8 @@ func NewWording(prompts map[string][]string, muted []string) *Wording {
 	for _, m := range muted {
 		mute[strings.ToLower(m)] = true
 	}
-	w := &Wording{words: map[string]map[string]bool{}, idf: map[string]float64{}, weight: map[string]float64{}}
-	df := map[string]int{}
+	w := &Wording{words: map[string]map[string]bool{}, idf: map[string]float64{}, df: map[string]int{}}
+	df := w.df
 	for id, ps := range prompts {
 		set := map[string]bool{}
 		for _, p := range ps {
@@ -65,9 +70,6 @@ func NewWording(prompts map[string][]string, muted []string) *Wording {
 	for tok, d := range df {
 		if float64(d) <= math.Max(2, distinctiveShare*n) {
 			w.idf[tok] = math.Log(n / float64(d))
-		}
-		if float64(d) <= n/2 {
-			w.weight[tok] = math.Log(n / float64(d))
 		}
 	}
 	return w
@@ -133,20 +135,25 @@ func (w *Wording) overlap(a, b string) float64 {
 	return shared / math.Sqrt(weight(a)*weight(b))
 }
 
-// Top is the n most distinctive words across a set of sessions: words
-// more of them use first, the rarer first among those, then each
-// session's own rarest.
+// Top is the n most distinctive words across a set of sessions: of the
+// words more of them use than of the sessions outside them, those more of
+// them use first, then the rarer outside them.
 func (w *Wording) Top(ids []string, n int) []string {
 	count := map[string]int{}
 	for _, id := range ids {
 		for tok := range w.words[id] {
-			if _, ok := w.weight[tok]; ok {
-				count[tok]++
-			}
+			count[tok]++
 		}
 	}
+	outside := len(w.words) - len(ids)
+	rarity := map[string]float64{}
 	words := make([]string, 0, len(count))
-	for tok := range count {
+	for tok, c := range count {
+		out := w.df[tok] - c
+		if outside > 0 && float64(out)/float64(outside) >= float64(c)/float64(len(ids)) {
+			continue
+		}
+		rarity[tok] = math.Log(float64(outside+1) / float64(out+1))
 		words = append(words, tok)
 	}
 	sort.Slice(words, func(i, j int) bool {
@@ -154,8 +161,8 @@ func (w *Wording) Top(ids []string, n int) []string {
 		if count[a] != count[b] {
 			return count[a] > count[b]
 		}
-		if w.weight[a] != w.weight[b] {
-			return w.weight[a] > w.weight[b]
+		if rarity[a] != rarity[b] {
+			return rarity[a] > rarity[b]
 		}
 		return a < b
 	})
