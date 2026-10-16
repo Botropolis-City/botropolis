@@ -1,6 +1,7 @@
 package plan_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -25,6 +26,59 @@ func groundTrees(p plan.Plan) []plan.Tree {
 
 func at(t plan.Tree) (float64, float64) {
 	return float64(t.Cell.Col) + 0.5 + t.DX, float64(t.Cell.Row) + 0.5 + t.DY
+}
+
+// Aria, on the first frame: "Trees are crowding the buildings a little.
+// We should not draw trees so close to the project/directory blocks."
+func TestGroundTreesKeepClearOfBlocks(t *testing.T) {
+	for _, n := range []int{1, 8, 24, 48} {
+		p := plan.Make(plan.Input{Districts: live(n), Towers: 2}, plan.NewMemory())
+
+		t.Run(fmt.Sprintf("when the city has %d rings", p.Rings()), func(t *testing.T) {
+			t.Run("it should stand no ground tree within the clearance of a district's block", func(t *testing.T) {
+				for _, tree := range groundTrees(p) {
+					x, y := at(tree)
+					for root, b := range p.Blocks {
+						dx := math.Max(0, math.Max(float64(b.Min.Col)-x, x-float64(b.Min.Col+b.Cols)))
+						dy := math.Max(0, math.Max(float64(b.Min.Row)-y, y-float64(b.Min.Row+b.Rows)))
+						if d := math.Hypot(dx, dy); d < plan.BlockClearance {
+							t.Errorf("tree at (%.2f, %.2f) is %.2f cells from %s", x, y, d, root)
+						}
+					}
+				}
+			})
+		})
+	}
+
+	// Aria: "We should have some in the bare strips, just not so many and
+	// not so close to buildings."
+	t.Run("when two districts face each other across a corridor", func(t *testing.T) {
+		p := plan.Make(plan.Input{Districts: live(24), Towers: 2}, plan.NewMemory())
+		between := func(c plan.Cell) bool {
+			if !p.IsStreet(c) {
+				return false
+			}
+			sides := 0
+			for _, b := range p.Blocks {
+				for _, n := range []plan.Cell{{Col: c.Col - 1, Row: c.Row}, {Col: c.Col + 1, Row: c.Row}, {Col: c.Col, Row: c.Row - 1}, {Col: c.Col, Row: c.Row + 1}} {
+					if b.Contains(n) {
+						sides++
+					}
+				}
+			}
+			return sides >= 2
+		}
+		planted := 0
+		for _, tree := range groundTrees(p) {
+			if between(tree.Cell) {
+				planted++
+			}
+		}
+
+		t.Run("it should still grow some wood in the strip between them", func(t *testing.T) {
+			assert.Greater(t, planted, 0)
+		})
+	})
 }
 
 func TestGroundTrees(t *testing.T) {

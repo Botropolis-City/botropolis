@@ -15,6 +15,12 @@ import "math"
 // TreeSpacing is the least distance between two ground trees, in cells.
 const TreeSpacing = 0.9
 
+// BlockClearance is the ground left clear round every district's block,
+// in cells, so the wood never crowds the buildings. A corridor between
+// two blocks is wider than twice this, so a thin, sparse row still grows
+// down its middle: the wood separates districts without touching them.
+const BlockClearance = 0.3
+
 const (
 	// treeFeature is how many cells one rise of the mask spans, and
 	// treeMask the level under which the ground is left bare.
@@ -74,7 +80,7 @@ func (p *Plan) plantGround(onRails map[Cell]bool) {
 					nudge := 0.4 / treeSubs
 					x := float64(col) + (float64(si)+0.5)/treeSubs + unitOf(seed)*nudge
 					y := float64(row) + (float64(sj)+0.5)/treeSubs + unitOf(seed>>16)*nudge
-					if Noise(x/treeFeature, y/treeFeature) < treeMask || !free(x, y) {
+					if Noise(x/treeFeature, y/treeFeature) < treeMask || p.nearBlock(x, y) || !free(x, y) {
 						continue
 					}
 					b := bucket{int(math.Floor(x / TreeSpacing)), int(math.Floor(y / TreeSpacing))}
@@ -85,6 +91,19 @@ func (p *Plan) plantGround(onRails map[Cell]bool) {
 			}
 		}
 	}
+}
+
+// nearBlock reports whether a point, in cells, is within BlockClearance
+// of any district's block.
+func (p *Plan) nearBlock(x, y float64) bool {
+	for _, b := range p.Blocks {
+		dx := math.Max(0, math.Max(float64(b.Min.Col)-x, x-float64(b.Min.Col+b.Cols)))
+		dy := math.Max(0, math.Max(float64(b.Min.Row)-y, y-float64(b.Min.Row+b.Rows)))
+		if math.Hypot(dx, dy) < BlockClearance {
+			return true
+		}
+	}
+	return false
 }
 
 func eachCell(b Block, f func(Cell)) {
