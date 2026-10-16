@@ -2,7 +2,9 @@ package codex
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -185,77 +187,126 @@ type turnContext struct {
 	Model string `json:"model"`
 }
 
+// Window is how much of a rollout's head, and of its tail, is read when
+// the rollout is larger than both together; Claude's catalogue reads a
+// transcript the same way (item 86). The head always runs to the end of
+// its first line, which carries the session's id, however long it is.
+const Window = 64 << 10
+
 func readRollout(path string) (session, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return session{}, err
 	}
 	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return session{}, err
+	}
 	var s session
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(nil, maxLine)
-	for scanner.Scan() {
-		var l line
-		if err := json.Unmarshal(scanner.Bytes(), &l); err != nil {
-			continue
+	if info.Size() <= 2*Window {
+		return s, s.scan(f)
+	}
+	r := bufio.NewReader(f)
+	first, err := r.ReadBytes('\n')
+	if err != nil && err != io.EOF {
+		return s, err
+	}
+	s.apply(bytes.TrimRight(first, "\n"))
+	if rest := Window - int64(len(first)); rest > 0 {
+		head := make([]byte, rest)
+		n, err := io.ReadFull(r, head)
+		if err != nil && err != io.ErrUnexpectedEOF {
+			return s, err
 		}
-		if ts, err := time.Parse(time.RFC3339Nano, l.Timestamp); err == nil {
-			if s.FirstAt.IsZero() {
-				s.FirstAt = ts
-			}
-			s.LastAt = ts
-		}
-		switch l.Type {
-		case "session_meta":
-			var m meta
-			if json.Unmarshal(l.Payload, &m) == nil {
-				s.ID, s.CWD, s.Branch = m.ID, m.CWD, m.Git.Branch
-			}
-		case "turn_context":
-			var tc turnContext
-			if json.Unmarshal(l.Payload, &tc) == nil && tc.Model != "" {
-				s.Model = tc.Model
-			}
-		case "response_item":
-			var it item
-			if json.Unmarshal(l.Payload, &it) != nil {
-				continue
-			}
-			switch it.Type {
-			case "message":
-				s.LastRole = it.Role
-				s.TurnDone = false
-				if it.Role == "user" && s.Title == "" {
-					s.Title = title(it)
-				}
-			case "function_call":
-				s.LastRole = "tool"
-				s.TurnDone = false
-			}
-		case "event_msg":
-			var ev event
-			if json.Unmarshal(l.Payload, &ev) != nil {
-				continue
-			}
-			switch ev.Type {
-			case tokenCountEvent:
-				s.Usage = claude.Usage{
-					Input:     ev.Info.Total.Input - ev.Info.Total.Cached,
-					CacheRead: ev.Info.Total.Cached,
-					Output:    ev.Info.Total.Output,
-					Thinking:  ev.Info.Total.Reasoning,
-					Messages:  s.Usage.Messages + 1,
-				}
-				s.ContextTokens = ev.Info.Last.Input
-				if ev.Info.ContextWindow > 0 {
-					s.ContextWindow = ev.Info.ContextWindow
-				}
-			case "task_complete", "turn_complete":
-				s.TurnDone = true
+		head = head[:n]
+		if cut := bytes.LastIndexByte(head, '\n'); cut >= 0 {
+			if err := s.scan(bytes.NewReader(head[:cut+1])); err != nil {
+				return s, err
 			}
 		}
 	}
-	return s, scanner.Err()
+	tail := make([]byte, Window)
+	n, err := f.ReadAt(tail, info.Size()-Window)
+	if err != nil && err != io.EOF {
+		return s, err
+	}
+	tail = tail[:n]
+	if cut := bytes.IndexByte(tail, '\n'); cut >= 0 {
+		return s, s.scan(bytes.NewReader(tail[cut+1:]))
+	}
+	return s, nil
+}
+
+func (s *session) scan(r io.Reader) error {
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(nil, maxLine)
+	for scanner.Scan() {
+		s.apply(scanner.Bytes())
+	}
+	return scanner.Err()
+}
+
+func (s *session) apply(raw []byte) {
+	var l line
+	if err := json.Unmarshal(raw, &l); err != nil {
+		return
+	}
+	if ts, err := time.Parse(time.RFC3339Nano, l.Timestamp); err == nil {
+		if s.FirstAt.IsZero() {
+			s.FirstAt = ts
+		}
+		s.LastAt = ts
+	}
+	switch l.Type {
+	case "session_meta":
+		var m meta
+		if json.Unmarshal(l.Payload, &m) == nil {
+			s.ID, s.CWD, s.Branch = m.ID, m.CWD, m.Git.Branch
+		}
+	case "turn_context":
+		var tc turnContext
+		if json.Unmarshal(l.Payload, &tc) == nil && tc.Model != "" {
+			s.Model = tc.Model
+		}
+	case "response_item":
+		var it item
+		if json.Unmarshal(l.Payload, &it) != nil {
+			return
+		}
+		switch it.Type {
+		case "message":
+			s.LastRole = it.Role
+			s.TurnDone = false
+			if it.Role == "user" && s.Title == "" {
+				s.Title = title(it)
+			}
+		case "function_call":
+			s.LastRole = "tool"
+			s.TurnDone = false
+		}
+	case "event_msg":
+		var ev event
+		if json.Unmarshal(l.Payload, &ev) != nil {
+			return
+		}
+		switch ev.Type {
+		case tokenCountEvent:
+			s.Usage = claude.Usage{
+				Input:     ev.Info.Total.Input - ev.Info.Total.Cached,
+				CacheRead: ev.Info.Total.Cached,
+				Output:    ev.Info.Total.Output,
+				Thinking:  ev.Info.Total.Reasoning,
+				Messages:  s.Usage.Messages + 1,
+			}
+			s.ContextTokens = ev.Info.Last.Input
+			if ev.Info.ContextWindow > 0 {
+				s.ContextWindow = ev.Info.ContextWindow
+			}
+		case "task_complete", "turn_complete":
+			s.TurnDone = true
+		}
+	}
 }
 
 func title(it item) string {
