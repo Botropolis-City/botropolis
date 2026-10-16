@@ -29,6 +29,8 @@ type Drive struct {
 	// sent is the tick that delivered the last input.
 	sent  uint64
 	acted []city.Action
+	// actedAt is the tick each action was handed over on.
+	actedAt []uint64
 }
 
 type DriveOptions struct {
@@ -36,6 +38,9 @@ type DriveOptions struct {
 	Home string
 	// Width and Height are the window's size; zero is the default.
 	Width, Height int
+	// Now is the moment the city is drawn at, and its clock starts from;
+	// zero is the wall clock's now.
+	Now time.Time
 }
 
 // Shown is what the last frame drew.
@@ -46,6 +51,9 @@ type Shown struct {
 	Selected string
 	// Buildings is the sessions drawn as buildings, by id, sorted.
 	Buildings []string
+	// Lit is the buildings the filter leaves undimmed, by id, sorted,
+	// when there is a filter; nil when there is none.
+	Lit []string
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -70,6 +78,10 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	if width <= 0 || height <= 0 {
 		width, height = DefaultWidth, DefaultHeight
 	}
+	now := opts.Now
+	if now.IsZero() {
+		now = time.Now()
+	}
 	scene := city.NewScene(city.NewLayout())
 	scene.SetProjection(city.Isometric)
 	theme := ui.NewTheme(1)
@@ -91,11 +103,16 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	g.kits = kitSprites
 	g.home = opts.Home
 	g.driven = true
+	// No window to type into: typing reaches the finder the way --keys
+	// does.
+	g.ime = false
+	g.started = now
+	scene.SetClock(g.now, time.Local)
 	g.summarise = func(context.Context, string) (string, error) {
 		return "", errors.New("summaries are not generated while driven")
 	}
 	d.game = g
-	snapshot, err := state.NewLoader(opts.Home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(time.Now())
+	snapshot, err := state.NewLoader(opts.Home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(now)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +127,7 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 // Do is the actor: the city's actions are recorded, never carried out.
 func (d *Drive) Do(action city.Action) error {
 	d.acted = append(d.acted, action)
+	d.actedAt = append(d.actedAt, d.game.ticks)
 	return nil
 }
 
@@ -126,6 +144,22 @@ func (d *Drive) Press(name string) error {
 		return fmt.Errorf("no key called %q", name)
 	}
 	d.queue = append(d.queue, driveInput{key: name})
+	d.steps++
+	return nil
+}
+
+// Type queues a word, a character a tick, as typing into the finder. It
+// is one step, however long the word.
+func (d *Drive) Type(word string) error {
+	if word == "" {
+		return errors.New("nothing to type")
+	}
+	for _, r := range word {
+		if _, _, ok := scriptedKey(string(r)); !ok {
+			return fmt.Errorf("no key types %q", r)
+		}
+		d.queue = append(d.queue, driveInput{key: string(r)})
+	}
 	d.steps++
 	return nil
 }
@@ -204,11 +238,46 @@ func (d *Drive) Until(want func(Shown) bool, limit int) (int, error) {
 	return 0, fmt.Errorf("not shown within %d ticks of the last input", limit)
 }
 
+// UntilActed delivers what is queued and ticks until the city hands
+// the actor an action that want accepts, returning how many ticks that
+// took counted from the one that delivered the last input.
+func (d *Drive) UntilActed(want func(city.Action) bool, limit int) (int, error) {
+	for len(d.queue) > 0 {
+		if err := d.Tick(); err != nil {
+			return 0, err
+		}
+	}
+	for i := 0; ; i++ {
+		for j, a := range d.acted {
+			if d.actedAt[j] >= d.sent && want(a) {
+				return int(d.actedAt[j] - d.sent + 1), nil
+			}
+		}
+		if i == limit {
+			return 0, fmt.Errorf("no such action within %d ticks of the last input", limit)
+		}
+		if err := d.Tick(); err != nil {
+			return 0, err
+		}
+	}
+}
+
 // Shown is what the last frame drew.
 func (d *Drive) Shown() Shown {
 	s := d.game.shown
 	s.Buildings = slices.Clone(s.Buildings)
+	s.Lit = slices.Clone(s.Lit)
 	return s
+}
+
+// Title is a session's title as the city has it, or "" for none.
+func (d *Drive) Title(id string) string {
+	for _, b := range d.game.scene.City().Buildings() {
+		if b.Session.ID == id {
+			return b.Session.Title
+		}
+	}
+	return ""
 }
 
 // Sessions is every session in the city, by id, sorted.
@@ -260,5 +329,14 @@ func (g *Game) noteShown() {
 	}
 	g.mu.Unlock()
 	slices.Sort(s.Buildings)
+	if g.query != "" && !g.hidden {
+		s.Lit = []string{}
+		for _, b := range g.scene.City().Buildings() {
+			if !g.scene.Dimmed(b) {
+				s.Lit = append(s.Lit, b.Session.ID)
+			}
+		}
+		slices.Sort(s.Lit)
+	}
 	g.shown = s
 }

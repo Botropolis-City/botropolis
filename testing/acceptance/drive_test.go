@@ -21,12 +21,17 @@ import (
 
 func stageDemo(t *testing.T, name string) string {
 	t.Helper()
-	root := filepath.Join("..", "..")
-	scenario, err := demo.LoadScenario(filepath.Join(root, "demo", "scenarios", name+".yaml"))
+	return stage(t, filepath.Join("..", "..", "demo", "scenarios", name+".yaml"), time.Now())
+}
+
+// stage stages a scenario from the demo corpus as if it were now.
+func stage(t *testing.T, path string, now time.Time) string {
+	t.Helper()
+	scenario, err := demo.LoadScenario(path)
 	require.NoError(t, err)
 	home := t.TempDir()
-	corpus := demo.Corpus{Dir: filepath.Join(root, "demo", "corpus")}
-	require.NoError(t, demo.Stage(corpus, scenario, home, time.Now(), demo.Sleepers(home, 10*time.Minute)))
+	corpus := demo.Corpus{Dir: filepath.Join("..", "..", "demo", "corpus")}
+	require.NoError(t, demo.Stage(corpus, scenario, home, now, demo.Sleepers(home, 10*time.Minute)))
 	t.Cleanup(func() { _ = demo.Unstage(home) })
 	return home
 }
