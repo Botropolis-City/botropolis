@@ -10,7 +10,7 @@ import (
 // ParkedWeek writes a home of n parked sessions spread over the week
 // before now, across ten projects. One of them is titled target and last
 // spoke on the Friday before now; the rest are titled by number. Item 91.
-func ParkedWeek(t *testing.T, n int, now time.Time, target string) string {
+func ParkedWeek(t testing.TB, n int, now time.Time, target string) string {
 	t.Helper()
 	h := NewHome(t)
 	friday := now.AddDate(0, 0, -1)

@@ -41,7 +41,7 @@ type reopen struct {
 	target string
 }
 
-func runReopen(t *testing.T, home string) reopen {
+func runReopen(t testing.TB, home string) reopen {
 	t.Helper()
 	d, err := render.NewDrive(render.DriveOptions{Home: home, Now: monday})
 	require.NoError(t, err)

@@ -135,6 +135,15 @@ test-acceptance :: fixtures
 	$(LOG) "Running acceptance tests"
 	@go test ./testing/acceptance/...
 
+# Wall time for the bar's tasks, item 91. It reports and never gates: the
+# acceptance tests gate on steps, ticks and work instead.
+BENCH_TIME ?= 3x
+BENCH_COUNT ?= 6
+
+bench ::
+	$(LOG) "Benchmarking the bar's tasks"
+	@go test ./testing/acceptance -run '^$$' -bench . -benchtime ${BENCH_TIME} -count ${BENCH_COUNT}
+
 lint :: docs-check version-check workflows-check demo-check darwin-check
 	$(LOG) "Linting"
 	@go vet ./...

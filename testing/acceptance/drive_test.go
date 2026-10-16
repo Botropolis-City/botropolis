@@ -19,13 +19,13 @@ import (
 // what it drew read back. Item 91. These tests are of the harness itself;
 // they do not run in parallel, because the work counters are global.
 
-func stageDemo(t *testing.T, name string) string {
+func stageDemo(t testing.TB, name string) string {
 	t.Helper()
 	return stage(t, filepath.Join("..", "..", "demo", "scenarios", name+".yaml"), time.Now())
 }
 
 // stage stages a scenario from the demo corpus as if it were now.
-func stage(t *testing.T, path string, now time.Time) string {
+func stage(t testing.TB, path string, now time.Time) string {
 	t.Helper()
 	scenario, err := demo.LoadScenario(path)
 	require.NoError(t, err)

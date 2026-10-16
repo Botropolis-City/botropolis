@@ -15,11 +15,11 @@ import (
 )
 
 type Home struct {
-	t    *testing.T
+	t    testing.TB
 	Path string
 }
 
-func NewHome(t *testing.T) *Home {
+func NewHome(t testing.TB) *Home {
 	t.Helper()
 	return &Home{t: t, Path: t.TempDir()}
 }
