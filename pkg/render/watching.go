@@ -75,10 +75,10 @@ func (g *Game) fresh() bool { return g.ticks != g.painted }
 // idle throttles the loop when nobody is watching and returns whether
 // this frame should be drawn at all.
 func (g *Game) idle() bool {
-	live := watching(g.capturing())
+	live := watching(g.capturing() || g.driven)
 	tps := idleTPS
 	switch {
-	case g.capturing():
+	case g.capturing() || g.driven:
 		tps = liveTPS
 	case live && g.scene.Animating():
 		tps = liveTPS

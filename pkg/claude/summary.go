@@ -48,7 +48,7 @@ type excerptBlockJSON struct {
 // calls, tool output, subagents or the CLI's own wrapped messages, and
 // no longer than limit bytes. Older turns are dropped whole.
 func Excerpt(path string, limit int) (string, error) {
-	f, err := os.Open(path)
+	f, err := openTranscript(path)
 	if err != nil {
 		return "", err
 	}

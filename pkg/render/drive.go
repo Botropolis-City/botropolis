@@ -1,0 +1,264 @@
+package render
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+
+	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
+)
+
+// Drive runs the city a tick at a time with no window, for the tests that
+// measure a task in the inputs it takes, the ticks until its result is
+// drawn and the work done on the way. Ebitengine's clock never runs: each
+// Tick is one Update and one Draw, and the city's clock counts ticks, so
+// the same inputs take the same ticks on an idle machine and a loaded
+// one. Item 91.
+type Drive struct {
+	game   *Game
+	screen *ebiten.Image
+	queue  []driveInput
+	steps  int
+	// sent is the tick that delivered the last input.
+	sent  uint64
+	acted []city.Action
+}
+
+type DriveOptions struct {
+	// Home is the directory holding the .claude the city is drawn from.
+	Home string
+	// Width and Height are the window's size; zero is the default.
+	Width, Height int
+}
+
+// Shown is what the last frame drew.
+type Shown struct {
+	Help, Views, Settings, Breakdown, Timeline, Search, Sidebar bool
+	// Selected is the session whose card or sidebar entry was drawn as
+	// the selection, or "" for none.
+	Selected string
+	// Buildings is the sessions drawn as buildings, by id, sorted.
+	Buildings []string
+	// Settled is whether the frame was drawn with nothing an input set
+	// going still on its way: a panel that slides or a camera that eases
+	// is not shown until it arrives.
+	Settled bool
+}
+
+// driveInput is one tick's share of an input: a key, or one half of a
+// click.
+type driveInput struct {
+	key            string
+	pointer        string
+	press, release bool
+}
+
+// keys the harness refuses: each reaches outside the city, p to the
+// Pictures directory and u to a Claude Code probe.
+var undriven = map[string]string{"p": "saves a file in the home directory", "u": "starts a Claude Code probe"}
+
+// NewDrive builds the city on a home and draws its first frame.
+func NewDrive(opts DriveOptions) (*Drive, error) {
+	width, height := opts.Width, opts.Height
+	if width <= 0 || height <= 0 {
+		width, height = DefaultWidth, DefaultHeight
+	}
+	scene := city.NewScene(city.NewLayout())
+	scene.SetProjection(city.Isometric)
+	theme := ui.NewTheme(1)
+	scene.Resize(float64(width), float64(height))
+	faces, err := newFaces(theme)
+	if err != nil {
+		return nil, err
+	}
+	sprites, err := loadSprites()
+	if err != nil {
+		return nil, err
+	}
+	kitSprites, err := loadKits()
+	if err != nil {
+		return nil, err
+	}
+	d := &Drive{screen: ebiten.NewImage(width, height)}
+	g := NewGame(scene, d, theme, faces, nil, sprites)
+	g.kits = kitSprites
+	g.home = opts.Home
+	g.driven = true
+	g.summarise = func(context.Context, string) (string, error) {
+		return "", errors.New("summaries are not generated while driven")
+	}
+	d.game = g
+	snapshot, err := state.NewLoader(opts.Home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(time.Now())
+	if err != nil {
+		return nil, err
+	}
+	g.Offer(snapshot)
+	g.AddEvents(nil)
+	if err := d.Tick(); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// Do is the actor: the city's actions are recorded, never carried out.
+func (d *Drive) Do(action city.Action) error {
+	d.acted = append(d.acted, action)
+	return nil
+}
+
+// Acted is every action the city asked for, in order.
+func (d *Drive) Acted() []city.Action { return d.acted }
+
+// Press queues a key for the next tick the way --keys names one: a key
+// by its name, "ctrl+" and a key, or a typed character. It is one step.
+func (d *Drive) Press(name string) error {
+	if why, ok := undriven[name]; ok {
+		return fmt.Errorf("the harness does not press %s: it %s", name, why)
+	}
+	if _, _, ok := scriptedKey(strings.TrimPrefix(name, "ctrl+")); !ok {
+		return fmt.Errorf("no key called %q", name)
+	}
+	d.queue = append(d.queue, driveInput{key: name})
+	d.steps++
+	return nil
+}
+
+// Click queues a click on a target, as a scripted pointer names one: a
+// session by title or id, "district:<name>" or "plant". It is one step,
+// pressed on one tick and released on the next.
+func (d *Drive) Click(target string) error {
+	if _, ok := d.game.resolveTarget(target); !ok {
+		return fmt.Errorf("nothing on the map called %q", target)
+	}
+	d.queue = append(d.queue, driveInput{pointer: target, press: true}, driveInput{pointer: target, release: true})
+	d.steps++
+	return nil
+}
+
+// Steps is how many inputs have been sent.
+func (d *Drive) Steps() int { return d.steps }
+
+// Tick runs one Update and one Draw, delivering the next queued input.
+func (d *Drive) Tick() error {
+	g := d.game
+	g.inject = nil
+	if len(d.queue) > 0 {
+		in := d.queue[0]
+		d.queue = d.queue[1:]
+		g.inject = &in
+		if len(d.queue) == 0 {
+			d.sent = g.ticks + 1
+		}
+	}
+	if err := g.Update(); err != nil {
+		return err
+	}
+	g.Draw(d.screen)
+	return nil
+}
+
+// Run delivers what is queued and then runs n more ticks.
+func (d *Drive) Run(n int) error {
+	for len(d.queue) > 0 {
+		if err := d.Tick(); err != nil {
+			return err
+		}
+	}
+	for range n {
+		if err := d.Tick(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Until delivers what is queued and ticks until a settled frame shows
+// what want asks for, returning how many ticks that took counted from the one that
+// delivered the last input. It gives up after limit ticks past the last
+// input.
+func (d *Drive) Until(want func(Shown) bool, limit int) (int, error) {
+	for len(d.queue) > 0 {
+		if err := d.Tick(); err != nil {
+			return 0, err
+		}
+	}
+	shows := func() bool { s := d.Shown(); return s.Settled && want(s) }
+	if d.sent > 0 && d.game.ticks >= d.sent && shows() {
+		return int(d.game.ticks - d.sent + 1), nil
+	}
+	for range limit {
+		if err := d.Tick(); err != nil {
+			return 0, err
+		}
+		if shows() {
+			return int(d.game.ticks - d.sent + 1), nil
+		}
+	}
+	return 0, fmt.Errorf("not shown within %d ticks of the last input", limit)
+}
+
+// Shown is what the last frame drew.
+func (d *Drive) Shown() Shown {
+	s := d.game.shown
+	s.Buildings = slices.Clone(s.Buildings)
+	return s
+}
+
+// Sessions is every session in the city, by id, sorted.
+func (d *Drive) Sessions() []string {
+	var ids []string
+	for _, b := range d.game.scene.City().Buildings() {
+		ids = append(ids, b.Session.ID)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+// inject applies a driven input to this tick, the way --keys and a
+// clip's script do.
+func (g *Game) injectInput() {
+	in := g.inject
+	if in == nil {
+		return
+	}
+	if in.key != "" {
+		g.pressScripted(in.key)
+	}
+	if in.pointer != "" {
+		if at, ok := g.resolveTarget(in.pointer); ok {
+			g.play.shown, g.play.pointer = true, at
+		}
+		g.play.press, g.play.release = in.press, in.release
+	}
+}
+
+// noteShown records what this frame drew.
+func (g *Game) noteShown() {
+	s := Shown{
+		Help: g.help, Views: g.viewKey, Settings: g.settingsOpen, Breakdown: g.breakdown,
+		Timeline: g.timeline, Search: g.finding() || g.query != "", Sidebar: g.sidebar,
+	}
+	if g.hidden {
+		s = Shown{}
+	}
+	s.Settled = !g.scene.Easing()
+	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
+		s.Selected = b.Session.ID
+	}
+	g.mu.Lock()
+	for _, h := range g.hits {
+		if h.hit.Building != nil && !slices.Contains(s.Buildings, h.hit.Building.Session.ID) {
+			s.Buildings = append(s.Buildings, h.hit.Building.Session.ID)
+		}
+	}
+	g.mu.Unlock()
+	slices.Sort(s.Buildings)
+	g.shown = s
+}

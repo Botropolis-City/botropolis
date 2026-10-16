@@ -602,6 +602,13 @@ func (s *Scene) Animate(dt float64) {
 	s.clamp()
 }
 
+// Easing reports whether the camera is still on its way to where an
+// input sent it. The traffic, the pulses and the boats never settle, so
+// this is the motion a reader waits through, not all of it. Item 91.
+func (s *Scene) Easing() bool {
+	return s.zoomTarget > 0 && s.zoomTarget != s.camera.Zoom
+}
+
 // zoomEase is the fraction of the remaining zoom covered per second.
 const zoomEase = 12.0
 

@@ -207,6 +207,30 @@ func TestScene(t *testing.T) {
 		})
 	})
 
+	t.Run("when the wheel has asked for a zoom", func(t *testing.T) {
+		s := scene(t, session("a", cinders, state.Working))
+		s.Camera().Zoom = 1
+		s.Wheel(city.Point{X: 400, Y: 300}, -1)
+
+		t.Run("it should be easing after one tick", func(t *testing.T) {
+			s.Animate(1.0 / 30)
+			assert.True(t, s.Easing())
+		})
+
+		t.Run("it should have stopped easing once the zoom arrives", func(t *testing.T) {
+			s.Animate(1)
+			assert.False(t, s.Easing())
+		})
+	})
+
+	t.Run("when nothing has asked the camera to move", func(t *testing.T) {
+		s := scene(t, session("a", cinders, state.Working))
+
+		t.Run("it should not be easing", func(t *testing.T) {
+			assert.False(t, s.Easing())
+		})
+	})
+
 	t.Run("when a building is clicked", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.NeedsYou))
 		action := s.Click(centreOf(t, s, "a"))

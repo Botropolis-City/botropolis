@@ -16,7 +16,7 @@ func ReadTranscriptWindow(path string, window int64) (Transcript, error) {
 	if info.Size() <= 2*window {
 		return readTranscriptFile(path, false)
 	}
-	f, err := os.Open(path)
+	f, err := openTranscript(path)
 	if err != nil {
 		return Transcript{}, err
 	}
@@ -65,7 +65,7 @@ func newTranscriptScan(path string, sidechainIsMain bool) *transcriptScan {
 }
 
 func scanLines(scan *transcriptScan, r io.Reader) {
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(countedReader{r})
 	scanner.Buffer(nil, maxTranscriptLine)
 	for scanner.Scan() {
 		// A torn write can leave a run of NUL bytes ahead of a record; the

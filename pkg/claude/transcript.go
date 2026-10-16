@@ -2,9 +2,12 @@ package claude
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"strings"
 	"time"
+
+	"botropolis.city/botropolis/pkg/measure"
 )
 
 const (
@@ -240,7 +243,7 @@ func ReadTranscript(path string) (Transcript, error) {
 }
 
 func readTranscriptFile(path string, sidechainIsMain bool) (Transcript, error) {
-	f, err := os.Open(path)
+	f, err := openTranscript(path)
 	if err != nil {
 		return Transcript{}, err
 	}
@@ -511,4 +514,23 @@ func (s *transcriptScan) applyTitle(rec transcriptLineJSON) {
 	}
 	s.transcript.Title = title
 	s.rank = candidate
+}
+
+// openTranscript opens a transcript and counts it, for the tests that
+// measure how much work a task does. Item 91.
+func openTranscript(path string) (*os.File, error) {
+	f, err := os.Open(path)
+	if err == nil {
+		measure.Count(measure.TranscriptsOpened)
+	}
+	return f, err
+}
+
+// countedReader counts the bytes read through it. Item 91.
+type countedReader struct{ r io.Reader }
+
+func (c countedReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	measure.Add(measure.BytesRead, int64(n))
+	return n, err
 }

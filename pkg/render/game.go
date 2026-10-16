@@ -229,6 +229,11 @@ type Game struct {
 	dragging      bool
 	dragFrom      city.Point
 	started       time.Time
+	// driven is a city run a tick at a time by Drive; inject is this
+	// tick's input and shown what the last frame drew. Item 91.
+	driven bool
+	inject *driveInput
+	shown  Shown
 }
 
 func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveLayout func(*city.Layout), sprites *sprites) *Game {
@@ -312,6 +317,7 @@ func (g *Game) Update() error {
 		g.script = g.script[1:]
 		g.shotFrames = 1
 	}
+	g.injectInput()
 	if g.shotDone {
 		if g.frames != nil {
 			if err := g.frames.close(); err != nil && g.shotErr == nil {
@@ -328,7 +334,7 @@ func (g *Game) Update() error {
 	g.scene.SetInstant(g.reduced || g.screenshot != "")
 	g.scene.SetReducedMotion(g.reduced)
 	g.scene.Animate(1.0 / 30)
-	if g.screenshot == "" {
+	if g.screenshot == "" && !g.driven {
 		g.watchFocus()
 	}
 	x, y := ebiten.CursorPosition()
@@ -540,6 +546,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	width, height := float64(bounds.Dx()), float64(bounds.Dy())
 	seconds := g.clock()
 
+	if g.driven {
+		defer g.noteShown()
+	}
 	if cam.Projection == city.Isometric {
 		g.drawIso(screen, c, cam, hover, selected, width, height, seconds)
 		g.overlay(screen, width, height)
@@ -670,7 +679,7 @@ func (g *Game) clock() float64 {
 // three or four times as long as it should, and wall-clock animation
 // ran that much too fast on film.
 func (g *Game) now() time.Time {
-	if g.record != "" {
+	if g.record != "" || g.driven {
 		return g.started.Add(time.Duration(g.ticks) * time.Second / liveTPS)
 	}
 	return timeNow()
