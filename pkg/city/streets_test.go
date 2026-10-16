@@ -53,7 +53,7 @@ func TestStreets(t *testing.T) {
 		})
 
 		t.Run("it should still lay the avenue grid", func(t *testing.T) {
-			assert.NotEmpty(t, c.StreetCells)
+			assert.NotEmpty(t, c.Corridors)
 		})
 	})
 }
@@ -85,7 +85,7 @@ func TestStreetsAroundDistricts(t *testing.T) {
 }
 
 func TestStreetMasks(t *testing.T) {
-	t.Run("when a road must turn a corner", func(t *testing.T) {
+	t.Run("when the avenue grid must turn a corner", func(t *testing.T) {
 		// Four districts fill the first grid row and start a second; a road
 		// from the third to the fourth has to bend.
 		snap := snapshot(session("a", "/p/a", state.Working), session("b", "/p/b", state.Working),
@@ -93,7 +93,7 @@ func TestStreetMasks(t *testing.T) {
 		snap.Roads = []state.Road{{From: "/p/c", To: "/p/d", Messages: 1, Sessions: 1}}
 		c := city.Build(snap, city.NewLayout())
 		var corners int
-		for _, sc := range c.StreetCells {
+		for _, sc := range c.Corridors {
 			m := sc.Mask
 			horizontal := m&(city.DirE|city.DirW) != 0
 			vertical := m&(city.DirN|city.DirS) != 0

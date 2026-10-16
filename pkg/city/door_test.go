@@ -71,7 +71,7 @@ func TestDoor(t *testing.T) {
 		}
 		c := build(t, city.NewLayout(), sessions...)
 		streets := map[city.Cell]bool{}
-		for _, s := range c.StreetCells {
+		for _, s := range c.Corridors {
 			streets[s.Cell] = true
 		}
 		var onStreet []string
@@ -82,7 +82,7 @@ func TestDoor(t *testing.T) {
 				}
 			}
 		}
-		require.NotEmpty(t, c.StreetCells)
+		require.NotEmpty(t, c.Corridors)
 
 		t.Run("it should never put a worker on an avenue", func(t *testing.T) {
 			assert.Empty(t, onStreet)

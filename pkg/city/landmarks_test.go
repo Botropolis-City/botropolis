@@ -277,13 +277,16 @@ func TestRoads(t *testing.T) {
 	t.Run("when the snapshot has roads between projects", func(t *testing.T) {
 		roads := c.Roads
 
-		t.Run("it should draw one road per district pair that exists", func(t *testing.T) {
-			require.Len(t, roads, 2)
+		t.Run("it should draw one road per district pair that exists, whichever way it was crossed", func(t *testing.T) {
+			require.Len(t, roads, 1)
 		})
 
 		t.Run("it should fold worktrees into their project's district", func(t *testing.T) {
-			assert.Equal(t, "botropolis", roads[1].From.Name)
-			assert.Equal(t, "cinders", roads[1].To.Name)
+			assert.Equal(t, 4, roads[0].BackFiles)
+		})
+
+		t.Run("it should keep the other way's messages apart", func(t *testing.T) {
+			assert.Equal(t, 2, roads[0].BackMessages)
 		})
 
 		t.Run("it should run between district centres", func(t *testing.T) {
@@ -296,7 +299,7 @@ func TestRoads(t *testing.T) {
 		})
 
 		t.Run("it should sign each road with its traffic", func(t *testing.T) {
-			assert.Equal(t, "2 msgs, 4 files", roads[1].Label())
+			assert.Equal(t, "5 msgs, 4 files", roads[0].Label())
 		})
 
 		t.Run("it should sign a lone touch in the singular", func(t *testing.T) {

@@ -117,6 +117,9 @@ type Scene struct {
 	// trips the workers out on the road because one started.
 	tools map[string]string
 	trips map[string]*Trip
+	// overgrowth is the road cells growing over since their connection
+	// ceased. Item 85.
+	overgrowth map[Cell]overgrowing
 	// reduced is the reduced_motion setting: everything that moves on
 	// its own stands still. It is not the same as instant, which a
 	// still frame sets so the camera does not have to ease into place.
@@ -471,7 +474,9 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.snapshot = snapshot
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
+	was := s.city.StreetCells
 	s.city = Build(snapshot, s.layout)
+	s.noteOvergrowth(was, s.now())
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())

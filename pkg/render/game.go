@@ -557,7 +557,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	g.ground(screen, cam, c, width, height, detailed)
 	g.flatCells(screen, cam, c)
-	if len(c.StreetCells) > 0 {
+	g.overgrowth(screen, cam, true)
+	if len(c.Corridors) > 0 {
 		g.streetSigns(screen, c, cam, hover, labels)
 	} else {
 		g.roadLines(screen, c, cam, hover, labels)

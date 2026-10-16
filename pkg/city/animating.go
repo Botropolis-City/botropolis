@@ -26,8 +26,13 @@ import "botropolis.city/botropolis/pkg/state"
 // a refresh courier crossing it, a usage boat driving to its reading, a train on the loop, a car on an
 // avenue, a drone over a roof, a worker at a door, a beacon pulsing,
 // smoke rising, or a merge being celebrated. With motion reduced the
-// clock stands still and nothing is, whatever is on the map.
+// clock stands still and nothing is, whatever is on the map — except a
+// road growing over, which is a change and not a motion, and becomes a
+// short cross-fade rather than nothing (item 85).
 func (s *Scene) Animating() bool {
+	if s.overgrowing() {
+		return true
+	}
 	if s.reduced {
 		return false
 	}
@@ -52,7 +57,7 @@ func (s *Scene) Animating() bool {
 		return true
 	}
 	for i := range c.Streets {
-		if c.Streets[i].Road != nil && len(c.Streets[i].Path) > 1 {
+		if c.Streets[i].Road != nil && c.Streets[i].Road.Active > 0 && len(c.Streets[i].Path) > 1 {
 			return true
 		}
 	}

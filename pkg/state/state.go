@@ -69,11 +69,14 @@ type Session struct {
 	Agent              string         `json:"agent,omitempty"`
 	Messages           map[string]int `json:"messages,omitempty"`
 	Touches            map[string]int `json:"touches,omitempty"`
-	MCPCalls           map[string]int `json:"mcpCalls,omitempty"`
-	Skills             map[string]int `json:"skills,omitempty"`
-	PRs                []claude.PR    `json:"prs,omitempty"`
-	Recap              claude.Recap   `json:"recap"`
-	LastPrompt         string         `json:"lastPrompt,omitempty"`
+	// Visits is each directory outside the session's own where one of
+	// its subagents worked, by how many subagents worked there. Item 85.
+	Visits     map[string]int `json:"visits,omitempty"`
+	MCPCalls   map[string]int `json:"mcpCalls,omitempty"`
+	Skills     map[string]int `json:"skills,omitempty"`
+	PRs        []claude.PR    `json:"prs,omitempty"`
+	Recap      claude.Recap   `json:"recap"`
+	LastPrompt string         `json:"lastPrompt,omitempty"`
 	// Hourly is the session's usage by unix hour over its last week,
 	// for sparklines and the plant's breakdown.
 	Hourly           map[int64]claude.Usage `json:"hourly,omitempty"`
@@ -148,12 +151,22 @@ func (s Session) Doing() string {
 	return s.Tool + " " + subject
 }
 
+// Road is a connection between two projects: one per pair, whichever
+// way the sessions crossed. Messages and Files count the crossings from
+// From to To, and the Back counts the crossings the other way. Item 85.
 type Road struct {
-	From     string `json:"from"`
-	To       string `json:"to"`
-	Messages int    `json:"messages"`
-	Files    int    `json:"files"`
-	Sessions int    `json:"sessions"`
+	From         string `json:"from"`
+	To           string `json:"to"`
+	Messages     int    `json:"messages"`
+	Files        int    `json:"files"`
+	BackMessages int    `json:"backMessages,omitempty"`
+	BackFiles    int    `json:"backFiles,omitempty"`
+	// Visits is how many subagents worked across the pair.
+	Visits int `json:"visits,omitempty"`
+	// Sessions is every session that crossed, either way, and Active
+	// the ones among them working right now.
+	Sessions int `json:"sessions"`
+	Active   int `json:"active,omitempty"`
 	// Paths are the most-touched files on the road, at most MaxRoadPaths.
 	Paths []string `json:"paths,omitempty"`
 }
@@ -298,6 +311,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 		pending[id] = true
 	}
 	for _, sub := range subagents {
+		visit(&s, sub.Transcript)
 		s.Subagents++
 		s.Usage = s.Usage.Add(sub.Usage)
 		if pending[sub.ToolUseID] {
@@ -351,6 +365,31 @@ func parkedSession(t claude.Transcript) Session {
 	return s
 }
 
+// visit folds a subagent's crossings into its session's: the directory
+// it worked in when that is not the session's own, and every file it
+// touched outside the session's project. The session's maps may be the
+// transcript's own, so they are copied rather than written. Item 85.
+func visit(s *Session, sub claude.Transcript) {
+	inside := func(path string) bool { return path == s.CWD || strings.HasPrefix(path, s.CWD+"/") }
+	if sub.CWD != "" && !inside(sub.CWD) {
+		visits := map[string]int{sub.CWD: 1}
+		for k, v := range s.Visits {
+			visits[k] += v
+		}
+		s.Visits = visits
+	}
+	for path, n := range sub.Touches {
+		if inside(path) {
+			continue
+		}
+		touches := map[string]int{path: n}
+		for k, v := range s.Touches {
+			touches[k] += v
+		}
+		s.Touches = touches
+	}
+}
+
 // HourlyKeep is how many hourly buckets a session carries: a week.
 const HourlyKeep = 7 * 24
 
@@ -376,31 +415,33 @@ func Roads(sessions []Session, teams []claude.Team) []Road {
 	for _, team := range teams {
 		byName[team.Name] = team
 	}
+	// Crossings are gathered one way at a time, and then each pair is
+	// folded into one road: the direction that sorts first keeps From
+	// and To, and the other way becomes its Back counts.
 	type key struct{ from, to string }
-	counts := map[key]*Road{}
-	travellers := map[key]map[string]bool{}
-	touched := map[key]map[string]int{}
-	add := func(s Session, to, path string, messages, files int) {
+	type crossing struct {
+		messages, files, visits int
+		travellers              map[string]State
+		touched                 map[string]int
+	}
+	crossings := map[key]*crossing{}
+	add := func(s Session, to, path string, messages, files, visits int) {
 		if to == "" || to == s.CWD {
 			return
 		}
 		k := key{s.CWD, to}
-		road, ok := counts[k]
+		c, ok := crossings[k]
 		if !ok {
-			road = &Road{From: s.CWD, To: to}
-			counts[k] = road
-			travellers[k] = map[string]bool{}
-			touched[k] = map[string]int{}
+			c = &crossing{travellers: map[string]State{}, touched: map[string]int{}}
+			crossings[k] = c
 		}
-		road.Messages += messages
-		road.Files += files
+		c.messages += messages
+		c.files += files
+		c.visits += visits
 		if path != "" {
-			touched[k][path] += files
+			c.touched[path] += files
 		}
-		if !travellers[k][s.ID] {
-			travellers[k][s.ID] = true
-			road.Sessions++
-		}
+		c.travellers[s.ID] = s.State
 	}
 	roots := projectRoots(sessions)
 	for _, s := range sessions {
@@ -408,7 +449,10 @@ func Roads(sessions []Session, teams []claude.Team) []Road {
 			continue
 		}
 		for path, n := range s.Touches {
-			add(s, projectOf(roots, path), path, 0, n)
+			add(s, projectOf(roots, path), path, 0, n, 0)
+		}
+		for dir, n := range s.Visits {
+			add(s, projectOf(roots, dir+"/"), "", 0, 0, n)
 		}
 		if s.Team == "" {
 			continue
@@ -425,20 +469,58 @@ func Roads(sessions []Session, teams []claude.Team) []Road {
 			if !ok {
 				continue
 			}
-			add(s, member.CWD, "", n, 0)
+			add(s, member.CWD, "", n, 0, 0)
 		}
 	}
-	out := make([]Road, 0, len(counts))
-	for k, road := range counts {
-		road.Paths = topPaths(touched[k], MaxRoadPaths)
-		out = append(out, *road)
+	keys := make([]key, 0, len(crossings))
+	for k := range crossings {
+		keys = append(keys, k)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].From != out[j].From {
-			return out[i].From < out[j].From
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].from != keys[j].from {
+			return keys[i].from < keys[j].from
 		}
-		return out[i].To < out[j].To
+		return keys[i].to < keys[j].to
 	})
+	type pair struct {
+		road       *Road
+		travellers map[string]State
+		touched    map[string]int
+	}
+	pairs := map[key]*pair{}
+	var order []key
+	for _, k := range keys {
+		c := crossings[k]
+		p, back := pairs[key{k.to, k.from}]
+		if back {
+			p.road.BackMessages += c.messages
+			p.road.BackFiles += c.files
+		} else {
+			p = &pair{road: &Road{From: k.from, To: k.to, Messages: c.messages, Files: c.files},
+				travellers: map[string]State{}, touched: map[string]int{}}
+			pairs[k] = p
+			order = append(order, k)
+		}
+		p.road.Visits += c.visits
+		for id, st := range c.travellers {
+			p.travellers[id] = st
+		}
+		for path, n := range c.touched {
+			p.touched[path] += n
+		}
+	}
+	out := make([]Road, 0, len(order))
+	for _, k := range order {
+		p := pairs[k]
+		p.road.Sessions = len(p.travellers)
+		for _, st := range p.travellers {
+			if st == Working {
+				p.road.Active++
+			}
+		}
+		p.road.Paths = topPaths(p.touched, MaxRoadPaths)
+		out = append(out, *p.road)
+	}
 	return out
 }
 

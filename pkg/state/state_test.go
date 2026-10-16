@@ -963,3 +963,95 @@ func TestBotropolisOwnRunsAreNeverSessions(t *testing.T) {
 		})
 	}
 }
+
+func TestConnections(t *testing.T) {
+	const (
+		mullet  = "/home/avesta/workspaces/github/mCedar/mullet"
+		cinders = "/home/avesta/workspaces/github/mCedar/cinders"
+		auroq   = "/home/avesta/workspaces/github/auroq"
+	)
+	touching := func(id, cwd string, st state.State, paths ...string) state.Session {
+		s := state.Session{ID: id, CWD: cwd, State: st, Touches: map[string]int{}}
+		for _, p := range paths {
+			s.Touches[p]++
+		}
+		return s
+	}
+
+	t.Run("when A crosses to B and B crosses back to A", func(t *testing.T) {
+		roads := state.Roads([]state.Session{
+			touching("a", mullet, state.NeedsYou, cinders+"/main.go"),
+			touching("b", cinders, state.NeedsYou, mullet+"/x.go", mullet+"/y.go"),
+		}, nil)
+
+		t.Run("it should make one road for the pair", func(t *testing.T) {
+			require.Len(t, roads, 1)
+		})
+
+		t.Run("it should keep the first direction's counts", func(t *testing.T) {
+			assert.Equal(t, 2, roads[0].Files)
+		})
+
+		t.Run("it should keep the other direction's counts", func(t *testing.T) {
+			assert.Equal(t, 1, roads[0].BackFiles)
+		})
+
+		t.Run("it should count both travellers", func(t *testing.T) {
+			assert.Equal(t, 2, roads[0].Sessions)
+		})
+	})
+
+	for _, tc := range []struct {
+		scenario string
+		states   []state.State
+		active   int
+	}{
+		{"and one traveller is working", []state.State{state.Working, state.NeedsYou}, 1},
+		{"and three travellers are working", []state.State{state.Working, state.Working, state.Working}, 3},
+		{"and every traveller needs you, waits or is parked", []state.State{state.NeedsYou, state.Parked, state.Waiting}, 0},
+	} {
+		t.Run("when sessions cross between two projects "+tc.scenario, func(t *testing.T) {
+			var sessions []state.Session
+			for i, st := range tc.states {
+				sessions = append(sessions, touching(fmt.Sprint("s", i), mullet, st, cinders+"/main.go"))
+			}
+			sessions = append(sessions, state.Session{ID: "c", CWD: cinders, State: state.NeedsYou})
+			roads := state.Roads(sessions, nil)
+			require.Len(t, roads, 1)
+
+			t.Run(fmt.Sprintf("it should count %d active", tc.active), func(t *testing.T) {
+				assert.Equal(t, tc.active, roads[0].Active)
+			})
+		})
+	}
+
+	t.Run("when a session's subagent works in another project", func(t *testing.T) {
+		sub := claude.Subagent{Transcript: claude.Transcript{CWD: auroq + "/botropolis",
+			Touches: map[string]int{mullet + "/third.go": 2, cinders + "/own.go": 1}}}
+		sessions := build(t,
+			[]claude.SessionRecord{record(sidA, claude.KindBackground, claude.StatusIdle)},
+			[]claude.Transcript{transcript(sidA, claude.TurnWaiting)},
+			map[string][]claude.Subagent{sidA: {sub}}, alive)
+		parent := sessions[0]
+		other := state.Session{ID: "o", CWD: auroq + "/botropolis"}
+		third := state.Session{ID: "m", CWD: mullet}
+		to := map[string]state.Road{}
+		for _, r := range state.Roads([]state.Session{parent, other, third}, nil) {
+			to[r.To] = r
+		}
+
+		t.Run("it should connect the parent's project to where the subagent worked", func(t *testing.T) {
+			assert.Equal(t, 1, to[other.CWD].Visits)
+		})
+
+		t.Run("and its subagent touches a file in a third project", func(t *testing.T) {
+			t.Run("it should connect the parent's project to the third", func(t *testing.T) {
+				assert.Equal(t, 2, to[mullet].Files)
+			})
+
+			t.Run("it should not count a file in the parent's own project", func(t *testing.T) {
+				assert.NotContains(t, parent.Touches, cinders+"/own.go")
+			})
+		})
+	})
+}

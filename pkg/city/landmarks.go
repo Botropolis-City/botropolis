@@ -78,7 +78,14 @@ type PowerLine struct {
 
 // Label is what the road sign says: its message and file traffic.
 func (r RoadLine) Label() string {
-	return roadTraffic(r.Messages, r.Files)
+	label := roadTraffic(r.Messages+r.BackMessages, r.Files+r.BackFiles)
+	if r.Visits > 0 {
+		if label != "" {
+			label += ", "
+		}
+		label += plural(r.Visits, "subagent")
+	}
+	return label
 }
 
 func roadTraffic(messages, files int) string {
@@ -96,24 +103,42 @@ func roadTraffic(messages, files int) string {
 // font has.
 const arrow = " -> "
 
+// RoadLine is the connection between two districts, one per pair:
+// Messages and Files cross from From to To, the Back counts the other
+// way, and Active is how many of its travellers are working. Item 85.
 type RoadLine struct {
-	A, B     Point
-	From, To *District
-	Messages int
-	Files    int
-	Sessions int
-	Paths    []string
+	A, B         Point
+	From, To     *District
+	Messages     int
+	Files        int
+	BackMessages int
+	BackFiles    int
+	Visits       int
+	Sessions     int
+	Active       int
+	Paths        []string
 }
 
 func (r RoadLine) Card() Card {
-	lines := []string{
-		"traffic  " + r.Label(),
-		"sessions " + fmt.Sprint(r.Sessions),
+	lines := []string{"traffic  " + r.Label()}
+	if back := roadTraffic(r.BackMessages, r.BackFiles); back != "" {
+		lines = []string{
+			"to       " + r.To.Name + " " + roadTraffic(r.Messages, r.Files),
+			"to       " + r.From.Name + " " + back,
+		}
+		if r.Visits > 0 {
+			lines = append(lines, "visits   "+plural(r.Visits, "subagent"))
+		}
+	}
+	lines = append(lines, "sessions "+fmt.Sprint(r.Sessions))
+	if r.Active > 0 {
+		lines = append(lines, "working  "+fmt.Sprint(r.Active))
 	}
 	if len(r.Paths) > 0 {
 		short := make([]string, 0, len(r.Paths))
 		for _, path := range r.Paths {
-			short = append(short, strings.TrimPrefix(path, r.To.Root+"/"))
+			path = strings.TrimPrefix(path, r.To.Root+"/")
+			short = append(short, strings.TrimPrefix(path, r.From.Root+"/"))
 		}
 		lines = append(lines, "files    "+strings.Join(short, ", "))
 	}
@@ -139,6 +164,11 @@ func (c *City) placeRoads(roads []state.Road) {
 	for _, d := range c.Districts {
 		byRoot[d.Root] = d
 	}
+	// Two roads can land on one pair of districts — the two directions,
+	// or a worktree's session beside its project's — and a pair is one
+	// connection, so they fold into the first.
+	type pair struct{ a, b *District }
+	index := map[pair]int{}
 	for _, r := range roads {
 		from, ok := byRoot[ProjectRoot(r.From)]
 		if !ok {
@@ -148,10 +178,38 @@ func (c *City) placeRoads(roads []state.Road) {
 		if !ok || from == to {
 			continue
 		}
-		c.Roads = append(c.Roads, RoadLine{A: from.Rect.Center(), B: to.Rect.Center(), From: from, To: to,
-			Messages: r.Messages, Files: r.Files, Sessions: r.Sessions, Paths: r.Paths})
 		from.roads = append(from.roads, roadNote{other: to.Name, messages: r.Messages, files: r.Files, out: true})
 		to.roads = append(to.roads, roadNote{other: from.Name, messages: r.Messages, files: r.Files, out: false})
+		if r.BackMessages+r.BackFiles > 0 {
+			to.roads = append(to.roads, roadNote{other: from.Name, messages: r.BackMessages, files: r.BackFiles, out: true})
+			from.roads = append(from.roads, roadNote{other: to.Name, messages: r.BackMessages, files: r.BackFiles, out: false})
+		}
+		i, seen := index[pair{from, to}]
+		if !seen {
+			i, seen = index[pair{to, from}]
+			if seen {
+				r.Messages, r.Files, r.BackMessages, r.BackFiles = r.BackMessages, r.BackFiles, r.Messages, r.Files
+			}
+		}
+		if !seen {
+			index[pair{from, to}] = len(c.Roads)
+			c.Roads = append(c.Roads, RoadLine{A: from.Rect.Center(), B: to.Rect.Center(), From: from, To: to,
+				Messages: r.Messages, Files: r.Files, BackMessages: r.BackMessages, BackFiles: r.BackFiles,
+				Visits: r.Visits, Sessions: r.Sessions, Active: r.Active, Paths: r.Paths})
+			continue
+		}
+		line := &c.Roads[i]
+		line.Messages += r.Messages
+		line.Files += r.Files
+		line.BackMessages += r.BackMessages
+		line.BackFiles += r.BackFiles
+		line.Visits += r.Visits
+		line.Sessions += r.Sessions
+		line.Active += r.Active
+		line.Paths = append(line.Paths, r.Paths...)
+		if len(line.Paths) > state.MaxRoadPaths {
+			line.Paths = line.Paths[:state.MaxRoadPaths]
+		}
 	}
 }
 

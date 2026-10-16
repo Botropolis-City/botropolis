@@ -93,7 +93,11 @@ type City struct {
 	Library     Library
 	Hall        Hall
 	Roads       []RoadLine
-	Streets     []Street
+	Streets []Street
+	// Corridors are the plan's whole avenue grid, and StreetCells the
+	// road laid on it: only the cells a connection's route crosses, each
+	// joined to the road beside it. A corridor without road is belt.
+	Corridors   []StreetCell
 	StreetCells []StreetCell
 	RiverCells  []RiverCell
 	Night       bool

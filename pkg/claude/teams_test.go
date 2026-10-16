@@ -104,6 +104,24 @@ func TestTranscriptMessages(t *testing.T) {
 		})
 	})
 
+	uses := func(id, tool, key, path string) string {
+		return `{"type":"assistant","isSidechain":false,"timestamp":"2026-09-17T04:00:00.000Z","sessionId":"` + sid + `",` +
+			`"message":{"id":"` + id + `","model":"claude-opus-5","role":"assistant","stop_reason":"tool_use",` +
+			`"content":[{"type":"tool_use","id":"toolu_` + id + `","name":"` + tool + `","input":{"` + key + `":"` + path + `"}}]}}`
+	}
+	for _, tool := range []struct{ name, key string }{
+		{"Read", "file_path"}, {"Edit", "file_path"}, {"MultiEdit", "file_path"}, {"Write", "file_path"}, {"NotebookEdit", "notebook_path"},
+	} {
+		t.Run("when the transcript uses "+tool.name+" on a file in another project", func(t *testing.T) {
+			path := "/home/avesta/workspaces/github/auroq/botropolis/notes.ipynb"
+			transcript := readTranscript(t, userLine, uses("msg_20", tool.name, tool.key, path))
+
+			t.Run("it should count it as a crossing", func(t *testing.T) {
+				assert.Equal(t, map[string]int{path: 1}, transcript.Touches)
+			})
+		})
+	}
+
 	t.Run("when the transcript sends messages to teammates", func(t *testing.T) {
 		transcript := readTranscript(t, userLine, sendTo("m1", "team-lead"), sendTo("m2", "team-lead"), sendTo("m3", "branch-a"))
 

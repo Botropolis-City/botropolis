@@ -590,6 +590,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.frameHits = append(g.frameHits[:0], g.static.hits...)
 	g.mu.Unlock()
 	g.blitBase(screen, under)
+	g.overgrowth(screen, cam, false)
 	g.powerLines(screen, c, cam, hover, seconds)
 	var items []drawable
 	if c.Fountain.Area() > 0 {
@@ -877,6 +878,24 @@ func (g *Game) streets(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.streetSigns(screen, c, cam, hover, labels)
 }
 
+// overgrowth draws each road cell whose connection has ceased fading
+// into the belt beneath it. It changes every frame while it runs, so it
+// is drawn over the static layer rather than composed into it. Item 85.
+func (g *Game) overgrowth(screen *ebiten.Image, cam *city.Camera, flat bool) {
+	for _, o := range g.scene.Overgrowth() {
+		if flat || g.kits == nil {
+			col := g.flat(colorStreet)
+			col.A = uint8(float64(col.A) * (1 - o.Progress))
+			g.rect(screen, cam, o.Cell.Rect(), col)
+			continue
+		}
+		var tint ebiten.ColorScale
+		tint.ScaleAlpha(float32(1 - o.Progress))
+		name, turn := roadPiece(o.Mask)
+		g.kitGround(screen, cam, name, turn, o.Cell.Center(), &tint)
+	}
+}
+
 // streetSigns highlights the hovered street and signs each one at the
 // middle of its path, in either view.
 func (g *Game) streetSigns(screen *ebiten.Image, c *city.City, cam *city.Camera, hover city.Hit, labels bool) {
@@ -908,12 +927,9 @@ func (g *Game) streetSigns(screen *ebiten.Image, c *city.City, cam *city.Camera,
 	}
 }
 
-// Traffic: a few cars per road, more with more traffic, driving the
-// street's path kerb to kerb and back.
-const (
-	carSpeed = 60.0 // world units per second
-	maxCars  = 3
-)
+// Traffic: a car per working traveller, driving the street's path kerb
+// to kerb and back.
+const carSpeed = 60.0 // world units per second
 
 type car struct {
 	at    city.Point
@@ -934,8 +950,9 @@ func (g *Game) cars(c *city.City, seconds float64) []car {
 		if length <= 0 {
 			continue
 		}
-		traffic := street.Road.Messages + street.Road.Files
-		count := min(maxCars, 1+traffic/4)
+		// One car per traveller working on the connection, and none while
+		// nobody is: the road stays, the cars do not. Item 85.
+		count := street.Road.Active
 		for k := 0; k < count; k++ {
 			// Cars go there and back along the path.
 			phase := math.Mod(seconds*carSpeed/(2*length)+float64(k)/float64(count)+float64(i)*0.37, 1)
@@ -948,7 +965,7 @@ func (g *Game) cars(c *city.City, seconds float64) []car {
 			if !forward {
 				dir = city.Point{X: -dir.X, Y: -dir.Y}
 			}
-			out = append(out, car{at: at, model: kitCars[(i*maxCars+k)%len(kitCars)], turn: carTurn(dir), road: street.Road})
+			out = append(out, car{at: at, model: kitCars[(i*len(kitCars)/2+k)%len(kitCars)], turn: carTurn(dir), road: street.Road})
 		}
 	}
 	return out

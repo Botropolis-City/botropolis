@@ -45,14 +45,17 @@ func (c Cell) Center() Point {
 	return c.Rect().Center()
 }
 
-// placeStreets lays the plan's avenues as street cells and routes each
-// road's traffic along them from one district's kerb to the other's.
+// placeStreets keeps the plan's avenues as corridors, routes each
+// connection along them from one district's kerb to the other's, and
+// lays road only on the corridor cells a route crosses. Item 85.
 func (c *City) placeStreets() {
 	c.Streets = nil
 	c.StreetCells = nil
+	c.Corridors = nil
 	for _, st := range c.plan.Streets {
-		c.StreetCells = append(c.StreetCells, StreetCell{Cell: toCell(st.Cell), Mask: st.Mask})
+		c.Corridors = append(c.Corridors, StreetCell{Cell: toCell(st.Cell), Mask: st.Mask})
 	}
+	defer c.layRoads()
 	for i := range c.Roads {
 		road := &c.Roads[i]
 		cells := c.routeStreets(road)
@@ -64,6 +67,53 @@ func (c *City) placeStreets() {
 			c.Streets = append(c.Streets, Street{Road: road, Path: path})
 		}
 	}
+}
+
+// layRoads lays a road on every corridor cell a route crosses, each cell
+// joined only to the road cells beside it, and keeps the lamps and the
+// street trees to the roads: a corridor nothing travels is belt.
+func (c *City) layRoads() {
+	road := map[Cell]bool{}
+	for _, street := range c.Streets {
+		for _, p := range street.Path {
+			road[CellOf(p)] = true
+		}
+	}
+	for _, corridor := range c.Corridors {
+		if road[corridor.Cell] {
+			c.StreetCells = append(c.StreetCells, StreetCell{Cell: corridor.Cell, Mask: roadMask(corridor.Cell, road)})
+		}
+	}
+	lamps := c.Lamps[:0]
+	for _, l := range c.Lamps {
+		if road[l] {
+			lamps = append(lamps, l)
+		}
+	}
+	c.Lamps = lamps
+	trees := c.Trees[:0]
+	for _, t := range c.Trees {
+		if t.Kind != plan.StreetTree || besideRoad(t.Cell, road) {
+			trees = append(trees, t)
+		}
+	}
+	c.Trees = trees
+}
+
+var sides = []struct{ dc, dr, dir int }{{0, -1, DirN}, {1, 0, DirE}, {0, 1, DirS}, {-1, 0, DirW}}
+
+func roadMask(cell Cell, road map[Cell]bool) int {
+	mask := 0
+	for _, s := range sides {
+		if road[Cell{cell.Col + s.dc, cell.Row + s.dr}] {
+			mask |= s.dir
+		}
+	}
+	return mask
+}
+
+func besideRoad(cell Cell, road map[Cell]bool) bool {
+	return roadMask(cell, road) != 0
 }
 
 // kerbCells is every street cell touching a district's block.
