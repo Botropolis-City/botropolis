@@ -303,6 +303,8 @@ func (f *finder) open(g *Game, h find.Hit) bool {
 		return true
 	case h.Gone:
 		g.act(city.Action{Kind: city.ActionNew, Dir: h.Dir})
+	case h.Packed:
+		g.act(city.Action{Kind: city.ActionUnpack, SessionID: h.SessionID})
 	case find.Live(h.State):
 		g.act(city.Action{Kind: city.ActionAttach, SessionID: h.SessionID})
 	default:
@@ -616,7 +618,7 @@ func (f *finder) draw(g *Game, screen *ebiten.Image, width, height float64) {
 func finderResult(h find.Hit, now time.Time) ui.FinderResult {
 	return ui.FinderResult{
 		InPrompt: h.Kind == claude.SaidPrompt, Passage: h.Passage, FirstPrompt: h.FirstPrompt,
-		Dir: h.Dir, Branch: h.Branch, Age: format.Age(now.Sub(h.At)), Gone: h.Gone,
+		Dir: h.Dir, Branch: h.Branch, Age: format.Age(now.Sub(h.At)), Gone: h.Gone, Packed: h.Packed,
 		Recap: h.Recap, LastPrompt: h.LastPrompt,
 	}
 }

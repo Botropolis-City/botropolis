@@ -26,6 +26,8 @@ type FinderInput struct {
 // is headed by the session's first prompt and the passage goes beneath.
 // The title is carried and never shown: a row is headed by your words.
 type FinderResult struct {
+	// Packed is a session packed up into the depot (item 86).
+	Packed      bool
 	InPrompt    bool
 	Passage     string
 	FirstPrompt string
@@ -181,6 +183,9 @@ func (p *FinderPanel) layoutResults(th Theme, height float64, in FinderInput, me
 		}
 		if r.Gone {
 			where = append(where, "conversation deleted")
+		}
+		if r.Packed {
+			where = append(where, "packed up, enter unpacks")
 		}
 		row.Where = Text{Text: clipTo(strings.Join(where, "  "), width, Small, measure), At: city.Point{X: x, Y: row.Head.At.Y + bodyH}, Size: Small}
 		row.Marks = marks(row.Head, in.Words, measure)

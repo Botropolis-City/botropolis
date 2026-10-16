@@ -108,6 +108,17 @@ func TestLayoutFinderResults(t *testing.T) {
 		})
 	})
 
+	t.Run("when a session is packed up", func(t *testing.T) {
+		packed := inPrompt
+		packed.Packed = true
+		p := layout([]ui.FinderResult{packed}, 0, 800)
+		require.Len(t, p.Rows, 1)
+
+		t.Run("it should say it is packed up and that enter unpacks it (item 86)", func(t *testing.T) {
+			assert.Contains(t, p.Rows[0].Where.Text, "packed up, enter unpacks")
+		})
+	})
+
 	t.Run("when a row is selected", func(t *testing.T) {
 		r := inPrompt
 		r.Recap, r.LastPrompt = "Fixing the kiln's thermocouple.", "now tighten the clamp"

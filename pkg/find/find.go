@@ -31,6 +31,8 @@ type Query struct {
 	// Live is the state of each session that is running, by id; it
 	// ranks live and waiting sessions first.
 	Live map[string]state.State `json:"-"`
+	// Packed is every session packed up into the depot (item 86).
+	Packed map[string]bool `json:"-"`
 }
 
 // Hit is one session found, by its best passage.
@@ -51,6 +53,9 @@ type Hit struct {
 	LastPrompt string      `json:"lastPrompt,omitempty"`
 	Gone       bool        `json:"gone,omitempty"`
 	State      state.State `json:"state,omitempty"`
+	// Packed is a session packed up into the depot; opening it unpacks
+	// it (item 86).
+	Packed bool `json:"packed,omitempty"`
 }
 
 // ToolOutput is the kind a hit found only in tool output carries.
@@ -245,6 +250,9 @@ func (ix *Index) Find(q Query) []Hit {
 	})
 	if q.Limit > 0 && len(hits) > q.Limit {
 		hits = hits[:q.Limit]
+	}
+	for i := range hits {
+		hits[i].Packed = q.Packed[hits[i].SessionID]
 	}
 	return hits
 }

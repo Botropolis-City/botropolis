@@ -118,9 +118,12 @@ func (d *Daemon) Find(q find.Query) ([]find.Hit, error) {
 	if err := ix.Refresh(); err != nil {
 		return nil, err
 	}
-	q.Live = map[string]state.State{}
+	q.Live, q.Packed = map[string]state.State{}, map[string]bool{}
 	for _, s := range d.Snapshot().Sessions {
 		q.Live[s.ID] = s.State
+		if s.Packed {
+			q.Packed[s.ID] = true
+		}
 	}
 	return ix.Find(q), nil
 }

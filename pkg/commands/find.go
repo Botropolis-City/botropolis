@@ -73,9 +73,12 @@ func (f *Find) Search(q find.Query) ([]find.Hit, error) {
 	}
 	if f.source != nil {
 		if snapshot, err := f.source.Snapshot(true); err == nil {
-			q.Live = map[string]state.State{}
+			q.Live, q.Packed = map[string]state.State{}, map[string]bool{}
 			for _, s := range snapshot.Sessions {
 				q.Live[s.ID] = s.State
+				if s.Packed {
+					q.Packed[s.ID] = true
+				}
 			}
 		}
 	}
@@ -98,6 +101,9 @@ func (f *Find) Run(out io.Writer, q find.Query) error {
 		var head []string
 		if h.State != "" && h.State != state.Resting {
 			head = append(head, string(h.State))
+		}
+		if h.Packed {
+			head = append(head, "packed up")
 		}
 		head = append(head, format.Age(f.now().Sub(h.At))+" ago")
 		where := h.Dir

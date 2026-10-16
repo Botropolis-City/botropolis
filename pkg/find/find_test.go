@@ -288,6 +288,25 @@ func TestRanking(t *testing.T) {
 		})
 	}
 
+	t.Run("when a packed-up session matches", func(t *testing.T) {
+		hits := newHome(t).
+			write("crated", prompt("crated", t0, "kiln")).
+			write("onmap", prompt("onmap", t0.Add(time.Hour), "kiln")).
+			index().Find(find.Query{Words: "kiln", Packed: map[string]bool{"crated": true}})
+		packed := map[string]bool{}
+		for _, h := range hits {
+			packed[h.SessionID] = h.Packed
+		}
+
+		t.Run("its hit should say it is packed up", func(t *testing.T) {
+			assert.True(t, packed["crated"])
+		})
+
+		t.Run("the others should not", func(t *testing.T) {
+			assert.False(t, packed["onmap"])
+		})
+	})
+
 	t.Run("when more sessions match than the limit", func(t *testing.T) {
 		h := newHome(t)
 		for i := range 4 {

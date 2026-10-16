@@ -68,6 +68,17 @@ func TestFinderActs(t *testing.T) {
 			})
 		})
 
+		t.Run("and Enter is pressed on a packed-up session", func(t *testing.T) {
+			crated := stopped
+			crated.Packed = true
+			g, actor := finderOver(t, 0, crated)
+			pressKey(t, g, ebiten.KeyEnter, false)
+
+			t.Run("it should unpack it, bringing it back to its old lot (item 86)", func(t *testing.T) {
+				assert.Equal(t, []city.Action{{Kind: city.ActionUnpack, SessionID: "stopped"}}, actor.done)
+			})
+		})
+
 		t.Run("and Enter is pressed on a session whose conversation is gone", func(t *testing.T) {
 			g, actor := finderOver(t, 0, gone)
 			pressKey(t, g, ebiten.KeyEnter, false)

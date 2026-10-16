@@ -12,6 +12,7 @@ import (
 	"botropolis.city/botropolis/pkg/daemon"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // daemonSource answers for the files the way the daemon's own loader
@@ -43,6 +44,17 @@ func TestFind(t *testing.T) {
 			t.Run("it should build its own index and print the same", func(t *testing.T) {
 				assert.Equal(t, out, run(t, alone, find.Query{Words: "ci queue", Limit: 5}))
 			})
+		})
+	})
+
+	t.Run("when a packed-up session is found", func(t *testing.T) {
+		home := helpers.NewHome(t)
+		home.Transcript(sid, cwd, helpers.UserPrompt(sid, cwd, "2026-09-16T19:50:00.000Z"))
+		source := &fakeSource{snapshot: state.Snapshot{Sessions: []state.Session{{ID: sid, CWD: cwd, State: state.Resting, Packed: true}}}}
+		f := commands.NewFind(t.TempDir()+"/none.sock", home.Path, source, func() time.Time { return daemonNow })
+
+		t.Run("it should say it is packed up (item 86)", func(t *testing.T) {
+			assert.Contains(t, run(t, f, find.Query{Words: "hi"}), "packed up")
 		})
 	})
 
