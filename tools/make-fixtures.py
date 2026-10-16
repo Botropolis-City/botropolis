@@ -396,7 +396,11 @@ def cross_repo_touches(path, roots, own):
 
 def select_transcripts(claude_dir, live_ids, recent, exclude_id=None):
     projects = claude_dir / "projects"
-    all_main = [p for p in projects.glob("*/*.jsonl") if p.stem != exclude_id and p.stat().st_size > 0]
+    # A transcript that never names a directory holds no conversation:
+    # Claude Code writes ones with only a title and an agent name in them.
+    # The one bridge stub is chosen on purpose below; any other is left out.
+    all_main = [p for p in projects.glob("*/*.jsonl")
+                if p.stem != exclude_id and p.stat().st_size > 0 and (cwd_of(p) is not None or is_bridge_stub(p))]
     by_id = {p.stem: p for p in all_main}
     chosen = {}
     for sid in live_ids:
