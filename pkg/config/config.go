@@ -35,6 +35,9 @@ const (
 	// KeyGlobalShortcut is the chord that opens the finder from any
 	// application, empty for off: there is no default. Item 84.
 	KeyGlobalShortcut = "global_shortcut"
+	// KeyConfig names a config file to use instead of the default one,
+	// so a frame can run on settings of its own.
+	KeyConfig = "config"
 
 	DefaultShutteredDays = 7
 	DefaultOvergrownDays = 30
@@ -144,6 +147,8 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyDetail, DefaultDetail, "how much of the city to draw: full or plain (plain drops the scenery)")
 	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
 	flags.Bool(KeyGroupLines, true, "draw each group of sessions as a line across its districts")
+	flags.String(KeyConfig, "", "the config file to read and save (default: "+DefaultFile()+")")
+	_ = v.BindPFlag(KeyConfig, flags.Lookup(KeyConfig))
 	_ = v.BindPFlag(KeyHome, flags.Lookup(KeyHome))
 	_ = v.BindPFlag(KeySocket, flags.Lookup(KeySocket))
 	_ = v.BindPFlag(KeyShutteredDays, flags.Lookup(KeyShutteredDays))
@@ -172,9 +177,14 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 }
 
 func New(v *viper.Viper) (*Config, error) {
+	file := v.GetString(KeyConfig)
+	if file != "" {
+		v.SetConfigFile(file)
+	}
 	if err := v.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
-		if !errors.As(err, &notFound) {
+		missing := file != "" && errors.Is(err, os.ErrNotExist)
+		if !errors.As(err, &notFound) && !missing {
 			return nil, err
 		}
 	}

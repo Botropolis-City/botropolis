@@ -342,12 +342,16 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	if one != nil {
 		defer func() { _ = one.Close() }()
 		requests = one.Requests()
-		// Only the one city reaches for the desktop: it grabs nothing
-		// until a combination is set, and raises the window. Item 84.
+		shortcut = c.config.GlobalShortcut
+	}
+	// The city reaches for the desktop of the display it is drawn on. The
+	// one city grabs the combination the config holds; a scripted one
+	// grabs only what its own keys record, so a frame can show the row
+	// as it really behaves. Item 84.
+	if one != nil || scripted {
 		if desktop, desktopErr = hotkey.Open(runtime.GOOS, os.Getenv); desktop != nil {
 			defer desktop.Close()
 		}
-		shortcut = c.config.GlobalShortcut
 	}
 	return render.Run(cmd.Context(), render.Options{
 		Requests:       requests,

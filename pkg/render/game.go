@@ -606,11 +606,18 @@ func (g *Game) capture(screen *ebiten.Image) {
 		return
 	}
 	g.shotFrames++
-	if g.shotFrames < 3 {
+	if !g.shotReady() {
 		return
 	}
 	g.shotErr = writePNG(g.screenshot, frame(screen))
 	g.shotDone = true
+}
+
+// shotReady is whether the screenshot can be taken: its script is done
+// and the frame has settled. Draws can outrun updates on a real X
+// server, so counting frames alone took the shot before the last keys.
+func (g *Game) shotReady() bool {
+	return len(g.script) == 0 && g.shotFrames >= 3
 }
 
 func frame(screen *ebiten.Image) image.Image {

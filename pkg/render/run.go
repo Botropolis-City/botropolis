@@ -161,11 +161,6 @@ func Run(ctx context.Context, opts Options) error {
 		// searches on the frame, as soon as it is typed.
 		game.dispatch = func(run func()) { run() }
 		game.findAtOnce = true
-		// A scripted frame never touches the desktop, but its settings
-		// row records as the real one does. Item 84.
-		if game.shortcut == nil {
-			game.shortcut = scriptedShortcut{}
-		}
 	}
 	game.screenshot = opts.Screenshot
 	game.script = opts.Keys

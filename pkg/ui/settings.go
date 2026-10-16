@@ -121,6 +121,9 @@ func LayoutSettings(th Theme, width, height float64, s Settings, measure Measure
 		}
 	}
 	w := pad + labelW + pad + valueW + pad
+	if subW, _ := measure(PanelAbout[PanelSettings], Small); pad+subW+pad > w {
+		w = pad + subW + pad
+	}
 	var note []string
 	if s.Note != "" {
 		note = wrapPara(s.Note, max(w-2*pad, ParaWidth(th)/2), noteRows, measure)

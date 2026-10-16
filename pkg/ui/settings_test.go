@@ -112,8 +112,18 @@ func TestLayoutSettings(t *testing.T) {
 			assert.True(t, p.Rows[1].Selected)
 		})
 
+		t.Run("it should hold the subtitle inside the panel", func(t *testing.T) {
+			w, _ := measure7(p.Subtitle.Text, ui.Small)
+			assert.LessOrEqual(t, p.Subtitle.At.X+w, p.Rect.Max.X-24)
+		})
+	})
+
+	t.Run("when the rows are wider than the subtitle", func(t *testing.T) {
+		wide := ui.NewSettings([]ui.Setting{{Key: "k", Label: "a label long enough to pass the subtitle", Value: "a value"}})
+		p := ui.LayoutSettings(th, 1600, 600, wide, measure7)
+
 		t.Run("it should size the panel to the widest row plus padding", func(t *testing.T) {
-			assert.Equal(t, 24+14*7+24+7*7+24.0, p.Rect.Width())
+			assert.Equal(t, 24+40*7+24+11*7+24.0, p.Rect.Width())
 		})
 	})
 

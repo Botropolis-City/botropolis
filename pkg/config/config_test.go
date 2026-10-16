@@ -406,6 +406,46 @@ func TestParseUsageRefresh(t *testing.T) {
 	}
 }
 
+// Item 84: --config points a run at a config file of its own, so a frame
+// can be rendered without reading or writing anyone's real settings.
+func TestConfigFlag(t *testing.T) {
+	// withDefault puts a terminal in the default file, which a run given
+	// --config must not see.
+	withDefault := func(t *testing.T) {
+		t.Helper()
+		home := t.TempDir()
+		t.Setenv("XDG_CONFIG_HOME", home)
+		path := filepath.Join(home, "botropolis", "config.toml")
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+		require.NoError(t, os.WriteFile(path, []byte("terminal = \"kitty\"\n"), 0o600))
+	}
+
+	t.Run("when --config names a file that does not exist yet", func(t *testing.T) {
+		withDefault(t)
+		path := filepath.Join(t.TempDir(), "frame.toml")
+		cfg := load(t, "--config", path)
+
+		t.Run("it should not read the default file", func(t *testing.T) {
+			assert.Empty(t, cfg.Terminal)
+		})
+
+		t.Run("it should save to the file it names", func(t *testing.T) {
+			assert.Equal(t, path, cfg.File)
+		})
+	})
+
+	t.Run("when --config names a file holding a setting", func(t *testing.T) {
+		withDefault(t)
+		path := filepath.Join(t.TempDir(), "frame.toml")
+		require.NoError(t, os.WriteFile(path, []byte("terminal = \"foot\"\n"), 0o600))
+		cfg := load(t, "--config", path)
+
+		t.Run("it should read it", func(t *testing.T) {
+			assert.Equal(t, "foot", cfg.Terminal)
+		})
+	})
+}
+
 func TestGlobalShortcutKey(t *testing.T) {
 	// saved writes the setting and loads the config again, the way the
 	// settings panel does and the next start does. Item 84.
