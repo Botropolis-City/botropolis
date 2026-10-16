@@ -28,6 +28,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The road stays while any session that made the connection is on the map, and grows over when the last one goes.
   Lamps and street trees stand only along roads.
 - **A car is one session working across a connection**, so the number of cars on a road is the number of sessions working across it right now, and a road that nobody is working on has no cars.
+- **A stopped session stays on its own lot, and the storage yard is gone.**
+  A session whose process has stopped is *resting*; after `shuttered_days` (7) quiet it is *shuttered*, and after `overgrown_days` (30) it is *overgrown*.
+  Its card names the rung and says how long it has been quiet, and a district stays on the map while it has any session at all.
+  The state once called `parked` is now `resting` everywhere, in `botropolis status --all`, its JSON and the TUI.
+- **Nothing leaves the map on a timer.**
+  Every stopped session Claude Code still has a transcript for is shown, however old.
+  The daemon keeps a ledger of the sessions it has shown — ids, directories and times only, in `~/.local/state/botropolis/sessions.json` —
+  so a session whose transcript Claude Code has deleted keeps its lot, titled from your own prompts, and its card says the conversation is gone.
+
+### Removed
+
+- **`parked_days`**, its flag and its settings row: nothing is taken off the map by age any more.
+  A config file that still sets it loads as before, and `shuttered_days` and `overgrown_days` replace it in the settings panel.
 
 ## [0.1.7] - 2026-10-15
 

@@ -15,10 +15,6 @@ import (
 
 type Option func(*state.Loader)
 
-func WithParkedMaxAge(maxAge time.Duration) Option {
-	return func(l *state.Loader) { l.WithParkedMaxAge(maxAge) }
-}
-
 type overlay struct {
 	at      time.Time
 	state   state.State
@@ -179,7 +175,7 @@ func (d *Daemon) Apply(event claude.HookEvent, at time.Time) {
 	case claude.HookStop:
 		o.state, o.tool, o.subject, o.note = state.NeedsYou, "", "", ""
 	case claude.HookSessionEnd:
-		o.state, o.tool, o.subject, o.note = state.Parked, "", "", ""
+		o.state, o.tool, o.subject, o.note = state.Resting, "", "", ""
 	case claude.HookSessionStart:
 		delete(d.overlays, event.SessionID)
 		view := d.view()
@@ -264,7 +260,7 @@ func (d *Daemon) view() state.Snapshot {
 			if s.State != state.Waiting {
 				s.State = o.state
 			}
-		case state.Parked:
+		case state.Resting:
 			s.State = o.state
 		}
 	}

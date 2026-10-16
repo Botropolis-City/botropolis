@@ -3,6 +3,7 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,40 +26,42 @@ type cachedSubagent struct {
 	skipped  []claude.SkippedFile
 }
 
-const (
-	DefaultParkedMaxAge = 7 * 24 * time.Hour
-	parkedWindowBytes   = 64 << 10
-)
+const stoppedWindowBytes = 64 << 10
 
 type Loader struct {
-	home         string
-	probes       Probes
-	parkedMaxAge time.Duration
-	transcripts  map[string]cachedTranscript
-	subagents    map[string]cachedSubagent
-	parked       map[string]cachedTranscript
-	mcp          claude.MCPConfig
-	mcpKey       fileKey
-	stats        *claude.Stats
-	statsKey     fileKey
-	dirs         []string
-	reads        int
-	groups       groupCache
+	home        string
+	probes      Probes
+	transcripts map[string]cachedTranscript
+	subagents   map[string]cachedSubagent
+	parked      map[string]cachedTranscript
+	mcp         claude.MCPConfig
+	mcpKey      fileKey
+	stats       *claude.Stats
+	statsKey    fileKey
+	dirs        []string
+	reads       int
+	groups      groupCache
+	ledgerPath  string
+	ledger      Ledger
+	historyKey  fileKey
+	history     map[string][]claude.Prompt
 }
 
 func NewLoader(home string, probes Probes) *Loader {
 	return &Loader{
-		home:         home,
-		probes:       probes,
-		parkedMaxAge: DefaultParkedMaxAge,
-		transcripts:  map[string]cachedTranscript{},
-		subagents:    map[string]cachedSubagent{},
-		parked:       map[string]cachedTranscript{},
+		home:        home,
+		probes:      probes,
+		transcripts: map[string]cachedTranscript{},
+		subagents:   map[string]cachedSubagent{},
+		parked:      map[string]cachedTranscript{},
 	}
 }
 
-func (l *Loader) WithParkedMaxAge(maxAge time.Duration) *Loader {
-	l.parkedMaxAge = maxAge
+// WithLedger keeps a ledger of every session shown at path, and brings
+// back from it any session whose transcript Claude Code has deleted.
+// Item 86.
+func (l *Loader) WithLedger(path string) *Loader {
+	l.ledgerPath = path
 	return l
 }
 
@@ -134,20 +137,28 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	}
 	l.transcripts, l.subagents, l.dirs = transcripts, subagents, dirs
 
-	if l.parkedMaxAge > 0 {
-		live := map[string]bool{}
-		for _, r := range src.Records {
-			live[r.SessionID] = true
-		}
-		parked, skipped, err := l.catalogue(projectsDir, live, now)
-		if err != nil {
-			return snapshot, err
-		}
-		snapshot.Skipped = append(snapshot.Skipped, skipped...)
-		src.Parked = parked
+	live := map[string]bool{}
+	for _, r := range src.Records {
+		live[r.SessionID] = true
 	}
+	// Every stopped session Claude Code still has a transcript for is
+	// catalogued, however old: time ages a session, it never takes one
+	// off the map (item 86).
+	stopped, skipped, err := l.catalogue(projectsDir, live)
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.Skipped = append(snapshot.Skipped, skipped...)
+	src.Stopped = stopped
 
 	snapshot.Sessions = Build(src, l.probes, now)
+	if l.ledgerPath != "" {
+		sessions, err := l.keepLedger(snapshot.Sessions, claudeDir)
+		if err != nil {
+			snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: l.ledgerPath, Err: err})
+		}
+		snapshot.Sessions = sessions
+	}
 	snapshot.Servers = Servers(snapshot.Sessions, src.MCP)
 	snapshot.Skills = Skills(snapshot.Sessions)
 	snapshot.Roads = Roads(snapshot.Sessions, src.Teams)
@@ -155,7 +166,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	if err := l.applyGroups(&snapshot, claudeDir, now); err != nil {
 		snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: filepath.Join(claudeDir, "history.jsonl"), Err: err})
 	}
-	snapshot.Power = PowerSince(append(append([]claude.Transcript{}, src.Transcripts...), src.Parked...), now.Add(-PowerWindow))
+	snapshot.Power = PowerSince(append(append([]claude.Transcript{}, src.Transcripts...), src.Stopped...), now.Add(-PowerWindow))
 	return snapshot, nil
 }
 
@@ -197,7 +208,7 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 	return l.stats, nil
 }
 
-func (l *Loader) catalogue(projectsDir string, live map[string]bool, now time.Time) ([]claude.Transcript, []claude.SkippedFile, error) {
+func (l *Loader) catalogue(projectsDir string, live map[string]bool) ([]claude.Transcript, []claude.SkippedFile, error) {
 	paths, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
 	if err != nil {
 		return nil, nil, err
@@ -205,7 +216,6 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool, now time.Ti
 	var parked []claude.Transcript
 	var skipped []claude.SkippedFile
 	cache := map[string]cachedTranscript{}
-	cutoff := now.Add(-l.parkedMaxAge)
 	for _, path := range paths {
 		id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		if live[id] {
@@ -216,13 +226,10 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool, now time.Ti
 			skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
 			continue
 		}
-		if key.modTime.Before(cutoff) {
-			continue
-		}
 		entry, ok := l.parked[path]
 		if !ok || entry.key != key {
 			l.reads++
-			transcript, err := claude.ReadTranscriptWindow(path, parkedWindowBytes)
+			transcript, err := claude.ReadTranscriptWindow(path, stoppedWindowBytes)
 			if err != nil {
 				skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
 				continue
@@ -231,7 +238,7 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool, now time.Ti
 			entry = cachedTranscript{key: key, transcript: transcript}
 		}
 		cache[path] = entry
-		if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" || entry.transcript.LastAt.Before(cutoff) {
+		if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
 			continue
 		}
 		// The usage probe's transcripts used to be fenced out here.
@@ -284,4 +291,62 @@ func stat(path string) (fileKey, error) {
 		return fileKey{}, err
 	}
 	return fileKey{size: info.Size(), modTime: info.ModTime()}, nil
+}
+
+// keepLedger records every session shown and adds back each one the
+// ledger knows that nothing else brought: its transcript is gone.
+func (l *Loader) keepLedger(sessions []Session, claudeDir string) ([]Session, error) {
+	if l.ledger == nil {
+		ledger, err := LoadLedger(l.ledgerPath)
+		if err != nil {
+			return sessions, err
+		}
+		l.ledger = ledger
+	}
+	changed := false
+	shown := map[string]bool{}
+	for _, s := range sessions {
+		shown[s.ID] = true
+		if l.ledger.Record(s) {
+			changed = true
+		}
+	}
+	var missing []string
+	for id := range l.ledger {
+		if !shown[id] {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) > 0 {
+		history, err := l.promptHistory(filepath.Join(claudeDir, "history.jsonl"))
+		if err != nil {
+			return sessions, err
+		}
+		sort.Strings(missing)
+		for _, id := range missing {
+			sessions = append(sessions, goneSession(id, l.ledger[id], history[id]))
+		}
+	}
+	if changed {
+		return sessions, l.ledger.Save(l.ledgerPath)
+	}
+	return sessions, nil
+}
+
+// promptHistory reads Claude Code's prompt history again only when the
+// file has changed.
+func (l *Loader) promptHistory(path string) (map[string][]claude.Prompt, error) {
+	key, err := stat(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if l.history != nil && key == l.historyKey {
+		return l.history, nil
+	}
+	history, err := claude.ReadPromptHistory(path)
+	if err != nil {
+		return nil, err
+	}
+	l.history, l.historyKey = history, key
+	return history, nil
 }

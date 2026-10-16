@@ -26,7 +26,7 @@ func model(sessions ...state.Session) *tui.Model {
 
 func TestModel(t *testing.T) {
 	t.Run("when a snapshot with mixed states arrives", func(t *testing.T) {
-		m := model(session("p", state.Parked, time.Hour), session("w", state.Working, 2*time.Minute),
+		m := model(session("p", state.Resting, time.Hour), session("w", state.Working, 2*time.Minute),
 			session("n1", state.NeedsYou, 10*time.Minute), session("n2", state.NeedsYou, time.Minute))
 
 		t.Run("it should hide parked sessions by default", func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestModel(t *testing.T) {
 	})
 
 	t.Run("when enter is pressed on a parked session", func(t *testing.T) {
-		m := model(session("a", state.Parked, 0))
+		m := model(session("a", state.Resting, 0))
 		m.Key("a", now)
 
 		t.Run("it should resume", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestModel(t *testing.T) {
 		})
 
 		t.Run("on a parked session", func(t *testing.T) {
-			m := model(session("a", state.Parked, 0))
+			m := model(session("a", state.Resting, 0))
 			m.Key("a", now)
 			assert.Equal(t, tui.Action{}, m.Key("s", now))
 		})

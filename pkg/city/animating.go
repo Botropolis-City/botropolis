@@ -62,7 +62,7 @@ func (s *Scene) Animating() bool {
 		}
 	}
 	for _, b := range c.Buildings() {
-		if b.BoardedUp || b.Vacant {
+		if b.Blinds || b.Vacant {
 			continue
 		}
 		if b.Pulse || b.Cranes > 0 || b.Smoke > 0 || b.Session.State == state.Working {

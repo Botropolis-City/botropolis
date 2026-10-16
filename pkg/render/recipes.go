@@ -38,7 +38,6 @@ var (
 			"city-kit-commercial/building-skyscraper-b", "city-kit-commercial/building-skyscraper-d"},
 	}
 	fillSteps = []float64{0.2, 0.45, 0.7, 0.9}
-	sheds     = []string{"city-kit-industrial/shipping-container-a", "city-kit-industrial/shipping-container-b", "city-kit-industrial/shipping-container-c"}
 
 	kitPlant = "city-kit-industrial/building-a"
 	kitStack = "city-kit-industrial/chimney-medium"
@@ -127,13 +126,10 @@ func hashID(id string) uint32 {
 	return h.Sum32()
 }
 
-// buildingPiece is the piece for a session: a container in its project's
-// colour when parked, else by how full its context is.
+// buildingPiece is the piece for a session, by how full its context is.
+// A stopped session keeps its building on its own lot (item 86).
 func buildingPiece(b *city.Building) string {
 	h := hashID(b.Session.ID)
-	if b.BoardedUp {
-		return sheds[b.Hue%len(sheds)]
-	}
 	class := len(fillSteps)
 	for i, step := range fillSteps {
 		if b.Fill < step {

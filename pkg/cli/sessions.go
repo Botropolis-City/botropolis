@@ -84,7 +84,7 @@ func NewSessionCLIs(load Loader, services Services) []*cobra.Command {
 	}
 	resume := &cobra.Command{
 		Use:   "resume <session-id>",
-		Short: "Resume a parked session in the background and attach to it",
+		Short: "Resume a resting session in the background and attach to it",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s, err := sessions()
@@ -103,7 +103,7 @@ func NewSessionCLIs(load Loader, services Services) []*cobra.Command {
 	resume.Flags().String("dir", "", "directory to resume in (default: the session's own cwd)")
 	prune := &cobra.Command{
 		Use:   "prune",
-		Short: "Delete parked background sessions older than a cutoff, and empty ones that sat for an hour",
+		Short: "Delete resting background sessions older than a cutoff, and empty ones that sat for an hour",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := load()

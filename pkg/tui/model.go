@@ -61,7 +61,7 @@ func (m *Model) SetSnapshot(snapshot state.Snapshot) {
 func (m *Model) rebuild() {
 	m.rows = nil
 	for _, s := range m.snapshot.Sessions {
-		if !m.all && s.State == state.Parked {
+		if !m.all && s.State == state.Resting {
 			continue
 		}
 		m.rows = append(m.rows, s)
@@ -133,13 +133,13 @@ func (m *Model) Key(key string, now time.Time) Action {
 		return Action{Kind: ActionQuit}
 	case "enter":
 		if s, ok := m.Selected(); ok {
-			if s.State == state.Parked {
+			if s.State == state.Resting {
 				return Action{Kind: ActionResume, SessionID: s.ID}
 			}
 			return Action{Kind: ActionAttach, SessionID: s.ID}
 		}
 	case "s":
-		if s, ok := m.Selected(); ok && s.State != state.Parked {
+		if s, ok := m.Selected(); ok && s.State != state.Resting {
 			return Action{Kind: ActionStop, SessionID: s.ID}
 		}
 	case "x", "delete":
@@ -201,7 +201,7 @@ func (m *Model) Footer() string {
 	if m.all {
 		scope = "all"
 	}
-	return fmt.Sprintf("%d sessions (%s) | j/k move | enter attach/resume | s stop | x x demolish | a toggle parked | q quit",
+	return fmt.Sprintf("%d sessions (%s) | j/k move | enter attach/resume | s stop | x x demolish | a toggle resting | q quit",
 		len(m.rows), scope)
 }
 

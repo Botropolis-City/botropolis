@@ -16,7 +16,7 @@ func TestSummary(t *testing.T) {
 		t.Run("it should count sessions by state", func(t *testing.T) {
 			assert.Equal(t, 1, s.Working)
 			assert.Equal(t, 1, s.Unattended)
-			assert.Equal(t, 1, s.Parked)
+			assert.Equal(t, 1, s.Resting)
 			assert.Equal(t, 2, s.Live())
 		})
 
@@ -48,8 +48,8 @@ func TestSummary(t *testing.T) {
 		}{
 			"with sessions needing you": {city.Summary{NeedsYou: 2, Working: 1, Unattended: 1}, "2 need you · 1 working · 1 unattended"},
 			"with only work running":    {city.Summary{Working: 3}, "3 working"},
-			"with only unattended work": {city.Summary{Unattended: 1, Parked: 2}, "1 unattended"},
-			"with nothing live":         {city.Summary{Parked: 9}, "quiet"},
+			"with only unattended work": {city.Summary{Unattended: 1, Resting: 2}, "1 unattended"},
+			"with nothing live":         {city.Summary{Resting: 9}, "quiet"},
 		}
 		for name, c := range cases {
 			t.Run("and the city is "+name, func(t *testing.T) {
@@ -72,7 +72,7 @@ func TestSummary(t *testing.T) {
 	})
 
 	t.Run("when a chip for an empty state is hovered", func(t *testing.T) {
-		card := city.Build(snapshot(session("a", cinders, state.Working)), city.NewLayout()).StateCard(state.Parked)
+		card := city.Build(snapshot(session("a", cinders, state.Working)), city.NewLayout()).StateCard(state.Resting)
 
 		t.Run("it should say none", func(t *testing.T) {
 			assert.Equal(t, []string{"none"}, card.Lines)

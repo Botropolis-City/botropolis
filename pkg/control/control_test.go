@@ -130,7 +130,7 @@ func TestControl(t *testing.T) {
 				_, err := c.New(context.Background(), dir, "")
 				return err
 			}},
-			{"and a parked session is resumed", func(c *control.Control) error {
+			{"and a resting session is resumed", func(c *control.Control) error {
 				_, err := c.Resume(context.Background(), dir, sessionID)
 				return err
 			}},
@@ -190,7 +190,7 @@ func TestControl(t *testing.T) {
 		})
 	})
 
-	t.Run("when a parked session is resumed", func(t *testing.T) {
+	t.Run("when a resting session is resumed", func(t *testing.T) {
 		runner := &fakeRunner{stdout: backgrounded}
 		id, err := newControl(runner).Resume(context.Background(), dir, sessionID)
 		require.NoError(t, err)

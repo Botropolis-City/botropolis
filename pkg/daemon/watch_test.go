@@ -82,7 +82,7 @@ func TestWatch(t *testing.T) {
 		t.Run("it should park the session", func(t *testing.T) {
 			assert.Eventually(t, func() bool {
 				s, ok := session(d, sid)
-				return ok && s.State == state.Parked
+				return ok && s.State == state.Resting
 			}, settle, tick)
 		})
 	})

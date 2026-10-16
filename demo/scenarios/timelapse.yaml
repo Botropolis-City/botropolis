@@ -11,10 +11,10 @@ usage_changes:
   - {at: 48s, session: 83, weekly: 36}
 sessions:
   - ref: tidepool/what-is-phase
-    state: parked
+    state: resting
     ago: 22h
   - ref: kiln/empty-log-from-tracker
-    state: parked
+    state: resting
     ago: 1d6h
   - ref: tidepool/fix-table-timezone
     state: working

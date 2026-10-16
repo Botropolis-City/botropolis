@@ -140,7 +140,7 @@ func TestStage(t *testing.T) {
 	}
 
 	t.Run("when a recorded session is placed as parked", func(t *testing.T) {
-		got := stage(t, corpus, Scenario{Sessions: []Placement{{Ref: "tidepool/6f1d", State: state.Parked}}}, now)
+		got := stage(t, corpus, Scenario{Sessions: []Placement{{Ref: "tidepool/6f1d", State: state.Resting}}}, now)
 		require.NoError(t, got.err)
 
 		t.Run("it should write no record", func(t *testing.T) {

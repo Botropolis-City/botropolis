@@ -42,7 +42,7 @@ const (
 	ToneWorking
 	ToneWaiting
 	ToneUnattended
-	ToneParked
+	ToneResting
 	ToneError
 	ToneMerged
 )
@@ -57,8 +57,8 @@ func (t Tone) String() string {
 		return "waiting"
 	case ToneUnattended:
 		return "unattended"
-	case ToneParked:
-		return "parked"
+	case ToneResting:
+		return "resting"
 	case ToneError:
 		return "error"
 	case ToneMerged:
@@ -78,8 +78,8 @@ func StateTone(st state.State) Tone {
 		return ToneWaiting
 	case state.Unattended:
 		return ToneUnattended
-	case state.Parked:
-		return ToneParked
+	case state.Resting:
+		return ToneResting
 	}
 	return ToneNone
 }
@@ -114,7 +114,7 @@ type Palette struct {
 	Working    color.NRGBA
 	Waiting    color.NRGBA
 	Unattended color.NRGBA
-	Parked     color.NRGBA
+	Resting    color.NRGBA
 	Error      color.NRGBA
 	Merged     color.NRGBA
 
@@ -138,7 +138,7 @@ var DefaultPalette = Palette{
 	Working:    color.NRGBA{0x55, 0x9a, 0xe0, 0xff},
 	Waiting:    color.NRGBA{0x4c, 0xb8, 0xa8, 0xff},
 	Unattended: color.NRGBA{0x8a, 0x6c, 0xd8, 0xff},
-	Parked:     color.NRGBA{0x6b, 0x72, 0x80, 0xff},
+	Resting:    color.NRGBA{0x6b, 0x72, 0x80, 0xff},
 	Error:      color.NRGBA{0xe0, 0x50, 0x50, 0xff},
 	Merged:     color.NRGBA{0x4c, 0xc0, 0x7a, 0xff},
 
@@ -188,8 +188,8 @@ func (t Theme) Color(tone Tone) color.NRGBA {
 		return t.Palette.Waiting
 	case ToneUnattended:
 		return t.Palette.Unattended
-	case ToneParked:
-		return t.Palette.Parked
+	case ToneResting:
+		return t.Palette.Resting
 	case ToneError:
 		return t.Palette.Error
 	case ToneMerged:

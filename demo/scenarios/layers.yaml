@@ -7,11 +7,11 @@ sessions:
   - {ref: tidepool/units-from-tracker, state: working, ago: 20s, context: 38%, prs: [open]}
   - {ref: tidepool/review-loader-and-docs, state: needs-you, ago: 7m, context: 72%}
   - {ref: lanternfish/list-race, state: working, ago: 40s, context: 91%, errors: 2}
-  - {ref: lanternfish/status-filter, state: parked, ago: 5h, prs: [merged]}
+  - {ref: lanternfish/status-filter, state: resting, ago: 5h, prs: [merged]}
   - {ref: kiln/line-numbers-like-tidepool, state: working, ago: 1m, context: 48%}
   - {ref: kiln/json-report, state: unattended, ago: 3m, context: 62%}
   - {ref: quillmark/fix-code-spans, state: working, ago: 2m, context: 24%}
-  - {ref: quillmark/compare-kiln-packaging, state: parked, ago: 2d}
+  - {ref: quillmark/compare-kiln-packaging, state: resting, ago: 2d}
   - {ref: beacon/conditions-line, state: working, ago: 30s, context: 55%}
   - {ref: orchard/triploid-design, state: needs-you, ago: 12m, context: 31%}
   - {ref: orchard/parallel-review, state: working, ago: 15s, context: 79%}

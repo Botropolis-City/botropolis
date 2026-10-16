@@ -39,7 +39,7 @@ func TestCodexLoader(t *testing.T) {
 	t.Run("when a rollout finished an hour ago", func(t *testing.T) {
 		home := t.TempDir()
 		writeRollout(t, home, "rollout-2026-09-17T07-00-00-019a3c2e.jsonl", rollout, now.Add(-time.Hour))
-		loader := codex.NewLoader(home, 7*24*time.Hour)
+		loader := codex.NewLoader(home)
 		snapshot, err := loader.Load(now)
 		require.NoError(t, err)
 		require.Len(t, snapshot.Sessions, 1)
@@ -76,7 +76,7 @@ func TestCodexLoader(t *testing.T) {
 		})
 
 		t.Run("it should be parked because the file is stale", func(t *testing.T) {
-			assert.Equal(t, state.Parked, s.State)
+			assert.Equal(t, state.Resting, s.State)
 			assert.False(t, s.Alive)
 		})
 
@@ -88,7 +88,7 @@ func TestCodexLoader(t *testing.T) {
 	t.Run("when a rollout was written seconds ago and the turn is complete", func(t *testing.T) {
 		home := t.TempDir()
 		writeRollout(t, home, "rollout-a.jsonl", rollout, now.Add(-10*time.Second))
-		snapshot, err := codex.NewLoader(home, 0).Load(now)
+		snapshot, err := codex.NewLoader(home).Load(now)
 		require.NoError(t, err)
 
 		t.Run("it should need you", func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestCodexLoader(t *testing.T) {
 		home := t.TempDir()
 		mid := rollout[:strings.Index(rollout, `{"timestamp":"2026-09-17T07:00:12.000Z"`)]
 		writeRollout(t, home, "rollout-b.jsonl", mid, now.Add(-10*time.Second))
-		snapshot, err := codex.NewLoader(home, 0).Load(now)
+		snapshot, err := codex.NewLoader(home).Load(now)
 		require.NoError(t, err)
 
 		t.Run("it should be working", func(t *testing.T) {
@@ -109,19 +109,19 @@ func TestCodexLoader(t *testing.T) {
 		})
 	})
 
-	t.Run("when a rollout is older than the catalogue keeps", func(t *testing.T) {
+	t.Run("when a rollout is thirty days old", func(t *testing.T) {
 		home := t.TempDir()
 		writeRollout(t, home, "rollout-old.jsonl", rollout, now.Add(-30*24*time.Hour))
-		snapshot, err := codex.NewLoader(home, 7*24*time.Hour).Load(now)
+		snapshot, err := codex.NewLoader(home).Load(now)
 		require.NoError(t, err)
 
-		t.Run("it should leave it out", func(t *testing.T) {
-			assert.Empty(t, snapshot.Sessions)
+		t.Run("it should still be on the snapshot", func(t *testing.T) {
+			assert.Len(t, snapshot.Sessions, 1)
 		})
 	})
 
 	t.Run("when the codex home does not exist", func(t *testing.T) {
-		snapshot, err := codex.NewLoader(filepath.Join(t.TempDir(), "none"), 0).Load(now)
+		snapshot, err := codex.NewLoader(filepath.Join(t.TempDir(), "none")).Load(now)
 
 		t.Run("it should return an empty snapshot and no error", func(t *testing.T) {
 			assert.NoError(t, err)

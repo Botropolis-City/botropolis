@@ -252,5 +252,5 @@ func (ix *Index) Find(q Query) []Hit {
 // Live reports a session that is running: anything with a state but
 // parked.
 func Live(st state.State) bool {
-	return st != "" && st != state.Parked && st != state.Empty
+	return st != "" && st != state.Resting && st != state.Empty
 }

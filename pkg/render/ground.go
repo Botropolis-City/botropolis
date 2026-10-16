@@ -29,7 +29,7 @@ var (
 	colorMapIdle     = color.NRGBA{0x3a, 0x44, 0x58, 0xff}
 	colorMapNeedsYou = colorNeedsYou
 	colorMapUnatt    = color.NRGBA{0x8a, 0x6c, 0xd8, 0xff}
-	colorMapParked   = color.NRGBA{0x44, 0x42, 0x48, 0xff}
+	colorMapResting  = color.NRGBA{0x44, 0x42, 0x48, 0xff}
 	colorMapVacant   = color.NRGBA{0x4e, 0x48, 0x3c, 0xff}
 	colorVacant      = color.NRGBA{0x6b, 0x62, 0x50, 0xff}
 	colorVacantDim   = color.NRGBA{0x3a, 0x36, 0x2e, 0xff}
@@ -162,8 +162,8 @@ func (g *Game) floorLabel(screen *ebiten.Image, at city.Point, s string, c color
 // to tell apart at a glance.
 func blockColor(b *city.Building, seconds float64) color.NRGBA {
 	switch {
-	case b.BoardedUp:
-		return colorMapParked
+	case b.Blinds:
+		return colorMapResting
 	case b.Vacant:
 		return colorMapVacant
 	case b.Pulse:
@@ -183,7 +183,7 @@ func blockColor(b *city.Building, seconds float64) color.NRGBA {
 // dots.
 func (g *Game) block(screen *ebiten.Image, cam *city.Camera, b *city.Building, seconds float64) {
 	g.rect(screen, cam, b.Rect, g.flatBody(b, blockColor(b, seconds)))
-	if b.Fill > 0 && !b.BoardedUp {
+	if b.Fill > 0 && !b.Blinds {
 		gauge := city.RectAt(b.Rect.Max.X-b.Rect.Width()*0.22, b.Rect.Min.Y, b.Rect.Width()*0.22, b.Rect.Height())
 		g.rect(screen, cam, gauge, colorGaugeBack)
 		height := gauge.Height() * b.Fill
@@ -242,7 +242,7 @@ func (g *Game) minimap(screen *ebiten.Image, box city.Rect) {
 		r := m.ProjectRect(d.Rect)
 		vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(math.Max(1, r.Width())), float32(math.Max(1, r.Height())), colorMapDistHi, false)
 		for _, b := range d.Buildings {
-			if b.BoardedUp {
+			if b.Blinds {
 				continue
 			}
 			p := m.Project(b.Rect.Center())

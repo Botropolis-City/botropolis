@@ -280,7 +280,7 @@ func TestScene(t *testing.T) {
 	})
 
 	t.Run("when a parked building is clicked", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
+		s := scene(t, session("a", cinders, state.Resting))
 		action := s.Click(centreOf(t, s, "a"))
 
 		t.Run("it should do nothing on its own, as a live one does not", func(t *testing.T) {
@@ -527,8 +527,8 @@ func TestActivate(t *testing.T) {
 	})
 
 	t.Run("when a parked building is selected", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
-		s.JumpTo(state.Parked)
+		s := scene(t, session("a", cinders, state.Resting))
+		s.JumpTo(state.Resting)
 
 		t.Run("it should ask to resume it", func(t *testing.T) {
 			assert.Equal(t, city.Action{Kind: city.ActionResume, SessionID: "a"}, s.Activate())
@@ -581,8 +581,8 @@ func TestSelectionActions(t *testing.T) {
 	})
 
 	t.Run("when a parked building is selected", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
-		require.NotNil(t, s.JumpTo(state.Parked))
+		s := scene(t, session("a", cinders, state.Resting))
+		require.NotNil(t, s.JumpTo(state.Resting))
 
 		t.Run("it should offer resume and no stop", func(t *testing.T) {
 			kinds := s.Actions()
@@ -818,14 +818,13 @@ func TestNamePlates(t *testing.T) {
 	// find your way were the ones that disappeared when the city went
 	// quiet. Aria's ruling is that a project's name is permanent and a
 	// session's title is the hover-only one.
-	t.Run("when storage holds only parked sessions", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Working), session("b", cinders, state.Parked))
+	t.Run("when a district holds only resting sessions", func(t *testing.T) {
+		s := scene(t, session("b", cinders, state.Resting))
 		s.Wheel(s.Size().Scale(0.5), 3)
 		s.Animate(1)
-		storage := storageOf(t, s.City())
 
 		t.Run("it should still show its plate, with nothing happening in it", func(t *testing.T) {
-			assert.True(t, s.DistrictLabelVisible(storage))
+			assert.True(t, s.DistrictLabelVisible(s.City().Districts[0]))
 		})
 	})
 
@@ -1072,7 +1071,7 @@ func TestMinimap(t *testing.T) {
 
 func TestDemolish(t *testing.T) {
 	t.Run("when nothing is selected", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
+		s := scene(t, session("a", cinders, state.Resting))
 		action, note := s.Demolish(now)
 
 		t.Run("it should do nothing and say why", func(t *testing.T) {
@@ -1082,7 +1081,7 @@ func TestDemolish(t *testing.T) {
 	})
 
 	t.Run("when d is pressed once on a selected building", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
+		s := scene(t, session("a", cinders, state.Resting))
 		s.Click(centreOf(t, s, "a"))
 		action, note := s.Demolish(now)
 
@@ -1101,7 +1100,7 @@ func TestDemolish(t *testing.T) {
 	})
 
 	t.Run("when the second press comes too late", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
+		s := scene(t, session("a", cinders, state.Resting))
 		s.Click(centreOf(t, s, "a"))
 		s.Demolish(now)
 		action, note := s.Demolish(now.Add(10 * time.Second))
@@ -1113,7 +1112,7 @@ func TestDemolish(t *testing.T) {
 	})
 
 	t.Run("when the selection changes between presses", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked), session("b", cinders, state.Parked))
+		s := scene(t, session("a", cinders, state.Resting), session("b", cinders, state.Resting))
 		s.Click(centreOf(t, s, "a"))
 		s.Demolish(now)
 		s.Click(centreOf(t, s, "b"))
@@ -1411,6 +1410,28 @@ func TestSceneCardDetails(t *testing.T) {
 
 		t.Run("it should offer generate summary", func(t *testing.T) {
 			assert.Contains(t, s.Actions(), city.ActionGenerate)
+		})
+	})
+}
+
+func TestSceneLadder(t *testing.T) {
+	quiet := session("a", cinders, state.Resting)
+	quiet.LastActivity = now.Add(-4 * 24 * time.Hour)
+
+	t.Run("when the scene is new", func(t *testing.T) {
+		s := scene(t, quiet)
+
+		t.Run("it should climb by the default thresholds", func(t *testing.T) {
+			assert.Equal(t, state.RungResting, s.City().Buildings()[0].Rung)
+		})
+	})
+
+	t.Run("when the thresholds change", func(t *testing.T) {
+		s := scene(t, quiet)
+		s.SetLadder(state.Thresholds{Shuttered: 3 * 24 * time.Hour, Overgrown: 10 * 24 * time.Hour})
+
+		t.Run("it should climb by the new ones at once", func(t *testing.T) {
+			assert.Equal(t, state.RungShuttered, s.City().Buildings()[0].Rung)
 		})
 	})
 }

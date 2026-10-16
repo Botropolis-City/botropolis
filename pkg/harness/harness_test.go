@@ -36,7 +36,7 @@ func TestMulti(t *testing.T) {
 		Groups:   []state.Group{{ID: "g1", Members: []string{"1"}}},
 	}}
 	b := fake{name: "codex", dirs: []string{"/b"}, snapshot: state.Snapshot{
-		Sessions: []state.Session{{ID: "2", State: state.Parked, Harness: "codex"}},
+		Sessions: []state.Session{{ID: "2", State: state.Resting, Harness: "codex"}},
 		Power:    state.Power{CostUSD: 0.5, Fresh: 1, ByModel: map[string]claude.Usage{"opus": {Output: 1}, "gpt": {Output: 7}}},
 	}}
 

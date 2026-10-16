@@ -82,7 +82,8 @@ const (
 type Scene struct {
 	snapshot state.Snapshot
 	// focus is the group the map is focused on, if any (item 87).
-	focus string
+	focus  string
+	ladder state.Thresholds
 	// linesHidden is whether the setting hides the groups' lines.
 	linesHidden bool
 	light       Light
@@ -164,7 +165,7 @@ type Scene struct {
 const CelebrateFor = 2500 * time.Millisecond
 
 func NewScene(layout *Layout) *Scene {
-	s := &Scene{layout: layout, camera: NewCamera(), city: &City{}, now: time.Now, location: time.Local, log: events.NewLog()}
+	s := &Scene{layout: layout, ladder: state.DefaultThresholds, camera: NewCamera(), city: &City{}, now: time.Now, location: time.Local, log: events.NewLog()}
 	if layout != nil {
 		// An unknown name opens on Attention rather than refusing to
 		// start: the view is a preference, not data anyone can lose.
@@ -489,12 +490,25 @@ func (s *Scene) Insets() Insets {
 	return in
 }
 
+// Ladder is the thresholds a stopped session climbs by (item 86).
+func (s *Scene) Ladder() state.Thresholds { return s.ladder }
+
+// SetLadder changes them, and rebuilds the city so every building takes
+// its new rung at once.
+func (s *Scene) SetLadder(t state.Thresholds) {
+	if t == s.ladder {
+		return
+	}
+	s.ladder = t
+	s.SetSnapshot(s.snapshot)
+}
+
 func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.snapshot = snapshot
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
 	was := s.city.StreetCells
-	s.city = Build(snapshot, s.layout)
+	s.city = BuildWith(snapshot, s.layout, s.ladder)
 	s.noteOvergrowth(was, s.now())
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
@@ -722,7 +736,7 @@ func (s *Scene) Actions() []ActionKind {
 	}
 	root := ProjectRoot(s.selected.Session.CWD)
 	var kinds []ActionKind
-	if s.selected.Session.State == state.Parked {
+	if s.selected.Session.State == state.Resting {
 		kinds = append(kinds, ActionResume)
 	} else {
 		kinds = append(kinds, ActionAttach, ActionStop)
@@ -734,7 +748,7 @@ func (s *Scene) Actions() []ActionKind {
 	} else {
 		kinds = append(kinds, ActionStar)
 	}
-	if len(s.snapshot.Groups) > 0 && s.selected.Session.State != state.Parked {
+	if len(s.snapshot.Groups) > 0 && s.selected.Session.State != state.Resting {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
 	if s.detailsOpen() {
@@ -902,7 +916,7 @@ func (s *Scene) NewHere() (Action, string) {
 	switch {
 	case s.selected != nil:
 		dir = s.selected.Session.CWD
-	case s.hover.District != nil && !s.hover.District.Storage:
+	case s.hover.District != nil:
 		dir = s.hover.District.Root
 	}
 	if dir == "" {
@@ -931,7 +945,7 @@ func (s *Scene) Activate() Action {
 	if s.selected == nil {
 		return Action{}
 	}
-	if s.selected.Session.State == state.Parked {
+	if s.selected.Session.State == state.Resting {
 		return Action{Kind: ActionResume, SessionID: s.selected.Session.ID}
 	}
 	return Action{Kind: ActionAttach, SessionID: s.selected.Session.ID}

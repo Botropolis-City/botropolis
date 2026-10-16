@@ -9,7 +9,7 @@ sessions:
     context: 58%
     ago: 1m
   - ref: tidepool/what-is-phase
-    state: parked
+    state: resting
     ago: 3h
   - ref: beacon/conditions-line
     state: needs-you

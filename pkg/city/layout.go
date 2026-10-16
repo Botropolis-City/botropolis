@@ -135,19 +135,10 @@ func (l *Layout) Save(path string) error {
 	return os.Rename(tmp, path)
 }
 
-// Slots gives every live session a sticky slot in the district's grid. A
-// session that parks gives its slot up (it moves to storage); one that
-// merely vanishes for a while keeps it.
-func (l *Layout) Slots(root string, live, parked []state.Session) map[string]int {
-	entry := l.district(root)
-	evict(entry.Slots, parked)
-	return assign(entry.Slots, live)
-}
-
-func evict(sticky map[string]int, sessions []state.Session) {
-	for _, s := range sessions {
-		delete(sticky, s.ID)
-	}
+// Slots gives every session a sticky slot in the district's grid. A
+// session that stops keeps its slot: it rests on its own lot (item 86).
+func (l *Layout) Slots(root string, sessions []state.Session) map[string]int {
+	return assign(l.district(root).Slots, sessions)
 }
 
 func assign(sticky map[string]int, sessions []state.Session) map[string]int {

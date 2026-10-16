@@ -51,7 +51,7 @@ func stageCommand() *cobra.Command {
 		Short: "Write a home for a scenario and start stand-ins for its live sessions",
 		Long: "Writes a Claude home for the scenario into --home: each placed session's\n" +
 			"transcript moved to end relative to now, a session record for every one\n" +
-			"that is not parked, pointed at a detached sleep, and the MCP config.\n" +
+			"that is not resting, pointed at a detached sleep, and the MCP config.\n" +
 			"Point botropolis at it with --home and --socket, and run unstage after.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

@@ -96,7 +96,7 @@ func (f *Find) Run(out io.Writer, q find.Query) error {
 	}
 	for _, h := range hits {
 		var head []string
-		if h.State != "" && h.State != state.Parked {
+		if h.State != "" && h.State != state.Resting {
 			head = append(head, string(h.State))
 		}
 		head = append(head, format.Age(f.now().Sub(h.At))+" ago")

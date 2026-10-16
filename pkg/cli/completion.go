@@ -52,7 +52,7 @@ func anyBackground(s state.Session) (string, bool) {
 }
 
 func parked(s state.Session) (string, bool) {
-	return s.ID, s.State == state.Parked
+	return s.ID, s.State == state.Resting
 }
 
 func completeDirThenNothing(_ *cobra.Command, args []string, _ string) ([]cobra.Completion, cobra.ShellCompDirective) {

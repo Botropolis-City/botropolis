@@ -9,7 +9,7 @@ Only the rendered pages, the manifests and each kit's `License.txt` are committe
 | --- | --- | --- |
 | City Kit Commercial | https://kenney.nl/assets/city-kit-commercial | session buildings by context fill; the city hall and library |
 | City Kit Roads | https://kenney.nl/assets/city-kit-roads | avenues, bends, crossings, ends; lamp posts |
-| City Kit Industrial | https://kenney.nl/assets/city-kit-industrial | the power plant and its stack; the towers (water towers); parked sessions as shipping containers |
+| City Kit Industrial | https://kenney.nl/assets/city-kit-industrial | the power plant and its stack; the towers (water towers); shipping containers, in reserve |
 | City Kit Suburban | https://kenney.nl/assets/city-kit-suburban | two of the park and street trees; the planters on the plaza's edge |
 | Nature Kit | https://kenney.nl/assets/nature-kit | six more tree species and the plaza's bushes, scaled to the Suburban trees' height and repainted in their greens by the render script |
 | Car Kit | https://kenney.nl/assets/car-kit | the cars on avenues with traffic (scaled to a third of a cell) |

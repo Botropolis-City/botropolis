@@ -1,6 +1,7 @@
 package state_test
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ func TestLoader(t *testing.T) {
 		t.Run("it should build the live session and catalogue the other as parked", func(t *testing.T) {
 			require.Len(t, snapshot.Sessions, 2)
 			assert.Equal(t, state.NeedsYou, sessionByID(t, snapshot, sidA).State)
-			assert.Equal(t, state.Parked, sessionByID(t, snapshot, otherSid).State)
+			assert.Equal(t, state.Resting, sessionByID(t, snapshot, otherSid).State)
 		})
 
 		t.Run("it should read each transcript once", func(t *testing.T) {
@@ -148,10 +149,10 @@ func TestCatalogue(t *testing.T) {
 		snapshot, err := loader.Load(now)
 		require.NoError(t, err)
 
-		t.Run("it should list it as a parked session", func(t *testing.T) {
+		t.Run("it should list it as a resting session", func(t *testing.T) {
 			require.Len(t, snapshot.Sessions, 3)
 			parked := sessionByID(t, snapshot, "aaaaaaaa-0000-0000-0000-000000000001")
-			assert.Equal(t, state.Parked, parked.State)
+			assert.Equal(t, state.Resting, parked.State)
 		})
 
 		t.Run("it should carry the transcript's title", func(t *testing.T) {
@@ -177,24 +178,88 @@ func TestCatalogue(t *testing.T) {
 		})
 	})
 
-	t.Run("when a parked transcript is older than the catalogue keeps", func(t *testing.T) {
+	t.Run("when a stopped session's transcript is older than seven days", func(t *testing.T) {
 		home := parkedHome(t)
-		loader := state.NewLoader(home.Path, alive).WithParkedMaxAge(48 * time.Hour)
-		snapshot, err := loader.Load(time.Date(2026, time.September, 17, 8, 0, 0, 0, time.UTC))
+		snapshot, err := state.NewLoader(home.Path, alive).Load(time.Date(2026, time.October, 30, 8, 0, 0, 0, time.UTC))
 		require.NoError(t, err)
 
-		t.Run("it should leave it out", func(t *testing.T) {
-			assert.Len(t, snapshot.Sessions, 2)
+		t.Run("it should still be on the snapshot", func(t *testing.T) {
+			assert.Len(t, snapshot.Sessions, 3)
 		})
 	})
 
-	t.Run("when the catalogue is switched off", func(t *testing.T) {
+	t.Run("when the loader keeps a ledger", func(t *testing.T) {
 		home := parkedHome(t)
-		snapshot, err := state.NewLoader(home.Path, alive).WithParkedMaxAge(0).Load(now)
+		path := filepath.Join(t.TempDir(), "sessions.json")
+		_, err := state.NewLoader(home.Path, alive).WithLedger(path).Load(now)
+		require.NoError(t, err)
+		ledger, err := state.LoadLedger(path)
 		require.NoError(t, err)
 
-		t.Run("it should list live sessions only", func(t *testing.T) {
-			assert.Len(t, snapshot.Sessions, 1)
+		t.Run("it should record every session it shows", func(t *testing.T) {
+			assert.Len(t, ledger, 3)
+		})
+	})
+
+	t.Run("when a session the city has shown has lost its transcript", func(t *testing.T) {
+		gone := "dddddddd-0000-0000-0000-000000000004"
+		first, last := time.Date(2026, 8, 1, 9, 0, 0, 0, time.UTC), time.Date(2026, 8, 2, 17, 30, 0, 0, time.UTC)
+		ledgerWith := func(t *testing.T) string {
+			t.Helper()
+			path := filepath.Join(t.TempDir(), "sessions.json")
+			require.NoError(t, state.Ledger{gone: {CWD: "/where/it/was", StartedAt: first, LastActivity: first.Add(time.Hour)}}.Save(path))
+			return path
+		}
+
+		t.Run("and the prompt history has it", func(t *testing.T) {
+			home := liveHome(t)
+			home.Prompt(gone, loaderCWD, "make the queue retry", first).Prompt(gone, loaderCWD, "ship it", last)
+			snapshot, err := state.NewLoader(home.Path, alive).WithLedger(ledgerWith(t)).Load(now)
+			require.NoError(t, err)
+			s := sessionByID(t, snapshot, gone)
+
+			t.Run("it should be resting", func(t *testing.T) {
+				assert.Equal(t, state.Resting, s.State)
+			})
+
+			t.Run("it should take its working directory from the history", func(t *testing.T) {
+				assert.Equal(t, loaderCWD, s.CWD)
+			})
+
+			t.Run("it should take its last activity from its last prompt", func(t *testing.T) {
+				assert.True(t, last.Equal(s.LastActivity))
+			})
+
+			t.Run("it should take its title from its first prompt", func(t *testing.T) {
+				assert.Equal(t, "make the queue retry", s.Title)
+			})
+
+			t.Run("it should keep its last prompt", func(t *testing.T) {
+				assert.Equal(t, "ship it", s.LastPrompt)
+			})
+
+			t.Run("it should be marked as having no conversation", func(t *testing.T) {
+				assert.True(t, s.ConversationGone)
+			})
+		})
+
+		t.Run("and the history does not have it either", func(t *testing.T) {
+			home := liveHome(t)
+			snapshot, err := state.NewLoader(home.Path, alive).WithLedger(ledgerWith(t)).Load(now)
+			require.NoError(t, err)
+			s := sessionByID(t, snapshot, gone)
+
+			t.Run("it should take its working directory from the ledger", func(t *testing.T) {
+				assert.Equal(t, "/where/it/was", s.CWD)
+			})
+
+			t.Run("it should take its last activity from the ledger", func(t *testing.T) {
+				assert.True(t, first.Add(time.Hour).Equal(s.LastActivity))
+			})
+
+			t.Run("it should be marked as having no conversation", func(t *testing.T) {
+				assert.True(t, s.ConversationGone)
+			})
 		})
 	})
 
@@ -226,7 +291,7 @@ func sessionByID(t *testing.T, snapshot state.Snapshot, id string) state.Session
 
 // Item 49. `claude -p "/usage"` writes a transcript on every run, and
 // the city is built out of transcripts, so a usage poller running in an
-// ordinary directory adds a parked session to the city each time it
+// ordinary directory adds a resting session to the city each time it
 // asks the city what its usage is. Measured on the real machine before
 // this guard: three polls took it from 22 parked to 25.
 func TestUsageProbeIsNotASession(t *testing.T) {

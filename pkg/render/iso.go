@@ -311,7 +311,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		if c, ok := g.viewTint(b); ok {
 			tint = viewScale(c)
 		}
-	case b.BoardedUp:
+	case b.Blinds:
 		tint = &ebiten.ColorScale{}
 		tint.SetR(0.7)
 		tint.SetG(0.7)
@@ -331,7 +331,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	// The state light: a beacon over the door in the state's own colour,
 	// pulsing for needs-you, so the palette reads the same as the strip.
 	foot := cam.WorldToScreen(b.Rect.Center())
-	if !b.BoardedUp {
+	if !b.Blinds {
 		beacon := g.theme.Color(ui.StateTone(b.Session.State))
 		if b.Pulse {
 			beacon = pulse(beacon, seconds)
@@ -344,7 +344,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	dot := math.Max(3, 6*cam.Zoom)
 	// Signage is paint on the building, not chrome: like a tower's name
 	// it stays when h hides the interface.
-	if !b.BoardedUp {
+	if !b.Blinds {
 		title := b.Card(g.scene.City().Time).Title
 		if !g.buildingSignage(screen, cam, r, foot, title) {
 			g.buildingSign(screen, r, foot, title)
@@ -380,7 +380,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		if i < b.Merged {
 			flag = g.theme.Palette.Merged
 		} else if i < len(b.Session.PRs) && b.Session.PRs[i].State == claude.PRClosed {
-			flag = g.theme.Palette.Parked
+			flag = g.theme.Palette.Resting
 		}
 		vector.FillRect(screen, float32(x), float32(roofTop-dot*2), float32(dot*0.4), float32(dot*2.5), colorPole, false)
 		vector.FillRect(screen, float32(x), float32(roofTop-dot*2), float32(dot*1.4), float32(dot), flag, false)
@@ -1136,7 +1136,7 @@ func boost(c color.NRGBA, zoom float64) color.NRGBA {
 
 func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	for _, b := range c.Buildings() {
-		if !b.Lit || b.BoardedUp {
+		if !b.Lit || b.Blinds {
 			continue
 		}
 		foot := cam.WorldToScreen(b.Rect.Center())

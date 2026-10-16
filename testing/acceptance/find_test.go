@@ -2,6 +2,7 @@ package acceptance_test
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -23,9 +24,16 @@ func TestFind(t *testing.T) {
 		}
 		home.Transcript("00000009-find-acceptance", "/src/orchard",
 			`{"type":"user","timestamp":"2026-10-16T09:09:00.000Z","sessionId":"00000009-find-acceptance","cwd":"/src/orchard","message":{"role":"user","content":"prune the orchard"}}`)
-		out, err := exec.Command(botropolis, "find", "-n", "2", "--home", home.Path,
-			"--socket", filepath.Join(t.TempDir(), "none.sock"), "kiln overheat").CombinedOutput()
+		stateHome := t.TempDir()
+		cmd := exec.Command(botropolis, "find", "-n", "2", "--home", home.Path,
+			"--socket", filepath.Join(t.TempDir(), "none.sock"), "kiln overheat")
+		cmd.Env = append(os.Environ(), "XDG_STATE_HOME="+stateHome)
+		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, string(out))
+
+		t.Run("it should keep no ledger of a home it was pointed at", func(t *testing.T) {
+			assert.NoFileExists(t, filepath.Join(stateHome, "botropolis", "sessions.json"))
+		})
 
 		t.Run("it should print at most n matching sessions", func(t *testing.T) {
 			var sessions []string

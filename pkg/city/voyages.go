@@ -105,7 +105,7 @@ func (c *City) dock(root string) Point {
 	north, _, _ := c.riverEnds()
 	y := c.Plaza.Center().Y
 	for _, d := range c.Districts {
-		if d.Root == root && !d.Storage {
+		if d.Root == root {
 			y = d.Rect.Center().Y
 		}
 	}
@@ -169,7 +169,7 @@ func (s *Scene) arriving(id string) *Voyage {
 
 func (s *Scene) parkedNow(snapshot state.Snapshot, id string) (state.Session, bool) {
 	for _, sess := range snapshot.Sessions {
-		if sess.ID == id && sess.State == state.Parked {
+		if sess.ID == id && sess.State == state.Resting {
 			return sess, true
 		}
 	}

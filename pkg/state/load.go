@@ -25,10 +25,6 @@ func Load(home string, probes Probes, now time.Time) (Snapshot, error) {
 	return NewLoader(home, probes).Load(now)
 }
 
-func LoadWith(home string, probes Probes, parkedMaxAge time.Duration, now time.Time) (Snapshot, error) {
-	return NewLoader(home, probes).WithParkedMaxAge(parkedMaxAge).Load(now)
-}
-
 func ProcessAlive(pid int) bool {
 	if pid <= 0 {
 		return false

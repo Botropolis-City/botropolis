@@ -653,7 +653,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if g.titlesVisible() {
 		for _, b := range c.Buildings() {
-			if b.BoardedUp && hover.Building != b {
+			if b.Blinds && hover.Building != b {
 				continue
 			}
 			g.title(screen, cam, b)
@@ -845,7 +845,7 @@ func (g *Game) building(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	}
 	body := colorBuilding
 	switch {
-	case b.BoardedUp:
+	case b.Blinds:
 		body = colorBoarded
 	case b.Vacant:
 		body = colorMapVacant
@@ -857,7 +857,7 @@ func (g *Game) building(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		body = colorLit
 	}
 	body = g.flatBody(b, body)
-	if g.sprites != nil && b.BoardedUp {
+	if g.sprites != nil && b.Blinds {
 		g.shack(screen, cam, b)
 		if selected {
 			g.outline(screen, cam, b.Rect, colorSelected)
@@ -962,7 +962,7 @@ func (g *Game) house(screen *ebiten.Image, cam *city.Camera, b *city.Building, b
 		roof = townRoofOrange
 	}
 	walls := townWallWood
-	if b.BoardedUp {
+	if b.Blinds {
 		walls = townWallStone
 	}
 	window := townWindowDark
@@ -970,7 +970,7 @@ func (g *Game) house(screen *ebiten.Image, cam *city.Camera, b *city.Building, b
 		window = townWindowLit
 	}
 	var scale *ebiten.ColorScale
-	if b.BoardedUp {
+	if b.Blinds {
 		scale = &ebiten.ColorScale{}
 		scale.SetR(0.6)
 		scale.SetG(0.6)

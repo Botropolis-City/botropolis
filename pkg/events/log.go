@@ -63,7 +63,7 @@ func (l *Log) Observe(snapshot state.Snapshot, at time.Time) []Event {
 	for id, s := range current {
 		was, known := l.seen[id]
 		if !known {
-			if s.State != state.Parked {
+			if s.State != state.Resting {
 				add(Started, s, string(s.State))
 			}
 			continue
@@ -88,7 +88,7 @@ func (l *Log) Observe(snapshot state.Snapshot, at time.Time) []Event {
 		}
 	}
 	for id, was := range l.seen {
-		if _, still := current[id]; !still && was.State != state.Parked {
+		if _, still := current[id]; !still && was.State != state.Resting {
 			add(Ended, was, string(was.State))
 		}
 	}

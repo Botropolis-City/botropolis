@@ -14,7 +14,7 @@ import (
 
 var completionCity = state.Snapshot{Sessions: []state.Session{
 	{ID: "0898d7e4-f2cb-45fe-833e-1921c1f4bcaa", Title: "fix the CI queue", Kind: claude.KindBackground, Alive: true, State: state.Working},
-	{ID: "16daefa1-0000-0000-0000-000000000000", Title: "the parked one", Kind: claude.KindBackground, State: state.Parked},
+	{ID: "16daefa1-0000-0000-0000-000000000000", Title: "the parked one", Kind: claude.KindBackground, State: state.Resting},
 	{ID: "aaaaaaaa-0000-0000-0000-000000000000", Title: "in a terminal", Kind: claude.KindInteractive, Alive: true, State: state.Working},
 }}
 

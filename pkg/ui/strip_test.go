@@ -31,7 +31,7 @@ func findChip(chips []ui.Chip, text string) (ui.Chip, bool) {
 
 func TestStripChips(t *testing.T) {
 	t.Run("when the summary is quiet", func(t *testing.T) {
-		chips := ui.StripChips(city.Summary{Working: 2, Parked: 5, FreshPerH: 1500, CachedPerH: 20000, CostUSD: 1.5, CostKnown: true, HitRatio: 0.9, MCPCalls: 3})
+		chips := ui.StripChips(city.Summary{Working: 2, Resting: 5, FreshPerH: 1500, CachedPerH: 20000, CostUSD: 1.5, CostKnown: true, HitRatio: 0.9, MCPCalls: 3})
 
 		t.Run("it should lead with the working chip", func(t *testing.T) {
 			assert.Equal(t, "2 working", chips[0].Text)
@@ -110,18 +110,18 @@ func TestStripChips(t *testing.T) {
 	})
 
 	t.Run("when every state has sessions", func(t *testing.T) {
-		chips := ui.StripChips(city.Summary{Working: 2, Parked: 3, NeedsYou: 1, Unattended: 4})
+		chips := ui.StripChips(city.Summary{Working: 2, Resting: 3, NeedsYou: 1, Unattended: 4})
 
 		t.Run("it should lead with needs-you and run down the urgency order", func(t *testing.T) {
-			assert.Equal(t, []string{"1 need you", "2 working", "4 unattended", "3 parked"}, chipTexts(chips)[:4])
+			assert.Equal(t, []string{"1 need you", "2 working", "4 unattended", "3 resting"}, chipTexts(chips)[:4])
 		})
 	})
 
 	t.Run("when nothing is working", func(t *testing.T) {
-		chips := ui.StripChips(city.Summary{NeedsYou: 1, Parked: 3})
+		chips := ui.StripChips(city.Summary{NeedsYou: 1, Resting: 3})
 
 		t.Run("it should drop the working chip and keep the slot order", func(t *testing.T) {
-			assert.Equal(t, []string{"1 need you", "3 parked"}, chipTexts(chips)[:2])
+			assert.Equal(t, []string{"1 need you", "3 resting"}, chipTexts(chips)[:2])
 		})
 	})
 
@@ -134,7 +134,7 @@ func TestStripChips(t *testing.T) {
 		}{
 			{city.Summary{NeedsYou: 1}, "1 need you", ui.ToneNeedsYou, state.NeedsYou},
 			{city.Summary{Unattended: 2}, "2 unattended", ui.ToneUnattended, state.Unattended},
-			{city.Summary{Parked: 3}, "3 parked", ui.ToneParked, state.Parked},
+			{city.Summary{Resting: 3}, "3 resting", ui.ToneResting, state.Resting},
 			{city.Summary{Subagents: 4}, "4 subagents", ui.ToneNone, ""},
 			{city.Summary{PRs: 5}, "5 prs", ui.ToneMerged, ""},
 			{city.Summary{Errors: 6}, "6 errors", ui.ToneError, ""},
@@ -264,7 +264,7 @@ func TestLayoutStrip(t *testing.T) {
 // the search and the argument before changing anything here.
 func TestDrained(t *testing.T) {
 	t.Run("when a view is up and the strip has to give the tones back", func(t *testing.T) {
-		summary := city.Summary{NeedsYou: 3, Working: 1, Parked: 2, MCPCalls: 9, PRs: 3, Errors: 1}
+		summary := city.Summary{NeedsYou: 3, Working: 1, Resting: 2, MCPCalls: 9, PRs: 3, Errors: 1}
 		before := ui.StripChips(summary)
 		after := ui.Drained(before)
 

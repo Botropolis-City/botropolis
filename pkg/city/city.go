@@ -22,35 +22,33 @@ const (
 	Tile               = 16.0
 	BuildingSize       = 3 * Tile
 	BuildingGap        = Tile
-	ParkedSize         = 2 * Tile
-	ParkedGap          = Tile / 2
-	YardGap            = Tile
 	DistrictPadding    = 2 * Tile
 	DistrictGap        = 4 * Tile
 	districtColumns    = 3
 	minBuildingColumns = 3
-	minYardColumns     = 3
 	worktreeSegment    = ".claude/worktrees"
 )
 
 type Building struct {
-	Session   state.Session
-	slot      int
-	Rect      Rect
-	Fill      float64
-	Cranes    int
-	Flags     int
-	Merged    int
-	Smoke     int
-	Lit       bool
-	Pulse     bool
+	Session state.Session
+	slot    int
+	Rect    Rect
+	Fill    float64
+	Cranes  int
+	Flags   int
+	Merged  int
+	Smoke   int
+	Lit     bool
+	Pulse   bool
+	// Rung is how far the session has gone quiet, and Blinds, BoardedUp
+	// and Overgrown are what that rung draws (item 86).
+	Rung      state.Rung
+	Blinds    bool
 	BoardedUp bool
+	Overgrown bool
 	// Vacant is a plot with no building: a session nothing has been typed
 	// into yet.
 	Vacant bool
-	// Hue is a parked session's container colour, one per project, an
-	// index into ContainerHues.
-	Hue int
 	// Group is the group the session belongs to, if any (item 87).
 	Group *state.Group
 	// Station is where the building's project stands on its group's
@@ -58,8 +56,8 @@ type Building struct {
 	Station, Stations int
 }
 
-// ContainerHues names the container colours the storage yard has, in
-// the order the kit's pieces come; a project keeps one for good.
+// ContainerHues names the container colours a project's cargo comes in,
+// in the order the kit's pieces come; a project keeps one for good.
 var ContainerHues = []string{"red", "blue", "green"}
 
 // projectHue picks a project's container colour from its root.
@@ -77,11 +75,7 @@ type District struct {
 	Rect      Rect
 	Buildings []*Building
 	roads     []roadNote
-	// Storage marks the one district that holds every parked session,
-	// grouped by project.
-	Storage bool
-	Groups  []StorageGroup
-	at      time.Time
+	at        time.Time
 }
 
 type roadNote struct {
@@ -258,15 +252,17 @@ func ProjectRoot(cwd string) string {
 }
 
 func Build(snapshot state.Snapshot, layout *Layout) *City {
+	return BuildWith(snapshot, layout, state.DefaultThresholds)
+}
+
+// BuildWith builds the city with the ladder's thresholds. A stopped
+// session keeps its lot in its own district and climbs the ladder there,
+// so a district stays while it has any session at all (item 86).
+func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds) *City {
 	byRoot := map[string][]state.Session{}
-	parked := map[string][]state.Session{}
 	for _, s := range snapshot.Sessions {
 		root := ProjectRoot(s.CWD)
 		if layout.IsHidden(root) {
-			continue
-		}
-		if s.State == state.Parked {
-			parked[root] = append(parked[root], s)
 			continue
 		}
 		byRoot[root] = append(byRoot[root], s)
@@ -280,29 +276,20 @@ func Build(snapshot state.Snapshot, layout *Layout) *City {
 	})
 
 	city := &City{Time: snapshot.At}
-	if len(byRoot)+len(parked) == 0 {
+	if len(byRoot) == 0 {
 		city.placeLandmarks(snapshot)
 		return city
 	}
 	for _, root := range roots {
-		city.Districts = append(city.Districts, buildDistrict(root, byRoot[root], parked[root], layout))
+		city.Districts = append(city.Districts, buildDistrict(root, byRoot[root], layout, snapshot.At, ladder))
 	}
 	in := planInput(city.Districts, len(snapshot.Servers))
 	p := plan.Make(in, layout.memory())
-	storage := buildStorage(parked, float64(p.SpanCols())*CellSize)
-	if storage != nil {
-		in.StorageRows = cellsNeeded(storage.size.Y)
-		p = plan.Make(in, layout.memory())
-	}
 	city.plan = p
 	city.bounds = cellRect(p.Bounds)
 	for _, d := range city.Districts {
 		d.placeOn(cellRect(p.Blocks[d.Root]))
 		d.at = snapshot.At
-	}
-	if storage != nil {
-		storage.placeOn(cellRect(p.Storage))
-		city.Districts = append(city.Districts, storage)
 	}
 	for _, park := range append(append([]plan.Block(nil), p.Parks...), p.Belt...) {
 		city.Parks = append(city.Parks, Park{Rect: cellRect(park)})
@@ -332,15 +319,15 @@ func baseName(root string) string {
 	return filepath.Base(root)
 }
 
-func buildDistrict(root string, live, parked []state.Session, layout *Layout) *District {
+func buildDistrict(root string, sessions []state.Session, layout *Layout, now time.Time, ladder state.Thresholds) *District {
 	district := &District{Name: baseName(root), Root: root}
-	sort.Slice(live, func(i, j int) bool {
-		if !live[i].StartedAt.Equal(live[j].StartedAt) {
-			return live[i].StartedAt.Before(live[j].StartedAt)
+	sort.Slice(sessions, func(i, j int) bool {
+		if !sessions[i].StartedAt.Equal(sessions[j].StartedAt) {
+			return sessions[i].StartedAt.Before(sessions[j].StartedAt)
 		}
-		return live[i].ID < live[j].ID
+		return sessions[i].ID < sessions[j].ID
 	})
-	slots := layout.Slots(root, live, parked)
+	slots := layout.Slots(root, sessions)
 	district.columns = buildingColumns(maxOf(slots) + 1)
 	used := min(maxOf(slots)+1, district.columns)
 	rows := math.Ceil(float64(maxOf(slots)+1) / float64(district.columns))
@@ -348,10 +335,10 @@ func buildDistrict(root string, live, parked []state.Session, layout *Layout) *D
 		X: 2*DistrictPadding + pitch(used, BuildingSize, BuildingGap),
 		Y: 2*DistrictPadding + pitch(int(rows), BuildingSize, BuildingGap),
 	}
-	for _, s := range live {
+	for _, s := range sessions {
 		column, row := slots[s.ID]%district.columns, slots[s.ID]/district.columns
 		at := Point{X: DistrictPadding + float64(column)*(BuildingSize+BuildingGap), Y: DistrictPadding + float64(row)*(BuildingSize+BuildingGap)}
-		district.Buildings = append(district.Buildings, newBuilding(s, slots[s.ID], at, BuildingSize))
+		district.Buildings = append(district.Buildings, newBuilding(s, slots[s.ID], at, BuildingSize, s.Rung(now, ladder)))
 	}
 	sort.Slice(district.Buildings, func(i, j int) bool {
 		return district.Buildings[i].slot < district.Buildings[j].slot
@@ -395,7 +382,7 @@ func mergedPRs(s state.Session) int {
 	return n
 }
 
-func newBuilding(s state.Session, slot int, at Point, size float64) *Building {
+func newBuilding(s state.Session, slot int, at Point, size float64, rung state.Rung) *Building {
 	return &Building{
 		Session:   s,
 		slot:      slot,
@@ -407,9 +394,11 @@ func newBuilding(s state.Session, slot int, at Point, size float64) *Building {
 		Smoke:     s.APIErrors,
 		Lit:       state.Live(s.State),
 		Pulse:     s.State == state.NeedsYou,
-		BoardedUp: s.State == state.Parked,
+		Rung:      rung,
+		Blinds:    rung != state.RungLive,
+		BoardedUp: rung == state.RungShuttered || rung == state.RungOvergrown,
+		Overgrown: rung == state.RungOvergrown,
 		Vacant:    s.State == state.Empty,
-		Hue:       projectHue(ProjectRoot(s.CWD)),
 	}
 }
 
@@ -488,6 +477,27 @@ func (c *City) At(p Point) Hit {
 	return Hit{}
 }
 
+// stateWord is the state line's word: the rung for a stopped session,
+// else its state.
+func (b *Building) stateWord() string {
+	if b.Rung != "" && b.Rung != state.RungLive {
+		return string(b.Rung)
+	}
+	return string(b.Session.State)
+}
+
+// quietFor says how long a session has been quiet: minutes, then hours,
+// then days.
+func quietFor(d time.Duration) string {
+	switch {
+	case d < time.Hour:
+		return plural(int(d/time.Minute), "minute")
+	case d < 24*time.Hour:
+		return plural(int(d/time.Hour), "hour")
+	}
+	return plural(int(d/(24*time.Hour)), "day")
+}
+
 func (b *Building) Card(now time.Time) Card {
 	return b.face(now, ViewAttention, "")
 }
@@ -495,8 +505,12 @@ func (b *Building) Card(now time.Time) Card {
 // table is the building's full table, the card's Details.
 func (b *Building) table(now time.Time) []string {
 	s := b.Session
-	lines := []string{
-		"state    " + string(s.State),
+	lines := []string{"state    " + b.stateWord()}
+	if b.Rung != state.RungLive && !s.LastActivity.IsZero() && !s.LastActivity.After(now) {
+		lines = append(lines, "quiet    for "+quietFor(now.Sub(s.LastActivity)))
+	}
+	if s.ConversationGone {
+		lines = append(lines, "gone     Claude Code deleted the conversation (cleanupPeriodDays)")
 	}
 	if g := b.Group; g != nil {
 		lines = append(lines, "group    "+g.Name+", "+string(g.Move)+": "+g.Why)
@@ -579,9 +593,6 @@ func (d *District) Busy() bool {
 }
 
 func (d *District) Card() Card {
-	if d.Storage {
-		return d.storageCard()
-	}
 	var fresh, cached float64
 	for _, b := range d.Buildings {
 		fresh += b.Session.FreshTokensPerHour

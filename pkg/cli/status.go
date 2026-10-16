@@ -32,7 +32,7 @@ func NewStatusCLI(load Loader, services Services) *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("direct", false, "skip the daemon and scan ~/.claude directly (implied by --home without --socket)")
-	cmd.Flags().BoolP("all", "a", false, "include parked sessions")
+	cmd.Flags().BoolP("all", "a", false, "include resting sessions")
 	cmd.Flags().Bool("json", false, "emit one JSON object per session, carrying the id and pid that `claude agents` also reports")
 	return cmd
 }

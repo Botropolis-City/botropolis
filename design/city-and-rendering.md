@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | District | a project (cwd root, worktrees folded in) | active hours, sessions, tokens, PRs |
 | Building | a session | title, branch, model, state, age |
-| Lit / dark / boarded-up | working / parked / gone-soon | — |
+| Lit / blinds down / boarded up / overgrown | live / resting / shuttered after `shuttered_days` / overgrown after `overgrown_days` | the rung, and how long it has been quiet |
 | Building fill level (storeys in the isometric view) | context window used (of 1M) | tokens in context, last compaction |
 | Worker at the bench | the main thread | current tool and file |
 | Cranes on the roof | subagents and workflows in flight | count, names, tokens |
@@ -39,16 +39,16 @@ The map is isometric by default (Kenney's isometric packs; `--projection top` ke
 Isometric 2:1 is an affine projection, so `pkg/city` keeps rectangles and only the renderer sees diamonds.
 Below a detail zoom the map view draws flat state-coloured blocks, the way Factorio's chart replaces sprites with map colours;
 above it, buildings are stacked from the pack's ground floors, storeys and roofs.
-Parked sessions used to sit in a yard inside each district; since the plan (below) they sit in one storage district.
+Stopped sessions sat in a yard inside each district, then in one storage district along the south; since item 86 a stopped session keeps its own lot in its district and climbs the ladder there, and a district stays while it has any session.
 Labels are fixed-size and sit on the floor or above the kerb, never over what they name.
 
 ## City plan
 
 Phase 8 of the roadmap, 2026-09-18.
-`pkg/plan` is a pure function from the live districts' sizes in cells, the tower count and the storage rows to where everything goes:
+`pkg/plan` is a pure function from the live districts' sizes in cells, and the tower count to where everything goes:
 a plaza at slot (0,0), rings of slots around it whose columns and rows are sized to the largest block in them so the avenues run straight,
 a district's slot remembered in `layout.json` while it stays live and replaced from the innermost ring when another took it,
-unused slots as park blocks, a two-cell park belt, a telecom ridge along the north, storage along the south, the river down the east edge.
+unused slots as park blocks, a two-cell park belt, a telecom ridge along the north, the river down the east edge.
 The avenue grid is in the plan as corridors, so routing and slots never depend on what is connected;
 the fountain is the plaza's centre cell.
 The trees that mean nothing — on the parks, the belt and the corridors — are planted as ground (item 85): clustered where a smooth noise rises over a threshold, and spaced by Poisson-disk sampling at least `plan.TreeSpacing` apart, every choice seeded from position so a plan always grows the same wood.
@@ -57,13 +57,13 @@ They give way where a road is laid, are drawn a little translucent and darker th
 and lays road only on the corridor cells a route crosses, each cell joined to the road beside it.
 A corridor with no road on it is grass, so a road on the map always means a connection.
 The lamps at crossings and the trees along the avenues stand only beside laid road.
-A connection is one road per pair of districts, whichever way it was crossed, and lasts while any session that crossed it is on the map, live or parked.
+A connection is one road per pair of districts, whichever way it was crossed, and lasts while any session that crossed it is on the map, live or resting.
 When the last one goes, its road grows over in one 1.5 s fade, a 0.3 s cross-fade under reduced motion; a connection that comes back meanwhile ends the fade and lays the road again.
 The pair's traffic counts stay on the road's card; the cars on it are one per session on the connection that is working, so a road nobody is working on keeps its tarmac and has no cars (item 85).
 A district can be dragged to another slot: a press on its floor or name plate picks it up, a ghost of its block follows the pointer over the outline of the slot it would land on, and the drop writes only remembered slots to `layout.json`.
 Dropping on a slot another district holds swaps the two; the ring just outside the city takes a drop and grows the city by a ring; the plaza and anything further out refuse it, outlined in the error colour.
 A press anywhere else pans, and so does any drag with Shift or Alt held.
-`pkg/city` also puts the plant, hall and library on the plaza and one shed per parked session in storage, grouped by project.
+`pkg/city` also puts the plant, hall and library on the plaza.
 The lake, the hashed river and the per-cell hashed grass, dirt and trees are gone.
 The plan stands on an island (`City.Island()`, item 85): its coast lies about two cells past the plan's edge and wanders by a smooth noise seeded only by position, so the same plan always has the same coast and a bigger city a bigger island.
 A beach lies on the land side of the coast and shallows on the sea's, and a faint far shore stands some twenty-four cells out.

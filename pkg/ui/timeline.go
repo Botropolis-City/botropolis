@@ -38,7 +38,7 @@ func EventTone(kind events.Kind) Tone {
 	case events.PR, events.Started:
 		return ToneWorking
 	case events.Ended:
-		return ToneParked
+		return ToneResting
 	}
 	return ToneNone
 }

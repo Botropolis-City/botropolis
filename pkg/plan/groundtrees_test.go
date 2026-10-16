@@ -28,7 +28,7 @@ func at(t plan.Tree) (float64, float64) {
 }
 
 func TestGroundTrees(t *testing.T) {
-	in := plan.Input{Districts: live(4), Towers: 2, StorageRows: 2}
+	in := plan.Input{Districts: live(4), Towers: 2}
 	p := plan.Make(in, plan.NewMemory())
 	trees := groundTrees(p)
 	require.NotEmpty(t, trees)
@@ -70,7 +70,7 @@ func TestGroundTrees(t *testing.T) {
 			for _, b := range append(append([]plan.Block(nil), p.Parks...), p.Belt...) {
 				open = open || b.Contains(c)
 			}
-			blocked := rails[c] || p.Plaza.Contains(c) || p.Storage.Contains(c)
+			blocked := rails[c] || p.Plaza.Contains(c)
 			for _, b := range p.Blocks {
 				blocked = blocked || b.Contains(c)
 			}

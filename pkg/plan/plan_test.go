@@ -177,38 +177,6 @@ func TestMake(t *testing.T) {
 		})
 	})
 
-	t.Run("when there are parked sessions", func(t *testing.T) {
-		p := plan.Make(plan.Input{Districts: live(1), StorageRows: 3}, plan.NewMemory())
-
-		t.Run("it should place the storage block along the south", func(t *testing.T) {
-			require.Positive(t, p.Storage.Rows)
-			ring := p.BlockAt(plan.Slot{Col: 0, Row: 1})
-			assert.Greater(t, p.Storage.Min.Row, ring.Min.Row+ring.Rows)
-		})
-
-		t.Run("it should span the ring's width", func(t *testing.T) {
-			west, east := p.BlockAt(plan.Slot{Col: -1, Row: 0}), p.BlockAt(plan.Slot{Col: 1, Row: 0})
-			assert.Equal(t, west.Min.Col, p.Storage.Min.Col)
-			assert.Equal(t, east.Min.Col+east.Cols, p.Storage.Min.Col+p.Storage.Cols)
-		})
-
-		t.Run("it should be as tall as asked", func(t *testing.T) {
-			assert.Equal(t, 3, p.Storage.Rows)
-		})
-
-		t.Run("it should keep a street between it and the ring", func(t *testing.T) {
-			assert.True(t, p.IsStreet(plan.Cell{Col: p.Storage.Min.Col, Row: p.Storage.Min.Row - 1}))
-		})
-	})
-
-	t.Run("when there are no parked sessions", func(t *testing.T) {
-		p := plan.Make(plan.Input{Districts: live(1)}, plan.NewMemory())
-
-		t.Run("it should have no storage block", func(t *testing.T) {
-			assert.Zero(t, p.Storage.Rows)
-		})
-	})
-
 	t.Run("when towers are given", func(t *testing.T) {
 		p := plan.Make(plan.Input{Districts: live(1), Towers: 3}, plan.NewMemory())
 
@@ -242,7 +210,7 @@ func TestMake(t *testing.T) {
 	})
 
 	t.Run("when the rail loop is laid", func(t *testing.T) {
-		p := plan.Make(plan.Input{Districts: live(3), Towers: 2, StorageRows: 2}, plan.NewMemory())
+		p := plan.Make(plan.Input{Districts: live(3), Towers: 2}, plan.NewMemory())
 		// The loop rings the belt, west of the river. Its east edge used
 		// to be written as cols-3, which equalled the belt's east side
 		// only while the river was one cell wide — an arithmetic
@@ -368,7 +336,7 @@ func treesOf(p plan.Plan, kind plan.TreeKind) []plan.Tree {
 }
 
 func TestPlanting(t *testing.T) {
-	p := plan.Make(plan.Input{Districts: live(4), Towers: 3, StorageRows: 2}, plan.NewMemory())
+	p := plan.Make(plan.Input{Districts: live(4), Towers: 3}, plan.NewMemory())
 
 	t.Run("when the avenues are planted", func(t *testing.T) {
 		street := treesOf(p, plan.StreetTree)
@@ -473,7 +441,7 @@ func TestPlanting(t *testing.T) {
 	})
 
 	t.Run("when the same plan is made twice", func(t *testing.T) {
-		again := plan.Make(plan.Input{Districts: live(4), Towers: 3, StorageRows: 2}, plan.NewMemory())
+		again := plan.Make(plan.Input{Districts: live(4), Towers: 3}, plan.NewMemory())
 
 		t.Run("it should grow the same garden", func(t *testing.T) {
 			assert.Equal(t, p.Trees, again.Trees)

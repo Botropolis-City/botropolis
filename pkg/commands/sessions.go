@@ -54,7 +54,7 @@ func (s *Sessions) Prune(ctx context.Context, snapshot state.Snapshot, olderThan
 		switch {
 		case known && session.State == state.Empty:
 			limit = now.Add(-EmptyAfter)
-		case known && session.State != state.Parked:
+		case known && session.State != state.Resting:
 			continue
 		}
 		lastSeen := time.UnixMilli(agent.StartedAt).UTC()

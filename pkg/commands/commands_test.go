@@ -113,24 +113,24 @@ func TestStatus(t *testing.T) {
 		})
 	})
 
-	t.Run("when the source holds a parked session", func(t *testing.T) {
-		parked := state.Snapshot{At: now, Sessions: append(snapshot.Sessions, state.Session{ID: "old", State: state.Parked, CWD: cwd, Title: "old"})}
+	t.Run("when the source holds a resting session", func(t *testing.T) {
+		resting := state.Snapshot{At: now, Sessions: append(snapshot.Sessions, state.Session{ID: "old", State: state.Resting, CWD: cwd, Title: "old"})}
 
 		t.Run("and all sessions are not asked for", func(t *testing.T) {
 			var out bytes.Buffer
-			require.NoError(t, commands.NewStatus(&fakeSource{snapshot: parked}).Run(&out, true, false, false))
+			require.NoError(t, commands.NewStatus(&fakeSource{snapshot: resting}).Run(&out, true, false, false))
 
-			t.Run("it should leave the parked one out", func(t *testing.T) {
+			t.Run("it should leave the resting one out", func(t *testing.T) {
 				assert.Len(t, strings.Split(strings.TrimSpace(out.String()), "\n"), 2)
 			})
 		})
 
 		t.Run("and all sessions are asked for", func(t *testing.T) {
 			var out bytes.Buffer
-			require.NoError(t, commands.NewStatus(&fakeSource{snapshot: parked}).Run(&out, true, true, false))
+			require.NoError(t, commands.NewStatus(&fakeSource{snapshot: resting}).Run(&out, true, true, false))
 
-			t.Run("it should print the parked one too", func(t *testing.T) {
-				assert.Contains(t, out.String(), "parked")
+			t.Run("it should print the resting one too", func(t *testing.T) {
+				assert.Contains(t, out.String(), "resting")
 			})
 		})
 	})
@@ -324,7 +324,7 @@ func TestPrune(t *testing.T) {
 		{SessionID: "44444444-0000-0000-0000-000000000000", Kind: "interactive", StartedAt: now.Add(-30 * 24 * time.Hour).UnixMilli()},
 	}
 	snapshot := state.Snapshot{At: now, Sessions: []state.Session{
-		{ID: "11111111-0000-0000-0000-000000000000", State: state.Parked, Title: "old job", LastActivity: now.Add(-9 * 24 * time.Hour)},
+		{ID: "11111111-0000-0000-0000-000000000000", State: state.Resting, Title: "old job", LastActivity: now.Add(-9 * 24 * time.Hour)},
 		{ID: "33333333-0000-0000-0000-000000000000", State: state.Working, Title: "still running", LastActivity: now.Add(-time.Minute)},
 	}}
 

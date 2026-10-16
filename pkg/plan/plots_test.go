@@ -98,15 +98,6 @@ func TestNothingIsPlantedOnBuildingGround(t *testing.T) {
 			}
 		})
 
-		t.Run("it should plant nothing on the storage yard", func(t *testing.T) {
-			if p.Storage.Cols == 0 {
-				t.Skip("no storage on this plan")
-			}
-			for _, tree := range p.Trees {
-				require.False(t, p.Storage.Contains(tree.Cell), "%v planted on the storage yard", tree.Cell)
-			}
-		})
-
 		t.Run("it should plant nothing on a tower's cell", func(t *testing.T) {
 			for _, tree := range p.Trees {
 				for _, tower := range p.Towers {

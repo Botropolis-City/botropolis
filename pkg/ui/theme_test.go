@@ -80,7 +80,7 @@ func TestTheme(t *testing.T) {
 			{ui.ToneWorking, "blue"},
 			{ui.ToneWaiting, "teal"},
 			{ui.ToneUnattended, "violet"},
-			{ui.ToneParked, "slate"},
+			{ui.ToneResting, "slate"},
 			{ui.ToneError, "red"},
 			{ui.ToneMerged, "green"},
 		}
@@ -108,7 +108,7 @@ func TestTheme(t *testing.T) {
 			{state.Working, ui.ToneWorking},
 			{state.Waiting, ui.ToneWaiting},
 			{state.Unattended, ui.ToneUnattended},
-			{state.Parked, ui.ToneParked},
+			{state.Resting, ui.ToneResting},
 			{state.State("gone"), ui.ToneNone},
 		}
 		for _, tc := range states {

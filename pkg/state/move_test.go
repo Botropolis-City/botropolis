@@ -13,7 +13,7 @@ func TestGroupMove(t *testing.T) {
 		return state.Session{ID: "a", Title: "Fix limiter", State: st, PRs: prs}
 	}
 	closed := func(prs ...claude.PR) state.Session {
-		return state.Session{ID: "b", Title: "Bump client", State: state.Parked, PRs: prs}
+		return state.Session{ID: "b", Title: "Bump client", State: state.Resting, PRs: prs}
 	}
 	pr := func(n int, st string) claude.PR {
 		return claude.PR{Number: n, Repository: "acme/lib", State: st}
@@ -28,9 +28,9 @@ func TestGroupMove(t *testing.T) {
 		{"a member is working", []state.Session{limiter(state.Working), closed()}, state.MoveAgents, "Fix limiter is working"},
 		{"a member is working unattended", []state.Session{limiter(state.Unattended), closed()}, state.MoveAgents, "Fix limiter is working"},
 		{"a member waits on its own wakeup", []state.Session{limiter(state.Waiting), closed()}, state.MoveAgents, "Fix limiter is working"},
-		{"every session is closed and a PR is open", []state.Session{limiter(state.Parked, pr(41, claude.PROpen)), closed()}, state.MoveTheirs, "PR #41 open in acme/lib"},
-		{"every session is closed and every PR merged or closed", []state.Session{limiter(state.Parked, pr(41, claude.PRMerged)), closed(pr(42, claude.PRClosed))}, state.MoveNobody, "done: every PR merged or closed"},
-		{"every session is closed and there are no PRs", []state.Session{limiter(state.Parked), closed()}, state.MoveNobody, "nothing open"},
+		{"every session is closed and a PR is open", []state.Session{limiter(state.Resting, pr(41, claude.PROpen)), closed()}, state.MoveTheirs, "PR #41 open in acme/lib"},
+		{"every session is closed and every PR merged or closed", []state.Session{limiter(state.Resting, pr(41, claude.PRMerged)), closed(pr(42, claude.PRClosed))}, state.MoveNobody, "done: every PR merged or closed"},
+		{"every session is closed and there are no PRs", []state.Session{limiter(state.Resting), closed()}, state.MoveNobody, "nothing open"},
 		{"members disagree", []state.Session{closed(pr(41, claude.PROpen)), limiter(state.Working), {ID: "c", Title: "Gateway", State: state.NeedsYou}}, state.MoveYours, "Gateway needs you"},
 	}
 	for _, c := range cases {

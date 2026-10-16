@@ -26,7 +26,7 @@ func someProjects() []city.ProjectRow {
 func TestUntitledSidebarRow(t *testing.T) {
 	t.Run("when a session has no title", func(t *testing.T) {
 		th := ui.NewTheme(1)
-		untitled := &city.Building{Session: state.Session{ID: "5c7c6cd3-9e32-4c60-871d-0366014d", State: state.Parked}}
+		untitled := &city.Building{Session: state.Session{ID: "5c7c6cd3-9e32-4c60-871d-0366014d", State: state.Resting}}
 		rows := []city.ProjectRow{{Root: "/p/x", Name: "x", Sessions: []*city.Building{untitled}}}
 		sb := ui.LayoutSidebar(th, 40, 600, rows, nil, "", measure7)
 		require.Len(t, sb.Rows, 2)

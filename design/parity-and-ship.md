@@ -7,7 +7,7 @@ Nothing is hung below seven pixels, and the name plate appears only on hover —
 A selected building's card pins beside it and follows it with its actions — attach or resume, stop, a new session in its directory (also `c`),
 reveal the folder, copy the path, hide the project, star it — all through `pkg/control` and the `claude` CLI except hide and star,
 which are marks in `layout.json` and never touch `~/.claude`.
-The sidebar (`b`) lists projects starred first with their counts, sessions by urgency with parked last, and the hidden projects to show again;
+The sidebar (`b`) lists projects starred first with their counts, sessions by urgency with resting last, and the hidden projects to show again;
 the card docks at its foot while it is open.
 A district's name plate shows only while something in it is awake, or on hover or selection.
 Night follows the local clock (21:00 to 06:00), `[` and `]` scrub it an hour at a time and `n` cycles night, day and live;

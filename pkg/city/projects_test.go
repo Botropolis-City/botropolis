@@ -16,7 +16,7 @@ func TestProjects(t *testing.T) {
 		layout.SetStarred(cinders, true)
 		c := build(t, layout,
 			session("a", botropolis, state.Working),
-			session("b", cinders, state.Parked),
+			session("b", cinders, state.Resting),
 			session("c", cinders, state.NeedsYou),
 			session("d", cinders, state.Working),
 			session("e", "/p/app", state.Unattended))

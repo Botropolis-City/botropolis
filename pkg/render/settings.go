@@ -61,8 +61,19 @@ func (g *Game) applySetting(s ui.Setting) {
 		}
 	case config.KeyGroupLines:
 		g.scene.SetGroupLines(s.Value == "on")
-	case config.KeyParkedDays:
-		note += " (the daemon reads it when it restarts)"
+	case config.KeyShutteredDays, config.KeyOvergrownDays:
+		days, _ := strconv.Atoi(s.Value)
+		ladder := g.scene.Ladder()
+		if s.Key == config.KeyShutteredDays {
+			ladder.Shuttered = time.Duration(days) * 24 * time.Hour
+		} else {
+			ladder.Overgrown = time.Duration(days) * 24 * time.Hour
+		}
+		if ladder.Overgrown <= ladder.Shuttered {
+			g.SetStatus("overgrown days must be more than shuttered days")
+			return
+		}
+		g.scene.SetLadder(ladder)
 	case config.KeyUsageRefresh:
 		every, err := config.ParseUsageRefresh(s.Value)
 		if err != nil {

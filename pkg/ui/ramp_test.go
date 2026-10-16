@@ -17,7 +17,7 @@ var stateTones = map[string]color.NRGBA{
 	"working":    ui.DefaultPalette.Working,
 	"waiting":    ui.DefaultPalette.Waiting,
 	"unattended": ui.DefaultPalette.Unattended,
-	"parked":     ui.DefaultPalette.Parked,
+	"resting":    ui.DefaultPalette.Resting,
 	"error":      ui.DefaultPalette.Error,
 	"merged":     ui.DefaultPalette.Merged,
 }

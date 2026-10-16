@@ -280,7 +280,7 @@ func TestRanking(t *testing.T) {
 			hits := newHome(t).
 				write("stopped", prompt("stopped", t0.Add(time.Hour), "kiln")).
 				write("live", title("live", t0, "kiln")).
-				index().Find(find.Query{Words: "kiln", Live: map[string]state.State{"live": st, "stopped": state.Parked}})
+				index().Find(find.Query{Words: "kiln", Live: map[string]state.State{"live": st, "stopped": state.Resting}})
 
 			t.Run("it should rank it above a stopped one", func(t *testing.T) {
 				assert.Equal(t, []string{"live", "stopped"}, ids(hits))

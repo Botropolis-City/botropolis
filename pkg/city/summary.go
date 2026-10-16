@@ -14,7 +14,7 @@ type Summary struct {
 	NeedsYou   int
 	Waiting    int
 	Unattended int
-	Parked     int
+	Resting    int
 	FreshPerH  float64
 	CachedPerH float64
 	CostUSD    float64
@@ -37,7 +37,7 @@ func (s Summary) BudgetShare() float64 {
 	return s.CostUSD / s.BudgetUSD
 }
 
-// Live is every session that is not parked.
+// Live is every session that is not resting.
 func (s Summary) Live() int {
 	return s.Working + s.NeedsYou + s.Waiting + s.Unattended
 }
@@ -54,8 +54,8 @@ func (c *City) Summary() Summary {
 			s.Waiting++
 		case state.Unattended:
 			s.Unattended++
-		case state.Parked:
-			s.Parked++
+		case state.Resting:
+			s.Resting++
 		}
 		if state.Live(b.Session.State) {
 			s.FreshPerH += b.Session.FreshTokensPerHour
@@ -82,7 +82,7 @@ func (s Summary) Counts() map[state.State]int {
 		state.Working:    s.Working,
 		state.Waiting:    s.Waiting,
 		state.Unattended: s.Unattended,
-		state.Parked:     s.Parked,
+		state.Resting:    s.Resting,
 	}
 }
 

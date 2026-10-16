@@ -18,7 +18,7 @@ const (
 	// carry on by itself; you can talk to it, it does not need you.
 	Waiting    State = "waiting"
 	Unattended State = "unattended"
-	Parked     State = "parked"
+	Resting    State = "resting"
 	// Empty is a live session nothing has been typed into yet: no
 	// transcript, or one with no prompt and no reply. It is drawn as a
 	// plot without a building, never counted, and pruned once it has sat
@@ -83,6 +83,9 @@ type Session struct {
 	PRs        []claude.PR    `json:"prs,omitempty"`
 	Recap      claude.Recap   `json:"recap"`
 	LastPrompt string         `json:"lastPrompt,omitempty"`
+	// ConversationGone is a session whose transcript Claude Code has
+	// deleted; it keeps its lot from the prompt history (item 86).
+	ConversationGone bool `json:"conversationGone,omitempty"`
 	// Hourly is the session's usage by unix hour over its last week,
 	// for sparklines and the plant's breakdown.
 	Hourly           map[int64]claude.Usage `json:"hourly,omitempty"`
@@ -136,7 +139,7 @@ type Sources struct {
 	Transcripts []claude.Transcript
 	Subagents   map[string][]claude.Subagent
 	Roster      map[string]claude.Worker
-	Parked      []claude.Transcript
+	Stopped     []claude.Transcript
 	MCP         claude.MCPConfig
 	Teams       []claude.Team
 }
@@ -190,7 +193,7 @@ type Probes struct {
 // Bug 54, and the reason it sits here. `claude -p "/usage"` is a real
 // Claude Code session while it runs: it holds a PID and writes a
 // transcript, so it reaches the city by BOTH paths — live through
-// Records and afterwards through Parked. The original fence covered
+// Records and afterwards through Stopped. The original fence covered
 // only the parked one, in the loader, so a running probe became a live
 // session: it sailed a tug up the river and re-planned the map around
 // itself every time the city asked itself what it had spent.
@@ -229,7 +232,7 @@ func Build(src Sources, probes Probes, now time.Time) []Session {
 		}
 		sessions = append(sessions, buildSession(r, transcript, hasTranscript, src.Subagents[r.SessionID], isAlive, isAttached))
 	}
-	for _, t := range src.Parked {
+	for _, t := range src.Stopped {
 		if isOwnRun(t.CWD) || isOwnProject(t.Project) {
 			continue
 		}
@@ -347,7 +350,7 @@ func parkedSession(t claude.Transcript) Session {
 		CWD:          t.CWD,
 		Branch:       t.Branch,
 		Model:        t.Model,
-		State:        Parked,
+		State:        Resting,
 		Turn:         t.Tail.Turn,
 		StartedAt:    t.FirstAt,
 		LastActivity: t.LastAt,
@@ -731,7 +734,7 @@ func PowerSince(transcripts []claude.Transcript, since time.Time) Power {
 // alone decides for a record that carries no status.
 func derive(r claude.SessionRecord, turn claude.Turn, hasConversation, isAlive, isAttached bool) State {
 	if !isAlive {
-		return Parked
+		return Resting
 	}
 	switch r.Status {
 	case claude.StatusIdle:

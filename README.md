@@ -43,13 +43,14 @@ Botropolis starts them, opens them in a terminal, parks them and wakes them, and
 ## What you see
 
 One district per project, one building per session, and every object stands for one datum.
-A building's height is its context window used and its beacon is its state — needs-you amber, working blue, waiting teal, unattended violet, parked slate.
+A building's height is its context window used and its beacon is its state — needs-you amber, working blue, waiting teal, unattended violet, resting slate.
 A rover works at the door while a session is mid-turn, a drone circles the roof for each subagent in flight, a flag flies per PR (green once merged) and smoke rises per API error.
 A vacant plot is a session nothing has been typed into yet: never counted, and `botropolis prune` clears it after an hour.
 
 The plant on the plaza is the API — click it for the breakdown by model, project and session over an hour, a day or a week.
 The towers on the ridge are MCP servers, the library ranks skills, and the city hall carries Claude Code's own rollup.
-Parked sessions are containers in the storage yard, one colour per project.
+A stopped session stays on its own lot: resting, then shuttered after a week of quiet and overgrown after a month, and its card says how long it has been quiet.
+Nothing leaves the map on a timer.
 Avenues carry traffic between projects whose sessions message each other or edit each other's files.
 The wires from the plant carry each session's live token rate;
 a session with no wire is one the daemon has seen no hook events from, so it is reading files.
@@ -134,7 +135,7 @@ The package installs `botropolis.desktop`, so the city is in your launcher under
 Media for the website is filmed from recorded demo sessions rather than anyone's real ones: see [demo/](demo/README.md).
 
 Settings come from flags, then `BOTROPOLIS_HOME`, `BOTROPOLIS_SOCKET`, `BOTROPOLIS_TERMINAL`, `BOTROPOLIS_PARKED_DAYS`, `BOTROPOLIS_CODEX_HOME`,
-then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `parked_days`, `codex_home`, `projection`, `render_scale`, `reduced_motion`, `daily_budget_usd`).
+then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `shuttered_days`, `overgrown_days`, `codex_home`, `projection`, `render_scale`, `reduced_motion`, `daily_budget_usd`).
 `s` in the city opens a settings panel for the same keys and writes the file back.
 
 A waybar module, for example:

@@ -89,3 +89,42 @@ func TestUsageRefreshSetting(t *testing.T) {
 		})
 	})
 }
+
+// Item 86: how long a stopped session rests before it is shuttered, and
+// before it is overgrown, are rows in the settings panel.
+func TestLadderSettings(t *testing.T) {
+	cfg := &config.Config{ShutteredDays: 7, OvergrownDays: 30}
+	rows := map[string]ui.Setting{}
+	for _, s := range settingsFor(cfg).Items {
+		rows[s.Key] = s
+	}
+
+	t.Run("when the panel is built", func(t *testing.T) {
+		t.Run("it should have no parked days row", func(t *testing.T) {
+			assert.NotContains(t, rows, "parked_days")
+		})
+
+		for _, c := range []struct{ key, label, value string }{
+			{config.KeyShutteredDays, "shuttered days", "7"},
+			{config.KeyOvergrownDays, "overgrown days", "30"},
+		} {
+			t.Run("it should label the "+c.key+" row", func(t *testing.T) {
+				assert.Equal(t, c.label, rows[c.key].Label)
+			})
+
+			t.Run("it should show "+c.key+" from the config", func(t *testing.T) {
+				assert.Equal(t, c.value, rows[c.key].Value)
+			})
+		}
+	})
+
+	t.Run("when the panel picks a number of days", func(t *testing.T) {
+		for _, k := range []string{config.KeyShutteredDays, config.KeyOvergrownDays} {
+			key, value := settingValue(ui.Setting{Key: k, Value: "14"})
+
+			t.Run("it should save "+k+" as a number", func(t *testing.T) {
+				assert.Equal(t, []any{k, 14}, []any{key, value})
+			})
+		}
+	})
+}

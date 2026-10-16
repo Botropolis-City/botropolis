@@ -41,7 +41,7 @@ func nrgba(c color.Color) color.NRGBA {
 
 func isTone(c color.NRGBA) bool {
 	p := ui.DefaultPalette
-	for _, tone := range []color.NRGBA{p.NeedsYou, p.Working, p.Unattended, p.Parked} {
+	for _, tone := range []color.NRGBA{p.NeedsYou, p.Working, p.Unattended, p.Resting} {
 		if c == tone {
 			return true
 		}

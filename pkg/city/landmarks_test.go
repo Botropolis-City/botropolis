@@ -18,7 +18,7 @@ func richSnapshot() state.Snapshot {
 	a.APIErrors = 2
 	b := session("b", botropolis, state.Unattended)
 	b.FreshTokensPerHour, b.CacheReadPerHour = 0, 0
-	c := session("c", cinders, state.Parked)
+	c := session("c", cinders, state.Resting)
 	return state.Snapshot{
 		At:       now,
 		Sessions: []state.Session{a, b, c},
@@ -266,7 +266,7 @@ func TestLandmarksWithoutData(t *testing.T) {
 }
 
 func TestRoads(t *testing.T) {
-	snap := snapshot(session("a", cinders, state.Working), session("b", botropolis, state.Working), session("c", worktree, state.Parked))
+	snap := snapshot(session("a", cinders, state.Working), session("b", botropolis, state.Working), session("c", worktree, state.Resting))
 	snap.Roads = []state.Road{
 		{From: cinders, To: botropolis, Messages: 3, Sessions: 1},
 		{From: worktree, To: cinders, Messages: 2, Files: 4, Sessions: 1},

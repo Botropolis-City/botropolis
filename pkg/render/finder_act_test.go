@@ -183,7 +183,7 @@ func finderOver(t *testing.T, row int, hits ...find.Hit) (*Game, *recorder) {
 	scene.Resize(800, 600)
 	scene.SetSnapshot(state.Snapshot{Sessions: []state.Session{
 		{ID: "live", CWD: "/src/kiln", State: state.Working},
-		{ID: "stopped", CWD: "/src/kiln", State: state.Parked},
+		{ID: "stopped", CWD: "/src/kiln", State: state.Resting},
 		{ID: "other", CWD: "/src/kiln", State: state.Waiting},
 	}})
 	g := &Game{scene: scene, actor: actor, scripted: -1, clicked: -1}

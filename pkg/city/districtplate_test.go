@@ -45,7 +45,7 @@ func TestDistrictPlateAtTheBottom(t *testing.T) {
 
 func TestDistrictPlateIsPermanent(t *testing.T) {
 	t.Run("when a project's sessions are all parked and nothing is hovered", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
+		s := scene(t, session("a", cinders, state.Resting))
 		d := s.City().Districts[0]
 		s.Camera().Zoom = 1
 
@@ -55,7 +55,7 @@ func TestDistrictPlateIsPermanent(t *testing.T) {
 	})
 
 	t.Run("when the district is too narrow on screen to read", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Parked))
+		s := scene(t, session("a", cinders, state.Resting))
 		d := s.City().Districts[0]
 		s.Camera().Zoom = 0.01
 

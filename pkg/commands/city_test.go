@@ -235,7 +235,7 @@ func TestActor(t *testing.T) {
 		})
 	})
 
-	t.Run("when a parked session is clicked", func(t *testing.T) {
+	t.Run("when a resting session is clicked", func(t *testing.T) {
 		home := helpers.NewHome(t)
 		home.Transcript(sid, cwd, helpers.UserPrompt(sid, cwd, "2026-09-16T19:50:00.000Z"))
 		ctl := &fakeController{id: "08b1d655"}

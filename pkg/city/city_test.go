@@ -128,7 +128,7 @@ func TestBuild(t *testing.T) {
 	})
 
 	t.Run("when a building's session is parked", func(t *testing.T) {
-		c := build(t, city.NewLayout(), session("a", cinders, state.Parked))
+		c := build(t, city.NewLayout(), session("a", cinders, state.Resting))
 
 		t.Run("it should not pulse", func(t *testing.T) {
 			assert.False(t, c.Buildings()[0].Pulse)
@@ -138,8 +138,8 @@ func TestBuild(t *testing.T) {
 			assert.False(t, c.Buildings()[0].Lit)
 		})
 
-		t.Run("it should be boarded up", func(t *testing.T) {
-			assert.True(t, c.Buildings()[0].BoardedUp)
+		t.Run("it should have its blinds down", func(t *testing.T) {
+			assert.True(t, c.Buildings()[0].Blinds)
 		})
 	})
 
@@ -176,30 +176,6 @@ func TestBuild(t *testing.T) {
 
 		t.Run("its card should say nothing was typed", func(t *testing.T) {
 			assert.Contains(t, plot.Card(now).Details, "empty    nothing typed yet; prune clears it after an hour")
-		})
-	})
-
-	t.Run("when parked sessions are built", func(t *testing.T) {
-		c := build(t, city.NewLayout(),
-			session("a", cinders, state.Parked), session("b", cinders, state.Parked),
-			session("c", botropolis, state.Parked), session("d", "/p/mullet", state.Parked))
-		storage := storageOf(t, c)
-		hues := map[string]int{}
-		for _, b := range storage.Buildings {
-			hues[b.Session.ID] = b.Hue
-		}
-
-		t.Run("it should give one project's containers one hue", func(t *testing.T) {
-			assert.Equal(t, hues["a"], hues["b"])
-		})
-
-		t.Run("it should tell projects apart by hue where the palette allows", func(t *testing.T) {
-			assert.NotEqual(t, hues["a"], hues["c"])
-		})
-
-		t.Run("it should name each project's colour on the storage card", func(t *testing.T) {
-			lines := storage.Card().Lines
-			assert.Contains(t, lines, fmt.Sprintf("%-11s %d  %s", "cinders", 2, city.ContainerHues[hues["a"]]))
 		})
 	})
 
@@ -535,164 +511,172 @@ func sessionsIn(root string, n int) []state.Session {
 	return out
 }
 
-func parkedIn(cwd string, n int) []state.Session {
+func restingIn(cwd string, n int) []state.Session {
 	var out []state.Session
 	for i := 0; i < n; i++ {
-		out = append(out, session(fmt.Sprintf("%s-p%02d", filepath.Base(cwd), i), cwd, state.Parked))
+		out = append(out, session(fmt.Sprintf("%s-r%02d", filepath.Base(cwd), i), cwd, state.Resting))
 	}
 	return out
 }
 
-func storageOf(t *testing.T, c *city.City) *city.District {
+func buildingIn(t *testing.T, c *city.City, id string) *city.Building {
 	t.Helper()
-	for _, d := range c.Districts {
-		if d.Storage {
-			return d
+	for _, b := range c.Buildings() {
+		if b.Session.ID == id {
+			return b
 		}
 	}
-	t.Fatal("the city has no storage district")
+	t.Fatalf("session %s is not in the city", id)
 	return nil
 }
 
-func TestStorage(t *testing.T) {
-	t.Run("when a project has live and parked sessions", func(t *testing.T) {
-		sessions := append(sessionsIn(cinders, 2), parkedIn(cinders, 5)...)
-		c := build(t, city.NewLayout(), sessions...)
-		storage := storageOf(t, c)
-		live := c.Districts[0]
+func quietFor(id string, quiet time.Duration) state.Session {
+	s := session(id, cinders, state.Resting)
+	s.LastActivity = now.Add(-quiet)
+	return s
+}
 
-		t.Run("it should keep only the live sessions in the project's district", func(t *testing.T) {
-			require.Len(t, live.Buildings, 2)
-			for _, b := range live.Buildings {
-				assert.False(t, b.BoardedUp, b.Session.ID)
-			}
-		})
+func TestLadder(t *testing.T) {
+	day := 24 * time.Hour
 
-		t.Run("it should put the parked sessions in storage", func(t *testing.T) {
-			assert.Len(t, storage.Buildings, 5)
-		})
+	t.Run("when a project holds only resting sessions", func(t *testing.T) {
+		c := build(t, city.NewLayout(), restingIn(cinders, 3)...)
 
-		t.Run("it should draw parked sessions as smaller lots", func(t *testing.T) {
-			assert.InDelta(t, city.ParkedSize, storage.Buildings[0].Rect.Width(), 1e-9)
-		})
-
-		t.Run("it should name the storage district", func(t *testing.T) {
-			assert.Equal(t, city.StorageName, storage.Name)
-		})
-
-		t.Run("it should group them under the project's name", func(t *testing.T) {
-			require.Len(t, storage.Groups, 1)
-			assert.Equal(t, "cinders", storage.Groups[0].Name)
-		})
-
-		t.Run("it should keep every shed inside its group and the group inside storage", func(t *testing.T) {
-			for _, b := range storage.Buildings {
-				assert.True(t, storage.Groups[0].Rect.Contains(b.Rect.Min) && storage.Groups[0].Rect.Contains(b.Rect.Max), b.Session.ID)
-				assert.True(t, storage.Rect.Contains(b.Rect.Max), b.Session.ID)
-			}
-		})
-
-		t.Run("it should put storage along the south, below every other district", func(t *testing.T) {
-			assert.Greater(t, storage.Rect.Min.Y, live.Rect.Max.Y)
-			assert.True(t, c.Bounds().Contains(storage.Rect.Max))
-		})
-	})
-
-	t.Run("when several projects have parked sessions", func(t *testing.T) {
-		sessions := append(append(sessionsIn(cinders, 1), parkedIn(cinders, 3)...), parkedIn(botropolis, 2)...)
-		c := build(t, city.NewLayout(), sessions...)
-		storage := storageOf(t, c)
-		require.Len(t, storage.Groups, 2)
-
-		t.Run("it should order the groups by name", func(t *testing.T) {
-			assert.Equal(t, []string{"botropolis", "cinders"}, []string{storage.Groups[0].Name, storage.Groups[1].Name})
-		})
-
-		t.Run("it should keep the groups apart", func(t *testing.T) {
-			assert.False(t, storage.Groups[0].Rect.Overlaps(storage.Groups[1].Rect))
-		})
-
-		t.Run("it should list the projects on the card", func(t *testing.T) {
-			card := storage.Card()
-			assert.Equal(t, city.StorageName, card.Title)
-			assert.Contains(t, card.Lines, "parked   5 in 2 projects")
-		})
-	})
-
-	t.Run("when a project holds only parked sessions", func(t *testing.T) {
-		c := build(t, city.NewLayout(), parkedIn(cinders, 9)...)
-
-		t.Run("it should raise no district for it", func(t *testing.T) {
+		t.Run("it should keep its district on the map", func(t *testing.T) {
 			require.Len(t, c.Districts, 1)
-			assert.True(t, c.Districts[0].Storage)
+			assert.Equal(t, cinders, c.Districts[0].Root)
 		})
 
-		t.Run("it should still show its sessions in storage", func(t *testing.T) {
-			assert.Len(t, c.Buildings(), 9)
+		t.Run("it should keep every session on a lot in it", func(t *testing.T) {
+			assert.Len(t, c.Districts[0].Buildings, 3)
 		})
 	})
 
-	t.Run("when more sessions are parked than fit one row", func(t *testing.T) {
-		c := build(t, city.NewLayout(), append(sessionsIn(cinders, 1), parkedIn(cinders, 36)...)...)
-		storage := storageOf(t, c)
+	t.Run("when a project has live and resting sessions", func(t *testing.T) {
+		c := build(t, city.NewLayout(), append(sessionsIn(cinders, 2), restingIn(cinders, 5)...)...)
 
-		t.Run("it should wrap into more rows", func(t *testing.T) {
-			assert.Greater(t, storage.Buildings[35].Rect.Min.Y, storage.Buildings[0].Rect.Min.Y)
+		t.Run("it should build no other district for the resting ones", func(t *testing.T) {
+			assert.Len(t, c.Districts, 1)
 		})
 
-		t.Run("it should keep every shed inside storage", func(t *testing.T) {
-			for _, b := range storage.Buildings {
-				assert.True(t, storage.Rect.Contains(b.Rect.Max), b.Session.ID)
-			}
-		})
-
-		t.Run("it should not overlap any two sheds", func(t *testing.T) {
-			for i, a := range storage.Buildings {
-				for _, b := range storage.Buildings[i+1:] {
-					assert.False(t, a.Rect.Overlaps(b.Rect), a.Session.ID+" overlaps "+b.Session.ID)
-				}
+		t.Run("it should give each a full-size lot", func(t *testing.T) {
+			for _, b := range c.Buildings() {
+				assert.InDelta(t, city.BuildingSize, b.Rect.Width(), 1e-9, b.Session.ID)
 			}
 		})
 	})
 
-	t.Run("when a live session parks", func(t *testing.T) {
+	t.Run("when a live session stops", func(t *testing.T) {
 		layout := city.NewLayout()
 		a, b := session("a", cinders, state.Working), session("b", cinders, state.Working)
-		build(t, layout, a, b)
-		a.State = state.Parked
+		before := buildingIn(t, build(t, layout, a, b), "a").Rect
+		a.State = state.Resting
 		c := build(t, layout, a, b)
 
-		t.Run("it should move to storage", func(t *testing.T) {
-			require.Len(t, c.Districts[0].Buildings, 1)
-			assert.Equal(t, "b", c.Districts[0].Buildings[0].Session.ID)
-			assert.Equal(t, "a", storageOf(t, c).Buildings[0].Session.ID)
+		t.Run("it should keep its lot", func(t *testing.T) {
+			assert.Equal(t, before, buildingIn(t, c, "a").Rect)
+		})
+
+		t.Run("it should stay in its own district", func(t *testing.T) {
+			assert.Equal(t, cinders, c.DistrictOf(buildingIn(t, c, "a")).Root)
 		})
 
 		t.Run("and a new session arrives", func(t *testing.T) {
 			c := build(t, layout, a, b, session("c", cinders, state.Working))
 
-			t.Run("it should take the slot the parked session freed", func(t *testing.T) {
-				for _, bld := range c.Districts[0].Buildings {
-					if bld.Session.ID == "c" {
-						assert.InDelta(t, city.DistrictPadding, bld.Rect.Min.X-c.Districts[0].Rect.Min.X, 1e-9)
-						return
-					}
-				}
-				t.Fatal("session c is not in the city")
+			t.Run("it should not take the stopped session's lot", func(t *testing.T) {
+				assert.NotEqual(t, buildingIn(t, c, "a").Rect, buildingIn(t, c, "c").Rect)
 			})
 		})
+	})
 
-		t.Run("and it resumes", func(t *testing.T) {
-			a.State = state.Working
-			c := build(t, layout, a, b)
+	t.Run("when each rung is built", func(t *testing.T) {
+		live := session("live", cinders, state.Working)
+		rungs := []struct {
+			name                            string
+			session                         state.Session
+			lit, blinds, boarded, overgrown bool
+		}{
+			{"live", live, true, false, false, false},
+			{"resting", quietFor("resting", day), false, true, false, false},
+			{"shuttered", quietFor("shuttered", 10*day), false, true, true, false},
+			{"overgrown", quietFor("overgrown", 40*day), false, true, true, true},
+		}
+		for _, r := range rungs {
+			t.Run("and the session is "+r.name, func(t *testing.T) {
+				b := build(t, city.NewLayout(), r.session).Buildings()[0]
 
-			t.Run("it should come back to the live grid", func(t *testing.T) {
-				require.Len(t, c.Districts, 1)
-				for _, bld := range c.Districts[0].Buildings {
-					assert.False(t, bld.BoardedUp)
-					assert.InDelta(t, city.BuildingSize, bld.Rect.Width(), 1e-9)
-				}
+				t.Run(fmt.Sprintf("it should be lit: %v", r.lit), func(t *testing.T) {
+					assert.Equal(t, r.lit, b.Lit)
+				})
+
+				t.Run(fmt.Sprintf("it should have its blinds down: %v", r.blinds), func(t *testing.T) {
+					assert.Equal(t, r.blinds, b.Blinds)
+				})
+
+				t.Run(fmt.Sprintf("it should be boarded up: %v", r.boarded), func(t *testing.T) {
+					assert.Equal(t, r.boarded, b.BoardedUp)
+				})
+
+				t.Run(fmt.Sprintf("it should be overgrown: %v", r.overgrown), func(t *testing.T) {
+					assert.Equal(t, r.overgrown, b.Overgrown)
+				})
+
+				t.Run("it should carry its rung", func(t *testing.T) {
+					assert.Equal(t, state.Rung(r.name), b.Rung)
+				})
 			})
+		}
+	})
+
+	t.Run("when the thresholds are not the defaults", func(t *testing.T) {
+		c := city.BuildWith(snapshot(quietFor("a", 4*day)), city.NewLayout(), state.Thresholds{Shuttered: 3 * day, Overgrown: 10 * day})
+
+		t.Run("it should climb by them", func(t *testing.T) {
+			assert.Equal(t, state.RungShuttered, c.Buildings()[0].Rung)
+		})
+	})
+
+	t.Run("when a stopped session's card is read", func(t *testing.T) {
+		cases := []struct {
+			name, state, quiet string
+			for_               time.Duration
+		}{
+			{"and it has been quiet for hours", "state    resting", "quiet    for 5 hours", 5 * time.Hour},
+			{"and it has been quiet for days", "state    shuttered", "quiet    for 12 days", 12 * day},
+		}
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				lines := build(t, city.NewLayout(), quietFor("a", c.for_)).Buildings()[0].Card(now).Details
+
+				t.Run("it should name its rung", func(t *testing.T) {
+					assert.Contains(t, lines, c.state)
+				})
+
+				t.Run("it should say how long it has been quiet", func(t *testing.T) {
+					assert.Contains(t, lines, c.quiet)
+				})
+			})
+		}
+	})
+
+	t.Run("when a live session's card is read", func(t *testing.T) {
+		lines := build(t, city.NewLayout(), session("a", cinders, state.Working)).Buildings()[0].Card(now).Details
+
+		t.Run("it should not say it is quiet", func(t *testing.T) {
+			for _, l := range lines {
+				assert.NotContains(t, l, "quiet")
+			}
+		})
+	})
+
+	t.Run("when a session's conversation is gone", func(t *testing.T) {
+		s := quietFor("a", 45*day)
+		s.ConversationGone = true
+		lines := build(t, city.NewLayout(), s).Buildings()[0].Card(now).Details
+
+		t.Run("it should say Claude Code deleted it, naming the setting", func(t *testing.T) {
+			assert.Contains(t, lines, "gone     Claude Code deleted the conversation (cleanupPeriodDays)")
 		})
 	})
 }

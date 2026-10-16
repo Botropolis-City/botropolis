@@ -83,21 +83,33 @@ func NewProbes() state.Probes {
 	return state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}
 }
 
-func ParkedMaxAge(cfg *config.Config) time.Duration {
-	return time.Duration(cfg.ParkedDays) * 24 * time.Hour
-}
-
 func newDaemon(cfg *config.Config, probes state.Probes) *daemon.Daemon {
-	d := daemon.NewWith(Harnesses(cfg, probes), time.Now)
+	d := daemon.NewWith(harnesses(cfg, probes, ledgerPath(cfg)), time.Now)
 	d.SetIndex(find.New(cfg.Home))
 	return d
 }
 
+// ledgerPath is where the daemon keeps its ledger of sessions shown, and
+// "" for a home it was pointed at: the ledger is the default home's
+// (item 86).
+func ledgerPath(cfg *config.Config) string {
+	if cfg.HomeSet {
+		return ""
+	}
+	return state.LedgerPath()
+}
+
+// Harnesses loads directly, without a daemon, and keeps no ledger: only
+// the daemon writes it.
 func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
-	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithParkedMaxAge(ParkedMaxAge(cfg)).WithGroups(group.Path()))
+	return harnesses(cfg, probes, "")
+}
+
+func harnesses(cfg *config.Config, probes state.Probes, ledger string) *harness.Multi {
+	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithGroups(group.Path()).WithLedger(ledger))
 	harnesses := []harness.Snapshotter{claudeLoader}
 	if info, err := os.Stat(filepath.Join(cfg.CodexHome, "sessions")); err == nil && info.IsDir() {
-		harnesses = append(harnesses, codex.NewLoader(cfg.CodexHome, ParkedMaxAge(cfg)))
+		harnesses = append(harnesses, codex.NewLoader(cfg.CodexHome))
 	}
 	return harness.NewMulti(harnesses...)
 }

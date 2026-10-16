@@ -163,7 +163,7 @@ func (s *services) Sessions(cfg *config.Config) cli.SessionsRunner {
 
 func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
 	return commands.DaemonOrDirect{
-		Home: cfg.Home, Socket: cfg.Socket, Probes: s.probes, ParkedMaxAge: appd.ParkedMaxAge(cfg),
+		Home: cfg.Home, Socket: cfg.Socket, Probes: s.probes,
 		Direct: appd.Harnesses(cfg, s.probes).Load, Now: time.Now, Notice: os.Stderr,
 	}
 }
@@ -366,6 +366,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		DailyBudget:    c.config.DailyBudget,
 		Detail:         detail,
 		HideGroupLines: !c.config.GroupLines,
+		Ladder:         state.Thresholds{Shuttered: time.Duration(c.config.ShutteredDays) * 24 * time.Hour, Overgrown: time.Duration(c.config.OvergrownDays) * 24 * time.Hour},
 		UsageRefresh:   usageEvery,
 		Signage:        signage,
 		Settings:       settingsFor(c.config),
@@ -417,7 +418,8 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyRenderScale, Label: "render scale", Options: withValue([]string{autoValue, "1", "1.25", "1.5", "2"}, scale), Value: scale},
 		{Key: config.KeyProjection, Label: "projection", Options: []string{"iso", "top"}, Value: cfg.Projection},
 		{Key: config.KeyDetail, Label: "detail", Options: []string{"full", "plain"}, Value: cfg.Detail},
-		{Key: config.KeyParkedDays, Label: "parked days", Options: withValue([]string{"0", "1", "3", "7", "14", "30", "90"}, strconv.Itoa(cfg.ParkedDays)), Value: strconv.Itoa(cfg.ParkedDays)},
+		{Key: config.KeyShutteredDays, Label: "shuttered days", Options: withValue([]string{"1", "3", "7", "14", "30"}, strconv.Itoa(cfg.ShutteredDays)), Value: strconv.Itoa(cfg.ShutteredDays)},
+		{Key: config.KeyOvergrownDays, Label: "overgrown days", Options: withValue([]string{"7", "14", "30", "60", "90", "180"}, strconv.Itoa(cfg.OvergrownDays)), Value: strconv.Itoa(cfg.OvergrownDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
@@ -446,7 +448,7 @@ func settingValue(s ui.Setting) (string, any) {
 		}
 		f, _ := strconv.ParseFloat(s.Value, 64)
 		return s.Key, f
-	case config.KeyParkedDays:
+	case config.KeyShutteredDays, config.KeyOvergrownDays:
 		n, _ := strconv.Atoi(s.Value)
 		return s.Key, n
 	case config.KeyTerminal:

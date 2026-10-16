@@ -38,10 +38,10 @@ func TestStagedHomeLoadsAsTheScenarioSays(t *testing.T) {
 		state.Working:    "a1000000-0000-4000-8000-000000000001",
 		state.NeedsYou:   "b2000000-0000-4000-8000-000000000002",
 		state.Unattended: "c3000000-0000-4000-8000-000000000003",
-		state.Parked:     "d4000000-0000-4000-8000-000000000004",
+		state.Resting:    "d4000000-0000-4000-8000-000000000004",
 	}
 	projects := map[state.State]string{
-		state.Working: "tidepool", state.NeedsYou: "lanternfish", state.Unattended: "kiln", state.Parked: "orchard",
+		state.Working: "tidepool", state.NeedsYou: "lanternfish", state.Unattended: "kiln", state.Resting: "orchard",
 	}
 	scenario := demo.Scenario{Name: "test", MCP: []string{"tracker"}}
 	for s, id := range ids {
@@ -96,7 +96,7 @@ func TestStagedHomeLoadsAsTheScenarioSays(t *testing.T) {
 					return false
 				}
 				for _, s := range after.Sessions {
-					if s.State != state.Parked {
+					if s.State != state.Resting {
 						return false
 					}
 				}

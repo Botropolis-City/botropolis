@@ -43,7 +43,7 @@ The atlases therefore do not churn in git, so they stay committed: no git-lfs, n
 `pkg/assets/kits.go` loads the atlases; `pkg/render/kits.go` draws a piece with its origin on a world point as the camera's heading sees it, picking the atlas cut at or below the zoom;
 `pkg/render/recipes.go` says which piece stands for what:
 a session's building is one of five classes of Commercial pieces by how much of its context window it has used, with variety from its id and a state-coloured beacon over the door;
-a parked session is an Industrial shipping container in storage; avenues are Roads pieces picked and turned by each cell's joins;
+the Industrial shipping containers are held in reserve for item 86; avenues are Roads pieces picked and turned by each cell's joins;
 the plant is an Industrial hall with a stack, the hall and library Commercial pieces, the MCP towers water towers; trees are the Suburban kit's; cars the Car Kit's;
 the worker is the Space Kit rover at the door of a working session, bobbing; each subagent in flight is a drone circling the roof.
 The camera carries a heading (`r` turns it a quarter about the window's middle) and the projection, corners, fit bounds, minimap and back-to-front order all go through it;

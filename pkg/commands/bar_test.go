@@ -17,7 +17,7 @@ func TestBar(t *testing.T) {
 		{ID: "a", State: state.NeedsYou, Title: "Fix the CI queue", ContextPercent: 73},
 		{ID: "b", State: state.NeedsYou, Title: "Issue 613", ContextPercent: 12},
 		{ID: "c", State: state.Working, Title: "scaffold", ContextPercent: 48},
-		{ID: "d", State: state.Parked, Title: "old", ContextPercent: 99},
+		{ID: "d", State: state.Resting, Title: "old", ContextPercent: 99},
 	}}
 
 	t.Run("when sessions need you", func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestBar(t *testing.T) {
 	})
 
 	t.Run("when nothing is live", func(t *testing.T) {
-		line := commands.Summarize(state.Snapshot{Sessions: []state.Session{{State: state.Parked}}})
+		line := commands.Summarize(state.Snapshot{Sessions: []state.Session{{State: state.Resting}}})
 
 		t.Run("it should say no sessions with the idle class", func(t *testing.T) {
 			assert.Equal(t, "no sessions", line.Text)

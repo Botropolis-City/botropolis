@@ -14,7 +14,7 @@ import (
 )
 
 func TestFinderChords(t *testing.T) {
-	stopped := find.Hit{SessionID: "stopped", Dir: "/src/kiln", State: state.Parked}
+	stopped := find.Hit{SessionID: "stopped", Dir: "/src/kiln", State: state.Resting}
 	altS := config.Chords{
 		Open: config.Chord{Ctrl: true, Key: "k"},
 		Copy: config.Chord{Ctrl: true, Key: "y"},

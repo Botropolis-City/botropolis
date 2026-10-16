@@ -72,7 +72,7 @@ func TestRenderJSON(t *testing.T) {
 	same := "the same title twice"
 	snapshot := state.Snapshot{At: now, Sessions: []state.Session{
 		{ID: "d7314bb1-6586-4392-b3b1-f5df4266017b", PID: 1165254, Title: same, State: state.NeedsYou},
-		{ID: "ac752824-6bc4-479d-b9c4-842c2336b5a8", PID: 1698050, Title: same, State: state.Parked},
+		{ID: "ac752824-6bc4-479d-b9c4-842c2336b5a8", PID: 1698050, Title: same, State: state.Resting},
 	}}
 	decode := func(t *testing.T, s state.Snapshot) []map[string]any {
 		t.Helper()

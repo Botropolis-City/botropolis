@@ -22,7 +22,8 @@ const (
 	KeySocket        = "socket"
 	KeyTerminal      = "terminal"
 	KeyHookCommand   = "hook_command"
-	KeyParkedDays    = "parked_days"
+	KeyShutteredDays = "shuttered_days"
+	KeyOvergrownDays = "overgrown_days"
 	KeyCodexHome     = "codex_home"
 	KeyProjection    = "projection"
 	KeyRenderScale   = "render_scale"
@@ -32,7 +33,8 @@ const (
 	KeyUsageRefresh  = "usage_refresh"
 	KeyGroupLines    = "group_lines"
 
-	DefaultParkedDays = 7
+	DefaultShutteredDays = 7
+	DefaultOvergrownDays = 30
 )
 
 const DefaultProjection = "iso"
@@ -66,7 +68,8 @@ type Config struct {
 	SocketSet     bool
 	Terminal      string
 	HookCommand   string
-	ParkedDays    int
+	ShutteredDays int
+	OvergrownDays int
 	CodexHome     string
 	Projection    string
 	RenderScale   float64
@@ -92,7 +95,8 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeySocket, "")
 	v.SetDefault(KeyTerminal, "")
 	v.SetDefault(KeyHookCommand, "botropolis-hook")
-	v.SetDefault(KeyParkedDays, DefaultParkedDays)
+	v.SetDefault(KeyShutteredDays, DefaultShutteredDays)
+	v.SetDefault(KeyOvergrownDays, DefaultOvergrownDays)
 	v.SetDefault(KeyCodexHome, "")
 	v.SetDefault(KeyProjection, DefaultProjection)
 	v.SetDefault(KeyRenderScale, 0.0)
@@ -112,7 +116,8 @@ func NewViper() *viper.Viper {
 func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyHome, "", "home directory holding .claude (default: $HOME)")
 	flags.String(KeySocket, "", "daemon socket (default: "+proto.SocketPath()+")")
-	flags.Int(KeyParkedDays, DefaultParkedDays, "how many days of parked sessions to catalogue (0 disables)")
+	flags.Int(KeyShutteredDays, DefaultShutteredDays, "how many quiet days before a stopped session is shuttered")
+	flags.Int(KeyOvergrownDays, DefaultOvergrownDays, "how many quiet days before a stopped session is overgrown")
 	flags.String(KeyProjection, DefaultProjection, "how the city is drawn: iso or top")
 	flags.Float64(KeyRenderScale, 0, "chrome and pixel scale (default: follow the display)")
 	flags.Bool(KeyReducedMotion, false, "stop every animation and keep the colours")
@@ -122,7 +127,8 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.Bool(KeyGroupLines, true, "draw each group of sessions as a line across its districts")
 	_ = v.BindPFlag(KeyHome, flags.Lookup(KeyHome))
 	_ = v.BindPFlag(KeySocket, flags.Lookup(KeySocket))
-	_ = v.BindPFlag(KeyParkedDays, flags.Lookup(KeyParkedDays))
+	_ = v.BindPFlag(KeyShutteredDays, flags.Lookup(KeyShutteredDays))
+	_ = v.BindPFlag(KeyOvergrownDays, flags.Lookup(KeyOvergrownDays))
 	_ = v.BindPFlag(KeyProjection, flags.Lookup(KeyProjection))
 	_ = v.BindPFlag(KeyRenderScale, flags.Lookup(KeyRenderScale))
 	_ = v.BindPFlag(KeyReducedMotion, flags.Lookup(KeyReducedMotion))
@@ -152,7 +158,8 @@ func New(v *viper.Viper) (*Config, error) {
 		SocketSet:     v.GetString(KeySocket) != "",
 		Terminal:      v.GetString(KeyTerminal),
 		HookCommand:   v.GetString(KeyHookCommand),
-		ParkedDays:    v.GetInt(KeyParkedDays),
+		ShutteredDays: v.GetInt(KeyShutteredDays),
+		OvergrownDays: v.GetInt(KeyOvergrownDays),
 		CodexHome:     v.GetString(KeyCodexHome),
 		Projection:    v.GetString(KeyProjection),
 		RenderScale:   v.GetFloat64(KeyRenderScale),
@@ -169,6 +176,9 @@ func New(v *viper.Viper) (*Config, error) {
 	if _, err := ParseUsageRefresh(cfg.UsageRefresh); err != nil {
 		return nil, err
 	}
+	if err := checkLadder(cfg.ShutteredDays, cfg.OvergrownDays); err != nil {
+		return nil, err
+	}
 	if cfg.Home == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -183,6 +193,15 @@ func New(v *viper.Viper) (*Config, error) {
 		cfg.CodexHome = filepath.Join(cfg.Home, ".codex")
 	}
 	return cfg, nil
+}
+
+// checkLadder refuses thresholds that would overgrow a session before
+// shuttering it. Item 86.
+func checkLadder(shuttered, overgrown int) error {
+	if overgrown <= shuttered {
+		return fmt.Errorf("%s (%d) must be more than %s (%d)", KeyOvergrownDays, overgrown, KeyShutteredDays, shuttered)
+	}
+	return nil
 }
 
 // DefaultFile is where settings are written when no config file was read.

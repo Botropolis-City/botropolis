@@ -184,7 +184,7 @@ func TestBuild(t *testing.T) {
 			[]claude.Transcript{transcript(sidA, claude.TurnWorking)}, nil, dead)[0]
 
 		t.Run("it should be parked", func(t *testing.T) {
-			assert.Equal(t, state.Parked, session.State)
+			assert.Equal(t, state.Resting, session.State)
 		})
 
 		t.Run("it should not be alive", func(t *testing.T) {
@@ -317,7 +317,7 @@ func TestParkedSessions(t *testing.T) {
 		tr := transcript(sidA, claude.TurnAwaitingUser)
 		tr.Partial, tr.ModelID, tr.Cost.Models = partial, modelID, cost
 		tr.ContextTokens = 400_000
-		sessions := state.Build(state.Sources{Parked: []claude.Transcript{tr}}, alive, now)
+		sessions := state.Build(state.Sources{Stopped: []claude.Transcript{tr}}, alive, now)
 		require.Len(t, sessions, 1)
 		return sessions[0]
 	}
@@ -326,7 +326,7 @@ func TestParkedSessions(t *testing.T) {
 		s := parked(false, "", nil)
 
 		t.Run("it should be parked and not alive", func(t *testing.T) {
-			assert.Equal(t, state.Parked, s.State)
+			assert.Equal(t, state.Resting, s.State)
 			assert.False(t, s.Alive)
 		})
 
@@ -341,7 +341,7 @@ func TestParkedSessions(t *testing.T) {
 		for h := int64(0); h < 14*24; h++ {
 			tr.Hourly[now.Unix()/3600-h] = claude.Usage{Output: 1}
 		}
-		sessions := state.Build(state.Sources{Parked: []claude.Transcript{tr}}, alive, now)
+		sessions := state.Build(state.Sources{Stopped: []claude.Transcript{tr}}, alive, now)
 		require.Len(t, sessions, 1)
 
 		t.Run("it should carry only the newest week of them", func(t *testing.T) {
@@ -366,7 +366,7 @@ func TestParkedSessions(t *testing.T) {
 		tr := transcript(sidA, claude.TurnAwaitingUser)
 		tr.Partial, tr.Model, tr.ModelID, tr.Cost.Models = true, "claude-fable-5-1", "claude-fable-5-1", nil
 		tr.ContextTokens = 150_000
-		sessions := state.Build(state.Sources{Parked: []claude.Transcript{tr}}, alive, now)
+		sessions := state.Build(state.Sources{Stopped: []claude.Transcript{tr}}, alive, now)
 		require.Len(t, sessions, 1)
 
 		t.Run("it should not guess a percentage", func(t *testing.T) {
@@ -388,7 +388,7 @@ func TestAggregates(t *testing.T) {
 	b := withCalls(sidB, map[string]int{"atlassian": 5}, map[string]int{"amberPylon:umberEstuary": 1, "git-worktrees": 4}, nil, 0)
 	mcp := claude.MCPConfig{Global: []claude.MCPServer{{Name: "datadog-mcp", Type: "http"}},
 		Projects: map[string][]claude.MCPServer{"/p": {{Name: "langfuse", Type: "stdio"}}}}
-	sessions := state.Build(state.Sources{Parked: []claude.Transcript{a, b}, MCP: mcp}, alive, now)
+	sessions := state.Build(state.Sources{Stopped: []claude.Transcript{a, b}, MCP: mcp}, alive, now)
 
 	t.Run("when sessions attribute MCP calls and the config names servers", func(t *testing.T) {
 		servers := state.Servers(sessions, mcp)
@@ -838,7 +838,7 @@ func TestEmptySession(t *testing.T) {
 			[]claude.Transcript{blank}, nil, dead)[0]
 
 		t.Run("it should be parked", func(t *testing.T) {
-			assert.Equal(t, state.Parked, session.State)
+			assert.Equal(t, state.Resting, session.State)
 		})
 	})
 }
@@ -901,7 +901,7 @@ func TestShortTitles(t *testing.T) {
 	t.Run("when a parked transcript has no title", func(t *testing.T) {
 		untitled := transcript(sidB, claude.TurnAwaitingUser)
 		untitled.Title = ""
-		sessions := state.Build(state.Sources{Parked: []claude.Transcript{untitled}}, dead, now)
+		sessions := state.Build(state.Sources{Stopped: []claude.Transcript{untitled}}, dead, now)
 		require.Len(t, sessions, 1)
 
 		t.Run("it should be titled by its short id", func(t *testing.T) {
@@ -953,11 +953,11 @@ func TestBotropolisOwnRunsAreNeverSessions(t *testing.T) {
 		})
 
 		t.Run("when "+run.name+" has left a transcript behind", func(t *testing.T) {
-			sessions := state.Build(state.Sources{Parked: []claude.Transcript{
+			sessions := state.Build(state.Sources{Stopped: []claude.Transcript{
 				{SessionID: "own-parked", Project: claude.ProjectFolder(run.dir), CWD: run.dir, LastAt: now},
 			}}, alive, now)
 
-			t.Run("it should not be a parked session either", func(t *testing.T) {
+			t.Run("it should not be a resting session either", func(t *testing.T) {
 				assert.Empty(t, sessions)
 			})
 		})
@@ -1008,7 +1008,7 @@ func TestConnections(t *testing.T) {
 	}{
 		{"and one traveller is working", []state.State{state.Working, state.NeedsYou}, 1},
 		{"and three travellers are working", []state.State{state.Working, state.Working, state.Working}, 3},
-		{"and every traveller needs you, waits or is parked", []state.State{state.NeedsYou, state.Parked, state.Waiting}, 0},
+		{"and every traveller needs you, waits or is parked", []state.State{state.NeedsYou, state.Resting, state.Waiting}, 0},
 	} {
 		t.Run("when sessions cross between two projects "+tc.scenario, func(t *testing.T) {
 			var sessions []state.Session

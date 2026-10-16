@@ -37,8 +37,8 @@ func TestAnimating(t *testing.T) {
 		})
 	})
 
-	t.Run("when every session is parked", func(t *testing.T) {
-		s := still(t, session("a", cinders, state.Parked), session("b", botropolis, state.Parked))
+	t.Run("when every session is resting", func(t *testing.T) {
+		s := still(t, session("a", cinders, state.Resting), session("b", botropolis, state.Resting))
 
 		t.Run("it should be still", func(t *testing.T) {
 			assert.False(t, s.Animating())
@@ -65,7 +65,7 @@ func TestAnimating(t *testing.T) {
 	})
 
 	t.Run("when a courier is crossing a city where nothing else moves", func(t *testing.T) {
-		s := still(t, session("a", cinders, state.Parked), session("b", botropolis, state.Parked))
+		s := still(t, session("a", cinders, state.Resting), session("b", botropolis, state.Resting))
 		require.False(t, s.Animating(), "the scene has to be still before the courier for this to mean anything")
 		s.SendCourier()
 
@@ -79,7 +79,7 @@ func TestAnimating(t *testing.T) {
 		s := city.NewScene(city.NewLayout())
 		s.SetClock(func() time.Time { return clock }, time.UTC)
 		s.Resize(800, 600)
-		s.SetSnapshot(snapshot(session("a", cinders, state.Parked)))
+		s.SetSnapshot(snapshot(session("a", cinders, state.Resting)))
 		s.SendCourier()
 		clock = clock.Add(city.CourierFor + time.Second)
 

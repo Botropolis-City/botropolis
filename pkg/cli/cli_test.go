@@ -351,7 +351,7 @@ func TestStatusCLI(t *testing.T) {
 		h := newHarness(&config.Config{})
 		require.NoError(t, h.run("status", "--all"))
 
-		t.Run("it should ask for parked sessions too", func(t *testing.T) {
+		t.Run("it should ask for resting sessions too", func(t *testing.T) {
 			assert.True(t, h.status.all)
 		})
 	})

@@ -25,9 +25,8 @@ const (
 )
 
 type Loader struct {
-	home   string
-	maxAge time.Duration
-	cache  map[string]entry
+	home  string
+	cache map[string]entry
 }
 
 type key struct {
@@ -55,8 +54,10 @@ type session struct {
 	TurnDone      bool
 }
 
-func NewLoader(home string, maxAge time.Duration) *Loader {
-	return &Loader{home: home, maxAge: maxAge, cache: map[string]entry{}}
+// NewLoader reads every rollout under home, however old: time ages a
+// session, it never takes one off the map (item 86).
+func NewLoader(home string) *Loader {
+	return &Loader{home: home, cache: map[string]entry{}}
 }
 
 func (l *Loader) Name() string {
@@ -80,15 +81,11 @@ func (l *Loader) Load(now time.Time) (state.Snapshot, error) {
 		return snapshot, err
 	}
 	sort.Strings(paths)
-	cutoff := now.Add(-l.maxAge)
 	cache := map[string]entry{}
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil {
 			snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: path, Err: err})
-			continue
-		}
-		if l.maxAge > 0 && info.ModTime().Before(cutoff) {
 			continue
 		}
 		k := key{size: info.Size(), modTime: info.ModTime()}
@@ -120,7 +117,7 @@ func toSession(s session, modTime, now time.Time) state.Session {
 	out := state.Session{
 		ID: s.ID, Harness: Name, Title: s.Title, CWD: s.CWD, Branch: s.Branch, Model: s.Model,
 		Usage: s.Usage, ContextTokens: s.ContextTokens, ContextWindow: s.ContextWindow,
-		StartedAt: s.FirstAt, LastActivity: s.LastAt, State: state.Parked,
+		StartedAt: s.FirstAt, LastActivity: s.LastAt, State: state.Resting,
 	}
 	if out.Title == "" {
 		out.Title = s.ID

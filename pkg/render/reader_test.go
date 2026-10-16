@@ -36,7 +36,7 @@ func TestReadingPane(t *testing.T) {
 		scene.Resize(800, 600)
 		scene.SetSnapshot(state.Snapshot{Sessions: []state.Session{
 			{ID: "live", CWD: "/src/kiln", State: state.Working},
-			{ID: "parked", CWD: "/src/kiln", State: state.Parked},
+			{ID: "parked", CWD: "/src/kiln", State: state.Resting},
 			{ID: "blocked", CWD: "/src/kiln", State: state.NeedsYou, Note: "Claude needs your permission to use Bash"},
 		}})
 		if id != "" {

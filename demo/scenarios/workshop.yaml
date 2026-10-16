@@ -19,7 +19,7 @@ sessions:
     ago: 2m
     errors: 1
   - ref: lanternfish/status-filter
-    state: parked
+    state: resting
     ago: 5h
     prs: [merged]
   - ref: kiln/line-numbers-like-tidepool
@@ -27,7 +27,7 @@ sessions:
     context: 48%
     ago: 1m
   - ref: kiln/empty-log-from-tracker
-    state: parked
+    state: resting
     ago: 26h
     prs: [merged]
   - ref: quillmark/fix-code-spans
@@ -35,7 +35,7 @@ sessions:
     context: 24%
     ago: 3m
   - ref: quillmark/compare-kiln-packaging
-    state: parked
+    state: resting
     ago: 2d
   - project: quillmark
     state: empty

@@ -1,15 +1,15 @@
 name: week
 description: A week of parked sessions, seen on a Monday morning, for item 91's reopen test.
 sessions:
-  - {ref: quillmark/fix-code-spans, state: parked, ago: 1h}
-  - {ref: kiln/json-report, state: parked, ago: 3h}
-  - {ref: orchard/run-one-file, state: parked, ago: 20h}
-  - {ref: lanternfish/how-to-run, state: parked, ago: 1d4h}
-  - {ref: tidepool/units-from-tracker, state: parked, ago: 2d}
-  - {ref: beacon/battery-threshold, state: parked, ago: 2d18h}
-  - {ref: kiln/hold-time-sampling, state: parked, ago: 3d18h}
-  - {ref: lanternfish/status-filter, state: parked, ago: 4d}
-  - {ref: quillmark/block-handlers, state: parked, ago: 4d20h}
-  - {ref: orchard/triploid-design, state: parked, ago: 5d}
-  - {ref: tidepool/what-is-phase, state: parked, ago: 6d}
-  - {ref: beacon/exit-64, state: parked, ago: 6d12h}
+  - {ref: quillmark/fix-code-spans, state: resting, ago: 1h}
+  - {ref: kiln/json-report, state: resting, ago: 3h}
+  - {ref: orchard/run-one-file, state: resting, ago: 20h}
+  - {ref: lanternfish/how-to-run, state: resting, ago: 1d4h}
+  - {ref: tidepool/units-from-tracker, state: resting, ago: 2d}
+  - {ref: beacon/battery-threshold, state: resting, ago: 2d18h}
+  - {ref: kiln/hold-time-sampling, state: resting, ago: 3d18h}
+  - {ref: lanternfish/status-filter, state: resting, ago: 4d}
+  - {ref: quillmark/block-handlers, state: resting, ago: 4d20h}
+  - {ref: orchard/triploid-design, state: resting, ago: 5d}
+  - {ref: tidepool/what-is-phase, state: resting, ago: 6d}
+  - {ref: beacon/exit-64, state: resting, ago: 6d12h}

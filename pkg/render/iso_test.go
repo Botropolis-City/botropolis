@@ -119,9 +119,9 @@ func TestFootprintAndBlock(t *testing.T) {
 		})
 	})
 
-	t.Run("when a building is parked", func(t *testing.T) {
-		t.Run("it should be the parked colour whatever the time", func(t *testing.T) {
-			assert.Equal(t, colorMapParked, blockColor(&city.Building{BoardedUp: true}, math.Pi))
+	t.Run("when a building is resting", func(t *testing.T) {
+		t.Run("it should be the resting colour whatever the time", func(t *testing.T) {
+			assert.Equal(t, colorMapResting, blockColor(&city.Building{Blinds: true}, math.Pi))
 		})
 	})
 }

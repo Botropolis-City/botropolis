@@ -66,6 +66,9 @@ type Options struct {
 	// HideGroupLines hides the line each group draws across its
 	// districts, which are on unless the settings say otherwise.
 	HideGroupLines bool
+	// Ladder is how long a stopped session rests before it is shuttered,
+	// and before it is overgrown; zero keeps the defaults. Item 86.
+	Ladder state.Thresholds
 	// UsageRefresh is how often the city probes for usage on its own;
 	// zero leaves it to the u key, and the boats away until called.
 	// Item 79.
@@ -155,6 +158,9 @@ func Run(ctx context.Context, opts Options) error {
 	game.reduced = opts.ReducedMotion
 	scene.SetDetail(opts.Detail)
 	scene.SetGroupLines(!opts.HideGroupLines)
+	if opts.Ladder != (state.Thresholds{}) {
+		scene.SetLadder(opts.Ladder)
+	}
 	game.signage = opts.Signage
 	game.usageEvery = opts.UsageRefresh
 	// A still or a film shows the boats on station whatever the setting:

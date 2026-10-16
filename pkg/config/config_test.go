@@ -18,14 +18,19 @@ import (
 
 func load(t *testing.T, args ...string) *config.Config {
 	t.Helper()
+	cfg, err := loadErr(t, args...)
+	require.NoError(t, err)
+	return cfg
+}
+
+func loadErr(t *testing.T, args ...string) (*config.Config, error) {
+	t.Helper()
 	cmd := &cobra.Command{Use: "test", RunE: func(*cobra.Command, []string) error { return nil }}
 	v := config.NewViper()
 	config.BindFlags(v, cmd.PersistentFlags())
 	cmd.SetArgs(args)
 	require.NoError(t, cmd.Execute())
-	cfg, err := config.New(v)
-	require.NoError(t, err)
-	return cfg
+	return config.New(v)
 }
 
 func TestConfig(t *testing.T) {
@@ -54,8 +59,12 @@ func TestConfig(t *testing.T) {
 			assert.Empty(t, cfg.Terminal)
 		})
 
-		t.Run("it should default to a week of parked sessions", func(t *testing.T) {
-			assert.Equal(t, 7, cfg.ParkedDays)
+		t.Run("it should shutter a quiet session after a week", func(t *testing.T) {
+			assert.Equal(t, 7, cfg.ShutteredDays)
+		})
+
+		t.Run("it should overgrow a quiet session after thirty days", func(t *testing.T) {
+			assert.Equal(t, 30, cfg.OvergrownDays)
 		})
 
 		t.Run("it should default the codex home under home", func(t *testing.T) {
@@ -63,12 +72,41 @@ func TestConfig(t *testing.T) {
 		})
 	})
 
-	t.Run("when parked days is given as a flag", func(t *testing.T) {
+	t.Run("when the ladder's thresholds are given as flags", func(t *testing.T) {
 		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-		cfg := load(t, "--parked_days", "30")
+		cfg := load(t, "--shuttered_days", "3", "--overgrown_days", "10")
 
-		t.Run("it should take it", func(t *testing.T) {
-			assert.Equal(t, 30, cfg.ParkedDays)
+		t.Run("it should take the shuttered threshold", func(t *testing.T) {
+			assert.Equal(t, 3, cfg.ShutteredDays)
+		})
+
+		t.Run("it should take the overgrown threshold", func(t *testing.T) {
+			assert.Equal(t, 10, cfg.OvergrownDays)
+		})
+	})
+
+	t.Run("when overgrown_days is not more than shuttered_days", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		_, err := loadErr(t, "--shuttered_days", "10", "--overgrown_days", "10")
+
+		t.Run("it should fail, naming both", func(t *testing.T) {
+			assert.ErrorContains(t, err, "overgrown_days (10) must be more than shuttered_days (10)")
+		})
+	})
+
+	t.Run("when a config file still sets parked_days", func(t *testing.T) {
+		configHome := t.TempDir()
+		t.Setenv("XDG_CONFIG_HOME", configHome)
+		require.NoError(t, os.MkdirAll(filepath.Join(configHome, "botropolis"), 0o700))
+		require.NoError(t, os.WriteFile(filepath.Join(configHome, "botropolis", "config.toml"), []byte("parked_days = 3\nshuttered_days = 2\n"), 0o600))
+		cfg, err := loadErr(t)
+
+		t.Run("it should still load", func(t *testing.T) {
+			assert.NoError(t, err)
+		})
+
+		t.Run("it should read the keys beside it", func(t *testing.T) {
+			assert.Equal(t, 2, cfg.ShutteredDays)
 		})
 	})
 
@@ -251,7 +289,7 @@ func TestSave(t *testing.T) {
 		path := filepath.Join(configHome, "botropolis", "config.toml")
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
 		require.NoError(t, os.WriteFile(path, []byte("terminal = \"kitty\"\n"), 0o600))
-		require.NoError(t, config.Save(path, config.KeyParkedDays, 14))
+		require.NoError(t, config.Save(path, config.KeyShutteredDays, 14))
 		cfg, err := config.New(config.NewViper())
 		require.NoError(t, err)
 
@@ -260,7 +298,7 @@ func TestSave(t *testing.T) {
 		})
 
 		t.Run("it should hold the new value", func(t *testing.T) {
-			assert.Equal(t, 14, cfg.ParkedDays)
+			assert.Equal(t, 14, cfg.ShutteredDays)
 		})
 
 		t.Run("it should not write defaults for other keys", func(t *testing.T) {

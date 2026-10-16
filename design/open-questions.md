@@ -35,8 +35,8 @@ The history of each is kept here because it explains code that still exists.
   then on 2026-09-17 three 16 px Kenney packs (Tiny Town, Tiny Factory, Roguelike Modern City),
   then the same day Kenney's 2D isometric packs for the isometric view.
   Those remain in `pkg/assets/kenney/` until the rendered atlases replace them; the 16 px packs stay behind `--projection top`.
-- **Parked sessions.**
+- **Stopped sessions.**
   Settled in milestone 5: catalogued by a head-and-tail window read over `projects/*/*.jsonl`, cached by size and mtime,
-  aged by `parked_days`.
+  aged by `parked_days` until item 86, which catalogues every transcript Claude Code still has.
   `sessions-index.json` was tried as a seed and rejected (cinders: 28 transcripts on disk, 4 indexed).
-  Since ROADMAP phase 8 they live in one storage district on the plan.
+  Since ROADMAP phase 8 they lived in one storage district on the plan; since item 86 each keeps its own lot.

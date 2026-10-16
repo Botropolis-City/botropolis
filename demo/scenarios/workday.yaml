@@ -45,10 +45,10 @@ sessions:
     replay: {over: 14s, context: 47%}
     leave: 34s
   - ref: tidepool/what-is-phase
-    state: parked
+    state: resting
     ago: 20h
   - ref: kiln/empty-log-from-tracker
-    state: parked
+    state: resting
     ago: 2d
 shots:
   - name: morning

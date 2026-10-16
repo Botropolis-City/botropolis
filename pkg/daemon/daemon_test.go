@@ -168,7 +168,7 @@ func TestDaemon(t *testing.T) {
 		d.Apply(event(claude.HookSessionEnd, ""), now)
 
 		t.Run("it should park the session", func(t *testing.T) {
-			assert.Equal(t, state.Parked, only(t, d).State)
+			assert.Equal(t, state.Resting, only(t, d).State)
 		})
 	})
 

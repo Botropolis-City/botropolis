@@ -3,7 +3,7 @@ package state
 // Order is every state by urgency. It is the one place the order lives:
 // the strip, the window title, the bar and the TUI rows all walk it, so
 // they cannot disagree.
-var Order = []State{NeedsYou, Working, Waiting, Unattended, Parked}
+var Order = []State{NeedsYou, Working, Waiting, Unattended, Resting}
 
 // Rank is a state's place in Order, for sorting; unknown states sort last.
 func Rank(st State) int {
@@ -17,7 +17,7 @@ func Rank(st State) int {
 
 // Live is the filter for states with a conversation going right now:
 // not parked, and not empty (an empty session is never counted).
-func Live(st State) bool { return st != Parked && st != Empty }
+func Live(st State) bool { return st != Resting && st != Empty }
 
 // Count is how many sessions are in a state.
 type Count struct {

@@ -50,9 +50,8 @@ type District struct {
 
 // Input is everything the plan is made from.
 type Input struct {
-	Districts   []District
-	Towers      int
-	StorageRows int
+	Districts []District
+	Towers    int
 }
 
 // Memory is what the plan remembers between snapshots: each district's
@@ -253,7 +252,6 @@ type Plan struct {
 	Slots    map[string]Slot
 	Parks    []Block
 	Belt     []Block
-	Storage  Block
 	Towers   []Cell
 	Streets  []Street
 	Lamps    []Cell
@@ -390,10 +388,6 @@ func (p *Plan) place(in Input) {
 	}
 	southRoad := y - 1
 	lastRoad := southRoad
-	if in.StorageRows > 0 {
-		p.Storage = Block{Min: Cell{Col: p.colX[-p.rings], Row: southRoad + 1}, Cols: eastRoad - p.colX[-p.rings], Rows: in.StorageRows}
-		lastRoad = southRoad + 1 + in.StorageRows
-	}
 	rows := lastRoad + 1 + belt
 	p.Bounds = Block{Cols: cols, Rows: rows}
 
@@ -461,9 +455,6 @@ func (p *Plan) place(in Input) {
 	for r := -p.rings; r <= p.rings; r++ {
 		streetRows = append(streetRows, p.rowY[r]+p.height[r])
 	}
-	if in.StorageRows > 0 {
-		streetRows = append(streetRows, lastRoad)
-	}
 	for _, col := range streetCols {
 		for row := northRoad; row <= lastRoad; row++ {
 			p.street[Cell{col, row}] = 0
@@ -524,7 +515,7 @@ func (p *Plan) plantable(c Cell) bool {
 	if _, road := p.street[c]; road {
 		return false
 	}
-	if p.Plaza.Contains(c) || p.Storage.Contains(c) {
+	if p.Plaza.Contains(c) {
 		return false
 	}
 	for _, b := range p.Blocks {

@@ -115,7 +115,7 @@ func recordFor(s state.State) (claude.Kind, claude.Status, bool, error) {
 		return claude.KindInteractive, claude.StatusIdle, true, nil
 	case state.Unattended:
 		return claude.KindBackground, claude.StatusBusy, true, nil
-	case state.Parked:
+	case state.Resting:
 		return "", "", false, nil
 	}
 	return "", "", false, fmt.Errorf("state %q cannot be staged", s)

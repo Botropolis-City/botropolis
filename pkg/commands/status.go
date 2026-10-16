@@ -68,7 +68,7 @@ func LiveOnly(snapshot state.Snapshot) state.Snapshot {
 	live := snapshot
 	live.Sessions = nil
 	for _, s := range snapshot.Sessions {
-		if s.State != state.Parked {
+		if s.State != state.Resting {
 			live.Sessions = append(live.Sessions, s)
 		}
 	}
@@ -99,13 +99,12 @@ func Render(out io.Writer, snapshot state.Snapshot) {
 }
 
 type DaemonOrDirect struct {
-	Home         string
-	Socket       string
-	Probes       state.Probes
-	ParkedMaxAge time.Duration
-	Direct       func(now time.Time) (state.Snapshot, error)
-	Now          func() time.Time
-	Notice       io.Writer
+	Home   string
+	Socket string
+	Probes state.Probes
+	Direct func(now time.Time) (state.Snapshot, error)
+	Now    func() time.Time
+	Notice io.Writer
 }
 
 func (d DaemonOrDirect) Snapshot(direct bool) (state.Snapshot, error) {
@@ -121,7 +120,7 @@ func (d DaemonOrDirect) Snapshot(direct bool) (state.Snapshot, error) {
 	if d.Direct != nil {
 		return d.Direct(d.Now())
 	}
-	return state.LoadWith(d.Home, d.Probes, d.ParkedMaxAge, d.Now())
+	return state.Load(d.Home, d.Probes, d.Now())
 }
 
 func fromDaemon(sock string) (state.Snapshot, error) {
