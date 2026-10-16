@@ -9,11 +9,20 @@ import (
 	"botropolis.city/botropolis/pkg/ui"
 )
 
-// streamShown is whether the stream's column is up: shown unless it was
-// hidden, and the hide is remembered (item 88).
+// streamView is whether the column is up: shown unless it was hidden,
+// and the hide is remembered (item 88); in a window too narrow for it,
+// hidden unless its key showed it this run (item 100).
+func (g *Game) streamView() (ui.StreamView, bool) {
+	v := ui.StreamView{Asked: g.streamAsked}
+	if l := g.scene.Layout(); l != nil {
+		v.Hidden = l.StreamHidden
+	}
+	return v, ui.StreamFits(g.theme, g.scene.Size().X)
+}
+
 func (g *Game) streamShown() bool {
-	l := g.scene.Layout()
-	return l == nil || !l.StreamHidden
+	v, fits := g.streamView()
+	return v.Shown(fits)
 }
 
 // toggleStream hides or shows the column and says which.
@@ -22,11 +31,13 @@ func (g *Game) toggleStream() {
 	if l == nil {
 		return
 	}
-	l.StreamHidden = !l.StreamHidden
-	if l.StreamHidden {
-		g.SetStatus("stream hidden; " + g.findChords().Stream.String() + " shows it")
-	} else {
+	v, fits := g.streamView()
+	v = v.Toggle(fits)
+	l.StreamHidden, g.streamAsked = v.Hidden, v.Asked
+	if v.Shown(fits) {
 		g.SetStatus("stream shown")
+	} else {
+		g.SetStatus("stream hidden; " + g.findChords().Stream.String() + " shows it")
 	}
 }
 
@@ -63,7 +74,9 @@ func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float
 			tone = th.Palette.Error
 		}
 		g.run(screen, r.Time, th.Palette.Dim)
-		g.run(screen, r.Text, tone)
+		for _, line := range r.Lines {
+			g.run(screen, line, tone)
+		}
 	}
 	return area.Min.X
 }

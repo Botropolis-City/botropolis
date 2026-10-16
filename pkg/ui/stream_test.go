@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,6 +74,128 @@ func TestLayoutStream(t *testing.T) {
 
 		t.Run("it should give back that event", func(t *testing.T) {
 			assert.True(t, ok && e.SessionID == "c")
+		})
+	})
+}
+
+func TestStreamWidth(t *testing.T) {
+	th := ui.NewTheme(1)
+	const height, top, footer = 800.0, 32.0, 40.0
+	for _, width := range []float64{600, 768, 960, 1280, 1600, 2560} {
+		t.Run(fmt.Sprintf("when the window is %v wide", width), func(t *testing.T) {
+			fits := ui.StreamFits(th, width)
+			area := ui.StreamArea(th, width, height, top, footer)
+
+			if width/4 >= ui.StreamMinGrids*th.Grid() {
+				t.Run("and the column fits", func(t *testing.T) {
+					t.Run("it should be no wider than a quarter of the window", func(t *testing.T) {
+						assert.LessOrEqual(t, area.Width(), width/4)
+					})
+
+					t.Run("it should be no wider than its full width", func(t *testing.T) {
+						assert.LessOrEqual(t, area.Width(), ui.StreamGrids*th.Grid())
+					})
+
+					t.Run("it should be shown by default", func(t *testing.T) {
+						assert.True(t, ui.StreamView{}.Shown(fits))
+					})
+				})
+				return
+			}
+
+			t.Run("and the column does not fit", func(t *testing.T) {
+				t.Run("it should be hidden by default", func(t *testing.T) {
+					assert.False(t, ui.StreamView{}.Shown(fits))
+				})
+
+				t.Run("and its key is pressed", func(t *testing.T) {
+					t.Run("it should be shown", func(t *testing.T) {
+						assert.True(t, ui.StreamView{}.Toggle(fits).Shown(fits))
+					})
+
+					t.Run("it should be its minimum width, within the window", func(t *testing.T) {
+						assert.Equal(t, min(ui.StreamMinGrids*th.Grid(), width), area.Width())
+					})
+				})
+			})
+		})
+	}
+}
+
+func TestToggleStream(t *testing.T) {
+	for _, hidden := range []bool{false, true} {
+		t.Run(fmt.Sprintf("when the remembered hide is %v", hidden), func(t *testing.T) {
+			t.Run("and the column fits", func(t *testing.T) {
+				t.Run("it should flip the remembered hide", func(t *testing.T) {
+					assert.Equal(t, !hidden, ui.StreamView{Hidden: hidden}.Toggle(true).Hidden)
+				})
+			})
+
+			t.Run("and the column does not fit", func(t *testing.T) {
+				t.Run("and it is down", func(t *testing.T) {
+					up := ui.StreamView{Hidden: hidden}.Toggle(false)
+
+					t.Run("it should show it for this run", func(t *testing.T) {
+						assert.True(t, up.Shown(false))
+					})
+
+					t.Run("it should leave the remembered hide as it was", func(t *testing.T) {
+						assert.Equal(t, hidden, up.Hidden)
+					})
+				})
+
+				t.Run("and it is up", func(t *testing.T) {
+					down := ui.StreamView{Hidden: hidden}.Toggle(false).Toggle(false)
+
+					t.Run("it should take it down", func(t *testing.T) {
+						assert.False(t, down.Shown(false))
+					})
+
+					t.Run("it should not remember a hide", func(t *testing.T) {
+						assert.Equal(t, hidden, down.Hidden)
+					})
+				})
+			})
+		})
+	}
+}
+
+func TestLayoutStreamWraps(t *testing.T) {
+	th := ui.NewTheme(1)
+	at := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
+	long := "Allow the rate limit headers through the proxy and the cache on every route"
+	list := []events.Event{
+		{At: at, Kind: events.NeedsYou, SessionID: "a", Title: long},
+		{At: at.Add(-time.Minute), Kind: events.Started, SessionID: "b", Title: "Short"},
+	}
+	area := ui.StreamArea(th, 960, 800, 32, 40)
+	s := ui.LayoutStream(th, list, area, measure7)
+	require.Len(t, s.Rows, 2)
+	first := s.Rows[0]
+
+	t.Run("when an entry is longer than the column", func(t *testing.T) {
+		t.Run("it should wrap onto more than one line", func(t *testing.T) {
+			assert.Greater(t, len(first.Lines), 1)
+		})
+
+		t.Run("it should keep every word", func(t *testing.T) {
+			var words []string
+			for _, l := range first.Lines {
+				words = append(words, strings.Fields(l.Text)...)
+			}
+			assert.Equal(t, strings.Fields(string(events.NeedsYou)+" · "+long), words)
+		})
+
+		t.Run("it should keep each line within the column", func(t *testing.T) {
+			for _, l := range first.Lines {
+				w, _ := measure7(l.Text, l.Size)
+				assert.LessOrEqual(t, l.At.X+w, area.Max.X, l.Text)
+			}
+		})
+
+		t.Run("it should push the next entry below the wrapped one", func(t *testing.T) {
+			last := first.Lines[len(first.Lines)-1]
+			assert.Greater(t, s.Rows[1].Lines[0].At.Y, last.At.Y)
 		})
 	})
 }

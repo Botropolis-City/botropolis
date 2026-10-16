@@ -242,6 +242,11 @@ func ParaWidth(th Theme) float64 { return 60 * th.Grid() }
 // measure is clipped; past rows lines the last kept one ends in an
 // ellipsis.
 func wrapPara(text string, width float64, rows int, measure Measure) []string {
+	return wrapAt(text, width, rows, Body, measure)
+}
+
+// wrapAt is wrapPara at any of the four sizes.
+func wrapAt(text string, width float64, rows int, size Size, measure Measure) []string {
 	if rows < 1 {
 		return nil
 	}
@@ -253,12 +258,12 @@ func wrapPara(text string, width float64, rows int, measure Measure) []string {
 			if line != "" {
 				next = line + " " + word
 			}
-			if w, _ := measure(next, Body); w <= width || line == "" {
-				line = clipTo(next, width, Body, measure)
+			if w, _ := measure(next, size); w <= width || line == "" {
+				line = clipTo(next, width, size, measure)
 				continue
 			}
 			lines = append(lines, line)
-			line = clipTo(word, width, Body, measure)
+			line = clipTo(word, width, size, measure)
 		}
 		if line != "" {
 			lines = append(lines, line)
@@ -266,8 +271,8 @@ func wrapPara(text string, width float64, rows int, measure Measure) []string {
 	}
 	if len(lines) > rows {
 		lines = lines[:rows]
-		ellipsis, _ := measure("…", Body)
-		lines[rows-1] = clipTo(lines[rows-1], width-ellipsis, Body, measure) + "…"
+		ellipsis, _ := measure("…", size)
+		lines[rows-1] = clipTo(lines[rows-1], width-ellipsis, size, measure) + "…"
 	}
 	return lines
 }

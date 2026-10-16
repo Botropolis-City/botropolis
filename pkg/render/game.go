@@ -232,6 +232,9 @@ type Game struct {
 	// streamLaid is the stream as last drawn, so a click lands on the
 	// entry that is there (item 88).
 	streamLaid ui.Stream
+	// streamAsked is a show the stream's key made this run in a window
+	// too narrow for the column (item 100).
+	streamAsked bool
 	// captions are explain mode's, or a first sighting's, as last drawn;
 	// scriptedHeld is the keys a script holds down (item 88).
 	captions     []ui.Caption
