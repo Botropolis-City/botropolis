@@ -307,10 +307,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			tint = viewScale(c)
 		}
 	case b.Blinds:
-		tint = &ebiten.ColorScale{}
-		tint.SetR(0.7)
-		tint.SetG(0.7)
-		tint.SetB(0.72)
+		tint = blindsTint()
 	case b.Session.State == state.Unattended:
 		tint = &ebiten.ColorScale{}
 		tint.SetR(0.85)
@@ -318,25 +315,38 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		tint.SetB(1)
 	}
 	dress := g.dressing(b)
+	settle, progress := g.scene.Settling(b.Session.ID)
+	settling := settle != city.SettleNone && rise >= 1 && !g.scene.Dimmed(b) && !g.viewing()
+	if settling && !g.reduced {
+		tint = settleTint(settle, progress)
+	}
 	r := g.kitRising(screen, cam, buildingPiece(b), b.Rect.Center(), tint, rise)
 	district := g.scene.City().DistrictOf(b)
 	g.noteHit(r, city.Hit{Building: b, District: district})
 	if r.Area() == 0 || g.scene.Dimmed(b) {
 		return
 	}
-	if dress.Dark && rise >= 1 && !g.viewing() {
+	switch {
+	case settling:
+		g.putOut(screen, cam, b, buildingPiece(b), settle, progress)
+	case dress.Dark && rise >= 1 && !g.viewing():
 		g.shutter(screen, cam, b, buildingPiece(b), dress.Boards)
 	}
 	// The state light: a beacon over the door in the state's own colour,
 	// pulsing for needs-you, so the palette reads the same as the strip.
 	foot := cam.WorldToScreen(b.Rect.Center())
-	if dress.Beacon {
+	if dress.Beacon || settle != city.SettleNone {
 		beacon := g.theme.Color(ui.StateTone(b.Session.State))
 		if b.Pulse {
 			beacon = pulse(beacon, seconds)
 		}
+		kerb := colorKitKerb
+		if settle != city.SettleNone {
+			fade := beaconFade(settle, progress)
+			beacon.A, kerb.A = uint8(float64(beacon.A)*fade), uint8(float64(kerb.A)*fade)
+		}
 		radius := math.Max(2, 4*cam.Zoom)
-		vector.FillCircle(screen, float32(foot.X), float32(foot.Y-radius*2), float32(radius*1.6), colorKitKerb, true)
+		vector.FillCircle(screen, float32(foot.X), float32(foot.Y-radius*2), float32(radius*1.6), kerb, true)
 		vector.FillCircle(screen, float32(foot.X), float32(foot.Y-radius*2), float32(radius), beacon, true)
 	}
 	roofTop := r.Min.Y
@@ -355,6 +365,14 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	// The worker: a rover that waits at the door while the session is
 	// mid-turn and drives out to the kerb and back for each tool call,
 	// bobbing as it goes.
+	// A resting building's worker drives home from the kerb to the door
+	// and goes in (item 86).
+	if settle == city.SettleRest && !g.reduced {
+		if route := g.scene.City().DistrictOf(b).Route(b); len(route) > 0 {
+			at := cam.WorldToScreen(roverHome(settle, progress, route[len(route)-1], route[0]))
+			g.kitAt(screen, cam, kitRover, 270, at, nil)
+		}
+	}
 	if b.Session.State == state.Working {
 		bob := 1.5 * cam.Zoom * math.Sin(seconds*4)
 		at := cam.WorldToScreen(g.scene.Worker(b))
@@ -1379,4 +1397,13 @@ func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 			g.kit(screen, cam, w.Piece, 0, w.At, fade)
 		}
 	}
+}
+
+// blindsTint is a stopped building's: lights off, blinds down.
+func blindsTint() *ebiten.ColorScale {
+	tint := &ebiten.ColorScale{}
+	tint.SetR(0.7)
+	tint.SetG(0.7)
+	tint.SetB(0.72)
+	return tint
 }

@@ -182,6 +182,10 @@ type Scene struct {
 	// lots being mowed since their session woke (item 86).
 	rungs  map[string]state.Rung
 	mowing map[string]time.Time
+	// awake is whether each building was live at the last snapshot, and
+	// settling the buildings resting or waking since.
+	awake    map[string]bool
+	settling map[string]settling
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
@@ -580,6 +584,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.city = BuildWith(snapshot, s.layout, s.ladder)
 	s.noteOvergrowth(was, s.now())
 	s.noteMowing(s.now())
+	s.noteSettling(s.now())
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())
