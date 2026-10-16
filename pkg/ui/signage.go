@@ -250,11 +250,15 @@ func LayoutDistrictSign(name, move string, face city.Rect, measure Measure) (Dis
 	if name == "" || nw <= 0 || h <= 0 {
 		return DistrictSign{}, false
 	}
-	scale := fit(face.Width(), face.Height(), math.Max(nw, mw), 2*h)
+	lines := 2.0
+	if move == "" {
+		lines = 1
+	}
+	scale := fit(face.Width(), face.Height(), math.Max(nw, mw), lines*h)
 	if h*scale < MinSignPx {
 		return DistrictSign{}, false
 	}
-	top := face.Center().Y - h*scale
+	top := face.Center().Y - lines*h*scale/2
 	line := func(text string, w, y float64) Sign {
 		return Sign{Text: text, Scale: scale, At: city.Point{X: face.Center().X - w*scale/2, Y: y}}
 	}

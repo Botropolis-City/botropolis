@@ -15,8 +15,13 @@ type DistrictSign struct {
 
 // Sign is the district's board.
 func (d *District) Sign() DistrictSign {
-	move := d.move()
 	in := min(CellSize, d.Rect.Width()/4, d.Rect.Height()/4)
+	// The depot is not a district: its sign says what it holds, and no
+	// move, since nothing in it is anyone's to make (item 86).
+	if d.Depot {
+		return DistrictSign{Name: DepotName + " · " + plural(len(d.Buildings), "crate"), At: Point{X: d.Rect.Max.X - in, Y: d.Rect.Max.Y - in}}
+	}
+	move := d.move()
 	return DistrictSign{
 		Name: d.Name,
 		Move: movePhrase(move),

@@ -92,6 +92,14 @@ func TestDepot(t *testing.T) {
 			assert.Less(t, in(depot, "mid").Rect.Min.X, in(depot, "new").Rect.Min.X)
 		})
 
+		t.Run("the depot's sign should name it and its crates", func(t *testing.T) {
+			assert.Equal(t, "depot · 4 crates", depot.Sign().Name)
+		})
+
+		t.Run("the depot's sign should carry no move", func(t *testing.T) {
+			assert.Empty(t, depot.Sign().Move)
+		})
+
 		t.Run("its card should list each district's count and its oldest", func(t *testing.T) {
 			assert.Contains(t, depot.Card().Details, "cinders     3  oldest 12 days")
 		})

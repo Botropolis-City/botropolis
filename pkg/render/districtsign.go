@@ -27,7 +27,11 @@ func (g *Game) districtSign(screen *ebiten.Image, cam *city.Camera, d *city.Dist
 	nw, lineH := g.faces.Measure(sign.Name, ui.Small)
 	mw, _ := g.faces.Measure(sign.Move, ui.Small)
 	scale := cam.Zoom * districtSignScale
-	w, h := max(nw, mw)*scale/ui.SignFill, 2*lineH*scale/ui.SignFill
+	lines := 2.0
+	if sign.Move == "" {
+		lines = 1
+	}
+	w, h := max(nw, mw)*scale/ui.SignFill, lines*lineH*scale/ui.SignFill
 	post := h * districtPostRatio
 	board := city.RectAt(foot.X-w/2, foot.Y-post-h, w, h)
 	laid, ok := ui.LayoutDistrictSign(sign.Name, sign.Move, board, g.faces.Measure)
