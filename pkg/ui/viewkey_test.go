@@ -38,6 +38,12 @@ func TestLayoutViewKey(t *testing.T) {
 		})
 	})
 
+	t.Run("when it says what is on the river", func(t *testing.T) {
+		t.Run("it should name the refresh key as a key to press, not a word in the sentence", func(t *testing.T) {
+			assert.Contains(t, k.Note.Text, "the launch fetches fresh figures when you press "+city.RefreshKey)
+		})
+	})
+
 	t.Run("when the rows are laid out", func(t *testing.T) {
 		t.Run("it should give each one a band wide enough to click", func(t *testing.T) {
 			for _, r := range k.Rows {

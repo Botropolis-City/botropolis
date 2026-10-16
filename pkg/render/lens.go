@@ -28,11 +28,14 @@ func (p *lensPanel) click(g *Game, at city.Point) bool {
 
 func (p *lensPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	th := g.theme
-	bounds := city.RectAt(0, g.scene.TopChrome(), width, height-g.scene.TopChrome())
-	if g.sidebar {
-		bounds.Min.X = ui.SidebarWidth(th)
+	if !g.lensPanelShown() {
+		p.laid = ui.LensPanel{}
+		return
 	}
-	p.laid = ui.LayoutLensPanel(th, g.scene.LensPanel(), bounds, g.faces.Measure)
+	g.mu.Lock()
+	plate := g.searchPlate
+	g.mu.Unlock()
+	p.laid = ui.LayoutLensPanel(th, g.scene.LensPanel(), lensBounds(th, g.scene.TopChrome(), width, height, g.sidebar, plate), g.faces.Measure)
 	l := p.laid
 	g.roundPanel(screen, l.Rect)
 	if l.Chip {
@@ -63,6 +66,23 @@ func (p *lensPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.run(screen, t, th.Palette.Dim)
 	}
 }
+
+// lensBounds is where the lens panel may sit: under the strip, right of
+// the sidebar, and under the finder's query when one is left there.
+func lensBounds(th ui.Theme, top, width, height float64, sidebar bool, plate city.Rect) city.Rect {
+	bounds := city.RectAt(0, top, width, height-top)
+	if sidebar {
+		bounds.Min.X = ui.SidebarWidth(th)
+	}
+	if plate.Area() > 0 {
+		bounds.Min.Y = max(bounds.Min.Y, plate.Max.Y)
+	}
+	return bounds
+}
+
+// lensPanelShown is whether the lens panel is drawn: not while a panel
+// that takes the keyboard, such as the finder, is open over the map.
+func (g *Game) lensPanelShown() bool { return g.overlays.top() == nil }
 
 // selectLens is a lens's key, and says which lens and view are up,
 // because a mode you entered is a mode you can forget you are in.

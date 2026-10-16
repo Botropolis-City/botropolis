@@ -55,7 +55,7 @@ type ViewKey struct {
 // last, not from bank to bank nor from one end of the water to the
 // other. A mark that means something other than where it sits has to
 // say so somewhere, and this is where the map explains its vocabulary.
-const RiverNote = "on the river: liners gauge your usage between the buoys, tugs are sessions coming and going, the launch is " + city.RefreshKey + " fetching fresh figures"
+const RiverNote = "on the river: liners gauge your usage between the buoys, tugs are sessions coming and going, the launch fetches fresh figures when you press " + city.RefreshKey
 
 // LayoutViewKey centres the key in a width×height window and marks the
 // lens that is up.
