@@ -67,7 +67,7 @@ That is the only thing on the map that spends tokens, and only when you press it
 it runs Haiku with no tools, no MCP servers and no hooks, writes no transcript, and never appears in the city as a session.
 
 Keys: drag to pan, wheel to zoom, `r` to turn, `f` to fit, `tab` for the next session that needs you, `enter` to attach it, `i` its summary,
-`c` for a new session here, `d d` to demolish, `b` sidebar, `x` breakdown, `t` timeline, `/` search, `s` settings, `n` night/day/live, `[` `]` scrub the clock,
+`c` for a new session here, `d d` to demolish, `b` sidebar, `x` breakdown, `t` timeline, `/` or `ctrl+k` find, `s` settings, `n` night/day/live, `[` `]` scrub the clock,
 `h` hide the UI, `p` save a frame, `?` all of them.
 
 ## Installing

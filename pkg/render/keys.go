@@ -38,7 +38,7 @@ var bindings = []ui.Key{
 	{Key: "b", Action: "sidebar"},
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
-	{Key: "/", Action: "search: the map dims what does not match"},
+	{Key: "/ or ctrl+k", Action: "find: the map dims what does not match"},
 	{Key: "?", Action: "this help"},
 	{Key: "q", Action: "quit (asks; y or enter confirms)"},
 }
@@ -86,6 +86,15 @@ func panFor(down func(ebiten.Key) bool, step float64) city.Point {
 // handleKeys answers the keyboard for one tick.
 func (g *Game) handleKeys() error {
 	just := g.just
+	// Ctrl+K reaches the finder from anywhere, and goes no further: j, k
+	// and l move inside the settings and the timeline.
+	if g.paletteKey() {
+		g.openFinder()
+		return nil
+	}
+	if g.overlayKeys() {
+		return nil
+	}
 	if g.settingsOpen {
 		g.settingsOpen = g.settingsKeys()
 		return nil
@@ -98,12 +107,8 @@ func (g *Game) handleKeys() error {
 		g.timeline = g.timelineKeys()
 		return nil
 	}
-	if g.searching {
-		g.searching = g.searchKeys()
-		return nil
-	}
 	if just(ebiten.KeySlash) && !g.shifted() {
-		g.searching = true
+		g.openFinder()
 		return nil
 	}
 	if just(ebiten.KeyT) {

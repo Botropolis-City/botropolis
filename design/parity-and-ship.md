@@ -26,7 +26,8 @@ Each session carries a week of usage by unix hour and the snapshot carries the t
 which opens on the plant or `x`.
 `city.Log` turns the stream of snapshots into events by what changed between one and the next; `t` lists them newest first and jumps,
 and when the window comes back into focus the same panel shows what needed you or went wrong meanwhile.
-`/` filters by title, project, branch, state or model and the map dims what does not match.
+`/` or `Ctrl+K` (`⌘K` on macOS) opens the finder, a panel over the city on the overlay stack (item 82), and typing filters by title, project, branch, state or model while the map dims what does not match;
+`Enter` keeps the filter and `Esc` clears it.
 A team is a camp: its lead's building tied to its members' with dashed lines, from the rosters and the sessions' own team names, with a card and a line on each member's card.
 `daily_budget_usd` measures the strip's cost chip and the plant's card against a daily target, accent-toned from 80 % and error-toned beyond it.
 

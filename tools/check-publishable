@@ -108,6 +108,7 @@ fi
 #    Anything in the tree and not on this list fails.
 reviewed=$(cat <<'LIST'
 docs/screenshots/hero.png
+docs/screenshots/r414-item-82-finder.png
 docs/botropolis.gif
 packaging/botropolis.svg
 LIST

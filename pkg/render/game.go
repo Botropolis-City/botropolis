@@ -211,11 +211,19 @@ type Game struct {
 	frameHits []spriteHit
 	// quit is the two-press guard on Escape.
 	quit confirm
-	// searching is the box on /; query is the filter it holds;
-	// scriptedRune is a typed character from --keys; scriptedShift is a
-	// shift the script holds with this frame's key.
-	searching     bool
+	// overlays is the stack of panels over the city; the top one takes
+	// every key and click. Item 82. finderRect and finderCaret are where
+	// the finder was drawn, for clicks and for the input method's
+	// candidate window; ime is whether there is a window to type into.
+	overlays    overlays
+	finderRect  city.Rect
+	finderCaret city.Rect
+	ime         bool
+	// query is the map's filter; scriptedRune is a typed character from
+	// --keys; scriptedShift and scriptedCtrl are a shift or Ctrl the
+	// script holds with this frame's key.
 	query         string
+	scriptedCtrl  bool
 	scriptedRune  rune
 	scriptedShift bool
 	dragging      bool
@@ -224,7 +232,7 @@ type Game struct {
 }
 
 func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveLayout func(*city.Layout), sprites *sprites) *Game {
-	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, sprites: sprites, started: time.Now(), focused: true}
+	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, sprites: sprites, started: time.Now(), focused: true, ime: true}
 	// A window that was closed owes the away list from when it was last
 	// seen, the way a blurred one does from when it lost focus.
 	g.awaySince = scene.Layout().Seen
@@ -281,7 +289,7 @@ func (g *Game) Update() error {
 		}
 	}
 	g.followUsageInScene()
-	g.scripted, g.scriptedRune, g.scriptedShift = -1, 0, false
+	g.scripted, g.scriptedRune, g.scriptedShift, g.scriptedCtrl = -1, 0, false, false
 	g.clicked = -1
 	g.play = playFrame{}
 	if g.player != nil && g.record != "" && g.shotFrames > 0 {
@@ -296,21 +304,11 @@ func (g *Game) Update() error {
 	if g.record != "" && g.shotFrames > 0 {
 		// A key every two seconds, then run the clock out.
 		if len(g.script) > 0 && g.recorded%60 == 30 {
-			if key, shift, ok := scriptedKey(g.script[0]); ok {
-				g.scripted, g.scriptedShift = key, shift
-			}
-			if r := []rune(g.script[0]); len(r) == 1 && g.searching {
-				g.scriptedRune = r[0]
-			}
+			g.pressScripted(g.script[0])
 			g.script = g.script[1:]
 		}
 	} else if g.shotFrames > 0 && len(g.script) > 0 {
-		if key, shift, ok := scriptedKey(g.script[0]); ok {
-			g.scripted, g.scriptedShift = key, shift
-		}
-		if r := []rune(g.script[0]); len(r) == 1 && g.searching {
-			g.scriptedRune = r[0]
-		}
+		g.pressScripted(g.script[0])
 		g.script = g.script[1:]
 		g.shotFrames = 1
 	}
@@ -361,7 +359,7 @@ func (g *Game) Update() error {
 	// along from attach. Move either to the other event and a click
 	// becomes able to stop a session.
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press {
-		if !g.clickHelp(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
+		if !g.clickOverlay(cursor) && !g.clickHelp(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
 			g.dragging, g.dragFrom = true, cursor
 		}
 	}
@@ -433,6 +431,21 @@ func scriptedKey(name string) (key ebiten.Key, shift bool, ok bool) {
 	}
 	key, ok = keyByName(name)
 	return key, false, ok
+}
+
+// pressScripted presses one key of a --keys script: a key by name,
+// "ctrl+" and a key to hold Ctrl with it, or a character, which is
+// typed when the finder is open.
+func (g *Game) pressScripted(name string) {
+	if rest, ok := strings.CutPrefix(name, "ctrl+"); ok {
+		name, g.scriptedCtrl = rest, true
+	}
+	if key, shift, ok := scriptedKey(name); ok {
+		g.scripted, g.scriptedShift = key, shift
+	}
+	if r := []rune(name); len(r) == 1 && g.finding() {
+		g.scriptedRune = r[0]
+	}
 }
 
 // shifted reports whether shift is held, by hand or by the script.
@@ -575,6 +588,7 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	if g.hidden {
 		g.scene.SetTopChrome(0)
 		g.scene.SetBottomChrome(0)
+		g.drawOverlays(screen, width, height)
 		return
 	}
 	g.chrome(screen, width, height)
@@ -593,6 +607,7 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	if g.timeline {
 		g.drawTimeline(screen, width, height)
 	}
+	g.drawOverlays(screen, width, height)
 }
 
 // clock is the animation time; with reduced motion it stands still at
