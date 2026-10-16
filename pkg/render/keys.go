@@ -24,6 +24,7 @@ var bindings = []ui.Key{
 	{Key: "click", Action: "select"},
 	{Key: "enter", Action: "attach the selection"},
 	{Key: "i", Action: "the selection's details"},
+	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
 	{Key: "c", Action: "new session here"},
 	{Key: "d d", Action: "demolish the selection"},
@@ -272,6 +273,9 @@ func (g *Game) handleKeys() error {
 	if just(ebiten.KeyEnter) {
 		g.act(g.scene.Activate())
 	}
+	if just(ebiten.KeyO) {
+		g.openReader()
+	}
 	if just(ebiten.KeyI) {
 		if _, note := g.scene.ToggleDetails(); note != "" {
 			g.SetStatus(note)
@@ -340,6 +344,10 @@ func (g *Game) act(action city.Action) {
 	}
 	if action.Kind == city.ActionGenerate {
 		g.generate(action.SessionID)
+		return
+	}
+	if action.Kind == city.ActionRead {
+		g.openReader()
 		return
 	}
 	if action.Kind == city.ActionNone || g.actor == nil {

@@ -226,7 +226,11 @@ type Game struct {
 	ime         bool
 	// search finds sessions by what was said in them, from the daemon
 	// or an index the city builds; dispatch runs it off the frame.
-	search   func(find.Query) ([]find.Hit, error)
+	// readConversation reads a page of a session's conversation for the
+	// reading pane, and readerRect is where it was last drawn. Item 83.
+	readConversation func(id string, skip, count int) (claude.Conversation, error)
+	readerRect       city.Rect
+	search           func(find.Query) ([]find.Hit, error)
 	dispatch func(func())
 	// findAtOnce searches without waiting for typing to pause, for
 	// scripted frames.

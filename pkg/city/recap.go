@@ -49,15 +49,19 @@ func (s *Scene) detailsOpen() bool {
 	return s.selected != nil && s.detailsFor == s.selected.Session.ID
 }
 
-// summaryActions is the summary's part of the selection's actions:
-// Generate, on a session with no recap of its own and nothing already
-// running.
+// summaryActions is the summary's part of the selection's actions: read,
+// the level below the card's sentence (item 83), and Generate, on a
+// session with no recap of its own and nothing already running.
 func (s *Scene) summaryActions() []ActionKind {
 	session := s.selected.Session
-	if !summarisable(session) || session.Recap.Text != "" || s.generated[session.ID].Pending {
+	if !summarisable(session) {
 		return nil
 	}
-	return []ActionKind{ActionGenerate}
+	kinds := []ActionKind{ActionRead}
+	if session.Recap.Text == "" && !s.generated[session.ID].Pending {
+		kinds = append(kinds, ActionGenerate)
+	}
+	return kinds
 }
 
 // buildingCard is a building's card as the scene shows it: read through

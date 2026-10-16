@@ -38,6 +38,10 @@ func TestSelectionSummary(t *testing.T) {
 			assert.Contains(t, details(t, s), "recap    2h00m old, 3 turns since")
 		})
 
+		t.Run("it should offer read", func(t *testing.T) {
+			assert.Contains(t, s.Actions(), city.ActionRead)
+		})
+
 		t.Run("it should not offer to generate one", func(t *testing.T) {
 			assert.NotContains(t, s.Actions(), city.ActionGenerate)
 		})

@@ -32,6 +32,9 @@ const (
 	ActionMoveToGroup ActionKind = "move to group"
 	ActionMove        ActionKind = "move"
 	ActionGenerate    ActionKind = "generate summary"
+	// Read opens the reading pane, the level below the card's sentence.
+	// Item 83.
+	ActionRead ActionKind = "read"
 	// The finder's: a stopped session resumed in a terminal in its own
 	// directory, a new one started where a deleted conversation was, and
 	// a line of text copied. Item 82.
@@ -780,6 +783,8 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		return Action{Kind: ActionGenerate, SessionID: b.Session.ID}, "summarising " + b.Card(s.city.Time).Title
 	case ActionMoveToGroup:
 		return Action{Kind: ActionMoveToGroup, SessionID: b.Session.ID}, ""
+	case ActionRead:
+		return Action{Kind: ActionRead, SessionID: b.Session.ID}, ""
 	case ActionStar:
 		s.layout.SetStarred(root, true)
 		return Action{}, "starred " + name
