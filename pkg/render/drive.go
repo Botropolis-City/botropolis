@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -106,14 +107,11 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	if err != nil {
 		return nil, err
 	}
-	sprites, err := loadSprites()
+	art, err := driveArt()
 	if err != nil {
 		return nil, err
 	}
-	kitSprites, err := loadKits()
-	if err != nil {
-		return nil, err
-	}
+	sprites, kitSprites := art.sprites, art.kits
 	d := &Drive{screen: ebiten.NewImage(width, height)}
 	g := NewGame(scene, d, theme, faces, nil, sprites)
 	g.kits = kitSprites
@@ -159,6 +157,25 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	}
 	return d, nil
 }
+
+// driveArt is the sprites and kits, decoded once for every city driven in
+// a process: they are only read once loaded, and decoding the kits is
+// most of what opening a driven city costs.
+var driveArt = sync.OnceValues(func() (struct {
+	sprites *sprites
+	kits    *kits
+}, error) {
+	var art struct {
+		sprites *sprites
+		kits    *kits
+	}
+	var err error
+	if art.sprites, err = loadSprites(); err != nil {
+		return art, err
+	}
+	art.kits, err = loadKits()
+	return art, err
+})
 
 // Do is the actor: the city's actions are recorded, never carried out.
 func (d *Drive) Do(action city.Action) error {
