@@ -68,7 +68,20 @@ type ReaderLine struct {
 	Size  Size
 	Kind  LineKind
 	Color color.NRGBA
+	// Turn is the index in the input's turns of the turn the line is part
+	// of, for a line of a turn.
+	Turn int
 }
+
+// ReaderCopy is a kept prompt's copy button, beside its first line, and
+// the turn it copies whole. Aria asked for one on each, 2026-10-16.
+type ReaderCopy struct {
+	Button Button
+	Turn   int
+}
+
+// readerCopyLabel is the copy button's label.
+const readerCopyLabel = "copy"
 
 // ReaderPanel is the reading pane laid out over the city: the title, what
 // the session is waiting on, the turns that fit with the newest at the
@@ -85,6 +98,8 @@ type ReaderPanel struct {
 	Start  Text
 	Keys   Text
 	Shown  int
+	// Copies are the kept prompts' copy buttons, when the transcript is gone.
+	Copies []ReaderCopy
 }
 
 // readerGrids is the pane's width when the window has room for it.
@@ -174,8 +189,17 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 	gap := grid / 2
 	var blocks [][]ReaderLine
 	room := bottom - top
+	copyW, _ := measure(readerCopyLabel, Small)
+	copyW += 2 * grid
+	textW := inner
+	if in.Gone {
+		textW -= copyW + grid
+	}
 	for i := len(in.Turns) - 1; i >= 0; i-- {
-		block := turnLines(th, in.Turns[i], inner, measure)
+		block := turnLines(th, in.Turns[i], textW, measure)
+		for j := range block {
+			block[j].Turn = i
+		}
 		h := gap * float64(min(len(blocks), 1))
 		for _, l := range block {
 			_, lh := measure("", l.Size)
@@ -210,6 +234,20 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 			for i := range p.Lines {
 				p.Lines[i].At.Y -= lift
 			}
+		}
+	}
+	if in.Gone {
+		right := p.Rect.Max.X - pad
+		seen := map[int]bool{}
+		for _, l := range p.Lines {
+			if l.Kind != LineYou || seen[l.Turn] {
+				continue
+			}
+			seen[l.Turn] = true
+			p.Copies = append(p.Copies, ReaderCopy{Turn: l.Turn, Button: Button{
+				Rect:  city.RectAt(right-copyW, l.At.Y, copyW, bodyH),
+				Label: Text{Text: readerCopyLabel, At: city.Point{X: right - copyW + grid, Y: l.At.Y + (bodyH-smallH)/2}, Size: Small},
+			}})
 		}
 	}
 	if in.AtStart && p.Shown == len(in.Turns) {

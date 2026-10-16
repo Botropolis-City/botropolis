@@ -2,6 +2,7 @@ package render
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -61,6 +62,12 @@ func TestReadingPane(t *testing.T) {
 		return g, actor, reads
 	}
 	pane := func(g *Game) *reader { r, _ := g.overlays.top().(*reader); return r }
+	// laidOut lays the pane out as a frame would, with seven-pixel type,
+	// since a test has no window to draw it in.
+	laidOut := func(g *Game) {
+		measure := func(s string, _ ui.Size) (float64, float64) { return 7 * float64(len([]rune(s))), 14 }
+		pane(g).layout(g, ui.NewTheme(1), 1280, 800, measure)
+	}
 	five := claude.Conversation{Messages: make([]claude.Message, 5)}
 
 	t.Run("when a session is selected and o is pressed", func(t *testing.T) {
@@ -239,6 +246,37 @@ func TestReadingPane(t *testing.T) {
 
 			t.Run("it should start a new session in its directory", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionNew, Dir: "/src/kiln"}}, actor.done)
+			})
+		})
+
+		t.Run("and a kept prompt's copy button is pressed", func(t *testing.T) {
+			long := "convert the celadon glaze recipe from cone 10 to cone 6, " + strings.Repeat("keeping the iron oxide at two percent, ", 8)
+			g, actor := gone(t, []claude.Prompt{{Text: "why does the kiln overheat"}, {Text: long}})
+			laidOut(g)
+			r := pane(g)
+			require.Len(t, r.panel.Copies, 2)
+			stays := g.clickOverlay(r.panel.Copies[1].Button.Rect.Center()) && g.reading()
+
+			t.Run("the clipboard should hold that prompt's text exactly, even when it wraps over several lines", func(t *testing.T) {
+				assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: long}}, actor.done)
+			})
+
+			t.Run("it should keep the pane open", func(t *testing.T) {
+				assert.True(t, stays)
+			})
+		})
+
+		t.Run("and the pointer clicks inside the panel but on no button", func(t *testing.T) {
+			g, actor := gone(t, []claude.Prompt{{Text: "why does the kiln overheat"}})
+			laidOut(g)
+			g.clickOverlay(pane(g).panel.Title.At)
+
+			t.Run("it should keep the pane open", func(t *testing.T) {
+				assert.True(t, g.reading())
+			})
+
+			t.Run("it should copy nothing", func(t *testing.T) {
+				assert.Empty(t, actor.done)
 			})
 		})
 

@@ -190,6 +190,53 @@ func TestLayoutReader(t *testing.T) {
 		})
 	})
 
+	t.Run("when the transcript is gone, with kept prompts", func(t *testing.T) {
+		kept := []ui.ReaderTurn{
+			{From: ui.FromYou, Text: "why does the kiln overheat"},
+			{From: ui.FromYou, Text: strings.Repeat("convert the celadon glaze recipe ", 12)},
+			{From: ui.FromYou, Text: "tighten it"},
+		}
+		p := layout(1280, 800, ui.ReaderInput{Turns: kept, Gone: true})
+
+		for i := range kept {
+			t.Run(fmt.Sprintf("and prompt %d", i), func(t *testing.T) {
+				var buttons []ui.ReaderCopy
+				for _, c := range p.Copies {
+					if c.Turn == i {
+						buttons = append(buttons, c)
+					}
+				}
+				var first ui.ReaderLine
+				for _, l := range p.Lines {
+					if l.Turn == i {
+						first = l
+						break
+					}
+				}
+
+				t.Run("it should give the prompt one copy button", func(t *testing.T) {
+					assert.Len(t, buttons, 1)
+				})
+
+				t.Run("it should put the button beside the prompt's first line, inside the panel", func(t *testing.T) {
+					require.Len(t, buttons, 1)
+					b := buttons[0].Button.Rect
+					w, _ := measure7(first.Text, first.Size)
+					assert.True(t, b.Min.Y == first.At.Y && b.Min.X >= first.At.X+w && b.Max.X <= p.Rect.Max.X,
+						"button %v, line at %v width %v, panel %v", b, first.At, w, p.Rect)
+				})
+			})
+		}
+	})
+
+	t.Run("when the transcript is there", func(t *testing.T) {
+		p := layout(1280, 800, ui.ReaderInput{Turns: turns})
+
+		t.Run("it should give your prompts no copy button", func(t *testing.T) {
+			assert.Empty(t, p.Copies)
+		})
+	})
+
 	t.Run("when the start of the conversation is shown", func(t *testing.T) {
 		p := layout(1280, 800, ui.ReaderInput{Turns: turns, AtStart: true})
 

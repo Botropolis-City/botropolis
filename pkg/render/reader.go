@@ -49,6 +49,8 @@ type reader struct {
 	// shown is how many turns the last frame showed whole, which is how
 	// far PgUp goes back.
 	shown int
+	// panel is where the last frame laid the pane out, guarded by g.mu.
+	panel ui.ReaderPanel
 
 	mu   sync.Mutex
 	page claude.Conversation
@@ -145,11 +147,42 @@ func (r *reader) keys(g *Game) bool {
 }
 
 // click closes the pane when the press lands outside it.
+// A press on a kept prompt's copy button copies that prompt whole,
+// through the clipboard seam the card's copy path uses.
 func (r *reader) click(g *Game, at city.Point) bool {
 	g.mu.Lock()
-	panel := g.readerRect
+	panel, copies := g.readerRect, r.panel.Copies
 	g.mu.Unlock()
-	return panel.Contains(at)
+	if !panel.Contains(at) {
+		return false
+	}
+	for _, c := range copies {
+		if !c.Button.Rect.Contains(at) {
+			continue
+		}
+		r.mu.Lock()
+		var text string
+		if c.Turn < len(r.kept) {
+			text = r.kept[c.Turn].Text
+		}
+		r.mu.Unlock()
+		if text != "" {
+			g.act(city.Action{Kind: city.ActionCopy, Text: text})
+			g.SetStatus("copied the prompt")
+		}
+	}
+	return true
+}
+
+// layout lays the pane out for a frame, and keeps where it went, for the
+// clicks that come before the next one.
+func (r *reader) layout(g *Game, th ui.Theme, width, height float64, measure ui.Measure) ui.ReaderPanel {
+	p := ui.LayoutReader(th, width, height, r.input(g), measure)
+	r.shown = p.Shown
+	g.mu.Lock()
+	g.readerRect, r.panel = p.Rect, p
+	g.mu.Unlock()
+	return p
 }
 
 // input is the page as the layout takes it. A pending call leads only
@@ -207,11 +240,7 @@ func (r *reader) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	scrim := th.Palette.Panel
 	scrim.A = 0x60
 	g.roundRect(screen, city.RectAt(0, 0, width, height), 0, scrim)
-	p := ui.LayoutReader(th, width, height, r.input(g), g.faces.Measure)
-	r.shown = p.Shown
-	g.mu.Lock()
-	g.readerRect = p.Rect
-	g.mu.Unlock()
+	p := r.layout(g, th, width, height, g.faces.Measure)
 	// Opaque, unlike a plate: a pane is read, and the card behind it
 	// showed through the plates' translucency.
 	fill := p.Fill
@@ -225,6 +254,10 @@ func (r *reader) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	}
 	if p.Start.Text != "" {
 		g.text(screen, p.Start.At, p.Start.Text, p.Start.Size, th.Palette.Dim)
+	}
+	for _, c := range p.Copies {
+		g.roundRect(screen, c.Button.Rect, th.Radius()/2, th.Palette.Hairline)
+		g.run(screen, c.Button.Label, th.Palette.Accent)
 	}
 	g.text(screen, p.Keys.At, p.Keys.Text, p.Keys.Size, th.Palette.Dim)
 }
