@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,6 +34,50 @@ func TestLayoutDistrictSign(t *testing.T) {
 
 		t.Run("it should decline", func(t *testing.T) {
 			assert.False(t, ok)
+		})
+	})
+}
+
+func TestDistrictSignBoard(t *testing.T) {
+	foot := city.Point{X: 500, Y: 500}
+	board := func(zoom float64) city.Rect {
+		return ui.DistrictSignBoard("ratelimit-lib", "the agents' move", foot, zoom, measure7)
+	}
+	atOne := board(1)
+
+	t.Run("when zoomed", func(t *testing.T) {
+		for _, zoom := range append(append([]float64{}, city.ZoomSteps...), 4) {
+			t.Run(fmt.Sprintf("to %v", zoom), func(t *testing.T) {
+				t.Run("it should never draw the board taller than at zoom 1", func(t *testing.T) {
+					assert.LessOrEqual(t, board(zoom).Height(), atOne.Height()+1e-9)
+				})
+			})
+		}
+	})
+
+	t.Run("when zoomed in past zoom 1", func(t *testing.T) {
+		for _, zoom := range []float64{1.5, 2, 4} {
+			t.Run(fmt.Sprintf("to %v", zoom), func(t *testing.T) {
+				t.Run("it should stand the board higher above its foot than at zoom 1", func(t *testing.T) {
+					assert.Greater(t, foot.Y-board(zoom).Max.Y, foot.Y-atOne.Max.Y)
+				})
+			})
+		}
+	})
+
+	t.Run("when zoomed out below the floor", func(t *testing.T) {
+		_, ok := ui.LayoutDistrictSign("ratelimit-lib", "the agents' move", board(city.FitMinZoom), measure7)
+
+		t.Run("it should leave the board off", func(t *testing.T) {
+			assert.False(t, ok)
+		})
+	})
+
+	t.Run("when zoomed to 1", func(t *testing.T) {
+		w, _ := measure7("the agents' move", ui.Small)
+
+		t.Run("it should give the board its readable size", func(t *testing.T) {
+			assert.InDelta(t, w*ui.DistrictSignScale/ui.SignFill, atOne.Width(), 1e-9)
 		})
 	})
 }

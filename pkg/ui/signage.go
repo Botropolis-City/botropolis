@@ -241,6 +241,35 @@ type DistrictSign struct {
 	Name, Move Sign
 }
 
+const (
+	// DistrictSignScale is the board's paint at zoom 1, as a share of
+	// the chrome's small type, so every board's lettering is one size;
+	// the post stands districtPostRatio of the board's height at the
+	// map's zoom, tall enough to carry the board over a session's
+	// plaque below it.
+	DistrictSignScale = 1.3
+	districtPostRatio = 2.2
+)
+
+// DistrictSignBoard is where a district's board stands on a post rising
+// from foot at the map's zoom (item 88). Close up the board stops
+// growing at its zoom-1 size and the post goes on carrying it (item 98).
+func DistrictSignBoard(name, move string, foot city.Point, zoom float64, measure Measure) city.Rect {
+	nw, lineH := measure(name, Small)
+	mw, _ := measure(move, Small)
+	lines := 2.0
+	if move == "" {
+		lines = 1
+	}
+	at := func(scale float64) (float64, float64) {
+		return math.Max(nw, mw) * scale / SignFill, lines * lineH * scale / SignFill
+	}
+	w, h := at(math.Min(zoom, 1) * DistrictSignScale)
+	_, tall := at(zoom * DistrictSignScale)
+	post := tall * districtPostRatio
+	return city.RectAt(foot.X-w/2, foot.Y-post-h, w, h)
+}
+
 // LayoutDistrictSign fits the name and the move on two lines of a
 // board, centred, and declines when the board is too small to read, so
 // the hover plate carries the name instead.
