@@ -144,7 +144,7 @@ func (j *journal) plate(g *Game, width, height float64) (city.Rect, float64, flo
 		_, lineH = g.faces.Measure("", ui.Body)
 	}
 	w := min(width-8*grid, 820)
-	h := min(height-8*grid, float64(4*len(j.entries)+6)*(lineH+grid))
+	h := min(height-8*grid, 4*(lineH+grid)+float64(len(j.entries))*(3*lineH+grid)+2*(lineH+grid))
 	return city.RectAt((width-w)/2, (height-h)/2, w, h), grid, lineH
 }
 
@@ -186,9 +186,10 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 			title += "  ·  pinned"
 		}
 		title += "  ·  " + strings.Join(e.Where, ", ")
-		g.text(screen, city.Point{X: x, Y: y}, title, ui.Body, th.Palette.Text)
-		g.text(screen, city.Point{X: x, Y: y + lineH}, "Last time: "+oneLine(e.LastTime), ui.Small, th.Palette.Dim)
-		g.text(screen, city.Point{X: x, Y: y + 2*lineH}, "Next: "+oneLine(e.Next), ui.Small, th.Palette.Text)
+		room := plate.Width() - 4*grid
+		g.text(screen, city.Point{X: x, Y: y}, ui.Fit(title, room, ui.Body, g.faces.Measure), ui.Body, th.Palette.Text)
+		g.text(screen, city.Point{X: x, Y: y + lineH}, ui.Fit("Last time: "+oneLine(e.LastTime), room, ui.Small, g.faces.Measure), ui.Small, th.Palette.Dim)
+		g.text(screen, city.Point{X: x, Y: y + 2*lineH}, ui.Fit("Next: "+oneLine(e.Next), room, ui.Small, g.faces.Measure), ui.Small, th.Palette.Text)
 		y += 3*lineH + grid
 	}
 	footer := "enter goes there  ·  r restores the desk  ·  esc to the map  ·  " + g.findChords().Journal.String() + " brings this back"

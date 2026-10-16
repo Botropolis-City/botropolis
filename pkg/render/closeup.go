@@ -159,7 +159,7 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		if i == p.selected {
 			g.roundRect(screen, city.RectAt(plate.Min.X+grid, y-grid/2, w-2*grid, lineH+grid), 0, th.Palette.Hairline)
 		}
-		g.text(screen, city.Point{X: x, Y: y}, p.line(i), ui.Body, th.Palette.Text)
+		g.text(screen, city.Point{X: x, Y: y}, ui.Fit(p.line(i), w-4*grid, ui.Body, g.faces.Measure), ui.Body, th.Palette.Text)
 		y += lineH + grid
 	}
 	y += grid

@@ -34,6 +34,16 @@ func LayoutPlate(th Theme, s string, at city.Point, size Size, measure Measure) 
 	}
 }
 
+// Fit shortens s to measure within width, ending it with an ellipsis
+// when anything was cut.
+func Fit(s string, width float64, size Size, measure Measure) string {
+	if w, _ := measure(s, size); w <= width {
+		return s
+	}
+	ellipsis, _ := measure("…", size)
+	return clipTo(s, width-ellipsis, size, measure) + "…"
+}
+
 // clipTo shortens s until it measures within width.
 func clipTo(s string, width float64, size Size, measure Measure) string {
 	for w, _ := measure(s, size); w > width && len(s) > 1; w, _ = measure(s, size) {
