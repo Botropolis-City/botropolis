@@ -271,7 +271,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v; starting from an empty layout\n", err)
 		layout = city.NewLayout()
 	}
-	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config)}
+	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config), socket: c.config.Socket}
 	actor.terminal.Store(c.config.Terminal)
 	feed := commands.Feed{
 		Socket:  c.config.Socket,
@@ -405,13 +405,25 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 type liveActor struct {
 	home     string
 	groups   string
+	socket   string
 	terminal atomic.Value
+}
+
+// pack asks the daemon at the actor's socket to pack a session up or
+// unpack it (item 86).
+func (a *liveActor) pack(id string, packed bool) error {
+	client, err := proto.Dial(a.socket)
+	if err != nil {
+		return fmt.Errorf("packing up needs the daemon: %w", err)
+	}
+	defer func() { _ = client.Close() }()
+	return client.Pack(id, packed)
 }
 
 func (a *liveActor) Do(action city.Action) error {
 	terminal, _ := a.terminal.Load().(string)
 	sessions := commands.NewSessions(a.home, control.Default(terminal))
-	return commands.Actor{Sessions: sessions, GroupStore: a.groups}.Do(action)
+	return commands.Actor{Sessions: sessions, GroupStore: a.groups, Pack: a.pack}.Do(action)
 }
 
 const (

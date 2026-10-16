@@ -126,10 +126,18 @@ func hashID(id string) uint32 {
 	return h.Sum32()
 }
 
-// buildingPiece is the piece for a session, by how full its context is.
-// A stopped session keeps its building on its own lot (item 86).
+// crates are the shipping containers a packed-up session is kept in, in
+// the order of city.ContainerHues (item 86).
+var crates = []string{"city-kit-industrial/shipping-container-a", "city-kit-industrial/shipping-container-b", "city-kit-industrial/shipping-container-c"}
+
+// buildingPiece is the piece for a session, by how full its context is,
+// or a crate in its district's colour once it is packed up. A stopped
+// session keeps its building on its own lot (item 86).
 func buildingPiece(b *city.Building) string {
 	h := hashID(b.Session.ID)
+	if b.Packed {
+		return crates[b.Hue%len(crates)]
+	}
 	class := len(fillSteps)
 	for i, step := range fillSteps {
 		if b.Fill < step {

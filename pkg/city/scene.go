@@ -20,6 +20,10 @@ const (
 	ActionResume   ActionKind = "resume"
 	ActionDemolish ActionKind = "demolish"
 	ActionStop     ActionKind = "stop"
+	// ActionPack packs a session up into the depot, and ActionUnpack
+	// brings it back to its old lot (item 86).
+	ActionPack     ActionKind = "pack"
+	ActionUnpack   ActionKind = "unpack"
 	ActionNew      ActionKind = "new session here"
 	ActionReveal   ActionKind = "reveal folder"
 	ActionCopyPath ActionKind = "copy path"
@@ -811,13 +815,20 @@ func (s *Scene) Actions() []ActionKind {
 	}
 	root := ProjectRoot(s.selected.Session.CWD)
 	var kinds []ActionKind
+	if s.selected.Packed {
+		kinds = append(kinds, ActionUnpack, ActionResume)
+		if s.detailsOpen() {
+			return append(kinds, ActionDetailsHide)
+		}
+		return append(kinds, ActionDetails)
+	}
 	if s.selected.Session.State == state.Resting {
 		kinds = append(kinds, ActionResume)
 	} else {
 		kinds = append(kinds, ActionAttach, ActionStop)
 	}
 	kinds = append(kinds, s.summaryActions()...)
-	kinds = append(kinds, ActionNew, ActionReveal, ActionCopyPath, ActionHide)
+	kinds = append(kinds, ActionPack, ActionNew, ActionReveal, ActionCopyPath, ActionHide)
 	if s.layout.IsStarred(root) {
 		kinds = append(kinds, ActionUnstar)
 	} else {
@@ -1051,7 +1062,7 @@ func (s *Scene) NewHere() (Action, string) {
 	switch {
 	case s.selected != nil:
 		dir = s.selected.Session.CWD
-	case s.hover.District != nil:
+	case s.hover.District != nil && !s.hover.District.Depot:
 		dir = s.hover.District.Root
 	}
 	if dir == "" {
@@ -1162,4 +1173,16 @@ func (s *Scene) cardFor(h Hit) (Card, bool) {
 		return plazaCard(), true
 	}
 	return Card{}, false
+}
+
+// TogglePack is Shift+P: pack the selected session up, or unpack it when
+// it is a crate in the depot.
+func (s *Scene) TogglePack() Action {
+	if s.selected == nil {
+		return Action{}
+	}
+	if s.selected.Packed {
+		return Action{Kind: ActionUnpack, SessionID: s.selected.Session.ID}
+	}
+	return Action{Kind: ActionPack, SessionID: s.selected.Session.ID}
 }

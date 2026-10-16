@@ -103,7 +103,12 @@ type Actor struct {
 	GroupStore string
 	// Now is the clock a review is stamped with; nil is the wall clock.
 	Now func() time.Time
+	// Pack asks the daemon to pack a session up or unpack it; nil when
+	// there is no daemon to ask (item 86).
+	Pack func(id string, packed bool) error
 }
+
+var errNoDaemon = errors.New("packing up needs the daemon, which keeps the ledger of what is packed; start botropolisd")
 
 func (a Actor) Do(action city.Action) error {
 	switch action.Kind {
@@ -132,6 +137,11 @@ func (a Actor) Do(action city.Action) error {
 		return a.Sessions.Copy(context.Background(), action.Text)
 	case city.ActionMove:
 		return a.move(action.SessionID, action.Group)
+	case city.ActionPack, city.ActionUnpack:
+		if a.Pack == nil {
+			return errNoDaemon
+		}
+		return a.Pack(action.SessionID, action.Kind == city.ActionPack)
 	case city.ActionReviewGroups:
 		return a.review(action.Review)
 	case city.ActionNewSession:

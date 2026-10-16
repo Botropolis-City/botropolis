@@ -333,7 +333,14 @@ func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time)
 		if l.packOnMerge(*s, now) {
 			changed = true
 		}
-		s.Packed = l.ledger[s.ID].Packed()
+		if l.unpackOnWork(*s, now) {
+			changed = true
+		}
+		e := l.ledger[s.ID]
+		s.Packed = e.Packed()
+		if s.Packed {
+			s.PackedAt = e.PackedAt
+		}
 	}
 	if changed {
 		return sessions, l.ledger.Save(l.ledgerPath)
@@ -353,6 +360,17 @@ func (l *Loader) packOnMerge(s Session, now time.Time) bool {
 		return false
 	}
 	l.ledger.Pack(s.ID, now)
+	return true
+}
+
+// unpackOnWork brings back a packed-up session that has done something
+// since it was packed: work that resumes is never kept in the depot.
+func (l *Loader) unpackOnWork(s Session, now time.Time) bool {
+	e := l.ledger[s.ID]
+	if !e.Packed() || !s.LastActivity.After(e.PackedAt) {
+		return false
+	}
+	l.ledger.Unpack(s.ID, now)
 	return true
 }
 

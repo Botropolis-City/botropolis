@@ -52,6 +52,9 @@ type District struct {
 type Input struct {
 	Districts []District
 	Towers    int
+	// DepotRows is how many rows the depot of packed-up sessions needs
+	// along the south, or none (item 86).
+	DepotRows int
 }
 
 // Memory is what the plan remembers between snapshots: each district's
@@ -252,6 +255,7 @@ type Plan struct {
 	Slots    map[string]Slot
 	Parks    []Block
 	Belt     []Block
+	Depot    Block
 	Towers   []Cell
 	Streets  []Street
 	Lamps    []Cell
@@ -388,6 +392,10 @@ func (p *Plan) place(in Input) {
 	}
 	southRoad := y - 1
 	lastRoad := southRoad
+	if in.DepotRows > 0 {
+		p.Depot = Block{Min: Cell{Col: p.colX[-p.rings], Row: southRoad + 1}, Cols: eastRoad - p.colX[-p.rings], Rows: in.DepotRows}
+		lastRoad = southRoad + 1 + in.DepotRows
+	}
 	rows := lastRoad + 1 + belt
 	p.Bounds = Block{Cols: cols, Rows: rows}
 
@@ -455,6 +463,9 @@ func (p *Plan) place(in Input) {
 	for r := -p.rings; r <= p.rings; r++ {
 		streetRows = append(streetRows, p.rowY[r]+p.height[r])
 	}
+	if in.DepotRows > 0 {
+		streetRows = append(streetRows, lastRoad)
+	}
 	for _, col := range streetCols {
 		for row := northRoad; row <= lastRoad; row++ {
 			p.street[Cell{col, row}] = 0
@@ -515,7 +526,7 @@ func (p *Plan) plantable(c Cell) bool {
 	if _, road := p.street[c]; road {
 		return false
 	}
-	if p.Plaza.Contains(c) {
+	if p.Plaza.Contains(c) || p.Depot.Contains(c) {
 		return false
 	}
 	for _, b := range p.Blocks {

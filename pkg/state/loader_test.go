@@ -280,6 +280,24 @@ func TestCatalogue(t *testing.T) {
 		})
 	})
 
+	t.Run("when a packed-up session does something new", func(t *testing.T) {
+		home := liveHome(t)
+		path := filepath.Join(t.TempDir(), "sessions.json")
+		require.NoError(t, state.Ledger{sidA: {CWD: loaderCWD, PackedAt: time.Date(2026, 9, 16, 19, 0, 0, 0, time.UTC)}}.Save(path))
+		snapshot, err := state.NewLoader(home.Path, alive).WithLedger(path).Load(now)
+		require.NoError(t, err)
+		ledger, err := state.LoadLedger(path)
+		require.NoError(t, err)
+
+		t.Run("it should come back to the map", func(t *testing.T) {
+			assert.False(t, sessionByID(t, snapshot, sidA).Packed)
+		})
+
+		t.Run("it should record the unpack in the ledger", func(t *testing.T) {
+			assert.False(t, ledger[sidA].Packed())
+		})
+	})
+
 	t.Run("when a session's pull request has merged", func(t *testing.T) {
 		merged := "eeeeeeee-0000-0000-0000-000000000005"
 		withMerge := func(t *testing.T, live bool) *helpers.Home {

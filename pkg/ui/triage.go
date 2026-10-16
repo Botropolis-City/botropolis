@@ -10,7 +10,7 @@ import (
 var TriageKeys = []Key{
 	{Key: "enter", Action: "act"},
 	{Key: "p", Action: "rest"},
-	{Key: "d", Action: "done"},
+	{Key: "d", Action: "pack up"},
 	{Key: "s", Action: "snooze"},
 	{Key: "n", Action: "next"},
 	{Key: "esc", Action: "leave triage"},

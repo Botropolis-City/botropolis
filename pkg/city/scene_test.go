@@ -548,7 +548,7 @@ func TestSelectionActions(t *testing.T) {
 		require.NotNil(t, s.JumpTo(state.NeedsYou))
 
 		t.Run("it should offer the way in, the session, then the project", func(t *testing.T) {
-			assert.Equal(t, []city.ActionKind{city.ActionAttach, city.ActionStop, city.ActionRead, city.ActionGenerate, city.ActionNew, city.ActionReveal, city.ActionCopyPath, city.ActionHide, city.ActionStar, city.ActionDetails}, s.Actions())
+			assert.Equal(t, []city.ActionKind{city.ActionAttach, city.ActionStop, city.ActionRead, city.ActionGenerate, city.ActionPack, city.ActionNew, city.ActionReveal, city.ActionCopyPath, city.ActionHide, city.ActionStar, city.ActionDetails}, s.Actions())
 		})
 
 		t.Run("it should ask to stop it by id", func(t *testing.T) {

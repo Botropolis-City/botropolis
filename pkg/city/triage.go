@@ -20,9 +20,9 @@ type TriageStep struct {
 	Index, Count int
 }
 
-// triageDone is what d asks the actor to do beside leaving the walk.
-// Nothing yet: when item 86's pack-up lands, d packs the session up.
-const triageDone = ActionNone
+// triageDone is what d asks the actor to do beside leaving the walk: it
+// packs the session up (item 86).
+const triageDone = ActionPack
 
 // TriageWalk is every step of the walk, longest-waiting first: what
 // needs you, less what was done and has not moved since, and what is

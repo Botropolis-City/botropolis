@@ -54,6 +54,10 @@ type Building struct {
 	// Station is where the building's project stands on its group's
 	// line, counting from 1, of Stations.
 	Station, Stations int
+	// Packed is a crate in the depot; Hue is its district's colour, an
+	// index into ContainerHues (item 86).
+	Packed bool
+	Hue    int
 }
 
 // ContainerHues names the container colours a project's cargo comes in,
@@ -76,6 +80,10 @@ type District struct {
 	Buildings []*Building
 	roads     []roadNote
 	at        time.Time
+	// Depot marks the one district that keeps every packed-up session,
+	// a row per district (item 86).
+	Depot bool
+	Rows  []DepotRow
 }
 
 type roadNote struct {
@@ -262,9 +270,14 @@ func Build(snapshot state.Snapshot, layout *Layout) *City {
 // so a district stays while it has any session at all (item 86).
 func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds) *City {
 	byRoot := map[string][]state.Session{}
+	packed := map[string][]state.Session{}
 	for _, s := range snapshot.Sessions {
 		root := ProjectRoot(s.CWD)
 		if layout.IsHidden(root) {
+			continue
+		}
+		if s.Packed {
+			packed[root] = append(packed[root], s)
 			continue
 		}
 		byRoot[root] = append(byRoot[root], s)
@@ -278,7 +291,7 @@ func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds)
 	})
 
 	city := &City{Time: snapshot.At}
-	if len(byRoot) == 0 {
+	if len(byRoot)+len(packed) == 0 {
 		city.placeLandmarks(snapshot)
 		return city
 	}
@@ -287,11 +300,20 @@ func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds)
 	}
 	in := planInput(city.Districts, len(snapshot.Servers))
 	p := plan.Make(in, layout.memory())
+	depot := buildDepot(packed, float64(p.SpanCols())*CellSize, snapshot.At)
+	if depot != nil {
+		in.DepotRows = cellsNeeded(depot.size.Y)
+		p = plan.Make(in, layout.memory())
+	}
 	city.plan = p
 	city.bounds = cellRect(p.Bounds)
 	for _, d := range city.Districts {
 		d.placeOn(cellRect(p.Blocks[d.Root]))
 		d.at = snapshot.At
+	}
+	if depot != nil {
+		depot.placeOn(cellRect(p.Depot))
+		city.Districts = append(city.Districts, depot)
 	}
 	for _, park := range append(append([]plan.Block(nil), p.Parks...), p.Belt...) {
 		city.Parks = append(city.Parks, Park{Rect: cellRect(park)})
@@ -399,6 +421,7 @@ func newBuilding(s state.Session, slot int, at Point, size float64, rung state.R
 		Rung:      rung,
 		Blinds:    rung != state.RungLive,
 		BoardedUp: rung == state.RungShuttered || rung == state.RungOvergrown,
+		Packed:    rung == state.RungPacked,
 		Overgrown: rung == state.RungOvergrown,
 		Vacant:    s.State == state.Empty,
 	}
@@ -514,6 +537,9 @@ func (b *Building) table(now time.Time) []string {
 	if s.ConversationGone {
 		lines = append(lines, "gone     Claude Code deleted the conversation (cleanupPeriodDays)")
 	}
+	if b.Packed {
+		lines = append(lines, packedLine(s, now))
+	}
 	if g := b.Group; g != nil {
 		lines = append(lines, "group    "+g.Name+", "+string(g.Move)+": "+g.Why)
 		if s.GroupJoined != "" {
@@ -595,6 +621,9 @@ func (d *District) Busy() bool {
 }
 
 func (d *District) Card() Card {
+	if d.Depot {
+		return d.depotCard()
+	}
 	var fresh, cached float64
 	for _, b := range d.Buildings {
 		fresh += b.Session.FreshTokensPerHour

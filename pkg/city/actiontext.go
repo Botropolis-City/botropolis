@@ -7,6 +7,8 @@ var actionText = map[ActionKind]string{
 	ActionResume:       "Starts this resting session again and opens its terminal.",
 	ActionDemolish:     "Deletes this session. Its conversation is gone for good.",
 	ActionStop:         "Stops this session. Its conversation is kept, and you can resume it.",
+	ActionPack:         "Takes this session off the map and keeps it in the depot. Unpack brings it back.",
+	ActionUnpack:       "Brings this session back to its old lot.",
 	ActionNew:          "Starts a new session in this project's directory.",
 	ActionReveal:       "Opens this project's directory in your file manager.",
 	ActionCopyPath:     "Copies this project's path.",

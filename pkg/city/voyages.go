@@ -105,7 +105,7 @@ func (c *City) dock(root string) Point {
 	north, _, _ := c.riverEnds()
 	y := c.Plaza.Center().Y
 	for _, d := range c.Districts {
-		if d.Root == root {
+		if d.Root == root && !d.Depot {
 			y = d.Rect.Center().Y
 		}
 	}

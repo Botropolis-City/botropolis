@@ -25,15 +25,12 @@ import (
 // made them: chimney-medium quietly left the reserve by being drawn in
 // item 36, which left the comment describing a set it no longer had.
 var atlasReserve = map[string]string{
-	"city-kit-roads/electricity-pole":          "what the power lines should become; they are vector strokes today",
-	"city-kit-roads/electricity-wires":         "the span between the poles, same fix",
-	"city-kit-roads/traffic-light":             "street furniture the detail setting gives a home to",
-	"city-kit-roads/construction-cone":         "street furniture, as above",
-	"city-kit-roads/light-curved":              "street furniture, as above",
-	"car-kit/truck":                            "a second vehicle for Traffic",
-	"city-kit-industrial/shipping-container-a": "in reserve for item 86",
-	"city-kit-industrial/shipping-container-b": "as above",
-	"city-kit-industrial/shipping-container-c": "as above",
+	"city-kit-roads/electricity-pole":  "what the power lines should become; they are vector strokes today",
+	"city-kit-roads/electricity-wires": "the span between the poles, same fix",
+	"city-kit-roads/traffic-light":     "street furniture the detail setting gives a home to",
+	"city-kit-roads/construction-cone": "street furniture, as above",
+	"city-kit-roads/light-curved":      "street furniture, as above",
+	"car-kit/truck":                    "a second vehicle for Traffic",
 }
 
 // sourceLiterals is every string literal in every tracked non-test .go

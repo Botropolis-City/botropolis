@@ -43,7 +43,7 @@ func (p *Plan) plantGround(onRails map[Cell]bool) {
 		offered[c] = all
 	}
 	for c := range offered {
-		if onRails[c] || p.Plaza.Contains(c) {
+		if onRails[c] || p.Plaza.Contains(c) || p.Depot.Contains(c) {
 			delete(offered, c)
 		}
 	}

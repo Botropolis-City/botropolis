@@ -280,3 +280,36 @@ func TestActor(t *testing.T) {
 		})
 	})
 }
+
+// Item 86: the actor packs a session up, or unpacks it, through the
+// daemon, and says so when there is none.
+func TestActorPack(t *testing.T) {
+	for _, c := range []struct {
+		kind   city.ActionKind
+		packed bool
+	}{
+		{city.ActionPack, true},
+		{city.ActionUnpack, false},
+	} {
+		t.Run("when "+string(c.kind)+" is asked of a daemon", func(t *testing.T) {
+			var asked []string
+			actor := commands.Actor{Pack: func(id string, packed bool) error {
+				asked = append(asked, fmt.Sprintf("%s %v", id, packed))
+				return nil
+			}}
+			require.NoError(t, actor.Do(city.Action{Kind: c.kind, SessionID: sid}))
+
+			t.Run("it should send the daemon a pack request", func(t *testing.T) {
+				assert.Equal(t, []string{fmt.Sprintf("%s %v", sid, c.packed)}, asked)
+			})
+		})
+	}
+
+	t.Run("when there is no daemon to ask", func(t *testing.T) {
+		err := commands.Actor{}.Do(city.Action{Kind: city.ActionPack, SessionID: sid})
+
+		t.Run("it should say packing up needs the daemon", func(t *testing.T) {
+			assert.ErrorContains(t, err, "needs the daemon")
+		})
+	})
+}

@@ -55,6 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Each rung is drawn.**
   A stopped building's windows go dark, with no beacon or sign; a shuttered one has planks nailed across each of its own windows; and its lot ages: the paving wears and cracks, and an overgrown lot grows grass in the cracks, tufts at the base of the walls and in the yard, and now and then a sapling.
   When an overgrown session wakes, its lot is mowed in 1.5 s, or cross-faded in 0.3 s under reduced motion.
+- **Pack up and unpack.**
+  *Pack up* takes a session off the map and keeps it as a crate in the depot along the city's south edge, a row per project, oldest first; *Unpack* brings it back to its old lot.
+  Both are on a session's card, with a one-line description of what each does, and on Shift+P; `d` in triage packs the session up.
+  A stopped session whose pull request has merged is packed up too, and a packed-up session that does something new comes back by itself.
+  What is packed up is kept in the daemon's ledger, which is why packing needs the daemon.
 - **Codex rollouts are read through a 64 KB head and tail**, as Claude's transcripts already were, so a long Codex history loads in a time bounded by the number of rollouts rather than their size.
 
 ### Removed

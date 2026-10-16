@@ -42,6 +42,10 @@ func (d *District) placeOn(r Rect) {
 	for _, b := range d.Buildings {
 		b.Rect = Rect{Min: b.Rect.Min.Add(origin), Max: b.Rect.Max.Add(origin)}
 	}
+	for i := range d.Rows {
+		r := &d.Rows[i]
+		r.Rect = Rect{Min: r.Rect.Min.Add(origin), Max: r.Rect.Max.Add(origin)}
+	}
 }
 
 // Tree is one of the plan's trees: its cell, its variant and where it

@@ -45,6 +45,7 @@ var bindings = []ui.Key{
 	{Key: "b", Action: "sidebar"},
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
+	{Key: "shift+p", Action: "pack the selected session up, or unpack a crate"},
 	{Key: "/ or ctrl+k", Action: "find a session by what was said; the map dims the rest"},
 	{Key: "?", Action: "the reference: what everything on the map is"},
 	{Key: "hold e", Action: "caption everything on the map"},
@@ -273,7 +274,13 @@ func (g *Game) handleKeys() error {
 	if just(ebiten.KeyB) {
 		g.sidebar = !g.sidebar
 	}
-	if just(ebiten.KeyP) {
+	// Shift+P packs the selected session up, or unpacks a crate (item
+	// 86); P alone saves a frame.
+	if just(ebiten.KeyP) && g.shifted() {
+		if action := g.scene.TogglePack(); action.Kind != city.ActionNone {
+			g.act(action)
+		}
+	} else if just(ebiten.KeyP) {
 		g.snap = screenshotPath(time.Now())
 	}
 	if just(ebiten.KeyF) || just(ebiten.KeyDigit0) || just(ebiten.KeyKP0) {
