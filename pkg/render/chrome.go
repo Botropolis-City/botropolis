@@ -177,7 +177,7 @@ func (g *Game) keyRow(screen *ebiten.Image, keys []ui.PlacedKey, size ui.Size) {
 // drawHelp dims the city and lists every binding in the middle.
 func (g *Game) drawHelp(screen *ebiten.Image, width, height float64) {
 	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
-	h := ui.LayoutHelp(g.theme, width, height, "Keys", bindings, g.faces.Measure)
+	h := ui.LayoutHelp(g.theme, width, height, "Keys", g.helpKeys(), g.faces.Measure)
 	// Kept so a click lands on the row that was drawn. Bug 43.
 	g.mu.Lock()
 	g.helpPanel = h

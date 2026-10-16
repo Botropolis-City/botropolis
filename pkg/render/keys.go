@@ -44,6 +44,27 @@ var bindings = []ui.Key{
 	{Key: "q", Action: "quit (asks; y or enter confirms)"},
 }
 
+// helpKeys is bindings with the finder's chords as configured.
+func (g *Game) helpKeys() []ui.Key {
+	chords := g.findChords()
+	var keys []ui.Key
+	for _, k := range bindings {
+		if k.Key != findBinding {
+			keys = append(keys, k)
+			continue
+		}
+		keys = append(keys,
+			ui.Key{Key: "/ or " + chords.Open.String(), Action: k.Action},
+			ui.Key{Key: chords.Copy.String(), Action: "in the finder: copy how to resume the session"},
+			ui.Key{Key: chords.Show.String(), Action: "in the finder: show the session on the map"})
+	}
+	return keys
+}
+
+// findBinding is the help's row for the finder, which helpKeys spells
+// with the chords as configured.
+const findBinding = "/ or ctrl+k"
+
 var footerKeys = []ui.Key{
 	{Key: "drag", Action: "pan"},
 	{Key: "wheel", Action: "zoom"},

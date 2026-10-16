@@ -73,7 +73,12 @@ type Config struct {
 	DailyBudget   float64
 	Detail        string
 	UsageRefresh  string
-	File          string
+	// FindKey, FindCopyKey and FindShowKey are the finder's chords, as
+	// set; FindChords reads them. Item 82.
+	FindKey     string
+	FindCopyKey string
+	FindShowKey string
+	File        string
 }
 
 func NewViper() *viper.Viper {
@@ -92,6 +97,9 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyDailyBudget, 0.0)
 	v.SetDefault(KeyDetail, DefaultDetail)
 	v.SetDefault(KeyUsageRefresh, UsageManual)
+	v.SetDefault(KeyFind, DefaultFind)
+	v.SetDefault(KeyFindCopy, DefaultFindCopy)
+	v.SetDefault(KeyFindShow, DefaultFindShow)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -116,6 +124,12 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyDailyBudget, flags.Lookup(KeyDailyBudget))
 	_ = v.BindPFlag(KeyDetail, flags.Lookup(KeyDetail))
 	_ = v.BindPFlag(KeyUsageRefresh, flags.Lookup(KeyUsageRefresh))
+	flags.String(KeyFind, DefaultFind, "the chord that opens the finder; mod is ⌘ on macOS and Ctrl elsewhere")
+	flags.String(KeyFindCopy, DefaultFindCopy, "the finder's chord that copies how to resume a session")
+	flags.String(KeyFindShow, DefaultFindShow, "the finder's chord that shows a session on the map")
+	_ = v.BindPFlag(KeyFind, flags.Lookup(KeyFind))
+	_ = v.BindPFlag(KeyFindCopy, flags.Lookup(KeyFindCopy))
+	_ = v.BindPFlag(KeyFindShow, flags.Lookup(KeyFindShow))
 }
 
 func New(v *viper.Viper) (*Config, error) {
@@ -140,6 +154,9 @@ func New(v *viper.Viper) (*Config, error) {
 		DailyBudget:   v.GetFloat64(KeyDailyBudget),
 		Detail:        v.GetString(KeyDetail),
 		UsageRefresh:  v.GetString(KeyUsageRefresh),
+		FindKey:       v.GetString(KeyFind),
+		FindCopyKey:   v.GetString(KeyFindCopy),
+		FindShowKey:   v.GetString(KeyFindShow),
 		File:          v.ConfigFileUsed(),
 	}
 	if _, err := ParseUsageRefresh(cfg.UsageRefresh); err != nil {

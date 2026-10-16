@@ -20,6 +20,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
@@ -228,10 +229,16 @@ type Game struct {
 	// scripted frames.
 	findAtOnce bool
 	// query is the map's filter; scriptedRune is a typed character from
-	// --keys; scriptedShift and scriptedCtrl are a shift or Ctrl the
+	// --keys; scriptedShift, scriptedCtrl, scriptedAlt and scriptedCmd
+	// are a modifier the
 	// script holds with this frame's key.
-	query         string
-	scriptedCtrl  bool
+	query        string
+	scriptedCtrl bool
+	scriptedAlt  bool
+	scriptedCmd  bool
+	// chords are the finder's, as configured; nil is the defaults for
+	// this system. Item 82.
+	chords        *config.Chords
 	scriptedRune  rune
 	scriptedShift bool
 	dragging      bool
@@ -309,6 +316,7 @@ func (g *Game) Update() error {
 	}
 	g.followUsageInScene()
 	g.scripted, g.scriptedRune, g.scriptedShift, g.scriptedCtrl = -1, 0, false, false
+	g.scriptedAlt, g.scriptedCmd = false, false
 	g.clicked = -1
 	g.play = playFrame{}
 	if g.player != nil && g.record != "" && g.shotFrames > 0 {
@@ -475,13 +483,18 @@ func scriptedKey(name string) (key ebiten.Key, shift bool, ok bool) {
 // "ctrl+" and a key to hold Ctrl with it, or a character, which is
 // typed when the finder is open.
 func (g *Game) pressScripted(name string) {
-	if rest, ok := strings.CutPrefix(name, "ctrl+"); ok {
-		name, g.scriptedCtrl = rest, true
+	for held := true; held; {
+		held = false
+		for prefix, mod := range map[string]*bool{"ctrl+": &g.scriptedCtrl, "alt+": &g.scriptedAlt, "cmd+": &g.scriptedCmd} {
+			if rest, ok := strings.CutPrefix(name, prefix); ok {
+				name, *mod, held = rest, true, true
+			}
+		}
 	}
 	if key, shift, ok := scriptedKey(name); ok {
 		g.scripted, g.scriptedShift = key, shift
 	}
-	if r := []rune(name); len(r) == 1 && g.finding() && !g.scriptedCtrl {
+	if r := []rune(name); len(r) == 1 && g.finding() && !g.scriptedCtrl && !g.scriptedAlt && !g.scriptedCmd {
 		g.scriptedRune = r[0]
 	}
 }

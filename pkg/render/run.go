@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/script"
@@ -71,6 +72,8 @@ type Options struct {
 	// DailyBudget is the daily spend in USD the strip and plant measure
 	// against; 0 for none.
 	DailyBudget float64
+	// FindChords are the finder's chords; nil is this system's defaults.
+	FindChords *config.Chords
 	// Search finds sessions by what was said in them, for the finder.
 	// Item 82.
 	Search func(find.Query) ([]find.Hit, error)
@@ -115,6 +118,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.kits = kitSprites
 	game.home = opts.Home
 	game.search = opts.Search
+	game.chords = opts.FindChords
 	if opts.Screenshot != "" || opts.Record != "" {
 		// A scripted frame cannot wait for a search to come back, so it
 		// searches on the frame, as soon as it is typed.

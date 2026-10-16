@@ -13,6 +13,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/ui"
@@ -76,19 +77,50 @@ func (g *Game) drawOverlays(screen *ebiten.Image, width, height float64) {
 	}
 }
 
-// paletteKey reports Ctrl+K, or ⌘K on macOS, the way command palettes
-// are opened elsewhere. Nothing on the map uses Ctrl.
+// paletteKey reports the chord that opens the finder: Ctrl+K, or ⌘K on
+// macOS, the way command palettes are opened elsewhere, unless it is
+// set to another. Nothing on the map uses Ctrl.
 func (g *Game) paletteKey() bool {
-	return g.just(ebiten.KeyK) && g.ctrlHeld()
+	return g.chordPressed(g.findChords().Open)
 }
 
-// ctrlHeld reports Ctrl, or ⌘ on macOS, held by hand or by the script.
-func (g *Game) ctrlHeld() bool {
-	held := ebiten.KeyControl
-	if runtime.GOOS == "darwin" {
-		held = ebiten.KeyMeta
+// defaultChords are the finder's chords on this system when none are
+// configured.
+var defaultChords = sync.OnceValue(func() config.Chords {
+	chords, err := config.FindChords(config.Config{}, runtime.GOOS, KnownKey)
+	if err != nil {
+		panic(err)
 	}
-	return g.scriptedCtrl || ebiten.IsKeyPressed(held)
+	return chords
+})
+
+func (g *Game) findChords() config.Chords {
+	if g.chords != nil {
+		return *g.chords
+	}
+	return defaultChords()
+}
+
+// chordPressed reports a chord's key pressed this frame with each of its
+// modifiers held, by hand or by the script.
+func (g *Game) chordPressed(c config.Chord) bool {
+	key, ok := keyByName(c.Key)
+	if !ok || !g.just(key) {
+		return false
+	}
+	for _, mod := range []struct {
+		want, held bool
+	}{
+		{c.Ctrl, g.scriptedCtrl || ebiten.IsKeyPressed(ebiten.KeyControl)},
+		{c.Alt, g.scriptedAlt || ebiten.IsKeyPressed(ebiten.KeyAlt)},
+		{c.Shift, g.shifted()},
+		{c.Cmd, g.scriptedCmd || ebiten.IsKeyPressed(ebiten.KeyMeta)},
+	} {
+		if mod.want && !mod.held {
+			return false
+		}
+	}
+	return true
 }
 
 func (g *Game) finding() bool {
@@ -306,12 +338,12 @@ func (f *finder) keys(g *Game) bool {
 		f.end()
 		g.filterOn("")
 		return false
-	case chosen && g.ctrlHeld() && just(ebiten.KeyY):
+	case chosen && g.chordPressed(g.findChords().Copy):
 		line := resumeLine(h)
 		g.SetStatus("copied: " + line)
 		g.act(city.Action{Kind: city.ActionCopy, Text: line})
 		return true
-	case chosen && g.ctrlHeld() && just(ebiten.KeyM):
+	case chosen && g.chordPressed(g.findChords().Show):
 		f.end()
 		if !g.scene.Select(h.SessionID) {
 			g.SetStatus("that session is not on the map")
@@ -384,8 +416,9 @@ func (f *finder) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	f.mu.Unlock()
 	status := "type to find a session by what was said in it"
 	if f.field.query() != "" {
-		status = fmt.Sprintf("%d sessions found, %d on the map   ↑ ↓ choose, enter opens, ctrl+y copies how to resume, ctrl+m shows it, esc clears",
-			len(hits), g.scene.Matching())
+		chords := g.findChords()
+		status = fmt.Sprintf("%d sessions found, %d on the map   ↑ ↓ choose, enter opens, %s copies how to resume, %s shows it, esc clears",
+			len(hits), g.scene.Matching(), chords.Copy, chords.Show)
 	}
 	in := ui.FinderInput{Query: shown, Caret: caret, Status: status, Words: strings.Fields(f.field.query()), Selected: selected}
 	now := g.now()

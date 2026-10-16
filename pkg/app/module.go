@@ -285,6 +285,10 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	}
 	hoverX, hoverY, hoverSet := cli.Hover(cmd)
 	hoverPoint := city.Point{X: hoverX, Y: hoverY}
+	chords, err := config.FindChords(*c.config, runtime.GOOS, render.KnownKey)
+	if err != nil {
+		return err
+	}
 	return render.Run(cmd.Context(), render.Options{
 		Layout:     layout,
 		LayoutPath: layoutPath,
@@ -294,6 +298,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			feed.Run(ctx, offer)
 		},
 		Home:          c.config.Home,
+		FindChords:    &chords,
 		Search:        commands.NewFind(c.config.Socket, c.config.Home, c.services.source(c.config), time.Now).Search,
 		Projection:    projection,
 		Screenshot:    cli.Screenshot(cmd),
