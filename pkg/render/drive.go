@@ -317,6 +317,10 @@ func (d *Drive) Feed(home string) error {
 // Steps is how many inputs have been sent.
 func (d *Drive) Steps() int { return d.steps }
 
+// Ticks is how many ticks the city has run, the one that drew its first
+// frame included.
+func (d *Drive) Ticks() int { return int(d.game.ticks) }
+
 // Tick runs one Update and one Draw, delivering the next queued input.
 func (d *Drive) Tick() error {
 	g := d.game
@@ -510,7 +514,7 @@ func (g *Game) noteShown() {
 		slices.Sort(s.Lit)
 	}
 	if j, ok := g.overlays.top().(*journal); ok {
-		s.Journal = slices.Clone(j.entries)
+		s.Journal = slices.Clone(j.entries[:j.drawn])
 	}
 	if f, ok := g.overlays.top().(*finder); ok && !g.hidden {
 		f.mu.Lock()

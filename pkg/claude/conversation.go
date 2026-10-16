@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"botropolis.city/botropolis/pkg/measure"
 )
 
 // From is who a message in a conversation is from: you, Claude, or a
@@ -96,6 +98,7 @@ func ReadConversation(path string, skip, count int) (Conversation, error) {
 	if err != nil {
 		return Conversation{}, err
 	}
+	measure.Count(measure.ConversationsRead)
 	defer func() { _ = f.Close() }()
 	info, err := f.Stat()
 	if err != nil {

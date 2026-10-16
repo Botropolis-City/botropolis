@@ -25,6 +25,13 @@ type journal struct {
 	selected int
 	// note is what the last restore did, or why it did nothing.
 	note string
+	// drawn is how many entries the last frame had room for; filled is
+	// which entries have had their reply read, from sessions by reply.
+	// Item 91.
+	drawn    int
+	filled   []bool
+	sessions map[string]state.Session
+	reply    func(string) string
 }
 
 const restoreLabel = "Restore the desk"
@@ -58,7 +65,27 @@ func (g *Game) openJournal() {
 		return
 	}
 	closed, _ := g.closeUp()
-	g.overlays.push(&journal{entries: city.BuildJournal(g.scene.Snapshot(), closed.Pinned, g.replyReader()), since: g.awaySince})
+	snapshot := g.scene.Snapshot()
+	// Built without reading: an entry's reply is read when it is first
+	// drawn or selected, so the journal reads what it shows and no more,
+	// and what it read goes with it when it closes. Items 86 and 91.
+	j := &journal{entries: city.BuildJournal(snapshot, closed.Pinned, nil), since: g.awaySince, reply: g.replyReader(), sessions: map[string]state.Session{}}
+	for _, s := range snapshot.Sessions {
+		j.sessions[s.ID] = s
+	}
+	j.filled = make([]bool, len(j.entries))
+	g.overlays.push(j)
+}
+
+// fill reads entry i's Last time and Next, once.
+func (j *journal) fill(i int) {
+	if i < 0 || i >= len(j.entries) || j.filled[i] {
+		return
+	}
+	j.filled[i] = true
+	if s, ok := j.sessions[j.entries[i].Fly]; ok {
+		j.entries[i].LastTime, j.entries[i].Next = city.LastAndNext(s, j.reply)
+	}
 }
 
 // closeUp is the last close-up, when it is the one the map left on.
@@ -115,8 +142,10 @@ func (j *journal) keys(g *Game) bool {
 		return false
 	case g.just(ebiten.KeyArrowDown) || g.just(ebiten.KeyJ):
 		j.selected = min(len(j.entries)-1, j.selected+1)
+		j.fill(j.selected)
 	case g.just(ebiten.KeyArrowUp) || g.just(ebiten.KeyK):
 		j.selected = max(0, j.selected-1)
+		j.fill(j.selected)
 	case g.just(ebiten.KeyR):
 		j.restore(g)
 	case g.just(ebiten.KeyEnter) || g.just(ebiten.KeyKPEnter):
@@ -174,10 +203,14 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	y += lineH + grid
 	g.text(screen, city.Point{X: x, Y: y}, sinceStrip(j.since, g.scene.Away(j.since), len(g.scene.ResetsDuring(j.since)), g.scene.Now().Location()), ui.Small, th.Palette.Dim)
 	y += lineH + 2*grid
-	for i, e := range j.entries {
+	j.drawn = 0
+	for i := range j.entries {
 		if y+3*lineH > plate.Max.Y-2*lineH {
 			break
 		}
+		j.fill(i)
+		e := j.entries[i]
+		j.drawn = i + 1
 		if i == j.selected {
 			g.roundRect(screen, city.RectAt(plate.Min.X+grid, y-grid/2, plate.Width()-2*grid, 3*lineH+grid), 0, th.Palette.Hairline)
 		}

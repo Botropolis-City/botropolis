@@ -25,6 +25,15 @@ func TestCounters(t *testing.T) {
 		})
 	})
 
+	t.Run("when a conversation is read", func(t *testing.T) {
+		before := Take()
+		Count(ConversationsRead)
+
+		t.Run("it should count it apart from the transcripts opened", func(t *testing.T) {
+			assert.Equal(t, Work{ConversationsRead: 1}, Take().Since(before))
+		})
+	})
+
 	t.Run("when one counter is bumped", func(t *testing.T) {
 		before := Take()
 		Count(SessionScans)

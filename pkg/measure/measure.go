@@ -17,10 +17,13 @@ const (
 	BytesRead
 	IndexRebuilds
 	SessionScans
+	// ConversationsRead is the turns of a session read back to show
+	// them: the reading pane and the journal.
+	ConversationsRead
 	counters
 )
 
-var names = [counters]string{"transcripts opened", "bytes read", "index rebuilds", "session scans"}
+var names = [counters]string{"transcripts opened", "bytes read", "index rebuilds", "session scans", "conversations read"}
 
 func (c Counter) String() string { return names[c] }
 

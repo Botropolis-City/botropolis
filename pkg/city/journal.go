@@ -89,14 +89,18 @@ func journalEntry(title string, members []state.Session, pinned []string, reply 
 		e.Where = append(e.Where, w)
 	}
 	slices.Sort(e.Where)
-	e.LastTime, e.Next = lastAndNext(latest, reply)
+	e.LastTime, e.Next = LastAndNext(latest, reply)
 	return e
 }
 
-// lastAndNext is a session's Last time and Next: the recap and its own
+// LastAndNext is a session's Last time and Next: the recap and its own
 // Next line where there is one; else your last prompt and the last
 // paragraph of the reply, and the question the session last asked.
-func lastAndNext(s state.Session, reply func(string) string) (string, string) {
+//
+// The journal fills an entry in with this when it is first drawn, so
+// building the journal reads nothing and a reply is read only for an
+// entry someone can see. Item 91.
+func LastAndNext(s state.Session, reply func(string) string) (string, string) {
 	var last, next string
 	if s.Recap.Text != "" {
 		var kept []string
