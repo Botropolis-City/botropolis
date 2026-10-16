@@ -102,8 +102,14 @@ const (
 type Scene struct {
 	snapshot state.Snapshot
 	// focus is the group the map is focused on, if any (item 87).
-	focus  string
-	ladder state.Thresholds
+	focus string
+	// dive is the dive's stepped row plus one, 0 before any step, and
+	// diveSide and diveRoom the room the dive's list reserves while a
+	// group is focused (item 90).
+	dive     int
+	diveSide Side
+	diveRoom float64
+	ladder   state.Thresholds
 	// linesHidden is whether the setting hides the groups' lines.
 	linesHidden bool
 	light       Light
@@ -520,6 +526,18 @@ func (s *Scene) chromeInsets() Insets {
 }
 
 func (s *Scene) Insets() Insets {
+	in := s.insets()
+	if s.focus != "" {
+		if s.diveSide == SideRight {
+			in.Right += s.diveRoom
+		} else {
+			in.Left += s.diveRoom
+		}
+	}
+	return in
+}
+
+func (s *Scene) insets() Insets {
 	in := s.chromeInsets()
 	in.Top += LabelHeight
 	if s.camera.Projection == Isometric {

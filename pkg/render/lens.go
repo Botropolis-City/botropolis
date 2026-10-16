@@ -32,10 +32,7 @@ func (p *lensPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		p.laid = ui.LensPanel{}
 		return
 	}
-	g.mu.Lock()
-	plate := g.searchPlate
-	g.mu.Unlock()
-	p.laid = ui.LayoutLensPanel(th, g.scene.LensPanel(), lensBounds(th, g.scene.TopChrome(), width, height, g.sidebar, plate), g.faces.Measure)
+	p.laid = ui.LayoutLensPanel(th, g.scene.LensPanel(), g.lensArea(width, height, g.faces.Measure), g.faces.Measure)
 	l := p.laid
 	g.roundPanel(screen, l.Rect)
 	if l.Chip {
@@ -65,6 +62,23 @@ func (p *lensPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	for _, t := range l.Do {
 		g.run(screen, t, th.Palette.Dim)
 	}
+}
+
+// lensArea is where the lens panel may sit in this window: beside the
+// dive's list too, while a group is focused (item 90).
+func (g *Game) lensArea(width, height float64, measure ui.Measure) city.Rect {
+	g.mu.Lock()
+	plate := g.searchPlate
+	g.mu.Unlock()
+	area := lensBounds(g.theme, g.scene.TopChrome(), width, height, g.sidebar, plate)
+	if dock := g.layoutDive(width, height, measure); dock.Area() > 0 {
+		if dock.Center().X < width/2 {
+			area.Min.X = max(area.Min.X, dock.Max.X)
+		} else {
+			area.Max.X = min(area.Max.X, dock.Min.X)
+		}
+	}
+	return area
 }
 
 // lensBounds is where the lens panel may sit: under the strip, right of

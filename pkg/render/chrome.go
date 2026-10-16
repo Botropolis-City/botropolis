@@ -47,6 +47,13 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	} else {
 		g.scene.SetLeftChrome(0)
 	}
+	if dock := g.drawDive(screen, width, height); dock.Area() > 0 {
+		if dock.Center().X < width/2 {
+			bounds.Min.X = dock.Max.X
+		} else {
+			bounds.Max.X = dock.Min.X
+		}
+	}
 	if card, b, ok := g.scene.SelectedCard(); ok && !g.sidebar {
 		card.Hint = hint
 		beside := g.buildingOnScreen(b)

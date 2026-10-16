@@ -199,6 +199,9 @@ func (g *Game) handleKeys() error {
 	// because the card is the one surface the mouse opens — the list of
 	// things Escape closes has to be the list of things that are open,
 	// whatever opened them.
+	if g.diveKeys() {
+		return nil
+	}
 	if just(ebiten.KeyEscape) && g.scene.Selected() != nil {
 		g.scene.Deselect()
 		return nil

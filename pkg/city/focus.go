@@ -37,7 +37,7 @@ func (s *Scene) FocusGroup(id string) bool {
 	if !found {
 		return false
 	}
-	s.focus = id
+	s.focus, s.dive = id, 0
 	s.touched = true
 	s.camera.FitWithInsets(bounds, s.width, s.height, s.Insets())
 	if s.camera.Zoom > FocusMaxZoom {
@@ -56,5 +56,5 @@ func (s *Scene) FocusedGroup() string {
 }
 
 func (s *Scene) ClearFocus() {
-	s.focus = ""
+	s.focus, s.dive = "", 0
 }
