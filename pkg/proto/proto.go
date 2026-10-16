@@ -26,6 +26,8 @@ const (
 	OpFind = "find"
 	// OpPack packs a session up, or unpacks it (item 86).
 	OpPack = "pack"
+	// OpCloseUp records that you closed up (item 86).
+	OpCloseUp = "closeup"
 
 	socketDir  = "botropolis"
 	socketName = "botropolis.sock"
@@ -41,6 +43,15 @@ type Request struct {
 	Find *find.Query `json:"find,omitempty"`
 	// Pack is a pack request's session and whether to pack it or unpack.
 	Pack *Pack `json:"pack,omitempty"`
+	// CloseUp is a close-up's open and pinned sessions.
+	CloseUp *CloseUp `json:"closeUp,omitempty"`
+}
+
+// CloseUp is a request to record a close-up: the sessions open, and the
+// ones pinned to start with next time.
+type CloseUp struct {
+	Open   []string `json:"open"`
+	Pinned []string `json:"pinned,omitempty"`
 }
 
 // Pack is a request to pack a session up, or with Packed false to unpack

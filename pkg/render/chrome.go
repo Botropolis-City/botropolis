@@ -216,6 +216,9 @@ func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
 	for _, line := range f.Lines {
 		g.run(screen, line, g.theme.Palette.Dim)
 	}
+	if b, ok := g.quitButton(); ok {
+		g.button(screen, b.Rect, b.Label, g.theme.Palette.Accent, b.Rect.Contains(g.pointer()))
+	}
 	g.waitingHovered = false
 	if f.Waiting.Text != "" {
 		g.waitingHovered = f.WaitingRect.Contains(g.pointer())

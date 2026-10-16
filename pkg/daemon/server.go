@@ -61,6 +61,16 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			if err := proto.Write(conn, response); err != nil {
 				return
 			}
+		case proto.OpCloseUp:
+			response := proto.Response{}
+			if request.CloseUp == nil {
+				response.Error = "close up names no sessions"
+			} else if err := d.CloseUp(request.CloseUp.Open, request.CloseUp.Pinned); err != nil {
+				response.Error = err.Error()
+			}
+			if err := proto.Write(conn, response); err != nil {
+				return
+			}
 		case proto.OpPack:
 			response := proto.Response{}
 			if request.Pack == nil {

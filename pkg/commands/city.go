@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -106,7 +107,12 @@ type Actor struct {
 	// Pack asks the daemon to pack a session up or unpack it; nil when
 	// there is no daemon to ask (item 86).
 	Pack func(id string, packed bool) error
+	// CloseUp asks the daemon to record a close-up; nil when there is
+	// no daemon to ask (item 86).
+	CloseUp func(open, pinned []string) error
 }
+
+var errNoDaemonCloseUp = errors.New("closing up needs the daemon, which keeps the record of what was open; start botropolisd")
 
 var errNoDaemon = errors.New("packing up needs the daemon, which keeps the ledger of what is packed; start botropolisd")
 
@@ -139,6 +145,8 @@ func (a Actor) Do(action city.Action) error {
 		return a.move(action.SessionID, action.Group)
 	case city.ActionMute:
 		return a.mute(action.Text)
+	case city.ActionCloseUp:
+		return a.closeUp(action)
 	case city.ActionPack, city.ActionUnpack:
 		if a.Pack == nil {
 			return errNoDaemon
@@ -225,4 +233,25 @@ func (a Actor) newSession(action city.Action) error {
 	}
 	memory.StartedFrom[job] = id
 	return group.Save(a.GroupStore, memory)
+}
+
+// closeUp records what is open with the daemon, then pauses only the
+// sessions you marked pause, with claude stop, which keeps the
+// conversation; everything else is left running. Recording comes first:
+// a close-up that paused sessions and then failed to say which were open
+// would lose the desk it was meant to keep.
+func (a Actor) closeUp(action city.Action) error {
+	if a.CloseUp == nil {
+		return errNoDaemonCloseUp
+	}
+	if err := a.CloseUp(action.Open, action.Pinned); err != nil {
+		return err
+	}
+	var errs []error
+	for _, id := range action.Pause {
+		if err := a.Sessions.Stop(context.Background(), id); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", id, err))
+		}
+	}
+	return errors.Join(errs...)
 }

@@ -1,6 +1,7 @@
 package render
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -78,7 +79,7 @@ func TestTriageKeys(t *testing.T) {
 				func(g *Game, _ *recordingActor, light city.Light) bool { return g.scene.Light() != light }},
 			{ebiten.KeyP, "p rests the session rather than saving a screenshot",
 				func(_ *Game, a *recordingActor) bool {
-					return len(a.done) == 1 && a.done[0] == city.Action{Kind: city.ActionStop, SessionID: "c"}
+					return len(a.done) == 1 && reflect.DeepEqual(a.done[0], city.Action{Kind: city.ActionStop, SessionID: "c"})
 				},
 				func(g *Game, _ *recordingActor, _ city.Light) bool { return g.snap != "" }},
 			{ebiten.KeyD, "d marks it done rather than demolishing it",

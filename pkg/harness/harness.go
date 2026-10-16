@@ -97,3 +97,21 @@ func (m *Multi) Pack(id string, packed bool, at time.Time) error {
 	}
 	return err
 }
+
+// CloseUpper is a harness that can record a close-up (item 86).
+type CloseUpper interface {
+	CloseUp(open, pinned []string, at time.Time) error
+}
+
+// CloseUp asks the first harness that can record a close-up to.
+func (m *Multi) CloseUp(open, pinned []string, at time.Time) error {
+	err := state.ErrNoCloseUp
+	for _, h := range m.harnesses {
+		if c, ok := h.(CloseUpper); ok {
+			if err = c.CloseUp(open, pinned, at); err == nil {
+				return nil
+			}
+		}
+	}
+	return err
+}

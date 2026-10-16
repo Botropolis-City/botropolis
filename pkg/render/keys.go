@@ -46,6 +46,7 @@ var bindings = []ui.Key{
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
 	{Key: "shift+p", Action: "pack the selected session up, or unpack a crate"},
+	{Key: "shift+q", Action: "close up: note what is open and what to start with next time; pause only what you choose"},
 	{Key: "/ or ctrl+k", Action: "find a session by what was said; the map dims the rest"},
 	{Key: "?", Action: "the reference: what everything on the map is"},
 	{Key: "hold e", Action: "caption everything on the map"},
@@ -92,7 +93,7 @@ const (
 	// frame per key, so without this the script could zoom and turn but
 	// never walk the view off the plaza.
 	scriptPanBeat = 10
-	quitPrompt    = "quit? y or enter to quit; any other key stays"
+	quitPrompt    = "quit? y or enter to quit; any other key stays; or close up first"
 )
 
 // panFor is how far the arrow keys move the view this frame.
@@ -180,6 +181,11 @@ func (g *Game) handleKeys() error {
 	}
 	if just(ebiten.KeyS) {
 		g.settingsOpen = true
+		return nil
+	}
+	// Shift+Q closes up: optional, and one step from quitting (item 86).
+	if just(ebiten.KeyQ) && g.shifted() {
+		g.openCloseUp()
 		return nil
 	}
 	if g.quit.armed(timeNow()) {

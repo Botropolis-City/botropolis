@@ -116,7 +116,7 @@ func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
 }
 
 func harnesses(cfg *config.Config, probes state.Probes, ledger string) *harness.Multi {
-	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger))
+	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger).WithCloseUp(closeUpPath(ledger)))
 	harnesses := []harness.Snapshotter{claudeLoader}
 	if info, err := os.Stat(filepath.Join(cfg.CodexHome, "sessions")); err == nil && info.IsDir() {
 		harnesses = append(harnesses, codex.NewLoader(cfg.CodexHome))
@@ -182,4 +182,13 @@ func runDaemon(lc fx.Lifecycle, shutdowner fx.Shutdowner, d *daemon.Daemon, list
 			return nil
 		},
 	})
+}
+
+// closeUpPath keeps the close-up beside the ledger, and nowhere when
+// there is no ledger: the same default-home rule (item 86).
+func closeUpPath(ledger string) string {
+	if ledger == "" {
+		return ""
+	}
+	return state.CloseUpPath()
 }

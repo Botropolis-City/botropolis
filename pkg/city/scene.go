@@ -22,8 +22,11 @@ const (
 	ActionStop     ActionKind = "stop"
 	// ActionPack packs a session up into the depot, and ActionUnpack
 	// brings it back to its old lot (item 86).
-	ActionPack     ActionKind = "pack"
-	ActionUnpack   ActionKind = "unpack"
+	ActionPack   ActionKind = "pack"
+	ActionUnpack ActionKind = "unpack"
+	// ActionCloseUp records what is open, and pauses what you chose to
+	// (item 86).
+	ActionCloseUp  ActionKind = "closeup"
 	ActionNew      ActionKind = "new session here"
 	ActionReveal   ActionKind = "reveal folder"
 	ActionCopyPath ActionKind = "copy path"
@@ -82,6 +85,10 @@ type Action struct {
 	Prompt    string
 	// Review is the first run's groups as confirmed.
 	Review *group.Review
+	// Open and Pinned are ActionCloseUp's open sessions and the ones
+	// pinned to start with next time, and Pause the ones you chose to
+	// pause; every other session is left running (item 86).
+	Open, Pinned, Pause []string
 }
 
 // Light is how the scene decides night: from the sessions, or forced
@@ -1203,4 +1210,17 @@ func (s *Scene) TogglePack() Action {
 		return Action{Kind: ActionUnpack, SessionID: s.selected.Session.ID}
 	}
 	return Action{Kind: ActionPack, SessionID: s.selected.Session.ID}
+}
+
+// OpenSessions is what closing up would stop: every live session on the
+// map, most recently active first (item 86).
+func (s *Scene) OpenSessions() []state.Session {
+	var open []state.Session
+	for _, sess := range s.snapshot.Sessions {
+		if state.Live(sess.State) && !sess.Packed {
+			open = append(open, sess)
+		}
+	}
+	slices.SortStableFunc(open, func(a, b state.Session) int { return b.LastActivity.Compare(a.LastActivity) })
+	return open
 }

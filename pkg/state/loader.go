@@ -46,6 +46,7 @@ type Loader struct {
 	reads           int
 	groups          groupCache
 	ledgerPath      string
+	closeUpPath     string
 	ledger          Ledger
 	historyKey      fileKey
 	history         map[string][]claude.Prompt

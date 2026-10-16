@@ -83,6 +83,15 @@ func (c *Client) Find(q find.Query) ([]find.Hit, error) {
 	return response.Found, nil
 }
 
+// CloseUp records a close-up with the daemon.
+func (c *Client) CloseUp(open, pinned []string) error {
+	if err := Write(c.conn, Request{Op: OpCloseUp, CloseUp: &CloseUp{Open: open, Pinned: pinned}}); err != nil {
+		return err
+	}
+	_, err := c.readResponse()
+	return err
+}
+
 // Pack packs a session up, or unpacks it.
 func (c *Client) Pack(id string, packed bool) error {
 	if err := Write(c.conn, Request{Op: OpPack, Pack: &Pack{SessionID: id, Packed: packed}}); err != nil {

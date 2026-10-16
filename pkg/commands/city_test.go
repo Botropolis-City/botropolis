@@ -313,3 +313,56 @@ func TestActorPack(t *testing.T) {
 		})
 	})
 }
+
+// Item 86, slice 4: closing up records what is open with the daemon,
+// then pauses only the sessions you marked pause; the rest stay running.
+func TestActorCloseUp(t *testing.T) {
+	run := func(t *testing.T, withDaemon bool, pause []string) (*fakeController, []string, error) {
+		t.Helper()
+		ctl := &fakeController{}
+		var log []string
+		actor := commands.Actor{Sessions: commands.NewSessions(t.TempDir(), ctl)}
+		if withDaemon {
+			actor.CloseUp = func(open, pinned []string) error {
+				log = append(log, fmt.Sprintf("record %v %v (after %d pauses)", open, pinned, len(ctl.calls)))
+				return nil
+			}
+		}
+		err := actor.Do(city.Action{Kind: city.ActionCloseUp, Open: []string{"bg", "busy", "term"}, Pinned: []string{"term"}, Pause: pause})
+		return ctl, log, err
+	}
+
+	t.Run("when the desk is closed up", func(t *testing.T) {
+		ctl, log, err := run(t, true, []string{"bg"})
+		require.NoError(t, err)
+
+		t.Run("it should record the close-up with the daemon before pausing anything", func(t *testing.T) {
+			assert.Equal(t, []string{"record [bg busy term] [term] (after 0 pauses)"}, log)
+		})
+
+		t.Run("it should pause only the rows marked pause", func(t *testing.T) {
+			assert.Equal(t, []string{"stop bg"}, ctl.calls)
+		})
+	})
+
+	t.Run("when no row is marked pause", func(t *testing.T) {
+		ctl, _, err := run(t, true, nil)
+		require.NoError(t, err)
+
+		t.Run("it should stop nothing", func(t *testing.T) {
+			assert.Empty(t, ctl.calls)
+		})
+	})
+
+	t.Run("when there is no daemon", func(t *testing.T) {
+		ctl, _, err := run(t, false, []string{"bg"})
+
+		t.Run("it should say closing up needs the daemon", func(t *testing.T) {
+			assert.ErrorContains(t, err, "needs the daemon")
+		})
+
+		t.Run("it should pause nothing", func(t *testing.T) {
+			assert.Empty(t, ctl.calls)
+		})
+	})
+}

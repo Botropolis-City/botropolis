@@ -409,6 +409,17 @@ type liveActor struct {
 	terminal atomic.Value
 }
 
+// closeUp asks the daemon at the actor's socket to record a close-up
+// (item 86).
+func (a *liveActor) closeUp(open, pinned []string) error {
+	client, err := proto.Dial(a.socket)
+	if err != nil {
+		return fmt.Errorf("closing up needs the daemon: %w", err)
+	}
+	defer func() { _ = client.Close() }()
+	return client.CloseUp(open, pinned)
+}
+
 // pack asks the daemon at the actor's socket to pack a session up or
 // unpack it (item 86).
 func (a *liveActor) pack(id string, packed bool) error {
@@ -423,7 +434,7 @@ func (a *liveActor) pack(id string, packed bool) error {
 func (a *liveActor) Do(action city.Action) error {
 	terminal, _ := a.terminal.Load().(string)
 	sessions := commands.NewSessions(a.home, control.Default(terminal))
-	return commands.Actor{Sessions: sessions, GroupStore: a.groups, Pack: a.pack}.Do(action)
+	return commands.Actor{Sessions: sessions, GroupStore: a.groups, Pack: a.pack, CloseUp: a.closeUp}.Do(action)
 }
 
 const (

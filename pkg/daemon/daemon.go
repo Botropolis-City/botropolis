@@ -21,6 +21,28 @@ func WithLedger(path string) Option {
 	return func(l *state.Loader) { l.WithLedger(path) }
 }
 
+// WithCloseUp keeps the record of the last close-up at path (item 86).
+func WithCloseUp(path string) Option {
+	return func(l *state.Loader) { l.WithCloseUp(path) }
+}
+
+// CloseUpper is a loader that can record a close-up.
+type CloseUpper interface {
+	CloseUp(open, pinned []string, at time.Time) error
+}
+
+// CloseUp records that you closed up: which sessions were open and which
+// you pinned to start with next time.
+func (d *Daemon) CloseUp(open, pinned []string) error {
+	c, ok := d.loader.(CloseUpper)
+	if !ok {
+		return state.ErrNoCloseUp
+	}
+	d.scanMu.Lock()
+	defer d.scanMu.Unlock()
+	return c.CloseUp(open, pinned, d.clock())
+}
+
 // Packer is a loader that can pack a session up or unpack it.
 type Packer interface {
 	Pack(id string, packed bool, at time.Time) error
