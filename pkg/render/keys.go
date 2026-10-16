@@ -374,6 +374,10 @@ func (g *Game) act(action city.Action) {
 		g.openPicker(action.SessionID)
 		return
 	}
+	if action.Kind == city.ActionMuteWord {
+		g.openMutePicker(action.SessionID)
+		return
+	}
 	if action.Kind == city.ActionGenerate {
 		g.generate(action.SessionID)
 		return

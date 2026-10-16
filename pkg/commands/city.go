@@ -137,6 +137,8 @@ func (a Actor) Do(action city.Action) error {
 		return a.Sessions.Copy(context.Background(), action.Text)
 	case city.ActionMove:
 		return a.move(action.SessionID, action.Group)
+	case city.ActionMute:
+		return a.mute(action.Text)
 	case city.ActionPack, city.ActionUnpack:
 		if a.Pack == nil {
 			return errNoDaemon
@@ -161,6 +163,19 @@ func (a Actor) move(session, to string) error {
 		return err
 	}
 	return group.Save(a.GroupStore, memory.WithMove(session, to))
+}
+
+// mute writes a muted word into the groups' memory; the daemon sees the
+// file change and groups again without it (item 90).
+func (a Actor) mute(word string) error {
+	if a.GroupStore == "" {
+		return errNoGroups
+	}
+	memory, err := group.Load(a.GroupStore)
+	if err != nil {
+		return err
+	}
+	return group.Save(a.GroupStore, memory.WithMuted(word))
 }
 
 // review writes the first run's confirmed groups into the groups'

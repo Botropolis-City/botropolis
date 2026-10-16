@@ -307,6 +307,10 @@ func groupViews(result group.Result, sessions []Session) []Group {
 				joined = "likely: " + joined
 			}
 			sessions[i].Group, sessions[i].GroupJoined, sessions[i].GroupLikely = g.ID, joined, m.Tier == group.Likely
+			sessions[i].GroupWords = nil
+			if m.Reason.Signal == group.SignalWording {
+				sessions[i].GroupWords = strings.Fields(m.Reason.Detail)
+			}
 			present = append(present, sessions[i])
 		}
 		view.Move, view.Why = GroupMove(present)

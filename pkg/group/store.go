@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -50,6 +51,19 @@ func (m Memory) WithMove(session, group string) Memory {
 		}
 	}
 	m.Moves = append(moves, Move{Session: session, Group: group})
+	return m
+}
+
+// WithMuted is memory with a word muted, so it no longer joins sessions
+// by their wording; a word already muted is muted once (item 90).
+func (m Memory) WithMuted(word string) Memory {
+	word = strings.ToLower(strings.TrimSpace(word))
+	for _, w := range m.Muted {
+		if strings.EqualFold(w, word) {
+			return m
+		}
+	}
+	m.Muted = append(append([]string(nil), m.Muted...), word)
 	return m
 }
 

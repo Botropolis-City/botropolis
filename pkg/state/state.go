@@ -78,8 +78,11 @@ type Session struct {
 	Agent       string         `json:"agent,omitempty"`
 	Messages    map[string]int `json:"messages,omitempty"`
 	// Messaged are the sessions those messages reached, by id (item 90).
-	Messaged []string       `json:"messaged,omitempty"`
-	Touches  map[string]int `json:"touches,omitempty"`
+	Messaged []string `json:"messaged,omitempty"`
+	// GroupWords are the words that joined it to its group, when its
+	// wording is why it joined, which its card offers to mute (item 90).
+	GroupWords []string       `json:"groupWords,omitempty"`
+	Touches    map[string]int `json:"touches,omitempty"`
 	// Visits is each directory outside the session's own where one of
 	// its subagents worked, by how many subagents worked there. Item 85.
 	Visits map[string]int `json:"visits,omitempty"`

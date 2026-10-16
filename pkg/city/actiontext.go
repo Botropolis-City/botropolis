@@ -25,6 +25,8 @@ var actionText = map[ActionKind]string{
 	ActionReviewGroups: "Says these groups are right, so the city stops asking.",
 	ActionFocusLine:    "Shows only this session's group, and frames its projects.",
 	ActionCopyStandup:  "Copies one line saying where each of this group's projects stands, for a stand-up.",
+	ActionMuteWord:     "Stops a word that joined this session to its group from joining sessions again.",
+	ActionMute:         "Stops this word from joining sessions into groups.",
 	ActionBreakdown:    "Shows where the tokens and money went.",
 	ActionOpenPR:       "Opens this session's pull request in your browser.",
 	ActionShowRoad:     "Lights the roads from this project to the projects it works with.",

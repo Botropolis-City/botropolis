@@ -51,10 +51,14 @@ const (
 	// ActionCopyStandup copies the selection's group's stand-up line
 	// (item 90).
 	ActionCopyStandup ActionKind = "copy stand-up"
-	ActionBreakdown   ActionKind = "breakdown"
-	ActionOpenPR      ActionKind = "open pull request"
-	ActionShowRoad    ActionKind = "show the road"
-	ActionFork        ActionKind = "fork a fresh session"
+	// ActionMuteWord asks which of the words that joined the selection
+	// to its group to mute, and ActionMute mutes Text (item 90).
+	ActionMuteWord  ActionKind = "mute a word"
+	ActionMute      ActionKind = "mute"
+	ActionBreakdown ActionKind = "breakdown"
+	ActionOpenPR    ActionKind = "open pull request"
+	ActionShowRoad  ActionKind = "show the road"
+	ActionFork      ActionKind = "fork a fresh session"
 	// ActionNewSession starts a session from New session, in Group or a
 	// new group named GroupName, or in none (item 87).
 	ActionNewSession ActionKind = "start a session"
@@ -849,6 +853,9 @@ func (s *Scene) Actions() []ActionKind {
 	if s.selected.Group != nil {
 		kinds = append(kinds, ActionCopyStandup)
 	}
+	if s.selected.Group != nil && len(s.selected.Session.GroupWords) > 0 {
+		kinds = append(kinds, ActionMuteWord)
+	}
 	if s.detailsOpen() {
 		kinds = append(kinds, ActionDetailsHide)
 	} else {
@@ -932,6 +939,8 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 			return Action{}, "focused " + b.Group.Name
 		}
 		return Action{}, "not in a group"
+	case ActionMuteWord:
+		return Action{Kind: ActionMuteWord, SessionID: b.Session.ID}, ""
 	case ActionCopyStandup:
 		if b.Group == nil {
 			return Action{}, "not in a group"
