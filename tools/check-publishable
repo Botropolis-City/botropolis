@@ -114,6 +114,8 @@ reviewed=$(cat <<'LIST'
 docs/screenshots/hero.png
 docs/screenshots/r414-item-82-finder.png
 docs/screenshots/r423-item-82-results.png
+docs/screenshots/r426-item-87-badges.png
+docs/screenshots/r426-item-87-card.png
 docs/botropolis.gif
 packaging/botropolis.svg
 LIST
