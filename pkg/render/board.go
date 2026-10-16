@@ -48,7 +48,7 @@ func boardStatus(rows []boardRow) string {
 	if len(rows) == 0 {
 		return "no groups yet: sessions join one when they share a ticket, a link or their wording"
 	}
-	return fmt.Sprintf("%d groups   ↑ ↓ choose, enter focuses it on the map, esc closes", len(rows))
+	return fmt.Sprintf("%d groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, esc closes", len(rows))
 }
 
 func (g *Game) board() *board {
@@ -84,6 +84,12 @@ func (b *board) keys(g *Game) bool {
 			g.scene.FocusGroup(groups[b.selected].ID)
 		}
 		return false
+	case g.just(ebiten.KeyC):
+		if b.selected < len(groups) {
+			line := g.scene.Standup(groups[b.selected].ID)
+			g.SetStatus("copied stand-up: " + line)
+			g.act(city.Action{Kind: city.ActionCopy, Text: line})
+		}
 	case g.just(ebiten.KeyArrowDown):
 		b.selected = max(0, min(b.selected+1, len(groups)-1))
 	case g.just(ebiten.KeyArrowUp):

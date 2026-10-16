@@ -44,10 +44,13 @@ const (
 	ActionReviewGroups ActionKind = "confirm groups"
 	// A lens's first actions (item 88).
 	ActionFocusLine ActionKind = "focus the line"
-	ActionBreakdown ActionKind = "breakdown"
-	ActionOpenPR    ActionKind = "open pull request"
-	ActionShowRoad  ActionKind = "show the road"
-	ActionFork      ActionKind = "fork a fresh session"
+	// ActionCopyStandup copies the selection's group's stand-up line
+	// (item 90).
+	ActionCopyStandup ActionKind = "copy stand-up"
+	ActionBreakdown   ActionKind = "breakdown"
+	ActionOpenPR      ActionKind = "open pull request"
+	ActionShowRoad    ActionKind = "show the road"
+	ActionFork        ActionKind = "fork a fresh session"
 	// ActionNewSession starts a session from New session, in Group or a
 	// new group named GroupName, or in none (item 87).
 	ActionNewSession ActionKind = "start a session"
@@ -818,6 +821,9 @@ func (s *Scene) Actions() []ActionKind {
 	if len(s.snapshot.Groups) > 0 && s.selected.Session.State != state.Resting {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
+	if s.selected.Group != nil {
+		kinds = append(kinds, ActionCopyStandup)
+	}
 	if s.detailsOpen() {
 		kinds = append(kinds, ActionDetailsHide)
 	} else {
@@ -901,6 +907,12 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 			return Action{}, "focused " + b.Group.Name
 		}
 		return Action{}, "not in a group"
+	case ActionCopyStandup:
+		if b.Group == nil {
+			return Action{}, "not in a group"
+		}
+		line := s.Standup(b.Group.ID)
+		return Action{Kind: ActionCopy, Text: line}, "copied stand-up: " + line
 	case ActionBreakdown:
 		return Action{Kind: ActionBreakdown}, ""
 	case ActionFork:

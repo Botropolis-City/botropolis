@@ -136,7 +136,31 @@ func TestBoard(t *testing.T) {
 
 	t.Run("when there are groups", func(t *testing.T) {
 		t.Run("it should say how to use the board", func(t *testing.T) {
-			assert.Equal(t, "2 groups   ↑ ↓ choose, enter focuses it on the map, esc closes", boardStatus(boardRows(groups, now)))
+			assert.Equal(t, "2 groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, esc closes", boardStatus(boardRows(groups, now)))
+		})
+	})
+}
+
+// Item 90: c on the board copies the chosen group's stand-up line.
+func TestBoardStandup(t *testing.T) {
+	now := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
+	actor := &recorder{}
+	s := city.NewScene(city.NewLayout())
+	s.SetClock(func() time.Time { return now }, time.UTC)
+	s.Resize(800, 600)
+	s.SetSnapshot(state.Snapshot{At: now,
+		Groups: []state.Group{{ID: "g1", Name: "PROJ-123", Short: "PROJ-123", Members: []string{"a"}}},
+		Sessions: []state.Session{{ID: "a", CWD: "/w/lib", State: state.Working, Group: "g1", StartedAt: now, LastActivity: now},
+			{ID: "d", CWD: "/w/site", State: state.Working}}})
+	g := &Game{scene: s, actor: actor, scripted: -1, clicked: -1}
+	pressKey(t, g, ebiten.KeyG, false)
+	require.NotNil(t, g.board(), "the board should be open")
+
+	t.Run("when the board is open and c is pressed", func(t *testing.T) {
+		pressKey(t, g, ebiten.KeyC, false)
+
+		t.Run("it should copy the selected row's stand-up", func(t *testing.T) {
+			assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "lib in progress"}}, actor.done)
 		})
 	})
 }
