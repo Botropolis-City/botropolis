@@ -405,14 +405,6 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		rover := g.kitAt(screen, cam, kitRover, g.scene.WorkerTurn(b), city.Point{X: at.X, Y: at.Y + bob}, nil)
 		g.noteHit(rover, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Worker: b})
 	}
-	// Subagents in flight: one drone each, circling over the roof, and
-	// only in the view that asks how many there are.
-	if g.shows(city.NetworkCranes) {
-		for _, at := range droneSpots(r, cam.Zoom, b.Cranes, seconds) {
-			drone := g.kitAt(screen, cam, kitDrone, 0, at, nil)
-			g.noteHit(drone, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Subagent: b})
-		}
-	}
 	// One flag per PR, coloured by its state: open in the accent, merged
 	// green, closed slate.
 	for i := 0; i < min(b.Flags, 3); i++ {
@@ -446,19 +438,6 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 // roverDrawn is whether a building's worker is out: while its session
 // is mid-turn.
 func roverDrawn(b *city.Building) bool { return b.Session.State == state.Working }
-
-// droneSpots is where each subagent's drone is over a roof drawn at r,
-// up to three.
-func droneSpots(r city.Rect, zoom float64, count int, seconds float64) []city.Point {
-	var out []city.Point
-	for i := 0; i < min(count, 3); i++ {
-		phase := seconds*0.8 + float64(i)*2*math.Pi/3
-		orbit := city.Point{X: r.Width() * 0.28 * math.Cos(phase), Y: r.Width() * 0.12 * math.Sin(phase)}
-		hover := 2 * zoom * math.Sin(seconds*3+float64(i))
-		out = append(out, city.Point{X: r.Min.X + r.Width()/2 + orbit.X, Y: r.Min.Y - droneHover*zoom + orbit.Y + hover})
-	}
-	return out
-}
 
 // puff is one plume of smoke on screen.
 type puff struct {
@@ -669,6 +648,12 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.overgrowth(screen, cam, false)
 	g.agedLots(screen, cam, c)
 	g.powerLines(screen, c, cam, hover, seconds)
+	// Drones fly over everything, so their shadows go on the ground
+	// first and the drones last (item 89).
+	shadows, airborne := g.flights(screen, c, cam, seconds)
+	for _, at := range shadows {
+		droneShadow(screen, cam, at)
+	}
 	var items []drawable
 	if c.Fountain.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Fountain, func() {
@@ -845,9 +830,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			}))
 		}
 	}
-	items = order(cam, items)
-	for _, item := range items {
-		item.draw()
+	for _, draw := range layered(cam, items, airborne) {
+		draw()
 	}
 	if hover.Building != nil && hover.Building != selected {
 		g.polyStroke(screen, cam, hover.Building.Rect, 1.5, colorHighlight)

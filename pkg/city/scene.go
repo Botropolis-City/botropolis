@@ -210,6 +210,8 @@ type Scene struct {
 	hauls []Haul
 	// keepDepot holds an empty depot open while its truck leaves.
 	keepDepot bool
+	// drones are the subagents' drones by session (item 89).
+	drones map[string][]*flight
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
@@ -611,6 +613,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.noteSettling(s.now())
 	s.noteHauls(s.now())
 	s.finishBuilds(s.now())
+	s.noteDrones(s.now())
 	s.holdDepot()
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()

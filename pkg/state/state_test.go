@@ -290,6 +290,25 @@ func TestBuild(t *testing.T) {
 		})
 	})
 
+	// Item 89: where each subagent in flight works, for its drone.
+	t.Run("when subagents are in flight", func(t *testing.T) {
+		away := claude.Subagent{ToolUseID: "toolu_A", Transcript: claude.Transcript{
+			CWD: "/p/a", Touches: map[string]int{"/p/b/x.go": 1, "/p/c/y.go": 3}, Tail: claude.Tail{Turn: claude.TurnWorking},
+		}}
+		home := claude.Subagent{ToolUseID: "toolu_B", Transcript: claude.Transcript{
+			CWD: "/p/a/sub", Tail: claude.Tail{Turn: claude.TurnWorking},
+		}}
+		parent := transcript(sidA, claude.TurnWorking)
+		parent.Tail.PendingToolIDs = []string{"toolu_A", "toolu_B"}
+		session := build(t, []claude.SessionRecord{record(sidA, claude.KindInteractive, claude.StatusBusy)},
+			[]claude.Transcript{parent},
+			map[string][]claude.Subagent{sidA: {away, home}}, alive)[0]
+
+		t.Run("it should name the file each touched most outside its own directory, or else its directory", func(t *testing.T) {
+			assert.Equal(t, []string{"/p/c/y.go", "/p/a/sub"}, session.SubagentDirs)
+		})
+	})
+
 	t.Run("when two sessions share a project", func(t *testing.T) {
 		older := record(sidB, claude.KindInteractive, claude.StatusIdle)
 		older.StartedAt = started.Add(-time.Hour)

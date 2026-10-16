@@ -33,6 +33,15 @@ func TestMoversAtEveryLevel(t *testing.T) {
 	}
 	require.NotNil(t, b)
 	roof := city.RectAt(0, 0, 40, 60)
+	cam := city.NewCamera()
+	dronesAt := func(seconds float64) []city.Point {
+		var out []city.Point
+		for seat := 0; seat < b.Cranes; seat++ {
+			at, _ := droneAt(cam, city.Flight{Seat: seat, Over: b.Rect.Center(), Climb: 1, Fade: 1}, 0, seconds)
+			out = append(out, at)
+		}
+		return out
+	}
 
 	// frame is what one frame draws, a second after another.
 	type frame struct {
@@ -49,7 +58,7 @@ func TestMoversAtEveryLevel(t *testing.T) {
 		return frame{
 			cars:      g.cars(c, m.ambient),
 			carriages: g.carriages(c, m.ambient),
-			drones:    droneSpots(roof, 1, b.Cranes, m.ambient),
+			drones:    dronesAt(m.ambient),
 			smoke:     smokePuffs(roof, 1, b.Smoke, m.ambient),
 			rover:     roverDrawn(b),
 		}

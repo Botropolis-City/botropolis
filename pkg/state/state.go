@@ -52,11 +52,15 @@ type Session struct {
 	// Hooked is whether the daemon has ever seen a hook event from the
 	// session; without one it is reading files, and the map draws no
 	// wire to it.
-	Hooked             bool         `json:"hooked,omitempty"`
-	Tool               string       `json:"tool,omitempty"`
-	Note               string       `json:"note,omitempty"`
-	Subject            string       `json:"subject,omitempty"`
-	SubagentNames      []string     `json:"subagentNames,omitempty"`
+	Hooked        bool     `json:"hooked,omitempty"`
+	Tool          string   `json:"tool,omitempty"`
+	Note          string   `json:"note,omitempty"`
+	Subject       string   `json:"subject,omitempty"`
+	SubagentNames []string `json:"subagentNames,omitempty"`
+	// SubagentDirs is where each subagent in flight works, in the same
+	// order: the file it touched most outside its own directory, or that
+	// directory. Item 89.
+	SubagentDirs       []string     `json:"subagentDirs,omitempty"`
 	ContextTokens      int64        `json:"contextTokens"`
 	ContextWindow      int64        `json:"contextWindow"`
 	ContextPercent     float64      `json:"contextPercent"`
@@ -357,6 +361,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 				name = sub.AgentID
 			}
 			s.SubagentNames = append(s.SubagentNames, name)
+			s.SubagentDirs = append(s.SubagentDirs, worksIn(sub.Transcript))
 		}
 	}
 	if hasTranscript {
@@ -368,6 +373,19 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 	conversation := hasTranscript && (t.Tail.Prompts > 0 || !t.Tail.LastAssistantAt.IsZero())
 	s.State = derive(r, s.Turn, conversation, isAlive, isAttached)
 	return s
+}
+
+// worksIn is where a transcript did its work: the file it touched most
+// outside its own directory, or that directory. Ties go to the path that
+// sorts first, so the answer does not move between reads.
+func worksIn(t claude.Transcript) string {
+	best, most := t.CWD, 0
+	for path, n := range t.Touches {
+		if n > most || (n == most && path < best) {
+			best, most = path, n
+		}
+	}
+	return best
 }
 
 func parkedSession(t claude.Transcript) Session {
