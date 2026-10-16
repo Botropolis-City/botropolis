@@ -77,13 +77,19 @@ type Session struct {
 	GroupLikely bool           `json:"groupLikely,omitempty"`
 	Agent       string         `json:"agent,omitempty"`
 	Messages    map[string]int `json:"messages,omitempty"`
-	Touches     map[string]int `json:"touches,omitempty"`
+	// Messaged are the sessions those messages reached, by id (item 90).
+	Messaged []string       `json:"messaged,omitempty"`
+	Touches  map[string]int `json:"touches,omitempty"`
 	// Visits is each directory outside the session's own where one of
 	// its subagents worked, by how many subagents worked there. Item 85.
-	Visits   map[string]int `json:"visits,omitempty"`
-	MCPCalls map[string]int `json:"mcpCalls,omitempty"`
-	Skills   map[string]int `json:"skills,omitempty"`
-	PRs      []claude.PR    `json:"prs,omitempty"`
+	Visits map[string]int `json:"visits,omitempty"`
+	// VisitSpans is when its subagents worked in each of those
+	// directories, which grouping reads to tell a session they were
+	// coordinating from one that came later (item 90).
+	VisitSpans map[string]Span `json:"visitSpans,omitempty"`
+	MCPCalls   map[string]int  `json:"mcpCalls,omitempty"`
+	Skills     map[string]int  `json:"skills,omitempty"`
+	PRs        []claude.PR     `json:"prs,omitempty"`
 	// OrderLines are the lines its group's order is read from, held in
 	// memory and never written (item 90).
 	OrderLines []claude.OrderLine `json:"orderLines,omitempty"`
@@ -389,6 +395,12 @@ func parkedSession(t claude.Transcript) Session {
 // it worked in when that is not the session's own, and every file it
 // touched outside the session's project. The session's maps may be the
 // transcript's own, so they are copied rather than written. Item 85.
+// Span is a stretch of time, From to To.
+type Span struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
+
 func visit(s *Session, sub claude.Transcript) {
 	inside := func(path string) bool { return path == s.CWD || strings.HasPrefix(path, s.CWD+"/") }
 	if sub.CWD != "" && !inside(sub.CWD) {
@@ -397,6 +409,19 @@ func visit(s *Session, sub claude.Transcript) {
 			visits[k] += v
 		}
 		s.Visits = visits
+		spans := map[string]Span{}
+		for k, v := range s.VisitSpans {
+			spans[k] = v
+		}
+		span, seen := spans[sub.CWD]
+		if !seen || sub.FirstAt.Before(span.From) {
+			span.From = sub.FirstAt
+		}
+		if sub.LastAt.After(span.To) {
+			span.To = sub.LastAt
+		}
+		spans[sub.CWD] = span
+		s.VisitSpans = spans
 	}
 	for path, n := range sub.Touches {
 		if inside(path) {

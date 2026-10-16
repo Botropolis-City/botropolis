@@ -21,6 +21,8 @@ type DiveRow struct {
 	// Session is the site's lead: its most urgent session, the newest
 	// on a tie.
 	Session string
+	// Waits is what the site waits on, or what unblocked it.
+	Waits []string
 }
 
 // Side is a side of the window.
@@ -48,7 +50,9 @@ func (s *Scene) Dive() []DiveRow {
 	now := s.Clock()
 	rows := make([]DiveRow, 0, len(line.Stations))
 	for _, st := range line.Stations {
-		rows = append(rows, diveRow(line.Group, st, now))
+		row := diveRow(line.Group, st, now)
+		row.Waits = st.Waits
+		rows = append(rows, row)
 	}
 	return rows
 }
@@ -73,10 +77,7 @@ func diveRow(g *state.Group, st Station, now time.Time) DiveRow {
 	var lead *Building
 	var last, prSeen time.Time
 	pr := ""
-	for _, b := range st.District.Buildings {
-		if b.Group != g {
-			continue
-		}
+	for _, b := range st.buildings(g) {
 		rank, leadRank := moveRank(b.Session), 0
 		if lead != nil {
 			leadRank = moveRank(lead.Session)
@@ -147,7 +148,7 @@ func (s *Scene) StepDive(by int) bool {
 	st := line.Stations[i]
 	row := diveRow(line.Group, st, s.Clock())
 	s.selected = nil
-	for _, b := range st.District.Buildings {
+	for _, b := range st.buildings(line.Group) {
 		if b.Session.ID == row.Session {
 			s.selected = b
 		}

@@ -1,6 +1,8 @@
 package render
 
 import (
+	"strings"
+
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -16,6 +18,12 @@ import (
 // window.
 func diveWidth(th ui.Theme, width float64) float64 {
 	return min(th.Grid()*56, width/3)
+}
+
+// reserveDive tells the scene the room the dive's list will take, so a
+// focus frames the group beside it even before a frame has been drawn.
+func (g *Game) reserveDive() {
+	g.scene.SetDiveRoom(g.scene.DiveSide(), diveWidth(g.theme, g.scene.Size().X)+g.theme.Grid()*2)
 }
 
 // layoutDive reserves the dive's room on the scene, on the side away
@@ -85,8 +93,8 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 		g.text(screen, city.Point{X: x, Y: y}, site, ui.Body, th.Palette.Text)
 		g.text(screen, city.Point{X: x + inner - mw, Y: y}, move, ui.Small, th.Color(ui.MoveTone(row.Move)))
 		g.text(screen, city.Point{X: x, Y: y + body}, g.clip(row.Sentence, inner, ui.Small), ui.Small, th.Palette.Dim)
-		if row.PR != "" {
-			g.text(screen, city.Point{X: x, Y: y + body + small}, g.clip(row.PR, inner, ui.Small), ui.Small, th.Palette.Dim)
+		if third := strings.TrimSpace(strings.Join(append(append([]string{}, row.Waits...), row.PR), "   ")); third != "" {
+			g.text(screen, city.Point{X: x, Y: y + body + small}, g.clip(third, inner, ui.Small), ui.Small, th.Palette.Dim)
 		}
 		y += rowHeight
 	}

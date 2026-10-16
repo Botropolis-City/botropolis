@@ -26,14 +26,22 @@ type Member struct {
 	Pasted  []string
 	Parent  string
 	Team    string
-	// Messaged are the sessions this one sent messages to.
+	// Messaged are the sessions this one sent messages to, and Visited
+	// the directories outside its own where its subagents worked.
 	Messaged []string
+	Visited  []Visit
 	Files    []string
 	// StartedFrom is the group the session was started from, if any,
 	// and Job the background job it was started as, by which memory
 	// records where New session started it.
 	StartedFrom string
 	Job         string
+}
+
+// Visit is a directory a session's subagents worked in, and when.
+type Visit struct {
+	Dir      string
+	From, To time.Time
 }
 
 type Tier int
@@ -47,6 +55,9 @@ const (
 type Signal string
 
 const (
+	// SignalCoordinates is a session whose subagents worked in another's
+	// directory while both ran: the strongest signal (item 90).
+	SignalCoordinates Signal = "coordinates"
 	SignalStartedFrom Signal = "started-from"
 	SignalContinuing  Signal = "continuing"
 	SignalReference   Signal = "reference"

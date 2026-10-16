@@ -1027,6 +1027,7 @@ func TestConnections(t *testing.T) {
 
 	t.Run("when a session's subagent works in another project", func(t *testing.T) {
 		sub := claude.Subagent{Transcript: claude.Transcript{CWD: auroq + "/botropolis",
+			FirstAt: time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC), LastAt: time.Date(2026, 10, 16, 9, 30, 0, 0, time.UTC),
 			Touches: map[string]int{mullet + "/third.go": 2, cinders + "/own.go": 1}}}
 		sessions := build(t,
 			[]claude.SessionRecord{record(sidA, claude.KindBackground, claude.StatusIdle)},
@@ -1042,6 +1043,10 @@ func TestConnections(t *testing.T) {
 
 		t.Run("it should connect the parent's project to where the subagent worked", func(t *testing.T) {
 			assert.Equal(t, 1, to[other.CWD].Visits)
+		})
+
+		t.Run("it should keep when the subagent worked there (item 90)", func(t *testing.T) {
+			assert.Equal(t, state.Span{From: sub.FirstAt, To: sub.LastAt}, parent.VisitSpans[other.CWD])
 		})
 
 		t.Run("and its subagent touches a file in a third project", func(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -27,6 +28,14 @@ var (
 // lineFaded is how much of a line is left while another group has the
 // focus.
 const lineFaded = 0x40
+
+// officeBox is a line's site office on screen: a square a little larger
+// than a station of the given radius, so the head of the line reads as
+// the place the work is run from (item 90).
+func officeBox(at city.Point, radius float64) city.Rect {
+	half := radius * 1.4
+	return city.RectAt(at.X-half, at.Y-half, half*2, half*2)
+}
 
 // stationTone is a station's centre: its move's tone, or the line's own
 // dark ink while it waits on another (item 90).
@@ -55,6 +64,12 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 		for i, st := range l.Stations {
 			points[i] = cam.WorldToScreen(st.At)
 		}
+		var office city.Point
+		if l.Office != nil && len(points) > 0 {
+			office = cam.WorldToScreen(l.Office.At)
+			vector.StrokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width+2), casing, true)
+			vector.StrokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width), ink, true)
+		}
 		for i := 1; i < len(points); i++ {
 			a, b := points[i-1], points[i]
 			if l.Stations[i].Dashed {
@@ -76,6 +91,18 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 			vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius*0.6), tone, true)
 			g.noteHit(city.RectAt(p.X-radius, p.Y-radius, radius*2, radius*2),
 				city.Hit{Station: &city.StationHit{Line: l, Index: i}})
+		}
+		if l.Office != nil && len(points) > 0 {
+			box := officeBox(office, radius)
+			move, _ := state.GroupMove([]state.Session{l.Office.Building.Session})
+			tone := g.theme.Color(ui.MoveTone(move))
+			if focus != "" && l.Group.ID != focus {
+				tone.A = lineFaded
+			}
+			vector.FillRect(screen, float32(box.Min.X-1.5), float32(box.Min.Y-1.5), float32(box.Width()+3), float32(box.Height()+3), casing, true)
+			vector.FillRect(screen, float32(box.Min.X), float32(box.Min.Y), float32(box.Width()), float32(box.Height()), ink, true)
+			inner := box.Inset(box.Width() * 0.22)
+			vector.FillRect(screen, float32(inner.Min.X), float32(inner.Min.Y), float32(inner.Width()), float32(inner.Height()), tone, true)
 		}
 		if len(points) > 0 && g.labelsVisible() && l.Group.Short != "" {
 			at := city.Point{X: points[0].X + radius + 4, Y: points[0].Y - radius*2 - g.lineHeight()}

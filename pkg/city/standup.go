@@ -29,10 +29,8 @@ func standup(l Line, now time.Time) string {
 			continue
 		}
 		var sessions []state.Session
-		for _, b := range st.District.Buildings {
-			if b.Group == l.Group {
-				sessions = append(sessions, b.Session)
-			}
+		for _, b := range st.buildings(l.Group) {
+			sessions = append(sessions, b.Session)
 		}
 		phrases = append(phrases, st.District.Name+" "+sitePhrase(sessions, now))
 	}

@@ -12,7 +12,7 @@ var defaultBranches = map[string]bool{"": true, "HEAD": true, "main": true, "mas
 
 // signalRank orders the reasons a session joined, strongest first.
 var signalRank = map[Signal]int{
-	SignalStartedFrom: 0, SignalContinuing: 1, SignalReference: 2, SignalParentage: 3,
+	SignalCoordinates: -1, SignalStartedFrom: 0, SignalContinuing: 1, SignalReference: 2, SignalParentage: 3,
 	SignalPasted: 4, SignalWording: 5, SignalBranch: 6, SignalFiles: 7, SignalTiming: 8,
 }
 
@@ -96,6 +96,10 @@ func (d *detection) edges() []edge {
 func (d *detection) pair(i, j int) (edge, bool) {
 	a, b := d.members[i], d.members[j]
 	e := edge{a: i, b: j}
+	if coordinates(a, b) || coordinates(b, a) {
+		e.tier, e.reason = Sure, Reason{Signal: SignalCoordinates}
+		return e, true
+	}
 	if shared := intersect(d.refs[i], d.refs[j]); len(shared) > 0 {
 		e.tier, e.reason = Sure, Reason{Signal: SignalReference, Detail: shared[0]}
 		return e, true
@@ -147,6 +151,25 @@ func timing(a, b Member) (Signal, time.Duration) {
 		return SignalContinuing, b.Started.Sub(a.Ended)
 	}
 	return SignalTiming, b.Started.Sub(a.Started)
+}
+
+// coordinates is whether a's subagents worked in b's directory while b
+// ran: the visit itself, not a's whole run, has to overlap b's.
+func coordinates(a, b Member) bool {
+	for _, v := range a.Visited {
+		if v.Dir != b.Dir && !strings.HasPrefix(b.Dir, v.Dir+"/") && !strings.HasPrefix(v.Dir, b.Dir+"/") {
+			continue
+		}
+		to := v.To
+		if to.Before(v.From) {
+			to = v.From
+		}
+		if b.Started.After(to) || (!b.Ended.IsZero() && b.Ended.Before(v.From)) {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func related(a, b Member) bool {

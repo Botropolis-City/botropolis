@@ -10,6 +10,26 @@ import (
 	"botropolis.city/botropolis/pkg/ui"
 )
 
+// Item 90: a line's site office is a square at its head.
+func TestSiteOfficeShape(t *testing.T) {
+	at := city.Point{X: 100, Y: 80}
+	box := officeBox(at, 6)
+
+	t.Run("when a line has a site office", func(t *testing.T) {
+		t.Run("it should be drawn as a square, not a station's circle", func(t *testing.T) {
+			assert.Equal(t, box.Width(), box.Height())
+		})
+
+		t.Run("it should stand where the office is", func(t *testing.T) {
+			assert.Equal(t, at, box.Center())
+		})
+
+		t.Run("it should be larger than a station", func(t *testing.T) {
+			assert.Greater(t, box.Width(), 2*6.0)
+		})
+	})
+}
+
 // Item 90: a station waiting on another is drawn unlit.
 func TestStationTone(t *testing.T) {
 	th := ui.NewTheme(1)

@@ -115,6 +115,17 @@ func TestDive(t *testing.T) {
 		}
 	})
 
+	t.Run("when a group is focused from the board before any frame is drawn", func(t *testing.T) {
+		g := newGame(t, 0, false)
+		pressKey(t, g, ebiten.KeyG, false)
+		pressKey(t, g, ebiten.KeyEnter, false)
+		require.Equal(t, "g1", g.scene.FocusedGroup())
+
+		t.Run("the focus should already have reserved the list's room", func(t *testing.T) {
+			assert.GreaterOrEqual(t, g.scene.Insets().Left, diveWidth(th, width))
+		})
+	})
+
 	t.Run("when no group is focused", func(t *testing.T) {
 		g := newGame(t, 0, false)
 

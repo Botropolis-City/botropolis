@@ -62,6 +62,11 @@ func TestLineOrder(t *testing.T) {
 			assert.Equal(t, "cinders", s.Dive()[0].Site)
 		})
 
+		t.Run("and the group is focused, its dive row should say what it waits on", func(t *testing.T) {
+			require.True(t, s.FocusGroup("g1"))
+			assert.Equal(t, []string{"waits on cinders until PR #41 merged"}, s.Dive()[1].Waits)
+		})
+
 		t.Run("the stand-up should follow the order", func(t *testing.T) {
 			assert.Equal(t, "cinders in review; botropolis stopped", s.Standup("g1"))
 		})

@@ -74,6 +74,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	resolveMessaged(snapshot.Sessions)
 	signature := groupSignature(snapshot.Sessions)
 	c := &l.groups
 	var storeKey fileKey
@@ -167,7 +168,13 @@ func confirmLikely(memory *group.Memory, result group.Result, history map[string
 func groupSignature(sessions []Session) string {
 	parts := make([]string, 0, len(sessions))
 	for _, s := range sessions {
-		parts = append(parts, strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, boolString(s.State == Resting)}, "\x00"))
+		visits := make([]string, 0, len(s.Visits))
+		for dir := range s.Visits {
+			visits = append(visits, dir)
+		}
+		sort.Strings(visits)
+		parts = append(parts, strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, boolString(s.State == Resting),
+			strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00"))
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, "\x01")
@@ -224,6 +231,47 @@ func enrich(m *group.Member, s Session) {
 		m.Files = append(m.Files, path)
 	}
 	sort.Strings(m.Files)
+	for dir := range s.Visits {
+		span := s.VisitSpans[dir]
+		m.Visited = append(m.Visited, group.Visit{Dir: dir, From: span.From, To: span.To})
+	}
+	sort.Slice(m.Visited, func(i, j int) bool { return m.Visited[i].Dir < m.Visited[j].Dir })
+	m.Messaged = s.Messaged
+}
+
+// resolveMessaged names the sessions each session messaged, from the
+// names it sent them to: a session's id, title or agent name. A name
+// two live sessions answer to is ambiguous and names neither (item 90).
+func resolveMessaged(sessions []Session) {
+	for i := range sessions {
+		sessions[i].Messaged = nil
+		for to := range sessions[i].Messages {
+			if id, ok := answering(sessions, to); ok && id != sessions[i].ID {
+				sessions[i].Messaged = append(sessions[i].Messaged, id)
+			}
+		}
+		sort.Strings(sessions[i].Messaged)
+	}
+}
+
+func answering(sessions []Session, name string) (string, bool) {
+	var live, any []string
+	for _, s := range sessions {
+		if s.ID != name && !strings.EqualFold(s.Title, name) && !strings.EqualFold(s.Agent, name) {
+			continue
+		}
+		any = append(any, s.ID)
+		if s.Alive {
+			live = append(live, s.ID)
+		}
+	}
+	switch {
+	case len(live) == 1:
+		return live[0], true
+	case len(live) == 0 && len(any) == 1:
+		return any[0], true
+	}
+	return "", false
 }
 
 // groupViews is each group as the map shows it, with whose move it is

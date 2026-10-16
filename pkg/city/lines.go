@@ -20,6 +20,75 @@ import (
 type Line struct {
 	Group    *state.Group
 	Stations []Station
+	// Office is the session coordinating the group, drawn as the line's
+	// site office at its head (item 90), or nil.
+	Office *Office
+}
+
+// Office is a line's site office: the coordinating session's building,
+// and where on it the office stands.
+type Office struct {
+	Building *Building
+	At       Point
+}
+
+// coordinator is the group's session whose subagents worked in, or
+// whose messages reached, the most of the group's other districts, the
+// earliest started on a tie; and the districts its subagents worked in
+// where the group has no session, which become stations of its own.
+func (c *City) coordinator(g *state.Group, bySite map[*District][]*Building) (*Building, []*District) {
+	byRoot := map[string]*District{}
+	for _, d := range c.Districts {
+		byRoot[d.Root] = d
+	}
+	districtOf := map[string]*District{}
+	for d, bs := range bySite {
+		for _, b := range bs {
+			districtOf[b.Session.ID] = d
+		}
+	}
+	var best *Building
+	var bestExtra []*District
+	bestReach := 0
+	for d, bs := range bySite {
+		for _, b := range bs {
+			reached := map[*District]bool{}
+			var extra []*District
+			for dir := range b.Session.Visits {
+				v := byRoot[ProjectRoot(dir)]
+				if v == nil || v == d {
+					continue
+				}
+				if _, in := bySite[v]; in {
+					reached[v] = true
+				} else if !contains(extra, v) {
+					extra = append(extra, v)
+				}
+			}
+			for _, id := range b.Session.Messaged {
+				if v := districtOf[id]; v != nil && v != d {
+					reached[v] = true
+				}
+			}
+			if len(reached) == 0 {
+				continue
+			}
+			if len(reached) > bestReach || (len(reached) == bestReach && b.Session.StartedAt.Before(best.Session.StartedAt)) {
+				best, bestReach, bestExtra = b, len(reached), extra
+			}
+		}
+	}
+	sort.Slice(bestExtra, func(i, j int) bool { return bestExtra[i].Root < bestExtra[j].Root })
+	return best, bestExtra
+}
+
+func contains(ds []*District, d *District) bool {
+	for _, x := range ds {
+		if x == d {
+			return true
+		}
+	}
+	return false
 }
 
 type Station struct {
@@ -37,6 +106,23 @@ type Station struct {
 	// Teammate is a pull request the group's sessions named but none of
 	// them opened, drawn grey beside the site that named it (item 90).
 	Teammate *Teammate
+	// By is the coordinating session, at a district only its subagents
+	// worked in, which speaks for the site there.
+	By *Building
+}
+
+// buildings are the sessions that speak for a station's site.
+func (st Station) buildings(g *state.Group) []*Building {
+	if st.By != nil {
+		return []*Building{st.By}
+	}
+	var out []*Building
+	for _, b := range st.District.Buildings {
+		if b.Group == g {
+			out = append(out, b)
+		}
+	}
+	return out
 }
 
 // Teammate is a pull request opened outside a group's sessions, as its
@@ -90,6 +176,10 @@ func (c *City) station(site lineSite, bySite map[*District][]*Building, through 
 	}
 	move, _ := state.GroupMove(sessions)
 	var centre Point
+	if len(bySite[d]) == 0 {
+		// A district only the coordinator's subagents worked in.
+		centre, dashed = d.Rect.Center(), false
+	}
 	for _, b := range bySite[d] {
 		c := b.Rect.Center()
 		centre.X += c.X / float64(len(bySite[d]))
@@ -124,9 +214,14 @@ func (c *City) placeLines() {
 		if len(bySite) == 0 {
 			continue
 		}
-		sites := make([]*District, 0, len(bySite))
+		office, visited := c.coordinator(g, bySite)
+		sites := make([]*District, 0, len(bySite)+len(visited))
 		for d := range bySite {
 			sites = append(sites, d)
+		}
+		for _, d := range visited {
+			sites = append(sites, d)
+			started[d] = office.Session.StartedAt
 		}
 		sort.Slice(sites, func(i, j int) bool {
 			if !started[sites[i]].Equal(started[sites[j]]) {
@@ -134,10 +229,18 @@ func (c *City) placeLines() {
 			}
 			return sites[i].Root < sites[j].Root
 		})
-		ordered, waits := orderSites(sites, bySite)
+		ordered, waits := orderSites(sites, bySite, started)
 		line := Line{Group: g}
+		if office != nil {
+			r := office.Rect
+			line.Office = &Office{Building: office, At: Point{X: r.Min.X + r.Width()*0.25, Y: r.Min.Y + r.Height()*0.25}}
+		}
 		for i, site := range ordered {
 			st := c.station(site, bySite, through)
+			if len(bySite[site.district]) == 0 && site.teammate == nil {
+				st.Move, _ = state.GroupMove([]state.Session{office.Session})
+				st.By = office
+			}
 			for _, w := range waits {
 				if w.Site != i {
 					continue
@@ -186,12 +289,12 @@ func (st Station) Name() string {
 // orderSites puts a line's sites, given in the order they were started,
 // in the order they can be read to depend on (item 90), and says which
 // waits on which, indexed by the order returned.
-func orderSites(sites []*District, bySite map[*District][]*Building) ([]lineSite, []group.Wait) {
+func orderSites(sites []*District, bySite map[*District][]*Building, started map[*District]time.Time) ([]lineSite, []group.Wait) {
 	in := make([]group.OrderSite, 0, len(sites))
 	var own []group.SitePR
 	var mentions []group.Mention
 	for i, d := range sites {
-		site := group.OrderSite{Name: d.Name}
+		site := group.OrderSite{Name: d.Name, Started: started[d]}
 		var sessions []state.Session
 		var recapAt time.Time
 		for _, b := range bySite[d] {

@@ -40,6 +40,8 @@ func (r Reason) Describe(title func(id string) string) string {
 		return "mentions " + r.Detail
 	case SignalParentage:
 		return "works with " + with
+	case SignalCoordinates:
+		return "coordinated with " + with
 	case SignalPasted:
 		return "pasted the same text as " + with
 	case SignalWording:
