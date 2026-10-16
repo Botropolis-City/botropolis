@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"botropolis.city/botropolis/pkg/proto"
@@ -29,6 +30,7 @@ import (
 	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/render"
 	"botropolis.city/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/tui"
 	"botropolis.city/botropolis/pkg/ui"
@@ -125,7 +127,30 @@ func (s *services) Events(cfg *config.Config) cli.EventsRunner {
 }
 
 func (s *services) Find(cfg *config.Config) cli.FindRunner {
-	return commands.NewFind(cfg.Socket, cfg.Home, s.source(cfg), time.Now)
+	return commands.NewFind(cfg.Socket, cfg.Home, s.source(cfg), time.Now).WithCity(single.SocketPath(), startCityWithFinder)
+}
+
+// openFinderEnv asks a city started by botropolis find to open with the
+// finder showing.
+const openFinderEnv = "BOTROPOLIS_OPEN_FINDER"
+
+// startCityWithFinder becomes the city, with the finder open: botropolis
+// find with no words, when no city is running. It replaces this process
+// rather than starting another, keeping the arguments given, so --home
+// and the rest still apply.
+func startCityWithFinder() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := append([]string(nil), os.Args...)
+	for i, a := range args {
+		if i > 0 && a == "find" {
+			args[i] = "city"
+			break
+		}
+	}
+	return syscall.Exec(exe, args, append(os.Environ(), openFinderEnv+"=1"))
 }
 
 func (s *services) Hooks(cfg *config.Config) cli.HooksRunner {
@@ -290,7 +315,31 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
+	// One city: a second one asks the first to come forward, or to open
+	// the finder, and exits. A scripted city neither claims nor defers.
+	// Item 82, slice 5.
+	openFinder := os.Getenv(openFinderEnv) != ""
+	first := single.Request{Op: single.Raise}
+	if openFinder {
+		first.Op = single.Find
+	}
+	scripted := cli.Screenshot(cmd) != "" || recordDir != "" || cli.Headless(cmd)
+	one, deferred, err := single.Claim(single.SocketPath(), first, scripted)
+	if err != nil {
+		return err
+	}
+	if deferred {
+		fmt.Fprintln(cmd.ErrOrStderr(), "the city is already open; brought it forward")
+		return nil
+	}
+	var requests <-chan single.Request
+	if one != nil {
+		defer func() { _ = one.Close() }()
+		requests = one.Requests()
+	}
 	return render.Run(cmd.Context(), render.Options{
+		Requests:   requests,
+		OpenFinder: openFinder,
 		Layout:     layout,
 		LayoutPath: layoutPath,
 		Actor:      actor,

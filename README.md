@@ -15,6 +15,7 @@ botropolis install-hooks                    # botropolis-hook into ~/.claude/set
 botropolis doctor                           # the daemon, the hooks, a terminal, the claude CLI, the display
 botropolis                                  # the city
 botropolis find -n 5 "words"                # sessions by what was said in them, daemon or not
+botropolis find                             # the finder, in the open city; bind it to a key (see --help)
 ```
 
 Then one line in your shell's startup file:

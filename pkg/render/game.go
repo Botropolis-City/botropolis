@@ -24,6 +24,7 @@ import (
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -245,7 +246,11 @@ type Game struct {
 	scriptedCmd  bool
 	// chords are the finder's, as configured; nil is the defaults for
 	// this system. Item 82.
-	chords        *config.Chords
+	chords *config.Chords
+	// requests are what other commands ask of this, the one city, and
+	// window is how it comes forward when asked. Item 82.
+	requests      <-chan single.Request
+	win           windowSeam
 	scriptedRune  rune
 	scriptedShift bool
 	dragging      bool

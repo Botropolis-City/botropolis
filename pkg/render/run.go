@@ -12,6 +12,7 @@ import (
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -75,6 +76,10 @@ type Options struct {
 	// DailyBudget is the daily spend in USD the strip and plant measure
 	// against; 0 for none.
 	DailyBudget float64
+	// Requests are what other commands ask of this, the one city, and
+	// OpenFinder opens it with the finder showing. Item 82.
+	Requests   <-chan single.Request
+	OpenFinder bool
 	// FindChords are the finder's chords; nil is this system's defaults.
 	FindChords *config.Chords
 	// Search finds sessions by what was said in them, for the finder.
@@ -122,6 +127,10 @@ func Run(ctx context.Context, opts Options) error {
 	game.home = opts.Home
 	game.search = opts.Search
 	game.chords = opts.FindChords
+	game.requests = opts.Requests
+	if opts.OpenFinder {
+		game.openFinder()
+	}
 	if opts.Screenshot != "" || opts.Record != "" {
 		// A scripted frame cannot wait for a search to come back, so it
 		// searches on the frame, as soon as it is typed.

@@ -32,6 +32,8 @@ and when the window comes back into focus the same panel shows what needed you o
 The three chords are settings, `find_key`, `find_copy_key` and `find_show_key`, written as modifiers and a key such as `alt+s`, where `mod` is ⌘ on macOS and Ctrl elsewhere;
 showing on the map stays Control+M on macOS, and a chord macOS keeps for itself, such as ⌘M, which minimizes the window, is refused when the city starts.
 `botropolis find` searches what was said in every session — your prompts, Claude's replies and recaps, the commands and paths it touched, and titles, with tool output only on `--tool-output` — from the daemon's in-memory index, or from one of its own when the daemon is down, written nowhere either way (item 82).
+There is one city: it listens on a socket of its own beside the daemon's, so a second `botropolis city` brings the first forward and exits, and `botropolis find` with no words opens the finder in it, or becomes the city with the finder open; `botropolis find --help` shows how to bind that to a key in GNOME, KDE, macOS and i3.
+Bringing the window forward goes behind a seam item 84 fills in; until then the window is restored if it was minimized and asks for attention.
 A team is a camp: its lead's building tied to its members' with dashed lines, from the rosters and the sessions' own team names, with a card and a line on each member's card.
 `daily_budget_usd` measures the strip's cost chip and the plant's card against a daily target, accent-toned from 80 % and error-toned beyond it.
 

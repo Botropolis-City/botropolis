@@ -11,6 +11,7 @@ import (
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -27,10 +28,32 @@ type Find struct {
 	// search reads only what changed since the last.
 	mu    sync.Mutex
 	index *find.Index
+
+	// citySocket is where the running city listens, and startCity starts
+	// one with the finder open. Item 82, slice 5.
+	citySocket string
+	startCity  func() error
 }
 
 func NewFind(socket, home string, source SnapshotSource, now func() time.Time) *Find {
 	return &Find{socket: socket, home: home, source: source, now: now}
+}
+
+// WithCity says where the running city listens, and how to start one
+// with the finder open when none is running.
+func (f *Find) WithCity(socket string, start func() error) *Find {
+	f.citySocket, f.startCity = socket, start
+	return f
+}
+
+// Open opens the finder in the running city, or starts the city with
+// it open.
+func (f *Find) Open() error {
+	answered, err := single.Send(f.citySocket, single.Request{Op: single.Find})
+	if err != nil || answered {
+		return err
+	}
+	return f.startCity()
 }
 
 // Search returns what a query finds, ranked.

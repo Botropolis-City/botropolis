@@ -149,6 +149,7 @@ type harness struct {
 	notify   *fakeNotify
 	tui      *fakeTUI
 	doctor   *fakeDoctor
+	find     *fakeFind
 	seen     *config.Config
 	out      bytes.Buffer
 	root     *cobra.Command
@@ -162,12 +163,13 @@ func (h *harness) Bar(cfg *config.Config) cli.BarRunner           { h.seen = cfg
 func (h *harness) Notify(cfg *config.Config) cli.NotifyRunner     { h.seen = cfg; return h.notify }
 func (h *harness) TUI(cfg *config.Config) cli.TUIRunner           { h.seen = cfg; return h.tui }
 func (h *harness) Events(cfg *config.Config) cli.EventsRunner     { h.seen = cfg; return h.events }
+func (h *harness) Find(cfg *config.Config) cli.FindRunner         { h.seen = cfg; return h.find }
 
 func newHarness(cfg *config.Config) *harness {
-	h := &harness{status: &fakeStatus{}, hooks: &fakeHooks{}, sessions: &fakeSessions{id: "0898d7e4"}, city: &fakeCity{}, bar: &fakeBar{}, notify: &fakeNotify{}, tui: &fakeTUI{}, doctor: &fakeDoctor{}, events: &fakeEvents{}}
+	h := &harness{status: &fakeStatus{}, hooks: &fakeHooks{}, sessions: &fakeSessions{id: "0898d7e4"}, city: &fakeCity{}, bar: &fakeBar{}, notify: &fakeNotify{}, tui: &fakeTUI{}, doctor: &fakeDoctor{}, events: &fakeEvents{}, find: &fakeFind{}}
 	load := func() (*config.Config, error) { return cfg, nil }
 	v := config.NewViper()
-	subs := append([]*cobra.Command{cli.NewStatusCLI(load, h), cli.NewInstallHooksCLI(load, h), cli.NewCityCLI(load, h), cli.NewBarCLI(load, h), cli.NewNotifyCLI(load, h), cli.NewTUICLI(load, h), cli.NewDoctorCLI(load, h), cli.NewEventsCLI(load, h)},
+	subs := append([]*cobra.Command{cli.NewStatusCLI(load, h), cli.NewInstallHooksCLI(load, h), cli.NewCityCLI(load, h), cli.NewBarCLI(load, h), cli.NewNotifyCLI(load, h), cli.NewTUICLI(load, h), cli.NewDoctorCLI(load, h), cli.NewEventsCLI(load, h), cli.NewFindCLI(load, h)},
 		cli.NewSessionCLIs(load, h)...)
 	h.root = cli.NewRootCLI(v, subs...)
 	h.root.SetOut(&h.out)

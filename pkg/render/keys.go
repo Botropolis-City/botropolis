@@ -109,6 +109,7 @@ func panFor(down func(ebiten.Key) bool, step float64) city.Point {
 // handleKeys answers the keyboard for one tick.
 func (g *Game) handleKeys() error {
 	just := g.just
+	g.answerRequests()
 	// Ctrl+K reaches the finder from anywhere, and goes no further: j, k
 	// and l move inside the settings and the timeline.
 	if g.paletteKey() {
