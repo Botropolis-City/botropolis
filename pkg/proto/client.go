@@ -83,6 +83,15 @@ func (c *Client) Find(q find.Query) ([]find.Hit, error) {
 	return response.Found, nil
 }
 
+// Pack packs a session up, or unpacks it.
+func (c *Client) Pack(id string, packed bool) error {
+	if err := Write(c.conn, Request{Op: OpPack, Pack: &Pack{SessionID: id, Packed: packed}}); err != nil {
+		return err
+	}
+	_, err := c.readResponse()
+	return err
+}
+
 func (c *Client) readUpdate() (Update, error) {
 	response, err := c.readResponse()
 	if err != nil {

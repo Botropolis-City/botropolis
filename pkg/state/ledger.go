@@ -23,6 +23,30 @@ type LedgerEntry struct {
 	CWD          string    `json:"cwd"`
 	StartedAt    time.Time `json:"startedAt"`
 	LastActivity time.Time `json:"lastActivity"`
+	// PackedAt is when you last packed the session up, and UnpackedAt
+	// when you last unpacked it (item 86, slice 3).
+	PackedAt   time.Time `json:"packedAt,omitempty"`
+	UnpackedAt time.Time `json:"unpackedAt,omitempty"`
+}
+
+// Packed is whether the session is packed up: packed, and not unpacked
+// since.
+func (e LedgerEntry) Packed() bool {
+	return !e.PackedAt.IsZero() && e.PackedAt.After(e.UnpackedAt)
+}
+
+// Pack packs a session up at a time.
+func (l Ledger) Pack(id string, at time.Time) {
+	e := l[id]
+	e.PackedAt = at
+	l[id] = e
+}
+
+// Unpack brings a session back at a time.
+func (l Ledger) Unpack(id string, at time.Time) {
+	e := l[id]
+	e.UnpackedAt = at
+	l[id] = e
 }
 
 // LedgerPath is where the daemon keeps the ledger.
@@ -44,8 +68,9 @@ func (l Ledger) Record(s Session) bool {
 	if s.State == Empty || s.ID == "" {
 		return false
 	}
-	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity}
-	if was, ok := l[s.ID]; ok && was.CWD == entry.CWD && was.StartedAt.Equal(entry.StartedAt) && was.LastActivity.Equal(entry.LastActivity) {
+	was, ok := l[s.ID]
+	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt}
+	if ok && was.CWD == entry.CWD && was.StartedAt.Equal(entry.StartedAt) && was.LastActivity.Equal(entry.LastActivity) {
 		return false
 	}
 	l[s.ID] = entry

@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -153,7 +154,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 
 	snapshot.Sessions = Build(src, l.probes, now)
 	if l.ledgerPath != "" {
-		sessions, err := l.keepLedger(snapshot.Sessions, claudeDir)
+		sessions, err := l.keepLedger(snapshot.Sessions, claudeDir, now)
 		if err != nil {
 			snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: l.ledgerPath, Err: err})
 		}
@@ -295,7 +296,7 @@ func stat(path string) (fileKey, error) {
 
 // keepLedger records every session shown and adds back each one the
 // ledger knows that nothing else brought: its transcript is gone.
-func (l *Loader) keepLedger(sessions []Session, claudeDir string) ([]Session, error) {
+func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time) ([]Session, error) {
 	if l.ledger == nil {
 		ledger, err := LoadLedger(l.ledgerPath)
 		if err != nil {
@@ -327,10 +328,41 @@ func (l *Loader) keepLedger(sessions []Session, claudeDir string) ([]Session, er
 			sessions = append(sessions, goneSession(id, l.ledger[id], history[id]))
 		}
 	}
+	for i := range sessions {
+		s := &sessions[i]
+		if l.packOnMerge(*s, now) {
+			changed = true
+		}
+		s.Packed = l.ledger[s.ID].Packed()
+	}
 	if changed {
 		return sessions, l.ledger.Save(l.ledgerPath)
 	}
 	return sessions, nil
+}
+
+// packOnMerge packs up a stopped session whose pull request has merged,
+// unless you unpacked it since its last activity: a merge ends the work,
+// and an unpack says it has not ended.
+func (l *Loader) packOnMerge(s Session, now time.Time) bool {
+	e := l.ledger[s.ID]
+	if s.State != Resting || e.Packed() || !merged(s.PRs) {
+		return false
+	}
+	if !e.UnpackedAt.IsZero() && !s.LastActivity.After(e.UnpackedAt) {
+		return false
+	}
+	l.ledger.Pack(s.ID, now)
+	return true
+}
+
+func merged(prs []claude.PR) bool {
+	for _, pr := range prs {
+		if pr.Merged() {
+			return true
+		}
+	}
+	return false
 }
 
 // promptHistory reads Claude Code's prompt history again only when the
@@ -349,4 +381,28 @@ func (l *Loader) promptHistory(path string) (map[string][]claude.Prompt, error) 
 	}
 	l.history, l.historyKey = history, key
 	return history, nil
+}
+
+// ErrNoLedger is a pack or unpack asked of a loader that keeps no
+// ledger, so has nowhere to write it.
+var ErrNoLedger = errors.New("this daemon keeps no ledger, so it cannot pack sessions up")
+
+// Pack packs a session up, or unpacks it, in the ledger (item 86).
+func (l *Loader) Pack(id string, packed bool, at time.Time) error {
+	if l.ledgerPath == "" {
+		return ErrNoLedger
+	}
+	if l.ledger == nil {
+		ledger, err := LoadLedger(l.ledgerPath)
+		if err != nil {
+			return err
+		}
+		l.ledger = ledger
+	}
+	if packed {
+		l.ledger.Pack(id, at)
+	} else {
+		l.ledger.Unpack(id, at)
+	}
+	return l.ledger.Save(l.ledgerPath)
 }

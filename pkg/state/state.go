@@ -89,6 +89,9 @@ type Session struct {
 	// ConversationGone is a session whose transcript Claude Code has
 	// deleted; it keeps its lot from the prompt history (item 86).
 	ConversationGone bool `json:"conversationGone,omitempty"`
+	// Packed is a session you packed up, or whose pull request merged
+	// once it had stopped: it is off the map, in the depot (item 86).
+	Packed bool `json:"packed,omitempty"`
 	// Hourly is the session's usage by unix hour over its last week,
 	// for sparklines and the plant's breakdown.
 	Hourly           map[int64]claude.Usage `json:"hourly,omitempty"`

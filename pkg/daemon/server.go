@@ -61,6 +61,16 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			if err := proto.Write(conn, response); err != nil {
 				return
 			}
+		case proto.OpPack:
+			response := proto.Response{}
+			if request.Pack == nil {
+				response.Error = "pack names no session"
+			} else if err := d.Pack(request.Pack.SessionID, request.Pack.Packed); err != nil {
+				response.Error = err.Error()
+			}
+			if err := proto.Write(conn, response); err != nil {
+				return
+			}
 		case proto.OpEvent:
 			response := proto.Response{}
 			event, err := claude.ParseHookEvent(request.Event)

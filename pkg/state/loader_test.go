@@ -263,6 +263,76 @@ func TestCatalogue(t *testing.T) {
 		})
 	})
 
+	t.Run("when the ledger has a session packed up", func(t *testing.T) {
+		home := parkedHome(t)
+		path := filepath.Join(t.TempDir(), "sessions.json")
+		packed := "aaaaaaaa-0000-0000-0000-000000000001"
+		require.NoError(t, state.Ledger{packed: {CWD: loaderCWD, PackedAt: now.Add(-time.Hour)}}.Save(path))
+		snapshot, err := state.NewLoader(home.Path, alive).WithLedger(path).Load(now)
+		require.NoError(t, err)
+
+		t.Run("it should mark it packed", func(t *testing.T) {
+			assert.True(t, sessionByID(t, snapshot, packed).Packed)
+		})
+
+		t.Run("it should leave the others unpacked", func(t *testing.T) {
+			assert.False(t, sessionByID(t, snapshot, sidA).Packed)
+		})
+	})
+
+	t.Run("when a session's pull request has merged", func(t *testing.T) {
+		merged := "eeeeeeee-0000-0000-0000-000000000005"
+		withMerge := func(t *testing.T, live bool) *helpers.Home {
+			t.Helper()
+			home := liveHome(t)
+			if live {
+				home.Session(5151, merged, loaderCWD, "interactive", "busy")
+			}
+			home.Transcript(merged, loaderCWD,
+				helpers.UserPrompt(merged, loaderCWD, "2026-09-16T10:00:00.000Z"),
+				`{"type":"pr-link","sessionId":"`+merged+`","prNumber":7,"prUrl":"https://example.com/pull/7","prRepository":"o/r","timestamp":"2026-09-16T10:01:00.000Z"}`,
+				`{"type":"user","sessionId":"`+merged+`","timestamp":"2026-09-16T10:02:00.000Z","pr":{"number":7,"url":"https://example.com/pull/7","action":"merged"},"message":{"role":"user","content":"merged"}}`)
+			return home
+		}
+
+		t.Run("and the session has stopped", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sessions.json")
+			snapshot, err := state.NewLoader(withMerge(t, false).Path, alive).WithLedger(path).Load(now)
+			require.NoError(t, err)
+			ledger, err := state.LoadLedger(path)
+			require.NoError(t, err)
+
+			t.Run("it should pack it up", func(t *testing.T) {
+				assert.True(t, sessionByID(t, snapshot, merged).Packed)
+			})
+
+			t.Run("it should record the pack-up in the ledger", func(t *testing.T) {
+				assert.True(t, ledger[merged].Packed())
+			})
+		})
+
+		t.Run("and the session is still live", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sessions.json")
+			snapshot, err := state.NewLoader(withMerge(t, true).Path, alive).WithLedger(path).Load(now)
+			require.NoError(t, err)
+
+			t.Run("it should not pack it up yet", func(t *testing.T) {
+				assert.False(t, sessionByID(t, snapshot, merged).Packed)
+			})
+		})
+
+		t.Run("and it was unpacked after the merge", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sessions.json")
+			require.NoError(t, state.Ledger{merged: {CWD: loaderCWD, PackedAt: now.Add(-2 * time.Hour), UnpackedAt: now.Add(-time.Hour)}}.Save(path))
+			snapshot, err := state.NewLoader(withMerge(t, false).Path, alive).WithLedger(path).Load(now)
+			require.NoError(t, err)
+
+			t.Run("it should not pack it up again", func(t *testing.T) {
+				assert.False(t, sessionByID(t, snapshot, merged).Packed)
+			})
+		})
+	})
+
 	t.Run("when a transcript with no live record is a bridge stub", func(t *testing.T) {
 		home := liveHome(t)
 		home.Transcript("bbbbbbbb-0000-0000-0000-000000000002", loaderCWD,

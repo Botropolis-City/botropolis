@@ -15,6 +15,33 @@ import (
 
 type Option func(*state.Loader)
 
+// WithLedger keeps the ledger of sessions shown at path, and with it what
+// is packed up (item 86).
+func WithLedger(path string) Option {
+	return func(l *state.Loader) { l.WithLedger(path) }
+}
+
+// Packer is a loader that can pack a session up or unpack it.
+type Packer interface {
+	Pack(id string, packed bool, at time.Time) error
+}
+
+// Pack packs a session up, or unpacks it, and rescans so every client
+// sees it at once.
+func (d *Daemon) Pack(id string, packed bool) error {
+	p, ok := d.loader.(Packer)
+	if !ok {
+		return state.ErrNoLedger
+	}
+	d.scanMu.Lock()
+	err := p.Pack(id, packed, d.clock())
+	d.scanMu.Unlock()
+	if err != nil {
+		return err
+	}
+	return d.Rescan()
+}
+
 type overlay struct {
 	at      time.Time
 	state   state.State

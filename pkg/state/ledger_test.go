@@ -68,6 +68,51 @@ func TestLedger(t *testing.T) {
 		})
 	})
 
+	t.Run("when a session is packed up", func(t *testing.T) {
+		ledger := state.Ledger{}
+		ledger.Record(seen)
+		ledger.Pack(seen.ID, at.Add(time.Hour))
+
+		t.Run("it should be packed", func(t *testing.T) {
+			assert.True(t, ledger[seen.ID].Packed())
+		})
+
+		t.Run("it should record when", func(t *testing.T) {
+			assert.Equal(t, at.Add(time.Hour), ledger[seen.ID].PackedAt)
+		})
+
+		t.Run("and it is seen again", func(t *testing.T) {
+			ledger.Record(seen)
+
+			t.Run("it should stay packed", func(t *testing.T) {
+				assert.True(t, ledger[seen.ID].Packed())
+			})
+		})
+
+		t.Run("and it is unpacked", func(t *testing.T) {
+			ledger.Unpack(seen.ID, at.Add(2*time.Hour))
+
+			t.Run("it should not be packed", func(t *testing.T) {
+				assert.False(t, ledger[seen.ID].Packed())
+			})
+
+			t.Run("it should record the unpack", func(t *testing.T) {
+				assert.Equal(t, at.Add(2*time.Hour), ledger[seen.ID].UnpackedAt)
+			})
+
+			t.Run("and it is saved and loaded", func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "sessions.json")
+				require.NoError(t, ledger.Save(path))
+				loaded, err := state.LoadLedger(path)
+				require.NoError(t, err)
+
+				t.Run("it should keep both times", func(t *testing.T) {
+					assert.Equal(t, ledger[seen.ID], loaded[seen.ID])
+				})
+			})
+		})
+	})
+
 	t.Run("when the file is missing", func(t *testing.T) {
 		loaded, err := state.LoadLedger(filepath.Join(t.TempDir(), "none.json"))
 

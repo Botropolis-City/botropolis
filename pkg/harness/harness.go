@@ -78,3 +78,22 @@ func NewClaude(loader *state.Loader) Claude {
 func (Claude) Name() string {
 	return "claude"
 }
+
+// Packer is a harness that can pack a session up or unpack it (item 86).
+type Packer interface {
+	Pack(id string, packed bool, at time.Time) error
+}
+
+// Pack asks every harness that can pack to record it; the Claude
+// loader's ledger holds it for every session.
+func (m *Multi) Pack(id string, packed bool, at time.Time) error {
+	err := state.ErrNoLedger
+	for _, h := range m.harnesses {
+		if p, ok := h.(Packer); ok {
+			if err = p.Pack(id, packed, at); err == nil {
+				return nil
+			}
+		}
+	}
+	return err
+}

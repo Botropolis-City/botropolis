@@ -24,6 +24,8 @@ const (
 	// OpFind asks the daemon's index for the sessions a query finds.
 	// Item 82.
 	OpFind = "find"
+	// OpPack packs a session up, or unpacks it (item 86).
+	OpPack = "pack"
 
 	socketDir  = "botropolis"
 	socketName = "botropolis.sock"
@@ -37,6 +39,15 @@ type Request struct {
 	Since time.Time `json:"since,omitzero"`
 	// Find is a find request's query.
 	Find *find.Query `json:"find,omitempty"`
+	// Pack is a pack request's session and whether to pack it or unpack.
+	Pack *Pack `json:"pack,omitempty"`
+}
+
+// Pack is a request to pack a session up, or with Packed false to unpack
+// it.
+type Pack struct {
+	SessionID string `json:"sessionId"`
+	Packed    bool   `json:"packed"`
 }
 
 type Response struct {
