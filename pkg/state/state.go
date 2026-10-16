@@ -159,8 +159,11 @@ type Sources struct {
 	Subagents   map[string][]claude.Subagent
 	Roster      map[string]claude.Worker
 	Stopped     []claude.Transcript
-	MCP         claude.MCPConfig
-	Teams       []claude.Team
+	// StoppedSubagents are stopped sessions' subagents, by session, for
+	// where they worked (item 90).
+	StoppedSubagents map[string][]claude.Subagent
+	MCP              claude.MCPConfig
+	Teams            []claude.Team
 }
 
 // Doing is the tool the session is in and what it is working on, with
@@ -255,7 +258,11 @@ func Build(src Sources, probes Probes, now time.Time) []Session {
 		if isOwnRun(t.CWD) || isOwnProject(t.Project) {
 			continue
 		}
-		sessions = append(sessions, parkedSession(t))
+		s := parkedSession(t)
+		for _, sub := range src.StoppedSubagents[t.SessionID] {
+			visit(&s, sub.Transcript)
+		}
+		sessions = append(sessions, s)
 	}
 	dropSoloTeams(sessions)
 	sort.SliceStable(sessions, func(i, j int) bool {

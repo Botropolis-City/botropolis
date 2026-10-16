@@ -35,17 +35,20 @@ type Loader struct {
 	transcripts map[string]cachedTranscript
 	subagents   map[string]cachedSubagent
 	parked      map[string]cachedTranscript
-	mcp         claude.MCPConfig
-	mcpKey      fileKey
-	stats       *claude.Stats
-	statsKey    fileKey
-	dirs        []string
-	reads       int
-	groups      groupCache
-	ledgerPath  string
-	ledger      Ledger
-	historyKey  fileKey
-	history     map[string][]claude.Prompt
+	// parkedSubagents are stopped sessions' subagents, each read once
+	// and again only when its file changes (item 90).
+	parkedSubagents map[string]cachedSubagent
+	mcp             claude.MCPConfig
+	mcpKey          fileKey
+	stats           *claude.Stats
+	statsKey        fileKey
+	dirs            []string
+	reads           int
+	groups          groupCache
+	ledgerPath      string
+	ledger          Ledger
+	historyKey      fileKey
+	history         map[string][]claude.Prompt
 }
 
 func NewLoader(home string, probes Probes) *Loader {
@@ -55,6 +58,8 @@ func NewLoader(home string, probes Probes) *Loader {
 		transcripts: map[string]cachedTranscript{},
 		subagents:   map[string]cachedSubagent{},
 		parked:      map[string]cachedTranscript{},
+
+		parkedSubagents: map[string]cachedSubagent{},
 	}
 }
 
@@ -145,12 +150,12 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	// Every stopped session Claude Code still has a transcript for is
 	// catalogued, however old: time ages a session, it never takes one
 	// off the map (item 86).
-	stopped, skipped, err := l.catalogue(projectsDir, live)
+	stopped, stoppedSubs, skipped, err := l.catalogue(projectsDir, live)
 	if err != nil {
 		return snapshot, err
 	}
 	snapshot.Skipped = append(snapshot.Skipped, skipped...)
-	src.Stopped = stopped
+	src.Stopped, src.StoppedSubagents = stopped, stoppedSubs
 
 	snapshot.Sessions = Build(src, l.probes, now)
 	if l.ledgerPath != "" {
@@ -209,14 +214,16 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 	return l.stats, nil
 }
 
-func (l *Loader) catalogue(projectsDir string, live map[string]bool) ([]claude.Transcript, []claude.SkippedFile, error) {
+func (l *Loader) catalogue(projectsDir string, live map[string]bool) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
 	paths, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var parked []claude.Transcript
 	var skipped []claude.SkippedFile
 	cache := map[string]cachedTranscript{}
+	subCache := map[string]cachedSubagent{}
+	stoppedSubs := map[string][]claude.Subagent{}
 	for _, path := range paths {
 		id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		if live[id] {
@@ -248,9 +255,45 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool) ([]claude.T
 		// one only ever saw the parked half, and a probe that was still
 		// running came through Records instead. Bug 54.
 		parked = append(parked, entry.transcript)
+		subs, subSkipped := l.stoppedSubagents(path, subCache)
+		skipped = append(skipped, subSkipped...)
+		if len(subs) > 0 {
+			stoppedSubs[entry.transcript.SessionID] = subs
+		}
 	}
-	l.parked = cache
-	return parked, skipped, nil
+	l.parked, l.parkedSubagents = cache, subCache
+	return parked, stoppedSubs, skipped, nil
+}
+
+// stoppedSubagents are a stopped session's subagents, from the cache
+// unless a file changed, kept into next for the following load.
+func (l *Loader) stoppedSubagents(path string, next map[string]cachedSubagent) ([]claude.Subagent, []claude.SkippedFile) {
+	paths, err := claude.SubagentPaths(path)
+	if err != nil {
+		return nil, []claude.SkippedFile{{Path: path, Err: err}}
+	}
+	var subs []claude.Subagent
+	var skipped []claude.SkippedFile
+	for _, subPath := range paths {
+		key, err := stat(subPath)
+		if err != nil {
+			skipped = append(skipped, claude.SkippedFile{Path: subPath, Err: err})
+			continue
+		}
+		entry, ok := l.parkedSubagents[subPath]
+		if !ok || entry.key != key {
+			l.reads++
+			subagent, subSkipped, err := claude.ReadSubagent(subPath)
+			if err != nil {
+				skipped = append(skipped, claude.SkippedFile{Path: subPath, Err: err})
+				continue
+			}
+			entry = cachedSubagent{key: key, subagent: subagent, skipped: subSkipped}
+		}
+		next[subPath] = entry
+		subs = append(subs, entry.subagent)
+	}
+	return subs, skipped
 }
 
 func (l *Loader) transcript(path string) (cachedTranscript, error) {

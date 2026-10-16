@@ -15,9 +15,9 @@ import (
 func TestSiteOffice(t *testing.T) {
 	// grouped is a group of f in botropolis and l in lanterns, with a
 	// loose session d in cinders; visits are where f's subagents worked.
-	grouped := func(t *testing.T, visits map[string]int) *city.Scene {
+	grouped := func(t *testing.T, foreman state.State, visits map[string]int) *city.Scene {
 		t.Helper()
-		f := session("f", botropolis, state.Working)
+		f := session("f", botropolis, foreman)
 		f.Group, f.StartedAt, f.Visits = "g1", now.Add(-3*time.Hour), visits
 		l := session("l", lanterns, state.Working)
 		l.Group, l.StartedAt = "g1", now.Add(-2*time.Hour)
@@ -37,32 +37,41 @@ func TestSiteOffice(t *testing.T) {
 		}
 		return nil
 	}
+	reaching := map[string]int{lanterns: 2, cinders: 1}
 
-	t.Run("when a group has a session whose subagents worked in its other districts", func(t *testing.T) {
-		s := grouped(t, map[string]int{lanterns: 2, cinders: 1})
-		line := s.City().Lines[0]
+	for _, foreman := range []struct {
+		name  string
+		state state.State
+	}{
+		{"is working", state.Working},
+		{"has stopped", state.Resting},
+	} {
+		t.Run("when a group's session whose subagents worked in its other districts "+foreman.name, func(t *testing.T) {
+			s := grouped(t, foreman.state, reaching)
+			line := s.City().Lines[0]
 
-		t.Run("the line should have a site office at its head", func(t *testing.T) {
-			require.NotNil(t, line.Office)
-			assert.Equal(t, "f", line.Office.Building.Session.ID)
+			t.Run("the line should keep its site office at its head", func(t *testing.T) {
+				require.NotNil(t, line.Office)
+				assert.Equal(t, "f", line.Office.Building.Session.ID)
+			})
+
+			t.Run("the site office should stand on the coordinator's building", func(t *testing.T) {
+				require.NotNil(t, line.Office)
+				assert.True(t, building(s, "f").Rect.Contains(line.Office.At))
+			})
+
+			t.Run("the districts only it reached should stay stations", func(t *testing.T) {
+				var names []string
+				for _, st := range line.Stations {
+					names = append(names, st.Name())
+				}
+				assert.Contains(t, names, "cinders")
+			})
 		})
-
-		t.Run("the site office should stand on the coordinator's building", func(t *testing.T) {
-			require.NotNil(t, line.Office)
-			assert.True(t, building(s, "f").Rect.Contains(line.Office.At))
-		})
-
-		t.Run("a visited district with no session in the group should be a station", func(t *testing.T) {
-			var names []string
-			for _, st := range line.Stations {
-				names = append(names, st.Name())
-			}
-			assert.Contains(t, names, "cinders")
-		})
-	})
+	}
 
 	t.Run("when a district only the coordinator's subagents worked in is a station", func(t *testing.T) {
-		s := grouped(t, map[string]int{lanterns: 2, cinders: 1})
+		s := grouped(t, state.Working, reaching)
 		require.True(t, s.FocusGroup("g1"))
 		var row city.DiveRow
 		for _, r := range s.Dive() {
@@ -81,7 +90,7 @@ func TestSiteOffice(t *testing.T) {
 	})
 
 	t.Run("when the only district its subagents visited is outside the group", func(t *testing.T) {
-		line := grouped(t, map[string]int{cinders: 1}).City().Lines[0]
+		line := grouped(t, state.Working, map[string]int{cinders: 1}).City().Lines[0]
 
 		t.Run("the line should have no site office", func(t *testing.T) {
 			assert.Nil(t, line.Office)
@@ -89,7 +98,7 @@ func TestSiteOffice(t *testing.T) {
 	})
 
 	t.Run("when no session coordinates", func(t *testing.T) {
-		line := grouped(t, nil).City().Lines[0]
+		line := grouped(t, state.Working, nil).City().Lines[0]
 
 		t.Run("the line should have no site office", func(t *testing.T) {
 			assert.Nil(t, line.Office)
