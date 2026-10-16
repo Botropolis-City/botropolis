@@ -193,7 +193,7 @@ type turnContext struct {
 // its first line, which carries the session's id, however long it is.
 const Window = 64 << 10
 
-func readRollout(path string) (session, error) {
+func readRollout(path string) (s session, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return session{}, err
@@ -203,10 +203,10 @@ func readRollout(path string) (session, error) {
 	if err != nil {
 		return session{}, err
 	}
-	var s session
 	if info.Size() <= 2*Window {
 		return s, s.scan(f)
 	}
+	defer func() { s.Usage.MessagesPartial = true }()
 	r := bufio.NewReader(f)
 	first, err := r.ReadBytes('\n')
 	if err != nil && err != io.EOF {

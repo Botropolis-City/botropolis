@@ -22,6 +22,10 @@ type Usage struct {
 	CacheCreate int64 `json:"cacheCreate"`
 	Thinking    int64 `json:"thinking"`
 	Messages    int   `json:"messages"`
+	// MessagesPartial is a count taken from a head and a tail window
+	// rather than the whole session, so Messages is not its total
+	// (item 86), the way costKnown marks a cost (item 6).
+	MessagesPartial bool `json:"messagesPartial,omitempty"`
 }
 
 func (u Usage) Add(other Usage) Usage {
@@ -32,6 +36,8 @@ func (u Usage) Add(other Usage) Usage {
 		CacheCreate: u.CacheCreate + other.CacheCreate,
 		Thinking:    u.Thinking + other.Thinking,
 		Messages:    u.Messages + other.Messages,
+
+		MessagesPartial: u.MessagesPartial || other.MessagesPartial,
 	}
 }
 
