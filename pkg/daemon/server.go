@@ -49,6 +49,18 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			if err := proto.Write(conn, proto.Response{Events: d.Events(request.Since)}); err != nil {
 				return
 			}
+		case proto.OpFind:
+			response := proto.Response{}
+			if request.Find == nil {
+				response.Error = "find carries no query"
+			} else if found, err := d.Find(*request.Find); err != nil {
+				response.Error = err.Error()
+			} else {
+				response.Found = found
+			}
+			if err := proto.Write(conn, response); err != nil {
+				return
+			}
 		case proto.OpEvent:
 			response := proto.Response{}
 			event, err := claude.ParseHookEvent(request.Event)

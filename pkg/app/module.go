@@ -45,6 +45,7 @@ type cliParams struct {
 	TUI      *cobra.Command   `name:"tui"`
 	Doctor   *cobra.Command   `name:"doctor"`
 	Events   *cobra.Command   `name:"events"`
+	Find     *cobra.Command   `name:"find"`
 	Version  *cobra.Command   `name:"version"`
 	Shell    *cobra.Command   `name:"shellInit"`
 }
@@ -54,7 +55,7 @@ var Module = fx.Module("botropolis",
 		config.NewViper,
 		newLoader,
 		appd.NewProbes,
-		fx.Annotate(newServices, fx.As(new(cli.Services)), fx.As(new(cli.CityServices)), fx.As(new(cli.BarServices)), fx.As(new(cli.NotifyServices)), fx.As(new(cli.TUIServices)), fx.As(new(cli.DoctorServices)), fx.As(new(cli.EventsServices))),
+		fx.Annotate(newServices, fx.As(new(cli.Services)), fx.As(new(cli.CityServices)), fx.As(new(cli.BarServices)), fx.As(new(cli.NotifyServices)), fx.As(new(cli.TUIServices)), fx.As(new(cli.DoctorServices)), fx.As(new(cli.EventsServices)), fx.As(new(cli.FindServices))),
 		fx.Annotate(cli.NewStatusCLI, fx.ResultTags(`name:"status"`)),
 		fx.Annotate(cli.NewInstallHooksCLI, fx.ResultTags(`name:"installHooks"`)),
 		fx.Annotate(cli.NewSessionCLIs, fx.ResultTags(`name:"sessions"`)),
@@ -64,10 +65,11 @@ var Module = fx.Module("botropolis",
 		fx.Annotate(cli.NewTUICLI, fx.ResultTags(`name:"tui"`)),
 		fx.Annotate(cli.NewDoctorCLI, fx.ResultTags(`name:"doctor"`)),
 		fx.Annotate(cli.NewEventsCLI, fx.ResultTags(`name:"events"`)),
+		fx.Annotate(cli.NewFindCLI, fx.ResultTags(`name:"find"`)),
 		fx.Annotate(cli.NewVersionCLI, fx.ResultTags(`name:"version"`)),
 		fx.Annotate(cli.NewShellInitCLI, fx.ResultTags(`name:"shellInit"`)),
 		func(p cliParams) *cobra.Command {
-			subs := append([]*cobra.Command{p.Status, p.Hooks, p.City, p.Bar, p.Notify, p.TUI, p.Doctor, p.Events, p.Version, p.Shell}, p.Sessions...)
+			subs := append([]*cobra.Command{p.Status, p.Hooks, p.City, p.Bar, p.Notify, p.TUI, p.Doctor, p.Events, p.Find, p.Version, p.Shell}, p.Sessions...)
 			return cli.NewRootCLI(p.Viper, subs...)
 		},
 	),
@@ -119,6 +121,10 @@ func (s *services) Status(cfg *config.Config) cli.StatusRunner {
 
 func (s *services) Events(cfg *config.Config) cli.EventsRunner {
 	return commands.NewEvents(cfg.Socket)
+}
+
+func (s *services) Find(cfg *config.Config) cli.FindRunner {
+	return commands.NewFind(cfg.Socket, cfg.Home, s.source(cfg), time.Now)
 }
 
 func (s *services) Hooks(cfg *config.Config) cli.HooksRunner {

@@ -60,6 +60,17 @@ not json
 		})
 	})
 
+	t.Run("when a line begins with NUL bytes", func(t *testing.T) {
+		path := write(t, "\x00\x00\x00{\"display\":\"lost\",\"timestamp\":1,\"project\":\"/w\",\"sessionId\":\"lost\"}garbage\n"+
+			`{"display":"kept","timestamp":2,"project":"/w","sessionId":"kept"}`+"\n")
+		history, err := claude.ReadPromptHistory(path)
+		require.NoError(t, err)
+
+		t.Run("it should skip it and keep reading", func(t *testing.T) {
+			assert.Equal(t, []int{1, 0}, []int{len(history["kept"]), len(history["lost"])})
+		})
+	})
+
 	t.Run("when the file does not exist", func(t *testing.T) {
 		history, err := claude.ReadPromptHistory(filepath.Join(t.TempDir(), "missing.jsonl"))
 

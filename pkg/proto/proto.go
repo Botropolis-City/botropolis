@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -20,6 +21,9 @@ const (
 	// OpEvents asks for the daemon's event log after Since (all of it
 	// when Since is zero), newest first.
 	OpEvents = "events"
+	// OpFind asks the daemon's index for the sessions a query finds.
+	// Item 82.
+	OpFind = "find"
 
 	socketDir  = "botropolis"
 	socketName = "botropolis.sock"
@@ -31,11 +35,14 @@ type Request struct {
 	// Since is the moment an events or subscribe request wants the log
 	// from: a subscriber gets the backlog with its first snapshot.
 	Since time.Time `json:"since,omitzero"`
+	// Find is a find request's query.
+	Find *find.Query `json:"find,omitempty"`
 }
 
 type Response struct {
 	Snapshot *state.Snapshot `json:"snapshot,omitempty"`
 	Events   []events.Event  `json:"events,omitempty"`
+	Found    []find.Hit      `json:"found,omitempty"`
 	Error    string          `json:"error,omitempty"`
 }
 

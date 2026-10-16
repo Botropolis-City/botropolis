@@ -14,6 +14,7 @@ systemctl --user enable --now botropolisd   # the daemon: inotify on ~/.claude p
 botropolis install-hooks                    # botropolis-hook into ~/.claude/settings.json (backup kept)
 botropolis doctor                           # the daemon, the hooks, a terminal, the claude CLI, the display
 botropolis                                  # the city
+botropolis find -n 5 "words"                # sessions by what was said in them, daemon or not
 ```
 
 Then one line in your shell's startup file:

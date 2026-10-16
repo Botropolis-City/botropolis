@@ -1,12 +1,14 @@
 package daemon
 
 import (
+	"errors"
 	"runtime/debug"
 	"sync"
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/state"
 )
@@ -31,7 +33,10 @@ type Snapshotter interface {
 }
 
 type Daemon struct {
-	loader    Snapshotter
+	loader Snapshotter
+	// index is what was said in every session, for the find op; nil when
+	// the daemon was made without a home. Item 82.
+	index     *find.Index
 	clock     func() time.Time
 	scanMu    sync.Mutex
 	watching  chan struct{}
@@ -64,7 +69,25 @@ func New(home string, probes state.Probes, clock func() time.Time, options ...Op
 	for _, option := range options {
 		option(loader)
 	}
-	return NewWith(loader, clock)
+	d := NewWith(loader, clock)
+	d.index = find.New(home)
+	return d
+}
+
+// Find refreshes the index from Claude Code's files and returns what a
+// query finds, ranking the sessions that are running by their state.
+func (d *Daemon) Find(q find.Query) ([]find.Hit, error) {
+	if d.index == nil {
+		return nil, errors.New("this daemon keeps no index")
+	}
+	if err := d.index.Refresh(); err != nil {
+		return nil, err
+	}
+	q.Live = map[string]state.State{}
+	for _, s := range d.Snapshot().Sessions {
+		q.Live[s.ID] = s.State
+	}
+	return d.index.Find(q), nil
 }
 
 func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {

@@ -28,6 +28,7 @@ which opens on the plant or `x`.
 and when the window comes back into focus the same panel shows what needed you or went wrong meanwhile.
 `/` or `Ctrl+K` (`⌘K` on macOS) opens the finder, a panel over the city on the overlay stack (item 82), and typing filters by title, project, branch, state or model while the map dims what does not match;
 `Enter` keeps the filter and `Esc` clears it.
+`botropolis find` searches what was said in every session — your prompts, Claude's replies and recaps, the commands and paths it touched, and titles, with tool output only on `--tool-output` — from the daemon's in-memory index, or from one of its own when the daemon is down, written nowhere either way (item 82).
 A team is a camp: its lead's building tied to its members' with dashed lines, from the rosters and the sessions' own team names, with a card and a line on each member's card.
 `daily_budget_usd` measures the strip's cost chip and the plant's card against a daily target, accent-toned from 80 % and error-toned beyond it.
 

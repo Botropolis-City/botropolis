@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -68,6 +69,18 @@ func (c *Client) Events(since time.Time) ([]events.Event, error) {
 		return nil, err
 	}
 	return response.Events, nil
+}
+
+// Find asks the daemon's index for the sessions a query finds.
+func (c *Client) Find(q find.Query) ([]find.Hit, error) {
+	if err := Write(c.conn, Request{Op: OpFind, Find: &q}); err != nil {
+		return nil, err
+	}
+	response, err := c.readResponse()
+	if err != nil {
+		return nil, err
+	}
+	return response.Found, nil
 }
 
 func (c *Client) readUpdate() (Update, error) {

@@ -48,6 +48,13 @@ func (s *sequenceSource) Snapshot(bool) (state.Snapshot, error) {
 // session, on a socket in a short temp dir.
 func servedDaemon(t *testing.T) (*daemon.Daemon, string) {
 	t.Helper()
+	d, sock, _ := servedDaemonHome(t)
+	return d, sock
+}
+
+// servedDaemonHome is servedDaemon with the home it reads.
+func servedDaemonHome(t *testing.T) (*daemon.Daemon, string, string) {
+	t.Helper()
 	home := helpers.NewHome(t).Session(4242, sid, cwd, "interactive", "idle")
 	home.Transcript(sid, cwd,
 		helpers.UserPrompt(sid, cwd, daemonT0.Format(time.RFC3339Nano)),
@@ -73,7 +80,7 @@ func servedDaemon(t *testing.T) (*daemon.Daemon, string) {
 		_ = listener.Close()
 		<-done
 	})
-	return d, sock
+	return d, sock, home.Path
 }
 
 func TestFeed(t *testing.T) {
