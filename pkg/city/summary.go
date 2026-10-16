@@ -45,6 +45,9 @@ func (s Summary) Live() int {
 func (c *City) Summary() Summary {
 	var s Summary
 	for _, b := range c.Buildings() {
+		if b.Packed {
+			continue
+		}
 		switch b.Session.State {
 		case state.Working:
 			s.Working++

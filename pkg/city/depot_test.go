@@ -66,6 +66,12 @@ func TestDepot(t *testing.T) {
 			assert.NotNil(t, in(depotOf(t, c), "b"))
 		})
 
+		t.Run("it should stand no tree on the depot", func(t *testing.T) {
+			for _, tree := range c.Trees {
+				assert.False(t, depotOf(t, c).Rect.Contains(tree.At), "a tree at %v", tree.At)
+			}
+		})
+
 		t.Run("it should stand the depot at the city's edge, beyond every district", func(t *testing.T) {
 			assert.Greater(t, depotOf(t, c).Rect.Min.Y, home.Rect.Max.Y)
 		})

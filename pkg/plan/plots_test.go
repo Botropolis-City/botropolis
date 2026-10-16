@@ -81,6 +81,20 @@ func TestPlazaPlotsAreLeftClear(t *testing.T) {
 	})
 }
 
+// Item 86: the depot is ground spoken for, as the yard before it was.
+func TestNothingIsPlantedOnTheDepot(t *testing.T) {
+	p := plan.Make(plan.Input{Districts: live(4), Towers: 2, DepotRows: 2}, plan.NewMemory())
+	require.Positive(t, p.Depot.Rows)
+
+	t.Run("when the plan has a depot", func(t *testing.T) {
+		t.Run("it should plant nothing on it", func(t *testing.T) {
+			for _, tree := range p.Trees {
+				require.False(t, p.Depot.Contains(tree.Cell), "%v planted on the depot", tree.Cell)
+			}
+		})
+	})
+}
+
 // The class, not the instance: nothing may be planted on ground a
 // building will stand on, wherever that ground is. The plaza was where
 // it showed, but a district block is the same promise — the plan says a

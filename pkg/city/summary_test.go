@@ -8,6 +8,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSummaryPacked(t *testing.T) {
+	t.Run("when sessions are packed up into the depot", func(t *testing.T) {
+		crate := session("c", cinders, state.Resting)
+		crate.Packed = true
+		s := city.Build(snapshot(session("a", cinders, state.Resting), crate), city.NewLayout()).Summary()
+
+		t.Run("it should not count them as resting on the map (item 86)", func(t *testing.T) {
+			assert.Equal(t, 1, s.Resting)
+		})
+	})
+}
+
 func TestSummary(t *testing.T) {
 	t.Run("when the city has sessions in every state", func(t *testing.T) {
 		snap := richSnapshot()
