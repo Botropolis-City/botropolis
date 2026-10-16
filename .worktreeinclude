@@ -1,0 +1,2 @@
+# Git-ignored files copied into each session worktree Claude Code creates
+.claude/settings.local.json
