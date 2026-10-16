@@ -84,7 +84,9 @@ type Config struct {
 	FindShowKey string
 	// NewSessionKey is the chord that opens New session (item 87).
 	NewSessionKey string
-	File          string
+	// ExplainKey is held for explain mode (item 88).
+	ExplainKey string
+	File       string
 	// GroupLines draws each group as a line across its districts (item 87).
 	GroupLines bool
 }
@@ -110,6 +112,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyFindCopy, DefaultFindCopy)
 	v.SetDefault(KeyFindShow, DefaultFindShow)
 	v.SetDefault(KeyNewSession, DefaultNewSession)
+	v.SetDefault(KeyExplain, DefaultExplain)
 	v.SetDefault(KeyGroupLines, true)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
@@ -142,10 +145,12 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyFindCopy, DefaultFindCopy, "the finder's chord that copies how to resume a session")
 	flags.String(KeyFindShow, DefaultFindShow, "the finder's chord that shows a session on the map")
 	flags.String(KeyNewSession, DefaultNewSession, "the chord that opens New session, which starts a session in any directory")
+	flags.String(KeyExplain, DefaultExplain, "the key held to caption everything on the map")
 	_ = v.BindPFlag(KeyFind, flags.Lookup(KeyFind))
 	_ = v.BindPFlag(KeyFindCopy, flags.Lookup(KeyFindCopy))
 	_ = v.BindPFlag(KeyFindShow, flags.Lookup(KeyFindShow))
 	_ = v.BindPFlag(KeyNewSession, flags.Lookup(KeyNewSession))
+	_ = v.BindPFlag(KeyExplain, flags.Lookup(KeyExplain))
 	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
 }
 
@@ -176,6 +181,7 @@ func New(v *viper.Viper) (*Config, error) {
 		FindCopyKey:   v.GetString(KeyFindCopy),
 		FindShowKey:   v.GetString(KeyFindShow),
 		NewSessionKey: v.GetString(KeyNewSession),
+		ExplainKey:    v.GetString(KeyExplain),
 		GroupLines:    v.GetBool(KeyGroupLines),
 		File:          v.ConfigFileUsed(),
 	}

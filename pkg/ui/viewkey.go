@@ -36,10 +36,11 @@ type ViewKeyRow struct {
 
 // ViewKey is the panel placed for one window.
 type ViewKey struct {
-	Rect  city.Rect
-	Title Text
-	Size  Size
-	Rows  []ViewKeyRow
+	Rect     city.Rect
+	Title    Text
+	Subtitle Text
+	Size     Size
+	Rows     []ViewKeyRow
 	// Note names the two things that share the river, because they look
 	// alike enough to need telling apart and the key is where the map
 	// explains its own vocabulary. Item 49.
@@ -65,6 +66,7 @@ func LayoutViewKey(th Theme, width, height float64, current city.Lens, measure M
 	_, lineH := measure("", Small)
 	title := "Lenses"
 	_, titleH := measure(title, Title)
+	titleH = subtitled(titleH, measure)
 	chipH := lineH + grid
 
 	var chipW, nameW, questionW float64
@@ -88,6 +90,7 @@ func LayoutViewKey(th Theme, width, height float64, current city.Lens, measure M
 	h := pad + titleH + grid + rowStep*float64(len(city.Lenses)) - grid/2 + grid + noteH + pad
 	k := ViewKey{Rect: city.RectAt((width-w)/2, (height-h)/2, w, h), Size: Small}
 	k.Title = Text{Text: title, At: k.Rect.Min.Add(city.Point{X: pad, Y: pad}), Size: Title}
+	k.Subtitle = subtitleUnder(k.Title, PanelLenses, measure)
 
 	y := k.Rect.Min.Y + pad + titleH + grid
 	for i, l := range city.Lenses {

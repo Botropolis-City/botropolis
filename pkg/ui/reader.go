@@ -88,16 +88,17 @@ const readerCopyLabel = "copy"
 // bottom, and the keys. Shown is how many turns it shows whole, counted
 // back from the newest, which is how far PgUp goes.
 type ReaderPanel struct {
-	Rect   city.Rect
-	Fill   color.NRGBA
-	Radius float64
-	Pad    float64
-	Title  Text
-	Lead   []ReaderLine
-	Lines  []ReaderLine
-	Start  Text
-	Keys   Text
-	Shown  int
+	Rect     city.Rect
+	Fill     color.NRGBA
+	Radius   float64
+	Pad      float64
+	Title    Text
+	Subtitle Text
+	Lead     []ReaderLine
+	Lines    []ReaderLine
+	Start    Text
+	Keys     Text
+	Shown    int
 	// Copies are the kept prompts' copy buttons, when the transcript is gone.
 	Copies []ReaderCopy
 }
@@ -126,12 +127,14 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 	}
 	pal := th.Palette
 	_, titleH := measure("", Title)
+	titleH = subtitled(titleH, measure)
 	_, bodyH := measure("", Body)
 	_, smallH := measure("", Small)
 	inner := w - 2*pad
 	x := p.Rect.Min.X + pad
 	y := p.Rect.Min.Y + pad
 	p.Title = Text{Text: clipTo(in.Title, inner, Title, measure), At: city.Point{X: x, Y: y}, Size: Title}
+	p.Subtitle = subtitleUnder(p.Title, PanelReader, measure)
 	y += titleH + grid
 
 	add := func(lines *[]ReaderLine, text string, size Size, kind LineKind, c color.NRGBA) {

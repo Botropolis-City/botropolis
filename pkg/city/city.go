@@ -223,6 +223,8 @@ type Card struct {
 	// Details is the full table; Open is whether it is folded out.
 	Details []string
 	Open    bool
+	// Hint is what the button under the pointer does (item 88).
+	Hint    string
 	Lines   []string
 	Actions []string
 	// Para, when set, is prose wrapped under the lines.

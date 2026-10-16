@@ -126,12 +126,14 @@ type Scene struct {
 	// whether the lens's panel was brought back in full (item 88).
 	roadFor      string
 	lensExpanded bool
-	generated    map[string]Generated
-	width        float64
-	height       float64
-	touched      bool
-	armed        string
-	armedAt      time.Time
+	// sightings are the first-time captions up, by when each began.
+	sightings map[Kind]time.Time
+	generated map[string]Generated
+	width     float64
+	height    float64
+	touched   bool
+	armed     string
+	armedAt   time.Time
 	// zoomTarget is where the wheel is taking the zoom; Animate eases the
 	// camera there about zoomAnchor, or Instant snaps it.
 	zoomTarget float64
@@ -1048,54 +1050,66 @@ func (s *Scene) Demolish(now time.Time) (Action, string) {
 	return Action{}, "press d again within 3s to demolish " + s.selected.Card(now).Title
 }
 
-func (s *Scene) Card() (Card, bool) {
+func (s *Scene) Card() (Card, bool) { return s.CardFor(s.hover) }
+
+// CardFor is the card for what a hit is on, starting with what kind of
+// thing it is (item 88).
+func (s *Scene) CardFor(h Hit) (Card, bool) {
+	card, ok := s.cardFor(h)
+	if ok && card.Kind == "" {
+		card.Kind = KindOf(h).Caption()
+	}
+	return card, ok
+}
+
+func (s *Scene) cardFor(h Hit) (Card, bool) {
 	switch {
 	// The movers first: a drone circles a roof and a flag stands on one,
 	// so the building's hit rect covers both. Pointing at the drone has
 	// to answer about the drone.
-	case s.hover.Station != nil:
-		return StationCard(*s.hover.Station.Line, s.hover.Station.Index), true
-	case s.hover.Gauge != nil:
-		return GaugeCard(s.hover.Gauge.Gauge, s.hover.Gauge.Age), true
-	case s.hover.Car != nil:
-		return CarCard(s.hover.Car.Road, s.hover.Car.From, s.hover.Car.To), true
-	case s.hover.Flag != nil:
-		return FlagCard(s.hover.Flag.PR), true
-	case s.hover.Subagent != nil:
-		return SubagentCard(s.hover.Subagent), true
-	case s.hover.Worker != nil:
-		return WorkerCard(s.hover.Worker), true
-	case s.hover.Smoke != nil:
-		return SmokeCard(s.hover.Smoke), true
-	case s.hover.Landmark == LandmarkPlant:
+	case h.Station != nil:
+		return StationCard(*h.Station.Line, h.Station.Index), true
+	case h.Gauge != nil:
+		return GaugeCard(h.Gauge.Gauge, h.Gauge.Age), true
+	case h.Car != nil:
+		return CarCard(h.Car.Road, h.Car.From, h.Car.To), true
+	case h.Flag != nil:
+		return FlagCard(h.Flag.PR), true
+	case h.Subagent != nil:
+		return SubagentCard(h.Subagent), true
+	case h.Worker != nil:
+		return WorkerCard(h.Worker), true
+	case h.Smoke != nil:
+		return SmokeCard(h.Smoke), true
+	case h.Landmark == LandmarkPlant:
 		return s.city.Plant.Card(), true
-	case s.hover.Landmark == LandmarkTower && s.hover.Tower != nil:
-		return s.hover.Tower.Card(), true
-	case s.hover.Landmark == LandmarkLibrary:
+	case h.Landmark == LandmarkTower && h.Tower != nil:
+		return h.Tower.Card(), true
+	case h.Landmark == LandmarkLibrary:
 		return s.city.Library.Card(), true
-	case s.hover.Landmark == LandmarkHall:
+	case h.Landmark == LandmarkHall:
 		return s.city.Hall.Card(s.city.Time), true
-	case s.hover.Building != nil:
-		return s.buildingCard(s.hover.Building), true
-	case s.hover.District != nil:
-		return s.hover.District.Card(), true
-	case s.hover.Road != nil:
-		return s.hover.Road.Card(), true
-	case s.hover.Beam != nil:
-		return s.hover.Beam.Card(), true
-	case s.hover.Line != nil:
-		return s.hover.Line.Card(), true
-	case s.hover.Train != nil:
-		return s.hover.Train.Card(), true
-	case s.hover.Voyage != nil:
-		return s.hover.Voyage.Card(), true
-	case s.hover.Courier != nil:
-		return s.hover.Courier.Card(), true
-	case s.hover.Landmark == LandmarkWater:
+	case h.Building != nil:
+		return s.buildingCard(h.Building), true
+	case h.District != nil:
+		return h.District.Card(), true
+	case h.Road != nil:
+		return h.Road.Card(), true
+	case h.Beam != nil:
+		return h.Beam.Card(), true
+	case h.Line != nil:
+		return h.Line.Card(), true
+	case h.Train != nil:
+		return h.Train.Card(), true
+	case h.Voyage != nil:
+		return h.Voyage.Card(), true
+	case h.Courier != nil:
+		return h.Courier.Card(), true
+	case h.Landmark == LandmarkWater:
 		return Card{Title: "river", Lines: []string{"runs through the island to the sea"}}, true
-	case s.hover.Landmark == LandmarkFountain:
+	case h.Landmark == LandmarkFountain:
 		return fountainCard(), true
-	case s.hover.Landmark == LandmarkPlaza:
+	case h.Landmark == LandmarkPlaza:
 		return plazaCard(), true
 	}
 	return Card{}, false

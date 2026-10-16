@@ -54,8 +54,13 @@ type Shown struct {
 	// Lit is the buildings the filter leaves undimmed, by id, sorted,
 	// when there is a filter; nil when there is none.
 	Lit []string
-	// Lens and View name the lens the map is in and its view (item 88).
+	// Lens and View name the lens the map is in and its view, and
+	// Captions the kinds explain mode or a first sighting captioned
+	// (item 88).
 	Lens, View string
+	Captions   []string
+	// Explaining is whether explain mode's key is held.
+	Explaining bool
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -313,13 +318,17 @@ func (g *Game) injectInput() {
 // noteShown records what this frame drew.
 func (g *Game) noteShown() {
 	s := Shown{
-		Help: g.help, Views: g.viewKey, Settings: g.settingsOpen, Breakdown: g.breakdown,
+		Help: g.referenceOpen() != nil, Views: g.viewKey, Settings: g.settingsOpen, Breakdown: g.breakdown,
 		Timeline: g.timeline, Search: g.finding() || g.query != "", Sidebar: g.sidebar,
 	}
 	if g.hidden {
 		s = Shown{}
 	}
 	s.Lens, s.View = g.scene.Lens().Name(), g.scene.View().Name()
+	s.Explaining = g.explainHeld()
+	for _, c := range g.captions {
+		s.Captions = append(s.Captions, c.Kind.Name())
+	}
 	s.Settled = !g.scene.Easing()
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID

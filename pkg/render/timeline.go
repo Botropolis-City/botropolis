@@ -26,6 +26,7 @@ func (g *Game) drawTimeline(screen *ebiten.Image, width, height float64) {
 	tl := ui.LayoutTimeline(th, width, height, title, list, g.cursor, g.faces.Measure)
 	g.roundPanel(screen, tl.Rect)
 	g.run(screen, tl.Title, th.Palette.Text)
+	g.run(screen, tl.Subtitle, th.Palette.Dim)
 	for _, row := range tl.Rows {
 		if row.Selected {
 			g.roundRect(screen, row.Rect.Inset(th.Grid()/2), th.Radius()/2, th.Palette.Hairline)

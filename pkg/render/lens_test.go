@@ -3,6 +3,7 @@ package render
 import (
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -34,6 +35,23 @@ func TestLensPanelAndFinder(t *testing.T) {
 
 		t.Run("it should not draw the lens panel", func(t *testing.T) {
 			assert.False(t, g.lensPanelShown())
+		})
+	})
+
+	t.Run("when e is held with the finder open", func(t *testing.T) {
+		g := &Game{scriptedHeld: map[ebiten.Key]bool{ebiten.KeyE: true}}
+		g.overlays.push(&finder{})
+
+		t.Run("it should not explain, because e is a letter there", func(t *testing.T) {
+			assert.False(t, g.explainHeld())
+		})
+	})
+
+	t.Run("when e is held over the map", func(t *testing.T) {
+		g := &Game{scriptedHeld: map[ebiten.Key]bool{ebiten.KeyE: true}}
+
+		t.Run("it should explain", func(t *testing.T) {
+			assert.True(t, g.explainHeld())
 		})
 	})
 

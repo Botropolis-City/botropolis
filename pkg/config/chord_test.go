@@ -13,7 +13,7 @@ import (
 // known stands in for the city's key names.
 func known(name string) bool {
 	switch strings.ToLower(name) {
-	case "k", "m", "y", "h", "q", "w", "s", "n", "f3":
+	case "k", "m", "y", "h", "q", "w", "s", "n", "f3", "e":
 		return true
 	}
 	return false
@@ -75,8 +75,8 @@ func TestParseChord(t *testing.T) {
 			chords, err := config.FindChords(config.Config{}, tc.goos, known)
 			require.NoError(t, err)
 
-			t.Run("it should open the finder on mod+k, copy on mod+y, show on ctrl+m, and open New session on shift+n", func(t *testing.T) {
-				assert.Equal(t, config.Chords{Open: tc.open, Copy: tc.copy, Show: tc.show, New: tc.new}, chords)
+			t.Run("it should open the finder on mod+k, copy on mod+y, show on ctrl+m, open New session on shift+n, and explain while e is held", func(t *testing.T) {
+				assert.Equal(t, config.Chords{Open: tc.open, Copy: tc.copy, Show: tc.show, New: tc.new, Explain: config.Chord{Key: "e"}}, chords)
 			})
 		})
 	}

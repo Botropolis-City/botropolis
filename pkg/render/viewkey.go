@@ -28,6 +28,7 @@ func (g *Game) drawViewKey(screen *ebiten.Image, width, height float64) {
 	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
 	g.roundPanel(screen, k.Rect)
 	g.run(screen, k.Title, th.Palette.Text)
+	g.run(screen, k.Subtitle, th.Palette.Dim)
 	for _, r := range k.Rows {
 		if r.Current {
 			// The view you are in is marked rather than merely listed:

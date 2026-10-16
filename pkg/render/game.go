@@ -124,7 +124,6 @@ type Game struct {
 	frames *frameWriter
 	// snap is a frame the p key asked for, saved on the next draw.
 	snap string
-	help bool
 	// viewKey is the overlay listing the six lenses; see ui.LayoutViewKey.
 	// viewKeyRows is the layout as last drawn, so a click lands on the
 	// rows the reader can actually see.
@@ -136,7 +135,6 @@ type Game struct {
 	// second copy of it, which is what "one code path, not two" means.
 	footerBar     ui.Footer
 	settingsPanel ui.SettingsPanel
-	helpPanel     ui.Help
 	searchPlate   city.Rect
 	// usage is Claude Code's own cached view of the account's limits,
 	// re-read off disk because reading a file is free. u makes Claude
@@ -221,6 +219,10 @@ type Game struct {
 	// footprints, so a tall building or tower is hovered by its body.
 	hits      []spriteHit
 	frameHits []spriteHit
+	// captions are explain mode's, or a first sighting's, as last drawn;
+	// scriptedHeld is the keys a script holds down (item 88).
+	captions     []ui.Caption
+	scriptedHeld map[ebiten.Key]bool
 	// quit is the two-press guard on Escape.
 	quit confirm
 	// overlays is the stack of panels over the city; the top one takes
@@ -409,7 +411,7 @@ func (g *Game) Update() error {
 	// along from attach. Move either to the other event and a click
 	// becomes able to stop a session.
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press {
-		if !g.clickOverlay(cursor) && !g.clickHelp(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
+		if !g.clickOverlay(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
 			// A press on a district's floor or sign picks the district up;
 			// anywhere else, or with Shift or Alt held anywhere, it pans.
 			if carries(g.scene.Hover(), g.scene.Selected()) {
@@ -503,6 +505,11 @@ func keyByName(name string) (ebiten.Key, bool) {
 // scriptedKey reads one entry of --keys: a key's own name, or a typed
 // character that needs shift, such as "?" for help.
 func scriptedKey(name string) (key ebiten.Key, shift bool, ok bool) {
+	if rest, cut := strings.CutPrefix(name, "hold+"); cut {
+		name = rest
+	} else if rest, cut := strings.CutPrefix(name, "release+"); cut {
+		name = rest
+	}
 	if name == "?" {
 		return ebiten.KeySlash, true, true
 	}
@@ -514,6 +521,17 @@ func scriptedKey(name string) (key ebiten.Key, shift bool, ok bool) {
 // "ctrl+" and a key to hold Ctrl with it, or a character, which is
 // typed when the finder is open.
 func (g *Game) pressScripted(name string) {
+	for prefix, down := range map[string]bool{"hold+": true, "release+": false} {
+		if rest, ok := strings.CutPrefix(name, prefix); ok {
+			if key, _, ok := scriptedKey(rest); ok {
+				if g.scriptedHeld == nil {
+					g.scriptedHeld = map[ebiten.Key]bool{}
+				}
+				g.scriptedHeld[key] = down
+			}
+			return
+		}
+	}
 	for held := true; held; {
 		held = false
 		for prefix, mod := range map[string]*bool{"ctrl+": &g.scriptedCtrl, "alt+": &g.scriptedAlt, "cmd+": &g.scriptedCmd, "shift+": &g.scriptedShift} {
@@ -686,11 +704,9 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	}
 	g.chrome(screen, width, height)
 	g.drawOverlays(screen, width, height, true)
+	g.drawExplain(screen, width, height)
 	if g.viewKey {
 		g.drawViewKey(screen, width, height)
-	}
-	if g.help {
-		g.drawHelp(screen, width, height)
 	}
 	if g.settingsOpen {
 		g.drawSettings(screen, width, height)

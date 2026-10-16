@@ -42,6 +42,9 @@ type Layout struct {
 	// Lenses counts how often each lens has been opened, by name, so
 	// its panel shrinks to a chip once it has been seen (item 88).
 	Lenses map[string]int `json:"lenses,omitempty"`
+	// Sighted is every kind of thing the map has captioned the first
+	// time it appeared on this machine, by name (item 88).
+	Sighted map[string]bool `json:"sighted,omitempty"`
 }
 
 func NewLayout() *Layout {

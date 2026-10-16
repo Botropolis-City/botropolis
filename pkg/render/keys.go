@@ -44,7 +44,8 @@ var bindings = []ui.Key{
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
 	{Key: "/ or ctrl+k", Action: "find a session by what was said; the map dims the rest"},
-	{Key: "?", Action: "this help"},
+	{Key: "?", Action: "the reference: what everything on the map is"},
+	{Key: "hold e", Action: "caption everything on the map"},
 	{Key: "q", Action: "quit (asks; y or enter confirms)"},
 }
 
@@ -206,10 +207,6 @@ func (g *Game) handleKeys() error {
 		g.scene.Fit()
 		return nil
 	}
-	if just(ebiten.KeyEscape) && g.help {
-		g.help = false
-		return nil
-	}
 	if just(ebiten.KeyEscape) && g.viewKey {
 		g.viewKey = false
 		return nil
@@ -233,7 +230,7 @@ func (g *Game) handleKeys() error {
 		return nil
 	}
 	if (just(ebiten.KeySlash) && g.shifted()) || just(ebiten.KeyF1) {
-		g.help = !g.help
+		g.openReference()
 	}
 	// v opens the key to the views; 1 to 9 jump to one; Escape leaves for
 	// Attention before it offers to quit, which is handled above.

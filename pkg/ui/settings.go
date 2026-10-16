@@ -71,9 +71,10 @@ type SettingRow struct {
 
 // SettingsPanel is the settings laid out on a centred panel.
 type SettingsPanel struct {
-	Rect  city.Rect
-	Title Text
-	Rows  []SettingRow
+	Rect     city.Rect
+	Title    Text
+	Subtitle Text
+	Rows     []SettingRow
 }
 
 // Hit finds the setting under a screen point and reports its index, so
@@ -97,6 +98,7 @@ func LayoutSettings(th Theme, width, height float64, s Settings, measure Measure
 	pad := 3 * grid
 	_, lineH := measure("", Body)
 	_, titleH := measure(settingsTitle, Title)
+	titleH = subtitled(titleH, measure)
 	rowStep := lineH + grid + grid/2
 	var labelW, valueW float64
 	values := make([]string, len(s.Items))
@@ -116,6 +118,7 @@ func LayoutSettings(th Theme, width, height float64, s Settings, measure Measure
 	h := pad + titleH + grid + rowStep*float64(len(s.Items)) - grid/2 + pad
 	p := SettingsPanel{Rect: city.RectAt((width-w)/2, (height-h)/2, w, h)}
 	p.Title = Text{Text: settingsTitle, At: p.Rect.Min.Add(city.Point{X: pad, Y: pad}), Size: Title}
+	p.Subtitle = subtitleUnder(p.Title, PanelSettings, measure)
 	y := p.Rect.Min.Y + pad + titleH + grid
 	for i, item := range s.Items {
 		p.Rows = append(p.Rows, SettingRow{

@@ -18,6 +18,7 @@ type Card struct {
 	Sentence []Text
 	Numbers  []Text
 	Details  []Text
+	Hint     Text
 	Lines    []Text
 	Para     []Text
 	Spark    Sparkline
@@ -136,6 +137,11 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 		}
 		c.Buttons = row
 	}
+	if card.Hint != "" && len(c.Buttons) > 0 {
+		c.Hint = small(card.Hint, c.Rect.Max.Y-pad+grid/2)
+		c.Rect.Max.Y = c.Hint.At.Y + smallH + pad
+		c.Rect.Max.X = max(c.Rect.Max.X, width+2*pad)
+	}
 	if card.Open && len(card.Details) > 0 {
 		y := c.Rect.Max.Y - pad + grid
 		for _, line := range card.Details {
@@ -199,7 +205,7 @@ func (c Card) PinTo(beside city.Rect, bounds city.Rect, gap float64) Card {
 func (c Card) MoveTo(at city.Point) Card {
 	by := at.Sub(c.Rect.Min)
 	moved := Card{Rect: city.Rect{Min: at, Max: c.Rect.Max.Add(by)}, Title: c.Title.moved(by),
-		Kind: c.Kind.moved(by), Move: c.Move.moved(by), Group: c.Group.moved(by)}
+		Kind: c.Kind.moved(by), Move: c.Move.moved(by), Group: c.Group.moved(by), Hint: c.Hint.moved(by)}
 	for _, line := range c.Lines {
 		moved.Lines = append(moved.Lines, line.moved(by))
 	}

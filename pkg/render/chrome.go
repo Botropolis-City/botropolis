@@ -34,6 +34,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	}
 	x, y := ebiten.CursorPosition()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
+	hint := g.buttonHint(city.Point{X: float64(x), Y: float64(y)})
 	g.pinned = ui.Card{}
 	g.pinnedKinds = nil
 	if g.sidebar {
@@ -44,6 +45,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		g.scene.SetLeftChrome(0)
 	}
 	if card, b, ok := g.scene.SelectedCard(); ok && !g.sidebar {
+		card.Hint = hint
 		beside := g.buildingOnScreen(b)
 		pinned := ui.LayoutCard(th, card, bounds, g.faces.Measure).PinTo(beside, bounds, th.Grid())
 		g.card(screen, pinned)
@@ -119,9 +121,21 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 		g.roundRect(screen, b.Rect, th.Radius()/2, th.Palette.Hairline)
 		g.run(screen, b.Label, th.Palette.Accent)
 	}
+	g.run(screen, c.Hint, th.Palette.Dim)
 	for _, line := range c.Details {
 		g.run(screen, line, th.Palette.Dim)
 	}
+}
+
+// buttonHint is what the pinned card's button under the pointer does,
+// from the card as last drawn (item 88).
+func (g *Game) buttonHint(at city.Point) string {
+	for i, b := range g.pinned.Buttons {
+		if b.Rect.Contains(at) && i < len(g.pinnedKinds) {
+			return g.pinnedKinds[i].Describe()
+		}
+	}
+	return ""
 }
 
 // moveTone is the colour a card says whose move it is in: the state
@@ -172,19 +186,6 @@ func (g *Game) keyRow(screen *ebiten.Image, keys []ui.PlacedKey, size ui.Size) {
 		g.text(screen, k.KeyAt, k.Key.Key, size, th.Palette.Text)
 		g.text(screen, k.LabelAt, k.Action, size, th.Palette.Dim)
 	}
-}
-
-// drawHelp dims the city and lists every binding in the middle.
-func (g *Game) drawHelp(screen *ebiten.Image, width, height float64) {
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
-	h := ui.LayoutHelp(g.theme, width, height, "Keys", g.helpKeys(), g.faces.Measure)
-	// Kept so a click lands on the row that was drawn. Bug 43.
-	g.mu.Lock()
-	g.helpPanel = h
-	g.mu.Unlock()
-	g.roundPanel(screen, h.Rect)
-	g.run(screen, h.Title, g.theme.Palette.Text)
-	g.keyRow(screen, h.Rows, ui.Small)
 }
 
 // run draws one placed text run.

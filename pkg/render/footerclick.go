@@ -53,22 +53,3 @@ func press(chip string) (ebiten.Key, bool) {
 	}
 	return keyByName(chip)
 }
-
-// clickHelp presses the key on the row under the pointer. The overlay
-// closes either way, because it has done its job the moment you have
-// picked something off it.
-func (g *Game) clickHelp(cursor city.Point) bool {
-	if !g.help {
-		return false
-	}
-	g.mu.Lock()
-	panel := g.helpPanel
-	g.mu.Unlock()
-	if hit, ok := panel.Hit(cursor); ok {
-		if key, ok := press(hit.Key); ok {
-			g.clicked = key
-		}
-	}
-	g.help = false
-	return true
-}

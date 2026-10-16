@@ -23,12 +23,13 @@ type BreakdownColumn struct {
 // window's total, buttons for the three windows, the series as a
 // sparkline and three columns of shares.
 type BreakdownPanel struct {
-	Rect    city.Rect
-	Title   Text
-	Windows []Button
-	Current city.Window
-	Spark   Sparkline
-	Columns []BreakdownColumn
+	Rect     city.Rect
+	Title    Text
+	Subtitle Text
+	Windows  []Button
+	Current  city.Window
+	Spark    Sparkline
+	Columns  []BreakdownColumn
 }
 
 const (
@@ -43,6 +44,7 @@ func LayoutBreakdown(th Theme, width, height float64, b city.Breakdown, series [
 	pad := 3 * grid
 	_, bodyH := measure("", Body)
 	_, titleH := measure("", Title)
+	titleH = subtitled(titleH, measure)
 	colW := 30 * grid
 	w := pad + 3*colW + 2*grid + pad
 	title := fmt.Sprintf("Power: %s tokens, %s in %s", format.Tokens(float64(b.Tokens)), format.USD(b.CostUSD, b.CostKnown), b.Window)
@@ -55,6 +57,7 @@ func LayoutBreakdown(th Theme, width, height float64, b city.Breakdown, series [
 	p := BreakdownPanel{Rect: city.RectAt((width-w)/2, (height-h)/2, w, h), Current: b.Window}
 	x0, y := p.Rect.Min.X+pad, p.Rect.Min.Y+pad
 	p.Title = Text{Text: title, At: city.Point{X: x0, Y: y}, Size: Title}
+	p.Subtitle = subtitleUnder(p.Title, PanelPower, measure)
 	y += titleH + grid
 	p.Windows = LayoutButtons(th, []string{city.LastHour.String(), city.LastDay.String(), city.LastWeek.String()}, city.Point{X: x0, Y: y}, measure)
 	y += bodyH + grid + grid

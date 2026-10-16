@@ -75,6 +75,16 @@ func TestLayoutCardFace(t *testing.T) {
 		})
 	})
 
+	t.Run("when the pointer is on a card's button", func(t *testing.T) {
+		hinted := face
+		hinted.Hint = "Opens this session's terminal."
+		c := laid(hinted)
+
+		t.Run("it should show what the action does under the row", func(t *testing.T) {
+			assert.True(t, c.Hint.Text == hinted.Hint && c.Hint.At.Y >= c.Buttons[0].Rect.Max.Y && c.Rect.Max.Y > c.Hint.At.Y)
+		})
+	})
+
 	t.Run("when details are closed", func(t *testing.T) {
 		c := laid(face)
 

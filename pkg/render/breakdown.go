@@ -21,6 +21,7 @@ func (g *Game) drawBreakdown(screen *ebiten.Image, width, height float64) {
 	p := ui.LayoutBreakdown(th, width, height, c.Breakdown(g.window), c.Series(g.window), titles, g.faces.Measure)
 	g.roundPanel(screen, p.Rect)
 	g.run(screen, p.Title, th.Palette.Text)
+	g.run(screen, p.Subtitle, th.Palette.Dim)
 	for i, b := range p.Windows {
 		colour := th.Palette.Dim
 		if city.Window(i) == p.Current {

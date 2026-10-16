@@ -117,6 +117,7 @@ func (g *Game) drawSettings(screen *ebiten.Image, width, height float64) {
 	g.mu.Unlock()
 	g.roundPanel(screen, p.Rect)
 	g.run(screen, p.Title, th.Palette.Text)
+	g.run(screen, p.Subtitle, th.Palette.Dim)
 	for _, row := range p.Rows {
 		label, value := th.Palette.Dim, th.Palette.Dim
 		if row.Selected {

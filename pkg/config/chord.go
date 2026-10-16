@@ -12,6 +12,8 @@ const (
 	KeyFindShow = "find_show_key"
 	// KeyNewSession opens New session (item 87).
 	KeyNewSession = "new_session_key"
+	// KeyExplain is the key held for explain mode (item 88).
+	KeyExplain = "explain_key"
 
 	// DefaultFindShow is Control+M on every system: ⌘M would minimize
 	// the window on macOS, where mod is ⌘.
@@ -19,6 +21,9 @@ const (
 	DefaultFindCopy   = "mod+y"
 	DefaultFindShow   = "ctrl+m"
 	DefaultNewSession = "shift+n"
+	// DefaultExplain is e: Alt, the genre's key for it, is taken by
+	// some desktops for moving windows.
+	DefaultExplain = "e"
 )
 
 // Chord is a key with the modifiers held for it.
@@ -43,7 +48,7 @@ func (c Chord) String() string {
 
 // Chords are the finder's: the one that opens it, the one that copies
 // how to resume a session, and the one that shows it on the map.
-type Chords struct{ Open, Copy, Show, New Chord }
+type Chords struct{ Open, Copy, Show, New, Explain Chord }
 
 // macOSKeeps is what macOS does with the ⌘ chords it takes for itself
 // before an application sees them.
@@ -101,6 +106,7 @@ func FindChords(cfg Config, goos string, known func(string) bool) (Chords, error
 		{KeyFindCopy, cfg.FindCopyKey, DefaultFindCopy, &chords.Copy},
 		{KeyFindShow, cfg.FindShowKey, DefaultFindShow, &chords.Show},
 		{KeyNewSession, cfg.NewSessionKey, DefaultNewSession, &chords.New},
+		{KeyExplain, cfg.ExplainKey, DefaultExplain, &chords.Explain},
 	} {
 		value := s.value
 		if value == "" {
