@@ -1,16 +1,10 @@
 package city
 
-import (
-	"slices"
-	"strings"
-	"time"
+import "botropolis.city/botropolis/pkg/state"
 
-	"botropolis.city/botropolis/pkg/state"
-)
-
-// placeGroups hands each building its group (item 87), and its station:
-// one per project the group runs through, in the order the group's
-// first session there started.
+// placeGroups hands each building its group (item 87), draws the
+// groups' lines, and tells each building which station on its line its
+// district is.
 func (c *City) placeGroups(groups []state.Group) {
 	byID := map[string]*state.Group{}
 	c.groups = nil
@@ -18,42 +12,18 @@ func (c *City) placeGroups(groups []state.Group) {
 		byID[groups[i].ID] = &groups[i]
 		c.groups = append(c.groups, &groups[i])
 	}
-	first := map[string]map[string]time.Time{}
 	for _, b := range c.Buildings() {
 		b.Group = byID[b.Session.Group]
-		if b.Group == nil {
-			continue
-		}
-		sites := first[b.Group.ID]
-		if sites == nil {
-			sites = map[string]time.Time{}
-			first[b.Group.ID] = sites
-		}
-		root := ProjectRoot(b.Session.CWD)
-		if at, ok := sites[root]; !ok || b.Session.StartedAt.Before(at) {
-			sites[root] = b.Session.StartedAt
-		}
-	}
-	order := map[string][]string{}
-	for id, sites := range first {
-		roots := make([]string, 0, len(sites))
-		for root := range sites {
-			roots = append(roots, root)
-		}
-		slices.SortFunc(roots, func(a, b string) int {
-			if c := sites[a].Compare(sites[b]); c != 0 {
-				return c
-			}
-			return strings.Compare(a, b)
-		})
-		order[id] = roots
-	}
-	for _, b := range c.Buildings() {
-		if b.Group == nil {
-			continue
-		}
-		roots := order[b.Group.ID]
-		b.Station, b.Stations = slices.Index(roots, ProjectRoot(b.Session.CWD))+1, len(roots)
+		b.Station, b.Stations = 0, 0
 	}
 	c.placeLines()
+	for _, line := range c.Lines {
+		for i, st := range line.Stations {
+			for _, b := range st.District.Buildings {
+				if b.Group == line.Group {
+					b.Station, b.Stations = i+1, len(line.Stations)
+				}
+			}
+		}
+	}
 }
