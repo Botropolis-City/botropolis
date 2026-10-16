@@ -193,7 +193,16 @@ func (d *Drive) Press(name string) error {
 	if why, ok := undriven[name]; ok {
 		return fmt.Errorf("the harness does not press %s: it %s", name, why)
 	}
-	if _, _, ok := scriptedKey(strings.TrimPrefix(name, "ctrl+")); !ok {
+	key := name
+	for trimmed := true; trimmed; {
+		trimmed = false
+		for _, prefix := range []string{"ctrl+", "alt+", "cmd+", "shift+", "hold+", "release+"} {
+			if rest, ok := strings.CutPrefix(key, prefix); ok {
+				key, trimmed = rest, true
+			}
+		}
+	}
+	if _, _, ok := scriptedKey(key); !ok {
 		return fmt.Errorf("no key called %q", name)
 	}
 	d.queue = append(d.queue, driveInput{key: name})
@@ -212,11 +221,13 @@ func (d *Drive) Type(text string) error {
 	return nil
 }
 
-// Prompt queues a prompt, typed a character a tick. It is one step.
+// Prompt queues a prompt, typed a character a tick, and the Enter that
+// sends it. Typing a prompt and sending it is one act, so it is one step.
 func (d *Drive) Prompt(text string) error {
 	if err := d.typed(text); err != nil {
 		return err
 	}
+	d.queue = append(d.queue, driveInput{key: "Enter"})
 	d.steps++
 	return nil
 }
@@ -342,12 +353,26 @@ func (d *Drive) Shown() Shown {
 
 // Title is a session's title as the city has it, or "" for none.
 func (d *Drive) Title(id string) string {
+	return d.session(id).Title
+}
+
+// Dir is a session's working directory as the city has it.
+func (d *Drive) Dir(id string) string {
+	return d.session(id).CWD
+}
+
+// State is a session's state as the city has it, by name.
+func (d *Drive) State(id string) string {
+	return string(d.session(id).State)
+}
+
+func (d *Drive) session(id string) state.Session {
 	for _, b := range d.game.scene.City().Buildings() {
 		if b.Session.ID == id {
-			return b.Session.Title
+			return b.Session
 		}
 	}
-	return ""
+	return state.Session{}
 }
 
 // Sessions is every session in the city, by id, sorted.
