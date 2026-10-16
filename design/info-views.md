@@ -44,12 +44,12 @@ So a categorical view colours the top three kinds and folds everything else into
 "other" is the absence of a category, and giving it a colour would claim the sessions inside it had something in common.
 Thirteen MCP servers were never going to be thirteen colours; Servers is legible because colour carries the top three and the contextual highlight carries the rest.
 
-The networks — the wires from the plant, the beams from the towers, the cars on the avenues, the freight loop, the drones over a roof — each sit behind the view that asks about them.
+The networks — the wires from the plant, the beams from the towers, the cars on the roads, the freight loop, the drones over a roof — each sit behind the view that asks about them.
 Spend has the wires and the train, Servers the beams, Traffic the cars, Fan-out the drones, and Attention none of them.
 Health keeps the wires too, for what is *not* there: a session the daemon has seen no hook events from has no wire, and that missing wire says the numbers beside that building are files-only guesses.
 Which view draws which network is a property of `pkg/city`, so it is testable without a window.
 
-The carrier is tinted, not only what it runs to: a wire by the rate it is carrying, a beam by its calls, an avenue by its traffic.
+The carrier is tinted, not only what it runs to: a wire by the rate it is carrying, a beam by its calls, a road by its traffic.
 Each already held that number, so this reads what was there rather than adding anything.
 
 The movers are gated before the sorted list rather than at the draw, so a view that does not want cars does not place them either — nothing is created and nothing is depth-sorted.

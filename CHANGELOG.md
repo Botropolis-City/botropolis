@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Roads are laid only where two districts are connected.**
+  The ground between districts is grass, and a road appears on it when a session reads or edits files in another project, messages a teammate working there, or has a subagent work there.
+  Each pair of districts has one road, whichever way it was crossed, and its card shows the traffic both ways.
+  The road stays while any session that made the connection is on the map, and grows over when the last one goes.
+  Lamps and street trees stand only along roads.
+- **A car is one session working across a connection**, so the number of cars on a road is the number of sessions working across it right now, and a road that nobody is working on has no cars.
+
 ## [0.1.7] - 2026-10-15
 
 ### Added

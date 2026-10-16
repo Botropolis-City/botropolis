@@ -14,7 +14,8 @@
 | A tug on the river | a session arriving (from the north, docking beside its district before its building rises) or leaving (downriver, once it is gone from the map) | the session, its project, its container colour |
 | Radio towers at the edge | MCP servers | sessions attached, calls today |
 | Beam tower → building | a session using that server | calls this session |
-| Streets between districts (autotiled, cars for traffic) | cross-repo file touches, `SendMessage` between sessions | which files, which sessions |
+| A road between two districts (autotiled, laid only where it runs) | a connection: a session that read or edited files in the other project, messaged a teammate working there, or had a subagent work there | both directions' traffic, which files, which sessions |
+| A car on a road | one session on that connection working right now | the two projects |
 | Library | skills | top skills invoked |
 | City hall | `stats-cache.json` rollups | daily activity, model mix |
 | Flag on a building | a PR | number, state |
@@ -48,9 +49,15 @@ Phase 8 of the roadmap, 2026-09-18.
 a plaza at slot (0,0), rings of slots around it whose columns and rows are sized to the largest block in them so the avenues run straight,
 a district's slot remembered in `layout.json` while it stays live and replaced from the innermost ring when another took it,
 unused slots as park blocks, a two-cell park belt, a telecom ridge along the north, storage along the south, the river down the east edge.
-Every avenue exists whether or not a road's traffic is routed along it; a lamp stands at every crossing; a tree stands on every park cell;
+The avenue grid is in the plan as corridors, so routing and slots never depend on what is connected; a tree stands on every park cell;
 the fountain is the plaza's centre cell.
-`pkg/city` converts cells to pixels, routes each road's traffic along the avenues from kerb to kerb (a road between neighbours runs the shared avenue),
-puts the plant, hall and library on the plaza and one shed per parked session in storage, grouped by project.
+`pkg/city` converts cells to pixels, routes each connection along the corridors from kerb to kerb (a connection between neighbours runs the shared corridor),
+and lays road only on the corridor cells a route crosses, each cell joined to the road beside it.
+A corridor with no road on it is grass, so a road on the map always means a connection.
+The lamps at crossings and the trees along the avenues stand only beside laid road.
+A connection is one road per pair of districts, whichever way it was crossed, and lasts while any session that crossed it is on the map, live or parked.
+When the last one goes, its road grows over in one 1.5 s fade, a 0.3 s cross-fade under reduced motion; a connection that comes back meanwhile ends the fade and lays the road again.
+The pair's traffic counts stay on the road's card; the cars on it are one per session on the connection that is working, so a road nobody is working on keeps its tarmac and has no cars (item 85).
+`pkg/city` also puts the plant, hall and library on the plaza and one shed per parked session in storage, grouped by project.
 The lake, the hashed river and the per-cell hashed grass, dirt and trees are gone; beyond the plan's edge there is nothing,
 and the camera clamps so the plan stays under the middle of the window.
