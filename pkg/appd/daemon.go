@@ -16,6 +16,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/daemon"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/harness"
 	"botropolis.city/botropolis/pkg/harness/codex"
 	"botropolis.city/botropolis/pkg/state"
@@ -86,7 +87,9 @@ func ParkedMaxAge(cfg *config.Config) time.Duration {
 }
 
 func newDaemon(cfg *config.Config, probes state.Probes) *daemon.Daemon {
-	return daemon.NewWith(Harnesses(cfg, probes), time.Now)
+	d := daemon.NewWith(Harnesses(cfg, probes), time.Now)
+	d.SetIndex(find.New(cfg.Home))
+	return d
 }
 
 func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {

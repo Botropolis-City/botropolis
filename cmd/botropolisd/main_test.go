@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/testing/helpers"
 	"github.com/stretchr/testify/assert"
@@ -93,6 +94,16 @@ func TestRun(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, snapshot.Sessions, 1)
 			assert.Equal(t, "Fix the CI queue", snapshot.Sessions[0].Title)
+		})
+
+		t.Run("it should find a session by what was said in it", func(t *testing.T) {
+			client, err := proto.Dial(sock)
+			require.NoError(t, err)
+			defer func() { _ = client.Close() }()
+			hits, err := client.Find(find.Query{Words: "ci queue"})
+			require.NoError(t, err)
+			require.Len(t, hits, 1)
+			assert.Equal(t, sid, hits[0].SessionID)
 		})
 
 		t.Run("it should create the socket directory privately", func(t *testing.T) {

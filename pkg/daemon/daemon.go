@@ -70,24 +70,36 @@ func New(home string, probes state.Probes, clock func() time.Time, options ...Op
 		option(loader)
 	}
 	d := NewWith(loader, clock)
-	d.index = find.New(home)
+	d.SetIndex(find.New(home))
 	return d
+}
+
+// SetIndex gives the daemon the index its find op answers from. A
+// daemon built with NewWith has none until it is given one, and
+// botropolisd is built that way. Item 82.
+func (d *Daemon) SetIndex(ix *find.Index) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.index = ix
 }
 
 // Find refreshes the index from Claude Code's files and returns what a
 // query finds, ranking the sessions that are running by their state.
 func (d *Daemon) Find(q find.Query) ([]find.Hit, error) {
-	if d.index == nil {
+	d.mu.Lock()
+	ix := d.index
+	d.mu.Unlock()
+	if ix == nil {
 		return nil, errors.New("this daemon keeps no index")
 	}
-	if err := d.index.Refresh(); err != nil {
+	if err := ix.Refresh(); err != nil {
 		return nil, err
 	}
 	q.Live = map[string]state.State{}
 	for _, s := range d.Snapshot().Sessions {
 		q.Live[s.ID] = s.State
 	}
-	return d.index.Find(q), nil
+	return ix.Find(q), nil
 }
 
 func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
