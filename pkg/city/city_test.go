@@ -176,7 +176,7 @@ func TestBuild(t *testing.T) {
 		})
 
 		t.Run("its card should say nothing was typed", func(t *testing.T) {
-			assert.Contains(t, plot.Card(now).Lines, "empty    nothing typed yet; prune clears it after an hour")
+			assert.Contains(t, plot.Card(now).Details, "empty    nothing typed yet; prune clears it after an hour")
 		})
 	})
 
@@ -390,28 +390,28 @@ func TestHoverCard(t *testing.T) {
 		})
 
 		t.Run("it should show the same state as the table", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "state    needs-you")
+			assert.Contains(t, card.Details, "state    needs-you")
 		})
 
 		t.Run("it should show the same context percentage as the table, with the token count", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "context  25% of 1.0M (250k tokens)")
+			assert.Contains(t, card.Details, "context  25% of 1.0M (250k tokens)")
 		})
 
 		t.Run("it should show the same token rates as the table", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "tokens   152k/h fresh, 8.9M/h cached")
+			assert.Contains(t, card.Details, "tokens   152k/h fresh, 8.9M/h cached")
 		})
 
 		t.Run("it should show the age and how long it has been idle, the table's number", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "age      5h06m, idle 6m")
+			assert.Contains(t, card.Details, "age      5h06m, idle 6m")
 		})
 
 		t.Run("it should show the branch and model", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "branch   main")
-			assert.Contains(t, card.Lines, "model    claude-opus-5[1m]")
+			assert.Contains(t, card.Details, "branch   main")
+			assert.Contains(t, card.Details, "model    claude-opus-5[1m]")
 		})
 
 		t.Run("it should show the subagents in flight", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "subs     1 of 4 in flight")
+			assert.Contains(t, card.Details, "subs     1 of 4 in flight")
 		})
 
 		t.Run("it should carry the day's tokens per hour for a sparkline", func(t *testing.T) {
@@ -427,11 +427,11 @@ func TestHoverCard(t *testing.T) {
 		})
 
 		t.Run("it should count its sessions", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "sessions 1")
+			assert.Contains(t, card.Details, "sessions 1")
 		})
 
 		t.Run("it should count its PRs", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "prs      0")
+			assert.Contains(t, card.Details, "prs      0")
 		})
 	})
 }
@@ -449,43 +449,43 @@ func TestBuildingCardDetails(t *testing.T) {
 
 	t.Run("when the worker is mid-tool", func(t *testing.T) {
 		t.Run("it should say the tool and the file relative to the project", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "doing    Edit pkg/city/city.go")
+			assert.Contains(t, card.Details, "doing    Edit pkg/city/city.go")
 		})
 	})
 
 	t.Run("when the session was compacted", func(t *testing.T) {
 		t.Run("it should say how often and when", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "context  25% of 1.0M (250k tokens), compacted 2x, last "+now.Add(-30*time.Minute).Local().Format("15:04"))
+			assert.Contains(t, card.Details, "context  25% of 1.0M (250k tokens), compacted 2x, last "+now.Add(-30*time.Minute).Local().Format("15:04"))
 		})
 	})
 
 	t.Run("when subagents are in flight", func(t *testing.T) {
 		t.Run("it should name them", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "subs     1 of 4 in flight: Explore")
+			assert.Contains(t, card.Details, "subs     1 of 4 in flight: Explore")
 		})
 	})
 
 	t.Run("when a PR is linked", func(t *testing.T) {
 		t.Run("it should list it", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "prs      #1181 mCedar/mullet")
+			assert.Contains(t, card.Details, "prs      #1181 mCedar/mullet")
 		})
 
 		t.Run("it should say when a PR merged", func(t *testing.T) {
 			done := s
 			done.PRs = []claude.PR{{Number: 1181, Repository: "mCedar/mullet", State: claude.PRMerged}}
-			assert.Contains(t, city.Build(snapshot(done), city.NewLayout()).Buildings()[0].Card(now).Lines, "prs      #1181 mCedar/mullet (merged)")
+			assert.Contains(t, city.Build(snapshot(done), city.NewLayout()).Buildings()[0].Card(now).Details, "prs      #1181 mCedar/mullet (merged)")
 		})
 	})
 
 	t.Run("when there were API errors", func(t *testing.T) {
 		t.Run("it should count them with the last time", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "errors   1 api, last "+now.Add(-10*time.Minute).Local().Format("15:04"))
+			assert.Contains(t, card.Details, "errors   1 api, last "+now.Add(-10*time.Minute).Local().Format("15:04"))
 		})
 	})
 
 	t.Run("when a hook left a note", func(t *testing.T) {
 		t.Run("it should show it", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "note     Claude needs your permission to use Bash")
+			assert.Contains(t, card.Details, "note     Claude needs your permission to use Bash")
 		})
 	})
 }
@@ -810,7 +810,7 @@ func TestUnhookedSession(t *testing.T) {
 					card = b.Card(now)
 				}
 			}
-			assert.Contains(t, card.Lines, "telemetry files only; no hook events seen (no wire)")
+			assert.Contains(t, card.Details, "telemetry files only; no hook events seen (no wire)")
 		})
 
 		t.Run("a hooked session's card should say so", func(t *testing.T) {
@@ -820,7 +820,7 @@ func TestUnhookedSession(t *testing.T) {
 					card = b.Card(now)
 				}
 			}
-			assert.Contains(t, card.Lines, "telemetry hooks")
+			assert.Contains(t, card.Details, "telemetry hooks")
 		})
 	})
 }

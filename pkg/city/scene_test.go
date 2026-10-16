@@ -548,7 +548,7 @@ func TestSelectionActions(t *testing.T) {
 		require.NotNil(t, s.JumpTo(state.NeedsYou))
 
 		t.Run("it should offer the way in, the session, then the project", func(t *testing.T) {
-			assert.Equal(t, []city.ActionKind{city.ActionAttach, city.ActionStop, city.ActionSummary, city.ActionNew, city.ActionReveal, city.ActionCopyPath, city.ActionHide, city.ActionStar}, s.Actions())
+			assert.Equal(t, []city.ActionKind{city.ActionAttach, city.ActionStop, city.ActionGenerate, city.ActionNew, city.ActionReveal, city.ActionCopyPath, city.ActionHide, city.ActionStar, city.ActionDetails}, s.Actions())
 		})
 
 		t.Run("it should ask to stop it by id", func(t *testing.T) {
@@ -1360,6 +1360,58 @@ func TestVoyages(t *testing.T) {
 
 		t.Run("it should be named on its card", func(t *testing.T) {
 			assert.Equal(t, "leaving: Symbol meaning", v.Card().Title)
+		})
+	})
+}
+
+func TestSceneCardDetails(t *testing.T) {
+	selected := func(t *testing.T, sessions ...state.Session) *city.Scene {
+		t.Helper()
+		s := scene(t, sessions...)
+		s.Click(centreOf(t, s, sessions[0].ID))
+		require.NotNil(t, s.Selected())
+		return s
+	}
+	recapped := session("a", cinders, state.NeedsYou)
+	recapped.Recap = claude.Recap{Text: "We shipped the button.", At: now.Add(-2 * time.Hour), PromptsSince: 3}
+
+	t.Run("when a building is selected", func(t *testing.T) {
+		s := selected(t, recapped, session("b", botropolis, state.Working))
+
+		t.Run("it should offer details last", func(t *testing.T) {
+			kinds := s.Actions()
+			assert.Equal(t, city.ActionDetails, kinds[len(kinds)-1])
+		})
+
+		t.Run("and details is pressed", func(t *testing.T) {
+			s.Act(city.ActionDetails)
+			card, _, _ := s.SelectedCard()
+
+			t.Run("it should fold the table out", func(t *testing.T) {
+				assert.True(t, card.Open)
+			})
+
+			t.Run("it should offer hide details", func(t *testing.T) {
+				assert.Contains(t, s.Actions(), city.ActionDetailsHide)
+			})
+		})
+
+		t.Run("and another building is selected", func(t *testing.T) {
+			s.Act(city.ActionDetails)
+			s.Click(centreOf(t, s, "b"))
+			card, _, _ := s.SelectedCard()
+
+			t.Run("it should fold details away", func(t *testing.T) {
+				assert.False(t, card.Open)
+			})
+		})
+	})
+
+	t.Run("when no recap and nothing generating", func(t *testing.T) {
+		s := selected(t, session("a", cinders, state.NeedsYou))
+
+		t.Run("it should offer generate summary", func(t *testing.T) {
+			assert.Contains(t, s.Actions(), city.ActionGenerate)
 		})
 	})
 }

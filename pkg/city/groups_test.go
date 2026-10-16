@@ -32,7 +32,7 @@ func TestBuildingGroup(t *testing.T) {
 	}
 	groupLines := func(c city.Card) []string {
 		var lines []string
-		for _, l := range c.Lines {
+		for _, l := range c.Details {
 			if strings.HasPrefix(l, "group ") || strings.HasPrefix(l, "joined ") {
 				lines = append(lines, l)
 			}

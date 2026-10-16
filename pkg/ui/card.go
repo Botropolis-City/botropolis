@@ -10,62 +10,122 @@ import (
 // Card is a hover or selection card laid out on a panel: a title at the
 // title size and lines at the body size.
 type Card struct {
-	Rect    city.Rect
-	Title   Text
-	Lines   []Text
-	Para    []Text
-	Spark   Sparkline
-	Buttons []Button
+	Rect     city.Rect
+	Title    Text
+	Kind     Text
+	Move     Text
+	Group    Text
+	Sentence []Text
+	Numbers  []Text
+	Details  []Text
+	Lines    []Text
+	Para     []Text
+	Spark    Sparkline
+	Buttons  []Button
 }
 
 // LayoutCard sizes a card to its content and parks it in the top-right
 // corner of bounds, a margin in; lines too wide are clipped and lines
 // that would run past the bottom are dropped.
+//
+// A card with a face (item 88) reads from the top: what it is, small;
+// the title, with whose move it is at the right of its row; the group,
+// small; the sentence at body size; at most three numbers on one row;
+// the buttons; and, folded out, the details, small.
 func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Card {
-	pad, margin := 2*th.Grid(), 2*th.Grid()
+	grid := th.Grid()
+	pad, margin := 2*grid, 2*grid
 	maxWidth := bounds.Width() - 2*margin - 2*pad
-	title := clipTo(card.Title, maxWidth, Title, measure)
-	width, titleH := measure(title, Title)
 	_, lineH := measure("", Body)
-	maxLines := int((bounds.Height() - 2*margin - 2*pad - titleH) / lineH)
-	var lines []string
+	_, smallH := measure("", Small)
+	var c Card
+	width := 0.0
+	grow := func(w float64) { width = max(width, w) }
+	small := func(s string, y float64) Text {
+		s = clipTo(s, maxWidth, Small, measure)
+		w, _ := measure(s, Small)
+		grow(w)
+		return Text{Text: s, At: city.Point{X: pad, Y: y}, Size: Small}
+	}
+	y := pad
+	if card.Kind != "" {
+		c.Kind = small(card.Kind, y)
+		y += smallH
+	}
+	moveW := 0.0
+	room := maxWidth
+	if card.Move != "" {
+		moveW, _ = measure(card.Move, Small)
+		room -= moveW + 2*grid
+	}
+	title := clipTo(card.Title, room, Title, measure)
+	titleW, titleH := measure(title, Title)
+	grow(titleW)
+	if moveW > 0 {
+		grow(titleW + 2*grid + moveW)
+	}
+	c.Title = Text{Text: title, At: city.Point{X: pad, Y: y}, Size: Title}
+	y += titleH
+	if card.Group != "" {
+		c.Group = small(card.Group, y)
+		y += smallH
+	}
+	maxLines := int((bounds.Height() - 2*margin - pad - y) / lineH)
 	for _, line := range card.Lines {
-		if len(lines) >= maxLines {
+		if len(c.Lines) >= maxLines {
 			break
 		}
 		line = clipTo(line, maxWidth, Body, measure)
-		if w, _ := measure(line, Body); w > width {
-			width = w
-		}
-		lines = append(lines, line)
+		w, _ := measure(line, Body)
+		grow(w)
+		c.Lines = append(c.Lines, Text{Text: line, At: city.Point{X: pad, Y: y}, Size: Body})
+		y += lineH
 	}
-	c := Card{Rect: city.RectAt(0, 0, width+2*pad, 2*pad+titleH+lineH*float64(len(lines)))}
-	c.Title = Text{Text: title, At: city.Point{X: pad, Y: pad}, Size: Title}
-	for i, line := range lines {
-		c.Lines = append(c.Lines, Text{Text: line, At: city.Point{X: pad, Y: pad + titleH + lineH*float64(i)}, Size: Body})
+	if card.Sentence != "" {
+		y += grid
+		rows := int((bounds.Height()-2*margin-pad-y)/lineH) - 1
+		for _, line := range wrapPara(card.Sentence, min(maxWidth, ParaWidth(th)), rows, measure) {
+			w, _ := measure(line, Body)
+			grow(w)
+			c.Sentence = append(c.Sentence, Text{Text: line, At: city.Point{X: pad, Y: y}, Size: Body})
+			y += lineH
+		}
+	}
+	if len(card.Numbers) > 0 {
+		y += grid
+		x := pad
+		for i, n := range card.Numbers {
+			if i == city.FaceNumbers {
+				break
+			}
+			label := n.Label + " " + n.Value
+			w, _ := measure(label, Body)
+			c.Numbers = append(c.Numbers, Text{Text: label, At: city.Point{X: x, Y: y}, Size: Body})
+			grow(x + w - pad)
+			x += w + 3*grid
+		}
+		y += lineH
 	}
 	if card.Para != "" {
-		rows := maxLines - len(lines) - 1
-		para := wrapPara(card.Para, min(maxWidth, ParaWidth(th)), rows, measure)
-		top := pad + titleH + lineH*float64(len(lines)+1)
-		for i, line := range para {
-			if w, _ := measure(line, Body); w > width {
-				width = w
-			}
+		rows := maxLines - len(c.Lines) - 1
+		top := y + lineH
+		for i, line := range wrapPara(card.Para, min(maxWidth, ParaWidth(th)), rows, measure) {
+			w, _ := measure(line, Body)
+			grow(w)
 			c.Para = append(c.Para, Text{Text: line, At: city.Point{X: pad, Y: top + lineH*float64(i)}, Size: Body})
 		}
-		if len(para) > 0 {
-			c.Rect.Max.X = width + 2*pad
-			c.Rect.Max.Y = top + lineH*float64(len(para)) + pad
+		if len(c.Para) > 0 {
+			y = top + lineH*float64(len(c.Para))
 		}
 	}
+	c.Rect = city.RectAt(0, 0, width+2*pad, y+pad)
 	if len(card.Series) > 0 {
-		box := city.RectAt(pad, c.Rect.Max.Y-pad+th.Grid(), c.Rect.Width()-2*pad, sparkGrids*th.Grid())
+		box := city.RectAt(pad, c.Rect.Max.Y-pad+grid, c.Rect.Width()-2*pad, sparkGrids*grid)
 		c.Spark = LayoutSparkline(th, card.Series, box)
 		c.Rect.Max.Y = box.Max.Y + pad
 	}
 	if len(card.Actions) > 0 {
-		row := LayoutButtonRows(th, card.Actions, city.Point{X: pad, Y: c.Rect.Max.Y - pad + th.Grid()}, maxWidth, measure)
+		row := LayoutButtonRows(th, card.Actions, city.Point{X: pad, Y: c.Rect.Max.Y - pad + grid}, maxWidth, measure)
 		for _, b := range row {
 			if b.Rect.Max.Y+pad > c.Rect.Max.Y {
 				c.Rect.Max.Y = b.Rect.Max.Y + pad
@@ -75,6 +135,22 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 			}
 		}
 		c.Buttons = row
+	}
+	if card.Open && len(card.Details) > 0 {
+		y := c.Rect.Max.Y - pad + grid
+		for _, line := range card.Details {
+			if y+smallH+pad > bounds.Height()-2*margin {
+				break
+			}
+			d := small(line, y)
+			c.Details = append(c.Details, d)
+			y += smallH
+		}
+		c.Rect.Max.X = max(c.Rect.Max.X, width+2*pad)
+		c.Rect.Max.Y = y + pad
+	}
+	if moveW > 0 {
+		c.Move = Text{Text: card.Move, At: city.Point{X: c.Rect.Max.X - pad - moveW, Y: c.Title.At.Y}, Size: Small}
 	}
 	x := bounds.Max.X - margin - c.Rect.Width()
 	if x < bounds.Min.X+margin {
@@ -122,9 +198,19 @@ func (c Card) PinTo(beside city.Rect, bounds city.Rect, gap float64) Card {
 // MoveTo puts the card's top-left corner at a point, carrying its text.
 func (c Card) MoveTo(at city.Point) Card {
 	by := at.Sub(c.Rect.Min)
-	moved := Card{Rect: city.Rect{Min: at, Max: c.Rect.Max.Add(by)}, Title: c.Title.moved(by)}
+	moved := Card{Rect: city.Rect{Min: at, Max: c.Rect.Max.Add(by)}, Title: c.Title.moved(by),
+		Kind: c.Kind.moved(by), Move: c.Move.moved(by), Group: c.Group.moved(by)}
 	for _, line := range c.Lines {
 		moved.Lines = append(moved.Lines, line.moved(by))
+	}
+	for _, line := range c.Sentence {
+		moved.Sentence = append(moved.Sentence, line.moved(by))
+	}
+	for _, line := range c.Numbers {
+		moved.Numbers = append(moved.Numbers, line.moved(by))
+	}
+	for _, line := range c.Details {
+		moved.Details = append(moved.Details, line.moved(by))
 	}
 	for _, line := range c.Para {
 		moved.Para = append(moved.Para, line.moved(by))

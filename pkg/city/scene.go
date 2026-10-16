@@ -23,10 +23,10 @@ const (
 	ActionHide     ActionKind = "hide project"
 	ActionStar     ActionKind = "star"
 	ActionUnstar   ActionKind = "unstar"
-	// The summary toggles a paragraph open on the card; generate asks
-	// Claude Code for one, and is the only one of the three that spends.
-	ActionSummary     ActionKind = "summary"
-	ActionSummaryHide ActionKind = "hide summary"
+	// Details folds the card's full table out under its face; generate
+	// asks Claude Code for a summary, and is the only one that spends.
+	ActionDetails     ActionKind = "details"
+	ActionDetailsHide ActionKind = "hide details"
 	ActionGenerate    ActionKind = "generate summary"
 	// The finder's: a stopped session resumed in a terminal in its own
 	// directory, a new one started where a deleted conversation was, and
@@ -90,10 +90,10 @@ type Scene struct {
 	city      *City
 	hover     Hit
 	selected  *Building
-	// summaryFor is the session whose card has its summary open, so a
+	// detailsFor is the session whose card has its details open, so a
 	// new selection always starts closed; generated is what Generate
 	// brought back, by session.
-	summaryFor string
+	detailsFor string
 	generated  map[string]Generated
 	width      float64
 	height     float64
@@ -727,7 +727,10 @@ func (s *Scene) Actions() []ActionKind {
 	} else {
 		kinds = append(kinds, ActionStar)
 	}
-	return kinds
+	if s.detailsOpen() {
+		return append(kinds, ActionDetailsHide)
+	}
+	return append(kinds, ActionDetails)
 }
 
 // Act performs one of the selection's actions: the map-only ones (hide,
@@ -756,11 +759,11 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		s.selected = nil
 		s.SetSnapshot(s.snapshot)
 		return Action{}, "hid " + name + " (unhide it from the sidebar)"
-	case ActionSummary:
-		s.summaryFor = b.Session.ID
+	case ActionDetails:
+		s.detailsFor = b.Session.ID
 		return Action{}, ""
-	case ActionSummaryHide:
-		s.summaryFor = ""
+	case ActionDetailsHide:
+		s.detailsFor = ""
 		return Action{}, ""
 	case ActionGenerate:
 		return Action{Kind: ActionGenerate, SessionID: b.Session.ID}, "summarising " + b.Card(s.city.Time).Title
@@ -900,12 +903,8 @@ func (s *Scene) SelectedCard() (Card, *Building, bool) {
 	if s.selected == nil {
 		return Card{}, nil, false
 	}
-	card := s.selected.Card(s.city.Time)
-	if s.summaryOpen() {
-		lines, para := s.summary(s.selected.Session)
-		card.Lines = append(card.Lines, lines...)
-		card.Para = para
-	}
+	card := s.buildingCard(s.selected)
+	card.Open = s.detailsOpen()
 	for _, kind := range s.Actions() {
 		card.Actions = append(card.Actions, string(kind))
 	}
@@ -963,7 +962,7 @@ func (s *Scene) Card() (Card, bool) {
 	case s.hover.Landmark == LandmarkHall:
 		return s.city.Hall.Card(s.city.Time), true
 	case s.hover.Building != nil:
-		return s.hover.Building.Card(s.city.Time), true
+		return s.buildingCard(s.hover.Building), true
 	case s.hover.District != nil:
 		return s.hover.District.Card(), true
 	case s.hover.Road != nil:

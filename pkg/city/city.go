@@ -53,6 +53,9 @@ type Building struct {
 	Hue int
 	// Group is the group the session belongs to, if any (item 87).
 	Group *state.Group
+	// Station is where the building's project stands on its group's
+	// line, counting from 1, of Stations.
+	Station, Stations int
 }
 
 // ContainerHues names the container colours the storage yard has, in
@@ -202,8 +205,19 @@ func (c *City) Near(p Point, tolerance float64) Hit {
 	return hit
 }
 
+// A card's face leads with a sentence (item 88): what the thing is and
+// whose move it is, its group, the sentence, at most three numbers, the
+// actions, and Details folded away under them.
 type Card struct {
-	Title   string
+	Title    string
+	Kind     string
+	Move     string
+	Group    string
+	Sentence string
+	Numbers  []Number
+	// Details is the full table; Open is whether it is folded out.
+	Details []string
+	Open    bool
 	Lines   []string
 	Actions []string
 	// Para, when set, is prose wrapped under the lines.
@@ -211,6 +225,15 @@ type Card struct {
 	// Series, when set, is drawn as a sparkline under the lines.
 	Series []float64
 }
+
+// Number is one figure on a card's face.
+type Number struct {
+	Label string
+	Value string
+}
+
+// FaceNumbers is the most a card's face carries.
+const FaceNumbers = 3
 
 func ProjectRoot(cwd string) string {
 	if cwd == "" {
@@ -458,11 +481,12 @@ func (c *City) At(p Point) Hit {
 }
 
 func (b *Building) Card(now time.Time) Card {
+	return b.face(now, ViewAttention, "")
+}
+
+// table is the building's full table, the card's Details.
+func (b *Building) table(now time.Time) []string {
 	s := b.Session
-	title := s.Title
-	if title == "" {
-		title = state.ShortID(s.ID)
-	}
 	lines := []string{
 		"state    " + string(s.State),
 	}
@@ -520,7 +544,7 @@ func (b *Building) Card(now time.Time) Card {
 	}
 	lines = append(lines, telemetry,
 		"age      "+format.Age(now.Sub(s.StartedAt))+", idle "+format.Age(now.Sub(s.LastActivity)))
-	return Card{Title: title, Lines: lines, Series: b.Series(LastDay, now)}
+	return lines
 }
 
 // DistrictOf is the district a building stands in.
@@ -579,5 +603,5 @@ func (d *District) Card() Card {
 		}
 		lines = append(lines, "roads    "+strings.Join(parts, ", "))
 	}
-	return Card{Title: d.Name, Lines: lines, Series: d.Series(LastDay, d.at)}
+	return d.face(lines)
 }

@@ -30,6 +30,12 @@ func TestFaces(t *testing.T) {
 			w, _ := f.Measure("", ui.Body)
 			assert.Zero(t, w)
 		})
+
+		t.Run("it should set figures tabular, so numbers line up", func(t *testing.T) {
+			ones, _ := f.Measure("111", ui.Body)
+			eights, _ := f.Measure("888", ui.Body)
+			assert.Equal(t, eights, ones)
+		})
 	})
 
 	t.Run("when measuring at 2x", func(t *testing.T) {

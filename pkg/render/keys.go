@@ -23,7 +23,7 @@ var bindings = []ui.Key{
 	{Key: "+ / -", Action: "zoom"},
 	{Key: "click", Action: "select"},
 	{Key: "enter", Action: "attach the selection"},
-	{Key: "i", Action: "the selection's summary"},
+	{Key: "i", Action: "the selection's details"},
 	{Key: "tab", Action: "next needs-you"},
 	{Key: "c", Action: "new session here"},
 	{Key: "d d", Action: "demolish the selection"},
@@ -252,7 +252,7 @@ func (g *Game) handleKeys() error {
 		g.act(g.scene.Activate())
 	}
 	if just(ebiten.KeyI) {
-		if _, note := g.scene.ToggleSummary(); note != "" {
+		if _, note := g.scene.ToggleDetails(); note != "" {
 			g.SetStatus(note)
 		}
 	}

@@ -98,9 +98,18 @@ func (g *Game) clickCard(at city.Point) bool {
 func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 	th := g.theme
 	g.roundPanel(screen, c.Rect)
+	g.run(screen, c.Kind, th.Palette.Dim)
 	g.run(screen, c.Title, th.Palette.Text)
+	g.run(screen, c.Move, g.moveTone(c.Move.Text))
+	g.run(screen, c.Group, th.Palette.Dim)
 	for _, line := range c.Lines {
 		g.run(screen, line, th.Palette.Dim)
+	}
+	for _, line := range c.Sentence {
+		g.run(screen, line, th.Palette.Text)
+	}
+	for _, line := range c.Numbers {
+		g.run(screen, line, th.Palette.Text)
 	}
 	for _, line := range c.Para {
 		g.run(screen, line, th.Palette.Text)
@@ -110,6 +119,21 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 		g.roundRect(screen, b.Rect, th.Radius()/2, th.Palette.Hairline)
 		g.run(screen, b.Label, th.Palette.Accent)
 	}
+	for _, line := range c.Details {
+		g.run(screen, line, th.Palette.Dim)
+	}
+}
+
+// moveTone is the colour a card says whose move it is in: the state
+// tone it stands for, or dim when the move is nobody's here.
+func (g *Game) moveTone(move string) color.NRGBA {
+	switch move {
+	case "your move":
+		return g.theme.Palette.NeedsYou
+	case "the agents' move":
+		return g.theme.Palette.Working
+	}
+	return g.theme.Palette.Dim
 }
 
 // sparkline strokes a series in the accent with its last point marked.

@@ -52,8 +52,8 @@ func TestCamps(t *testing.T) {
 		})
 
 		t.Run("it should say the team on a member's card", func(t *testing.T) {
-			assert.Contains(t, camp.Members[0].Card(now).Lines, "team     review (reviewer)")
-			assert.Contains(t, camp.Lead.Card(now).Lines, "team     review (lead)")
+			assert.Contains(t, camp.Members[0].Card(now).Details, "team     review (reviewer)")
+			assert.Contains(t, camp.Lead.Card(now).Details, "team     review (lead)")
 		})
 	})
 

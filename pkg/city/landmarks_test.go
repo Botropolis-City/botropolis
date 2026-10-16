@@ -318,7 +318,7 @@ func TestRoads(t *testing.T) {
 		card := ciq.Card()
 
 		t.Run("it should list the roads in and out", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "roads    3 msgs to botropolis, 2 msgs, 4 files from botropolis")
+			assert.Contains(t, card.Details, "roads    3 msgs to botropolis, 2 msgs, 4 files from botropolis")
 		})
 	})
 }

@@ -27,7 +27,9 @@ func newFaces(th ui.Theme) (*faces, error) {
 	}
 	f := &faces{source: source, by: map[ui.Size]*text.GoTextFace{}}
 	for _, size := range []ui.Size{ui.Small, ui.Body, ui.Title, ui.Display} {
-		f.by[size] = &text.GoTextFace{Source: source, Size: th.Pt(size)}
+		face := &text.GoTextFace{Source: source, Size: th.Pt(size)}
+		face.SetFeature(text.MustParseTag("tnum"), 1)
+		f.by[size] = face
 	}
 	return f, nil
 }

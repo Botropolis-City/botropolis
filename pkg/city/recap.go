@@ -27,19 +27,16 @@ func (s *Scene) SetGenerated(id string, g Generated) {
 	s.generated[id] = g
 }
 
-// ToggleSummary opens or closes the selection's summary from the
+// ToggleDetails folds the selection's details out or away from the
 // keyboard, which is the card's button by another route.
-func (s *Scene) ToggleSummary() (Action, string) {
+func (s *Scene) ToggleDetails() (Action, string) {
 	if s.selected == nil {
 		return Action{}, "select a building first"
 	}
-	if !summarisable(s.selected.Session) {
-		return Action{}, "no summary for " + s.selected.Session.Harness + " sessions"
+	if s.detailsOpen() {
+		return s.Act(ActionDetailsHide)
 	}
-	if s.summaryOpen() {
-		return s.Act(ActionSummaryHide)
-	}
-	return s.Act(ActionSummary)
+	return s.Act(ActionDetails)
 }
 
 // summarisable is whether a session's transcript is Claude Code's, the
@@ -48,47 +45,51 @@ func summarisable(session state.Session) bool {
 	return session.Harness == "" || session.Harness == "claude"
 }
 
-func (s *Scene) summaryOpen() bool {
-	return s.selected != nil && s.summaryFor == s.selected.Session.ID
+func (s *Scene) detailsOpen() bool {
+	return s.selected != nil && s.detailsFor == s.selected.Session.ID
 }
 
 // summaryActions is the summary's part of the selection's actions:
-// the toggle, and Generate when the card is open on a session with no
-// recap of its own and nothing already running.
+// Generate, on a session with no recap of its own and nothing already
+// running.
 func (s *Scene) summaryActions() []ActionKind {
 	session := s.selected.Session
-	if !summarisable(session) {
+	if !summarisable(session) || session.Recap.Text != "" || s.generated[session.ID].Pending {
 		return nil
 	}
-	if !s.summaryOpen() {
-		return []ActionKind{ActionSummary}
-	}
-	kinds := []ActionKind{ActionSummaryHide}
-	if session.Recap.Text == "" && !s.generated[session.ID].Pending {
-		kinds = append(kinds, ActionGenerate)
-	}
-	return kinds
+	return []ActionKind{ActionGenerate}
 }
 
-// summary is the open summary's lines and paragraph. Claude Code's own
-// recap comes first, shown as written with its age; without one, a
-// generated summary, else the last prompt, each labelled as what it is.
-func (s *Scene) summary(session state.Session) ([]string, string) {
+// buildingCard is a building's card as the scene shows it: read through
+// the current view, leading with a generated summary where that is the
+// best sentence there is, and saying in its details where the sentence
+// came from.
+func (s *Scene) buildingCard(b *Building) Card {
+	g := s.generated[b.Session.ID]
+	card := b.face(s.city.Time, s.view, g.Text)
+	if summarisable(b.Session) {
+		card.Details = append([]string{s.summary(b.Session)}, card.Details...)
+	}
+	return card
+}
+
+// summary is the details line that says what the summary is: Claude
+// Code's own recap with its age, or a generated one, each labelled as
+// what it is.
+func (s *Scene) summary(session state.Session) string {
 	if r := session.Recap; r.Text != "" {
-		return []string{"recap    " + format.Age(s.city.Time.Sub(r.At)) + " old, " + since(r.PromptsSince)}, r.Text
+		return "recap    " + format.Age(s.city.Time.Sub(r.At)) + " old, " + since(r.PromptsSince)
 	}
 	g := s.generated[session.ID]
 	switch {
 	case g.Pending:
-		return []string{"summary  generating with " + claude.SummaryModel + "…"}, ""
+		return "summary  generating with " + claude.SummaryModel + "…"
 	case g.Err != "":
-		return []string{"summary  failed: " + g.Err}, ""
+		return "summary  failed: " + g.Err
 	case g.Text != "":
-		return []string{"summary  generated " + format.Age(s.city.Time.Sub(g.At)) + " ago with " + claude.SummaryModel}, g.Text
-	case session.LastPrompt != "":
-		return []string{"recap    none yet; the last prompt was"}, session.LastPrompt
+		return "summary  generated " + format.Age(s.city.Time.Sub(g.At)) + " ago with " + claude.SummaryModel
 	}
-	return []string{"recap    none yet"}, ""
+	return "recap    none yet"
 }
 
 func since(prompts int) string {
