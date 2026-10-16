@@ -28,8 +28,15 @@ var footerSynonyms = map[string]ebiten.Key{
 // clickFooter presses the verb under the cursor, if there is one.
 func (g *Game) clickFooter(cursor city.Point) bool {
 	g.mu.Lock()
-	bar := g.footerBar
+	bar, waiting := g.footerBar, g.waitingID
 	g.mu.Unlock()
+	// The needs-you line has no key: a click on it attaches the session
+	// it names, which is the one click the bar counts. Tab walks the
+	// rest. Item 91.
+	if waiting != "" && bar.WaitingRect.Contains(cursor) {
+		g.act(city.Action{Kind: city.ActionAttach, SessionID: waiting})
+		return true
+	}
 	hit, ok := bar.Hit(cursor)
 	if !ok {
 		return false

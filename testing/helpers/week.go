@@ -13,6 +13,19 @@ import (
 func ParkedWeek(t testing.TB, n int, now time.Time, target string) string {
 	t.Helper()
 	h := NewHome(t)
+	parkedWeek(h, n, now, target)
+	return h.Path
+}
+
+// ParkedWeekIn writes the same sessions into an existing home, beside
+// whatever it holds.
+func ParkedWeekIn(t testing.TB, home string, n int, now time.Time, target string) {
+	t.Helper()
+	parkedWeek(&Home{t: t, Path: home}, n, now, target)
+}
+
+func parkedWeek(h *Home, n int, now time.Time, target string) {
+	h.t.Helper()
 	friday := now.AddDate(0, 0, -1)
 	for friday.Weekday() != time.Friday {
 		friday = friday.AddDate(0, 0, -1)
@@ -28,5 +41,4 @@ func ParkedWeek(t testing.TB, n int, now time.Time, target string) string {
 		ts := at.UTC().Format(time.RFC3339Nano)
 		h.Transcript(id, cwd, UserPrompt(id, cwd, ts), AssistantReply(id, fmt.Sprintf("msg_%d", i), ts), AITitle(id, title))
 	}
-	return h.Path
 }

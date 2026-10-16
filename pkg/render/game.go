@@ -133,7 +133,10 @@ type Game struct {
 	// verb that is there. clicked is the key a clicked verb stands in
 	// for this frame: the click runs the keyboard's path rather than a
 	// second copy of it, which is what "one code path, not two" means.
-	footerBar     ui.Footer
+	footerBar ui.Footer
+	// waitingID is the session the footer's needs-you line names, as
+	// last drawn. Item 91.
+	waitingID     string
 	settingsPanel ui.SettingsPanel
 	searchPlate   city.Rect
 	// usage is Claude Code's own cached view of the account's limits,
@@ -476,6 +479,12 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 	cam := g.scene.Camera()
 	if target == "plant" && c.Plant.Rect.Area() > 0 {
 		return cam.WorldToScreen(c.Plant.Rect.Center()), true
+	}
+	if target == "needs-you line" {
+		g.mu.Lock()
+		line := g.footerBar.WaitingRect
+		g.mu.Unlock()
+		return line.Center(), line.Area() > 0
 	}
 	if name, ok := strings.CutPrefix(target, "district:"); ok {
 		for _, d := range c.Districts {

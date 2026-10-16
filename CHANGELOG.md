@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The footer names the session that has waited longest for you.**
+  While a session needs you, a line above the key row reads `needs-you: <its title>`, with `(+N more)` when others wait too, in the order triage walks them.
+  A click on the line attaches to that session; a click on a building still only selects it.
+  A status message draws above the line rather than over it.
+
 - **Groups: sessions across directories that are one piece of work.**
   Botropolis groups sessions by what they already say and how they were started: a shared ticket key, pull-request link or `Depends-On:` line, agent teams and sessions that message each other, the same pasted text, rare words in common, a shared branch key or files, and sessions started or continued close together.
   Nothing is tagged: each join says why, a guess is marked as one, and prompts are read where Claude Code keeps them and never copied.

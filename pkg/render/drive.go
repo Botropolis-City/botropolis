@@ -29,8 +29,10 @@ type Drive struct {
 	screen *ebiten.Image
 	queue  []driveInput
 	steps  int
-	// sent is the tick that delivered the last input.
+	// sent is the tick the last input began on, and began the tick the
+	// input being delivered began on.
 	sent  uint64
+	began uint64
 	acted []city.Action
 	// actedAt is the tick each action was handed over on.
 	actedAt []uint64
@@ -71,6 +73,10 @@ type Shown struct {
 	// Found is the finder's results, by session id, best first, while it
 	// is open.
 	Found []string
+	// Waiting is the footer's needs-you line and WaitingRect where it was
+	// drawn; empty when nothing waits.
+	Waiting     string
+	WaitingRect city.Rect
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -82,6 +88,7 @@ type Shown struct {
 type driveInput struct {
 	key            string
 	pointer        string
+	at             *city.Point
 	press, release bool
 }
 
@@ -257,6 +264,27 @@ func (d *Drive) Click(target string) error {
 	return nil
 }
 
+// ClickAt queues a click on a point of the window, whatever is there.
+// It is one step.
+func (d *Drive) ClickAt(at city.Point) error {
+	d.queue = append(d.queue, driveInput{at: &at, press: true}, driveInput{at: &at, release: true})
+	d.steps++
+	return nil
+}
+
+// Feed loads a home and hands the city its snapshot, as the feed does
+// when sessions change; the ticks Until counts start from the tick that
+// takes it. The finder keeps the index it opened with.
+func (d *Drive) Feed(home string) error {
+	snapshot, err := state.NewLoader(home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(d.game.now())
+	if err != nil {
+		return err
+	}
+	d.game.Offer(snapshot)
+	d.sent = d.game.ticks + 1
+	return nil
+}
+
 // Steps is how many inputs have been sent.
 func (d *Drive) Steps() int { return d.steps }
 
@@ -268,8 +296,13 @@ func (d *Drive) Tick() error {
 		in := d.queue[0]
 		d.queue = d.queue[1:]
 		g.inject = &in
+		// An input begins on its key or its press: a click's release
+		// is the same input, and what a press does counts from the press.
+		if !in.release {
+			d.began = g.ticks + 1
+		}
 		if len(d.queue) == 0 {
-			d.sent = g.ticks + 1
+			d.sent = d.began
 		}
 	}
 	if err := g.Update(); err != nil {
@@ -395,8 +428,10 @@ func (g *Game) injectInput() {
 	if in.key != "" {
 		g.pressScripted(in.key)
 	}
-	if in.pointer != "" {
-		if at, ok := g.resolveTarget(in.pointer); ok {
+	if in.pointer != "" || in.at != nil {
+		if in.at != nil {
+			g.play.shown, g.play.pointer = true, *in.at
+		} else if at, ok := g.resolveTarget(in.pointer); ok {
 			g.play.shown, g.play.pointer = true, at
 		}
 		g.play.press, g.play.release = in.press, in.release
@@ -426,6 +461,9 @@ func (g *Game) noteShown() {
 		s.Selected = b.Session.ID
 	}
 	g.mu.Lock()
+	if !g.hidden {
+		s.Waiting, s.WaitingRect = g.footerBar.Waiting.Text, g.footerBar.WaitingRect
+	}
 	for _, h := range g.hits {
 		if h.hit.Building != nil && !slices.Contains(s.Buildings, h.hit.Building.Session.ID) {
 			s.Buildings = append(s.Buildings, h.hit.Building.Session.ID)

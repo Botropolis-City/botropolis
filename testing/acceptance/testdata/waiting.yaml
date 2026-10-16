@@ -1,0 +1,6 @@
+name: waiting
+description: Two sessions waiting on an answer for different lengths of time, and one working, for item 91's answer test.
+sessions:
+  - {ref: tidepool/fix-table-timezone, state: needs-you, ago: 20m}
+  - {ref: beacon/conditions-line, state: needs-you, ago: 4m}
+  - {ref: kiln/json-report, state: working, ago: 1m}

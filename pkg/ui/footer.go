@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/format"
 )
@@ -32,6 +34,10 @@ type Footer struct {
 	Size   Size
 	Lines  []Text
 	Keys   []PlacedKey
+	// Waiting is the needs-you line, which a click on WaitingRect
+	// attaches; empty when nothing waits. Item 91.
+	Waiting     Text
+	WaitingRect city.Rect
 }
 
 // Hit finds the footer verb under a screen point, so a verb can be
@@ -92,6 +98,43 @@ func LayoutFooter(th Theme, width, height float64, status string, keys []Key, me
 		})
 		x = labelX + lw + 3*grid
 	}
+	return f
+}
+
+// WithWaiting puts the needs-you line in the slot just above the key
+// row, cut to the window's width, and lifts any status above it, so the
+// two never draw over each other. An empty line leaves the footer alone.
+// Item 91.
+func (f Footer) WithWaiting(th Theme, width float64, line string, measure Measure) Footer {
+	if line == "" {
+		return f
+	}
+	grid := th.Grid()
+	_, lineH := measure("", f.Size)
+	room := width - 4*grid
+	for w, _ := measure(line, f.Size); w > room; w, _ = measure(line, f.Size) {
+		r := []rune(strings.TrimSuffix(line, "…"))
+		if len(r) <= 1 {
+			line = "…"
+			break
+		}
+		line = strings.TrimRight(string(r[:len(r)-1]), " ") + "…"
+	}
+	lines := make([]Text, len(f.Lines))
+	for i, l := range f.Lines {
+		l.At.Y -= lineH
+		lines[i] = l
+	}
+	f.Lines = lines
+	at := city.Point{X: 2 * grid, Y: f.KeyRow.Min.Y - lineH}
+	if len(f.Lines) == 0 {
+		at.Y = f.KeyRow.Min.Y - lineH - grid/2
+	}
+	w, _ := measure(line, f.Size)
+	f.Waiting = Text{Text: line, At: at, Size: f.Size}
+	f.WaitingRect = city.RectAt(at.X, at.Y, w, lineH)
+	top := min(f.Rect.Min.Y-lineH, at.Y-grid/2)
+	f.Rect = city.RectAt(0, top, f.Rect.Width(), f.Rect.Max.Y-top)
 	return f
 }
 

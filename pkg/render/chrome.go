@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -19,13 +20,23 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	status := g.notice.Text(timeNow())
 	g.mu.Unlock()
 	footer := ui.LayoutFooter(th, width, height, status, footerKeys, g.faces.Measure)
+	waitingID := ""
 	if step, ok := g.scene.TriageStep(); ok && g.triage() != nil {
 		footer = ui.LayoutTriageBar(th, width, height, step.Index, step.Count, step.Building.Card(g.scene.Now()).Title, g.faces.Measure)
+	} else if walk := g.scene.TriageWalk(); len(walk) > 0 {
+		// The needs-you line names what has waited longest, in the order
+		// triage walks, and a click on it attaches that session. Item 91.
+		line := "needs-you: " + walk[0].Card(g.scene.Now()).Title
+		if len(walk) > 1 {
+			line += fmt.Sprintf(" (+%d more)", len(walk)-1)
+		}
+		footer = footer.WithWaiting(th, width, line, g.faces.Measure)
+		waitingID = walk[0].Session.ID
 	}
 	// Kept so a click hit-tests the bar that was actually drawn, the
 	// same way the view key does. Bug 43.
 	g.mu.Lock()
-	g.footerBar = footer
+	g.footerBar, g.waitingID = footer, waitingID
 	g.mu.Unlock()
 	legend := ui.LayoutLegend(th, width, footer.Rect.Min.Y, g.scene.Legend(), g.faces.Measure)
 	top := g.strip(screen, width)
@@ -185,6 +196,9 @@ func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
 	g.bar(screen, f.Rect, f.Rect.Min.Y)
 	for _, line := range f.Lines {
 		g.run(screen, line, g.theme.Palette.Dim)
+	}
+	if f.Waiting.Text != "" {
+		g.run(screen, f.Waiting, g.theme.Palette.NeedsYou)
 	}
 	g.keyRow(screen, f.Keys, f.Size)
 }
