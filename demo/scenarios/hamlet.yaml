@@ -23,6 +23,7 @@ shots:
     title: The hamlet, without the chrome
     description: The same night with the interface hidden.
     keys: [h]
+    group_lines: false
   - name: drift
     title: Looking in on the hamlet
     description: Zoom in on the session that is working, turn the camera, then find the one waiting on an answer.

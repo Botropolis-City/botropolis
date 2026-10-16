@@ -2,6 +2,7 @@ package demo
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 	_ "time/tzdata"
@@ -11,6 +12,8 @@ import (
 
 	"botropolis.city/botropolis/pkg/script"
 )
+
+func ptr[T any](v T) *T { return &v }
 
 func TestCityArgs(t *testing.T) {
 	base := []string{"city", "--headless", "--home", "/h", "--socket", "/nonexistent/botropolis.sock"}
@@ -33,6 +36,32 @@ func TestCityArgs(t *testing.T) {
 				cityArgs(shot, "/h", "/o/s.png", ""))
 		})
 	})
+
+	// Item 85: the hero is filmed with the group lines hidden, through
+	// the setting, so it shows the city rather than the wiring.
+	for _, tc := range []struct {
+		scenario string
+		lines    *bool
+		want     []string
+	}{
+		{"hides the group lines", ptr(false), []string{"--group_lines=false"}},
+		{"shows the group lines", ptr(true), []string{"--group_lines=true"}},
+		{"says nothing of the group lines", nil, nil},
+	} {
+		t.Run("when a still "+tc.scenario, func(t *testing.T) {
+			args := cityArgs(Shot{Name: "s", GroupLines: tc.lines}, "/h", "/o/s.png", "")
+			var got []string
+			for _, a := range args {
+				if strings.HasPrefix(a, "--group_lines") {
+					got = append(got, a)
+				}
+			}
+
+			t.Run("it should pass the setting through only when the shot sets it", func(t *testing.T) {
+				assert.Equal(t, tc.want, got)
+			})
+		})
+	}
 
 	t.Run("when a clip is recorded", func(t *testing.T) {
 		shot := Shot{Name: "c", Record: &Recording{Seconds: 12, FPS: 30}}

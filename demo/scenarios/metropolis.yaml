@@ -40,6 +40,7 @@ shots:
     title: The metropolis, without the chrome
     description: A dozen districts, interface hidden.
     keys: [h]
+    group_lines: false
   - name: plain
     title: The metropolis, plain
     description: The same city with the scenery dropped, for reading at a glance.

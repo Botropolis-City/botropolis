@@ -29,6 +29,9 @@ type Shot struct {
 	Projection  string   `yaml:"projection"`
 	Detail      string   `yaml:"detail"`
 	Signage     string   `yaml:"signage"`
+	// GroupLines shows or hides the group lines for this shot; unset, the
+	// city's default stands.
+	GroupLines *bool `yaml:"group_lines"`
 	// Clock overrides the scenario's time of day for this shot.
 	Clock string `yaml:"clock"`
 	// Scale is the render scale; 0 follows the virtual display, which
@@ -89,6 +92,9 @@ func cityArgs(shot Shot, home, still, frames string, opts ...cityOption) []strin
 		if f.value != "" {
 			args = append(args, f.flag, f.value)
 		}
+	}
+	if shot.GroupLines != nil {
+		args = append(args, "--group_lines="+strconv.FormatBool(*shot.GroupLines))
 	}
 	if shot.Scale > 0 {
 		args = append(args, "--render_scale", strconv.FormatFloat(shot.Scale, 'g', -1, 64))
