@@ -24,7 +24,15 @@ type KitSprite struct {
 	Page   int
 	Rect   image.Rectangle
 	Anchor image.Point
+	// Panes are a building's window panes as the sprite shows them, in
+	// the sprite's own pixels (item 86).
+	Panes []Pane
 }
+
+// Pane is one window pane: the corners of the parallelogram it covers,
+// top left, top right, bottom right, bottom left, so a pane on either
+// face of a building carries that face's slope.
+type Pane [4]image.Point
 
 // KitAtlas is every piece the map draws, cut at one zoom level.
 type KitAtlas struct {
@@ -67,13 +75,14 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 		Tile    float64  `json:"tile"`
 		Pages   []string `json:"pages"`
 		Sprites map[string]map[string]struct {
-			Page int     `json:"page"`
-			X    int     `json:"x"`
-			Y    int     `json:"y"`
-			W    int     `json:"w"`
-			H    int     `json:"h"`
-			AX   float64 `json:"ax"`
-			AY   float64 `json:"ay"`
+			Page  int      `json:"page"`
+			X     int      `json:"x"`
+			Y     int      `json:"y"`
+			W     int      `json:"w"`
+			H     int      `json:"h"`
+			AX    float64  `json:"ax"`
+			AY    float64  `json:"ay"`
+			Panes [][8]int `json:"panes"`
 		} `json:"sprites"`
 	}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -102,6 +111,9 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 				Page:   s.Page,
 				Rect:   image.Rect(s.X, s.Y, s.X+s.W, s.Y+s.H),
 				Anchor: image.Pt(int(s.AX+0.5), int(s.AY+0.5)),
+			}
+			for _, q := range s.Panes {
+				set[i].Panes = append(set[i].Panes, Pane{{q[0], q[1]}, {q[2], q[3]}, {q[4], q[5]}, {q[6], q[7]}})
 			}
 		}
 		atlas.sprites[name] = set

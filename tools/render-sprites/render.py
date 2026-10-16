@@ -575,6 +575,46 @@ def crop(rgba):
     return rgba[y0:y1, x0:x1], (x0, y0)
 
 
+# A window pane in a rendered building: glass is the one surface in the
+# commercial kit that is clearly blue, and its panes are painted into the
+# palette texture rather than modelled, so they are found in the picture.
+PANE_MIN_AREA = 4
+
+
+def panes(rgba):
+    """Each window pane in a cut sprite, as the four corners of the
+    parallelogram it covers -- top left, top right, bottom right, bottom
+    left -- in the sprite's own pixels. The corners are the topmost and
+    bottommost glass pixel in the pane's leftmost and rightmost columns,
+    so a pane on either face carries that face's slope. Item 86."""
+    r, g, b, a = (rgba[:, :, i].astype(int) for i in range(4))
+    glass = (a > 200) & (b - r > 40) & (b > 120)
+    seen = np.zeros(glass.shape, dtype=bool)
+    h, w = glass.shape
+    out = []
+    for y0, x0 in zip(*np.nonzero(glass)):
+        if seen[y0, x0]:
+            continue
+        stack, pixels = [(y0, x0)], []
+        seen[y0, x0] = True
+        while stack:
+            y, x = stack.pop()
+            pixels.append((y, x))
+            for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                if 0 <= ny < h and 0 <= nx < w and glass[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+        if len(pixels) < PANE_MIN_AREA:
+            continue
+        xs = [x for _, x in pixels]
+        left, right = min(xs), max(xs)
+        lys = [y for y, x in pixels if x == left]
+        rys = [y for y, x in pixels if x == right]
+        out.append([left, min(lys), right + 1, min(rys), right + 1, max(rys) + 1, left, max(lys) + 1])
+    out.sort()
+    return [[int(v) for v in q] for q in out]
+
+
 class Pages:
     """A shelf packer over PAGE-square pages."""
 
@@ -679,6 +719,8 @@ def atlas(args):
                         "page": page, "x": int(x), "y": int(y), "w": int(cut.shape[1]), "h": int(cut.shape[0]),
                         "ax": round(float(ax - x0), 2), "ay": round(float(ay - y0), 2),
                     }
+                    if kit == "city-kit-commercial" and name.startswith("building"):
+                        sprites[key][str(heading)]["panes"] = panes(cut)
                     count += 1
                 remove(root)
         stem = f"kits-z{zoom:g}"

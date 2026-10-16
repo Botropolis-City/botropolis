@@ -11,7 +11,8 @@ import (
 	"botropolis.city/botropolis/pkg/state"
 )
 
-// Item 86: what a lot carries on each rung of the ladder.
+// Item 86: what a lot carries on each rung of the ladder. The building
+// shows its rung in its windows; the ground around it ages.
 func TestDressLot(t *testing.T) {
 	at := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
 	building := func(id string, st state.State, quiet time.Duration) *city.Building {
@@ -22,29 +23,37 @@ func TestDressLot(t *testing.T) {
 	}
 	day := 24 * time.Hour
 	rungs := []struct {
-		name                       string
-		building                   *city.Building
-		beacon, sign, boards, weed bool
+		name                                     string
+		building                                 *city.Building
+		beacon, dark, boards, worn, cracks, weed bool
 	}{
-		{"live", building("live", state.Working, time.Minute), true, true, false, false},
-		{"resting", building("resting", state.Resting, day), false, false, false, false},
-		{"shuttered", building("shuttered", state.Resting, 10*day), false, false, true, false},
-		{"overgrown", building("overgrown", state.Resting, 40*day), false, false, true, true},
+		{"live", building("live", state.Working, time.Minute), true, false, false, false, false, false},
+		{"resting", building("resting", state.Resting, day), false, true, false, true, false, false},
+		{"shuttered", building("shuttered", state.Resting, 10*day), false, true, true, true, true, false},
+		{"overgrown", building("overgrown", state.Resting, 40*day), false, true, true, true, true, true},
 	}
 	for _, r := range rungs {
 		t.Run("when a building is "+r.name, func(t *testing.T) {
 			d := dressLot(r.building, -1)
 
-			t.Run("it should light its beacon only if live", func(t *testing.T) {
-				assert.Equal(t, r.beacon, d.Beacon)
+			t.Run("it should light its beacon and sign only if live", func(t *testing.T) {
+				assert.Equal(t, r.beacon, d.Beacon && d.Sign)
 			})
 
-			t.Run("it should hang its sign only if live", func(t *testing.T) {
-				assert.Equal(t, r.sign, d.Sign)
+			t.Run("it should darken its glass only once stopped", func(t *testing.T) {
+				assert.Equal(t, r.dark, d.Dark)
 			})
 
 			t.Run("it should board its windows only once shuttered", func(t *testing.T) {
 				assert.Equal(t, r.boards, d.Boards)
+			})
+
+			t.Run("it should wear its paving only once stopped", func(t *testing.T) {
+				assert.Equal(t, r.worn, d.Wear > 0)
+			})
+
+			t.Run("it should crack its paving only once shuttered", func(t *testing.T) {
+				assert.Equal(t, r.cracks, len(d.Cracks) > 0)
 			})
 
 			t.Run("it should grow weeds only once overgrown", func(t *testing.T) {
@@ -53,11 +62,61 @@ func TestDressLot(t *testing.T) {
 		})
 	}
 
-	t.Run("when an overgrown lot is drawn twice", func(t *testing.T) {
-		b := building("overgrown", state.Resting, 40*day)
+	t.Run("when the rungs are compared", func(t *testing.T) {
+		t.Run("it should wear the paving more the longer it has been quiet", func(t *testing.T) {
+			assert.Less(t, dressLot(rungs[1].building, -1).Wear, dressLot(rungs[2].building, -1).Wear)
+			assert.Less(t, dressLot(rungs[2].building, -1).Wear, dressLot(rungs[3].building, -1).Wear)
+		})
+	})
 
-		t.Run("it should grow the same weeds in the same places", func(t *testing.T) {
-			assert.Equal(t, dressLot(b, -1).Weeds, dressLot(b, -1).Weeds)
+	t.Run("when an overgrown lot is drawn", func(t *testing.T) {
+		b := building("overgrown", state.Resting, 40*day)
+		d := dressLot(b, -1)
+		yard := lotRect(b)
+		footprint := shrink(b.Rect, 0.1)
+
+		t.Run("it should grow the same weeds in the same places every time", func(t *testing.T) {
+			assert.Equal(t, d.Weeds, dressLot(b, -1).Weeds)
+		})
+
+		t.Run("it should keep every weed on its own lot", func(t *testing.T) {
+			for _, w := range d.Weeds {
+				assert.True(t, yard.Contains(w.At), w.At)
+			}
+		})
+
+		t.Run("it should grow nothing on the building's footprint, only at its base and in the yard", func(t *testing.T) {
+			for _, w := range d.Weeds {
+				assert.False(t, footprint.Contains(w.At), w.At)
+			}
+		})
+
+		t.Run("it should grow some of it in the cracks", func(t *testing.T) {
+			inCracks := 0
+			for _, w := range d.Weeds {
+				for _, c := range d.Cracks {
+					for _, p := range c {
+						if p == w.At {
+							inCracks++
+						}
+					}
+				}
+			}
+			assert.Positive(t, inCracks)
+		})
+
+		t.Run("it should keep every crack on the lot", func(t *testing.T) {
+			for _, c := range d.Cracks {
+				for _, p := range c {
+					assert.True(t, yard.Contains(p), p)
+				}
+			}
+		})
+
+		t.Run("it should use only the overgrowth pieces", func(t *testing.T) {
+			for _, w := range d.Weeds {
+				assert.Contains(t, overgrowthPieces, w.Piece)
+			}
 		})
 	})
 
@@ -66,22 +125,6 @@ func TestDressLot(t *testing.T) {
 
 		t.Run("it should scatter them differently", func(t *testing.T) {
 			assert.NotEqual(t, offsets(a, dressLot(a, -1).Weeds), offsets(b, dressLot(b, -1).Weeds))
-		})
-	})
-
-	t.Run("when a weed is placed", func(t *testing.T) {
-		b := building("overgrown", state.Resting, 40*day)
-
-		t.Run("it should stand on the lot", func(t *testing.T) {
-			for _, w := range dressLot(b, -1).Weeds {
-				assert.True(t, b.Rect.Contains(w.At), w.At)
-			}
-		})
-
-		t.Run("it should be one of the overgrowth pieces", func(t *testing.T) {
-			for _, w := range dressLot(b, -1).Weeds {
-				assert.Contains(t, overgrowthPieces, w.Piece)
-			}
 		})
 	})
 
@@ -109,21 +152,4 @@ func offsets(b *city.Building, weeds []weed) []city.Point {
 		out[i] = city.Point{X: w.At.X - b.Rect.Min.X, Y: w.At.Y - b.Rect.Min.Y}
 	}
 	return out
-}
-
-func TestBoards(t *testing.T) {
-	r := city.RectAt(100, 50, 60, 80)
-	planks := boards(r)
-
-	t.Run("when a shuttered building is boarded", func(t *testing.T) {
-		t.Run("it should cross each visible face with two planks", func(t *testing.T) {
-			assert.Len(t, planks, 4)
-		})
-
-		t.Run("it should keep every plank on the building", func(t *testing.T) {
-			for _, p := range planks {
-				assert.True(t, r.Contains(p[0]) && r.Contains(p[1]), p)
-			}
-		})
-	})
 }
