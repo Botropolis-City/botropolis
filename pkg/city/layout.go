@@ -45,6 +45,10 @@ type Layout struct {
 	// Sighted is every kind of thing the map has captioned the first
 	// time it appeared on this machine, by name (item 88).
 	Sighted map[string]bool `json:"sighted,omitempty"`
+	// Done is each session triage marked done, at the activity it had
+	// then, and Snoozed each one snoozed, until when (item 88).
+	Done    map[string]time.Time `json:"done,omitempty"`
+	Snoozed map[string]time.Time `json:"snoozed,omitempty"`
 }
 
 func NewLayout() *Layout {

@@ -551,7 +551,7 @@ func (g *Game) pressScripted(name string) {
 	if key, shift, ok := scriptedKey(name); ok {
 		g.scripted, g.scriptedShift = key, shift || g.scriptedShift
 	}
-	typing := g.finding() || g.newSession() != nil
+	typing := g.finding() || g.newSession() != nil || (g.triage() != nil && g.triage().snoozing != nil)
 	if r := []rune(name); len(r) == 1 && typing && !g.scriptedCtrl && !g.scriptedAlt && !g.scriptedCmd {
 		g.scriptedRune = r[0]
 	}

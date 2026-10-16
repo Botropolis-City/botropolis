@@ -128,6 +128,8 @@ type Scene struct {
 	lensExpanded bool
 	// sightings are the new kinds waiting for their first caption, the
 	// first of them captioned since sightingAt.
+	// triageAt is the session triage is on (item 88).
+	triageAt   string
 	sightings  []Kind
 	sightingAt time.Time
 	generated  map[string]Generated
@@ -213,6 +215,10 @@ func (s *Scene) SetClock(now func() time.Time, loc *time.Location) {
 	s.now, s.location = now, loc
 	s.applyNight()
 }
+
+// Now is the time now, in the city's time zone, unshifted by the
+// scrub: what a snooze is measured from (item 88).
+func (s *Scene) Now() time.Time { return s.now().In(s.location) }
 
 // Clock is the time the light follows: now, shifted by the scrub.
 func (s *Scene) Clock() time.Time {

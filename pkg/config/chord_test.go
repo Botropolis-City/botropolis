@@ -75,8 +75,8 @@ func TestParseChord(t *testing.T) {
 			chords, err := config.FindChords(config.Config{}, tc.goos, known)
 			require.NoError(t, err)
 
-			t.Run("it should open the finder on mod+k, copy on mod+y, show on ctrl+m, open New session on shift+n, and explain while e is held", func(t *testing.T) {
-				assert.Equal(t, config.Chords{Open: tc.open, Copy: tc.copy, Show: tc.show, New: tc.new, Explain: config.Chord{Key: "e"}}, chords)
+			t.Run("it should open the finder on mod+k, copy on mod+y, show on ctrl+m, open New session on shift+n, explain while e is held, and start triage on w", func(t *testing.T) {
+				assert.Equal(t, config.Chords{Open: tc.open, Copy: tc.copy, Show: tc.show, New: tc.new, Explain: config.Chord{Key: "e"}, Triage: config.Chord{Key: "w"}}, chords)
 			})
 		})
 	}

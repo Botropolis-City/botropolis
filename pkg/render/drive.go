@@ -61,6 +61,8 @@ type Shown struct {
 	Captions   []string
 	// Explaining is whether explain mode's key is held.
 	Explaining bool
+	// Triage is the session triage is on, or "" when it is not walking.
+	Triage string
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -326,6 +328,9 @@ func (g *Game) noteShown() {
 	}
 	s.Lens, s.View = g.scene.Lens().Name(), g.scene.View().Name()
 	s.Explaining = g.explainHeld()
+	if step, ok := g.scene.TriageStep(); ok && g.triage() != nil {
+		s.Triage = step.Building.Session.ID
+	}
 	for _, c := range g.captions {
 		s.Captions = append(s.Captions, c.Kind.Name())
 	}

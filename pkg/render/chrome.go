@@ -19,6 +19,9 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	status := g.notice.Text(timeNow())
 	g.mu.Unlock()
 	footer := ui.LayoutFooter(th, width, height, status, footerKeys, g.faces.Measure)
+	if step, ok := g.scene.TriageStep(); ok && g.triage() != nil {
+		footer = ui.LayoutTriageBar(th, width, height, step.Index, step.Count, step.Building.Card(g.scene.Now()).Title, g.faces.Measure)
+	}
 	// Kept so a click hit-tests the bar that was actually drawn, the
 	// same way the view key does. Bug 43.
 	g.mu.Lock()

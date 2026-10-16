@@ -26,6 +26,7 @@ var bindings = []ui.Key{
 	{Key: "i", Action: "the selection's details"},
 	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
+	{Key: "w", Action: "triage: walk what waits on you, longest-waiting first"},
 	{Key: "v", Action: "the lenses, and the lens's panel in full"},
 	{Key: "1-6", Action: "a lens; press again for its next view"},
 	{Key: "c", Action: "new session here"},
@@ -301,6 +302,10 @@ func (g *Game) handleKeys() error {
 	}
 	if g.chordPressed(g.findChords().New) {
 		g.openNewSession()
+		return nil
+	}
+	if g.chordPressed(g.findChords().Triage) {
+		g.startTriage()
 		return nil
 	}
 	if just(ebiten.KeyN) {
