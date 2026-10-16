@@ -73,7 +73,10 @@ func sitePhrase(sessions []state.Session, now time.Time) string {
 	days := int(now.Sub(last) / (24 * time.Hour))
 	switch {
 	case open && days >= 1:
-		return "waiting on review, " + dayCount(days)
+		// Botropolis knows a pull request only as a session last saw it,
+		// so an old open state says when it was seen rather than how
+		// long it has waited: it may have merged since.
+		return "in review, seen " + dayCount(days) + " ago"
 	case open:
 		return "in review"
 	case merged:

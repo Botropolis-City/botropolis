@@ -137,7 +137,7 @@ func TestLineOrder(t *testing.T) {
 		})
 
 		t.Run("the stand-up should give its own phrase", func(t *testing.T) {
-			assert.Contains(t, s.Standup("g1"), "acme/lib#7 waiting on review, 2 days")
+			assert.Contains(t, s.Standup("g1"), "acme/lib#7 in review, seen 2 days ago")
 		})
 	})
 

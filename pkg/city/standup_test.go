@@ -43,7 +43,7 @@ func TestStandup(t *testing.T) {
 	}{
 		{"a site's every pull request merged", member("a", cinders, state.Resting, -time.Hour, time.Hour, pr(claude.PRMerged)), "cinders merged"},
 		{"a site has an open pull request, waited under a day", member("a", cinders, state.Resting, -time.Hour, 5*time.Hour, pr(claude.PROpen)), "cinders in review"},
-		{"a site has an open pull request, waited three days", member("a", cinders, state.Resting, -80*time.Hour, 72*time.Hour, pr(claude.PROpen)), "cinders waiting on review, 3 days"},
+		{"a site has an open pull request, last seen three days ago", member("a", cinders, state.Resting, -80*time.Hour, 72*time.Hour, pr(claude.PROpen)), "cinders in review, seen 3 days ago"},
 		{"a site needs you", member("a", cinders, state.NeedsYou, -time.Hour, 0), "cinders needs you"},
 		{"a site is working", member("a", cinders, state.Working, -time.Hour, 0), "cinders in progress"},
 		{"a site's pull requests all closed unmerged", member("a", cinders, state.Resting, -time.Hour, time.Hour, pr(claude.PRClosed)), "cinders closed"},
@@ -64,7 +64,7 @@ func TestStandup(t *testing.T) {
 		)
 
 		t.Run("it should join them with semicolons in line order", func(t *testing.T) {
-			assert.Equal(t, "cinders merged; botropolis in progress; lanterns waiting on review, 3 days", s.Standup("g1"))
+			assert.Equal(t, "cinders merged; botropolis in progress; lanterns in review, seen 3 days ago", s.Standup("g1"))
 		})
 	})
 
