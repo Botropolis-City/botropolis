@@ -76,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The depot fits its crates, a row per project and as wide as the longest row, and is not there at all when nothing is packed up.
 - **Close up.** An optional way to end the day: Shift+Q, or the button beside the quit prompt, notes with the daemon when you closed up, which sessions were open and which you pinned to start with next time, so coming back picks up where you left off.
   Every live session is left running unless you mark it *pause*, which keeps its conversation; a session mid-turn says pausing interrupts it, and one open in a terminal stays running. With nothing live it records at once. It spends no tokens, and quitting without it changes nothing.
+- **Coming back.** Opening the map after a gap (journal_hours, 8 by default) opens a journal of where you were: one entry per group and per session in no group, pinned ones first, then most recently touched, each with what it was doing last time and what is next, from Claude's recaps or your last prompt and its reply, read then and never kept.
+  Above it, a strip of what finished, failed and needed you since you left; beside it, *Restore the desk* (or R) reopens in the background the sessions that were open when you left. Enter goes to an entry, Esc to the map, and Shift+W (journal_key) brings it back.
 - **Codex rollouts are read through a 64 KB head and tail**, as Claude's transcripts already were, so a long Codex history loads in a time bounded by the number of rollouts rather than their size.
 
 ### Removed

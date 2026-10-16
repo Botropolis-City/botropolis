@@ -130,6 +130,17 @@ func (s *Sessions) Resume(ctx context.Context, dir, sessionID string) (string, e
 	return id, s.ctl.Attach(id)
 }
 
+// ResumeBackground resumes a session in the background, with claude --bg
+// --resume, and attaches nothing: Restore the desk reopens several at
+// once (item 86).
+func (s *Sessions) ResumeBackground(ctx context.Context, sessionID string) (string, error) {
+	dir, err := s.sessionDir(sessionID)
+	if err != nil {
+		return "", err
+	}
+	return s.ctl.Resume(ctx, dir, sessionID)
+}
+
 // Fork starts a fresh session from a copy of another's conversation and
 // attaches to it.
 func (s *Sessions) Fork(ctx context.Context, dir, sessionID string) (string, error) {

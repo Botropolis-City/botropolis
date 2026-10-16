@@ -386,6 +386,8 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		Detail:         detail,
 		HideGroupLines: !c.config.GroupLines,
 		GroupSource:    groupSource(c.config),
+		JournalHours:   c.config.JournalHours,
+		LastCloseUp:    func() (state.CloseUp, error) { return state.LoadCloseUp(state.CloseUpPath()) },
 		Ladder:         state.Thresholds{Shuttered: time.Duration(c.config.ShutteredDays) * 24 * time.Hour, Overgrown: time.Duration(c.config.OvergrownDays) * 24 * time.Hour},
 		UsageRefresh:   usageEvery,
 		Signage:        signage,

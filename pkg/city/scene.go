@@ -24,6 +24,9 @@ const (
 	// brings it back to its old lot (item 86).
 	ActionPack   ActionKind = "pack"
 	ActionUnpack ActionKind = "unpack"
+	// ActionRestore reopens in the background the sessions open when you
+	// left (item 86).
+	ActionRestore ActionKind = "restore"
 	// ActionCloseUp records what is open, and pauses what you chose to
 	// (item 86).
 	ActionCloseUp  ActionKind = "closeup"

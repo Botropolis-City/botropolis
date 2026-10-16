@@ -287,6 +287,15 @@ type Game struct {
 	// pressAt; a press that never leaves its spot is a click. Item 85.
 	moving  bool
 	pressAt city.Point
+	// journalHours is how long away the map must have been for the
+	// journal to open by itself, and journalChecked whether the first
+	// snapshot has been looked at for it; lastCloseUp reads the last
+	// close-up and lastReply the last paragraph of a session's last
+	// reply, both read when the journal opens (item 86).
+	journalHours   int
+	journalChecked bool
+	lastCloseUp    func() (state.CloseUp, error)
+	lastReply      func(id string) string
 	// weedFade is the alpha the lot's growth is drawn at this frame.
 	weedFade float64
 	// shoreLayer is the island and the sea, painted once per plan.
@@ -348,6 +357,7 @@ func (g *Game) Update() error {
 	}
 	if pending != nil {
 		g.scene.SetSnapshot(*pending)
+		g.maybeJournal()
 		g.followUsage()
 		if title := windowTitle + " — " + g.scene.City().Summary().Headline(); title != g.shownTitle {
 			g.shownTitle = title

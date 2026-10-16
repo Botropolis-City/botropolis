@@ -147,6 +147,14 @@ func (a Actor) Do(action city.Action) error {
 		return a.mute(action.Text)
 	case city.ActionCloseUp:
 		return a.closeUp(action)
+	case city.ActionRestore:
+		var errs []error
+		for _, id := range action.Open {
+			if _, err := a.Sessions.ResumeBackground(context.Background(), id); err != nil {
+				errs = append(errs, fmt.Errorf("%s: %w", id, err))
+			}
+		}
+		return errors.Join(errs...)
 	case city.ActionPack, city.ActionUnpack:
 		if a.Pack == nil {
 			return errNoDaemon

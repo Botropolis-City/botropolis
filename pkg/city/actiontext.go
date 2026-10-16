@@ -9,6 +9,7 @@ var actionText = map[ActionKind]string{
 	ActionStop:         "Stops this session. Its conversation is kept, and you can resume it.",
 	ActionPack:         "Takes this session off the map and keeps it in the depot. Unpack brings it back.",
 	ActionUnpack:       "Brings this session back to its old lot.",
+	ActionRestore:      "Reopens in the background the sessions that were open when you left.",
 	ActionCloseUp:      "Notes what is open so you can pick up where you left off, and pauses only the sessions you choose.",
 	ActionNew:          "Starts a new session in this project's directory.",
 	ActionReveal:       "Opens this project's directory in your file manager.",

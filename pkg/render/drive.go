@@ -13,6 +13,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
@@ -46,11 +47,18 @@ type DriveOptions struct {
 	// Now is the moment the city is drawn at, and its clock starts from;
 	// zero is the wall clock's now.
 	Now time.Time
+	// Seen is when the map was last seen, as its layout would remember;
+	// zero is a map never opened before. A Seen journal_hours or more
+	// before Now opens the journal (item 86).
+	Seen time.Time
 }
 
 // Shown is what the last frame drew.
 type Shown struct {
 	Help, Views, Settings, Breakdown, Timeline, Search, Sidebar bool
+	// Journal is the journal's entries when it is drawn, each with what
+	// it was doing and what is next (item 86).
+	Journal []city.JournalEntry
 	// Selected is the session whose card or sidebar entry was drawn as
 	// the selection, or "" for none.
 	Selected string
@@ -108,7 +116,9 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	if now.IsZero() {
 		now = time.Now()
 	}
-	scene := city.NewScene(city.NewLayout())
+	layout := city.NewLayout()
+	layout.Seen = opts.Seen
+	scene := city.NewScene(layout)
 	scene.SetProjection(city.Isometric)
 	theme := ui.NewTheme(1)
 	scene.Resize(float64(width), float64(height))
@@ -126,6 +136,7 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	g.kits = kitSprites
 	g.home = opts.Home
 	g.driven = true
+	g.journalHours = config.DefaultJournalHours
 	// No window to type into: typing reaches the finder the way --keys
 	// does.
 	g.ime = false
@@ -497,6 +508,9 @@ func (g *Game) noteShown() {
 			}
 		}
 		slices.Sort(s.Lit)
+	}
+	if j, ok := g.overlays.top().(*journal); ok {
+		s.Journal = slices.Clone(j.entries)
 	}
 	if f, ok := g.overlays.top().(*finder); ok && !g.hidden {
 		f.mu.Lock()

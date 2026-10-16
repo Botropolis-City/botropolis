@@ -72,6 +72,12 @@ type Options struct {
 	// sessions on the map: the history detected once, and the recently
 	// used directories.
 	GroupSource func(sessions []state.Session, now time.Time) (*group.Guesser, []string)
+	// JournalHours is how long away the map must have been for the
+	// journal to open by itself; LastCloseUp reads the last close-up and
+	// LastReply a session's last reply's last paragraph (item 86).
+	JournalHours int
+	LastCloseUp  func() (state.CloseUp, error)
+	LastReply    func(id string) string
 	// Ladder is how long a stopped session rests before it is shuttered,
 	// and before it is overgrown; zero keeps the defaults. Item 86.
 	Ladder state.Thresholds
@@ -180,6 +186,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.reduced = opts.ReducedMotion
 	scene.SetDetail(opts.Detail)
 	scene.SetGroupLines(!opts.HideGroupLines)
+	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
 	if opts.Ladder != (state.Thresholds{}) {
 		scene.SetLadder(opts.Ladder)
 	}
