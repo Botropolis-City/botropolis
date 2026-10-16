@@ -30,7 +30,7 @@ import "botropolis.city/botropolis/pkg/state"
 // road growing over, which is a change and not a motion, and becomes a
 // short cross-fade rather than nothing (item 85).
 func (s *Scene) Animating() bool {
-	if s.overgrowing() || s.mowingAny() || s.settlingAny() {
+	if s.overgrowing() || s.mowingAny() || s.settlingAny() || s.hauling() {
 		return true
 	}
 	if s.reduced {

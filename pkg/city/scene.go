@@ -190,6 +190,10 @@ type Scene struct {
 	// settling the buildings resting or waking since.
 	awake    map[string]bool
 	settling map[string]settling
+	// spots is where each session stood at the last snapshot, and hauls
+	// the trucks carrying crates between the lots and the depot.
+	spots map[string]spot
+	hauls []Haul
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
@@ -589,6 +593,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.noteOvergrowth(was, s.now())
 	s.noteMowing(s.now())
 	s.noteSettling(s.now())
+	s.noteHauls(s.now())
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())

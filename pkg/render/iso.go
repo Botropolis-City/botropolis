@@ -288,6 +288,11 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		return
 	}
 	rise := g.scene.Rising(b.Session.ID)
+	// A session on a truck is drawn on the truck, not where it is going;
+	// under reduced motion it fades in there instead (item 86).
+	if g.scene.Hauling(b.Session.ID) && !g.reduced {
+		return
+	}
 	if b.Vacant || rise <= 0 {
 		g.vacantPlot(screen, cam, b, selected)
 		return
@@ -313,6 +318,14 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		tint.SetR(0.85)
 		tint.SetG(0.8)
 		tint.SetB(1)
+	}
+	if fade := g.scene.HaulProgress(b.Session.ID); fade < 1 {
+		faded := &ebiten.ColorScale{}
+		if tint != nil {
+			*faded = *tint
+		}
+		faded.ScaleAlpha(float32(fade))
+		tint = faded
 	}
 	dress := g.dressing(b)
 	settle, progress := g.scene.Settling(b.Session.ID)
@@ -642,6 +655,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, standingAt(cam, v.At(g.scene.Clock()), func() {
 			g.drawVoyage(screen, cam, v, seconds)
 		}))
+	}
+	if !g.reduced {
+		for _, h := range g.scene.Hauls() {
+			h := h
+			items = append(items, standingAt(cam, h.At(g.scene.Clock()), func() {
+				g.drawHaul(screen, cam, h)
+			}))
+		}
 	}
 	for _, k := range g.freight(c, seconds) {
 		k := k
@@ -1406,4 +1427,15 @@ func blindsTint() *ebiten.ColorScale {
 	tint.SetG(0.7)
 	tint.SetB(0.72)
 	return tint
+}
+
+const kitTruck = "car-kit/truck"
+
+// drawHaul draws a truck carrying a packed-up session's crate between its
+// lot and the depot, facing the way it drives (item 86).
+func (g *Game) drawHaul(screen *ebiten.Image, cam *city.Camera, h city.Haul) {
+	turn := carTurn(h.To.Sub(h.From))
+	at := h.At(g.scene.Clock())
+	g.kit(screen, cam, kitTruck, turn, at, nil)
+	g.kitScaled(screen, cam, crates[h.Hue%len(crates)], turn, at, 0.4, nil)
 }
