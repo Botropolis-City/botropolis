@@ -26,7 +26,7 @@ func BenchmarkReopenLastFriday(b *testing.B) {
 			home := h.home(b)
 			var r reopen
 			for b.Loop() {
-				r = runReopen(b, home)
+				r = runReopen(b, home, false)
 			}
 			b.ReportMetric(float64(r.steps), "steps/op")
 			b.ReportMetric(float64(r.ticks), "ticks/op")
