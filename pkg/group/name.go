@@ -52,6 +52,8 @@ func (r Reason) Describe(title func(id string) string) string {
 		return "started with " + with
 	case SignalContinuing:
 		return "continued from " + with
+	case SignalMoved:
+		return "you moved it here"
 	}
 	return string(r.Signal)
 }

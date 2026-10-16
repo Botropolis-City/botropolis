@@ -26,6 +26,7 @@ func Detect(members []Member, memory Memory) Result {
 	edges := d.edges()
 	comps := d.cluster(edges)
 	groups := d.groups(comps, edges, memory)
+	groups = d.placeMoved(groups, memory)
 	d.joinStarted(groups)
 	result := Result{Groups: groups}
 	result.Suggestions = d.suggest(groups, edges)
@@ -33,7 +34,14 @@ func Detect(members []Member, memory Memory) Result {
 }
 
 func newDetection(members []Member, memory Memory) *detection {
-	d := &detection{members: members, index: map[string]int{}, blocked: map[[2]string]bool{}}
+	d := &detection{members: members, index: map[string]int{}, blocked: map[[2]string]bool{},
+		moved: map[string]bool{}, confirmed: map[string]bool{}}
+	for _, mv := range memory.Moves {
+		d.moved[mv.Session] = true
+	}
+	for _, id := range memory.Confirmed {
+		d.confirmed[id] = true
+	}
 	prompts := map[string][]string{}
 	for i, m := range members {
 		d.index[m.ID] = i
@@ -58,7 +66,7 @@ func (d *detection) edges() []edge {
 	var edges []edge
 	for i := range d.members {
 		for j := i + 1; j < len(d.members); j++ {
-			if d.blocked[[2]string{d.members[i].ID, d.members[j].ID}] {
+			if d.blocked[[2]string{d.members[i].ID, d.members[j].ID}] || d.moved[d.members[i].ID] || d.moved[d.members[j].ID] {
 				continue
 			}
 			if e, ok := d.pair(i, j); ok {
@@ -257,7 +265,37 @@ func (d *detection) membership(i int, in map[int]bool, edges []edge) Membership 
 		m.Reason.With = d.members[other].ID
 		break
 	}
+	if m.Tier == Likely && d.confirmed[m.Session] {
+		m.Tier = Sure
+	}
 	return m
+}
+
+// placeMoved puts each session moved by hand into the group it was put
+// in, made from memory when detection did not find it, or in none.
+func (d *detection) placeMoved(groups []Group, memory Memory) []Group {
+	for _, mv := range memory.Moves {
+		i, ok := d.index[mv.Session]
+		if !ok || mv.Group == "" {
+			continue
+		}
+		m := d.members[i]
+		g := groupByID(groups, mv.Group)
+		if g == nil {
+			for _, s := range memory.Groups {
+				if s.ID == mv.Group {
+					groups = append(groups, Group{ID: s.ID, Name: s.Name, Renamed: s.Renamed, Anchor: s.Anchor})
+					g = &groups[len(groups)-1]
+				}
+			}
+		}
+		if g == nil {
+			continue
+		}
+		g.Members = append(g.Members, Membership{Session: m.ID, Dir: m.Dir, Started: m.Started, Tier: Sure,
+			Reason: Reason{Signal: SignalMoved}})
+	}
+	return groups
 }
 
 func matchStored(comp []int, d *detection, memory Memory, taken map[string]bool) (Stored, bool) {
@@ -288,7 +326,7 @@ func newID(seed string) string {
 // joinStarted adds the loose sessions that were started from a group.
 func (d *detection) joinStarted(groups []Group) {
 	for _, m := range d.members {
-		if m.StartedFrom == "" || inAny(groups, m.ID) {
+		if m.StartedFrom == "" || d.moved[m.ID] || inAny(groups, m.ID) {
 			continue
 		}
 		if g := groupByID(groups, m.StartedFrom); g != nil {

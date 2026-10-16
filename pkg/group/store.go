@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -18,6 +19,32 @@ type Memory struct {
 	Groups     []Stored `json:"groups,omitempty"`
 	NotRelated []Pair   `json:"notRelated,omitempty"`
 	Muted      []string `json:"muted,omitempty"`
+	// Moves are sessions put in a group by hand, or in none.
+	Moves []Move `json:"moves,omitempty"`
+	// Confirmed are likely members prompted in after they joined, so
+	// their ties are solid; LikelySince is when each likely member was
+	// first seen as one.
+	Confirmed   []string             `json:"confirmed,omitempty"`
+	LikelySince map[string]time.Time `json:"likelySince,omitempty"`
+}
+
+// Move puts a session in a group by hand; an empty Group is no group.
+type Move struct {
+	Session string `json:"session"`
+	Group   string `json:"group"`
+}
+
+// WithMove is memory with the session moved, replacing any earlier move
+// of it.
+func (m Memory) WithMove(session, group string) Memory {
+	moves := make([]Move, 0, len(m.Moves)+1)
+	for _, mv := range m.Moves {
+		if mv.Session != session {
+			moves = append(moves, mv)
+		}
+	}
+	m.Moves = append(moves, Move{Session: session, Group: group})
+	return m
 }
 
 type Stored struct {
@@ -34,7 +61,7 @@ type Pair [2]string
 // Remember is memory with a detection's groups in it, keeping the
 // stored groups the detection did not see.
 func (m Memory) Remember(r Result) Memory {
-	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted}
+	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted, Moves: m.Moves, Confirmed: m.Confirmed, LikelySince: m.LikelySince}
 	seen := map[string]bool{}
 	for _, g := range r.Groups {
 		seen[g.ID] = true

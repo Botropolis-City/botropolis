@@ -62,6 +62,9 @@ type Options struct {
 	ReducedMotion bool
 	// Detail is how much of the city is drawn; plain drops the scenery.
 	Detail city.Detail
+	// HideGroupLines hides the line each group draws across its
+	// districts, which are on unless the settings say otherwise.
+	HideGroupLines bool
 	// UsageRefresh is how often the city probes for usage on its own;
 	// zero leaves it to the u key, and the boats away until called.
 	// Item 79.
@@ -142,6 +145,7 @@ func Run(ctx context.Context, opts Options) error {
 	}
 	game.reduced = opts.ReducedMotion
 	scene.SetDetail(opts.Detail)
+	scene.SetGroupLines(!opts.HideGroupLines)
 	game.signage = opts.Signage
 	game.usageEvery = opts.UsageRefresh
 	// A still or a film shows the boats on station whatever the setting:

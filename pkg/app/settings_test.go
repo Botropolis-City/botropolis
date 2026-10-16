@@ -10,6 +10,43 @@ import (
 	"botropolis.city/botropolis/pkg/ui"
 )
 
+// Item 87: the groups' lines are on by default, and a row hides them.
+func TestGroupLinesSetting(t *testing.T) {
+	row := func(t *testing.T, cfg *config.Config) ui.Setting {
+		t.Helper()
+		for _, s := range settingsFor(cfg).Items {
+			if s.Key == config.KeyGroupLines {
+				return s
+			}
+		}
+		require.FailNow(t, "no group lines row")
+		return ui.Setting{}
+	}
+
+	t.Run("when the config is the default", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		s := row(t, cfg)
+
+		t.Run("it should show the lines on", func(t *testing.T) {
+			assert.Equal(t, "on", s.Value)
+		})
+
+		t.Run("it should offer on and off", func(t *testing.T) {
+			assert.ElementsMatch(t, []string{"on", "off"}, s.Options)
+		})
+	})
+
+	t.Run("when the panel turns them off", func(t *testing.T) {
+		key, value := settingValue(ui.Setting{Key: config.KeyGroupLines, Value: "off"})
+
+		t.Run("it should save false", func(t *testing.T) {
+			assert.Equal(t, []any{config.KeyGroupLines, false}, []any{key, value})
+		})
+	})
+}
+
 // Item 79: how often the city fetches usage is a row in the settings
 // panel, starting from manual.
 func TestUsageRefreshSetting(t *testing.T) {

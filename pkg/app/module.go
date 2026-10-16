@@ -26,6 +26,7 @@ import (
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/render"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/state"
@@ -297,27 +298,28 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			feed.Events = fresh
 			feed.Run(ctx, offer)
 		},
-		Home:          c.config.Home,
-		FindChords:    &chords,
-		Search:        commands.NewFind(c.config.Socket, c.config.Home, c.services.source(c.config), time.Now).Search,
-		Projection:    projection,
-		Screenshot:    cli.Screenshot(cmd),
-		Keys:          cli.Keys(cmd),
-		Hover:         hoverPoint,
-		HoverSet:      hoverSet,
-		Record:        recordDir,
-		RecordSeconds: recordSeconds,
-		RecordFPS:     fps,
-		Script:        cues,
-		Width:         width,
-		Height:        height,
-		Scale:         c.config.RenderScale,
-		ReducedMotion: c.config.ReducedMotion,
-		DailyBudget:   c.config.DailyBudget,
-		Detail:        detail,
-		UsageRefresh:  usageEvery,
-		Signage:       signage,
-		Settings:      settingsFor(c.config),
+		Home:           c.config.Home,
+		FindChords:     &chords,
+		Search:         commands.NewFind(c.config.Socket, c.config.Home, c.services.source(c.config), time.Now).Search,
+		Projection:     projection,
+		Screenshot:     cli.Screenshot(cmd),
+		Keys:           cli.Keys(cmd),
+		Hover:          hoverPoint,
+		HoverSet:       hoverSet,
+		Record:         recordDir,
+		RecordSeconds:  recordSeconds,
+		RecordFPS:      fps,
+		Script:         cues,
+		Width:          width,
+		Height:         height,
+		Scale:          c.config.RenderScale,
+		ReducedMotion:  c.config.ReducedMotion,
+		DailyBudget:    c.config.DailyBudget,
+		Detail:         detail,
+		HideGroupLines: !c.config.GroupLines,
+		UsageRefresh:   usageEvery,
+		Signage:        signage,
+		Settings:       settingsFor(c.config),
 		Apply: func(s ui.Setting) error {
 			key, value := settingValue(s)
 			if key == config.KeyTerminal {
@@ -338,7 +340,7 @@ type liveActor struct {
 func (a *liveActor) Do(action city.Action) error {
 	terminal, _ := a.terminal.Load().(string)
 	sessions := commands.NewSessions(a.home, control.Default(terminal))
-	return commands.Actor{Sessions: sessions}.Do(action)
+	return commands.Actor{Sessions: sessions, GroupStore: group.Path()}.Do(action)
 }
 
 const autoValue = "auto"
@@ -353,6 +355,10 @@ func settingsFor(cfg *config.Config) ui.Settings {
 	if cfg.RenderScale > 0 {
 		scale = strconv.FormatFloat(cfg.RenderScale, 'g', -1, 64)
 	}
+	lines := "on"
+	if !cfg.GroupLines {
+		lines = "off"
+	}
 	terminal := cfg.Terminal
 	if terminal == "" {
 		terminal = autoValue
@@ -364,6 +370,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyDetail, Label: "detail", Options: []string{"full", "plain"}, Value: cfg.Detail},
 		{Key: config.KeyParkedDays, Label: "parked days", Options: withValue([]string{"0", "1", "3", "7", "14", "30", "90"}, strconv.Itoa(cfg.ParkedDays)), Value: strconv.Itoa(cfg.ParkedDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
+		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 	})
 }
@@ -382,7 +389,7 @@ func withValue(options []string, value string) []string {
 // settingValue is the config value a panel row stands for.
 func settingValue(s ui.Setting) (string, any) {
 	switch s.Key {
-	case config.KeyReducedMotion:
+	case config.KeyReducedMotion, config.KeyGroupLines:
 		return s.Key, s.Value == "on"
 	case config.KeyRenderScale:
 		if s.Value == autoValue {

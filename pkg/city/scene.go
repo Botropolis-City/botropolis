@@ -27,6 +27,10 @@ const (
 	// asks Claude Code for a summary, and is the only one that spends.
 	ActionDetails     ActionKind = "details"
 	ActionDetailsHide ActionKind = "hide details"
+	// ActionMoveToGroup asks which group to move the selection to, and
+	// ActionMove moves it, to Group or to none (item 87).
+	ActionMoveToGroup ActionKind = "move to group"
+	ActionMove        ActionKind = "move"
 	ActionGenerate    ActionKind = "generate summary"
 	// The finder's: a stopped session resumed in a terminal in its own
 	// directory, a new one started where a deleted conversation was, and
@@ -46,6 +50,8 @@ type Action struct {
 	Dir       string
 	// Text is what ActionCopy copies.
 	Text string
+	// Group is where ActionMove puts the session; empty is no group.
+	Group string
 }
 
 // Light is how the scene decides night: from the sessions, or forced
@@ -77,19 +83,21 @@ const (
 type Scene struct {
 	snapshot state.Snapshot
 	// focus is the group the map is focused on, if any (item 87).
-	focus     string
-	light     Light
-	now       func() time.Time
-	location  *time.Location
-	scrub     time.Duration
-	topChrome float64
-	bottom    float64
-	left      float64
-	layout    *Layout
-	camera    *Camera
-	city      *City
-	hover     Hit
-	selected  *Building
+	focus string
+	// linesHidden is whether the setting hides the groups' lines.
+	linesHidden bool
+	light       Light
+	now         func() time.Time
+	location    *time.Location
+	scrub       time.Duration
+	topChrome   float64
+	bottom      float64
+	left        float64
+	layout      *Layout
+	camera      *Camera
+	city        *City
+	hover       Hit
+	selected    *Building
 	// detailsFor is the session whose card has its details open, so a
 	// new selection always starts closed; generated is what Generate
 	// brought back, by session.
@@ -727,6 +735,9 @@ func (s *Scene) Actions() []ActionKind {
 	} else {
 		kinds = append(kinds, ActionStar)
 	}
+	if len(s.snapshot.Groups) > 0 && s.selected.Session.State != state.Parked {
+		kinds = append(kinds, ActionMoveToGroup)
+	}
 	if s.detailsOpen() {
 		return append(kinds, ActionDetailsHide)
 	}
@@ -767,6 +778,8 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		return Action{}, ""
 	case ActionGenerate:
 		return Action{Kind: ActionGenerate, SessionID: b.Session.ID}, "summarising " + b.Card(s.city.Time).Title
+	case ActionMoveToGroup:
+		return Action{Kind: ActionMoveToGroup, SessionID: b.Session.ID}, ""
 	case ActionStar:
 		s.layout.SetStarred(root, true)
 		return Action{}, "starred " + name
@@ -941,6 +954,8 @@ func (s *Scene) Card() (Card, bool) {
 	// The movers first: a drone circles a roof and a flag stands on one,
 	// so the building's hit rect covers both. Pointing at the drone has
 	// to answer about the drone.
+	case s.hover.Station != nil:
+		return StationCard(*s.hover.Station.Line, s.hover.Station.Index), true
 	case s.hover.Gauge != nil:
 		return GaugeCard(s.hover.Gauge.Gauge, s.hover.Gauge.Age), true
 	case s.hover.Car != nil:

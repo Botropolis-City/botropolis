@@ -68,8 +68,10 @@ type Session struct {
 	Team               string       `json:"team,omitempty"`
 	// Group is the id of the group the session belongs to, and
 	// GroupJoined why it joined (item 87).
-	Group       string         `json:"group,omitempty"`
-	GroupJoined string         `json:"groupJoined,omitempty"`
+	Group       string `json:"group,omitempty"`
+	GroupJoined string `json:"groupJoined,omitempty"`
+	// GroupLikely is whether it joined on a guess, drawn as a dashed tie.
+	GroupLikely bool           `json:"groupLikely,omitempty"`
 	Agent       string         `json:"agent,omitempty"`
 	Messages    map[string]int `json:"messages,omitempty"`
 	Touches     map[string]int `json:"touches,omitempty"`

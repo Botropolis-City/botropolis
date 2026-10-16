@@ -59,6 +59,8 @@ func (g *Game) applySetting(s ui.Setting) {
 		if d, ok := city.ParseDetail(s.Value); ok {
 			g.scene.SetDetail(d)
 		}
+	case config.KeyGroupLines:
+		g.scene.SetGroupLines(s.Value == "on")
 	case config.KeyParkedDays:
 		note += " (the daemon reads it when it restarts)"
 	case config.KeyUsageRefresh:

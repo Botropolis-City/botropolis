@@ -30,6 +30,7 @@ type Group struct {
 
 type groupCache struct {
 	path       string
+	storeKey   fileKey
 	historyKey fileKey
 	signature  string
 	detections int
@@ -69,15 +70,24 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 	}
 	signature := groupSignature(snapshot.Sessions)
 	c := &l.groups
-	if c.detections == 0 || key != c.historyKey || signature != c.signature {
+	var storeKey fileKey
+	if c.path != "" {
+		if storeKey, err = stat(c.path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	if c.detections == 0 || key != c.historyKey || signature != c.signature || storeKey != c.storeKey {
 		history, err := claude.ReadPromptHistory(historyPath)
 		if err != nil {
 			return err
 		}
-		if err := c.detect(members(history, snapshot.Sessions, now)); err != nil {
+		if err := c.detect(members(history, snapshot.Sessions, now), history, now); err != nil {
 			return err
 		}
 		c.historyKey, c.signature = key, signature
+		if c.path != "" {
+			c.storeKey, _ = stat(c.path)
+		}
 		c.lastPrompts = lastPrompts(history)
 	}
 	for i := range snapshot.Sessions {
@@ -89,7 +99,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 	return nil
 }
 
-func (c *groupCache) detect(members []group.Member) error {
+func (c *groupCache) detect(members []group.Member, history map[string][]claude.Prompt, now time.Time) error {
 	memory := group.Memory{}
 	if c.path != "" {
 		loaded, err := group.Load(c.path)
@@ -103,10 +113,44 @@ func (c *groupCache) detect(members []group.Member) error {
 	if c.path == "" {
 		return nil
 	}
-	if remembered := memory.Remember(c.result); !reflect.DeepEqual(remembered, memory) {
+	remembered := memory.Remember(c.result)
+	if confirmLikely(&remembered, c.result, history, now) {
+		c.result = group.Detect(members, remembered)
+		remembered = remembered.Remember(c.result)
+	}
+	if !reflect.DeepEqual(remembered, memory) {
 		return group.Save(c.path, remembered)
 	}
 	return nil
+}
+
+// confirmLikely notes when each likely member was first seen as one, and
+// confirms those prompted in since: acting inside a guessed group is
+// what turns its tie solid. It reports whether any was confirmed.
+func confirmLikely(memory *group.Memory, result group.Result, history map[string][]claude.Prompt, now time.Time) bool {
+	confirmed := false
+	for _, g := range result.Groups {
+		for _, m := range g.Members {
+			if m.Tier != group.Likely {
+				continue
+			}
+			since, seen := memory.LikelySince[m.Session]
+			if !seen {
+				if memory.LikelySince == nil {
+					memory.LikelySince = map[string]time.Time{}
+				}
+				memory.LikelySince[m.Session] = now.UTC()
+				continue
+			}
+			prompts := history[m.Session]
+			if len(prompts) > 0 && prompts[len(prompts)-1].At.After(since) {
+				memory.Confirmed = append(memory.Confirmed, m.Session)
+				delete(memory.LikelySince, m.Session)
+				confirmed = true
+			}
+		}
+	}
+	return confirmed
 }
 
 // groupSignature is what about the sessions detection reads, other than
@@ -202,7 +246,7 @@ func groupViews(result group.Result, sessions []Session) []Group {
 			if m.Tier == group.Likely {
 				joined = "likely: " + joined
 			}
-			sessions[i].Group, sessions[i].GroupJoined = g.ID, joined
+			sessions[i].Group, sessions[i].GroupJoined, sessions[i].GroupLikely = g.ID, joined, m.Tier == group.Likely
 			present = append(present, sessions[i])
 		}
 		view.Move, view.Why = GroupMove(present)

@@ -13,8 +13,10 @@ import (
 // first session there started.
 func (c *City) placeGroups(groups []state.Group) {
 	byID := map[string]*state.Group{}
+	c.groups = nil
 	for i := range groups {
 		byID[groups[i].ID] = &groups[i]
+		c.groups = append(c.groups, &groups[i])
 	}
 	first := map[string]map[string]time.Time{}
 	for _, b := range c.Buildings() {
@@ -53,4 +55,5 @@ func (c *City) placeGroups(groups []state.Group) {
 		roots := order[b.Group.ID]
 		b.Station, b.Stations = slices.Index(roots, ProjectRoot(b.Session.CWD))+1, len(roots)
 	}
+	c.placeLines()
 }

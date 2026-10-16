@@ -764,6 +764,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		vector.FillRect(screen, 0, 0, float32(width), float32(height), colorNightOverlay, false)
 		g.nightLights(screen, cam, c)
 	}
+	g.groupLines(screen, cam)
 	for _, d := range c.Districts {
 		if g.districtLabelVisible(d) {
 			g.floorLabel(screen, g.districtLabelAt(d), d.Name, colorText)

@@ -3,6 +3,7 @@ package city_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -56,6 +57,44 @@ func TestBuildingGroup(t *testing.T) {
 
 		t.Run("it should say the join is a guess", func(t *testing.T) {
 			assert.Contains(t, lines, "joined   likely: started with b")
+		})
+	})
+
+	t.Run("when a building is selected", func(t *testing.T) {
+		selected := func(t *testing.T, snap state.Snapshot) *city.Scene {
+			t.Helper()
+			s := city.NewScene(city.NewLayout())
+			s.SetClock(func() time.Time { return now }, time.UTC)
+			s.Resize(800, 600)
+			s.SetSnapshot(snap)
+			s.Click(centreOf(t, s, "a"))
+			return s
+		}
+
+		t.Run("and there are groups", func(t *testing.T) {
+			s := selected(t, grouped("mentions PROJ-123"))
+
+			t.Run("it should offer to move it to a group", func(t *testing.T) {
+				assert.Contains(t, s.Actions(), city.ActionMoveToGroup)
+			})
+
+			t.Run("and that is chosen", func(t *testing.T) {
+				action, _ := s.Act(city.ActionMoveToGroup)
+
+				t.Run("it should ask for the group to move that session to", func(t *testing.T) {
+					assert.Equal(t, city.Action{Kind: city.ActionMoveToGroup, SessionID: "a"}, action)
+				})
+			})
+		})
+
+		t.Run("and there are none", func(t *testing.T) {
+			snap := grouped("")
+			snap.Groups = nil
+			s := selected(t, snap)
+
+			t.Run("it should not offer it", func(t *testing.T) {
+				assert.NotContains(t, s.Actions(), city.ActionMoveToGroup)
+			})
 		})
 	})
 

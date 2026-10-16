@@ -6,6 +6,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/state"
 )
@@ -97,6 +98,8 @@ func (f Feed) poll(ctx context.Context, offer func(state.Snapshot)) {
 
 type Actor struct {
 	Sessions *Sessions
+	// GroupStore is the groups' memory a move is written into (item 87).
+	GroupStore string
 }
 
 func (a Actor) Do(action city.Action) error {
@@ -123,6 +126,18 @@ func (a Actor) Do(action city.Action) error {
 		return a.Sessions.StartIn(action.Dir)
 	case city.ActionCopy:
 		return a.Sessions.Copy(context.Background(), action.Text)
+	case city.ActionMove:
+		return a.move(action.SessionID, action.Group)
 	}
 	return nil
+}
+
+// move writes a session's move into the groups' memory; the daemon sees
+// the file change and groups again with the move honoured.
+func (a Actor) move(session, to string) error {
+	memory, err := group.Load(a.GroupStore)
+	if err != nil {
+		return err
+	}
+	return group.Save(a.GroupStore, memory.WithMove(session, to))
 }

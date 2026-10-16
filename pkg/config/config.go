@@ -30,6 +30,7 @@ const (
 	KeyDailyBudget   = "daily_budget_usd"
 	KeyDetail        = "detail"
 	KeyUsageRefresh  = "usage_refresh"
+	KeyGroupLines    = "group_lines"
 
 	DefaultParkedDays = 7
 )
@@ -79,6 +80,8 @@ type Config struct {
 	FindCopyKey string
 	FindShowKey string
 	File        string
+	// GroupLines draws each group as a line across its districts (item 87).
+	GroupLines bool
 }
 
 func NewViper() *viper.Viper {
@@ -100,6 +103,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyFind, DefaultFind)
 	v.SetDefault(KeyFindCopy, DefaultFindCopy)
 	v.SetDefault(KeyFindShow, DefaultFindShow)
+	v.SetDefault(KeyGroupLines, true)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -115,6 +119,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.Float64(KeyDailyBudget, 0, "a daily spend to measure the strip and the plant against, in USD (0 for none)")
 	flags.String(KeyDetail, DefaultDetail, "how much of the city to draw: full or plain (plain drops the scenery)")
 	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
+	flags.Bool(KeyGroupLines, true, "draw each group of sessions as a line across its districts")
 	_ = v.BindPFlag(KeyHome, flags.Lookup(KeyHome))
 	_ = v.BindPFlag(KeySocket, flags.Lookup(KeySocket))
 	_ = v.BindPFlag(KeyParkedDays, flags.Lookup(KeyParkedDays))
@@ -130,6 +135,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyFind, flags.Lookup(KeyFind))
 	_ = v.BindPFlag(KeyFindCopy, flags.Lookup(KeyFindCopy))
 	_ = v.BindPFlag(KeyFindShow, flags.Lookup(KeyFindShow))
+	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
 }
 
 func New(v *viper.Viper) (*Config, error) {
@@ -157,6 +163,7 @@ func New(v *viper.Viper) (*Config, error) {
 		FindKey:       v.GetString(KeyFind),
 		FindCopyKey:   v.GetString(KeyFindCopy),
 		FindShowKey:   v.GetString(KeyFindShow),
+		GroupLines:    v.GetBool(KeyGroupLines),
 		File:          v.ConfigFileUsed(),
 	}
 	if _, err := ParseUsageRefresh(cfg.UsageRefresh); err != nil {

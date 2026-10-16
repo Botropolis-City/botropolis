@@ -173,7 +173,10 @@ type Game struct {
 
 	settings     ui.Settings
 	settingsOpen bool
-	reduced      bool
+	// carrying is the selected building being dragged to a group's line
+	// (item 87).
+	carrying *city.Building
+	reduced  bool
 	// signage is which of phase 21 item 38's title treatments is drawn.
 	signage city.Signage
 	apply   func(ui.Setting) error
@@ -390,7 +393,9 @@ func (g *Game) Update() error {
 		if !g.clickOverlay(cursor) && !g.clickHelp(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
 			// A press on a district's floor or sign picks the district up;
 			// anywhere else, or with Shift or Alt held anywhere, it pans.
-			if g.scene.PressDistrict(cursor, panHeld()) {
+			if carries(g.scene.Hover(), g.scene.Selected()) {
+				g.carrying = g.scene.Selected()
+			} else if g.scene.PressDistrict(cursor, panHeld()) {
 				g.moving, g.pressAt = true, cursor
 			} else {
 				g.dragging, g.dragFrom = true, cursor
@@ -414,6 +419,12 @@ func (g *Game) Update() error {
 	if g.dragging && (ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown) {
 		g.scene.Pan(cursor.Sub(g.dragFrom))
 		g.dragFrom = cursor
+	}
+	if (inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release) && g.carrying != nil {
+		if drop := dropAction(g.carrying, g.scene.Hover()); drop.Kind == city.ActionMove {
+			g.move(drop.SessionID, drop.Group)
+		}
+		g.carrying = nil
 	}
 	if (inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release) && g.dragging {
 		wasDrag := math.Hypot(cursor.X-g.dragFrom.X, cursor.Y-g.dragFrom.Y) > 3
@@ -597,6 +608,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if cam.Projection == city.Isometric {
 		g.drawIso(screen, c, cam, hover, selected, width, height, seconds)
 		g.districtGhost(screen, cam)
+		if g.carrying != nil {
+			x, y := ebiten.CursorPosition()
+			g.drawCarry(screen, cam, city.Point{X: float64(x), Y: float64(y)})
+		}
 		g.overlay(screen, width, height)
 		return
 	}

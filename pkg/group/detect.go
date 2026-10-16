@@ -53,6 +53,7 @@ const (
 	SignalBranch      Signal = "branch"
 	SignalFiles       Signal = "files"
 	SignalTiming      Signal = "timing"
+	SignalMoved       Signal = "moved"
 )
 
 // Reason is why a session joined, or is suggested: the signal, what it
@@ -147,4 +148,8 @@ type detection struct {
 	refs    [][]string
 	wording *Wording
 	blocked map[[2]string]bool
+	// moved are the sessions put in a group, or none, by hand; they sit
+	// out detection and are placed where they were put.
+	moved     map[string]bool
+	confirmed map[string]bool
 }

@@ -103,6 +103,42 @@ func TestLoaderGroups(t *testing.T) {
 			t.Run("it should say its join is a guess", func(t *testing.T) {
 				assert.True(t, strings.HasPrefix(sessionByID(t, snapshot, sidC).GroupJoined, "likely: "))
 			})
+
+			t.Run("and a prompt is sent in it after it joined", func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "groups.json")
+				loader := state.NewLoader(home.Path, dead).WithGroups(path)
+				_, err := loader.Load(now)
+				require.NoError(t, err)
+				home.Prompt(sidC, apiDir, "and the changelog", now.Add(30*time.Second))
+				snapshot, err := loader.Load(now.Add(time.Minute))
+				require.NoError(t, err)
+				memory, err := group.Load(path)
+				require.NoError(t, err)
+
+				t.Run("it should be confirmed in memory", func(t *testing.T) {
+					assert.Contains(t, memory.Confirmed, sidC)
+				})
+
+				t.Run("its tie should no longer be a guess", func(t *testing.T) {
+					assert.False(t, strings.HasPrefix(sessionByID(t, snapshot, sidC).GroupJoined, "likely: "))
+				})
+			})
+		})
+
+		t.Run("and a correction is written to the store", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "groups.json")
+			loader := state.NewLoader(home.Path, dead).WithGroups(path)
+			_, err := loader.Load(now)
+			require.NoError(t, err)
+			memory, err := group.Load(path)
+			require.NoError(t, err)
+			require.NoError(t, group.Save(path, memory.WithMove(sidB, "")))
+			snapshot, err := loader.Load(now.Add(time.Second))
+			require.NoError(t, err)
+
+			t.Run("it should detect again and honour it", func(t *testing.T) {
+				assert.Equal(t, "", sessionByID(t, snapshot, sidB).Group)
+			})
 		})
 
 		t.Run("and it loads again with nothing changed", func(t *testing.T) {

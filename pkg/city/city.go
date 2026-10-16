@@ -99,6 +99,10 @@ type City struct {
 	Hall      Hall
 	Roads     []RoadLine
 	Streets   []Street
+	// Lines are the groups drawn across districts, and groups the
+	// snapshot's groups they are drawn from (item 87).
+	Lines  []Line
+	groups []*state.Group
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.
@@ -149,6 +153,14 @@ type Hit struct {
 	Gauge *GaugeHit
 	Car   *CarHit
 	Flag  *FlagHit
+	// Station is a stop on a group's line (item 87).
+	Station *StationHit
+}
+
+// StationHit is one station and the line it stands on.
+type StationHit struct {
+	Line  *Line
+	Index int
 }
 
 // CarHit is one car and the road it is driving, so it can name the pair

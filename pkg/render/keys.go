@@ -334,6 +334,10 @@ func (g *Game) leave() error {
 
 // act hands an action to the actor and reports a failure in the footer.
 func (g *Game) act(action city.Action) {
+	if action.Kind == city.ActionMoveToGroup {
+		g.openPicker(action.SessionID)
+		return
+	}
 	if action.Kind == city.ActionGenerate {
 		g.generate(action.SessionID)
 		return
