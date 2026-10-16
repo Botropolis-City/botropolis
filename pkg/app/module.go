@@ -27,7 +27,6 @@ import (
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/events"
-	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/render"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/single"
@@ -268,7 +267,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v; starting from an empty layout\n", err)
 		layout = city.NewLayout()
 	}
-	actor := &liveActor{home: c.config.Home}
+	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config)}
 	actor.terminal.Store(c.config.Terminal)
 	feed := commands.Feed{
 		Socket:  c.config.Socket,
@@ -384,13 +383,14 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 // the settings panel is used by the next attach.
 type liveActor struct {
 	home     string
+	groups   string
 	terminal atomic.Value
 }
 
 func (a *liveActor) Do(action city.Action) error {
 	terminal, _ := a.terminal.Load().(string)
 	sessions := commands.NewSessions(a.home, control.Default(terminal))
-	return commands.Actor{Sessions: sessions, GroupStore: group.Path()}.Do(action)
+	return commands.Actor{Sessions: sessions, GroupStore: a.groups}.Do(action)
 }
 
 const autoValue = "auto"

@@ -99,6 +99,16 @@ func ledgerPath(cfg *config.Config) string {
 	return state.LedgerPath()
 }
 
+// GroupsPath is where the groups and their corrections are kept, and
+// "" for a home the run was pointed at: groups are the default home's,
+// so a fixture or a test's home never reads or writes them (item 87).
+func GroupsPath(cfg *config.Config) string {
+	if cfg.HomeSet {
+		return ""
+	}
+	return group.Path()
+}
+
 // Harnesses loads directly, without a daemon, and keeps no ledger: only
 // the daemon writes it.
 func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
@@ -106,7 +116,7 @@ func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
 }
 
 func harnesses(cfg *config.Config, probes state.Probes, ledger string) *harness.Multi {
-	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithGroups(group.Path()).WithLedger(ledger))
+	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger))
 	harnesses := []harness.Snapshotter{claudeLoader}
 	if info, err := os.Stat(filepath.Join(cfg.CodexHome, "sessions")); err == nil && info.IsDir() {
 		harnesses = append(harnesses, codex.NewLoader(cfg.CodexHome))

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -135,6 +136,9 @@ func (a Actor) Do(action city.Action) error {
 // move writes a session's move into the groups' memory; the daemon sees
 // the file change and groups again with the move honoured.
 func (a Actor) move(session, to string) error {
+	if a.GroupStore == "" {
+		return errNoGroups
+	}
 	memory, err := group.Load(a.GroupStore)
 	if err != nil {
 		return err
@@ -148,6 +152,9 @@ func (a Actor) review(r *group.Review) error {
 	if r == nil {
 		return nil
 	}
+	if a.GroupStore == "" {
+		return errNoGroups
+	}
 	now := time.Now
 	if a.Now != nil {
 		now = a.Now
@@ -158,3 +165,5 @@ func (a Actor) review(r *group.Review) error {
 	}
 	return group.Save(a.GroupStore, memory.Confirm(*r, now()))
 }
+
+var errNoGroups = errors.New("groups are kept only for your own home, not for one --home points at")

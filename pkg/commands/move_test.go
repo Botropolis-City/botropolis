@@ -28,4 +28,12 @@ func TestActorMove(t *testing.T) {
 			assert.Equal(t, []string{"headers"}, memory.Muted)
 		})
 	})
+
+	t.Run("when the actor keeps no groups, as for a run pointed at another home", func(t *testing.T) {
+		err := commands.Actor{}.Do(city.Action{Kind: city.ActionMove, SessionID: "a", Group: "g2"})
+
+		t.Run("it should refuse and say why", func(t *testing.T) {
+			assert.ErrorContains(t, err, "groups are kept only for your own home")
+		})
+	})
 }
