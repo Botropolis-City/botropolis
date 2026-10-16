@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `w` (`triage_key`) walks the sessions waiting on you, longest-waiting first, flying to each: Enter acts, `p` rests it, `d` marks it done, `s` snoozes it until a time you pick or type, `n` moves on.
   A column down the right, the stream, shows what happens newest first, with what needs you in amber and errors in red and everything else muted; a click flies to the session, and `l` (`stream_key`) hides it.
   Each district stands a sign at its corner with its name and whose move it is, in place of the floating name plate wherever the sign is legible.
+  Zoomed in, the board stays the size it reads at and its post grows instead.
 
 - **Drag a district to another slot.**
   Press on a district's floor or name sign and drag it; the slot it would land on is outlined, and it stays where you drop it.
