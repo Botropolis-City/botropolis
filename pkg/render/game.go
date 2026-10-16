@@ -230,9 +230,12 @@ type Game struct {
 	// readConversation reads a page of a session's conversation for the
 	// reading pane, and readerRect is where it was last drawn. Item 83.
 	readConversation func(id string, skip, count int) (claude.Conversation, error)
-	readerRect       city.Rect
-	search           func(find.Query) ([]find.Hit, error)
-	dispatch         func(func())
+	// readPrompts is what Claude Code's prompt history kept for a session
+	// whose transcript is gone.
+	readPrompts func(id string) ([]claude.Prompt, error)
+	readerRect  city.Rect
+	search      func(find.Query) ([]find.Hit, error)
+	dispatch    func(func())
 	// findAtOnce searches without waiting for typing to pause, for
 	// scripted frames.
 	findAtOnce bool

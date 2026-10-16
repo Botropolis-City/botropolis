@@ -2,6 +2,7 @@ package render
 
 import (
 	"errors"
+	"path/filepath"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -52,20 +53,40 @@ type reader struct {
 	mu   sync.Mutex
 	page claude.Conversation
 	err  string
+	// gone says the transcript has been deleted, and kept is what the
+	// prompt history still has for the session.
+	gone bool
+	kept []claude.Prompt
 }
+
+func (r *reader) isGone() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.gone
+}
+
+// errTranscriptGone is a session whose transcript Claude Code has
+// deleted, which the pane answers with the prompts its history kept.
+var errTranscriptGone = errors.New("the transcript has been deleted")
 
 // read asks for the page count turns back from skip, off the frame.
 func (r *reader) read(g *Game, skip int) {
 	r.skip = skip
-	readConversation, dispatch := g.readConversation, g.dispatch
+	readConversation, readPrompts, dispatch := g.readConversation, g.readPrompts, g.dispatch
+	home := g.home
 	if readConversation == nil {
-		home := g.home
 		readConversation = func(id string, skip, count int) (claude.Conversation, error) {
 			path, ok := transcriptFor(home, id)
 			if !ok {
-				return claude.Conversation{}, errors.New("no transcript for this session")
+				return claude.Conversation{}, errTranscriptGone
 			}
 			return claude.ReadConversation(path, skip, count)
+		}
+	}
+	if readPrompts == nil {
+		readPrompts = func(id string) ([]claude.Prompt, error) {
+			history, err := claude.ReadPromptHistory(filepath.Join(home, ".claude", "history.jsonl"))
+			return history[id], err
 		}
 	}
 	if dispatch == nil {
@@ -74,12 +95,17 @@ func (r *reader) read(g *Game, skip int) {
 	id, count := r.id, r.count
 	dispatch(func() {
 		conv, err := readConversation(id, skip, count)
+		var kept []claude.Prompt
+		gone := errors.Is(err, errTranscriptGone)
+		if gone {
+			kept, err = readPrompts(id)
+		}
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		if skip != r.skip {
 			return
 		}
-		r.page, r.err = conv, ""
+		r.page, r.gone, r.kept, r.err = conv, gone, kept, ""
 		if err != nil {
 			r.err = err.Error()
 		}
@@ -92,6 +118,12 @@ func (r *reader) keys(g *Game) bool {
 	case just(ebiten.KeyEscape):
 		return false
 	case just(ebiten.KeyEnter), just(ebiten.KeyKPEnter):
+		if r.isGone() {
+			if b := g.scene.Selected(); b != nil {
+				g.act(city.Action{Kind: city.ActionNew, Dir: b.Session.CWD})
+			}
+			return false
+		}
 		g.act(g.scene.Activate())
 		return false
 	case just(ebiten.KeyPageUp):
@@ -125,9 +157,17 @@ func (r *reader) click(g *Game, at city.Point) bool {
 // waiting on your approval and one still running look the same.
 func (r *reader) input(g *Game) ui.ReaderInput {
 	r.mu.Lock()
-	page, err := r.page, r.err
+	page, err, gone, kept := r.page, r.err, r.gone, r.kept
 	r.mu.Unlock()
-	in := ui.ReaderInput{AtStart: page.AtStart, Err: err}
+	in := ui.ReaderInput{AtStart: page.AtStart, Err: err, Gone: gone}
+	if gone {
+		for _, p := range kept {
+			in.Turns = append(in.Turns, ui.ReaderTurn{From: ui.FromYou, Text: p.Text})
+		}
+		if len(kept) == 0 {
+			in.Note = "Claude Code kept no prompts for it"
+		}
+	}
 	var session state.Session
 	for _, b := range g.scene.City().Buildings() {
 		if b.Session.ID == r.id {

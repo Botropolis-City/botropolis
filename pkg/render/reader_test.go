@@ -11,6 +11,7 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // Item 83. The reading pane is the overlay stack's second tenant: o, or
@@ -212,6 +213,41 @@ func TestReadingPane(t *testing.T) {
 
 		t.Run("it should carry the hook's note", func(t *testing.T) {
 			assert.Equal(t, "Claude needs your permission to use Bash", in.Note)
+		})
+	})
+
+	t.Run("when the selection's transcript is gone", func(t *testing.T) {
+		gone := func(t *testing.T, kept []claude.Prompt) (*Game, *recorder) {
+			t.Helper()
+			g, actor, _ := setup(t, "live", claude.Conversation{}, errTranscriptGone)
+			g.readPrompts = func(id string) ([]claude.Prompt, error) {
+				require.Equal(t, "live", id)
+				return kept, nil
+			}
+			pressKey(t, g, ebiten.KeyO, false)
+			require.True(t, g.reading(), "the pane should be open")
+			return g, actor
+		}
+		g, actor := gone(t, []claude.Prompt{{Text: "why does the kiln overheat"}, {Text: "tighten it"}})
+
+		t.Run("it should show the prompts history.jsonl has for it", func(t *testing.T) {
+			assert.Equal(t, []ui.ReaderTurn{{From: ui.FromYou, Text: "why does the kiln overheat"}, {From: ui.FromYou, Text: "tighten it"}}, pane(g).input(g).Turns)
+		})
+
+		t.Run("and Enter is pressed", func(t *testing.T) {
+			pressKey(t, g, ebiten.KeyEnter, false)
+
+			t.Run("it should start a new session in its directory", func(t *testing.T) {
+				assert.Equal(t, []city.Action{{Kind: city.ActionNew, Dir: "/src/kiln"}}, actor.done)
+			})
+		})
+
+		t.Run("and history.jsonl has nothing for it", func(t *testing.T) {
+			bare, _ := gone(t, nil)
+
+			t.Run("it should say no prompts were kept", func(t *testing.T) {
+				assert.Equal(t, "Claude Code kept no prompts for it", pane(bare).input(bare).Note)
+			})
 		})
 	})
 

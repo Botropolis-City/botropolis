@@ -41,6 +41,9 @@ type ReaderInput struct {
 	Approval []string
 	Note     string
 	Err      string
+	// Gone says the transcript has been deleted: the turns are the
+	// prompts Claude Code's history kept, and Enter starts a new session.
+	Gone bool
 }
 
 // LineKind is what a line of the reading pane is.
@@ -90,6 +93,10 @@ const readerGrids = 100
 // readerKeys names the pane's keys along its foot.
 const readerKeys = "PgUp PgDn older and newer   enter to reply   esc to close"
 
+// readerGoneKeys are the keys when the conversation has been deleted:
+// there is nothing to reply to, so Enter starts again where it was.
+const readerGoneKeys = "enter for a new session here   esc to close"
+
 // LayoutReader centres the reading pane across a width×height window,
 // most of its height tall.
 func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measure) ReaderPanel {
@@ -116,6 +123,12 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 		_, h := measure("", size)
 		*lines = append(*lines, ReaderLine{Text: text, At: city.Point{X: x, Y: y}, Size: size, Kind: kind, Color: c})
 		y += h
+	}
+	if in.Gone {
+		add(&p.Lead, clipTo("this conversation has been deleted; these are the prompts Claude Code kept", inner, Small, measure), Small, LineNote, pal.Dim)
+		if in.Note != "" {
+			add(&p.Lead, clipTo(in.Note, inner, Small, measure), Small, LineNote, pal.Dim)
+		}
 	}
 	if len(in.Approval) > 0 {
 		add(&p.Lead, "waiting for your approval to run", Small, LineHeading, pal.NeedsYou)
@@ -144,7 +157,11 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 	}
 
 	keysY := p.Rect.Max.Y - pad - smallH
-	p.Keys = Text{Text: clipTo(readerKeys, inner, Small, measure), At: city.Point{X: x, Y: keysY}, Size: Small}
+	keys := readerKeys
+	if in.Gone {
+		keys = readerGoneKeys
+	}
+	p.Keys = Text{Text: clipTo(keys, inner, Small, measure), At: city.Point{X: x, Y: keysY}, Size: Small}
 	startY := y
 	top := y + smallH + grid/2
 	bottom := keysY - grid

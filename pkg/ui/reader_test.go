@@ -157,6 +157,29 @@ func TestLayoutReader(t *testing.T) {
 		})
 	})
 
+	t.Run("when the transcript is gone", func(t *testing.T) {
+		kept := []ui.ReaderTurn{{From: ui.FromYou, Text: "why does the kiln overheat"}, {From: ui.FromYou, Text: "tighten it"}}
+		p := layout(1280, 800, ui.ReaderInput{Turns: kept, Gone: true})
+
+		t.Run("it should say the conversation has been deleted", func(t *testing.T) {
+			notes := of(p, ui.LineNote)
+			require.NotEmpty(t, notes)
+			assert.Contains(t, notes[0].Text, "conversation has been deleted")
+		})
+
+		t.Run("it should show the kept prompts as yours", func(t *testing.T) {
+			var yours []string
+			for _, l := range of(p, ui.LineYou) {
+				yours = append(yours, l.Text)
+			}
+			assert.Equal(t, []string{"why does the kiln overheat", "tighten it"}, yours)
+		})
+
+		t.Run("it should name enter as a new session here", func(t *testing.T) {
+			assert.Contains(t, p.Keys.Text, "enter for a new session here")
+		})
+	})
+
 	t.Run("when the start of the conversation is shown", func(t *testing.T) {
 		p := layout(1280, 800, ui.ReaderInput{Turns: turns, AtStart: true})
 
