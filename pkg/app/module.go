@@ -289,6 +289,10 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	if !ok {
 		return fmt.Errorf("unknown detail %q: use full or plain", c.config.Detail)
 	}
+	liveliness, ok := city.ParseLiveliness(c.config.Liveliness)
+	if !ok {
+		return fmt.Errorf("unknown liveliness %q: use still, calm, steady or lively", c.config.Liveliness)
+	}
 	usageEvery, err := config.ParseUsageRefresh(c.config.UsageRefresh)
 	if err != nil {
 		return err
@@ -381,7 +385,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		Width:          width,
 		Height:         height,
 		Scale:          c.config.RenderScale,
-		ReducedMotion:  c.config.ReducedMotion,
+		Liveliness:     liveliness,
 		DailyBudget:    c.config.DailyBudget,
 		Detail:         detail,
 		HideGroupLines: !c.config.GroupLines,
@@ -393,11 +397,11 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		Signage:        signage,
 		Settings:       settingsFor(c.config),
 		Apply: func(s ui.Setting) error {
-			key, value := settingValue(s)
-			if key == config.KeyTerminal {
+			if s.Key == config.KeyTerminal {
+				_, value := settingValue(s)
 				actor.terminal.Store(value.(string))
 			}
-			return config.Save(c.config.File, key, value)
+			return saveSetting(c.config.File, s)
 		},
 	})
 }
@@ -446,10 +450,6 @@ const (
 
 // settingsFor is the settings panel's rows from the loaded config.
 func settingsFor(cfg *config.Config) ui.Settings {
-	onOff := "off"
-	if cfg.ReducedMotion {
-		onOff = "on"
-	}
 	scale := autoValue
 	if cfg.RenderScale > 0 {
 		scale = strconv.FormatFloat(cfg.RenderScale, 'g', -1, 64)
@@ -467,7 +467,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		shortcut = offValue
 	}
 	return ui.NewSettings([]ui.Setting{
-		{Key: config.KeyReducedMotion, Label: "reduced motion", Options: []string{"off", "on"}, Value: onOff},
+		{Key: config.KeyLiveliness, Label: "liveliness", Options: livelinessNames(), Value: cfg.Liveliness},
 		{Key: config.KeyRenderScale, Label: "render scale", Options: withValue([]string{autoValue, "1", "1.25", "1.5", "2"}, scale), Value: scale},
 		{Key: config.KeyProjection, Label: "projection", Options: []string{"iso", "top"}, Value: cfg.Projection},
 		{Key: config.KeyDetail, Label: "detail", Options: []string{"full", "plain"}, Value: cfg.Detail},
@@ -478,6 +478,15 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
 	})
+}
+
+// livelinessNames is the levels, from still to lively.
+func livelinessNames() []string {
+	var out []string
+	for _, l := range city.LivelinessLevels {
+		out = append(out, l.String())
+	}
+	return out
 }
 
 // withValue keeps a value that is not among the options at the end of
@@ -491,10 +500,23 @@ func withValue(options []string, value string) []string {
 	return append(options, value)
 }
 
+// saveSetting persists a panel row. Liveliness also clears reduced
+// motion, which would otherwise hold the city still whatever the row
+// said: the row is the newer choice. Item 89.
+func saveSetting(file string, s ui.Setting) error {
+	key, value := settingValue(s)
+	if key == config.KeyLiveliness {
+		if err := config.Save(file, config.KeyReducedMotion, false); err != nil {
+			return err
+		}
+	}
+	return config.Save(file, key, value)
+}
+
 // settingValue is the config value a panel row stands for.
 func settingValue(s ui.Setting) (string, any) {
 	switch s.Key {
-	case config.KeyReducedMotion, config.KeyGroupLines:
+	case config.KeyGroupLines:
 		return s.Key, s.Value == "on"
 	case config.KeyRenderScale:
 		if s.Value == autoValue {

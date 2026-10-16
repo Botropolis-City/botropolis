@@ -162,3 +162,59 @@ func TestGlobalShortcutSetting(t *testing.T) {
 		})
 	})
 }
+
+// Item 89: how much the city moves is a row in the settings panel, from
+// still to lively, and it replaces the reduced motion row.
+func TestLivelinessSetting(t *testing.T) {
+	load := func(t *testing.T) *config.Config {
+		t.Helper()
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		return cfg
+	}
+	row := func(t *testing.T, cfg *config.Config) ui.Setting {
+		t.Helper()
+		for _, s := range settingsFor(cfg).Items {
+			if s.Key == config.KeyLiveliness {
+				return s
+			}
+		}
+		require.FailNow(t, "no liveliness row")
+		return ui.Setting{}
+	}
+
+	t.Run("when the config is the default", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		s := row(t, load(t))
+
+		t.Run("it should show a liveliness row reading steady", func(t *testing.T) {
+			assert.Equal(t, "steady", s.Value)
+		})
+
+		t.Run("it should offer the levels from still to lively", func(t *testing.T) {
+			assert.Equal(t, []string{"still", "calm", "steady", "lively"}, s.Options)
+		})
+	})
+
+	t.Run("when the liveliness row is changed to calm", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		require.NoError(t, saveSetting("", ui.Setting{Key: config.KeyLiveliness, Value: "calm"}))
+
+		t.Run("it should persist liveliness = calm", func(t *testing.T) {
+			assert.Equal(t, "calm", load(t).Liveliness)
+		})
+	})
+
+	t.Run("when reduced motion was saved on", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		require.NoError(t, config.Save("", config.KeyReducedMotion, true))
+
+		t.Run("and the liveliness row is changed to calm", func(t *testing.T) {
+			require.NoError(t, saveSetting("", ui.Setting{Key: config.KeyLiveliness, Value: "calm"}))
+
+			t.Run("it should load as calm, because the row is the newer choice", func(t *testing.T) {
+				assert.Equal(t, "calm", load(t).Liveliness)
+			})
+		})
+	})
+}

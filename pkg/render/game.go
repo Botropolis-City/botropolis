@@ -186,7 +186,12 @@ type Game struct {
 	// groupSource is what New session guesses from: the history
 	// detected once, and the recently used directories.
 	groupSource func() (*group.Guesser, []string)
-	reduced     bool
+	// liveliness is how much the city moves, and reduced is its
+	// stillest level, at which transitions cross-fade. motion is the
+	// clocks the map animates to. Item 89.
+	liveliness city.Liveliness
+	reduced    bool
+	motion     motionClock
 	// signage is which of phase 21 item 38's title treatments is drawn.
 	signage city.Signage
 	apply   func(ui.Setting) error
@@ -768,8 +773,6 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	g.drawOverlays(screen, width, height, false)
 }
 
-// clock is the animation time; with reduced motion it stands still at
-// the point where the needs-you pulse is at full colour.
 // spriteHit is a drawn sprite's screen rect and what it stands for.
 type spriteHit struct {
 	rect city.Rect
@@ -815,11 +818,34 @@ func pickHit(world city.Hit, hits []spriteHit, cursor city.Point) (city.Hit, boo
 // timeNow is the wall clock, one seam for the keys that stamp files.
 var timeNow = time.Now
 
+// clock is the time ambient motion animates to, run at the liveliness's
+// pace: at still it stands where it is, so every mover stays a marker.
 func (g *Game) clock() float64 {
+	g.stepMotion()
+	return g.motion.ambient
+}
+
+// attention is the time the states that want you pulse to. With motion
+// reduced it stands still at the point where the pulse is at full colour.
+func (g *Game) attention() float64 {
 	if g.reduced {
 		return pulsePeriod / 4
 	}
-	return g.now().Sub(g.started).Seconds()
+	g.stepMotion()
+	return g.motion.attention
+}
+
+func (g *Game) stepMotion() {
+	if g.motion.last.IsZero() {
+		g.motion = newMotionClock(g.started)
+	}
+	g.motion.step(g.now(), g.liveliness)
+}
+
+// setLiveliness changes how much the city moves from here on.
+func (g *Game) setLiveliness(l city.Liveliness) {
+	g.stepMotion()
+	g.liveliness, g.reduced = l, l.CrossFades()
 }
 
 // now is the time the city animates to. While recording it is counted
@@ -927,7 +953,7 @@ func (g *Game) building(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	case b.Vacant:
 		body = colorMapVacant
 	case b.Pulse:
-		body = pulse(colorNeedsYou, seconds)
+		body = pulse(colorNeedsYou, g.attention())
 	case b.Session.State == state.Unattended:
 		body = colorUnattended
 	case b.Lit:

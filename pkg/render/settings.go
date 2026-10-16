@@ -46,8 +46,10 @@ func (g *Game) settingsKeys() bool {
 func (g *Game) applySetting(s ui.Setting) {
 	note := fmt.Sprintf("%s: %s", s.Label, s.Value)
 	switch s.Key {
-	case config.KeyReducedMotion:
-		g.reduced = s.Value == "on"
+	case config.KeyLiveliness:
+		if l, ok := city.ParseLiveliness(s.Value); ok {
+			g.setLiveliness(l)
+		}
 	case config.KeyRenderScale:
 		scale, _ := strconv.ParseFloat(s.Value, 64)
 		if err := g.setScale(scale); err != nil {

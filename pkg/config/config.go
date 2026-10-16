@@ -28,10 +28,13 @@ const (
 	KeyProjection    = "projection"
 	KeyRenderScale   = "render_scale"
 	KeyReducedMotion = "reduced_motion"
-	KeyDailyBudget   = "daily_budget_usd"
-	KeyDetail        = "detail"
-	KeyUsageRefresh  = "usage_refresh"
-	KeyGroupLines    = "group_lines"
+	// KeyLiveliness is how much the city moves, still to lively; reduced
+	// motion is still whatever it says. Item 89.
+	KeyLiveliness   = "liveliness"
+	KeyDailyBudget  = "daily_budget_usd"
+	KeyDetail       = "detail"
+	KeyUsageRefresh = "usage_refresh"
+	KeyGroupLines   = "group_lines"
 	// KeyGlobalShortcut is the chord that opens the finder from any
 	// application, empty for off: there is no default. Item 84.
 	KeyGlobalShortcut = "global_shortcut"
@@ -48,6 +51,13 @@ const (
 )
 
 const DefaultProjection = "iso"
+
+// DefaultLiveliness is between calm and lively, and Stillness the level
+// reduced motion asks for. Item 89.
+const (
+	DefaultLiveliness = "steady"
+	Stillness         = "still"
+)
 
 // DefaultDetail draws the whole city; see city.Detail for why the
 // scenery is the part that can go.
@@ -84,6 +94,7 @@ type Config struct {
 	Projection    string
 	RenderScale   float64
 	ReducedMotion bool
+	Liveliness    string
 	DailyBudget   float64
 	Detail        string
 	UsageRefresh  string
@@ -127,6 +138,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyProjection, DefaultProjection)
 	v.SetDefault(KeyRenderScale, 0.0)
 	v.SetDefault(KeyReducedMotion, false)
+	v.SetDefault(KeyLiveliness, DefaultLiveliness)
 	v.SetDefault(KeyDailyBudget, 0.0)
 	v.SetDefault(KeyDetail, DefaultDetail)
 	v.SetDefault(KeyUsageRefresh, UsageManual)
@@ -153,7 +165,8 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.Int(KeyOvergrownDays, DefaultOvergrownDays, "how many quiet days before a stopped session is overgrown")
 	flags.String(KeyProjection, DefaultProjection, "how the city is drawn: iso or top")
 	flags.Float64(KeyRenderScale, 0, "chrome and pixel scale (default: follow the display)")
-	flags.Bool(KeyReducedMotion, false, "stop every animation and keep the colours")
+	flags.Bool(KeyReducedMotion, false, "stop every animation and keep the colours: liveliness still")
+	flags.String(KeyLiveliness, DefaultLiveliness, "how much the city moves: still, calm, steady or lively")
 	flags.Float64(KeyDailyBudget, 0, "a daily spend to measure the strip and the plant against, in USD (0 for none)")
 	flags.String(KeyDetail, DefaultDetail, "how much of the city to draw: full or plain (plain drops the scenery)")
 	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
@@ -167,6 +180,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyProjection, flags.Lookup(KeyProjection))
 	_ = v.BindPFlag(KeyRenderScale, flags.Lookup(KeyRenderScale))
 	_ = v.BindPFlag(KeyReducedMotion, flags.Lookup(KeyReducedMotion))
+	_ = v.BindPFlag(KeyLiveliness, flags.Lookup(KeyLiveliness))
 	_ = v.BindPFlag(KeyDailyBudget, flags.Lookup(KeyDailyBudget))
 	_ = v.BindPFlag(KeyDetail, flags.Lookup(KeyDetail))
 	_ = v.BindPFlag(KeyUsageRefresh, flags.Lookup(KeyUsageRefresh))
@@ -216,6 +230,7 @@ func New(v *viper.Viper) (*Config, error) {
 		Projection:     v.GetString(KeyProjection),
 		RenderScale:    v.GetFloat64(KeyRenderScale),
 		ReducedMotion:  v.GetBool(KeyReducedMotion),
+		Liveliness:     v.GetString(KeyLiveliness),
 		DailyBudget:    v.GetFloat64(KeyDailyBudget),
 		Detail:         v.GetString(KeyDetail),
 		UsageRefresh:   v.GetString(KeyUsageRefresh),
@@ -231,6 +246,9 @@ func New(v *viper.Viper) (*Config, error) {
 		GroupLines:     v.GetBool(KeyGroupLines),
 		GlobalShortcut: v.GetString(KeyGlobalShortcut),
 		File:           v.ConfigFileUsed(),
+	}
+	if cfg.ReducedMotion {
+		cfg.Liveliness = Stillness
 	}
 	if _, err := ParseUsageRefresh(cfg.UsageRefresh); err != nil {
 		return nil, err

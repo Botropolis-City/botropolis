@@ -280,7 +280,7 @@ var colorNightOverlay = color.NRGBA{0x08, 0x0c, 0x24, 0x70}
 // flat diamond in the map view.
 func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Building, selected, detailed bool, seconds float64) {
 	if !detailed || g.kits == nil {
-		g.poly(screen, cam, b.Rect, blockColor(b, seconds))
+		g.poly(screen, cam, b.Rect, blockColor(b, g.attention()))
 		g.polyStroke(screen, cam, b.Rect, 1, colorKerb)
 		if selected {
 			g.polyStroke(screen, cam, b.Rect, 2, colorSelected)
@@ -351,7 +351,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	if dress.Beacon || settle != city.SettleNone {
 		beacon := g.theme.Color(ui.StateTone(b.Session.State))
 		if b.Pulse {
-			beacon = pulse(beacon, seconds)
+			beacon = pulse(beacon, g.attention())
 		}
 		kerb := colorKitKerb
 		if settle != city.SettleNone {
@@ -386,7 +386,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			g.kitAt(screen, cam, kitRover, 270, at, nil)
 		}
 	}
-	if b.Session.State == state.Working {
+	if roverDrawn(b) {
 		bob := 1.5 * cam.Zoom * math.Sin(seconds*4)
 		at := cam.WorldToScreen(g.scene.Worker(b))
 		rover := g.kitAt(screen, cam, kitRover, g.scene.WorkerTurn(b), city.Point{X: at.X, Y: at.Y + bob}, nil)
@@ -394,13 +394,11 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	}
 	// Subagents in flight: one drone each, circling over the roof, and
 	// only in the view that asks how many there are.
-	for i := 0; g.shows(city.NetworkCranes) && i < min(b.Cranes, 3); i++ {
-		phase := seconds*0.8 + float64(i)*2*math.Pi/3
-		orbit := city.Point{X: r.Width() * 0.28 * math.Cos(phase), Y: r.Width() * 0.12 * math.Sin(phase)}
-		hover := 2 * cam.Zoom * math.Sin(seconds*3+float64(i))
-		at := city.Point{X: r.Min.X + r.Width()/2 + orbit.X, Y: roofTop - droneHover*cam.Zoom + orbit.Y + hover}
-		drone := g.kitAt(screen, cam, kitDrone, 0, at, nil)
-		g.noteHit(drone, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Subagent: b})
+	if g.shows(city.NetworkCranes) {
+		for _, at := range droneSpots(r, cam.Zoom, b.Cranes, seconds) {
+			drone := g.kitAt(screen, cam, kitDrone, 0, at, nil)
+			g.noteHit(drone, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Subagent: b})
+		}
 	}
 	// One flag per PR, coloured by its state: open in the accent, merged
 	// green, closed slate.
@@ -422,19 +420,50 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	if p := g.scene.Celebration(b.Session.ID); p >= 0 {
 		g.celebrate(screen, city.Point{X: r.Min.X + r.Width()/2, Y: roofTop}, r.Width(), p)
 	}
-	if b.Smoke > 0 {
-		for i := 0; i < min(b.Smoke, 3); i++ {
-			phase := math.Mod(seconds*0.4+float64(i)*0.33, 1)
-			at := city.Point{X: r.Min.X + r.Width()*0.5 + float64(i)*dot*1.5 + 3*cam.Zoom*math.Sin(phase*6), Y: roofTop - phase*18*cam.Zoom}
-			radius := (3 + phase*3) * cam.Zoom
-			vector.FillCircle(screen, float32(at.X), float32(at.Y), float32(radius), colorSmoke, true)
-			g.noteHit(city.RectAt(at.X-radius, at.Y-radius, radius*2, radius*2),
-				city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Smoke: b})
-		}
+	for _, p := range smokePuffs(r, cam.Zoom, b.Smoke, seconds) {
+		vector.FillCircle(screen, float32(p.at.X), float32(p.at.Y), float32(p.radius), colorSmoke, true)
+		g.noteHit(city.RectAt(p.at.X-p.radius, p.at.Y-p.radius, p.radius*2, p.radius*2),
+			city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Smoke: b})
 	}
 	if selected {
 		g.polyStroke(screen, cam, b.Rect, 2, colorSelected)
 	}
+}
+
+// roverDrawn is whether a building's worker is out: while its session
+// is mid-turn.
+func roverDrawn(b *city.Building) bool { return b.Session.State == state.Working }
+
+// droneSpots is where each subagent's drone is over a roof drawn at r,
+// up to three.
+func droneSpots(r city.Rect, zoom float64, count int, seconds float64) []city.Point {
+	var out []city.Point
+	for i := 0; i < min(count, 3); i++ {
+		phase := seconds*0.8 + float64(i)*2*math.Pi/3
+		orbit := city.Point{X: r.Width() * 0.28 * math.Cos(phase), Y: r.Width() * 0.12 * math.Sin(phase)}
+		hover := 2 * zoom * math.Sin(seconds*3+float64(i))
+		out = append(out, city.Point{X: r.Min.X + r.Width()/2 + orbit.X, Y: r.Min.Y - droneHover*zoom + orbit.Y + hover})
+	}
+	return out
+}
+
+// puff is one plume of smoke on screen.
+type puff struct {
+	at     city.Point
+	radius float64
+}
+
+// smokePuffs is the smoke rising off a roof drawn at r, one plume per
+// API error, up to three.
+func smokePuffs(r city.Rect, zoom float64, count int, seconds float64) []puff {
+	dot := math.Max(3, 6*zoom)
+	var out []puff
+	for i := 0; i < min(count, 3); i++ {
+		phase := math.Mod(seconds*0.4+float64(i)*0.33, 1)
+		at := city.Point{X: r.Min.X + r.Width()*0.5 + float64(i)*dot*1.5 + 3*zoom*math.Sin(phase*6), Y: r.Min.Y - phase*18*zoom}
+		out = append(out, puff{at: at, radius: (3 + phase*3) * zoom})
+	}
+	return out
 }
 
 // isoLandmark draws a kit piece standing on a world rect's centre and

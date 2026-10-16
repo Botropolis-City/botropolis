@@ -169,7 +169,7 @@ func blockColor(b *city.Building, seconds float64) color.NRGBA {
 // silhouette, its context as a strip up the right side, cranes and flags as
 // dots.
 func (g *Game) block(screen *ebiten.Image, cam *city.Camera, b *city.Building, seconds float64) {
-	g.rect(screen, cam, b.Rect, g.flatBody(b, blockColor(b, seconds)))
+	g.rect(screen, cam, b.Rect, g.flatBody(b, blockColor(b, g.attention())))
 	if b.Fill > 0 && !b.Blinds {
 		gauge := city.RectAt(b.Rect.Max.X-b.Rect.Width()*0.22, b.Rect.Min.Y, b.Rect.Width()*0.22, b.Rect.Height())
 		g.rect(screen, cam, gauge, colorGaugeBack)

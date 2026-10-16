@@ -291,6 +291,46 @@ func TestReducedMotionKey(t *testing.T) {
 	})
 }
 
+// Item 89: liveliness is a setting from still to lively, and reduced
+// motion is its stillest level.
+func TestLivelinessKey(t *testing.T) {
+	load := func(t *testing.T, args ...string) *config.Config {
+		v := config.NewViper()
+		flags := pflag.NewFlagSet("t", pflag.ContinueOnError)
+		config.BindFlags(v, flags)
+		require.NoError(t, flags.Parse(args))
+		cfg, err := config.New(v)
+		require.NoError(t, err)
+		return cfg
+	}
+
+	t.Run("when liveliness is not set", func(t *testing.T) {
+		cfg := load(t)
+
+		t.Run("it should be steady", func(t *testing.T) {
+			assert.Equal(t, "steady", cfg.Liveliness)
+		})
+	})
+
+	t.Run("when --liveliness is set to calm", func(t *testing.T) {
+		cfg := load(t, "--liveliness", "calm")
+
+		t.Run("it should be calm", func(t *testing.T) {
+			assert.Equal(t, "calm", cfg.Liveliness)
+		})
+	})
+
+	t.Run("when --reduced_motion is set", func(t *testing.T) {
+		t.Run("and liveliness is lively", func(t *testing.T) {
+			cfg := load(t, "--reduced_motion", "--liveliness", "lively")
+
+			t.Run("it should be still", func(t *testing.T) {
+				assert.Equal(t, "still", cfg.Liveliness)
+			})
+		})
+	})
+}
+
 func TestSave(t *testing.T) {
 	t.Run("when a value is saved with no config file yet", func(t *testing.T) {
 		configHome := t.TempDir()

@@ -61,8 +61,9 @@ type Options struct {
 	RecordFPS int
 	// Scale is the chrome and pixel scale; 0 follows the display.
 	Scale float64
-	// ReducedMotion stops every animation and keeps the colours.
-	ReducedMotion bool
+	// Liveliness is how much the city moves; still stops every
+	// animation and keeps the colours. Item 89.
+	Liveliness city.Liveliness
 	// Detail is how much of the city is drawn; plain drops the scenery.
 	Detail city.Detail
 	// HideGroupLines hides the line each group draws across its
@@ -183,7 +184,7 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.RecordFPS > 0 {
 		game.recordEvery = 30 / opts.RecordFPS
 	}
-	game.reduced = opts.ReducedMotion
+	game.setLiveliness(opts.Liveliness)
 	scene.SetDetail(opts.Detail)
 	scene.SetGroupLines(!opts.HideGroupLines)
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply

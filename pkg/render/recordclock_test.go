@@ -19,7 +19,7 @@ func TestRecordingClock(t *testing.T) {
 	started := time.Date(2026, 10, 9, 15, 0, 0, 0, time.UTC)
 
 	t.Run("when recording and ninety ticks have passed", func(t *testing.T) {
-		g := &Game{scene: city.NewScene(city.NewLayout()), record: "/frames", started: started, ticks: 90}
+		g := &Game{scene: city.NewScene(city.NewLayout()), record: "/frames", started: started, ticks: 90, liveliness: city.Lively}
 
 		t.Run("it should animate as if three seconds had passed", func(t *testing.T) {
 			assert.Equal(t, 3.0, g.clock())
@@ -34,7 +34,7 @@ func TestRecordingClock(t *testing.T) {
 		restore := timeNow
 		timeNow = func() time.Time { return started.Add(time.Minute) }
 		t.Cleanup(func() { timeNow = restore })
-		g := &Game{scene: city.NewScene(city.NewLayout()), started: started, ticks: 90}
+		g := &Game{scene: city.NewScene(city.NewLayout()), started: started, ticks: 90, liveliness: city.Lively}
 
 		t.Run("it should follow the wall clock", func(t *testing.T) {
 			assert.Equal(t, 60.0, g.clock())
