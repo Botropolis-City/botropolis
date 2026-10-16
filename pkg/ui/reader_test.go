@@ -122,6 +122,16 @@ func TestLayoutReader(t *testing.T) {
 		}})
 		require.NotEmpty(t, p.Lead)
 
+		t.Run("and the turns fit beneath it", func(t *testing.T) {
+			options := of(p, ui.LineOption)
+			_, smallH := measure7("", ui.Small)
+			below := options[len(options)-1].At.Y + smallH
+
+			t.Run("it should start them straight under it, leaving no gap", func(t *testing.T) {
+				assert.InDelta(t, below+3*th.Grid(), p.Lines[0].At.Y, th.Grid()+smallH, "options end at %v, turns start at %v", below, p.Lines[0].At.Y)
+			})
+		})
+
 		t.Run("it should lead with the question, above the turns", func(t *testing.T) {
 			q := of(p, ui.LineQuestion)
 			require.NotEmpty(t, q)

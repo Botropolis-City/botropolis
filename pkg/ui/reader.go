@@ -203,6 +203,15 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 	for i := len(blocks) - 1; i >= 0; i-- {
 		p.Lines = append(p.Lines, blocks[i]...)
 	}
+	// Turns that do not fill the pane follow straight on from what leads
+	// it, rather than leaving a gap above them (Aria, 2026-10-16).
+	if len(p.Lines) > 0 {
+		if lift := p.Lines[0].At.Y - top; lift > 0 {
+			for i := range p.Lines {
+				p.Lines[i].At.Y -= lift
+			}
+		}
+	}
 	if in.AtStart && p.Shown == len(in.Turns) {
 		at := startY
 		if len(p.Lines) > 0 {
