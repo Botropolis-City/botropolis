@@ -40,6 +40,10 @@ const (
 	KeyConfig = "config"
 
 	DefaultShutteredDays = 7
+	// KeyJournalHours is how long away the map must have been for the
+	// journal to open by itself (item 86).
+	KeyJournalHours      = "journal_hours"
+	DefaultJournalHours  = 8
 	DefaultOvergrownDays = 30
 )
 
@@ -94,6 +98,11 @@ type Config struct {
 	ExplainKey string
 	// TriageKey starts triage (item 88).
 	TriageKey string
+	// JournalKey brings the journal back, and JournalHours is how long
+	// away the map must have been for the journal to open by itself
+	// (item 86).
+	JournalKey   string
+	JournalHours int
 	// GlobalShortcut opens the finder from any application; empty is off
 	// (item 84).
 	GlobalShortcut string
@@ -127,6 +136,8 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyNewSession, DefaultNewSession)
 	v.SetDefault(KeyExplain, DefaultExplain)
 	v.SetDefault(KeyTriage, DefaultTriage)
+	v.SetDefault(KeyJournal, DefaultJournal)
+	v.SetDefault(KeyJournalHours, DefaultJournalHours)
 	v.SetDefault(KeyStream, DefaultStream)
 	v.SetDefault(KeyGroupLines, true)
 	v.SetDefault(KeyGlobalShortcut, "")
@@ -165,6 +176,8 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyNewSession, DefaultNewSession, "the chord that opens New session, which starts a session in any directory")
 	flags.String(KeyExplain, DefaultExplain, "the key held to caption everything on the map")
 	flags.String(KeyTriage, DefaultTriage, "the key that walks what waits on you, longest-waiting first")
+	flags.String(KeyJournal, DefaultJournal, "the key that brings back the journal of where you were")
+	flags.Int(KeyJournalHours, DefaultJournalHours, "how many hours away before the journal opens by itself")
 	flags.String(KeyStream, DefaultStream, "the key that hides and shows the stream down the right")
 	_ = v.BindPFlag(KeyFind, flags.Lookup(KeyFind))
 	_ = v.BindPFlag(KeyFindCopy, flags.Lookup(KeyFindCopy))
@@ -172,6 +185,8 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyNewSession, flags.Lookup(KeyNewSession))
 	_ = v.BindPFlag(KeyExplain, flags.Lookup(KeyExplain))
 	_ = v.BindPFlag(KeyTriage, flags.Lookup(KeyTriage))
+	_ = v.BindPFlag(KeyJournal, flags.Lookup(KeyJournal))
+	_ = v.BindPFlag(KeyJournalHours, flags.Lookup(KeyJournalHours))
 	_ = v.BindPFlag(KeyStream, flags.Lookup(KeyStream))
 	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
 }
@@ -210,6 +225,8 @@ func New(v *viper.Viper) (*Config, error) {
 		NewSessionKey:  v.GetString(KeyNewSession),
 		ExplainKey:     v.GetString(KeyExplain),
 		TriageKey:      v.GetString(KeyTriage),
+		JournalKey:     v.GetString(KeyJournal),
+		JournalHours:   v.GetInt(KeyJournalHours),
 		StreamKey:      v.GetString(KeyStream),
 		GroupLines:     v.GetBool(KeyGroupLines),
 		GlobalShortcut: v.GetString(KeyGlobalShortcut),

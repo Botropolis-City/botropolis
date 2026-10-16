@@ -105,7 +105,7 @@ func (g *Game) watchFocus() {
 	switch {
 	case g.focused && !focused:
 		g.blurredAt = now
-		g.scene.Layout().Seen = now
+		g.scene.NoteSeen(now)
 		if g.saveState != nil && g.record == "" {
 			g.saveState(g.scene.Layout())
 		}
@@ -114,7 +114,7 @@ func (g *Game) watchFocus() {
 	}
 	g.focused = focused
 	if focused && g.record == "" {
-		g.scene.Layout().Seen = now
+		g.scene.NoteSeen(now)
 	}
 	// The away list waits for the log to arrive, so a window that was
 	// closed shows what happened meanwhile, not an empty panel.

@@ -85,6 +85,32 @@ func TestConfig(t *testing.T) {
 		})
 	})
 
+	t.Run("when the journal is not set", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t)
+
+		t.Run("it should open after eight hours away (item 86)", func(t *testing.T) {
+			assert.Equal(t, 8, cfg.JournalHours)
+		})
+
+		t.Run("it should come back on shift+w", func(t *testing.T) {
+			assert.Equal(t, "shift+w", cfg.JournalKey)
+		})
+	})
+
+	t.Run("when the journal is set by flags", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t, "--journal_hours", "2", "--journal_key", "f2")
+
+		t.Run("it should take the hours", func(t *testing.T) {
+			assert.Equal(t, 2, cfg.JournalHours)
+		})
+
+		t.Run("it should take the key", func(t *testing.T) {
+			assert.Equal(t, "f2", cfg.JournalKey)
+		})
+	})
+
 	t.Run("when overgrown_days is not more than shuttered_days", func(t *testing.T) {
 		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 		_, err := loadErr(t, "--shuttered_days", "10", "--overgrown_days", "10")
