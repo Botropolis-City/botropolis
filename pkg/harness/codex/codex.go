@@ -206,7 +206,7 @@ func readRollout(path string) (s session, err error) {
 	if info.Size() <= 2*Window {
 		return s, s.scan(f)
 	}
-	defer func() { s.Usage.MessagesPartial = true }()
+	defer func() { s.Usage.Partial = true }()
 	r := bufio.NewReader(f)
 	first, err := r.ReadBytes('\n')
 	if err != nil && err != io.EOF {

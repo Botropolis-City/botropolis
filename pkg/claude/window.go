@@ -54,7 +54,7 @@ func ReadTranscriptWindow(path string, window int64) (Transcript, error) {
 	scanLines(scan, bytes.NewReader(head))
 	scanLines(scan, bytes.NewReader(tail))
 	t := scan.finish()
-	t.Usage.MessagesPartial = true
+	t.Usage.Partial = true
 	return t, nil
 }
 

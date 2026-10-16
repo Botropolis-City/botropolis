@@ -19,9 +19,10 @@ import (
 )
 
 // Item 86: a stopped session read through a head and a tail window never
-// reports its message count as a total, whichever harness it came from.
-// The count carries a partial marker beside it, the way a cost carries
-// costKnown (item 6).
+// reports its usage as a total, whichever harness it came from. The usage
+// carries a partial marker, the way a cost carries costKnown (item 6).
+// Codex's token counts are cumulative, so they stay exact through the
+// window; Claude's are summed per message, so they are partial too.
 func TestPartialMessageCount(t *testing.T) {
 	now := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
 	const cwd = "/src/kiln"
@@ -72,19 +73,25 @@ func TestPartialMessageCount(t *testing.T) {
 		build func(*testing.T, int) harness.Snapshotter
 		small int
 		large int
+		// output is a session's whole output tokens for n records.
+		output func(n int) float64
 	}{
-		{"claude", claudeHome, 3, 1000},
-		{"codex", codexHome, 3, 2000},
+		{"claude", claudeHome, 3, 1000, func(n int) float64 { return float64(5 * n) }},
+		{"codex", codexHome, 3, 2000, func(int) float64 { return 10 }},
 	} {
 		t.Run("when a "+c.name+" session was read through the window", func(t *testing.T) {
 			u := usage(t, c.build(t, c.large))
 
-			t.Run("it should mark its message count partial", func(t *testing.T) {
-				assert.Equal(t, true, u["messagesPartial"])
+			t.Run("it should mark its usage partial", func(t *testing.T) {
+				assert.Equal(t, true, u["partial"])
 			})
 
-			t.Run("it should not report the count as the total", func(t *testing.T) {
+			t.Run("it should not report the message count as the total", func(t *testing.T) {
 				assert.Less(t, u["messages"], float64(c.large))
+			})
+
+			t.Run("it should report no more output tokens than the whole session had", func(t *testing.T) {
+				assert.LessOrEqual(t, u["output"], c.output(c.large))
 			})
 		})
 
@@ -95,8 +102,12 @@ func TestPartialMessageCount(t *testing.T) {
 				assert.Equal(t, float64(c.small), u["messages"])
 			})
 
+			t.Run("it should report the output tokens", func(t *testing.T) {
+				assert.Equal(t, c.output(c.small), u["output"])
+			})
+
 			t.Run("it should carry no partial marker", func(t *testing.T) {
-				assert.NotContains(t, u, "messagesPartial")
+				assert.NotContains(t, u, "partial")
 			})
 		})
 	}

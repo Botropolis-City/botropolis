@@ -22,10 +22,11 @@ type Usage struct {
 	CacheCreate int64 `json:"cacheCreate"`
 	Thinking    int64 `json:"thinking"`
 	Messages    int   `json:"messages"`
-	// MessagesPartial is a count taken from a head and a tail window
-	// rather than the whole session, so Messages is not its total
-	// (item 86), the way costKnown marks a cost (item 6).
-	MessagesPartial bool `json:"messagesPartial,omitempty"`
+	// Partial is usage read through a head and a tail window rather than
+	// the whole session, so it is not the session's total (item 86), the
+	// way costKnown marks a cost (item 6). A Codex rollout's token counts
+	// are cumulative and stay exact; its message count does not.
+	Partial bool `json:"partial,omitempty"`
 }
 
 func (u Usage) Add(other Usage) Usage {
@@ -37,7 +38,7 @@ func (u Usage) Add(other Usage) Usage {
 		Thinking:    u.Thinking + other.Thinking,
 		Messages:    u.Messages + other.Messages,
 
-		MessagesPartial: u.MessagesPartial || other.MessagesPartial,
+		Partial: u.Partial || other.Partial,
 	}
 }
 
