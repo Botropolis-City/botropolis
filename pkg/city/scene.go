@@ -67,7 +67,9 @@ const (
 )
 
 type Scene struct {
-	snapshot  state.Snapshot
+	snapshot state.Snapshot
+	// focus is the group the map is focused on, if any (item 87).
+	focus     string
 	light     Light
 	now       func() time.Time
 	location  *time.Location

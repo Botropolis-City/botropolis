@@ -34,6 +34,7 @@ var bindings = []ui.Key{
 	{Key: "[ ]", Action: "scrub the clock an hour"},
 	{Key: "s", Action: "settings"},
 	{Key: "x", Action: "power breakdown (also click the plant)"},
+	{Key: "g", Action: "groups board (also click City Hall)"},
 	{Key: "t", Action: "timeline; enter jumps to the session"},
 	{Key: "b", Action: "sidebar"},
 	{Key: "h", Action: "hide the UI"},
@@ -174,6 +175,11 @@ func (g *Game) handleKeys() error {
 		g.scene.Deselect()
 		return nil
 	}
+	if just(ebiten.KeyEscape) && g.scene.FocusedGroup() != "" {
+		g.scene.ClearFocus()
+		g.scene.Fit()
+		return nil
+	}
 	if just(ebiten.KeyEscape) && g.help {
 		g.help = false
 		return nil
@@ -225,6 +231,10 @@ func (g *Game) handleKeys() error {
 	}
 	if just(ebiten.KeyH) {
 		g.hidden = !g.hidden
+	}
+	if just(ebiten.KeyG) {
+		g.openBoard()
+		return nil
 	}
 	if just(ebiten.KeyB) {
 		g.sidebar = !g.sidebar

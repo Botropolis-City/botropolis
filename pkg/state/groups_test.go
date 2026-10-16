@@ -56,6 +56,10 @@ func TestLoaderGroups(t *testing.T) {
 			assert.Equal(t, "mentions PROJ-123", sessionByID(t, snapshot, sidB).GroupJoined)
 		})
 
+		t.Run("it should take a session's last prompt from the history when its transcript has none", func(t *testing.T) {
+			assert.Equal(t, "bump the client for PROJ-123", sessionByID(t, snapshot, sidB).LastPrompt)
+		})
+
 		t.Run("it should give the group its move", func(t *testing.T) {
 			require.NotEmpty(t, snapshot.Groups)
 			assert.Equal(t, state.MoveNobody, snapshot.Groups[0].Move)

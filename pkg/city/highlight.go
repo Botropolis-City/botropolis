@@ -29,6 +29,15 @@ func (h Highlight) HasTower(t *Tower) bool       { return h.towers[t] }
 // and the selection is the one you parked.
 func (s *Scene) Highlight() Highlight {
 	h := Highlight{buildings: map[*Building]bool{}, towers: map[*Tower]bool{}}
+	if s.focus != "" {
+		h.Active = true
+		for _, b := range s.city.Buildings() {
+			if b.Group != nil && b.Group.ID == s.focus {
+				h.buildings[b] = true
+			}
+		}
+		return h
+	}
 	switch hit := s.hover; {
 	case hit.Tower != nil:
 		h.Active = true

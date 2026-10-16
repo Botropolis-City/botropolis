@@ -409,9 +409,7 @@ func (g *Game) Update() error {
 		wasDrag := math.Hypot(cursor.X-g.dragFrom.X, cursor.Y-g.dragFrom.Y) > 3
 		g.dragging = false
 		if !wasDrag {
-			if g.scene.Hover().Landmark == city.LandmarkPlant {
-				g.breakdown, g.window = true, city.LastDay
-			}
+			g.clickLandmark(g.scene.Hover().Landmark)
 			g.act(g.scene.Click(cursor))
 		}
 	}

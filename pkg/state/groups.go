@@ -25,6 +25,7 @@ type Group struct {
 	Members []string `json:"members"`
 	Move    Move     `json:"move"`
 	Why     string   `json:"why"`
+	Journal Journal  `json:"journal"`
 }
 
 type groupCache struct {
@@ -33,6 +34,19 @@ type groupCache struct {
 	signature  string
 	detections int
 	result     group.Result
+	// lastPrompts is each session's newest prompt in the history, for a
+	// session whose transcript carries no last-prompt record.
+	lastPrompts map[string]string
+}
+
+func lastPrompts(history map[string][]claude.Prompt) map[string]string {
+	last := make(map[string]string, len(history))
+	for id, prompts := range history {
+		if len(prompts) > 0 {
+			last[id] = prompts[len(prompts)-1].Text
+		}
+	}
+	return last
 }
 
 // WithGroups remembers the groups detected, with their corrections, at
@@ -64,6 +78,12 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 			return err
 		}
 		c.historyKey, c.signature = key, signature
+		c.lastPrompts = lastPrompts(history)
+	}
+	for i := range snapshot.Sessions {
+		if snapshot.Sessions[i].LastPrompt == "" {
+			snapshot.Sessions[i].LastPrompt = c.lastPrompts[snapshot.Sessions[i].ID]
+		}
 	}
 	snapshot.Groups = groupViews(c.result, snapshot.Sessions)
 	return nil
@@ -186,7 +206,9 @@ func groupViews(result group.Result, sessions []Session) []Group {
 			present = append(present, sessions[i])
 		}
 		view.Move, view.Why = GroupMove(present)
+		view.Journal = GroupJournal(present)
 		views = append(views, view)
 	}
+	sort.SliceStable(views, func(i, j int) bool { return views[i].Journal.Active.After(views[j].Journal.Active) })
 	return views
 }
