@@ -172,7 +172,7 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	x, y := plate.Min.X+2*grid, plate.Min.Y+2*grid
 	g.text(screen, city.Point{X: x, Y: y}, "Where you were", ui.Body, th.Palette.Text)
 	y += lineH + grid
-	g.text(screen, city.Point{X: x, Y: y}, sinceStrip(j.since, g.scene.Away(j.since), g.scene.Now().Location()), ui.Small, th.Palette.Dim)
+	g.text(screen, city.Point{X: x, Y: y}, sinceStrip(j.since, g.scene.Away(j.since), len(g.scene.ResetsDuring(j.since)), g.scene.Now().Location()), ui.Small, th.Palette.Dim)
 	y += lineH + 2*grid
 	for i, e := range j.entries {
 		if y+3*lineH > plate.Max.Y-2*lineH {
@@ -204,9 +204,9 @@ func oneLine(s string) string {
 }
 
 // sinceStrip is what changed while you were away, above the journal:
-// since when, then what finished, what failed and what needed you,
-// leaving out what did not happen.
-func sinceStrip(since time.Time, away []events.Event, loc *time.Location) string {
+// since when, then what finished, what failed, what needed you and any
+// usage window that reset, leaving out what did not happen.
+func sinceStrip(since time.Time, away []events.Event, resets int, loc *time.Location) string {
 	finished, failed, needed := 0, 0, 0
 	for _, e := range away {
 		if e.At.Before(since) {
@@ -225,7 +225,7 @@ func sinceStrip(since time.Time, away []events.Event, loc *time.Location) string
 	for _, c := range []struct {
 		n    int
 		what string
-	}{{finished, "finished"}, {failed, "failed"}, {needed, "needed you"}} {
+	}{{finished, "finished"}, {failed, "failed"}, {needed, "needed you"}, {resets, resetPhrase(resets)}} {
 		if c.n > 0 {
 			parts = append(parts, fmt.Sprintf("%d %s", c.n, c.what))
 		}
@@ -256,4 +256,11 @@ func (g *Game) replyReader() func(string) string {
 		}
 		return ""
 	}
+}
+
+func resetPhrase(n int) string {
+	if n == 1 {
+		return "usage window reset"
+	}
+	return "usage windows reset"
 }

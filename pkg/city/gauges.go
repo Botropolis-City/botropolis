@@ -21,8 +21,10 @@ type Gauge struct {
 	Title string
 	// Percent is how much of the limit is spent.
 	Percent float64
-	// Resets is when the window turns over, verbatim from the CLI.
-	Resets string
+	// Resets is when the window turns over, as the card says it, and
+	// ResetsAt the time itself, from the probe; zero when not known.
+	Resets   string
+	ResetsAt time.Time
 	// Size orders the boats by how much the reading matters rather than
 	// by the length of its window: two of the three share a week, so
 	// size cannot mean timescale.
@@ -84,6 +86,7 @@ func Gauges(u claude.Utilization) []Gauge {
 			Title:    limitTitle(l),
 			Percent:  l.Percent,
 			Resets:   resetsIn(l.ResetsAt),
+			ResetsAt: l.ResetsAt,
 			Severity: l.Severity,
 			Size:     SizeFor(i),
 			Lane:     i,
@@ -201,4 +204,23 @@ func GaugeCard(g Gauge, age time.Duration) Card {
 type GaugeHit struct {
 	Gauge Gauge
 	Age   time.Duration
+}
+
+// ResetsDuring is the titles of the usage windows whose reset time fell
+// between since and now: the windows that turned over while you were
+// away (item 86). A window with no known reset time is left out rather
+// than guessed at.
+func (s *Scene) ResetsDuring(since time.Time) []string {
+	now := s.now()
+	var reset []string
+	for _, title := range s.gaugeOrder {
+		b := s.gaugeBoats[title]
+		if b == nil || b.gauge.ResetsAt.IsZero() {
+			continue
+		}
+		if at := b.gauge.ResetsAt; at.After(since) && !at.After(now) {
+			reset = append(reset, title)
+		}
+	}
+	return reset
 }

@@ -128,7 +128,7 @@ func TestComingBack(t *testing.T) {
 		}
 		strip := sinceStrip(at.Add(-64*time.Hour), []events.Event{
 			ev(events.Ended, time.Hour), ev(events.Merged, 2*time.Hour), ev(events.Error, 3*time.Hour), ev(events.NeedsYou, 4*time.Hour), ev(events.NeedsYou, 5*time.Hour),
-		}, time.UTC)
+		}, 0, time.UTC)
 
 		t.Run("it should say since when", func(t *testing.T) {
 			assert.Contains(t, strip, "since Friday 17:00")
@@ -141,7 +141,13 @@ func TestComingBack(t *testing.T) {
 		}
 
 		t.Run("it should leave out counts that are zero", func(t *testing.T) {
-			assert.Equal(t, "since Friday 17:00", sinceStrip(at.Add(-64*time.Hour), nil, time.UTC))
+			assert.Equal(t, "since Friday 17:00", sinceStrip(at.Add(-64*time.Hour), nil, 0, time.UTC))
+		})
+
+		t.Run("when a window's reset time falls inside the gap", func(t *testing.T) {
+			t.Run("the strip should say it reset", func(t *testing.T) {
+				assert.Contains(t, sinceStrip(at.Add(-64*time.Hour), nil, 1, time.UTC), "1 usage window reset")
+			})
 		})
 	})
 }
