@@ -24,6 +24,15 @@ var (
 // focus.
 const lineFaded = 0x40
 
+// stationTone is a station's centre: its move's tone, or the line's own
+// dark ink while it waits on another (item 90).
+func stationTone(th ui.Theme, st city.Station) color.NRGBA {
+	if st.Unlit {
+		return colorLineCasing
+	}
+	return th.Color(ui.MoveTone(st.Move))
+}
+
 func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 	lines := g.scene.Lines()
 	focus := g.scene.FocusedGroup()
@@ -51,7 +60,7 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 		}
 		for i, st := range l.Stations {
 			p := points[i]
-			tone := g.theme.Color(ui.MoveTone(st.Move))
+			tone := stationTone(g.theme, st)
 			if focus != "" && l.Group.ID != focus {
 				tone.A = lineFaded
 			}

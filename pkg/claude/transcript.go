@@ -93,18 +93,20 @@ type Transcript struct {
 	Usage      Usage
 	// Hourly is Usage bucketed by unix hour, so a window over recent
 	// activity can be summed without rescanning.
-	Hourly           map[int64]Usage
-	ContextTokens    int64
-	MaxContext       int64
-	Cost             Cost
-	Tail             Tail
-	TeamName         string
-	AgentName        string
-	Messages         map[string]int
-	Touches          map[string]int
-	MCPCalls         map[string]int
-	SkillCalls       map[string]int
-	PRs              []PR
+	Hourly        map[int64]Usage
+	ContextTokens int64
+	MaxContext    int64
+	Cost          Cost
+	Tail          Tail
+	TeamName      string
+	AgentName     string
+	Messages      map[string]int
+	Touches       map[string]int
+	MCPCalls      map[string]int
+	SkillCalls    map[string]int
+	PRs           []PR
+	// OrderLines are the newest lines that name an order (item 90).
+	OrderLines       []OrderLine
 	APIErrors        int
 	LastErrorAt      time.Time
 	Compactions      int
@@ -388,9 +390,16 @@ func (s *transcriptScan) applyAssistant(rec transcriptLineJSON, mainLine bool) {
 			t.Hourly[hour] = t.Hourly[hour].Add(u)
 		}
 	}
+	at, _ := parseTimestamp(rec.Timestamp)
 	for _, block := range rec.Message.Content {
+		if block.Type == "text" && mainLine {
+			s.keepOrder(OrderLines(block.Text, false, at))
+		}
 		if block.Type != "tool_use" {
 			continue
+		}
+		if block.Name == "Bash" && block.Input.Command != "" && mainLine {
+			s.keepOrder(OrderLines(block.Input.Command, true, at))
 		}
 		if block.Name == sendMessageTool && block.Input.To != "" {
 			if t.Messages == nil {

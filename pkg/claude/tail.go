@@ -37,7 +37,9 @@ type contentBlockJSON struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	ToolUseID string `json:"tool_use_id"`
+	Text      string `json:"text"`
 	Input     struct {
+		Command      string `json:"command"`
 		To           string `json:"to"`
 		FilePath     string `json:"file_path"`
 		NotebookPath string `json:"notebook_path"`

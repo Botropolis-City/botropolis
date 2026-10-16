@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -26,6 +27,10 @@ type Station struct {
 	Move state.Move
 	// Dashed is a site whose sessions all joined on a guess.
 	Dashed bool
+	// Unlit is a site waiting on another until an event not yet seen,
+	// and Waits what it waits on or what unblocked it (item 90).
+	Unlit bool
+	Waits []string
 }
 
 // stationSpacing is how far apart the stations of different lines stand
@@ -62,8 +67,9 @@ func (c *City) placeLines() {
 			}
 			return sites[i].Root < sites[j].Root
 		})
+		sites, waits := orderSites(sites, bySite)
 		line := Line{Group: g}
-		for _, d := range sites {
+		for i, d := range sites {
 			sessions := make([]state.Session, 0, len(bySite[d]))
 			dashed := true
 			for _, b := range bySite[d] {
@@ -79,7 +85,19 @@ func (c *City) placeLines() {
 			}
 			at := Point{X: centre.X + float64(through[d])*stationSpacing*d.Rect.Width(), Y: centre.Y}
 			through[d]++
-			line.Stations = append(line.Stations, Station{District: d, At: at, Move: move, Dashed: dashed})
+			st := Station{District: d, At: at, Move: move, Dashed: dashed}
+			for _, w := range waits {
+				if w.Site != i {
+					continue
+				}
+				if w.Done {
+					st.Waits = append(st.Waits, "unblocked: "+w.Unblocked)
+				} else {
+					st.Unlit = true
+					st.Waits = append(st.Waits, "waits on "+sites[w.On].Name+" until "+w.Until)
+				}
+			}
+			line.Stations = append(line.Stations, st)
 		}
 		c.Lines = append(c.Lines, line)
 	}
@@ -93,10 +111,58 @@ func StationCard(l Line, i int) Card {
 		names = append(names, st.District.Name)
 	}
 	st := l.Stations[i]
-	return Card{Title: l.Group.Name, Lines: []string{
+	return Card{Title: l.Group.Name, Lines: append([]string{
 		"station  " + st.District.Name + ", " + string(st.Move),
 		"line     " + strings.Join(names, " → "),
-	}}
+	}, st.Waits...)}
+}
+
+// orderSites puts a line's sites, given in the order they were started,
+// in the order they can be read to depend on (item 90), and says which
+// waits on which, indexed by the order returned.
+func orderSites(sites []*District, bySite map[*District][]*Building) ([]*District, []group.Wait) {
+	in := make([]group.OrderSite, 0, len(sites))
+	for _, d := range sites {
+		site := group.OrderSite{Name: d.Name}
+		var sessions []state.Session
+		var recapAt time.Time
+		for _, b := range bySite[d] {
+			s := b.Session
+			sessions = append(sessions, s)
+			if site.Started.IsZero() || s.StartedAt.Before(site.Started) {
+				site.Started = s.StartedAt
+			}
+			for _, pr := range s.PRs {
+				site.PRs = append(site.PRs, group.SitePR{Repository: pr.Repository, Number: pr.Number, URL: pr.URL, Merged: pr.Merged()})
+			}
+			for _, l := range s.OrderLines {
+				if l.Command {
+					site.Commands = append(site.Commands, l.Text)
+				} else {
+					site.Words = append(site.Words, l.Text)
+				}
+			}
+			if s.LastPrompt != "" {
+				site.Words = append(site.Words, s.LastPrompt)
+			}
+			if s.Recap.Text != "" && !s.Recap.At.Before(recapAt) {
+				site.Recap, recapAt = s.Recap.Text, s.Recap.At
+			}
+		}
+		move, _ := state.GroupMove(sessions)
+		site.Done = move == state.MoveNobody
+		in = append(in, site)
+	}
+	order, waits := group.Order(in)
+	at := make([]int, len(order))
+	out := make([]*District, len(order))
+	for to, from := range order {
+		out[to], at[from] = sites[from], to
+	}
+	for i := range waits {
+		waits[i].Site, waits[i].On = at[waits[i].Site], at[waits[i].On]
+	}
+	return out, waits
 }
 
 // Lines are the groups' lines, or none while the setting hides them.

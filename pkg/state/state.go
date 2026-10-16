@@ -80,12 +80,15 @@ type Session struct {
 	Touches     map[string]int `json:"touches,omitempty"`
 	// Visits is each directory outside the session's own where one of
 	// its subagents worked, by how many subagents worked there. Item 85.
-	Visits     map[string]int `json:"visits,omitempty"`
-	MCPCalls   map[string]int `json:"mcpCalls,omitempty"`
-	Skills     map[string]int `json:"skills,omitempty"`
-	PRs        []claude.PR    `json:"prs,omitempty"`
-	Recap      claude.Recap   `json:"recap"`
-	LastPrompt string         `json:"lastPrompt,omitempty"`
+	Visits   map[string]int `json:"visits,omitempty"`
+	MCPCalls map[string]int `json:"mcpCalls,omitempty"`
+	Skills   map[string]int `json:"skills,omitempty"`
+	PRs      []claude.PR    `json:"prs,omitempty"`
+	// OrderLines are the lines its group's order is read from, held in
+	// memory and never written (item 90).
+	OrderLines []claude.OrderLine `json:"orderLines,omitempty"`
+	Recap      claude.Recap       `json:"recap"`
+	LastPrompt string             `json:"lastPrompt,omitempty"`
 	// ConversationGone is a session whose transcript Claude Code has
 	// deleted; it keeps its lot from the prompt history (item 86).
 	ConversationGone bool `json:"conversationGone,omitempty"`
@@ -418,6 +421,7 @@ func attribute(s *Session, t claude.Transcript) {
 	s.MCPCalls = t.MCPCalls
 	s.Skills = t.SkillCalls
 	s.PRs = t.PRs
+	s.OrderLines = t.OrderLines
 	s.Recap = t.Recap
 	s.LastPrompt = t.LastPrompt
 	s.APIErrors = t.APIErrors
