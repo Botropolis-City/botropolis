@@ -142,7 +142,10 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	grid := th.Grid()
 	_, lineH := g.faces.Measure("", ui.Body)
 	w := min(width-8*grid, 760)
-	h := float64(len(p.rows)+7) * (lineH + grid)
+	h := float64(len(p.rows)+5)*(lineH+grid) + 2*grid
+	if p.err != "" {
+		h += lineH
+	}
 	plate := city.RectAt((width-w)/2, (height-h)/2, w, h)
 	g.roundRect(screen, plate, th.Radius(), th.Palette.Panel)
 	x, y := plate.Min.X+2*grid, plate.Min.Y+2*grid
@@ -164,7 +167,7 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.text(screen, city.Point{X: x, Y: y}, p.err, ui.Small, th.Palette.NeedsYou)
 		y += lineH
 	}
-	g.text(screen, city.Point{X: x, Y: y}, "p pause or leave running  ·  a pause all  ·  n leave all running  ·  space pin for next time  ·  enter close up  ·  esc leave", ui.Small, th.Palette.Dim)
+	g.text(screen, city.Point{X: x, Y: y}, "p pause / leave running  ·  a all  ·  n none  ·  space pin  ·  enter close up  ·  esc leave", ui.Small, th.Palette.Dim)
 }
 
 // quitButton is the close up button beside the quit prompt, while the
