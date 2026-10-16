@@ -86,6 +86,26 @@ func TestNewSession(t *testing.T) {
 		})
 	})
 
+	t.Run("when a --keys script presses shift+n", func(t *testing.T) {
+		g, _ := newGame(t)
+		g.pressScripted("shift+n")
+		require.NoError(t, g.handleKeys())
+
+		t.Run("it should open New session", func(t *testing.T) {
+			assert.NotNil(t, g.newSession())
+		})
+	})
+
+	t.Run("when a --keys script types a character into New session", func(t *testing.T) {
+		g, _ := opened(t)
+		g.pressScripted("x")
+		require.NoError(t, g.handleKeys())
+
+		t.Run("it should be typed into the field", func(t *testing.T) {
+			assert.Equal(t, "x", g.newSession().fields[fieldDir].query())
+		})
+	})
+
 	t.Run("when the board's New session button is clicked", func(t *testing.T) {
 		g, _ := newGame(t)
 		g.openBoard()

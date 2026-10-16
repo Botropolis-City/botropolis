@@ -516,16 +516,17 @@ func scriptedKey(name string) (key ebiten.Key, shift bool, ok bool) {
 func (g *Game) pressScripted(name string) {
 	for held := true; held; {
 		held = false
-		for prefix, mod := range map[string]*bool{"ctrl+": &g.scriptedCtrl, "alt+": &g.scriptedAlt, "cmd+": &g.scriptedCmd} {
+		for prefix, mod := range map[string]*bool{"ctrl+": &g.scriptedCtrl, "alt+": &g.scriptedAlt, "cmd+": &g.scriptedCmd, "shift+": &g.scriptedShift} {
 			if rest, ok := strings.CutPrefix(name, prefix); ok {
 				name, *mod, held = rest, true, true
 			}
 		}
 	}
 	if key, shift, ok := scriptedKey(name); ok {
-		g.scripted, g.scriptedShift = key, shift
+		g.scripted, g.scriptedShift = key, shift || g.scriptedShift
 	}
-	if r := []rune(name); len(r) == 1 && g.finding() && !g.scriptedCtrl && !g.scriptedAlt && !g.scriptedCmd {
+	typing := g.finding() || g.newSession() != nil
+	if r := []rune(name); len(r) == 1 && typing && !g.scriptedCtrl && !g.scriptedAlt && !g.scriptedCmd {
 		g.scriptedRune = r[0]
 	}
 }
