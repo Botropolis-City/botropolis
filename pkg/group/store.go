@@ -1,0 +1,97 @@
+package group
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+)
+
+const (
+	appDir    = "botropolis"
+	storeFile = "groups.json"
+)
+
+// Memory is what Botropolis keeps of groups: the groups themselves, by
+// id and member, and the corrections. Never a prompt.
+type Memory struct {
+	Groups     []Stored `json:"groups,omitempty"`
+	NotRelated []Pair   `json:"notRelated,omitempty"`
+	Muted      []string `json:"muted,omitempty"`
+}
+
+type Stored struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name,omitempty"`
+	Renamed bool     `json:"renamed,omitempty"`
+	Anchor  string   `json:"anchor,omitempty"`
+	Members []string `json:"members"`
+}
+
+// Pair is two sessions marked not related.
+type Pair [2]string
+
+// Remember is memory with a detection's groups in it, keeping the
+// stored groups the detection did not see.
+func (m Memory) Remember(r Result) Memory {
+	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted}
+	seen := map[string]bool{}
+	for _, g := range r.Groups {
+		seen[g.ID] = true
+		s := Stored{ID: g.ID, Name: g.Name, Renamed: g.Renamed, Anchor: g.Anchor}
+		for _, mm := range g.Members {
+			s.Members = append(s.Members, mm.Session)
+		}
+		out.Groups = append(out.Groups, s)
+	}
+	for _, s := range m.Groups {
+		if !seen[s.ID] {
+			out.Groups = append(out.Groups, s)
+		}
+	}
+	return out
+}
+
+func Path() string {
+	dir := os.Getenv("XDG_STATE_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return filepath.Join(".", storeFile)
+		}
+		dir = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(dir, appDir, storeFile)
+}
+
+func Load(path string) (Memory, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Memory{}, nil
+	}
+	if err != nil {
+		return Memory{}, err
+	}
+	var m Memory
+	if err := json.Unmarshal(data, &m); err != nil {
+		return Memory{}, err
+	}
+	return m, nil
+}
+
+// Save writes memory whole, through a temporary file, so a crash leaves
+// the old memory rather than half of the new.
+func Save(path string, m Memory) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
