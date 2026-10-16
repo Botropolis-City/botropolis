@@ -36,6 +36,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A session whose subagents worked in the group's other directories, or which messaged sessions there, is its line's site office, drawn as a square at the head of the line, and grouping counts it above every other signal; messages are matched to sessions by name, and a name two live sessions share counts for neither.
   A session joined only by its wording offers mute a word on its card, so that word stops joining sessions.
 
+- **Find a session by what was said in it.**
+  `Ctrl+K` (`⌘K` on macOS) opens the finder, a panel inside the city that searches the prompts and replies of every session, with no tokens spent.
+  Each result shows the words it matched in context, and the map dims every session the finder did not find.
+  Enter resumes the chosen session the way its card does, `Ctrl+Y` copies `cd <dir> && claude --resume <id>`, and `Ctrl+M` closes the finder and shows the session on the map.
+  The three chords are settings (`find_key`, `find_copy_key`, `find_show_key`).
+  `botropolis find` opens the finder in the running city, or starts the city with it open, so a desktop's own keyboard settings can bind it; `botropolis find -n 5 "words"` prints matches in the terminal, with or without the daemon.
+
+- **Read a session inside the city.**
+  `o`, or *read* on a session's card, opens a pane over the map with its last turns: your prompts, Claude's replies, and one line for each command run or file touched.
+  `PgUp` and `PgDn` page back and forth, reading no more of the transcript than the pane shows, Enter opens its terminal to reply, and Esc closes it.
+  A session waiting on you leads with its question and its options word for word, or with the tool call it is waiting to run and the hook's note.
+  When Claude Code has deleted the conversation, the pane says so, lists the prompts you sent, each with a copy button, and Enter offers a new session in the same directory.
+
+- **A global shortcut for the finder, off until you set one.**
+  The `global_shortcut` setting, recorded from the settings panel, opens the finder and brings the city's window forward from any application while the city runs.
+  A combination that commonly means something elsewhere, such as `Ctrl+K`, is named before it is saved; one another application already holds is refused, with the fallback; Backspace clears it.
+  It works on X11 for now; on macOS and on Wayland the row says the desktop has no way to register one yet.
+  `--config` points the city at another configuration file.
+
+- **The map explains itself.**
+  A session's card leads with a sentence: the question it is asking you, else Claude's recap, else a generated summary, else what you last asked; then its group and station, three numbers for the current lens, and its actions, with *details* folding out the full table.
+  Six lenses, on `1` to `6` or from the list `v` opens, each change what the map colours and what a card leads with: Attention, Work, Cost, Capacity, Health and Connections.
+  Each lens's panel says what it shows, gives one number and what to do about it, and each card's first action follows the lens; Capacity's is *fork a fresh session*, beside *new session here*.
+  Every panel and card says in one line what it is, and every button says what it does when the pointer rests on it.
+  Holding `e` (`explain_key`) captions one of each kind of thing on screen, `?` opens a reference of everything on the map and every key, whose terms open each other, and the first time a kind of thing appears on a machine it is captioned once, one kind at a time.
+
+- **Triage, the stream, and district signs.**
+  `w` (`triage_key`) walks the sessions waiting on you, longest-waiting first, flying to each: Enter acts, `p` rests it, `d` marks it done, `s` snoozes it until a time you pick or type, `n` moves on.
+  A column down the right, the stream, shows what happens newest first, with what needs you in amber and errors in red and everything else muted; a click flies to the session, and `l` (`stream_key`) hides it.
+  Each district stands a sign at its corner with its name and whose move it is, in place of the floating name plate wherever the sign is legible.
+
 - **Drag a district to another slot.**
   Press on a district's floor or name sign and drag it; the slot it would land on is outlined, and it stays where you drop it.
   Dropping it on another district swaps the two, and the ring just outside the city takes it too.
@@ -73,12 +104,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Both are on a session's card, with a one-line description of what each does, and on Shift+P; `d` in triage packs the session up.
   A stopped session whose pull request has merged is packed up too, and a packed-up session that does something new comes back by itself.
   What is packed up is kept in the daemon's ledger, which is why packing needs the daemon.
-  The depot fits its crates, a row per project and as wide as the longest row, and is not there at all when nothing is packed up.
+  The depot fits its crates, a row per project and as wide as the longest row, and is not there at all when nothing is packed up; its sign says how many crates it holds.
 - **Close up.** An optional way to end the day: Shift+Q, or the button beside the quit prompt, notes with the daemon when you closed up, which sessions were open and which you pinned to start with next time, so coming back picks up where you left off.
   Every live session is left running unless you mark it *pause*, which keeps its conversation; a session mid-turn says pausing interrupts it, and one open in a terminal stays running. With nothing live it records at once. It spends no tokens, and quitting without it changes nothing.
 - **Coming back.** Opening the map after a gap (journal_hours, 8 by default) opens a journal of where you were: one entry per group and per session in no group, pinned ones first, then most recently touched, each with what it was doing last time and what is next, from Claude's recaps or your last prompt and its reply, read then and never kept.
-  Above it, a strip of what finished, failed and needed you since you left; beside it, *Restore the desk* (or R) reopens in the background the sessions that were open when you left. Enter goes to an entry, Esc to the map, and Shift+W (journal_key) brings it back.
+  Above it, a strip of what finished, failed and needed you since you left, and any usage window that reset; beside it, *Restore the desk* (or R) reopens in the background the sessions that were open when you left. Enter goes to an entry, Esc to the map, and Shift+W (journal_key) brings it back.
 - **Codex rollouts are read through a 64 KB head and tail**, as Claude's transcripts already were, so a long Codex history loads in a time bounded by the number of rollouts rather than their size.
+- **`status --json` marks usage it read only part of.**
+  A session whose transcript was read through the window carries `usage.partial: true`, so its counts are not taken for totals.
+- **A card's buttons light up under the pointer**, as the footer's needs-you line does.
+- **The top-down projection draws the island in its own palette**, with the plan's ground and river on it, instead of a darker rectangle with the river in square cells.
 
 ### Removed
 
