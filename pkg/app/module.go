@@ -30,6 +30,7 @@ import (
 	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/group"
+	"botropolis.city/botropolis/pkg/hotkey"
 	"botropolis.city/botropolis/pkg/render"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/single"
@@ -335,13 +336,21 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		return nil
 	}
 	var requests <-chan single.Request
+	var desktop hotkey.Desktop
 	if one != nil {
 		defer func() { _ = one.Close() }()
 		requests = one.Requests()
+		// Only the one city reaches for the desktop: it grabs nothing
+		// until a combination is set, and raises the window. Item 84.
+		if d, err := hotkey.Open(runtime.GOOS, os.Getenv); err == nil {
+			defer d.Close()
+			desktop = d
+		}
 	}
 	return render.Run(cmd.Context(), render.Options{
 		Requests:   requests,
 		OpenFinder: openFinder,
+		Desktop:    desktop,
 		Layout:     layout,
 		LayoutPath: layoutPath,
 		Actor:      actor,

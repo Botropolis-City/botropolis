@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/single"
 )
 
@@ -14,17 +15,44 @@ import (
 type fakeWindow struct {
 	minimized, canRaise              bool
 	restored, raised, attentionAsked int
+	raisedAt                         uint32
 }
 
 func (w *fakeWindow) Minimized() bool { return w.minimized }
 func (w *fakeWindow) Restore()        { w.restored++; w.minimized = false }
-func (w *fakeWindow) Raise() bool {
+func (w *fakeWindow) Raise(time uint32) bool {
 	if w.canRaise {
 		w.raised++
+		w.raisedAt = time
 	}
 	return w.canRaise
 }
 func (w *fakeWindow) RequestAttention() { w.attentionAsked++ }
+
+// fakeShortcut is a desktop's global shortcut that keeps what was
+// grabbed, and fires when a test sends it a time.
+type fakeShortcut struct {
+	fired    chan uint32
+	grabbed  *config.Chord
+	refuse   error
+	released int
+}
+
+func (s *fakeShortcut) Grab(c config.Chord) error {
+	if s.refuse != nil {
+		return s.refuse
+	}
+	s.grabbed = &c
+	return nil
+}
+
+func (s *fakeShortcut) Release() error {
+	s.grabbed = nil
+	s.released++
+	return nil
+}
+
+func (s *fakeShortcut) Fired() <-chan uint32 { return s.fired }
 
 func TestRequests(t *testing.T) {
 	// asked is a city with a window that hears one request, on its next
@@ -66,6 +94,24 @@ func TestRequests(t *testing.T) {
 			f, open := g.overlays.top().(*finder)
 			require.True(t, open, "the finder should be open")
 			assert.Equal(t, [2]any{"kiln", 1}, [2]any{f.field.query(), w.raised})
+		})
+	})
+}
+
+func TestShortcutFiring(t *testing.T) {
+	t.Run("when the shortcut fires", func(t *testing.T) {
+		w := &fakeWindow{canRaise: true}
+		s := &fakeShortcut{fired: make(chan uint32, 1)}
+		s.fired <- 4242
+		g := &Game{scene: city.NewScene(city.NewLayout()), scripted: -1, clicked: -1, win: w, shortcut: s}
+		require.NoError(t, g.handleKeys())
+
+		t.Run("it should open the finder", func(t *testing.T) {
+			assert.True(t, g.finding())
+		})
+
+		t.Run("it should raise the window with the key event's time", func(t *testing.T) {
+			assert.Equal(t, uint32(4242), w.raisedAt)
 		})
 	})
 }

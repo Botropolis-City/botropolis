@@ -36,6 +36,11 @@ jobs:
       # skips a missing one under CI, so this list is enforced.
       - name: Shells for the shell integration test
         run: sudo apt-get install -y zsh fish bash-completion
+      # The X server and window manager the global shortcut is tested
+      # against (item 84). That test fails rather than skips without them
+      # under CI, because it is the whole proof the X11 part works.
+      - name: An X server and i3 for the global shortcut test
+        run: sudo apt-get install -y xvfb i3-wm
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.2

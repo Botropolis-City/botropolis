@@ -12,6 +12,7 @@ import (
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/group"
+	"botropolis.city/botropolis/pkg/hotkey"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
@@ -88,6 +89,9 @@ type Options struct {
 	// OpenFinder opens it with the finder showing. Item 82.
 	Requests   <-chan single.Request
 	OpenFinder bool
+	// Desktop raises the window and holds the global shortcut, where the
+	// desktop has a way to; nil where it has none. Item 84.
+	Desktop hotkey.Desktop
 	// FindChords are the finder's chords; nil is this system's defaults.
 	FindChords *config.Chords
 	// Search finds sessions by what was said in them, for the finder.
@@ -141,6 +145,10 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 	game.requests = opts.Requests
+	if opts.Desktop != nil {
+		game.shortcut = opts.Desktop
+		game.win = raisedWindow{raise: opts.Desktop.Raise}
+	}
 	if opts.OpenFinder {
 		game.openFinder()
 	}

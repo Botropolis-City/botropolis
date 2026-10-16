@@ -405,3 +405,41 @@ func TestParseUsageRefresh(t *testing.T) {
 		})
 	}
 }
+
+func TestGlobalShortcutKey(t *testing.T) {
+	// saved writes the setting and loads the config again, the way the
+	// settings panel does and the next start does. Item 84.
+	saved := func(t *testing.T, value string) *config.Config {
+		t.Helper()
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		require.NoError(t, config.Save("", config.KeyGlobalShortcut, value))
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		return cfg
+	}
+
+	t.Run("when nothing sets global_shortcut", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t)
+
+		t.Run("it should be off", func(t *testing.T) {
+			assert.Empty(t, cfg.GlobalShortcut)
+		})
+	})
+
+	t.Run("when a chord is saved and the config is loaded again", func(t *testing.T) {
+		cfg := saved(t, "ctrl+alt+f")
+
+		t.Run("it should read back the same chord", func(t *testing.T) {
+			assert.Equal(t, "ctrl+alt+f", cfg.GlobalShortcut)
+		})
+	})
+
+	t.Run("when it is saved empty", func(t *testing.T) {
+		cfg := saved(t, "")
+
+		t.Run("it should read back off", func(t *testing.T) {
+			assert.Empty(t, cfg.GlobalShortcut)
+		})
+	})
+}

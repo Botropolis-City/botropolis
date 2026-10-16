@@ -32,6 +32,9 @@ const (
 	KeyDetail        = "detail"
 	KeyUsageRefresh  = "usage_refresh"
 	KeyGroupLines    = "group_lines"
+	// KeyGlobalShortcut is the chord that opens the finder from any
+	// application, empty for off: there is no default. Item 84.
+	KeyGlobalShortcut = "global_shortcut"
 
 	DefaultShutteredDays = 7
 	DefaultOvergrownDays = 30
@@ -88,7 +91,10 @@ type Config struct {
 	ExplainKey string
 	// TriageKey starts triage (item 88).
 	TriageKey string
-	File      string
+	// GlobalShortcut opens the finder from any application; empty is off
+	// (item 84).
+	GlobalShortcut string
+	File           string
 	// GroupLines draws each group as a line across its districts (item 87).
 	GroupLines bool
 }
@@ -117,6 +123,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyExplain, DefaultExplain)
 	v.SetDefault(KeyTriage, DefaultTriage)
 	v.SetDefault(KeyGroupLines, true)
+	v.SetDefault(KeyGlobalShortcut, "")
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -167,29 +174,30 @@ func New(v *viper.Viper) (*Config, error) {
 		}
 	}
 	cfg := &Config{
-		Home:          v.GetString(KeyHome),
-		HomeSet:       v.GetString(KeyHome) != "",
-		Socket:        v.GetString(KeySocket),
-		SocketSet:     v.GetString(KeySocket) != "",
-		Terminal:      v.GetString(KeyTerminal),
-		HookCommand:   v.GetString(KeyHookCommand),
-		ShutteredDays: v.GetInt(KeyShutteredDays),
-		OvergrownDays: v.GetInt(KeyOvergrownDays),
-		CodexHome:     v.GetString(KeyCodexHome),
-		Projection:    v.GetString(KeyProjection),
-		RenderScale:   v.GetFloat64(KeyRenderScale),
-		ReducedMotion: v.GetBool(KeyReducedMotion),
-		DailyBudget:   v.GetFloat64(KeyDailyBudget),
-		Detail:        v.GetString(KeyDetail),
-		UsageRefresh:  v.GetString(KeyUsageRefresh),
-		FindKey:       v.GetString(KeyFind),
-		FindCopyKey:   v.GetString(KeyFindCopy),
-		FindShowKey:   v.GetString(KeyFindShow),
-		NewSessionKey: v.GetString(KeyNewSession),
-		ExplainKey:    v.GetString(KeyExplain),
-		TriageKey:     v.GetString(KeyTriage),
-		GroupLines:    v.GetBool(KeyGroupLines),
-		File:          v.ConfigFileUsed(),
+		Home:           v.GetString(KeyHome),
+		HomeSet:        v.GetString(KeyHome) != "",
+		Socket:         v.GetString(KeySocket),
+		SocketSet:      v.GetString(KeySocket) != "",
+		Terminal:       v.GetString(KeyTerminal),
+		HookCommand:    v.GetString(KeyHookCommand),
+		ShutteredDays:  v.GetInt(KeyShutteredDays),
+		OvergrownDays:  v.GetInt(KeyOvergrownDays),
+		CodexHome:      v.GetString(KeyCodexHome),
+		Projection:     v.GetString(KeyProjection),
+		RenderScale:    v.GetFloat64(KeyRenderScale),
+		ReducedMotion:  v.GetBool(KeyReducedMotion),
+		DailyBudget:    v.GetFloat64(KeyDailyBudget),
+		Detail:         v.GetString(KeyDetail),
+		UsageRefresh:   v.GetString(KeyUsageRefresh),
+		FindKey:        v.GetString(KeyFind),
+		FindCopyKey:    v.GetString(KeyFindCopy),
+		FindShowKey:    v.GetString(KeyFindShow),
+		NewSessionKey:  v.GetString(KeyNewSession),
+		ExplainKey:     v.GetString(KeyExplain),
+		TriageKey:      v.GetString(KeyTriage),
+		GroupLines:     v.GetBool(KeyGroupLines),
+		GlobalShortcut: v.GetString(KeyGlobalShortcut),
+		File:           v.ConfigFileUsed(),
 	}
 	if _, err := ParseUsageRefresh(cfg.UsageRefresh); err != nil {
 		return nil, err

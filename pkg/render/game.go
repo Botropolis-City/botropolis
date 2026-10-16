@@ -260,8 +260,11 @@ type Game struct {
 	chords *config.Chords
 	// requests are what other commands ask of this, the one city, and
 	// window is how it comes forward when asked. Item 82.
-	requests      <-chan single.Request
-	win           windowSeam
+	requests <-chan single.Request
+	win      windowSeam
+	// shortcut is the global shortcut, nil where the desktop has none.
+	// Item 84.
+	shortcut      shortcutSeam
 	scriptedRune  rune
 	scriptedShift bool
 	dragging      bool
