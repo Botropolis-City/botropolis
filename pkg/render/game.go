@@ -236,6 +236,10 @@ type Game struct {
 	scriptedShift bool
 	dragging      bool
 	dragFrom      city.Point
+	// moving is a district being dragged to another slot, picked up at
+	// pressAt; a press that never leaves its spot is a click. Item 85.
+	moving  bool
+	pressAt city.Point
 	started       time.Time
 	// driven is a city run a tick at a time by Drive; inject is this
 	// tick's input and shown what the last frame drew. Item 91.
@@ -374,7 +378,27 @@ func (g *Game) Update() error {
 	// becomes able to stop a session.
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press {
 		if !g.clickOverlay(cursor) && !g.clickHelp(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
-			g.dragging, g.dragFrom = true, cursor
+			// A press on a district's floor or sign picks the district up;
+			// anywhere else, or with Shift or Alt held anywhere, it pans.
+			if g.scene.PressDistrict(cursor, panHeld()) {
+				g.moving, g.pressAt = true, cursor
+			} else {
+				g.dragging, g.dragFrom = true, cursor
+			}
+		}
+	}
+	if g.moving && (ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown) {
+		g.scene.DragDistrict(cursor)
+	}
+	if (inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release) && g.moving {
+		g.moving = false
+		if math.Hypot(cursor.X-g.pressAt.X, cursor.Y-g.pressAt.Y) > 3 {
+			if g.scene.DropDistrict(cursor) && g.saveState != nil {
+				g.saveState(g.scene.Layout())
+			}
+		} else {
+			g.scene.CancelDistrictDrag()
+			g.act(g.scene.Click(cursor))
 		}
 	}
 	if g.dragging && (ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown) {
@@ -559,6 +583,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if cam.Projection == city.Isometric {
 		g.drawIso(screen, c, cam, hover, selected, width, height, seconds)
+		g.districtGhost(screen, cam)
 		g.overlay(screen, width, height)
 		return
 	}
@@ -598,6 +623,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 	g.landmarks(screen, cam, labels)
+	g.districtGhost(screen, cam)
 	g.overlay(screen, width, height)
 }
 

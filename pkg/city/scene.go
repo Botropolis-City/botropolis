@@ -120,6 +120,8 @@ type Scene struct {
 	// overgrowth is the road cells growing over since their connection
 	// ceased. Item 85.
 	overgrowth map[Cell]overgrowing
+	// drag is the district being dragged to another slot. Item 85.
+	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
 	// its own stands still. It is not the same as instant, which a
 	// still frame sets so the camera does not have to ease into place.

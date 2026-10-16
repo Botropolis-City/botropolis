@@ -700,6 +700,48 @@ func (p Plan) BlockAt(s Slot) Block {
 	return Block{Min: Cell{Col: p.colX[s.Col], Row: p.rowY[s.Row]}, Cols: p.width[s.Col], Rows: p.height[s.Row]}
 }
 
+// SlotBlock is the ground a slot covers, on the plan's rings or on the
+// ring just past them, which has no column or row yet: a slot there is
+// as wide as the smallest block, across the avenue from the outer ring.
+// It reports false for a slot further out than that. Item 85.
+func (p Plan) SlotBlock(s Slot) (Block, bool) {
+	col, cols, ok := p.slotSpan(s.Col, p.colX, p.width)
+	if !ok {
+		return Block{}, false
+	}
+	row, rows, ok := p.slotSpan(s.Row, p.rowY, p.height)
+	if !ok {
+		return Block{}, false
+	}
+	return Block{Min: Cell{Col: col, Row: row}, Cols: cols, Rows: rows}, true
+}
+
+func (p Plan) slotSpan(i int, start, size map[int]int) (int, int, bool) {
+	switch {
+	case abs(i) <= p.rings:
+		return start[i], size[i], true
+	case i == p.rings+1:
+		return start[p.rings] + size[p.rings] + 1, minSlot, true
+	case i == -p.rings-1:
+		return start[-p.rings] - 1 - minSlot, minSlot, true
+	}
+	return 0, 0, false
+}
+
+// SlotAt is the slot whose ground a cell lies on, out to the ring just
+// past the plan's, or false for an avenue or anywhere further out.
+func (p Plan) SlotAt(c Cell) (Slot, bool) {
+	for row := -p.rings - 1; row <= p.rings+1; row++ {
+		for col := -p.rings - 1; col <= p.rings+1; col++ {
+			s := Slot{Col: col, Row: row}
+			if b, ok := p.SlotBlock(s); ok && b.Contains(c) {
+				return s, true
+			}
+		}
+	}
+	return Slot{}, false
+}
+
 // Street reports a street cell's joins, if the cell is street.
 func (p Plan) Street(c Cell) (int, bool) {
 	mask, ok := p.street[c]

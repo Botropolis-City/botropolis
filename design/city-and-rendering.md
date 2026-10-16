@@ -58,6 +58,9 @@ The lamps at crossings and the trees along the avenues stand only beside laid ro
 A connection is one road per pair of districts, whichever way it was crossed, and lasts while any session that crossed it is on the map, live or parked.
 When the last one goes, its road grows over in one 1.5 s fade, a 0.3 s cross-fade under reduced motion; a connection that comes back meanwhile ends the fade and lays the road again.
 The pair's traffic counts stay on the road's card; the cars on it are one per session on the connection that is working, so a road nobody is working on keeps its tarmac and has no cars (item 85).
+A district can be dragged to another slot: a press on its floor or name plate picks it up, a ghost of its block follows the pointer over the outline of the slot it would land on, and the drop writes only remembered slots to `layout.json`.
+Dropping on a slot another district holds swaps the two; the ring just outside the city takes a drop and grows the city by a ring; the plaza and anything further out refuse it, outlined in the error colour.
+A press anywhere else pans, and so does any drag with Shift or Alt held.
 `pkg/city` also puts the plant, hall and library on the plaza and one shed per parked session in storage, grouped by project.
 The lake, the hashed river and the per-cell hashed grass, dirt and trees are gone; beyond the plan's edge there is nothing,
 and the camera clamps so the plan stays under the middle of the window.

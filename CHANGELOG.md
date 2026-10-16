@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Drag a district to another slot.**
+  Press on a district's floor or name sign and drag it; the slot it would land on is outlined, and it stays where you drop it.
+  Dropping it on another district swaps the two, and the ring just outside the city takes it too.
+  Hold Shift or Alt to pan instead, wherever you press.
+
 ### Changed
 
 - **Roads are laid only where two districts are connected.**
