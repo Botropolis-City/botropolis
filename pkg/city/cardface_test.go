@@ -127,6 +127,7 @@ func TestBuildingCardFace(t *testing.T) {
 			city.ViewModels:    "model",
 			city.ViewFanout:    "in flight",
 			city.ViewHealth:    "errors",
+			city.ViewGroups:    "station",
 		}
 		for _, v := range city.Views {
 			t.Run("when it is "+v.Name(), func(t *testing.T) {

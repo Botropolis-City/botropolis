@@ -26,6 +26,8 @@ var bindings = []ui.Key{
 	{Key: "i", Action: "the selection's details"},
 	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
+	{Key: "v", Action: "the lenses, and the lens's panel in full"},
+	{Key: "1-6", Action: "a lens; press again for its next view"},
 	{Key: "c", Action: "new session here"},
 	{Key: "d d", Action: "demolish the selection"},
 	{Key: "f", Action: "fit"},
@@ -71,7 +73,7 @@ var footerKeys = []ui.Key{
 	{Key: "wheel", Action: "zoom"},
 	{Key: "click", Action: "select"},
 	{Key: "tab", Action: "next needs-you"},
-	{Key: "v", Action: "views"},
+	{Key: "v", Action: "lenses"},
 	{Key: "b", Action: "sidebar"},
 	{Key: "f", Action: "fit"},
 	{Key: "?", Action: "help"},
@@ -212,8 +214,8 @@ func (g *Game) handleKeys() error {
 		return nil
 	}
 	if just(ebiten.KeyEscape) && g.scene.View() != city.ViewAttention {
-		// Escape is back before it is quit: leave the view first.
-		g.setView(city.ViewAttention)
+		// Escape is back before it is quit: leave the lens first.
+		g.selectLens(city.LensAttention)
 		return nil
 	}
 	if just(ebiten.KeyEscape) {
@@ -242,13 +244,14 @@ func (g *Game) handleKeys() error {
 	// nothing is slower once you know them.
 	if just(ebiten.KeyV) {
 		g.viewKey = !g.viewKey
+		g.scene.ShowLensPanel()
 	}
 	for i, key := range []ebiten.Key{
 		ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5,
-		ebiten.KeyDigit6, ebiten.KeyDigit7, ebiten.KeyDigit8, ebiten.KeyDigit9,
+		ebiten.KeyDigit6,
 	} {
-		if just(key) && i < len(city.Views) {
-			g.setView(city.Views[i])
+		if just(key) {
+			g.selectLens(city.Lenses[i])
 			g.viewKey = false
 		}
 	}
@@ -349,6 +352,10 @@ func (g *Game) act(action city.Action) {
 	}
 	if action.Kind == city.ActionRead {
 		g.openReader()
+		return
+	}
+	if action.Kind == city.ActionBreakdown {
+		g.breakdown, g.window = true, city.LastDay
 		return
 	}
 	if action.Kind == city.ActionNone || g.actor == nil {

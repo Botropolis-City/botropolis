@@ -190,6 +190,16 @@ func TestControl(t *testing.T) {
 		})
 	})
 
+	t.Run("when a session is forked", func(t *testing.T) {
+		runner := &fakeRunner{stdout: backgrounded}
+		_, err := newControl(runner).Fork(context.Background(), dir, sessionID)
+		require.NoError(t, err)
+
+		t.Run("it should run claude --bg --resume --fork-session in the session's directory", func(t *testing.T) {
+			assert.Equal(t, call{dir, []string{"claude", "--bg", "--resume", sessionID, "--fork-session"}}, runner.runs[0])
+		})
+	})
+
 	t.Run("when a resting session is resumed", func(t *testing.T) {
 		runner := &fakeRunner{stdout: backgrounded}
 		id, err := newControl(runner).Resume(context.Background(), dir, sessionID)

@@ -13,27 +13,27 @@ import (
 func TestLayoutViewKey(t *testing.T) {
 	th := ui.NewTheme(1)
 	const width, height = 1200.0, 800.0
-	k := ui.LayoutViewKey(th, width, height, city.ViewServers, measure7)
+	k := ui.LayoutViewKey(th, width, height, city.LensConnections, measure7)
 
 	t.Run("when the key is opened", func(t *testing.T) {
-		t.Run("it should list every view there is", func(t *testing.T) {
-			assert.Len(t, k.Rows, len(city.Views))
+		t.Run("it should list the six lenses rather than the views", func(t *testing.T) {
+			assert.Len(t, k.Rows, len(city.Lenses))
 		})
 
 		t.Run("it should number them the way the keyboard does, from one", func(t *testing.T) {
 			assert.Equal(t, "1", k.Rows[0].Key)
-			assert.Equal(t, "9", k.Rows[len(k.Rows)-1].Key)
+			assert.Equal(t, "6", k.Rows[len(k.Rows)-1].Key)
 		})
 
-		t.Run("it should say what each view is for, which is the reason for having it", func(t *testing.T) {
+		t.Run("it should say what each lens shows, which is the reason for having it", func(t *testing.T) {
 			for _, r := range k.Rows {
 				require.NotEmpty(t, r.Question, r.Name)
 			}
 		})
 
-		t.Run("it should mark the view that is up", func(t *testing.T) {
+		t.Run("it should mark the lens that is up", func(t *testing.T) {
 			for _, r := range k.Rows {
-				require.Equal(t, r.View == city.ViewServers, r.Current, r.Name)
+				require.Equal(t, r.Lens == city.LensConnections, r.Current, r.Name)
 			}
 		})
 	})
@@ -60,11 +60,11 @@ func TestLayoutViewKey(t *testing.T) {
 	})
 
 	t.Run("when a row is clicked", func(t *testing.T) {
-		t.Run("it should give back that row's view", func(t *testing.T) {
+		t.Run("it should give back that row's lens", func(t *testing.T) {
 			want := k.Rows[3]
 			got, ok := k.Hit(want.Row.Center())
 			require.True(t, ok)
-			assert.Equal(t, want.View, got)
+			assert.Equal(t, want.Lens, got)
 		})
 	})
 

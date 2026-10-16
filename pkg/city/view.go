@@ -32,12 +32,16 @@ const (
 	ViewModels
 	ViewFanout
 	ViewHealth
+	// ViewGroups is the Work lens's: the state tones, read by group
+	// (item 88).
+	ViewGroups
 )
 
 // Views is every view in the order the keys walk them.
 var Views = []View{
 	ViewAttention, ViewSpend, ViewPressure, ViewStaleness,
 	ViewServers, ViewTraffic, ViewModels, ViewFanout, ViewHealth,
+	ViewGroups,
 }
 
 // ViewByName is the view that answers to a name, for reading one back
@@ -71,6 +75,8 @@ func (v View) Name() string {
 		return "fan-out"
 	case ViewHealth:
 		return "health"
+	case ViewGroups:
+		return "groups"
 	default:
 		return "attention"
 	}
@@ -95,6 +101,8 @@ func (v View) Question() string {
 		return "which sessions spawn armies"
 	case ViewHealth:
 		return "what is broken, what shipped"
+	case ViewGroups:
+		return "whose move each piece of work is"
 	default:
 		return "who wants me"
 	}

@@ -19,16 +19,18 @@ type Highlight struct {
 	Active    bool
 	buildings map[*Building]bool
 	towers    map[*Tower]bool
+	roads     map[*RoadLine]bool
 }
 
 func (h Highlight) HasBuilding(b *Building) bool { return h.buildings[b] }
 func (h Highlight) HasTower(t *Tower) bool       { return h.towers[t] }
+func (h Highlight) HasRoad(r *RoadLine) bool     { return h.roads[r] }
 
 // Highlight is what the pointer, or failing that the selection, ties
 // together. Hover wins over selection: the pointer is the live question
 // and the selection is the one you parked.
 func (s *Scene) Highlight() Highlight {
-	h := Highlight{buildings: map[*Building]bool{}, towers: map[*Tower]bool{}}
+	h := Highlight{buildings: map[*Building]bool{}, towers: map[*Tower]bool{}, roads: map[*RoadLine]bool{}}
 	if s.focus != "" {
 		h.Active = true
 		for _, b := range s.city.Buildings() {
@@ -36,6 +38,10 @@ func (s *Scene) Highlight() Highlight {
 				h.buildings[b] = true
 			}
 		}
+		return h
+	}
+	pointedAway := s.hover.Tower != nil || (s.hover.Building != nil && s.hover.Building != s.selected)
+	if !pointedAway && s.showRoad(&h) {
 		return h
 	}
 	switch hit := s.hover; {

@@ -87,8 +87,8 @@ func TestFooterVerbsMatchWhatTheyDo(t *testing.T) {
 		verb, ok := action(footerKeys, "v")
 		require.True(t, ok)
 
-		t.Run("it should say views, not something about cycling", func(t *testing.T) {
-			assert.Equal(t, "views", verb)
+		t.Run("it should say lenses, not something about cycling", func(t *testing.T) {
+			assert.Equal(t, "lenses", verb)
 		})
 	})
 }

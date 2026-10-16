@@ -1,8 +1,10 @@
 package city
 
 import (
+	"fmt"
 	"math"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"botropolis.city/botropolis/pkg/events"
@@ -40,6 +42,12 @@ const (
 	ActionCopy ActionKind = "copy"
 	// ActionReviewGroups confirms the first run's groups as reviewed.
 	ActionReviewGroups ActionKind = "confirm groups"
+	// A lens's first actions (item 88).
+	ActionFocusLine ActionKind = "focus the line"
+	ActionBreakdown ActionKind = "breakdown"
+	ActionOpenPR    ActionKind = "open pull request"
+	ActionShowRoad  ActionKind = "show the road"
+	ActionFork      ActionKind = "fork a fresh session"
 )
 
 const DemolishArmFor = 3 * time.Second
@@ -107,12 +115,16 @@ type Scene struct {
 	// new selection always starts closed; generated is what Generate
 	// brought back, by session.
 	detailsFor string
-	generated  map[string]Generated
-	width      float64
-	height     float64
-	touched    bool
-	armed      string
-	armedAt    time.Time
+	// roadFor is the session whose roads are shown, and lensExpanded
+	// whether the lens's panel was brought back in full (item 88).
+	roadFor      string
+	lensExpanded bool
+	generated    map[string]Generated
+	width        float64
+	height       float64
+	touched      bool
+	armed        string
+	armedAt      time.Time
 	// zoomTarget is where the wheel is taking the zoom; Animate eases the
 	// camera there about zoomAnchor, or Instant snaps it.
 	zoomTarget float64
@@ -175,6 +187,7 @@ func NewScene(layout *Layout) *Scene {
 		// An unknown name opens on Attention rather than refusing to
 		// start: the view is a preference, not data anyone can lose.
 		s.view, _ = ViewByName(layout.View)
+		s.seeLens(s.Lens())
 	}
 	return s
 }
@@ -440,6 +453,9 @@ func (m Minimap) ProjectRect(r Rect) Rect {
 func (s *Scene) SetTopChrome(px float64) {
 	s.reserve(&s.topChrome, px, Point{Y: 1})
 }
+
+// TopChrome is the room reserved along the top.
+func (s *Scene) TopChrome() float64 { return s.topChrome }
 
 // SetBottomChrome reserves screen room for chrome along the bottom, such
 // as the footer; the fit margin still applies when it is shorter.
@@ -757,9 +773,43 @@ func (s *Scene) Actions() []ActionKind {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
 	if s.detailsOpen() {
-		return append(kinds, ActionDetailsHide)
+		kinds = append(kinds, ActionDetailsHide)
+	} else {
+		kinds = append(kinds, ActionDetails)
 	}
-	return append(kinds, ActionDetails)
+	return s.lensFirst(kinds)
+}
+
+// lensFirst moves the lens's first action to the front of the card, or
+// adds it there when the selection has something for it to act on.
+func (s *Scene) lensFirst(kinds []ActionKind) []ActionKind {
+	first := s.Lens().first()
+	if i := slices.Index(kinds, first); i >= 0 {
+		return append([]ActionKind{first}, slices.Delete(kinds, i, i+1)...)
+	}
+	b := s.selected
+	switch first {
+	case ActionFocusLine:
+		if b.Group == nil {
+			return kinds
+		}
+	case ActionOpenPR:
+		if prURL(b.Session) == "" {
+			return kinds
+		}
+	case ActionShowRoad:
+		if len(s.roadsOf(b)) == 0 {
+			return kinds
+		}
+	case ActionFork:
+		if i := slices.Index(kinds, ActionNew); i >= 0 {
+			kinds = append([]ActionKind{ActionNew}, slices.Delete(kinds, i, i+1)...)
+		}
+	case ActionBreakdown:
+	default:
+		return kinds
+	}
+	return append([]ActionKind{first}, kinds...)
 }
 
 // Act performs one of the selection's actions: the map-only ones (hide,
@@ -800,6 +850,23 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		return Action{Kind: ActionMoveToGroup, SessionID: b.Session.ID}, ""
 	case ActionRead:
 		return Action{Kind: ActionRead, SessionID: b.Session.ID}, ""
+	case ActionFocusLine:
+		if b.Group != nil && s.FocusGroup(b.Group.ID) {
+			return Action{}, "focused " + b.Group.Name
+		}
+		return Action{}, "not in a group"
+	case ActionBreakdown:
+		return Action{Kind: ActionBreakdown}, ""
+	case ActionFork:
+		return Action{Kind: ActionFork, SessionID: b.Session.ID, Dir: b.Session.CWD}, "forking " + b.Card(s.city.Time).Title
+	case ActionOpenPR:
+		if url := prURL(b.Session); url != "" {
+			return Action{Kind: ActionOpenPR, Text: url}, "opening " + url
+		}
+		return Action{}, "no pull request"
+	case ActionShowRoad:
+		s.roadFor = b.Session.ID
+		return Action{}, fmt.Sprintf("showing %s", plural(len(s.roadsOf(b)), "road"))
 	case ActionStar:
 		s.layout.SetStarred(root, true)
 		return Action{}, "starred " + name

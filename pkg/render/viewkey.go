@@ -16,7 +16,7 @@ import (
 // relying on the reader having read something else.
 
 func (g *Game) drawViewKey(screen *ebiten.Image, width, height float64) {
-	k := ui.LayoutViewKey(g.theme, width, height, g.scene.View(), g.faces.Measure)
+	k := ui.LayoutViewKey(g.theme, width, height, g.scene.Lens(), g.faces.Measure)
 	// Kept so a click hit-tests the rows that were actually drawn rather
 	// than a second layout computed from a second source of the window
 	// size. The two agree today — LayoutF feeds both — and that is
@@ -56,8 +56,8 @@ func (g *Game) clickViewKey(cursor city.Point) bool {
 	g.mu.Lock()
 	k := g.viewKeyRows
 	g.mu.Unlock()
-	if v, ok := k.Hit(cursor); ok {
-		g.setView(v)
+	if l, ok := k.Hit(cursor); ok {
+		g.selectLens(l)
 	}
 	g.viewKey = false
 	return true

@@ -34,16 +34,39 @@ type overlay interface {
 
 type overlays []overlay
 
+// ambient is an overlay that never takes the keyboard, and takes a
+// click only on itself: the lens panel (item 88).
+type ambient interface {
+	modal() bool
+	hit(at city.Point) bool
+}
+
+func isModal(o overlay) bool {
+	a, ok := o.(ambient)
+	return !ok || a.modal()
+}
+
+// top is the highest overlay that takes the keyboard and the pointer.
 func (s overlays) top() overlay {
-	if len(s) == 0 {
-		return nil
+	for i := len(s) - 1; i >= 0; i-- {
+		if isModal(s[i]) {
+			return s[i]
+		}
 	}
-	return s[len(s)-1]
+	return nil
 }
 
 func (s *overlays) push(o overlay) { *s = append(*s, o) }
 
-func (s *overlays) pop() { *s = (*s)[:len(*s)-1] }
+// pop takes the top modal overlay off the stack.
+func (s *overlays) pop() {
+	for i := len(*s) - 1; i >= 0; i-- {
+		if isModal((*s)[i]) {
+			*s = append((*s)[:i], (*s)[i+1:]...)
+			return
+		}
+	}
+}
 
 // overlayKeys gives the keyboard to the top of the stack, and reports
 // whether there was anything there to take it.
@@ -63,6 +86,12 @@ func (g *Game) overlayKeys() bool {
 func (g *Game) clickOverlay(cursor city.Point) bool {
 	top := g.overlays.top()
 	if top == nil {
+		for _, o := range g.overlays {
+			if a, ok := o.(ambient); ok && a.hit(cursor) {
+				o.click(g, cursor)
+				return true
+			}
+		}
 		return false
 	}
 	if !top.click(g, cursor) {
@@ -71,9 +100,13 @@ func (g *Game) clickOverlay(cursor city.Point) bool {
 	return true
 }
 
-func (g *Game) drawOverlays(screen *ebiten.Image, width, height float64) {
+// drawOverlays draws the modal overlays, or with ambient set the ones
+// that sit under every other panel.
+func (g *Game) drawOverlays(screen *ebiten.Image, width, height float64, ambient bool) {
 	for _, o := range g.overlays {
-		o.draw(g, screen, width, height)
+		if isModal(o) != ambient {
+			o.draw(g, screen, width, height)
+		}
 	}
 }
 

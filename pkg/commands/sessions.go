@@ -17,6 +17,7 @@ type Controller interface {
 	Stop(ctx context.Context, id string) error
 	Remove(ctx context.Context, id string) error
 	Resume(ctx context.Context, dir, sessionID string) (string, error)
+	Fork(ctx context.Context, dir, sessionID string) (string, error)
 	Agents(ctx context.Context, all bool) ([]control.Agent, error)
 	Reveal(dir string) error
 	Copy(ctx context.Context, text string) error
@@ -123,6 +124,22 @@ func (s *Sessions) Resume(ctx context.Context, dir, sessionID string) (string, e
 		}
 	}
 	id, err := s.ctl.Resume(ctx, dir, sessionID)
+	if err != nil {
+		return "", err
+	}
+	return id, s.ctl.Attach(id)
+}
+
+// Fork starts a fresh session from a copy of another's conversation and
+// attaches to it.
+func (s *Sessions) Fork(ctx context.Context, dir, sessionID string) (string, error) {
+	if dir == "" {
+		var err error
+		if dir, err = s.sessionDir(sessionID); err != nil {
+			return "", err
+		}
+	}
+	id, err := s.ctl.Fork(ctx, dir, sessionID)
 	if err != nil {
 		return "", err
 	}

@@ -124,7 +124,7 @@ type Game struct {
 	// snap is a frame the p key asked for, saved on the next draw.
 	snap string
 	help bool
-	// viewKey is the overlay listing all nine views; see ui.LayoutViewKey.
+	// viewKey is the overlay listing the six lenses; see ui.LayoutViewKey.
 	// viewKeyRows is the layout as last drawn, so a click lands on the
 	// rows the reader can actually see.
 	viewKey     bool
@@ -276,6 +276,7 @@ type Game struct {
 
 func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveLayout func(*city.Layout), sprites *sprites) *Game {
 	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, sprites: sprites, started: time.Now(), focused: true, ime: true}
+	g.overlays.push(&lensPanel{})
 	// A window that was closed owes the away list from when it was last
 	// seen, the way a blurred one does from when it lost focus.
 	g.awaySince = scene.Layout().Seen
@@ -675,10 +676,11 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	if g.hidden {
 		g.scene.SetTopChrome(0)
 		g.scene.SetBottomChrome(0)
-		g.drawOverlays(screen, width, height)
+		g.drawOverlays(screen, width, height, false)
 		return
 	}
 	g.chrome(screen, width, height)
+	g.drawOverlays(screen, width, height, true)
 	if g.viewKey {
 		g.drawViewKey(screen, width, height)
 	}
@@ -694,7 +696,7 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	if g.timeline {
 		g.drawTimeline(screen, width, height)
 	}
-	g.drawOverlays(screen, width, height)
+	g.drawOverlays(screen, width, height, false)
 }
 
 // clock is the animation time; with reduced motion it stands still at
@@ -793,7 +795,7 @@ func (g *Game) roadLines(screen *ebiten.Image, c *city.City, cam *city.Camera, h
 		road := &c.Roads[i]
 		g.line(screen, cam, road.A, road.B, 8, colorKerb)
 		g.line(screen, cam, road.A, road.B, 6, colorRoad)
-		if hover.Road == road {
+		if hover.Road == road || g.lit.HasRoad(road) {
 			g.line(screen, cam, road.A, road.B, 2, colorHighlight)
 		}
 		if labels {

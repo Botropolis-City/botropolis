@@ -39,6 +39,9 @@ type Layout struct {
 	// View is the info view the window was last in, by name rather than
 	// by number so reordering the views cannot silently change it.
 	View string `json:"view,omitempty"`
+	// Lenses counts how often each lens has been opened, by name, so
+	// its panel shrinks to a chip once it has been seen (item 88).
+	Lenses map[string]int `json:"lenses,omitempty"`
 }
 
 func NewLayout() *Layout {

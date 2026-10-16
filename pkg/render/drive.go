@@ -54,6 +54,8 @@ type Shown struct {
 	// Lit is the buildings the filter leaves undimmed, by id, sorted,
 	// when there is a filter; nil when there is none.
 	Lit []string
+	// Lens and View name the lens the map is in and its view (item 88).
+	Lens, View string
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -317,6 +319,7 @@ func (g *Game) noteShown() {
 	if g.hidden {
 		s = Shown{}
 	}
+	s.Lens, s.View = g.scene.Lens().Name(), g.scene.View().Name()
 	s.Settled = !g.scene.Easing()
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID

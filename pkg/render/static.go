@@ -40,6 +40,8 @@ type layerKey struct {
 	hoverDistrict *city.District
 	hoverTower    *city.Tower
 	hoverLine     *city.PowerLine
+	// roads is the session whose roads are shown (item 88).
+	roads string
 }
 
 // staticLayer is the composed image and the key it was composed for.
@@ -66,6 +68,7 @@ func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layer
 		hoverDistrict: hover.District,
 		hoverTower:    hover.Tower,
 		hoverLine:     hover.Line,
+		roads:         g.scene.RoadsShown(),
 	}
 }
 

@@ -104,6 +104,15 @@ func (b *Building) numbers(v View, now time.Time) []Number {
 		return []Number{{Label: "in flight", Value: fmt.Sprint(s.SubagentsInFlight)}, {Label: "subagents", Value: fmt.Sprint(s.Subagents)}, fresh}
 	case ViewHealth:
 		return []Number{{Label: "errors", Value: fmt.Sprint(s.APIErrors)}, {Label: "PRs", Value: fmt.Sprint(len(s.PRs))}, idle}
+	case ViewGroups:
+		station, members := "—", "—"
+		if b.Group != nil {
+			members = fmt.Sprint(len(b.Group.Members))
+			if b.Station > 0 {
+				station = fmt.Sprintf("%d of %d", b.Station, b.Stations)
+			}
+		}
+		return []Number{{Label: "station", Value: station}, {Label: "in group", Value: members}, idle}
 	}
 	return []Number{context, spent, idle}
 }

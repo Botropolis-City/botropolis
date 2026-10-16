@@ -66,6 +66,12 @@ func (c *Control) Resume(ctx context.Context, dir, sessionID string) (string, er
 	return c.background(ctx, dir, []string{"--bg", "--resume", sessionID})
 }
 
+// Fork starts a fresh session from a copy of another's conversation,
+// leaving the original as it was.
+func (c *Control) Fork(ctx context.Context, dir, sessionID string) (string, error) {
+	return c.background(ctx, dir, []string{"--bg", "--resume", sessionID, "--fork-session"})
+}
+
 func (c *Control) background(ctx context.Context, dir string, args []string) (string, error) {
 	out, err := c.runner.Run(ctx, dir, claudeBinary, args...)
 	if err != nil && untrustedPattern.MatchString(err.Error()) {

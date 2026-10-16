@@ -62,7 +62,7 @@ func TestViewScale(t *testing.T) {
 				require.False(t, seen[v.Name()], v.Name())
 				seen[v.Name()] = true
 			}
-			assert.Len(t, seen, 9)
+			assert.Len(t, seen, 10)
 		})
 	})
 }

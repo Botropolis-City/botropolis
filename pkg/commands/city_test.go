@@ -256,6 +256,8 @@ func TestActor(t *testing.T) {
 			{city.Action{Kind: city.ActionNew, Dir: cwd}, "new " + cwd + " "},
 			{city.Action{Kind: city.ActionReveal, Dir: cwd}, "reveal " + cwd},
 			{city.Action{Kind: city.ActionCopyPath, Dir: cwd}, "copy " + cwd},
+			{city.Action{Kind: city.ActionFork, SessionID: sid, Dir: cwd}, "fork " + cwd + " " + sid},
+			{city.Action{Kind: city.ActionOpenPR, Text: "https://example.com/pr/1"}, "reveal https://example.com/pr/1"},
 			{city.Action{Kind: city.ActionCopy, Text: "cd " + cwd + " && claude --resume " + sid}, "copy cd " + cwd + " && claude --resume " + sid},
 		}
 		for _, tc := range cases {

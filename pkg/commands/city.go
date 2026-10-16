@@ -121,6 +121,11 @@ func (a Actor) Do(action city.Action) error {
 		return err
 	case city.ActionReveal:
 		return a.Sessions.Reveal(action.Dir)
+	case city.ActionFork:
+		_, err := a.Sessions.Fork(context.Background(), action.Dir, action.SessionID)
+		return err
+	case city.ActionOpenPR:
+		return a.Sessions.Reveal(action.Text)
 	case city.ActionCopyPath:
 		return a.Sessions.Copy(context.Background(), action.Dir)
 	case city.ActionCopy:

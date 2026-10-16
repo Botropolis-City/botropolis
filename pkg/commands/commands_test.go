@@ -77,6 +77,11 @@ func (f *fakeController) Resume(_ context.Context, dir, sessionID string) (strin
 	return f.id, f.failure
 }
 
+func (f *fakeController) Fork(_ context.Context, dir, sessionID string) (string, error) {
+	f.calls = append(f.calls, "fork "+dir+" "+sessionID)
+	return f.id, f.failure
+}
+
 func (f *fakeController) Agents(_ context.Context, all bool) ([]control.Agent, error) {
 	f.calls = append(f.calls, fmt.Sprintf("agents all=%v", all))
 	return f.agents, f.failure

@@ -920,7 +920,7 @@ func (g *Game) streetSigns(screen *ebiten.Image, c *city.City, cam *city.Camera,
 				}
 			}
 		}
-		if hover.Road == street.Road {
+		if hover.Road == street.Road || (street.Road != nil && g.lit.HasRoad(street.Road)) {
 			for k := 1; k < len(street.Path); k++ {
 				g.line(screen, cam, street.Path[k-1], street.Path[k], 2, colorHighlight)
 			}

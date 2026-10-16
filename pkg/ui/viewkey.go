@@ -6,20 +6,21 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 )
 
-// The key to the views: what there is to look at, and how to get there.
+// The key to the lenses: what there is to look at, and how to get there.
 //
 // The nine views were reachable only by keys you had to know existed,
 // which is the same failure the movers had one level up — a thing on
 // screen that cannot be asked what it is. A legend tells you what the
 // view you are already in means; it cannot tell you what else there is.
 //
-// So this lists all nine with their numbers and their questions, marks
+// So this lists the six lenses (item 88), which fold those views, with
+// their numbers and what each shows, marks
 // the one you are in, and each row is clickable, because a reader who
 // does not know the number should not have to learn one to move.
 
-// ViewKeyRow is one view in the key.
+// ViewKeyRow is one lens in the key.
 type ViewKeyRow struct {
-	View     city.View
+	Lens     city.Lens
 	Key      string
 	Name     string
 	Question string
@@ -57,21 +58,21 @@ type ViewKey struct {
 const RiverNote = "on the river: liners gauge your usage between the buoys, tugs are sessions coming and going, the launch is " + city.RefreshKey + " fetching fresh figures"
 
 // LayoutViewKey centres the key in a width×height window and marks the
-// view that is up.
-func LayoutViewKey(th Theme, width, height float64, current city.View, measure Measure) ViewKey {
+// lens that is up.
+func LayoutViewKey(th Theme, width, height float64, current city.Lens, measure Measure) ViewKey {
 	grid := th.Grid()
 	pad := 3 * grid
 	_, lineH := measure("", Small)
-	title := "Views"
+	title := "Lenses"
 	_, titleH := measure(title, Title)
 	chipH := lineH + grid
 
 	var chipW, nameW, questionW float64
-	for _, v := range city.Views {
-		if w, _ := measure(v.Name(), Small); w > nameW {
+	for _, l := range city.Lenses {
+		if w, _ := measure(l.Name(), Small); w > nameW {
 			nameW = w
 		}
-		if w, _ := measure(v.Question(), Small); w > questionW {
+		if w, _ := measure(l.About(), Small); w > questionW {
 			questionW = w
 		}
 	}
@@ -84,24 +85,24 @@ func LayoutViewKey(th Theme, width, height float64, current city.View, measure M
 	if want := pad + noteW + pad; want > w {
 		w = want
 	}
-	h := pad + titleH + grid + rowStep*float64(len(city.Views)) - grid/2 + grid + noteH + pad
+	h := pad + titleH + grid + rowStep*float64(len(city.Lenses)) - grid/2 + grid + noteH + pad
 	k := ViewKey{Rect: city.RectAt((width-w)/2, (height-h)/2, w, h), Size: Small}
 	k.Title = Text{Text: title, At: k.Rect.Min.Add(city.Point{X: pad, Y: pad}), Size: Title}
 
 	y := k.Rect.Min.Y + pad + titleH + grid
-	for i, v := range city.Views {
+	for i, l := range city.Lenses {
 		chip := city.RectAt(k.Rect.Min.X+pad, y, chipW, chipH)
 		k.Rows = append(k.Rows, ViewKeyRow{
-			View:       v,
+			Lens:       l,
 			Key:        strconv.Itoa(i + 1),
-			Name:       v.Name(),
-			Question:   v.Question(),
+			Name:       l.Name(),
+			Question:   l.About(),
 			Row:        city.RectAt(k.Rect.Min.X+grid, y, k.Rect.Width()-2*grid, chipH),
 			Chip:       chip,
 			KeyAt:      city.Point{X: chip.Min.X + grid/2, Y: y + grid/2},
 			NameAt:     city.Point{X: chip.Max.X + grid, Y: y + grid/2},
 			QuestionAt: city.Point{X: chip.Max.X + grid + nameW + 2*grid, Y: y + grid/2},
-			Current:    v == current,
+			Current:    l == current,
 		})
 		y += rowStep
 	}
@@ -109,14 +110,14 @@ func LayoutViewKey(th Theme, width, height float64, current city.View, measure M
 	return k
 }
 
-// Hit is the view a click lands on, if it lands on a row at all. A click
+// Hit is the lens a click lands on, if it lands on a row at all. A click
 // between rows chooses nothing rather than the nearest, because a menu
 // that acts on a near miss is worse than one that ignores it.
-func (k ViewKey) Hit(at city.Point) (city.View, bool) {
+func (k ViewKey) Hit(at city.Point) (city.Lens, bool) {
 	for _, r := range k.Rows {
 		if r.Row.Contains(at) {
-			return r.View, true
+			return r.Lens, true
 		}
 	}
-	return city.ViewAttention, false
+	return city.LensAttention, false
 }
