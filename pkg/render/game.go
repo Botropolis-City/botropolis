@@ -177,7 +177,9 @@ type Game struct {
 	// carrying is the selected building being dragged to a group's line
 	// (item 87).
 	carrying *city.Building
-	reduced  bool
+	// firstRunAsked is whether this launch has shown the first run.
+	firstRunAsked bool
+	reduced       bool
 	// signage is which of phase 21 item 38's title treatments is drawn.
 	signage city.Signage
 	apply   func(ui.Setting) error
@@ -446,6 +448,7 @@ func (g *Game) Update() error {
 			g.act(g.scene.Click(cursor))
 		}
 	}
+	g.maybeFirstRun()
 	return g.handleKeys()
 }
 

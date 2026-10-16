@@ -23,9 +23,13 @@ type Group struct {
 	Short   string   `json:"short"`
 	Anchor  string   `json:"anchor,omitempty"`
 	Members []string `json:"members"`
-	Move    Move     `json:"move"`
-	Why     string   `json:"why"`
-	Journal Journal  `json:"journal"`
+	// MemberDirs is each member's directory, in Members' order, and
+	// Reason why the group formed, from its strongest tie.
+	MemberDirs []string `json:"memberDirs"`
+	Reason     string   `json:"reason,omitempty"`
+	Move       Move     `json:"move"`
+	Why        string   `json:"why"`
+	Journal    Journal  `json:"journal"`
 }
 
 type groupCache struct {
@@ -38,6 +42,8 @@ type groupCache struct {
 	// lastPrompts is each session's newest prompt in the history, for a
 	// session whose transcript carries no last-prompt record.
 	lastPrompts map[string]string
+	// reviewed is whether the first run's proposal has been confirmed.
+	reviewed bool
 }
 
 func lastPrompts(history map[string][]claude.Prompt) map[string]string {
@@ -96,6 +102,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 		}
 	}
 	snapshot.Groups = groupViews(c.result, snapshot.Sessions)
+	snapshot.GroupsReviewed = c.reviewed
 	return nil
 }
 
@@ -118,6 +125,7 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 		c.result = group.Detect(members, remembered)
 		remembered = remembered.Remember(c.result)
 	}
+	c.reviewed = remembered.Reviewed != nil
 	if !reflect.DeepEqual(remembered, memory) {
 		return group.Save(c.path, remembered)
 	}
@@ -238,6 +246,10 @@ func groupViews(result group.Result, sessions []Session) []Group {
 		var present []Session
 		for _, m := range g.Members {
 			view.Members = append(view.Members, m.Session)
+			view.MemberDirs = append(view.MemberDirs, m.Dir)
+			if view.Reason == "" && m.Reason.Signal != "" {
+				view.Reason = m.Reason.Describe(titleOf)
+			}
 			i, ok := index[m.Session]
 			if !ok {
 				continue

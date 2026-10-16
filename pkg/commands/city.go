@@ -100,6 +100,8 @@ type Actor struct {
 	Sessions *Sessions
 	// GroupStore is the groups' memory a move is written into (item 87).
 	GroupStore string
+	// Now is the clock a review is stamped with; nil is the wall clock.
+	Now func() time.Time
 }
 
 func (a Actor) Do(action city.Action) error {
@@ -124,6 +126,8 @@ func (a Actor) Do(action city.Action) error {
 		return a.Sessions.Copy(context.Background(), action.Text)
 	case city.ActionMove:
 		return a.move(action.SessionID, action.Group)
+	case city.ActionReviewGroups:
+		return a.review(action.Review)
 	}
 	return nil
 }
@@ -136,4 +140,21 @@ func (a Actor) move(session, to string) error {
 		return err
 	}
 	return group.Save(a.GroupStore, memory.WithMove(session, to))
+}
+
+// review writes the first run's confirmed groups into the groups'
+// memory, alongside what it already holds.
+func (a Actor) review(r *group.Review) error {
+	if r == nil {
+		return nil
+	}
+	now := time.Now
+	if a.Now != nil {
+		now = a.Now
+	}
+	memory, err := group.Load(a.GroupStore)
+	if err != nil {
+		return err
+	}
+	return group.Save(a.GroupStore, memory.Confirm(*r, now()))
 }

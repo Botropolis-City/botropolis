@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -37,6 +38,8 @@ const (
 	ActionRead ActionKind = "read"
 	// The finder's: a line of text copied. Item 82.
 	ActionCopy ActionKind = "copy"
+	// ActionReviewGroups confirms the first run's groups as reviewed.
+	ActionReviewGroups ActionKind = "confirm groups"
 )
 
 const DemolishArmFor = 3 * time.Second
@@ -51,6 +54,8 @@ type Action struct {
 	Text string
 	// Group is where ActionMove puts the session; empty is no group.
 	Group string
+	// Review is the first run's groups as confirmed.
+	Review *group.Review
 }
 
 // Light is how the scene decides night: from the sessions, or forced

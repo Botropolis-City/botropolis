@@ -60,6 +60,32 @@ func TestLoaderGroups(t *testing.T) {
 			assert.Equal(t, "bump the client for PROJ-123", sessionByID(t, snapshot, sidB).LastPrompt)
 		})
 
+		t.Run("it should carry each member's directory", func(t *testing.T) {
+			require.NotEmpty(t, snapshot.Groups)
+			assert.Equal(t, []string{libDir, apiDir}, snapshot.Groups[0].MemberDirs)
+		})
+
+		t.Run("it should say why the group formed", func(t *testing.T) {
+			require.NotEmpty(t, snapshot.Groups)
+			assert.Equal(t, "mentions PROJ-123", snapshot.Groups[0].Reason)
+		})
+
+		t.Run("it should say the first run has not been reviewed", func(t *testing.T) {
+			assert.False(t, snapshot.GroupsReviewed)
+		})
+
+		t.Run("and the first run has been reviewed", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "groups.json")
+			at := now.Add(-time.Hour)
+			require.NoError(t, group.Save(path, group.Memory{Reviewed: &at}))
+			snapshot, err := state.NewLoader(home.Path, dead).WithGroups(path).Load(now)
+			require.NoError(t, err)
+
+			t.Run("it should say so", func(t *testing.T) {
+				assert.True(t, snapshot.GroupsReviewed)
+			})
+		})
+
 		t.Run("it should give the group its move", func(t *testing.T) {
 			require.NotEmpty(t, snapshot.Groups)
 			assert.Equal(t, state.MoveNobody, snapshot.Groups[0].Move)

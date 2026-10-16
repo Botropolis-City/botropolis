@@ -64,6 +64,17 @@ func TestLines(t *testing.T) {
 			assert.Equal(t, []state.Move{state.MoveYours, state.MoveAgents, state.MoveAgents}, moves)
 		})
 
+		t.Run("each station should stand on its member's building, not the middle of the lot", func(t *testing.T) {
+			var on *city.Building
+			for _, b := range s.City().Buildings() {
+				if b.Session.ID == "b" {
+					on = b
+				}
+			}
+			require.NotNil(t, on)
+			assert.Equal(t, on.Rect.Center(), lines[0].Stations[1].At)
+		})
+
 		t.Run("a site joined only by a guess should have a dashed tie", func(t *testing.T) {
 			var dashed []bool
 			for _, st := range lines[0].Stations {

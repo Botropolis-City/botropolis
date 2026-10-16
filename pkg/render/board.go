@@ -86,6 +86,13 @@ func (b *board) keys(g *Game) bool {
 		b.selected = max(0, min(b.selected+1, len(groups)-1))
 	case g.just(ebiten.KeyArrowUp):
 		b.selected = max(0, b.selected-1)
+	case g.just(ebiten.KeyR):
+		// The first run takes the board's place on the stack, so the
+		// board stays closed behind it.
+		g.overlays.pop()
+		if !g.openFirstRun() {
+			g.overlays.push(b)
+		}
 	}
 	return true
 }
@@ -120,7 +127,11 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	x, y := panel.Min.X+grid*2, panel.Min.Y+grid*2
 	g.text(screen, city.Point{X: x, Y: y}, "City Hall · groups", ui.Title, th.Palette.Text)
 	y += title
-	g.text(screen, city.Point{X: x, Y: y}, boardStatus(rows), ui.Small, th.Palette.Dim)
+	status := boardStatus(rows)
+	if len(rows) > 0 && !g.scene.Snapshot().GroupsReviewed {
+		status += ", r reviews what was found"
+	}
+	g.text(screen, city.Point{X: x, Y: y}, status, ui.Small, th.Palette.Dim)
 	y += small + grid
 	first := max(0, min(b.selected-shown+1, len(rows)-shown))
 	for i := first; i < first+shown && i < len(rows); i++ {

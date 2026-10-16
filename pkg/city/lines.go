@@ -20,7 +20,8 @@ type Line struct {
 
 type Station struct {
 	District *District
-	// At is where the station stands, in world space.
+	// At is where the station stands, in world space: among the group's
+	// own buildings in the district, not the middle of its lot.
 	At   Point
 	Move state.Move
 	// Dashed is a site whose sessions all joined on a guess.
@@ -70,7 +71,12 @@ func (c *City) placeLines() {
 				dashed = dashed && b.Session.GroupLikely
 			}
 			move, _ := state.GroupMove(sessions)
-			centre := d.Rect.Center()
+			var centre Point
+			for _, b := range bySite[d] {
+				c := b.Rect.Center()
+				centre.X += c.X / float64(len(bySite[d]))
+				centre.Y += c.Y / float64(len(bySite[d]))
+			}
 			at := Point{X: centre.X + float64(through[d])*stationSpacing*d.Rect.Width(), Y: centre.Y}
 			through[d]++
 			line.Stations = append(line.Stations, Station{District: d, At: at, Move: move, Dashed: dashed})

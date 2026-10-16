@@ -2,6 +2,11 @@ package city
 
 import "botropolis.city/botropolis/pkg/state"
 
+// Snapshot is the snapshot the scene was last given.
+func (s *Scene) Snapshot() state.Snapshot {
+	return s.snapshot
+}
+
 // Groups are the snapshot's groups, most recently active first.
 func (s *Scene) Groups() []state.Group {
 	return s.snapshot.Groups
