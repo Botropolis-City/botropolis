@@ -26,6 +26,14 @@ type shortcutSeam interface {
 	Fired() <-chan uint32
 }
 
+// scriptedShortcut is a scripted frame's shortcut: it grabs nothing and
+// never fires.
+type scriptedShortcut struct{}
+
+func (scriptedShortcut) Grab(config.Chord) error { return nil }
+func (scriptedShortcut) Release() error          { return nil }
+func (scriptedShortcut) Fired() <-chan uint32    { return nil }
+
 // ebitenWindow is the window Ebitengine gives every desktop: it can be
 // restored and can ask for attention, and has no call that raises it.
 type ebitenWindow struct{}

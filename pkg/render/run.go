@@ -90,8 +90,12 @@ type Options struct {
 	Requests   <-chan single.Request
 	OpenFinder bool
 	// Desktop raises the window and holds the global shortcut, where the
-	// desktop has a way to; nil where it has none. Item 84.
-	Desktop hotkey.Desktop
+	// desktop has a way to; nil where it has none, and DesktopErr says
+	// why. GlobalShortcut is the combination it grabs as the city starts,
+	// empty for none. Item 84.
+	Desktop        hotkey.Desktop
+	DesktopErr     error
+	GlobalShortcut string
 	// FindChords are the finder's chords; nil is this system's defaults.
 	FindChords *config.Chords
 	// Search finds sessions by what was said in them, for the finder.
@@ -157,6 +161,11 @@ func Run(ctx context.Context, opts Options) error {
 		// searches on the frame, as soon as it is typed.
 		game.dispatch = func(run func()) { run() }
 		game.findAtOnce = true
+		// A scripted frame never touches the desktop, but its settings
+		// row records as the real one does. Item 84.
+		if game.shortcut == nil {
+			game.shortcut = scriptedShortcut{}
+		}
 	}
 	game.screenshot = opts.Screenshot
 	game.script = opts.Keys
@@ -190,6 +199,8 @@ func Run(ctx context.Context, opts Options) error {
 	game.readUsage()
 	game.settings = opts.Settings
 	game.apply = opts.Apply
+	game.desktopErr = opts.DesktopErr
+	game.useShortcut(opts.GlobalShortcut)
 
 	feedCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

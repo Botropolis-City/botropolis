@@ -264,11 +264,17 @@ type Game struct {
 	win      windowSeam
 	// shortcut is the global shortcut, nil where the desktop has none.
 	// Item 84.
-	shortcut      shortcutSeam
-	scriptedRune  rune
-	scriptedShift bool
-	dragging      bool
-	dragFrom      city.Point
+	shortcut shortcutSeam
+	// desktopErr says why the desktop has no shortcut, and
+	// recordingShortcut and pendingShortcut are the settings row
+	// recording one. Item 84.
+	desktopErr        error
+	recordingShortcut bool
+	pendingShortcut   *config.Chord
+	scriptedRune      rune
+	scriptedShift     bool
+	dragging          bool
+	dragFrom          city.Point
 	// moving is a district being dragged to another slot, picked up at
 	// pressAt; a press that never leaves its spot is a click. Item 85.
 	moving  bool

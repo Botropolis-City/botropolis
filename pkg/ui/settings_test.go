@@ -116,4 +116,29 @@ func TestLayoutSettings(t *testing.T) {
 			assert.Equal(t, 24+14*7+24+7*7+24.0, p.Rect.Width())
 		})
 	})
+
+	// Item 84: what a row has to say — a combination held elsewhere, or a
+	// desktop with no way to register one — is said in the panel.
+	t.Run("when the settings carry a note", func(t *testing.T) {
+		plain := ui.LayoutSettings(th, 800, 600, s, measure7)
+		noted := s
+		noted.Note = "another application holds ctrl+alt+f; choose another, or bind botropolis find in the desktop's own keyboard settings"
+		p := ui.LayoutSettings(th, 800, 600, noted, measure7)
+		require.NotEmpty(t, p.Note)
+
+		t.Run("it should lay it out under the last row", func(t *testing.T) {
+			assert.Greater(t, p.Note[0].At.Y, p.Rows[2].Label.At.Y)
+		})
+
+		t.Run("it should wrap it inside the panel", func(t *testing.T) {
+			for _, line := range p.Note {
+				w, _ := measure7(line.Text, ui.Body)
+				require.LessOrEqual(t, line.At.X+w, p.Rect.Max.X-24, line.Text)
+			}
+		})
+
+		t.Run("it should grow the panel to hold it", func(t *testing.T) {
+			assert.Greater(t, p.Rect.Height(), plain.Rect.Height())
+		})
+	})
 }

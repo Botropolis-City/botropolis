@@ -115,6 +115,11 @@ func panFor(down func(ebiten.Key) bool, step float64) city.Point {
 func (g *Game) handleKeys() error {
 	just := g.just
 	g.answerRequests()
+	// Recording the global shortcut takes every key, Ctrl+K among them.
+	// Item 84.
+	if g.settingsOpen && g.recordShortcutKeys() {
+		return nil
+	}
 	// Ctrl+K reaches the finder from anywhere, and goes no further: j, k
 	// and l move inside the settings and the timeline.
 	if g.paletteKey() {

@@ -337,23 +337,27 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	}
 	var requests <-chan single.Request
 	var desktop hotkey.Desktop
+	var desktopErr error
+	var shortcut string
 	if one != nil {
 		defer func() { _ = one.Close() }()
 		requests = one.Requests()
 		// Only the one city reaches for the desktop: it grabs nothing
 		// until a combination is set, and raises the window. Item 84.
-		if d, err := hotkey.Open(runtime.GOOS, os.Getenv); err == nil {
-			defer d.Close()
-			desktop = d
+		if desktop, desktopErr = hotkey.Open(runtime.GOOS, os.Getenv); desktop != nil {
+			defer desktop.Close()
 		}
+		shortcut = c.config.GlobalShortcut
 	}
 	return render.Run(cmd.Context(), render.Options{
-		Requests:   requests,
-		OpenFinder: openFinder,
-		Desktop:    desktop,
-		Layout:     layout,
-		LayoutPath: layoutPath,
-		Actor:      actor,
+		Requests:       requests,
+		OpenFinder:     openFinder,
+		Desktop:        desktop,
+		DesktopErr:     desktopErr,
+		GlobalShortcut: shortcut,
+		Layout:         layout,
+		LayoutPath:     layoutPath,
+		Actor:          actor,
 		Feed: func(ctx context.Context, offer func(state.Snapshot), fresh func([]events.Event)) {
 			feed.Events = fresh
 			feed.Run(ctx, offer)
@@ -406,7 +410,10 @@ func (a *liveActor) Do(action city.Action) error {
 	return commands.Actor{Sessions: sessions, GroupStore: a.groups}.Do(action)
 }
 
-const autoValue = "auto"
+const (
+	autoValue = "auto"
+	offValue  = "off"
+)
 
 // settingsFor is the settings panel's rows from the loaded config.
 func settingsFor(cfg *config.Config) ui.Settings {
@@ -426,6 +433,10 @@ func settingsFor(cfg *config.Config) ui.Settings {
 	if terminal == "" {
 		terminal = autoValue
 	}
+	shortcut := cfg.GlobalShortcut
+	if shortcut == "" {
+		shortcut = offValue
+	}
 	return ui.NewSettings([]ui.Setting{
 		{Key: config.KeyReducedMotion, Label: "reduced motion", Options: []string{"off", "on"}, Value: onOff},
 		{Key: config.KeyRenderScale, Label: "render scale", Options: withValue([]string{autoValue, "1", "1.25", "1.5", "2"}, scale), Value: scale},
@@ -436,6 +447,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
+		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
 	})
 }
 
@@ -466,6 +478,10 @@ func settingValue(s ui.Setting) (string, any) {
 		return s.Key, n
 	case config.KeyTerminal:
 		if s.Value == autoValue {
+			return s.Key, ""
+		}
+	case config.KeyGlobalShortcut:
+		if s.Value == offValue {
 			return s.Key, ""
 		}
 	}

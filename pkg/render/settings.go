@@ -23,6 +23,9 @@ func (g *Game) settingsKeys() bool {
 	if just(ebiten.KeyP) {
 		g.snap = screenshotPath(time.Now())
 	}
+	if g.onShortcutRow() && g.shortcutRowKeys() {
+		return true
+	}
 	if just(ebiten.KeyArrowDown) || just(ebiten.KeyJ) {
 		g.settings.Move(1)
 	}
@@ -126,6 +129,9 @@ func (g *Game) drawSettings(screen *ebiten.Image, width, height float64) {
 		g.run(screen, row.Label, label)
 		g.run(screen, row.Value, value)
 	}
+	for _, line := range p.Note {
+		g.run(screen, line, th.Palette.Text)
+	}
 }
 
 // clickSettings moves the cursor to the row under the pointer and
@@ -139,8 +145,10 @@ func (g *Game) clickSettings(cursor city.Point) bool {
 	panel := g.settingsPanel
 	g.mu.Unlock()
 	if !panel.Rect.Contains(cursor) {
-		// A click off the panel closes it, the way Escape does.
+		// A click off the panel closes it, the way Escape does, and
+		// stops recording the global shortcut.
 		g.settingsOpen = false
+		g.recordingShortcut, g.pendingShortcut = false, nil
 		return true
 	}
 	if i, ok := panel.Hit(cursor); ok {

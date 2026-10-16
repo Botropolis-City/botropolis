@@ -128,3 +128,37 @@ func TestLadderSettings(t *testing.T) {
 		}
 	})
 }
+
+// Item 84: the global shortcut is a row that reads off until one is set,
+// and off saves as empty.
+func TestGlobalShortcutSetting(t *testing.T) {
+	row := func(t *testing.T, cfg *config.Config) ui.Setting {
+		t.Helper()
+		for _, s := range settingsFor(cfg).Items {
+			if s.Key == config.KeyGlobalShortcut {
+				return s
+			}
+		}
+		require.FailNow(t, "no global shortcut row")
+		return ui.Setting{}
+	}
+
+	t.Run("when nothing is set", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		s := row(t, cfg)
+
+		t.Run("it should read global shortcut, off", func(t *testing.T) {
+			assert.Equal(t, [2]string{"global shortcut", "off"}, [2]string{s.Label, s.Value})
+		})
+	})
+
+	t.Run("when the panel clears it", func(t *testing.T) {
+		key, value := settingValue(ui.Setting{Key: config.KeyGlobalShortcut, Value: "off"})
+
+		t.Run("it should save it empty", func(t *testing.T) {
+			assert.Equal(t, []any{config.KeyGlobalShortcut, ""}, []any{key, value})
+		})
+	})
+}

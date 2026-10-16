@@ -15,6 +15,8 @@ type Setting struct {
 type Settings struct {
 	Items  []Setting
 	Cursor int
+	// Note is what a row has to say in words, under the rows. Item 84.
+	Note string
 }
 
 func NewSettings(items []Setting) Settings {
@@ -75,7 +77,11 @@ type SettingsPanel struct {
 	Title    Text
 	Subtitle Text
 	Rows     []SettingRow
+	Note     []Text
 }
+
+// noteRows is as many lines as a note may take.
+const noteRows = 4
 
 // Hit finds the setting under a screen point and reports its index, so
 // a click can move the cursor to a row and step it the way the
@@ -115,7 +121,17 @@ func LayoutSettings(th Theme, width, height float64, s Settings, measure Measure
 		}
 	}
 	w := pad + labelW + pad + valueW + pad
+	var note []string
+	if s.Note != "" {
+		note = wrapPara(s.Note, max(w-2*pad, ParaWidth(th)/2), noteRows, measure)
+		if noteW := 2*pad + widest(note, measure); noteW > w {
+			w = noteW
+		}
+	}
 	h := pad + titleH + grid + rowStep*float64(len(s.Items)) - grid/2 + pad
+	if len(note) > 0 {
+		h += grid + lineH*float64(len(note))
+	}
 	p := SettingsPanel{Rect: city.RectAt((width-w)/2, (height-h)/2, w, h)}
 	p.Title = Text{Text: settingsTitle, At: p.Rect.Min.Add(city.Point{X: pad, Y: pad}), Size: Title}
 	p.Subtitle = subtitleUnder(p.Title, PanelSettings, measure)
@@ -130,5 +146,20 @@ func LayoutSettings(th Theme, width, height float64, s Settings, measure Measure
 		})
 		y += rowStep
 	}
+	y += grid / 2
+	for _, line := range note {
+		p.Note = append(p.Note, Text{Text: line, At: city.Point{X: p.Rect.Min.X + pad, Y: y}, Size: Body})
+		y += lineH
+	}
 	return p
+}
+
+func widest(lines []string, measure Measure) float64 {
+	var most float64
+	for _, l := range lines {
+		if w, _ := measure(l, Body); w > most {
+			most = w
+		}
+	}
+	return most
 }
