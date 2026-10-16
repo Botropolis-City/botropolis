@@ -83,7 +83,10 @@ PIECES = {
                        "sign-highway", "road-sign-empty", "road-sign-empty-hanging"],
     "city-kit-suburban": ["tree-large", "tree-small", "planter"],
     "nature-kit": ["tree_default", "tree_oak", "tree_thin", "tree_tall", "tree_pineRoundA", "tree_small",
-                   "plant_bush", "plant_bushLarge"],
+                   "plant_bush", "plant_bushLarge",
+                   # Item 86: what grows on the lot of a session quiet
+                   # for long enough, and a sapling among it.
+                   "grass", "grass_large", "grass_leafs", "plant_flatShort", "tree_small_dark"],
     "car-kit": ["sedan", "van", "taxi", "suv", "hatchback-sports", "truck", "delivery"],
     "space-kit": ["rover"],
     "train-kit": ["train-diesel-a", "train-diesel-b", "train-diesel-c",
@@ -144,6 +147,11 @@ NATURE_HEIGHT = {
     "tree_small": 0.56,
     "plant_bush": 0.26,
     "plant_bushLarge": 0.30,
+    "grass": 0.16,
+    "grass_large": 0.22,
+    "grass_leafs": 0.18,
+    "plant_flatShort": 0.20,
+    "tree_small_dark": 0.40,
 }
 
 # The Suburban trees' own colours, read off the atlas they are cut into:

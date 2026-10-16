@@ -316,16 +316,24 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		tint.SetG(0.8)
 		tint.SetB(1)
 	}
+	dress := g.dressing(b)
+	g.drawWeeds(screen, cam, b, dress.Weeds, tint, true)
 	r := g.kitRising(screen, cam, buildingPiece(b), b.Rect.Center(), tint, rise)
 	district := g.scene.City().DistrictOf(b)
 	g.noteHit(r, city.Hit{Building: b, District: district})
+	g.drawWeeds(screen, cam, b, dress.Weeds, tint, false)
 	if r.Area() == 0 || g.scene.Dimmed(b) {
 		return
+	}
+	if dress.Boards {
+		for _, p := range boards(r) {
+			vector.StrokeLine(screen, float32(p[0].X), float32(p[0].Y), float32(p[1].X), float32(p[1].Y), float32(math.Max(1.5, 3*cam.Zoom)), colorPlank, true)
+		}
 	}
 	// The state light: a beacon over the door in the state's own colour,
 	// pulsing for needs-you, so the palette reads the same as the strip.
 	foot := cam.WorldToScreen(b.Rect.Center())
-	if !b.Blinds {
+	if dress.Beacon {
 		beacon := g.theme.Color(ui.StateTone(b.Session.State))
 		if b.Pulse {
 			beacon = pulse(beacon, seconds)
@@ -338,7 +346,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	dot := math.Max(3, 6*cam.Zoom)
 	// Signage is paint on the building, not chrome: like a tower's name
 	// it stays when h hides the interface.
-	if !b.Blinds {
+	if dress.Sign {
 		title := b.Card(g.scene.City().Time).Title
 		if !g.buildingSignage(screen, cam, r, foot, title) {
 			g.buildingSign(screen, r, foot, title)
@@ -1304,4 +1312,39 @@ func roofLift(w, ay float64) float64 {
 // building's depth.
 func stackDepth(cam *city.Camera, plant city.Rect) float64 {
 	return cam.DepthOf(plant)
+}
+
+var colorPlank = color.NRGBA{0x8a, 0x5f, 0x3c, 0xff}
+
+// dressing is the building's lot for this frame. Under reduced motion a
+// mowing is a cross-fade of the whole growth rather than a clearing.
+func (g *Game) dressing(b *city.Building) lot {
+	mowing := g.scene.Mowing(b.Session.ID)
+	if g.reduced && mowing >= 0 {
+		d := dressLot(b, 0)
+		g.weedFade = 1 - mowing
+		return d
+	}
+	g.weedFade = 1
+	return dressLot(b, mowing)
+}
+
+// drawWeeds draws the growth behind the building's centre, or in front
+// of it, so the building stands among its weeds rather than on them.
+func (g *Game) drawWeeds(screen *ebiten.Image, cam *city.Camera, b *city.Building, weeds []weed, tint *ebiten.ColorScale, behind bool) {
+	if len(weeds) == 0 {
+		return
+	}
+	centre := b.Rect.Center()
+	scale := &ebiten.ColorScale{}
+	if tint != nil {
+		*scale = *tint
+	}
+	scale.ScaleAlpha(float32(g.weedFade))
+	for _, w := range weeds {
+		if (w.At.X+w.At.Y < centre.X+centre.Y) != behind {
+			continue
+		}
+		g.kit(screen, cam, w.Piece, 0, w.At, scale)
+	}
 }

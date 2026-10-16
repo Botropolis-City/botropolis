@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every stopped session Claude Code still has a transcript for is shown, however old.
   The daemon keeps a ledger of the sessions it has shown — ids, directories and times only, in `~/.local/state/botropolis/sessions.json` —
   so a session whose transcript Claude Code has deleted keeps its lot, titled from your own prompts, and its card says the conversation is gone.
+- **Each rung is drawn.**
+  A resting building is dark, with no beacon or sign; a shuttered one has its windows boarded; an overgrown lot grows grass, weeds and now and then a sapling, scattered the same way every time.
+  When an overgrown session wakes, its lot is mowed in 1.5 s, or cross-faded in 0.3 s under reduced motion.
+- **Codex rollouts are read through a 64 KB head and tail**, as Claude's transcripts already were, so a long Codex history loads in a time bounded by the number of rollouts rather than their size.
 
 ### Removed
 

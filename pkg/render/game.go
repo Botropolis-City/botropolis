@@ -270,6 +270,8 @@ type Game struct {
 	// pressAt; a press that never leaves its spot is a click. Item 85.
 	moving  bool
 	pressAt city.Point
+	// weedFade is the alpha the lot's growth is drawn at this frame.
+	weedFade float64
 	// shoreLayer is the island and the sea, painted once per plan.
 	shoreLayer *shoreLayer
 	started    time.Time

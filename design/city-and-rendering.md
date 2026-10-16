@@ -40,6 +40,8 @@ Isometric 2:1 is an affine projection, so `pkg/city` keeps rectangles and only t
 Below a detail zoom the map view draws flat state-coloured blocks, the way Factorio's chart replaces sprites with map colours;
 above it, buildings are stacked from the pack's ground floors, storeys and roofs.
 Stopped sessions sat in a yard inside each district, then in one storage district along the south; since item 86 a stopped session keeps its own lot in its district and climbs the ladder there, and a district stays while it has any session.
+A resting building is drawn dark with no beacon or sign, a shuttered one with planks across both visible faces, and an overgrown lot with eight to eleven Nature Kit pieces scattered along its edges by the session's id (`pkg/render/lot.go`); the growth is drawn whatever the detail setting, because it carries a datum.
+When an overgrown session wakes, its growth clears in scatter order over `city.MowFor`, or fades over `city.MowFadeFor` under reduced motion.
 Labels are fixed-size and sit on the floor or above the kerb, never over what they name.
 
 ## City plan

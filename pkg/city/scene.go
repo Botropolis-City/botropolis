@@ -166,6 +166,10 @@ type Scene struct {
 	// overgrowth is the road cells growing over since their connection
 	// ceased. Item 85.
 	overgrowth map[Cell]overgrowing
+	// rungs is each session's rung at the last snapshot, and mowing the
+	// lots being mowed since their session woke (item 86).
+	rungs  map[string]state.Rung
+	mowing map[string]time.Time
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
@@ -547,6 +551,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	was := s.city.StreetCells
 	s.city = BuildWith(snapshot, s.layout, s.ladder)
 	s.noteOvergrowth(was, s.now())
+	s.noteMowing(s.now())
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())
