@@ -27,7 +27,7 @@ which opens on the plant or `x`.
 `city.Log` turns the stream of snapshots into events by what changed between one and the next; `t` lists them newest first and jumps,
 and when the window comes back into focus the same panel shows what needed you or went wrong meanwhile.
 `/` or `Ctrl+K` (`⌘K` on macOS) opens the finder, a panel over the city on the overlay stack (item 82), which finds sessions by what was said in them while the map dims every session it did not find;
-`Enter` attaches a live session, resumes a stopped one in a terminal in its own directory, or offers a new session where a deleted conversation was,
+`Enter` attaches a live session and resumes a stopped one exactly as the card's buttons do, or offers a new session where a deleted conversation was, started as the card's *new session here* starts one,
 `Ctrl+Y` copies the command that resumes it, `Ctrl+M` shows it on the map, and `Esc` clears the map's filter.
 The three chords are settings, `find_key`, `find_copy_key` and `find_show_key`, written as modifiers and a key such as `alt+s`, where `mod` is ⌘ on macOS and Ctrl elsewhere;
 showing on the map stays Control+M on macOS, and a chord macOS keeps for itself, such as ⌘M, which minimizes the window, is refused when the city starts.

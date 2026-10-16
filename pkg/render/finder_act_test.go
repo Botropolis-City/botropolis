@@ -63,8 +63,8 @@ func TestFinderActs(t *testing.T) {
 			g, actor := finderOver(t, 1, live, stopped)
 			pressKey(t, g, ebiten.KeyEnter, false)
 
-			t.Run("it should resume it in a terminal in its own directory", func(t *testing.T) {
-				assert.Equal(t, []city.Action{{Kind: city.ActionResumeIn, SessionID: "stopped", Dir: "/src/kiln"}}, actor.done)
+			t.Run("it should resume it as the card does", func(t *testing.T) {
+				assert.Equal(t, []city.Action{{Kind: city.ActionResume, SessionID: "stopped"}}, actor.done)
 			})
 		})
 
@@ -79,8 +79,8 @@ func TestFinderActs(t *testing.T) {
 			t.Run("and Enter is pressed again", func(t *testing.T) {
 				pressKey(t, g, ebiten.KeyEnter, false)
 
-				t.Run("it should start a new session there", func(t *testing.T) {
-					assert.Equal(t, []city.Action{{Kind: city.ActionStartIn, Dir: "/src/orchard"}}, actor.done)
+				t.Run("it should start a new session there, as the card's new session here does", func(t *testing.T) {
+					assert.Equal(t, []city.Action{{Kind: city.ActionNew, Dir: "/src/orchard"}}, actor.done)
 				})
 			})
 		})

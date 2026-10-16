@@ -241,9 +241,10 @@ func (f *finder) chosen() (find.Hit, bool) {
 }
 
 // open acts on a result and reports whether the finder stays open: a
-// live session is attached, a stopped one resumed in a terminal in its
-// own directory, and one whose conversation is gone is offered a new
-// session where it was, which a second Enter starts.
+// live session is attached and a stopped one resumed, exactly as the
+// card's buttons do, and one whose conversation is gone is offered a new
+// session where it was, which a second Enter starts as the card's new
+// session here does.
 func (f *finder) open(g *Game, h find.Hit) bool {
 	switch {
 	case h.Gone && f.armed != h.SessionID:
@@ -251,11 +252,11 @@ func (f *finder) open(g *Game, h find.Hit) bool {
 		g.SetStatus("its conversation was deleted; enter again starts a new session in " + h.Dir)
 		return true
 	case h.Gone:
-		g.act(city.Action{Kind: city.ActionStartIn, Dir: h.Dir})
+		g.act(city.Action{Kind: city.ActionNew, Dir: h.Dir})
 	case find.Live(h.State):
 		g.act(city.Action{Kind: city.ActionAttach, SessionID: h.SessionID})
 	default:
-		g.act(city.Action{Kind: city.ActionResumeIn, SessionID: h.SessionID, Dir: h.Dir})
+		g.act(city.Action{Kind: city.ActionResume, SessionID: h.SessionID})
 	}
 	f.end()
 	return false

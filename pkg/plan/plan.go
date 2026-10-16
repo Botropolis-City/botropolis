@@ -499,7 +499,6 @@ func (p *Plan) place(in Input) {
 	sort.SliceStable(p.Trees, func(i, j int) bool { return less(p.Trees[i].Cell, p.Trees[j].Cell) })
 }
 
-
 // plantStreets lines every avenue with trees at a fixed pitch, out on
 // the verge and only along the straights, so nothing stands in a
 // junction. A street is planted in one species the whole way down.

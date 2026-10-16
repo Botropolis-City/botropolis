@@ -232,7 +232,7 @@ type Game struct {
 	readConversation func(id string, skip, count int) (claude.Conversation, error)
 	readerRect       city.Rect
 	search           func(find.Query) ([]find.Hit, error)
-	dispatch func(func())
+	dispatch         func(func())
 	// findAtOnce searches without waiting for typing to pause, for
 	// scripted frames.
 	findAtOnce bool

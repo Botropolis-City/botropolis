@@ -35,12 +35,8 @@ const (
 	// Read opens the reading pane, the level below the card's sentence.
 	// Item 83.
 	ActionRead ActionKind = "read"
-	// The finder's: a stopped session resumed in a terminal in its own
-	// directory, a new one started where a deleted conversation was, and
-	// a line of text copied. Item 82.
-	ActionResumeIn ActionKind = "resume in a terminal"
-	ActionStartIn  ActionKind = "start in a terminal"
-	ActionCopy     ActionKind = "copy"
+	// The finder's: a line of text copied. Item 82.
+	ActionCopy ActionKind = "copy"
 )
 
 const DemolishArmFor = 3 * time.Second

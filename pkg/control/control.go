@@ -147,34 +147,6 @@ func (c *Control) Attach(id string) error {
 	return c.runner.Start("", argv[0], argv[1:]...)
 }
 
-// ResumeIn opens a terminal in a session's own directory running
-// claude --resume, for a session that has stopped: the finder's way back
-// into it. Item 82.
-func (c *Control) ResumeIn(dir, sessionID string) error {
-	return c.inTerminal(dir, `cd -- "$1" && exec `+claudeBinary+` --resume "$2"`, dir, sessionID)
-}
-
-// StartIn opens a terminal in a directory running claude, for a session
-// whose conversation is gone. Item 82.
-func (c *Control) StartIn(dir string) error {
-	return c.inTerminal(dir, `cd -- "$1" && exec `+claudeBinary, dir)
-}
-
-// inTerminal runs a script in a terminal that changes into dir first.
-// The terminal's own working directory is not enough: Terminal.app
-// starts in home whatever it is launched from, and a terminal that
-// hands its windows to a running server starts where the server is.
-// The directory and id travel as the script's arguments, never as its
-// text, so nothing in them is run.
-func (c *Control) inTerminal(dir, script string, args ...string) error {
-	command := append([]string{"sh", "-c", script, "sh"}, args...)
-	argv, err := c.desktop.TerminalCommand(c.getenv, c.onPath, command)
-	if err != nil {
-		return err
-	}
-	return c.runner.Start(dir, argv[0], argv[1:]...)
-}
-
 // Reveal opens a directory in the desktop's file manager.
 func (c *Control) Reveal(dir string) error {
 	if dir == "" {

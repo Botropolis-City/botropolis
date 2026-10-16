@@ -77,16 +77,6 @@ func (f *fakeController) Resume(_ context.Context, dir, sessionID string) (strin
 	return f.id, f.failure
 }
 
-func (f *fakeController) ResumeIn(dir, sessionID string) error {
-	f.calls = append(f.calls, "resume-in "+dir+" "+sessionID)
-	return f.failure
-}
-
-func (f *fakeController) StartIn(dir string) error {
-	f.calls = append(f.calls, "start-in "+dir)
-	return f.failure
-}
-
 func (f *fakeController) Agents(_ context.Context, all bool) ([]control.Agent, error) {
 	f.calls = append(f.calls, fmt.Sprintf("agents all=%v", all))
 	return f.agents, f.failure
