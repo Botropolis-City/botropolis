@@ -16,6 +16,7 @@ import (
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -376,10 +377,91 @@ func (f *finder) openAnswer(g *Game) bool {
 const findLimit = 50
 
 // move steps the selection, stopping at either end.
-func (f *finder) move(by int) {
+func (f *finder) move(by, groups int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.selected = max(0, min(f.selected+by, len(f.results)-1))
+	f.selected = max(0, min(f.selected+by, len(f.results)+groups-1))
+}
+
+// groups are the groups the query names, which follow the sessions
+// found (item 90).
+func (f *finder) groups(g *Game) []state.Group {
+	return city.GroupsMatching(g.scene.Groups(), f.field.query())
+}
+
+// chosenGroup is the selected group, when the selection is past the
+// sessions found.
+func (f *finder) chosenGroup(g *Game) (state.Group, bool) {
+	groups := f.groups(g)
+	f.mu.Lock()
+	i := f.selected - len(f.results)
+	f.mu.Unlock()
+	if i < 0 || i >= len(groups) {
+		return state.Group{}, false
+	}
+	return groups[i], true
+}
+
+// rows are the sessions found, then the groups named.
+func (f *finder) rows(g *Game, now time.Time) []ui.FinderResult {
+	f.mu.Lock()
+	hits := f.results
+	f.mu.Unlock()
+	var out []ui.FinderResult
+	for _, h := range hits {
+		out = append(out, finderResult(h, now))
+	}
+	for _, gr := range f.groups(g) {
+		out = append(out, ui.FinderResult{Group: true, InPrompt: true, Passage: gr.Name,
+			Dir: "group  " + g.route(gr.ID), Age: movePhrase(gr.Move)})
+	}
+	return out
+}
+
+// route is a group's stations, in line order.
+func (g *Game) route(id string) string {
+	for _, l := range g.scene.City().Lines {
+		if l.Group.ID != id {
+			continue
+		}
+		names := make([]string, 0, len(l.Stations))
+		for _, st := range l.Stations {
+			names = append(names, st.District.Name)
+		}
+		return strings.Join(names, " → ")
+	}
+	return ""
+}
+
+func movePhrase(m state.Move) string {
+	if m == state.MoveYours {
+		return "your move"
+	}
+	return string(m) + " move"
+}
+
+// status is the line under the query.
+func (f *finder) status(g *Game) string {
+	if f.field.query() == "" {
+		return "type to find a session by what was said in it"
+	}
+	f.mu.Lock()
+	found := len(f.results)
+	f.mu.Unlock()
+	chords := g.findChords()
+	counted := fmt.Sprintf("%d sessions found", found)
+	if groups := len(f.groups(g)); groups > 0 {
+		counted = plural(found, "session") + " and " + plural(groups, "group") + " found"
+	}
+	return fmt.Sprintf("%s, %d on the map   ↑ ↓ choose, enter opens, %s copies how to resume, %s shows it, esc clears",
+		counted, g.scene.Matching(), chords.Copy, chords.Show)
+}
+
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }
 
 func (f *finder) keys(g *Game) bool {
@@ -430,14 +512,22 @@ func (f *finder) keys(g *Game) bool {
 		if chosen {
 			return f.open(g, h)
 		}
+		if gr, ok := f.chosenGroup(g); ok {
+			f.end()
+			g.filterOn("")
+			if !g.scene.FocusGroup(gr.ID) {
+				g.SetStatus(gr.Name + " has no session on the map")
+			}
+			return false
+		}
 		f.end()
 		return false
 	case just(ebiten.KeyBackspace):
 		f.field.backspace()
 	case just(ebiten.KeyArrowDown):
-		f.move(1)
+		f.move(1, len(f.groups(g)))
 	case just(ebiten.KeyArrowUp):
-		f.move(-1)
+		f.move(-1, len(f.groups(g)))
 	}
 	if g.scriptedRune != 0 {
 		f.field.insert(string(g.scriptedRune))
@@ -489,19 +579,10 @@ func (f *finder) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.roundRect(screen, city.RectAt(0, 0, width, height), 0, scrim)
 	shown, caret := f.field.shown()
 	f.mu.Lock()
-	hits, selected := f.results, f.selected
+	selected := f.selected
 	f.mu.Unlock()
-	status := "type to find a session by what was said in it"
-	if f.field.query() != "" {
-		chords := g.findChords()
-		status = fmt.Sprintf("%d sessions found, %d on the map   ↑ ↓ choose, enter opens, %s copies how to resume, %s shows it, esc clears",
-			len(hits), g.scene.Matching(), chords.Copy, chords.Show)
-	}
-	in := ui.FinderInput{Query: shown, Caret: caret, Status: status, Words: strings.Fields(f.field.query()), Selected: selected}
-	now := g.now()
-	for _, h := range hits {
-		in.Results = append(in.Results, finderResult(h, now))
-	}
+	in := ui.FinderInput{Query: shown, Caret: caret, Status: f.status(g), Words: strings.Fields(f.field.query()), Selected: selected,
+		Results: f.rows(g, g.now())}
 	p := ui.LayoutFinder(th, width, height, in, g.faces.Measure)
 	g.mu.Lock()
 	g.finderRect, g.finderCaret = p.Rect, p.Caret

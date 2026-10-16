@@ -36,6 +36,9 @@ type FinderResult struct {
 	Gone        bool
 	Recap       string
 	LastPrompt  string
+	// Group is a group found by its name (item 90): Dir is then its
+	// route and Age whose move it is.
+	Group bool
 }
 
 // Mark is a highlighted span of a line of text, in screen x.
@@ -171,7 +174,11 @@ func (p *FinderPanel) layoutResults(th Theme, height float64, in FinderInput, me
 		if r.Branch != "" {
 			where = append(where, r.Branch)
 		}
-		where = append(where, r.Age+" ago")
+		if r.Group {
+			where = append(where, r.Age)
+		} else {
+			where = append(where, r.Age+" ago")
+		}
 		if r.Gone {
 			where = append(where, "conversation deleted")
 		}
