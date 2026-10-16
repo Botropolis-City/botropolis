@@ -145,10 +145,6 @@ type Park struct {
 	Rect Rect
 }
 
-func (Park) Card() Card {
-	return Card{Title: "park", Lines: []string{"planned green: no project has this block"}}
-}
-
 // PlazaCard is the civic centre's card.
 func plazaCard() Card {
 	return Card{Title: "plaza", Lines: []string{"the civic centre: power plant, city hall, library"}}

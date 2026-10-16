@@ -9,7 +9,6 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
-	"botropolis.city/botropolis/pkg/plan"
 	"botropolis.city/botropolis/pkg/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -785,8 +784,8 @@ func TestTrees(t *testing.T) {
 			tree := c.Trees[0]
 			centre := tree.Cell.Center()
 			assert.NotEqual(t, centre, tree.At)
-			assert.LessOrEqual(t, math.Abs(tree.At.X-centre.X), plan.TreeJitter*city.CellSize+1e-9)
-			assert.LessOrEqual(t, math.Abs(tree.At.Y-centre.Y), plan.TreeJitter*city.CellSize+1e-9)
+			assert.LessOrEqual(t, math.Abs(tree.At.X-centre.X), 0.5*city.CellSize+1e-9)
+			assert.LessOrEqual(t, math.Abs(tree.At.Y-centre.Y), 0.5*city.CellSize+1e-9)
 		})
 	})
 }

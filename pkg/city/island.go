@@ -1,6 +1,10 @@
 package city
 
-import "math"
+import (
+	"math"
+
+	"botropolis.city/botropolis/pkg/plan"
+)
 
 // The plan stands on an island. The coast lies a little way past the
 // plan's edge, wandering by a smooth noise so it reads as a shore rather
@@ -112,23 +116,7 @@ func outside(r Rect, p Point) float64 {
 	return math.Hypot(dx, dy)
 }
 
-func hash2(x, y int) float64 {
-	h := uint32(x)*374761393 + uint32(y)*668265263
-	h = (h ^ (h >> 13)) * 1274126177
-	h ^= h >> 16
-	return float64(h&0xffff)/0xffff*2 - 1
-}
-
-// valueNoise is smooth noise in [-1, 1], seeded only by position.
-func valueNoise(x, y float64) float64 {
-	x0, y0 := math.Floor(x), math.Floor(y)
-	fx, fy := x-x0, y-y0
-	sx, sy := fx*fx*(3-2*fx), fy*fy*(3-2*fy)
-	ix, iy := int(x0), int(y0)
-	a := hash2(ix, iy) + (hash2(ix+1, iy)-hash2(ix, iy))*sx
-	b := hash2(ix, iy+1) + (hash2(ix+1, iy+1)-hash2(ix, iy+1))*sx
-	return a + (b-a)*sy
-}
+var valueNoise = plan.Noise
 
 func coastNoise(p Point) float64 {
 	return 0.65*valueNoise(p.X/(2.5*CellSize), p.Y/(2.5*CellSize)) + 0.35*valueNoise(p.X/(0.9*CellSize)+17, p.Y/(0.9*CellSize)+5)

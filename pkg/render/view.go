@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/colorm"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/plan"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -139,6 +140,26 @@ func (g *Game) unlitTower(t *city.Tower) bool {
 // It is nil on purpose: a nil tint under a view is what tells the
 // sprite path to drain the colour out of it, which a scale cannot do.
 func (g *Game) scenery() *ebiten.ColorScale { return nil }
+
+// Ground trees are drawn a little translucent over the grass and a
+// little darker, so they sit lower in contrast and saturation than
+// anything that answers a hover. Item 85.
+const (
+	groundTreeAlpha = 0.66
+	groundTreeValue = 0.86
+)
+
+// treeTint is how a tree is drawn: through the ground's tint when it
+// means nothing, and in full colour when it lines a road.
+func (g *Game) treeTint(t city.Tree) *ebiten.ColorScale {
+	if t.Kind != plan.ParkTree {
+		return g.scenery()
+	}
+	var tint ebiten.ColorScale
+	v := float32(groundTreeAlpha * groundTreeValue)
+	tint.Scale(v, v, v, groundTreeAlpha)
+	return &tint
+}
 
 // setView changes the view and says which one it is, because a mode you
 // entered is a mode you can forget you are in.

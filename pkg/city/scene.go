@@ -561,7 +561,7 @@ func (h Hit) ground() bool {
 		return false
 	}
 	switch h.Landmark {
-	case LandmarkNone, LandmarkPark, LandmarkPlaza, LandmarkWater:
+	case LandmarkNone, LandmarkPlaza, LandmarkWater:
 		return true
 	}
 	return false
@@ -993,9 +993,7 @@ func (s *Scene) Card() (Card, bool) {
 	case s.hover.Courier != nil:
 		return s.hover.Courier.Card(), true
 	case s.hover.Landmark == LandmarkWater:
-		return Card{Title: "river", Lines: []string{"the map's edge on this side"}}, true
-	case s.hover.Landmark == LandmarkPark && s.hover.Park != nil:
-		return s.hover.Park.Card(), true
+		return Card{Title: "river", Lines: []string{"runs through the island to the sea"}}, true
 	case s.hover.Landmark == LandmarkFountain:
 		return fountainCard(), true
 	case s.hover.Landmark == LandmarkPlaza:

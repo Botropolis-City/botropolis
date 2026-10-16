@@ -191,18 +191,6 @@ func contains(xs []int, x int) bool {
 	return false
 }
 
-// plantTree puts one tree on a cell, its species drawn from the ones
-// offered and its step off centre seeded from the cell.
-func plantTree(c Cell, kind TreeKind, species []int) Tree {
-	seed := seedOf(c.Col, c.Row)
-	pick := 0
-	if len(species) > 0 {
-		pick = species[int(seed>>8)%len(species)]
-	}
-	return Tree{Cell: c, Kind: kind, Variant: pick,
-		DX: unitOf(seed>>1) * TreeJitter, DY: unitOf(seed>>17) * TreeJitter}
-}
-
 // everySpecies is the whole park palette, for the belt: the wood is
 // mixed rather than planted in groves.
 func everySpecies() []int {
@@ -436,13 +424,12 @@ func (p *Plan) place(in Input) {
 	for _, r := range p.Rails {
 		onRails[r] = true
 	}
-	// A park block grows a grove of two to four species; the belt is
-	// the same wood, mixed the whole way round.
-	for _, b := range p.Parks {
-		p.plantBlock(b, grove(b), onRails)
-	}
-	for _, b := range p.Belt {
-		p.plantBlock(b, everySpecies(), onRails)
+	for _, b := range append(append([]Block(nil), p.Parks...), p.Belt...) {
+		for row := b.Min.Row; row < b.Min.Row+b.Rows; row++ {
+			for col := b.Min.Col; col < b.Min.Col+b.Cols; col++ {
+				p.park[Cell{col, row}] = true
+			}
+		}
 	}
 	for i := 0; i < in.Towers; i++ {
 		p.Towers = append(p.Towers, Cell{Col: westRoad + 1 + 2*i, Row: ridge})
@@ -504,6 +491,7 @@ func (p *Plan) place(in Input) {
 			p.Lamps = append(p.Lamps, cell)
 		}
 	}
+	p.plantGround(onRails)
 	p.plantStreets()
 	p.plantPlazaEdge()
 	sort.Slice(p.Streets, func(i, j int) bool { return less(p.Streets[i].Cell, p.Streets[j].Cell) })
@@ -511,19 +499,6 @@ func (p *Plan) place(in Input) {
 	sort.SliceStable(p.Trees, func(i, j int) bool { return less(p.Trees[i].Cell, p.Trees[j].Cell) })
 }
 
-// plantBlock plants every cell of a block that the rails do not run
-// through, drawing each tree's species from the ones offered.
-func (p *Plan) plantBlock(b Block, species []int, onRails map[Cell]bool) {
-	for row := b.Min.Row; row < b.Min.Row+b.Rows; row++ {
-		for col := b.Min.Col; col < b.Min.Col+b.Cols; col++ {
-			cell := Cell{col, row}
-			p.park[cell] = true
-			if !onRails[cell] {
-				p.Trees = append(p.Trees, plantTree(cell, ParkTree, species))
-			}
-		}
-	}
-}
 
 // plantStreets lines every avenue with trees at a fixed pitch, out on
 // the verge and only along the straights, so nothing stands in a

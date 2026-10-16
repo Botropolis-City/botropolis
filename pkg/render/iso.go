@@ -732,7 +732,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 		t := t
 		items = append(items, standingAt(cam, t.At, func() {
-			g.isoTree(screen, cam, t, g.scenery())
+			g.isoTree(screen, cam, t, g.treeTint(t))
 		}))
 	}
 	for _, t := range c.Towers {

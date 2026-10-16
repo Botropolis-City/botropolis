@@ -239,14 +239,6 @@ func TestMake(t *testing.T) {
 			}
 			assert.NotEmpty(t, p.Lamps)
 		})
-
-		t.Run("it should plant a tree on every park cell", func(t *testing.T) {
-			cells := 0
-			for _, park := range p.Parks {
-				cells += park.Cols * park.Rows
-			}
-			assert.GreaterOrEqual(t, len(p.Trees), cells)
-		})
 	})
 
 	t.Run("when the rail loop is laid", func(t *testing.T) {
@@ -296,13 +288,13 @@ func TestMake(t *testing.T) {
 		again := plan.Make(plan.Input{Districts: live(2)}, plan.NewMemory())
 		require.NotEmpty(t, p.Trees)
 
-		t.Run("it should set each park tree off its cell's centre within the jitter", func(t *testing.T) {
+		t.Run("it should stand each park tree inside its own cell", func(t *testing.T) {
 			for _, tree := range p.Trees {
 				if tree.Kind != plan.ParkTree {
 					continue
 				}
-				assert.LessOrEqual(t, math.Abs(tree.DX), plan.TreeJitter, tree)
-				assert.LessOrEqual(t, math.Abs(tree.DY), plan.TreeJitter, tree)
+				assert.LessOrEqual(t, math.Abs(tree.DX), 0.5, tree)
+				assert.LessOrEqual(t, math.Abs(tree.DY), 0.5, tree)
 			}
 		})
 

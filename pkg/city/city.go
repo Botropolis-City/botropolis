@@ -135,7 +135,6 @@ type Hit struct {
 	Road     *RoadLine
 	Beam     *Beam
 	Line     *PowerLine
-	Park     *Park
 	Train    *Train
 	Voyage   *Voyage
 	// Courier is the refresh boat. It carries what pressing the refresh
@@ -481,11 +480,8 @@ func (c *City) At(p Point) Hit {
 		}
 		return hit
 	}
-	for i := range c.Parks {
-		if c.Parks[i].Rect.Contains(p) {
-			return Hit{Landmark: LandmarkPark, Park: &c.Parks[i]}
-		}
-	}
+	// The parks, the belt and their trees are ground, and the ground
+	// means nothing, so it answers no hover. Item 85.
 	if c.Plaza.Area() > 0 && c.Plaza.Contains(p) {
 		return Hit{Landmark: LandmarkPlaza}
 	}

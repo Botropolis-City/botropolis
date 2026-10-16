@@ -848,9 +848,9 @@ func TestWaterCard(t *testing.T) {
 		card, ok := s.Card()
 		require.True(t, ok)
 
-		t.Run("it should say it is the edge", func(t *testing.T) {
+		t.Run("it should say it runs out to the sea", func(t *testing.T) {
 			assert.Equal(t, "river", card.Title)
-			assert.Contains(t, card.Lines, "the map's edge on this side")
+			assert.Contains(t, card.Lines, "runs through the island to the sea")
 		})
 
 		t.Run("it should not be clickable", func(t *testing.T) {
@@ -863,11 +863,10 @@ func TestWaterCard(t *testing.T) {
 		require.NotEmpty(t, s.City().Parks)
 		at := s.Camera().WorldToScreen(s.City().Parks[0].Rect.Center())
 		s.PointerMove(at)
-		card, ok := s.Card()
-		require.True(t, ok)
+		_, ok := s.Card()
 
-		t.Run("it should say it is planned green", func(t *testing.T) {
-			assert.Equal(t, "park", card.Title)
+		t.Run("it should show no card, because the ground means nothing", func(t *testing.T) {
+			assert.False(t, ok)
 		})
 	})
 

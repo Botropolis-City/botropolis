@@ -44,7 +44,6 @@ const (
 	LandmarkLibrary  Landmark = "library"
 	LandmarkHall     Landmark = "hall"
 	LandmarkWater    Landmark = "water"
-	LandmarkPark     Landmark = "park"
 	LandmarkPlaza    Landmark = "plaza"
 	LandmarkFountain Landmark = "fountain"
 )

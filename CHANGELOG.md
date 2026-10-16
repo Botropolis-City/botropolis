@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Trees are scenery, and look it.**
+  The woods between districts grow in natural clusters with open ground between them instead of one tree to a cell, they are drawn quieter than buildings and everything else you can hover, and the ground under them no longer shows a card.
 - **The city stands on an island.**
   The map no longer ends at a cut: the plan stands on land with a soft, irregular coast, a beach and shallows, in a sea with a faint far shore, and the island grows as the city does.
   The river runs out to the sea at both ends, and arriving and departing sessions' tugs sail in and out from the sea.

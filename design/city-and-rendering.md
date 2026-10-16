@@ -22,7 +22,7 @@
 | Smoke | an API error | the error |
 | Night | loops and scheduled wakeups running unattended | — |
 | Resource strip along the top | city-wide tallies: sessions by state, tokens/h, ~cost and cache hit over 24 h, subagents, MCP calls, PRs, errors | — |
-| Ground: grass, dirt, trees | nothing — varied so the eye slides off it | — |
+| Ground: grass, the wood on the parks, the belt and the corridors | nothing — drawn lower in contrast than anything that means something, and answers no hover | — |
 
 Dropped from bot-crossing: the ship, arrival and departure walks, idle pottering,
 size-by-transcript, and the desktop-app "unread" flag.
@@ -49,8 +49,10 @@ Phase 8 of the roadmap, 2026-09-18.
 a plaza at slot (0,0), rings of slots around it whose columns and rows are sized to the largest block in them so the avenues run straight,
 a district's slot remembered in `layout.json` while it stays live and replaced from the innermost ring when another took it,
 unused slots as park blocks, a two-cell park belt, a telecom ridge along the north, storage along the south, the river down the east edge.
-The avenue grid is in the plan as corridors, so routing and slots never depend on what is connected; a tree stands on every park cell;
+The avenue grid is in the plan as corridors, so routing and slots never depend on what is connected;
 the fountain is the plaza's centre cell.
+The trees that mean nothing — on the parks, the belt and the corridors — are planted as ground (item 85): clustered where a smooth noise rises over a threshold, and spaced by Poisson-disk sampling at least `plan.TreeSpacing` apart, every choice seeded from position so a plan always grows the same wood.
+They give way where a road is laid, are drawn a little translucent and darker than anything that can be hovered, and, like the parks they stand on, answer no hover.
 `pkg/city` converts cells to pixels, routes each connection along the corridors from kerb to kerb (a connection between neighbours runs the shared corridor),
 and lays road only on the corridor cells a route crosses, each cell joined to the road beside it.
 A corridor with no road on it is grass, so a road on the map always means a connection.

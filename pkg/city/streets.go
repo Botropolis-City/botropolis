@@ -93,7 +93,11 @@ func (c *City) layRoads() {
 	c.Lamps = lamps
 	trees := c.Trees[:0]
 	for _, t := range c.Trees {
-		if t.Kind != plan.StreetTree || besideRoad(t.Cell, road) {
+		switch {
+		case t.Kind == plan.StreetTree && !besideRoad(t.Cell, road):
+		case t.Kind == plan.ParkTree && road[CellOf(t.At)]:
+			// The belt's wood on a corridor gives way to the road.
+		default:
 			trees = append(trees, t)
 		}
 	}
