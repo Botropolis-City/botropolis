@@ -66,6 +66,10 @@ func (s *Scene) focusedLine() (Line, bool) {
 }
 
 func diveRow(g *state.Group, st Station, now time.Time) DiveRow {
+	if t := st.Teammate; t != nil {
+		return DiveRow{Site: st.Name(), Sentence: "opened outside these sessions, named in " + t.MentionedIn,
+			PR: prPhrase(t.PR), Move: st.Move, Waited: now.Sub(t.Seen)}
+	}
 	var lead *Building
 	var last, prSeen time.Time
 	pr := ""
@@ -142,6 +146,7 @@ func (s *Scene) StepDive(by int) bool {
 	s.dive = i + 1
 	st := line.Stations[i]
 	row := diveRow(line.Group, st, s.Clock())
+	s.selected = nil
 	for _, b := range st.District.Buildings {
 		if b.Session.ID == row.Session {
 			s.selected = b

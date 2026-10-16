@@ -23,6 +23,11 @@ func (s *Scene) Standup(id string) string {
 func standup(l Line, now time.Time) string {
 	phrases := make([]string, 0, len(l.Stations))
 	for _, st := range l.Stations {
+		if t := st.Teammate; t != nil {
+			s := state.Session{State: state.Resting, LastActivity: t.Seen, PRs: []claude.PR{t.PR}}
+			phrases = append(phrases, st.Name()+" "+sitePhrase([]state.Session{s}, now))
+			continue
+		}
 		var sessions []state.Session
 		for _, b := range st.District.Buildings {
 			if b.Group == l.Group {

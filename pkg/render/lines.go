@@ -18,6 +18,10 @@ import (
 var (
 	colorLineInk    = color.NRGBA{0xe8, 0xe6, 0xdf, 0xff}
 	colorLineCasing = color.NRGBA{0x1d, 0x20, 0x28, 0xff}
+	// colorTeammate is a pull request opened outside the group's
+	// sessions (item 90): grey, because whose move it is there is known
+	// only as far as the group's own sessions saw it.
+	colorTeammate = color.NRGBA{0x8a, 0x8d, 0x96, 0xff}
 )
 
 // lineFaded is how much of a line is left while another group has the
@@ -29,6 +33,9 @@ const lineFaded = 0x40
 func stationTone(th ui.Theme, st city.Station) color.NRGBA {
 	if st.Unlit {
 		return colorLineCasing
+	}
+	if st.Teammate != nil {
+		return colorTeammate
 	}
 	return th.Color(ui.MoveTone(st.Move))
 }

@@ -20,6 +20,12 @@ func TestStationTone(t *testing.T) {
 		})
 	})
 
+	t.Run("when a station is a pull request opened outside the group", func(t *testing.T) {
+		t.Run("it should be drawn grey, not in its move's tone", func(t *testing.T) {
+			assert.Equal(t, colorTeammate, stationTone(th, city.Station{Move: state.MoveTheirs, Teammate: &city.Teammate{}}))
+		})
+	})
+
 	t.Run("when a station is lit", func(t *testing.T) {
 		t.Run("it should be drawn in its move's tone", func(t *testing.T) {
 			assert.Equal(t, th.Color(ui.MoveTone(state.MoveTheirs)), stationTone(th, city.Station{Move: state.MoveTheirs}))
