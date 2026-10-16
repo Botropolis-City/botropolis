@@ -79,11 +79,16 @@ func (g *Game) drawOverlays(screen *ebiten.Image, width, height float64) {
 // paletteKey reports Ctrl+K, or ⌘K on macOS, the way command palettes
 // are opened elsewhere. Nothing on the map uses Ctrl.
 func (g *Game) paletteKey() bool {
+	return g.just(ebiten.KeyK) && g.ctrlHeld()
+}
+
+// ctrlHeld reports Ctrl, or ⌘ on macOS, held by hand or by the script.
+func (g *Game) ctrlHeld() bool {
 	held := ebiten.KeyControl
 	if runtime.GOOS == "darwin" {
 		held = ebiten.KeyMeta
 	}
-	return g.just(ebiten.KeyK) && (g.scriptedCtrl || ebiten.IsKeyPressed(held))
+	return g.scriptedCtrl || ebiten.IsKeyPressed(held)
 }
 
 func (g *Game) finding() bool {
@@ -143,11 +148,18 @@ type finder struct {
 	typedAt time.Time
 	asked   string
 
-	// mu guards what the search hands back from off the frame.
+	// armed is the session whose deleted conversation Enter has offered
+	// to start again, so a second Enter does it.
+	armed string
+
+	// mu guards what the search hands back from off the frame; found
+	// counts deliveries and shown the one the map was last set to.
 	mu       sync.Mutex
 	query    string
 	results  []find.Hit
 	selected int
+	found    int
+	shown    int
 }
 
 // findPause is how long typing rests before the finder searches, so a
@@ -163,6 +175,72 @@ func (f *finder) deliver(query string, hits []find.Hit) {
 		return
 	}
 	f.results, f.selected = hits, 0
+	f.found++
+}
+
+// show dims the map to what the search last found, on the frame, once
+// for each delivery: the finder answers from what was said, which the
+// map's own filter cannot see.
+func (f *finder) show(g *Game) {
+	f.mu.Lock()
+	if f.found == f.shown {
+		f.mu.Unlock()
+		return
+	}
+	f.shown = f.found
+	query := f.query
+	ids := make([]string, 0, len(f.results))
+	for _, h := range f.results {
+		ids = append(ids, h.SessionID)
+	}
+	f.mu.Unlock()
+	g.query = query
+	g.scene.SetFound(query, ids)
+}
+
+// chosen is the selected result, if there is one.
+func (f *finder) chosen() (find.Hit, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.selected >= len(f.results) {
+		return find.Hit{}, false
+	}
+	return f.results[f.selected], true
+}
+
+// open acts on a result and reports whether the finder stays open: a
+// live session is attached, a stopped one resumed in a terminal in its
+// own directory, and one whose conversation is gone is offered a new
+// session where it was, which a second Enter starts.
+func (f *finder) open(g *Game, h find.Hit) bool {
+	switch {
+	case h.Gone && f.armed != h.SessionID:
+		f.armed = h.SessionID
+		g.SetStatus("its conversation was deleted; enter again starts a new session in " + h.Dir)
+		return true
+	case h.Gone:
+		g.act(city.Action{Kind: city.ActionStartIn, Dir: h.Dir})
+	case find.Live(h.State):
+		g.act(city.Action{Kind: city.ActionAttach, SessionID: h.SessionID})
+	default:
+		g.act(city.Action{Kind: city.ActionResumeIn, SessionID: h.SessionID, Dir: h.Dir})
+	}
+	f.end()
+	return false
+}
+
+// resumeLine is the command that takes a terminal back into a session.
+func resumeLine(h find.Hit) string {
+	return "cd " + shellQuote(h.Dir) + " && claude --resume " + shellQuote(h.SessionID)
+}
+
+// shellQuote leaves a word the shell reads as itself alone and quotes
+// anything else.
+func shellQuote(s string) string {
+	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./:@%+=,-") == "" {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // follow notes a change of query, clearing the results when it is
@@ -170,13 +248,17 @@ func (f *finder) deliver(query string, hits []find.Hit) {
 func (f *finder) follow(g *Game) {
 	query := f.field.query()
 	f.mu.Lock()
+	emptied := false
 	if query != f.query {
 		f.query, f.typedAt = query, f.now()
 		if query == "" {
-			f.results, f.selected, f.asked = nil, 0, ""
+			f.results, f.selected, f.asked, emptied = nil, 0, "", true
 		}
 	}
 	f.mu.Unlock()
+	if emptied {
+		g.filterOn("")
+	}
 	if query == "" || query == f.asked || f.now().Sub(f.typedAt) < f.pause || g.search == nil {
 		return
 	}
@@ -211,17 +293,34 @@ func (f *finder) keys(g *Game) bool {
 		if handled, err := f.ime.Update(); err != nil {
 			g.SetStatus(err.Error())
 		} else if handled {
-			g.filterOn(f.field.query())
 			f.follow(g)
+			f.provisional(g)
+			f.show(g)
 			return true
 		}
 	}
+	f.show(g)
+	h, chosen := f.chosen()
 	switch {
 	case just(ebiten.KeyEscape):
 		f.end()
 		g.filterOn("")
 		return false
+	case chosen && g.ctrlHeld() && just(ebiten.KeyY):
+		line := resumeLine(h)
+		g.SetStatus("copied: " + line)
+		g.act(city.Action{Kind: city.ActionCopy, Text: line})
+		return true
+	case chosen && g.ctrlHeld() && just(ebiten.KeyM):
+		f.end()
+		if !g.scene.Select(h.SessionID) {
+			g.SetStatus("that session is not on the map")
+		}
+		return false
 	case just(ebiten.KeyEnter), just(ebiten.KeyKPEnter):
+		if chosen {
+			return f.open(g, h)
+		}
 		f.end()
 		return false
 	case just(ebiten.KeyBackspace):
@@ -234,9 +333,24 @@ func (f *finder) keys(g *Game) bool {
 	if g.scriptedRune != 0 {
 		f.field.insert(string(g.scriptedRune))
 	}
-	g.filterOn(f.field.query())
 	f.follow(g)
+	f.provisional(g)
+	f.show(g)
 	return true
+}
+
+// provisional narrows the map by matching the words against what it
+// shows — titles, projects, branches, states and models — until the
+// finder's first answer arrives, so typing has an effect at once. After
+// that the map holds the last answer until the next, rather than going
+// dark between searches.
+func (f *finder) provisional(g *Game) {
+	f.mu.Lock()
+	answered := f.found > 0
+	f.mu.Unlock()
+	if !answered {
+		g.filterOn(f.field.query())
+	}
 }
 
 // click closes the finder when the press lands outside it, keeping the
@@ -270,8 +384,8 @@ func (f *finder) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	f.mu.Unlock()
 	status := "type to find a session by what was said in it"
 	if f.field.query() != "" {
-		status = fmt.Sprintf("%d sessions found, %d of %d on the map match   ↑ ↓ choose, enter keeps the filter, esc clears it",
-			len(hits), g.scene.Matching(), len(g.scene.City().Buildings()))
+		status = fmt.Sprintf("%d sessions found, %d on the map   ↑ ↓ choose, enter opens, ctrl+y copies how to resume, ctrl+m shows it, esc clears",
+			len(hits), g.scene.Matching())
 	}
 	in := ui.FinderInput{Query: shown, Caret: caret, Status: status, Words: strings.Fields(f.field.query()), Selected: selected}
 	now := g.now()

@@ -39,7 +39,7 @@ var bindings = []ui.Key{
 	{Key: "b", Action: "sidebar"},
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
-	{Key: "/ or ctrl+k", Action: "find: the map dims what does not match"},
+	{Key: "/ or ctrl+k", Action: "find a session by what was said; the map dims the rest"},
 	{Key: "?", Action: "this help"},
 	{Key: "q", Action: "quit (asks; y or enter confirms)"},
 }

@@ -240,7 +240,7 @@ type Game struct {
 	// pressAt; a press that never leaves its spot is a click. Item 85.
 	moving  bool
 	pressAt city.Point
-	started       time.Time
+	started time.Time
 	// driven is a city run a tick at a time by Drive; inject is this
 	// tick's input and shown what the last frame drew. Item 91.
 	driven bool
@@ -479,7 +479,7 @@ func (g *Game) pressScripted(name string) {
 	if key, shift, ok := scriptedKey(name); ok {
 		g.scripted, g.scriptedShift = key, shift
 	}
-	if r := []rune(name); len(r) == 1 && g.finding() {
+	if r := []rune(name); len(r) == 1 && g.finding() && !g.scriptedCtrl {
 		g.scriptedRune = r[0]
 	}
 }

@@ -26,8 +26,9 @@ Each session carries a week of usage by unix hour and the snapshot carries the t
 which opens on the plant or `x`.
 `city.Log` turns the stream of snapshots into events by what changed between one and the next; `t` lists them newest first and jumps,
 and when the window comes back into focus the same panel shows what needed you or went wrong meanwhile.
-`/` or `Ctrl+K` (`⌘K` on macOS) opens the finder, a panel over the city on the overlay stack (item 82), and typing filters by title, project, branch, state or model while the map dims what does not match;
-`Enter` keeps the filter and `Esc` clears it.
+`/` or `Ctrl+K` (`⌘K` on macOS) opens the finder, a panel over the city on the overlay stack (item 82), which finds sessions by what was said in them while the map dims every session it did not find;
+`Enter` attaches a live session, resumes a stopped one in a terminal in its own directory, or offers a new session where a deleted conversation was,
+`Ctrl+Y` copies the command that resumes it, `Ctrl+M` shows it on the map, and `Esc` clears the map's filter.
 `botropolis find` searches what was said in every session — your prompts, Claude's replies and recaps, the commands and paths it touched, and titles, with tool output only on `--tool-output` — from the daemon's in-memory index, or from one of its own when the daemon is down, written nowhere either way (item 82).
 A team is a camp: its lead's building tied to its members' with dashed lines, from the rosters and the sessions' own team names, with a card and a line on each member's card.
 `daily_budget_usd` measures the strip's cost chip and the plant's card against a daily target, accent-toned from 80 % and error-toned beyond it.

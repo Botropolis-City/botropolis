@@ -20,6 +20,8 @@ type Controller interface {
 	Agents(ctx context.Context, all bool) ([]control.Agent, error)
 	Reveal(dir string) error
 	Copy(ctx context.Context, text string) error
+	ResumeIn(dir, sessionID string) error
+	StartIn(dir string) error
 }
 
 type Pruned struct {
@@ -109,6 +111,16 @@ func (s *Sessions) Reveal(dir string) error {
 
 func (s *Sessions) Copy(ctx context.Context, text string) error {
 	return s.ctl.Copy(ctx, text)
+}
+
+// ResumeIn resumes a stopped session in a terminal in its own directory.
+func (s *Sessions) ResumeIn(dir, sessionID string) error {
+	return s.ctl.ResumeIn(dir, sessionID)
+}
+
+// StartIn starts a new session in a terminal in a directory.
+func (s *Sessions) StartIn(dir string) error {
+	return s.ctl.StartIn(dir)
 }
 
 func (s *Sessions) Remove(ctx context.Context, id string) error {

@@ -117,6 +117,12 @@ func (a Actor) Do(action city.Action) error {
 		return a.Sessions.Reveal(action.Dir)
 	case city.ActionCopyPath:
 		return a.Sessions.Copy(context.Background(), action.Dir)
+	case city.ActionResumeIn:
+		return a.Sessions.ResumeIn(action.Dir, action.SessionID)
+	case city.ActionStartIn:
+		return a.Sessions.StartIn(action.Dir)
+	case city.ActionCopy:
+		return a.Sessions.Copy(context.Background(), action.Text)
 	}
 	return nil
 }

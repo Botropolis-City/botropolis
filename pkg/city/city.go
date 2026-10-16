@@ -89,13 +89,13 @@ type roadNote struct {
 }
 
 type City struct {
-	Districts   []*District
-	Plant       Plant
-	Towers      []*Tower
-	Library     Library
-	Hall        Hall
-	Roads       []RoadLine
-	Streets []Street
+	Districts []*District
+	Plant     Plant
+	Towers    []*Tower
+	Library   Library
+	Hall      Hall
+	Roads     []RoadLine
+	Streets   []Street
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.

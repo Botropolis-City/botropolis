@@ -232,7 +232,7 @@ func (ix *Index) Find(q Query) []Hit {
 	}
 	sort.SliceStable(hits, func(i, j int) bool {
 		a, b := hits[i], hits[j]
-		if la, lb := live(a.State), live(b.State); la != lb {
+		if la, lb := Live(a.State), Live(b.State); la != lb {
 			return la
 		}
 		if wa, wb := weight(a.Kind), weight(b.Kind); wa != wb {
@@ -249,8 +249,8 @@ func (ix *Index) Find(q Query) []Hit {
 	return hits
 }
 
-// live reports a session that is running: anything with a state but
+// Live reports a session that is running: anything with a state but
 // parked.
-func live(st state.State) bool {
+func Live(st state.State) bool {
 	return st != "" && st != state.Parked && st != state.Empty
 }

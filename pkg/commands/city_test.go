@@ -256,6 +256,9 @@ func TestActor(t *testing.T) {
 			{city.Action{Kind: city.ActionNew, Dir: cwd}, "new " + cwd + " "},
 			{city.Action{Kind: city.ActionReveal, Dir: cwd}, "reveal " + cwd},
 			{city.Action{Kind: city.ActionCopyPath, Dir: cwd}, "copy " + cwd},
+			{city.Action{Kind: city.ActionResumeIn, SessionID: sid, Dir: cwd}, "resume-in " + cwd + " " + sid},
+			{city.Action{Kind: city.ActionStartIn, Dir: cwd}, "start-in " + cwd},
+			{city.Action{Kind: city.ActionCopy, Text: "cd " + cwd + " && claude --resume " + sid}, "copy cd " + cwd + " && claude --resume " + sid},
 		}
 		for _, tc := range cases {
 			t.Run("it should "+tc.call, func(t *testing.T) {

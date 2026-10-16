@@ -69,18 +69,11 @@ func TestOverlayStack(t *testing.T) {
 			})
 		})
 
-		t.Run("and a character is typed", func(t *testing.T) {
-			g := opened(t)
-			typed(t, g, "deploy")
-
-			t.Run("it should filter the map behind the panel, as / does today", func(t *testing.T) {
-				assert.Equal(t, city.ParseFilter("deploy"), g.scene.Filter())
-			})
-		})
-
 		t.Run("and Esc is pressed", func(t *testing.T) {
 			g := opened(t)
 			typed(t, g, "deploy")
+			g.scene.SetFound("deploy", []string{"a"})
+			require.False(t, g.scene.Filter().Empty(), "the map should be filtered before Esc")
 			press(t, g, ebiten.KeyEscape)
 
 			t.Run("it should close the finder", func(t *testing.T) {
@@ -89,16 +82,6 @@ func TestOverlayStack(t *testing.T) {
 
 			t.Run("it should clear the filter", func(t *testing.T) {
 				assert.True(t, g.scene.Filter().Empty())
-			})
-		})
-
-		t.Run("and Enter is pressed", func(t *testing.T) {
-			g := opened(t)
-			typed(t, g, "deploy")
-			press(t, g, ebiten.KeyEnter)
-
-			t.Run("it should close the finder and keep the filter", func(t *testing.T) {
-				assert.Equal(t, [2]any{false, city.ParseFilter("deploy")}, [2]any{g.finding(), g.scene.Filter()})
 			})
 		})
 

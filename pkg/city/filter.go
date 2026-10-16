@@ -6,9 +6,13 @@ import (
 )
 
 // Filter is the search: every word must appear in a session's title,
-// project, branch, state or model, case-insensitively.
+// project, branch, state or model, case-insensitively — or, once the
+// finder has answered, the session must be among those it found.
 type Filter struct {
 	words []string
+	// found is the finder's answer, by session id; nil until it answers.
+	// Item 82.
+	found map[string]bool
 }
 
 // ParseFilter splits a query into words.
@@ -25,6 +29,9 @@ func (f Filter) Matches(b *Building) bool {
 	if f.Empty() {
 		return true
 	}
+	if f.found != nil {
+		return f.found[b.Session.ID]
+	}
 	s := b.Session
 	hay := strings.ToLower(strings.Join([]string{s.Title, s.ID, filepath.Base(ProjectRoot(s.CWD)), s.Branch, string(s.State), s.Model}, " "))
 	for _, w := range f.words {
@@ -38,6 +45,17 @@ func (f Filter) Matches(b *Building) bool {
 // SetFilter is the search: the map dims what does not match.
 func (s *Scene) SetFilter(query string) {
 	s.filter = ParseFilter(query)
+}
+
+// SetFound filters the map to the sessions the finder found for a
+// query: what was said in them is not on the map, so the map follows
+// the finder's answer rather than matching the words itself. Item 82.
+func (s *Scene) SetFound(query string, ids []string) {
+	found := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		found[id] = true
+	}
+	s.filter = Filter{words: ParseFilter(query).words, found: found}
 }
 
 // Filter is the search as it stands.
