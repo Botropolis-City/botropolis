@@ -53,8 +53,10 @@ type Input struct {
 	Districts []District
 	Towers    int
 	// DepotRows is how many rows the depot of packed-up sessions needs
-	// along the south, or none (item 86).
+	// along the south, or none, and DepotCols how many columns, from the
+	// plan's west edge; none is the plan's width (item 86).
 	DepotRows int
+	DepotCols int
 }
 
 // Memory is what the plan remembers between snapshots: each district's
@@ -393,7 +395,11 @@ func (p *Plan) place(in Input) {
 	southRoad := y - 1
 	lastRoad := southRoad
 	if in.DepotRows > 0 {
-		p.Depot = Block{Min: Cell{Col: p.colX[-p.rings], Row: southRoad + 1}, Cols: eastRoad - p.colX[-p.rings], Rows: in.DepotRows}
+		cols := eastRoad - p.colX[-p.rings]
+		if in.DepotCols > 0 && in.DepotCols < cols {
+			cols = in.DepotCols
+		}
+		p.Depot = Block{Min: Cell{Col: p.colX[-p.rings], Row: southRoad + 1}, Cols: cols, Rows: in.DepotRows}
 		lastRoad = southRoad + 1 + in.DepotRows
 	}
 	rows := lastRoad + 1 + belt

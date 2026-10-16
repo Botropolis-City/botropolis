@@ -116,3 +116,44 @@ func (s *Scene) HaulProgress(id string) float64 {
 	}
 	return 1
 }
+
+// unpacking is whether a truck is still leaving the depot with a crate.
+func (s *Scene) unpacking() bool {
+	now := s.now()
+	for _, h := range s.hauls {
+		if h.Kind == HaulUnpack && now.Sub(h.Since) < h.For {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *City) depot() *District {
+	for _, d := range c.Districts {
+		if d.Depot {
+			return d
+		}
+	}
+	return nil
+}
+
+// holdDepot keeps the depot on the map, empty, while the truck carrying
+// its last crate is still leaving it, so the truck does not drive away
+// from bare grass.
+func (s *Scene) holdDepot() {
+	if s.city.depot() != nil || !s.unpacking() {
+		return
+	}
+	s.keepDepot = true
+	s.city = build(s.snapshot, s.layout, s.ladder, true)
+}
+
+// releaseDepot lets an empty depot go once its truck has left.
+func (s *Scene) releaseDepot() {
+	if !s.keepDepot || s.unpacking() {
+		return
+	}
+	s.keepDepot = false
+	s.city = build(s.snapshot, s.layout, s.ladder, false)
+	s.generation++
+}

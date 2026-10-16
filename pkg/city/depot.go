@@ -28,18 +28,27 @@ type DepotRow struct {
 }
 
 // buildDepot lays every packed-up session in one district along the
-// south, a row per district in name order, each row oldest first,
-// wrapping when a row is full. width is the block's width in pixels; the
-// district's size says how many rows the plan must give it.
-func buildDepot(byRoot map[string][]state.Session, width float64, now time.Time) *District {
+// south, a row per district in name order, each row oldest first. It is
+// as wide as its longest row, and wraps a row that would be wider than
+// the plan, whose width in pixels is widest; the district's size says
+// how many rows and columns the plan must give it. With nothing in it
+// there is no depot, unless keep holds one open, empty, for a truck
+// still leaving it.
+func buildDepot(byRoot map[string][]state.Session, widest float64, now time.Time, keep bool) *District {
 	roots := make([]string, 0, len(byRoot))
+	longest := 0
 	for root, sessions := range byRoot {
 		if len(sessions) > 0 {
 			roots = append(roots, root)
+			longest = max(longest, len(sessions))
 		}
 	}
-	if len(roots) == 0 {
+	if len(roots) == 0 && !keep {
 		return nil
+	}
+	width := min(widest, 2*DistrictPadding+(CrateSize+CrateGap)*float64(max(1, longest))-CrateGap)
+	if len(roots) == 0 {
+		return &District{Name: DepotName, Depot: true, size: Point{X: width, Y: 2*DistrictPadding + CrateSize}, at: now}
 	}
 	sort.Slice(roots, func(i, j int) bool { return baseName(roots[i]) < baseName(roots[j]) })
 	d := &District{Name: DepotName, Depot: true}

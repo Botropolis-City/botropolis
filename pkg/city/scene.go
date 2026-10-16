@@ -194,6 +194,8 @@ type Scene struct {
 	// the trucks carrying crates between the lots and the depot.
 	spots map[string]spot
 	hauls []Haul
+	// keepDepot holds an empty depot open while its truck leaves.
+	keepDepot bool
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
@@ -589,11 +591,12 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
 	was := s.city.StreetCells
-	s.city = BuildWith(snapshot, s.layout, s.ladder)
+	s.city = build(snapshot, s.layout, s.ladder, false)
 	s.noteOvergrowth(was, s.now())
 	s.noteMowing(s.now())
 	s.noteSettling(s.now())
 	s.noteHauls(s.now())
+	s.holdDepot()
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())
@@ -713,6 +716,7 @@ func (s *Scene) SetReducedMotion(reduced bool) {
 // the light follow the clock.
 func (s *Scene) Animate(dt float64) {
 	s.applyNight()
+	s.releaseDepot()
 	if s.zoomTarget <= 0 || s.zoomTarget == s.camera.Zoom {
 		return
 	}

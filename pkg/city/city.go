@@ -272,6 +272,12 @@ func Build(snapshot state.Snapshot, layout *Layout) *City {
 // session keeps its lot in its own district and climbs the ladder there,
 // so a district stays while it has any session at all (item 86).
 func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds) *City {
+	return build(snapshot, layout, ladder, false)
+}
+
+// build builds the city; keepDepot holds the depot open, empty, while a
+// truck is still leaving it with the last crate.
+func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool) *City {
 	byRoot := map[string][]state.Session{}
 	packed := map[string][]state.Session{}
 	for _, s := range snapshot.Sessions {
@@ -294,7 +300,7 @@ func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds)
 	})
 
 	city := &City{Time: snapshot.At}
-	if len(byRoot)+len(packed) == 0 {
+	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
 		return city
 	}
@@ -303,9 +309,10 @@ func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds)
 	}
 	in := planInput(city.Districts, len(snapshot.Servers))
 	p := plan.Make(in, layout.memory())
-	depot := buildDepot(packed, float64(p.SpanCols())*CellSize, snapshot.At)
+	depot := buildDepot(packed, float64(p.SpanCols())*CellSize, snapshot.At, keepDepot)
 	if depot != nil {
 		in.DepotRows = cellsNeeded(depot.size.Y)
+		in.DepotCols = cellsNeeded(depot.size.X)
 		p = plan.Make(in, layout.memory())
 	}
 	city.plan = p

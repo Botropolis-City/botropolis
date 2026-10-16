@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Both are on a session's card, with a one-line description of what each does, and on Shift+P; `d` in triage packs the session up.
   A stopped session whose pull request has merged is packed up too, and a packed-up session that does something new comes back by itself.
   What is packed up is kept in the daemon's ledger, which is why packing needs the daemon.
+  The depot fits its crates, a row per project and as wide as the longest row, and is not there at all when nothing is packed up.
 - **Codex rollouts are read through a 64 KB head and tail**, as Claude's transcripts already were, so a long Codex history loads in a time bounded by the number of rollouts rather than their size.
 
 ### Removed

@@ -95,6 +95,32 @@ func TestNothingIsPlantedOnTheDepot(t *testing.T) {
 	})
 }
 
+// Item 86: the depot's block is as wide as it asks for, from the plan's
+// west edge, and never wider than the plan.
+func TestDepotBlock(t *testing.T) {
+	full := plan.Make(plan.Input{Districts: live(4), DepotRows: 1}, plan.NewMemory())
+
+	t.Run("when the depot asks for three columns", func(t *testing.T) {
+		p := plan.Make(plan.Input{Districts: live(4), DepotRows: 1, DepotCols: 3}, plan.NewMemory())
+
+		t.Run("its block should be three columns wide", func(t *testing.T) {
+			assert.Equal(t, 3, p.Depot.Cols)
+		})
+
+		t.Run("it should start at the plan's west edge", func(t *testing.T) {
+			assert.Equal(t, full.Depot.Min.Col, p.Depot.Min.Col)
+		})
+	})
+
+	t.Run("when it asks for more than the plan's width", func(t *testing.T) {
+		p := plan.Make(plan.Input{Districts: live(4), DepotRows: 1, DepotCols: 999}, plan.NewMemory())
+
+		t.Run("it should be the plan's width", func(t *testing.T) {
+			assert.Equal(t, full.Depot.Cols, p.Depot.Cols)
+		})
+	})
+}
+
 // The class, not the instance: nothing may be planted on ground a
 // building will stand on, wherever that ground is. The plaza was where
 // it showed, but a district block is the same promise — the plan says a
