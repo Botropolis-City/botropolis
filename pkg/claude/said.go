@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"os"
 	"strings"
 	"time"
 )
@@ -75,7 +74,7 @@ type saidBlockJSON struct {
 // ReadSaid reads what was said in a transcript, skipping any line that
 // does not parse.
 func ReadSaid(path string) (Said, error) {
-	f, err := os.Open(path)
+	f, err := openTranscript(path)
 	if err != nil {
 		return Said{}, err
 	}

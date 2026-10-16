@@ -7,10 +7,12 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -63,6 +65,9 @@ type Shown struct {
 	Explaining bool
 	// Triage is the session triage is on, or "" when it is not walking.
 	Triage string
+	// Found is the finder's results, by session id, best first, while it
+	// is open.
+	Found []string
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -120,10 +125,30 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	g.summarise = func(context.Context, string) (string, error) {
 		return "", errors.New("summaries are not generated while driven")
 	}
+	// Work handed off the frame runs on the spot, so a tick count never
+	// depends on the scheduler.
+	g.dispatch = func(run func()) { run() }
 	d.game = g
 	snapshot, err := state.NewLoader(opts.Home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(now)
 	if err != nil {
 		return nil, err
+	}
+	// The finder searches an index built as the map opens, as the
+	// daemon's is, and refreshed on each search.
+	index := find.New(opts.Home)
+	if err := index.Refresh(); err != nil {
+		return nil, err
+	}
+	live := map[string]state.State{}
+	for _, s := range snapshot.Sessions {
+		live[s.ID] = s.State
+	}
+	g.search = func(q find.Query) ([]find.Hit, error) {
+		if err := index.Refresh(); err != nil {
+			return nil, err
+		}
+		q.Live = live
+		return index.Find(q), nil
 	}
 	g.Offer(snapshot)
 	g.AddEvents(nil)
@@ -157,19 +182,36 @@ func (d *Drive) Press(name string) error {
 	return nil
 }
 
-// Type queues a word, a character a tick, as typing into the finder. It
-// is one step, however long the word.
-func (d *Drive) Type(word string) error {
-	if word == "" {
+// Type queues text, a character a tick, as typing into a panel. Each
+// word in it is one step, as the bar's targets count them; a prompt is
+// one step whatever its length, so it goes through Prompt instead.
+func (d *Drive) Type(text string) error {
+	if err := d.typed(text); err != nil {
+		return err
+	}
+	d.steps += len(strings.Fields(text))
+	return nil
+}
+
+// Prompt queues a prompt, typed a character a tick. It is one step.
+func (d *Drive) Prompt(text string) error {
+	if err := d.typed(text); err != nil {
+		return err
+	}
+	d.steps++
+	return nil
+}
+
+func (d *Drive) typed(text string) error {
+	if strings.TrimSpace(text) == "" {
 		return errors.New("nothing to type")
 	}
-	for _, r := range word {
-		if _, _, ok := scriptedKey(string(r)); !ok {
-			return fmt.Errorf("no key types %q", r)
+	for _, r := range text {
+		if !unicode.IsPrint(r) {
+			return fmt.Errorf("%q cannot be typed", r)
 		}
 		d.queue = append(d.queue, driveInput{key: string(r)})
 	}
-	d.steps++
 	return nil
 }
 
@@ -354,6 +396,13 @@ func (g *Game) noteShown() {
 			}
 		}
 		slices.Sort(s.Lit)
+	}
+	if f, ok := g.overlays.top().(*finder); ok && !g.hidden {
+		f.mu.Lock()
+		for _, h := range f.results {
+			s.Found = append(s.Found, h.SessionID)
+		}
+		f.mu.Unlock()
 	}
 	g.shown = s
 }

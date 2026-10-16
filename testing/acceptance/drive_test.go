@@ -168,8 +168,10 @@ func TestDrive(t *testing.T) {
 		newDrive(t, home)
 		work := measure.Take().Since(before)
 
-		t.Run("it should count one transcript opened per transcript in the fixture", func(t *testing.T) {
-			assert.Equal(t, int64(transcriptFiles(t, home)), work[measure.TranscriptsOpened])
+		// Once for the map and once for the finder's index, as the
+		// daemon reads them.
+		t.Run("it should count two transcripts opened per transcript in the fixture", func(t *testing.T) {
+			assert.Equal(t, 2*int64(transcriptFiles(t, home)), work[measure.TranscriptsOpened])
 		})
 	})
 }

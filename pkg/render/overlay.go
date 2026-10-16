@@ -172,7 +172,10 @@ func (g *Game) openFinder() {
 	if g.finding() {
 		return
 	}
-	f := &finder{now: timeNow, pause: findPause}
+	// The pause is timed by the city's clock, which counts ticks when it
+	// is driven or recorded, so it is the same number of frames under any
+	// load. Item 91.
+	f := &finder{now: g.now, pause: findPause}
 	if g.findAtOnce {
 		f.pause = 0
 	}
@@ -212,6 +215,10 @@ type finder struct {
 	// sent to the search, which runs once typing pauses.
 	typedAt time.Time
 	asked   string
+	// opening is set when Enter came before the search for what was
+	// typed had answered: the answer's top result is opened when it
+	// arrives, rather than nothing or an earlier query's. Items 82, 91.
+	opening bool
 
 	// armed is the session whose deleted conversation Enter has offered
 	// to start again, so a second Enter does it.
@@ -225,6 +232,8 @@ type finder struct {
 	selected int
 	found    int
 	shown    int
+	// answered is the query the results answer.
+	answered string
 }
 
 // findPause is how long typing rests before the finder searches, so a
@@ -239,8 +248,15 @@ func (f *finder) deliver(query string, hits []find.Hit) {
 	if query != f.query {
 		return
 	}
-	f.results, f.selected = hits, 0
+	f.results, f.selected, f.answered = hits, 0, query
 	f.found++
+}
+
+// current reports whether the results answer what is typed now.
+func (f *finder) current() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.answered == f.query
 }
 
 // show dims the map to what the search last found, on the frame, once
@@ -310,13 +326,14 @@ func shellQuote(s string) string {
 }
 
 // follow notes a change of query, clearing the results when it is
-// emptied, and asks for results once typing has paused.
-func (f *finder) follow(g *Game) {
+// emptied, and asks for results once typing has paused, or at once.
+func (f *finder) follow(g *Game, atOnce bool) {
 	query := f.field.query()
 	f.mu.Lock()
 	emptied := false
 	if query != f.query {
 		f.query, f.typedAt = query, f.now()
+		f.opening = false
 		if query == "" {
 			f.results, f.selected, f.asked, emptied = nil, 0, "", true
 		}
@@ -325,7 +342,7 @@ func (f *finder) follow(g *Game) {
 	if emptied {
 		g.filterOn("")
 	}
-	if query == "" || query == f.asked || f.now().Sub(f.typedAt) < f.pause || g.search == nil {
+	if query == "" || query == f.asked || (!atOnce && f.now().Sub(f.typedAt) < f.pause) || g.search == nil {
 		return
 	}
 	f.asked = query
@@ -341,6 +358,18 @@ func (f *finder) follow(g *Game) {
 		}
 		f.deliver(query, hits)
 	})
+}
+
+// openAnswer opens the top result of the search Enter was waiting on,
+// or closes the finder when it found nothing, as Enter does then.
+func (f *finder) openAnswer(g *Game) bool {
+	f.opening = false
+	f.show(g)
+	if h, ok := f.chosen(); ok {
+		return f.open(g, h)
+	}
+	f.end()
+	return false
 }
 
 // findLimit is how many sessions the finder asks for.
@@ -359,11 +388,14 @@ func (f *finder) keys(g *Game) bool {
 		if handled, err := f.ime.Update(); err != nil {
 			g.SetStatus(err.Error())
 		} else if handled {
-			f.follow(g)
+			f.follow(g, false)
 			f.provisional(g)
 			f.show(g)
 			return true
 		}
+	}
+	if f.opening && f.current() {
+		return f.openAnswer(g)
 	}
 	f.show(g)
 	h, chosen := f.chosen()
@@ -384,6 +416,17 @@ func (f *finder) keys(g *Game) bool {
 		}
 		return false
 	case just(ebiten.KeyEnter), just(ebiten.KeyKPEnter):
+		// Enter typed straight after the words, before the pause has
+		// let the search run, searches at once and opens the answer
+		// when it comes; the results on show may be an earlier query's.
+		if f.field.query() != "" && !f.current() && g.search != nil {
+			f.opening = true
+			f.follow(g, true)
+			if f.current() {
+				return f.openAnswer(g)
+			}
+			return true
+		}
 		if chosen {
 			return f.open(g, h)
 		}
@@ -399,7 +442,7 @@ func (f *finder) keys(g *Game) bool {
 	if g.scriptedRune != 0 {
 		f.field.insert(string(g.scriptedRune))
 	}
-	f.follow(g)
+	f.follow(g, false)
 	f.provisional(g)
 	f.show(g)
 	return true
