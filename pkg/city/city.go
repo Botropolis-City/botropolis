@@ -51,6 +51,8 @@ type Building struct {
 	// Hue is a parked session's container colour, one per project, an
 	// index into ContainerHues.
 	Hue int
+	// Group is the group the session belongs to, if any (item 87).
+	Group *state.Group
 }
 
 // ContainerHues names the container colours the storage yard has, in
@@ -287,6 +289,7 @@ func Build(snapshot state.Snapshot, layout *Layout) *City {
 	city.placeRiver()
 	city.placeStreets()
 	city.placeCamps(snapshot.Teams)
+	city.placeGroups(snapshot.Groups)
 	city.Trains = trains(city.Breakdown(LastDay))
 	return city
 }
@@ -462,6 +465,12 @@ func (b *Building) Card(now time.Time) Card {
 	}
 	lines := []string{
 		"state    " + string(s.State),
+	}
+	if g := b.Group; g != nil {
+		lines = append(lines, "group    "+g.Name+", "+string(g.Move)+": "+g.Why)
+		if s.GroupJoined != "" {
+			lines = append(lines, "joined   "+s.GroupJoined)
+		}
 	}
 	if b.Vacant {
 		lines = append(lines, "empty    nothing typed yet; prune clears it after an hour")

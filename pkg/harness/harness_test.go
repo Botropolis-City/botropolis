@@ -33,6 +33,7 @@ func TestMulti(t *testing.T) {
 		Power:    state.Power{CostUSD: 1.5, CostKnown: true, Fresh: 10, Cached: 100, ByModel: map[string]claude.Usage{"opus": {Output: 5}}},
 		Stats:    &claude.Stats{TotalSessions: 513},
 		Teams:    []claude.Team{{Name: "review", LeadSessionID: "1"}},
+		Groups:   []state.Group{{ID: "g1", Members: []string{"1"}}},
 	}}
 	b := fake{name: "codex", dirs: []string{"/b"}, snapshot: state.Snapshot{
 		Sessions: []state.Session{{ID: "2", State: state.Parked, Harness: "codex"}},
@@ -66,6 +67,10 @@ func TestMulti(t *testing.T) {
 		t.Run("it should keep the teams", func(t *testing.T) {
 			require.Len(t, snapshot.Teams, 1)
 			assert.Equal(t, "review", snapshot.Teams[0].Name)
+		})
+
+		t.Run("it should keep the groups", func(t *testing.T) {
+			assert.Equal(t, []state.Group{{ID: "g1", Members: []string{"1"}}}, snapshot.Groups)
 		})
 
 		t.Run("it should keep the stats rollup", func(t *testing.T) {

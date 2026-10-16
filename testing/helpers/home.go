@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -53,6 +54,20 @@ func (h *Home) appendTo(path string, lines []string) {
 	defer func() { _ = f.Close() }()
 	_, err = f.WriteString(strings.Join(lines, "\n") + "\n")
 	require.NoError(h.t, err)
+}
+
+// Prompt appends one typed prompt to Claude Code's prompt history.
+func (h *Home) Prompt(sessionID, project, text string, at time.Time) *Home {
+	h.t.Helper()
+	path := filepath.Join(h.ClaudeDir(), "history.jsonl")
+	require.NoError(h.t, os.MkdirAll(filepath.Dir(path), 0o700))
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	require.NoError(h.t, err)
+	defer func() { _ = f.Close() }()
+	_, err = fmt.Fprintf(f, `{"display":%q,"pastedContents":{},"timestamp":%d,"project":%q,"sessionId":%q}`+"\n",
+		text, at.UnixMilli(), project, sessionID)
+	require.NoError(h.t, err)
+	return h
 }
 
 func (h *Home) StatsCache(content string) *Home {

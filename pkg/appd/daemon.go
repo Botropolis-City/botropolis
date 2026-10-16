@@ -17,6 +17,7 @@ import (
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/daemon"
 	"botropolis.city/botropolis/pkg/find"
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/harness"
 	"botropolis.city/botropolis/pkg/harness/codex"
 	"botropolis.city/botropolis/pkg/state"
@@ -93,7 +94,7 @@ func newDaemon(cfg *config.Config, probes state.Probes) *daemon.Daemon {
 }
 
 func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
-	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithParkedMaxAge(ParkedMaxAge(cfg)))
+	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithParkedMaxAge(ParkedMaxAge(cfg)).WithGroups(group.Path()))
 	harnesses := []harness.Snapshotter{claudeLoader}
 	if info, err := os.Stat(filepath.Join(cfg.CodexHome, "sessions")); err == nil && info.IsDir() {
 		harnesses = append(harnesses, codex.NewLoader(cfg.CodexHome, ParkedMaxAge(cfg)))

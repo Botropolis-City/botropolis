@@ -49,26 +49,30 @@ type Session struct {
 	// Hooked is whether the daemon has ever seen a hook event from the
 	// session; without one it is reading files, and the map draws no
 	// wire to it.
-	Hooked             bool           `json:"hooked,omitempty"`
-	Tool               string         `json:"tool,omitempty"`
-	Note               string         `json:"note,omitempty"`
-	Subject            string         `json:"subject,omitempty"`
-	SubagentNames      []string       `json:"subagentNames,omitempty"`
-	ContextTokens      int64          `json:"contextTokens"`
-	ContextWindow      int64          `json:"contextWindow"`
-	ContextPercent     float64        `json:"contextPercent"`
-	Usage              claude.Usage   `json:"usage"`
-	TokensPerHour      float64        `json:"tokensPerHour"`
-	FreshTokensPerHour float64        `json:"freshTokensPerHour"`
-	CacheReadPerHour   float64        `json:"cacheReadPerHour"`
-	CostUSD            float64        `json:"costUSD"`
-	CostKnown          bool           `json:"costKnown"`
-	Subagents          int            `json:"subagents"`
-	SubagentsInFlight  int            `json:"subagentsInFlight"`
-	Team               string         `json:"team,omitempty"`
-	Agent              string         `json:"agent,omitempty"`
-	Messages           map[string]int `json:"messages,omitempty"`
-	Touches            map[string]int `json:"touches,omitempty"`
+	Hooked             bool         `json:"hooked,omitempty"`
+	Tool               string       `json:"tool,omitempty"`
+	Note               string       `json:"note,omitempty"`
+	Subject            string       `json:"subject,omitempty"`
+	SubagentNames      []string     `json:"subagentNames,omitempty"`
+	ContextTokens      int64        `json:"contextTokens"`
+	ContextWindow      int64        `json:"contextWindow"`
+	ContextPercent     float64      `json:"contextPercent"`
+	Usage              claude.Usage `json:"usage"`
+	TokensPerHour      float64      `json:"tokensPerHour"`
+	FreshTokensPerHour float64      `json:"freshTokensPerHour"`
+	CacheReadPerHour   float64      `json:"cacheReadPerHour"`
+	CostUSD            float64      `json:"costUSD"`
+	CostKnown          bool         `json:"costKnown"`
+	Subagents          int          `json:"subagents"`
+	SubagentsInFlight  int          `json:"subagentsInFlight"`
+	Team               string       `json:"team,omitempty"`
+	// Group is the id of the group the session belongs to, and
+	// GroupJoined why it joined (item 87).
+	Group       string         `json:"group,omitempty"`
+	GroupJoined string         `json:"groupJoined,omitempty"`
+	Agent       string         `json:"agent,omitempty"`
+	Messages    map[string]int `json:"messages,omitempty"`
+	Touches     map[string]int `json:"touches,omitempty"`
 	// Visits is each directory outside the session's own where one of
 	// its subagents worked, by how many subagents worked there. Item 85.
 	Visits     map[string]int `json:"visits,omitempty"`

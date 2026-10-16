@@ -6,7 +6,55 @@ import (
 	"strings"
 )
 
-const nameWords = 2
+const (
+	nameWords  = 2
+	shortRunes = 12
+)
+
+// Short is the group's name as a badge carries it: its anchor, or the
+// first word of its name, cut to fit.
+func Short(g Group) string {
+	short := g.Anchor
+	if short == "" {
+		if fields := strings.Fields(g.Name); len(fields) > 0 {
+			short = fields[0]
+		}
+	}
+	if r := []rune(short); len(r) > shortRunes {
+		short = string(r[:shortRunes]) + "…"
+	}
+	return short
+}
+
+// Describe says why a session joined, naming the session it matched by
+// title.
+func (r Reason) Describe(title func(id string) string) string {
+	with := ""
+	if r.With != "" {
+		with = title(r.With)
+	}
+	switch r.Signal {
+	case SignalStartedFrom:
+		return "started from " + r.Detail
+	case SignalReference:
+		return "mentions " + r.Detail
+	case SignalParentage:
+		return "works with " + with
+	case SignalPasted:
+		return "pasted the same text as " + with
+	case SignalWording:
+		return `shares "` + r.Detail + `" with ` + with
+	case SignalBranch:
+		return "its branch shares " + r.Detail + " with " + with
+	case SignalFiles:
+		return "edits " + filepath.Base(r.Detail) + " like " + with
+	case SignalTiming:
+		return "started with " + with
+	case SignalContinuing:
+		return "continued from " + with
+	}
+	return string(r.Signal)
+}
 
 // name gives a group its anchor, the reference most of its members
 // share, and a name made of the anchor and its members' most

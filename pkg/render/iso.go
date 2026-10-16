@@ -348,6 +348,9 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		if !g.buildingSignage(screen, cam, r, foot, title) {
 			g.buildingSign(screen, r, foot, title)
 		}
+		if g.labelsVisible() {
+			g.drawBadge(screen, b, foot)
+		}
 	}
 	// The worker: a rover that waits at the door while the session is
 	// mid-turn and drives out to the kerb and back for each tool call,

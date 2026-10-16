@@ -42,6 +42,7 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		merged.Skills = append(merged.Skills, snapshot.Skills...)
 		merged.Roads = append(merged.Roads, snapshot.Roads...)
 		merged.Teams = append(merged.Teams, snapshot.Teams...)
+		merged.Groups = append(merged.Groups, snapshot.Groups...)
 		merged.Skipped = append(merged.Skipped, snapshot.Skipped...)
 		if merged.Stats == nil {
 			merged.Stats = snapshot.Stats

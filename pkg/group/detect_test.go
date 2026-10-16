@@ -122,6 +122,10 @@ func TestDetect(t *testing.T) {
 			_, ok := result.GroupOf("b")
 			assert.False(t, ok)
 		})
+
+		t.Run("it should not even be suggested the group", func(t *testing.T) {
+			assert.Empty(t, result.SuggestionsFor("b"))
+		})
 	})
 
 	t.Run("when a session already in a group is started minutes after another group's member closed", func(t *testing.T) {

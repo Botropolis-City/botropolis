@@ -43,6 +43,7 @@ type Loader struct {
 	statsKey     fileKey
 	dirs         []string
 	reads        int
+	groups       groupCache
 }
 
 func NewLoader(home string, probes Probes) *Loader {
@@ -151,6 +152,9 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	snapshot.Skills = Skills(snapshot.Sessions)
 	snapshot.Roads = Roads(snapshot.Sessions, src.Teams)
 	snapshot.Teams = src.Teams
+	if err := l.applyGroups(&snapshot, claudeDir, now); err != nil {
+		snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: filepath.Join(claudeDir, "history.jsonl"), Err: err})
+	}
 	snapshot.Power = PowerSince(append(append([]claude.Transcript{}, src.Transcripts...), src.Parked...), now.Add(-PowerWindow))
 	return snapshot, nil
 }

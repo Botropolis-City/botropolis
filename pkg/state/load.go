@@ -14,6 +14,7 @@ type Snapshot struct {
 	Skills   []Skill              `json:"skills"`
 	Roads    []Road               `json:"roads"`
 	Teams    []claude.Team        `json:"teams,omitempty"`
+	Groups   []Group              `json:"groups,omitempty"`
 	Power    Power                `json:"power"`
 	Stats    *claude.Stats        `json:"stats,omitempty"`
 	Skipped  []claude.SkippedFile `json:"skipped"`

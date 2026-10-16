@@ -35,6 +35,9 @@ func init() {
 type Wording struct {
 	words map[string]map[string]bool
 	idf   map[string]float64
+	// weight is every word's rarity, for naming, which has to work on a
+	// history too small for any word to be distinctive.
+	weight map[string]float64
 }
 
 func NewWording(prompts map[string][]string, muted []string) *Wording {
@@ -42,7 +45,7 @@ func NewWording(prompts map[string][]string, muted []string) *Wording {
 	for _, m := range muted {
 		mute[strings.ToLower(m)] = true
 	}
-	w := &Wording{words: map[string]map[string]bool{}, idf: map[string]float64{}}
+	w := &Wording{words: map[string]map[string]bool{}, idf: map[string]float64{}, weight: map[string]float64{}}
 	df := map[string]int{}
 	for id, ps := range prompts {
 		set := map[string]bool{}
@@ -62,6 +65,9 @@ func NewWording(prompts map[string][]string, muted []string) *Wording {
 	for tok, d := range df {
 		if float64(d) <= math.Max(2, distinctiveShare*n) {
 			w.idf[tok] = math.Log(n / float64(d))
+		}
+		if float64(d) <= n/2 {
+			w.weight[tok] = math.Log(n / float64(d))
 		}
 	}
 	return w
@@ -134,7 +140,7 @@ func (w *Wording) Top(ids []string, n int) []string {
 	count := map[string]int{}
 	for _, id := range ids {
 		for tok := range w.words[id] {
-			if _, ok := w.idf[tok]; ok {
+			if _, ok := w.weight[tok]; ok {
 				count[tok]++
 			}
 		}
@@ -144,10 +150,14 @@ func (w *Wording) Top(ids []string, n int) []string {
 		words = append(words, tok)
 	}
 	sort.Slice(words, func(i, j int) bool {
-		if count[words[i]] != count[words[j]] {
-			return count[words[i]] > count[words[j]]
+		a, b := words[i], words[j]
+		if count[a] != count[b] {
+			return count[a] > count[b]
 		}
-		return w.rarer(words[i], words[j])
+		if w.weight[a] != w.weight[b] {
+			return w.weight[a] > w.weight[b]
+		}
+		return a < b
 	})
 	if len(words) > n {
 		words = words[:n]

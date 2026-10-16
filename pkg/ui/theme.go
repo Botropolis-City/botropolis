@@ -84,6 +84,22 @@ func StateTone(st state.State) Tone {
 	return ToneNone
 }
 
+// MoveTone is the tone whose move a group's work is drawn in: the state
+// tone of the member that decides it (item 87).
+func MoveTone(m state.Move) Tone {
+	switch m {
+	case state.MoveYours:
+		return ToneNeedsYou
+	case state.MoveAgents:
+		return ToneWorking
+	case state.MoveTheirs:
+		return ToneWaiting
+	case state.MoveNobody:
+		return ToneMerged
+	}
+	return ToneNone
+}
+
 type Palette struct {
 	Panel    color.NRGBA
 	Hairline color.NRGBA
