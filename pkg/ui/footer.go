@@ -120,20 +120,20 @@ func (f Footer) WithWaiting(th Theme, width float64, line string, measure Measur
 		}
 		line = strings.TrimRight(string(r[:len(r)-1]), " ") + "…"
 	}
+	// The line is a button: a plate a line and a grid tall, its label
+	// inset as a card button's is, so it reads as something to click
+	// rather than a status message.
+	plateH := lineH + grid
 	lines := make([]Text, len(f.Lines))
 	for i, l := range f.Lines {
-		l.At.Y -= lineH
+		l.At.Y -= plateH
 		lines[i] = l
 	}
 	f.Lines = lines
-	at := city.Point{X: 2 * grid, Y: f.KeyRow.Min.Y - lineH}
-	if len(f.Lines) == 0 {
-		at.Y = f.KeyRow.Min.Y - lineH - grid/2
-	}
 	w, _ := measure(line, f.Size)
-	f.Waiting = Text{Text: line, At: at, Size: f.Size}
-	f.WaitingRect = city.RectAt(at.X, at.Y, w, lineH)
-	top := min(f.Rect.Min.Y-lineH, at.Y-grid/2)
+	f.WaitingRect = city.RectAt(grid, f.KeyRow.Min.Y-plateH, w+2*grid, plateH)
+	f.Waiting = Text{Text: line, At: city.Point{X: f.WaitingRect.Min.X + grid, Y: f.WaitingRect.Min.Y + grid/2}, Size: f.Size}
+	top := min(f.Rect.Min.Y-plateH, f.WaitingRect.Min.Y-grid/2)
 	f.Rect = city.RectAt(0, top, f.Rect.Width(), f.Rect.Max.Y-top)
 	return f
 }

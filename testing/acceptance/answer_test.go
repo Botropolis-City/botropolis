@@ -97,6 +97,25 @@ func TestAnswerAndComeBack(t *testing.T) {
 		})
 	})
 
+	t.Run("when the pointer is over the needs-you line", func(t *testing.T) {
+		d := drive(t, stage(t, filepath.Join("..", "..", "demo", "scenarios", "hamlet.yaml"), monday))
+		require.NoError(t, d.PointAt(waitingLine))
+		require.NoError(t, d.Run(1))
+
+		t.Run("it should draw hovered", func(t *testing.T) {
+			assert.True(t, d.Shown().WaitingHovered)
+		})
+
+		t.Run("and it moves away", func(t *testing.T) {
+			require.NoError(t, d.PointAtPoint(city.Point{X: 1, Y: 1}))
+			require.NoError(t, d.Run(1))
+
+			t.Run("it should not draw hovered", func(t *testing.T) {
+				assert.False(t, d.Shown().WaitingHovered)
+			})
+		})
+	})
+
 	t.Run("when nothing needs you", func(t *testing.T) {
 		where := drive(t, stage(t, filepath.Join("..", "..", "demo", "scenarios", "hamlet.yaml"), monday)).Shown().WaitingRect
 		require.Positive(t, where.Area(), "the line was not drawn where something waits, so there is nowhere to click")

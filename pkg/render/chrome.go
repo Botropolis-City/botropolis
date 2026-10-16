@@ -139,14 +139,33 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 		g.run(screen, line, th.Palette.Text)
 	}
 	g.sparkline(screen, c.Spark)
+	at := g.pointer()
 	for _, b := range c.Buttons {
-		g.roundRect(screen, b.Rect, th.Radius()/2, th.Palette.Hairline)
-		g.run(screen, b.Label, th.Palette.Accent)
+		g.button(screen, b.Rect, b.Label, th.Palette.Accent, b.Rect.Contains(at))
 	}
 	g.run(screen, c.Hint, th.Palette.Dim)
 	for _, line := range c.Details {
 		g.run(screen, line, th.Palette.Dim)
 	}
+}
+
+// button draws a plate with its label, brighter under the pointer, the
+// one look for anything a click acts on: the card's buttons and the
+// footer's needs-you line. Item 91.
+func (g *Game) button(screen *ebiten.Image, plate city.Rect, label ui.Text, tone color.NRGBA, hovered bool) {
+	fill := g.theme.Palette.Hairline
+	if hovered {
+		fill = buttonHover(fill)
+	}
+	g.roundRect(screen, plate, g.theme.Radius()/2, fill)
+	g.run(screen, label, tone)
+}
+
+// buttonHover is a plate's tone under the pointer: the same hairline,
+// nearly three times as strong.
+func buttonHover(c color.NRGBA) color.NRGBA {
+	c.A = uint8(min(255, int(c.A)*8/3))
+	return c
 }
 
 // buttonHint is what the pinned card's button under the pointer does,
@@ -197,8 +216,10 @@ func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
 	for _, line := range f.Lines {
 		g.run(screen, line, g.theme.Palette.Dim)
 	}
+	g.waitingHovered = false
 	if f.Waiting.Text != "" {
-		g.run(screen, f.Waiting, g.theme.Palette.NeedsYou)
+		g.waitingHovered = f.WaitingRect.Contains(g.pointer())
+		g.button(screen, f.WaitingRect, f.Waiting, g.theme.Palette.NeedsYou, g.waitingHovered)
 	}
 	g.keyRow(screen, f.Keys, f.Size)
 }

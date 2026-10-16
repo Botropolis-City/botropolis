@@ -24,6 +24,10 @@ func TestFooterWithWaiting(t *testing.T) {
 			assert.Equal(t, "needs-you: Sea conditions", f.Waiting.Text)
 		})
 
+		t.Run("it should sit the label inside a plate, inset as a button's is", func(t *testing.T) {
+			assert.Equal(t, [2]float64{f.WaitingRect.Min.X + th.Grid(), f.WaitingRect.Min.Y + th.Grid()/2}, [2]float64{f.Waiting.At.X, f.Waiting.At.Y})
+		})
+
 		t.Run("it should put the line above the key row", func(t *testing.T) {
 			assert.LessOrEqual(t, f.WaitingRect.Max.Y, f.KeyRow.Min.Y)
 		})

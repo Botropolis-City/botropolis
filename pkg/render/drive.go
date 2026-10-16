@@ -77,6 +77,8 @@ type Shown struct {
 	// drawn; empty when nothing waits.
 	Waiting     string
 	WaitingRect city.Rect
+	// WaitingHovered is whether the line was drawn hovered.
+	WaitingHovered bool
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -272,6 +274,22 @@ func (d *Drive) ClickAt(at city.Point) error {
 	return nil
 }
 
+// PointAt parks the pointer over a target, as --hover does, until it is
+// moved again. Moving the pointer presses nothing, so it is not a step.
+func (d *Drive) PointAt(target string) error {
+	at, ok := d.game.resolveTarget(target)
+	if !ok {
+		return fmt.Errorf("nothing on the map called %q", target)
+	}
+	return d.PointAtPoint(at)
+}
+
+// PointAtPoint parks the pointer at a point of the window.
+func (d *Drive) PointAtPoint(at city.Point) error {
+	d.game.hover, d.game.hoverSet = at, true
+	return nil
+}
+
 // Feed loads a home and hands the city its snapshot, as the feed does
 // when sessions change; the ticks Until counts start from the tick that
 // takes it. The finder keeps the index it opened with.
@@ -462,7 +480,7 @@ func (g *Game) noteShown() {
 	}
 	g.mu.Lock()
 	if !g.hidden {
-		s.Waiting, s.WaitingRect = g.footerBar.Waiting.Text, g.footerBar.WaitingRect
+		s.Waiting, s.WaitingRect, s.WaitingHovered = g.footerBar.Waiting.Text, g.footerBar.WaitingRect, g.waitingHovered
 	}
 	for _, h := range g.hits {
 		if h.hit.Building != nil && !slices.Contains(s.Buildings, h.hit.Building.Session.ID) {

@@ -136,9 +136,11 @@ type Game struct {
 	footerBar ui.Footer
 	// waitingID is the session the footer's needs-you line names, as
 	// last drawn. Item 91.
-	waitingID     string
-	settingsPanel ui.SettingsPanel
-	searchPlate   city.Rect
+	waitingID string
+	// waitingHovered is whether the line was drawn under the pointer.
+	waitingHovered bool
+	settingsPanel  ui.SettingsPanel
+	searchPlate    city.Rect
 	// usage is Claude Code's own cached view of the account's limits,
 	// re-read off disk because reading a file is free. u makes Claude
 	// Code refetch. Item 49.
