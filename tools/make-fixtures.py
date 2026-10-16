@@ -515,7 +515,12 @@ def copy_session(src, home_out, raw_out):
     count = 0
     if sub.is_dir():
         for f in sorted(sub.iterdir()):
-            frel = mapped_rel(f)
+            # A session's subagents live under its own project directory, so
+            # they follow the main transcript there. Mapped one by one, a
+            # subagent's transcript went by its own first cwd and its
+            # .meta.json by whichever transcript sorted first in the folder,
+            # and when those differed the pair landed in two projects.
+            frel = rel.parent / f.relative_to(src.parent)
             if f.suffix == ".jsonl":
                 scrub_jsonl(f, home_out / frel)
             elif f.name.endswith(".meta.json"):
