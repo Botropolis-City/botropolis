@@ -126,14 +126,16 @@ type Scene struct {
 	// whether the lens's panel was brought back in full (item 88).
 	roadFor      string
 	lensExpanded bool
-	// sightings are the first-time captions up, by when each began.
-	sightings map[Kind]time.Time
-	generated map[string]Generated
-	width     float64
-	height    float64
-	touched   bool
-	armed     string
-	armedAt   time.Time
+	// sightings are the new kinds waiting for their first caption, the
+	// first of them captioned since sightingAt.
+	sightings  []Kind
+	sightingAt time.Time
+	generated  map[string]Generated
+	width      float64
+	height     float64
+	touched    bool
+	armed      string
+	armedAt    time.Time
 	// zoomTarget is where the wheel is taking the zoom; Animate eases the
 	// camera there about zoomAnchor, or Instant snaps it.
 	zoomTarget float64

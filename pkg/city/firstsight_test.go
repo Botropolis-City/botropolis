@@ -37,6 +37,20 @@ func TestFirstSightings(t *testing.T) {
 		})
 	})
 
+	t.Run("when several kinds are new at once", func(t *testing.T) {
+		s, clock := sighting(city.NewLayout())
+		s.Sight([]city.Kind{city.KindDrone, city.KindFlag})
+		first := s.Sightings()
+		*clock = now.Add(city.SightingFor)
+		between := s.Sightings()
+		*clock = now.Add(city.SightingFor + city.SightingGap)
+		second := s.Sightings()
+
+		t.Run("it should caption one, then the next after the gap", func(t *testing.T) {
+			assert.Equal(t, [][]city.Kind{{city.KindDrone}, nil, {city.KindFlag}}, [][]city.Kind{first, between, second})
+		})
+	})
+
 	t.Run("when it is visible again", func(t *testing.T) {
 		s, clock := sighting(city.NewLayout())
 		s.Sight([]city.Kind{city.KindDrone})
