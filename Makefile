@@ -127,11 +127,11 @@ test-unit ::
 	$(LOG) "Running unit tests"
 	@go test ./cmd/... ./pkg/...
 
-test-integration :: fixtures
+test-integration ::
 	$(LOG) "Running integration tests"
-	@go test ./testing/integration/...
+	@go test ./testing/helpers/... ./testing/integration/...
 
-test-acceptance :: fixtures
+test-acceptance ::
 	$(LOG) "Running acceptance tests"
 	@go test ./testing/acceptance/...
 

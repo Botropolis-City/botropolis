@@ -16,6 +16,15 @@ import (
 var botropolis string
 
 func TestMain(m *testing.M) {
+	os.Exit(helpers.RunIsolated(&built{m}))
+}
+
+// built builds the binary once inside the isolated home, so the build
+// sees the same environment the tests do.
+type built struct{ *testing.M }
+
+func (b *built) Run() int {
+	m := b.M
 	dir, err := os.MkdirTemp("", "botropolis-acceptance")
 	if err != nil {
 		panic(err)
@@ -28,12 +37,12 @@ func TestMain(m *testing.M) {
 	}
 	code := m.Run()
 	_ = os.RemoveAll(dir)
-	os.Exit(code)
+	return code
 }
 
 func TestStatus(t *testing.T) {
-	t.Run("when a user runs status against the sample fixture", func(t *testing.T) {
-		home := helpers.LiveFixtureHome(t, "sample")
+	t.Run("when a user runs status against the synthetic fixture", func(t *testing.T) {
+		home := helpers.LiveFixtureHome(t, "synthetic")
 		out, err := exec.Command(botropolis, "status", "--home", home).CombinedOutput()
 		require.NoError(t, err, string(out))
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -43,7 +52,7 @@ func TestStatus(t *testing.T) {
 		})
 
 		t.Run("it should print one row per live session", func(t *testing.T) {
-			assert.Len(t, lines[1:], helpers.Manifest(t, "sample").LiveSessions)
+			assert.Len(t, lines[1:], helpers.Manifest(t, "synthetic").LiveSessions)
 		})
 
 		t.Run("it should give every row a state", func(t *testing.T) {

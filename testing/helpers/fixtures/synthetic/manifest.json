@@ -1,0 +1,12 @@
+{
+  "liveSessions": 3,
+  "sessions": [
+    {"sessionId": "11111111-1111-4111-8111-111111111111", "project": "-home-user-src-alpha", "live": true, "bridgeStub": false, "titleOnly": false, "subagentFiles": 2},
+    {"sessionId": "22222222-2222-4222-8222-222222222222", "project": "-home-user-src-beta", "live": true, "bridgeStub": false, "titleOnly": false, "subagentFiles": 0},
+    {"sessionId": "33333333-3333-4333-8333-333333333333", "project": "-home-user-src-alpha", "live": true, "bridgeStub": false, "titleOnly": false, "subagentFiles": 0},
+    {"sessionId": "44444444-4444-4444-8444-444444444444", "project": "-home-user-src-alpha", "live": false, "bridgeStub": false, "titleOnly": false, "subagentFiles": 0},
+    {"sessionId": "55555555-5555-4555-8555-555555555555", "project": "-home-user-src-beta", "live": false, "bridgeStub": true, "titleOnly": false, "subagentFiles": 0},
+    {"sessionId": "66666666-6666-4666-8666-666666666666", "project": "-home-user-src-alpha", "live": false, "bridgeStub": false, "titleOnly": true, "subagentFiles": 0},
+    {"sessionId": "77777777-7777-4777-8777-777777777777", "project": "-home-user-src-beta", "live": false, "bridgeStub": false, "titleOnly": false, "subagentFiles": 0}
+  ]
+}

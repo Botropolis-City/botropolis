@@ -1,0 +1,1 @@
+{"mcpServers":{"notes":{"type":"stdio","command":"notes-server","args":["--local"]}},"projects":{"/home/user/src/alpha":{"mcpServers":{"tickets":{"type":"http","url":"https://tickets.example.com/mcp"}}}}}

@@ -11,10 +11,10 @@ import (
 )
 
 func TestReadSubagentsFromFixture(t *testing.T) {
-	t.Run("when reading the subagents of every transcript in the sample fixture", func(t *testing.T) {
-		home := helpers.FixtureHome(t, "sample")
+	t.Run("when reading the subagents of every transcript in the synthetic fixture", func(t *testing.T) {
+		home := helpers.FixtureHome(t, "synthetic")
 
-		for _, session := range helpers.Manifest(t, "sample").Sessions {
+		for _, session := range helpers.Manifest(t, "synthetic").Sessions {
 			t.Run("and the transcript is "+session.SessionID, func(t *testing.T) {
 				path := filepath.Join(home, ".claude", "projects", session.Project, session.SessionID+".jsonl")
 				subagents, skipped, err := claude.ReadSubagents(path)

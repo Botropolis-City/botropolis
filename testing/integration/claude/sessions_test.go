@@ -13,15 +13,15 @@ import (
 )
 
 func TestReadSessionRecordsFromFixture(t *testing.T) {
-	t.Run("when reading the sample fixture's sessions directory", func(t *testing.T) {
-		dir := filepath.Join(helpers.FixtureHome(t, "sample"), ".claude", "sessions")
+	t.Run("when reading the synthetic fixture's sessions directory", func(t *testing.T) {
+		dir := filepath.Join(helpers.FixtureHome(t, "synthetic"), ".claude", "sessions")
 
 		records, skipped, err := claude.ReadSessionRecords(dir)
 		require.NoError(t, err)
 		require.Empty(t, skipped)
 
 		t.Run("it should return one record per live session in the manifest", func(t *testing.T) {
-			assert.Len(t, records, helpers.Manifest(t, "sample").LiveSessions)
+			assert.Len(t, records, helpers.Manifest(t, "synthetic").LiveSessions)
 		})
 
 		t.Run("it should read each record's pid matching its file name", func(t *testing.T) {

@@ -11,9 +11,9 @@ import (
 )
 
 func TestReadTranscriptsFromFixture(t *testing.T) {
-	t.Run("when walking the sample fixture's projects directory", func(t *testing.T) {
-		projects := filepath.Join(helpers.FixtureHome(t, "sample"), ".claude", "projects")
-		manifest := helpers.Manifest(t, "sample")
+	t.Run("when walking the synthetic fixture's projects directory", func(t *testing.T) {
+		projects := filepath.Join(helpers.FixtureHome(t, "synthetic"), ".claude", "projects")
+		manifest := helpers.Manifest(t, "synthetic")
 
 		transcripts, skipped, err := claude.ReadTranscripts(projects)
 		require.NoError(t, err)

@@ -67,7 +67,16 @@ Before trusting a new test, change the code it covers so that it *should* fail, 
 
 ## Fixtures
 
-Integration and acceptance tests run against a fixture, and **the fixture is generated from your own `~/.claude`, not committed**:
+Integration and acceptance tests run against **`testing/helpers/fixtures/synthetic/`, a small Claude home written by hand and committed**.
+It holds each shape the readers must handle: a conversation, one waiting on a tool, one with no reply, a bridge stub, a session with subagents, a road between two repositories, and a transcript holding only a title.
+Nothing in it is sampled from a real home, so the tests give the same answer on every machine, CI included.
+When Claude Code writes a new shape, add it here by hand, with a line in `manifest.json` saying what it is.
+
+Every integration and acceptance package runs with `HOME`, the XDG directories and `CLAUDE_CONFIG_DIR` pointed at an empty temp dir (`helpers.RunIsolated`), and asserts that it is (`helpers.AssertIsolated`).
+So a test that reaches for the real home fails on any machine instead of passing on yours.
+A new package under `testing/` needs both, in a `TestMain` and a `TestHomeIsolation`.
+
+`make fixtures` still samples a scrubbed slice of your own `~/.claude`, into `testing/helpers/fixtures/sample/`, for finding new shapes and for `make gif`:
 
 ```
 make fixtures            # writes testing/helpers/fixtures/sample/
@@ -75,11 +84,9 @@ make fixtures            # writes testing/helpers/fixtures/sample/
 
 `tools/make-fixtures.py` scrubs as it copies.
 Prompts, tool output, titles and account identifiers become deterministic placeholders, and project paths, branches, PR repositories and MCP server names are renamed to stable aliases.
-Ids, timestamps and token counts are kept verbatim, because the read model is what is under test.
-
-Fixtures are gitignored.
-If you are ever about to commit one, something has gone wrong.
-On a machine with no `~/.claude` the tests skip rather than fail.
+Ids, timestamps and token counts are kept verbatim.
+A sampled fixture is gitignored and no test reads it.
+If you are ever about to commit one, something has gone wrong: copy the shape into the synthetic home by hand instead.
 
 ## Makefiles and scripts
 

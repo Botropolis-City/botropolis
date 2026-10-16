@@ -13,21 +13,27 @@ import (
 )
 
 type FixtureManifest struct {
-	LiveSessions int `json:"liveSessions"`
-	Sessions     []struct {
-		SessionID     string `json:"sessionId"`
-		Project       string `json:"project"`
-		Live          bool   `json:"live"`
-		BridgeStub    bool   `json:"bridgeStub"`
-		SubagentFiles int    `json:"subagentFiles"`
-	} `json:"sessions"`
+	LiveSessions int              `json:"liveSessions"`
+	Sessions     []FixtureSession `json:"sessions"`
 }
 
-func FixtureHome(t *testing.T, name string) string {
+type FixtureSession struct {
+	SessionID     string `json:"sessionId"`
+	Project       string `json:"project"`
+	Live          bool   `json:"live"`
+	BridgeStub    bool   `json:"bridgeStub"`
+	TitleOnly     bool   `json:"titleOnly"`
+	SubagentFiles int    `json:"subagentFiles"`
+}
+
+// FixtureHome fails rather than skips when the fixture is missing: the
+// synthetic home is checked in, so it is never legitimately absent, and
+// a skip there read green on every machine without one. Item 92.
+func FixtureHome(t testing.TB, name string) string {
 	t.Helper()
 	home := filepath.Join(fixtureDir(t, name), "home")
 	if _, err := os.Stat(home); err != nil {
-		t.Skipf("fixture %q not generated at %s (run `make fixtures FIXTURE=%s` on a machine with ~/.claude)", name, home, name)
+		t.Fatalf("fixture %q is missing at %s", name, home)
 	}
 	return home
 }
@@ -45,7 +51,7 @@ func Manifest(t *testing.T, name string) FixtureManifest {
 	return manifest
 }
 
-func fixtureDir(t *testing.T, name string) string {
+func fixtureDir(t testing.TB, name string) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {

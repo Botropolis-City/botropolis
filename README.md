@@ -203,7 +203,7 @@ Ids, timestamps and `usage` are kept;
 prompts, tool text, titles and account identifiers become deterministic placeholders,
 and project paths, branches, PR repositories and MCP server names are renamed to stable aliases that keep their shape, their nesting and their distinctness.
 A fixture is safe to share, and a frame rendered from one shows the city without showing whose it is.
-Fixtures are not committed:
-`make test-integration` and `make test-acceptance` regenerate the default `sample` fixture first, and the tests skip on a machine without `~/.claude`.
+Sampled fixtures are not committed, and no test reads them:
+the tests run against the hand-written `testing/helpers/fixtures/synthetic/` home, and the sampler is for finding new shapes to add to it and for `make gif`.
 
 Both take `--help`.

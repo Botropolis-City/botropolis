@@ -14,10 +14,10 @@ import (
 )
 
 func TestReadTranscriptFromFixture(t *testing.T) {
-	t.Run("when reading every transcript in the sample fixture", func(t *testing.T) {
-		home := helpers.FixtureHome(t, "sample")
+	t.Run("when reading every transcript in the synthetic fixture", func(t *testing.T) {
+		home := helpers.FixtureHome(t, "synthetic")
 
-		for _, session := range helpers.Manifest(t, "sample").Sessions {
+		for _, session := range helpers.Manifest(t, "synthetic").Sessions {
 			t.Run("and the transcript is "+session.SessionID, func(t *testing.T) {
 				path := filepath.Join(home, ".claude", "projects", session.Project, session.SessionID+".jsonl")
 				transcript, err := claude.ReadTranscript(path)
@@ -35,7 +35,17 @@ func TestReadTranscriptFromFixture(t *testing.T) {
 					assert.Zero(t, transcript.Malformed)
 				})
 
-				if !session.BridgeStub {
+				if session.TitleOnly {
+					t.Run("it should read no cwd", func(t *testing.T) {
+						assert.Empty(t, transcript.CWD)
+					})
+
+					t.Run("it should read its title", func(t *testing.T) {
+						assert.NotEmpty(t, transcript.Title)
+					})
+				}
+
+				if !session.BridgeStub && !session.TitleOnly {
 					t.Run("it should read a cwd", func(t *testing.T) {
 						assert.NotEmpty(t, transcript.CWD)
 					})
@@ -46,15 +56,14 @@ func TestReadTranscriptFromFixture(t *testing.T) {
 
 					// A session with no assistant records at all is a real shape, not a
 					// broken fixture: prompts typed into a session that never ran, or one
-					// started with --bg and never picked up. The sample carries one. The
+					// started with --bg and never picked up. The synthetic home carries one. The
 					// invariant that holds for every transcript is the one above — the
 					// count matches the file — and it reads zero here, correctly. The model
 					// comes from the same records, so it is empty for the same reason.
 					// Asserting either for every transcript asserted the fixture's
 					// composition rather than the reader's behaviour, and it went unnoticed
-					// until the fixture was regenerated on a day with two such sessions in
-					// it. The sample has two: one with three prompts and no reply, one that
-					// only ever queued.
+					// until the sampled fixture was regenerated on a day with two such
+					// sessions in it.
 					if countDistinctMessageIDs(t, path) > 0 {
 						t.Run("it should read a model", func(t *testing.T) {
 							assert.NotEmpty(t, transcript.Model)

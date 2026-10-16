@@ -11,8 +11,8 @@ import (
 )
 
 func TestReadStatsFromFixture(t *testing.T) {
-	t.Run("when reading the sample fixture's stats cache", func(t *testing.T) {
-		stats, err := claude.ReadStats(filepath.Join(helpers.FixtureHome(t, "sample"), ".claude", "stats-cache.json"))
+	t.Run("when reading the synthetic fixture's stats cache", func(t *testing.T) {
+		stats, err := claude.ReadStats(filepath.Join(helpers.FixtureHome(t, "synthetic"), ".claude", "stats-cache.json"))
 		require.NoError(t, err)
 
 		t.Run("it should know when it was computed", func(t *testing.T) {
@@ -42,8 +42,8 @@ func TestReadStatsFromFixture(t *testing.T) {
 }
 
 func TestReadMCPConfigFromFixture(t *testing.T) {
-	t.Run("when reading the sample fixture's claude.json", func(t *testing.T) {
-		config, err := claude.ReadMCPConfig(filepath.Join(helpers.FixtureHome(t, "sample"), ".claude.json"))
+	t.Run("when reading the synthetic fixture's claude.json", func(t *testing.T) {
+		config, err := claude.ReadMCPConfig(filepath.Join(helpers.FixtureHome(t, "synthetic"), ".claude.json"))
 		require.NoError(t, err)
 
 		t.Run("it should list global servers", func(t *testing.T) {

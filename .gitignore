@@ -3,7 +3,8 @@
 *.test
 coverage.out
 tools/sessions.json
-testing/helpers/fixtures/
+testing/helpers/fixtures/*
+!testing/helpers/fixtures/synthetic/
 .claude/settings.local.json
 
 # Kenney 3D kits for the sprite pipeline: fetched by make kits, never committed

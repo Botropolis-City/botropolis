@@ -1,0 +1,2 @@
+{"type":"permission-mode","permissionMode":"default","sessionId":"77777777-7777-4777-8777-777777777777"}
+{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"Tidy the README."},"uuid":"e7000000-0000-4000-8000-000000000001","timestamp":"2026-09-29T11:00:00.000Z","userType":"external","entrypoint":"cli","cwd":"/home/user/src/beta","sessionId":"77777777-7777-4777-8777-777777777777","version":"2.1.300","gitBranch":"main"}
