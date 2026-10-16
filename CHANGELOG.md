@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Shift+N`, or the board's button, opens New session: a directory completed with Tab, a prompt, and the group guessed from both, which the session starts in.
   Groups are kept in `~/.local/state/botropolis/groups.json`, for your own home only.
 
+- **A focused group docks a list of its stations, and its line reads their order.**
+  Focusing a group, from its line, its board row or the finder, docks a list beside the map on the side away from the river: each site's sentence, its newest pull request, whose move it is and how long it has waited.
+  `j` and `k` step through it and centre on each station, Enter reads the site's session in the reading pane, and Esc leaves.
+  The finder finds groups by name too, after the sessions it found.
+  `c` on the board, or copy stand-up on a member's card, copies one line saying where each site stands, such as `lib merged; api in progress; infra in review, seen 3 days ago`; an open pull request older than a day says when it was last seen, because Botropolis knows it only as a session last saw it.
+  A line puts its stations in the order they can be read to depend on, from a `Depends-On:` footer, a pull request named beside "once" or "after", a version bump another site tags, or a recap waiting on another site, else in the order they started.
+  A site that waits is drawn unlit until what it waits on is seen, a merge or a tag made by a command a session ran, and its card and row say what unblocked it.
+  A pull request the group's sessions name but none of them opened is a grey station; it is merged or closed only when a session ran the command that did it.
+  A session whose subagents worked in the group's other directories, or which messaged sessions there, is its line's site office, drawn as a square at the head of the line, and grouping counts it above every other signal; messages are matched to sessions by name, and a name two live sessions share counts for neither.
+  A session joined only by its wording offers mute a word on its card, so that word stops joining sessions.
+
 - **Drag a district to another slot.**
   Press on a district's floor or name sign and drag it; the slot it would land on is outlined, and it stays where you drop it.
   Dropping it on another district swaps the two, and the ring just outside the city takes it too.
