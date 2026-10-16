@@ -383,14 +383,7 @@ func (g *Game) Update() error {
 	if g.screenshot == "" && !g.driven {
 		g.watchFocus()
 	}
-	x, y := ebiten.CursorPosition()
-	cursor := city.Point{X: float64(x), Y: float64(y)}
-	if g.hoverSet {
-		cursor = g.hover
-	}
-	if g.play.shown {
-		cursor = g.play.pointer
-	}
+	cursor := g.pointer()
 	g.scene.PointerMove(cursor)
 	g.hoverSprites(cursor)
 
@@ -489,6 +482,19 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 // just reports a key pressed this frame, by hand or by the script.
 func (g *Game) just(key ebiten.Key) bool {
 	return g.scripted == key || g.clicked == key || inpututil.IsKeyJustPressed(key)
+}
+
+// pointer is where the pointer is: the mouse, or the point a --hover
+// or a script parked it at.
+func (g *Game) pointer() city.Point {
+	if g.play.shown {
+		return g.play.pointer
+	}
+	if g.hoverSet {
+		return g.hover
+	}
+	x, y := ebiten.CursorPosition()
+	return city.Point{X: float64(x), Y: float64(y)}
 }
 
 // keyByName finds an Ebitengine key by its name, case-insensitively:
@@ -702,9 +708,9 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 		g.drawOverlays(screen, width, height, false)
 		return
 	}
+	g.drawExplain(screen, width, height)
 	g.chrome(screen, width, height)
 	g.drawOverlays(screen, width, height, true)
-	g.drawExplain(screen, width, height)
 	if g.viewKey {
 		g.drawViewKey(screen, width, height)
 	}

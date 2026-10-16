@@ -32,9 +32,9 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	if box, ok := ui.LayoutMinimap(th, width, height, bottom); ok {
 		g.minimap(screen, box)
 	}
-	x, y := ebiten.CursorPosition()
+	pointer := g.pointer()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
-	hint := g.buttonHint(city.Point{X: float64(x), Y: float64(y)})
+	hint := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
 	g.pinnedKinds = nil
 	if g.sidebar {
@@ -52,7 +52,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		g.pinned = pinned
 		g.pinnedKinds = g.scene.Actions()
 	}
-	if st, ok := g.stripHover(city.Point{X: float64(x), Y: float64(y)}); ok {
+	if st, ok := g.stripHover(pointer); ok {
 		g.card(screen, ui.LayoutCard(th, g.scene.City().StateCard(st), bounds, g.faces.Measure))
 	} else if hover := g.scene.Hover(); hover.Building == nil || hover.Building != g.scene.Selected() {
 		if card, ok := g.scene.Card(); ok {
