@@ -1,10 +1,12 @@
 package render
 
 import (
+	"image/color"
 	"path/filepath"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
@@ -72,7 +74,9 @@ func (p *closeUp) pausedIDs() []string { return p.marked(p.paused) }
 // terminal cannot.
 func pausable(s state.Session) bool { return s.Kind == claude.KindBackground }
 
-// line is a row as the panel shows it.
+// line is a row's words: its title and project, and why it cannot be
+// paused or what pausing it would do. Whether it is marked pause or
+// pinned is drawn as its box and its pin mark.
 func (p *closeUp) line(i int) string {
 	s := p.rows[i]
 	title := s.Title
@@ -83,19 +87,67 @@ func (p *closeUp) line(i int) string {
 	switch {
 	case !pausable(s):
 		parts = append(parts, "runs in a terminal — stays running")
-	case p.paused[s.ID] && s.State == state.Working:
-		parts = append(parts, "pause", "working — pausing interrupts it")
-	case p.paused[s.ID]:
-		parts = append(parts, "pause")
 	case s.State == state.Working:
-		parts = append(parts, "leave running", "working — pausing interrupts it")
-	default:
-		parts = append(parts, "leave running")
-	}
-	if p.pinned[s.ID] {
-		parts = append(parts, "pinned for next time")
+		parts = append(parts, "working — pausing interrupts it")
 	}
 	return strings.Join(parts, "  ·  ")
+}
+
+// closeUpRow is a row as laid out: its box for pause, when it can be
+// paused, its pin mark, and its words.
+type closeUpRow struct {
+	Rect, Box, Pin  city.Rect
+	HasBox, Checked bool
+	Pinned          bool
+	Text            ui.Text
+}
+
+// metrics are the grid and a line's height, measured when there are
+// faces and estimated when there are none, as in tests.
+func (g *Game) metrics() (float64, float64, ui.Measure) {
+	if g.faces == nil {
+		return 8, 16, func(s string, _ ui.Size) (float64, float64) { return 7 * float64(len([]rune(s))), 16 }
+	}
+	_, lineH := g.faces.Measure("", ui.Body)
+	return g.theme.Grid(), lineH, g.faces.Measure
+}
+
+// plate is the panel for a window.
+func (p *closeUp) plate(g *Game, width, height float64) city.Rect {
+	grid, lineH, _ := g.metrics()
+	w := min(width-8*grid, 760)
+	h := float64(len(p.rows)+6)*(lineH+grid) + 2*grid
+	if p.err != "" {
+		h += lineH
+	}
+	return city.RectAt((width-w)/2, (height-h)/2, w, h)
+}
+
+// layout lays the rows out: a box for pause at the left, then the words,
+// then the pin mark at the right.
+func (p *closeUp) layout(g *Game, width, height float64) []closeUpRow {
+	grid, lineH, measure := g.metrics()
+	plate := p.plate(g, width, height)
+	x, y := plate.Min.X+2*grid, plate.Min.Y+2*grid+4*lineH+4*grid
+	box := lineH * 0.8
+	pinW, _ := measure("pin", ui.Small)
+	pinW = max(pinW, box)
+	rows := make([]closeUpRow, 0, len(p.rows))
+	for i, s := range p.rows {
+		r := closeUpRow{
+			Rect:    city.RectAt(plate.Min.X+grid, y-grid/2, plate.Width()-2*grid, lineH+grid),
+			Box:     city.RectAt(x, y+(lineH-box)/2, box, box),
+			HasBox:  pausable(s),
+			Checked: p.paused[s.ID],
+			Pin:     city.RectAt(plate.Max.X-2*grid-pinW, y, pinW, lineH),
+			Pinned:  p.pinned[s.ID],
+		}
+		textX := x + box + grid
+		r.Text = ui.Text{Text: ui.Fit(p.line(i), r.Pin.Min.X-grid-textX, ui.Body, measure), At: city.Point{X: textX, Y: y}, Size: ui.Body}
+		rows = append(rows, r)
+		y += lineH + grid
+	}
+	return rows
 }
 
 func (p *closeUp) keys(g *Game) bool {
@@ -132,42 +184,89 @@ func (p *closeUp) keys(g *Game) bool {
 	return true
 }
 
-func (p *closeUp) click(g *Game, at city.Point) bool { return true }
+// click toggles the pause box or the pin mark under the pointer.
+func (p *closeUp) click(g *Game, at city.Point) bool {
+	size := g.scene.Size()
+	for i, r := range p.layout(g, size.X, size.Y) {
+		id := p.rows[i].ID
+		switch {
+		case r.HasBox && r.Box.Contains(at):
+			p.paused[id] = !p.paused[id]
+			p.selected = i
+		case r.Pin.Contains(at):
+			p.pinned[id] = !p.pinned[id]
+			p.selected = i
+		}
+	}
+	return true
+}
 
 func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	scrim := th.Palette.Panel
 	scrim.A = 0x60
 	g.roundRect(screen, city.RectAt(0, 0, width, height), 0, scrim)
-	grid := th.Grid()
-	_, lineH := g.faces.Measure("", ui.Body)
-	w := min(width-8*grid, 760)
-	h := float64(len(p.rows)+5)*(lineH+grid) + 2*grid
-	if p.err != "" {
-		h += lineH
-	}
-	plate := city.RectAt((width-w)/2, (height-h)/2, w, h)
+	grid, lineH, _ := g.metrics()
+	plate := p.plate(g, width, height)
 	g.roundRect(screen, plate, th.Radius(), th.Palette.Panel)
 	x, y := plate.Min.X+2*grid, plate.Min.Y+2*grid
 	g.text(screen, city.Point{X: x, Y: y}, "Close up", ui.Body, th.Palette.Text)
 	y += lineH + grid
-	g.text(screen, city.Point{X: x, Y: y}, city.ActionCloseUp.Describe(), ui.Small, th.Palette.Dim)
+	room := plate.Width() - 4*grid
+	g.text(screen, city.Point{X: x, Y: y}, ui.Fit(city.ActionCloseUp.Describe(), room, ui.Small, g.faces.Measure), ui.Small, th.Palette.Dim)
 	y += lineH
-	g.text(screen, city.Point{X: x, Y: y}, "pause keeps the conversation; you can resume it", ui.Small, th.Palette.Dim)
-	y += lineH + 2*grid
-	for i := range p.rows {
+	g.text(screen, city.Point{X: x, Y: y}, ui.Fit("pause stops a session for now and keeps its conversation; pin marks what to start with next time", room, ui.Small, g.faces.Measure), ui.Small, th.Palette.Dim)
+	rows := p.layout(g, width, height)
+	for i, r := range rows {
 		if i == p.selected {
-			g.roundRect(screen, city.RectAt(plate.Min.X+grid, y-grid/2, w-2*grid, lineH+grid), 0, th.Palette.Hairline)
+			g.roundRect(screen, r.Rect, 0, th.Palette.Hairline)
 		}
-		g.text(screen, city.Point{X: x, Y: y}, ui.Fit(p.line(i), w-4*grid, ui.Body, g.faces.Measure), ui.Body, th.Palette.Text)
-		y += lineH + grid
+		if r.HasBox {
+			g.checkbox(screen, r.Box, r.Checked)
+		}
+		g.text(screen, r.Text.At, r.Text.Text, r.Text.Size, th.Palette.Text)
+		mark := r.Pin.Center()
+		radius := float32(r.Box.Width() / 2)
+		if r.Pinned {
+			vector.FillCircle(screen, float32(mark.X), float32(mark.Y), radius, th.Palette.Accent, true)
+		} else {
+			vector.StrokeCircle(screen, float32(mark.X), float32(mark.Y), radius, 1.5, th.Palette.Dim, true)
+		}
 	}
-	y += grid
+	if len(rows) > 0 {
+		head := rows[0].Rect.Min.Y - lineH - grid/2
+		g.text(screen, city.Point{X: rows[0].Box.Min.X, Y: head}, "pause", ui.Small, th.Palette.Dim)
+		pinW, _ := g.faces.Measure("pin", ui.Small)
+		g.text(screen, city.Point{X: rows[0].Pin.Center().X - pinW/2, Y: head}, "pin", ui.Small, th.Palette.Dim)
+	}
+	y = plate.Max.Y - lineH - 2*grid
 	if p.err != "" {
-		g.text(screen, city.Point{X: x, Y: y}, p.err, ui.Small, th.Palette.NeedsYou)
-		y += lineH
+		g.text(screen, city.Point{X: x, Y: y - lineH}, p.err, ui.Small, th.Palette.NeedsYou)
 	}
-	g.text(screen, city.Point{X: x, Y: y}, "p pause / leave running  ·  a all  ·  n none  ·  space pin  ·  enter close up  ·  esc leave", ui.Small, th.Palette.Dim)
+	g.text(screen, city.Point{X: x, Y: y}, "click a box, or p, to pause  ·  a all  ·  n none  ·  space or click pin  ·  enter close up  ·  esc leave", ui.Small, th.Palette.Dim)
+}
+
+// checkbox is a box, ticked when checked.
+func (g *Game) checkbox(screen *ebiten.Image, box city.Rect, checked bool) {
+	th := g.theme
+	if checked {
+		g.roundRect(screen, box, th.Radius()/3, th.Palette.Accent)
+		tick := []city.Point{
+			{X: box.Min.X + box.Width()*0.22, Y: box.Min.Y + box.Height()*0.52},
+			{X: box.Min.X + box.Width()*0.42, Y: box.Min.Y + box.Height()*0.72},
+			{X: box.Min.X + box.Width()*0.78, Y: box.Min.Y + box.Height()*0.3},
+		}
+		for i := 1; i < len(tick); i++ {
+			vector.StrokeLine(screen, float32(tick[i-1].X), float32(tick[i-1].Y), float32(tick[i].X), float32(tick[i].Y), float32(max(1.5, box.Width()/7)), th.Palette.Panel, true)
+		}
+		return
+	}
+	g.strokeRound(screen, box, th.Palette.Dim)
+}
+
+// strokeRound outlines a rect.
+func (g *Game) strokeRound(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
+	vector.StrokeRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), 1.5, c, true)
 }
 
 // quitButton is the close up button beside the quit prompt, while the

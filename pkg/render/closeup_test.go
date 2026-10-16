@@ -127,6 +127,49 @@ func TestCloseUpPanel(t *testing.T) {
 		})
 	}
 
+	t.Run("when the panel is laid out", func(t *testing.T) {
+		g, _, p := opened(t)
+		pressKey(t, g, ebiten.KeyP, false)
+		size := g.scene.Size()
+		rows := p.layout(g, size.X, size.Y)
+
+		t.Run("a row marked pause should draw its box checked", func(t *testing.T) {
+			assert.True(t, rows[0].Checked)
+		})
+
+		t.Run("a row left running should draw its box unchecked", func(t *testing.T) {
+			assert.False(t, rows[1].Checked)
+		})
+
+		t.Run("a terminal row should draw no box", func(t *testing.T) {
+			assert.False(t, rows[2].HasBox)
+		})
+
+		t.Run("and the box is clicked", func(t *testing.T) {
+			p.click(g, rows[1].Box.Center())
+
+			t.Run("a click on the box should toggle it", func(t *testing.T) {
+				assert.Equal(t, []string{"bg", "busy"}, p.pausedIDs())
+			})
+		})
+
+		t.Run("and the pin mark is clicked", func(t *testing.T) {
+			p.click(g, rows[2].Pin.Center())
+
+			t.Run("a click on the pin mark should pin it", func(t *testing.T) {
+				assert.Equal(t, []string{"term"}, p.pinnedIDs())
+			})
+		})
+
+		t.Run("and a terminal row's place for a box is clicked", func(t *testing.T) {
+			p.click(g, city.Point{X: rows[1].Box.Center().X, Y: rows[2].Pin.Center().Y})
+
+			t.Run("it should still not be marked pause", func(t *testing.T) {
+				assert.NotContains(t, p.pausedIDs(), "term")
+			})
+		})
+	})
+
 	t.Run("when Space is pressed on a row", func(t *testing.T) {
 		g, _, p := opened(t)
 		pressKey(t, g, ebiten.KeySpace, false)
