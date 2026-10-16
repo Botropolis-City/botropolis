@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Groups: sessions across directories that are one piece of work.**
   Botropolis groups sessions by what they already say and how they were started: a shared ticket key, pull-request link or `Depends-On:` line, agent teams and sessions that message each other, the same pasted text, rare words in common, a shared branch key or files, and sessions started or continued close together.
   Nothing is tagged: each join says why, a guess is marked as one, and prompts are read where Claude Code keeps them and never copied.
+  A group is named after the reference its members share and the words more of them use than your other sessions do, in the order they were said, so common words such as "allow" or "through" never name it.
   A member wears a badge with its group's short name and a dot in the tone of whose move it is (yours, the agents', someone else's, or nobody's), and its card names the group and why it joined.
   Each group is drawn as a line across its districts, with a station in each in the order its work started; a group lines setting hides them.
   `g`, or a click on City Hall, opens a board of every group with what happened last time, what is next, whose move it is and how long it has waited, and Enter focuses the map on one.
