@@ -46,7 +46,6 @@ var (
 	colorStreetLine  = color.NRGBA{0xd8, 0xd8, 0xc8, 0x80}
 	colorHighlight   = color.NRGBA{0xff, 0xff, 0xff, 0xa0}
 
-	townGrass = [3][2]int{{0, 0}, {1, 0}, {2, 0}}
 	townTrees = [3][2]int{{4, 0}, {4, 1}, {5, 0}}
 )
 
@@ -73,12 +72,9 @@ func (g *Game) ground(screen *ebiten.Image, cam *city.Camera, c *city.City, widt
 	if bounds.Area() == 0 {
 		return
 	}
+	// The island's texture paints the plan's ground and the river too, in
+	// this view's own palette. Item 85.
 	g.shore(screen, cam, c)
-	flat := colorGround
-	if c.Night {
-		flat = colorGroundNight
-	}
-	g.rect(screen, cam, bounds, g.flat(flat))
 	if g.sprites == nil || !detailed {
 		return
 	}
@@ -90,12 +86,6 @@ func (g *Game) ground(screen *ebiten.Image, cam *city.Camera, c *city.City, widt
 		return
 	}
 	scale := groundScale(c.Night)
-	for row := row0; row < row1; row++ {
-		for col := col0; col < col1; col++ {
-			r := city.RectAt(float64(col)*city.Tile, float64(row)*city.Tile, city.Tile, city.Tile)
-			g.drawTile(screen, cam, g.sprites.town.tile(townGrass[0][0], townGrass[0][1]), r, scale)
-		}
-	}
 	for _, t := range c.Trees {
 		if !g.scene.Scenery() {
 			break
@@ -115,9 +105,6 @@ func (g *Game) flatCells(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 		water = colorWaterNight
 	}
 	water = g.flat(water)
-	for _, rc := range c.RiverCells {
-		g.rect(screen, cam, rc.Cell.Rect(), water)
-	}
 	if c.Plaza.Area() > 0 {
 		g.rect(screen, cam, c.Plaza, g.flat(colorPlazaFloor))
 	}

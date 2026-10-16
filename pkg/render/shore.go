@@ -40,6 +40,23 @@ var (
 	}
 )
 
+// shorePaletteFor is the island's palette for a view: the top-down map
+// keeps its own darker ground and water, and the island round it takes
+// them too, so the plan does not read as a rectangle laid on it.
+func shorePaletteFor(flat, night bool) shorePalette {
+	p := dayShore
+	if night {
+		p = nightShore
+	}
+	if flat {
+		p.land, p.river = colorGround, colorWater
+		if night {
+			p.land, p.river = colorGroundNight, colorWaterNight
+		}
+	}
+	return p
+}
+
 // shorePaint is the colour of a kind of ground by day, t across its band.
 func shorePaint(g city.Ground, t float64) color.NRGBA { return dayShore.paint(g, t) }
 
@@ -69,18 +86,26 @@ func mix(a, b color.NRGBA, t float64) color.NRGBA {
 type shoreLayer struct {
 	island city.Island
 	night  bool
-	sea    city.Rect
-	img    *ebiten.Image
+	flat   bool
+	// receded is the top-down view stepping its ground back for a view.
+	receded bool
+	sea     city.Rect
+	img     *ebiten.Image
 }
 
-func (g *Game) shoreImage(c *city.City) *shoreLayer {
+func (g *Game) shoreImage(c *city.City, flat bool) *shoreLayer {
 	island := c.Island()
-	if g.shoreLayer != nil && g.shoreLayer.island == island && g.shoreLayer.night == c.Night {
-		return g.shoreLayer
+	receded := flat && g.viewing()
+	if l := g.shoreLayer; l != nil && l.island == island && l.night == c.Night && l.flat == flat && l.receded == receded {
+		return l
 	}
-	palette := dayShore
-	if c.Night {
-		palette = nightShore
+	palette := shorePaletteFor(flat, c.Night)
+	if flat {
+		// The top-down map steps its ground back while a view is on, and
+		// the island steps back with it.
+		for _, col := range []*color.NRGBA{&palette.land, &palette.river, &palette.sand, &palette.shallows, &palette.sea, &palette.farShore} {
+			*col = g.flat(*col)
+		}
 	}
 	sea := island.Sea()
 	w, h := int(sea.Width()/shoreTexel), int(sea.Height()/shoreTexel)
@@ -98,7 +123,7 @@ func (g *Game) shoreImage(c *city.City) *shoreLayer {
 	if g.shoreLayer != nil {
 		g.shoreLayer.img.Deallocate()
 	}
-	g.shoreLayer = &shoreLayer{island: island, night: c.Night, sea: sea, img: img}
+	g.shoreLayer = &shoreLayer{island: island, night: c.Night, flat: flat, receded: receded, sea: sea, img: img}
 	return g.shoreLayer
 }
 
@@ -107,7 +132,7 @@ func (g *Game) shore(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	if c.Bounds().Area() == 0 {
 		return
 	}
-	s := g.shoreImage(c)
+	s := g.shoreImage(c, cam.Projection != city.Isometric)
 	project := func(p city.Point) city.Point { return cam.Project(p).Add(cam.Offset).Scale(cam.Zoom) }
 	o := project(s.sea.Min)
 	ex := project(city.Point{X: s.sea.Min.X + shoreTexel, Y: s.sea.Min.Y}).Sub(o)
