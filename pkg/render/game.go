@@ -825,8 +825,9 @@ func (g *Game) clock() float64 {
 	return g.motion.ambient
 }
 
-// attention is the time the states that want you pulse to. With motion
-// reduced it stands still at the point where the pulse is at full colour.
+// attention is the time the states that want you pulse to. At still,
+// attention is colour only: the clock stands at the point where the pulse
+// is at full colour (item 89).
 func (g *Game) attention() float64 {
 	if g.reduced {
 		return pulsePeriod / 4

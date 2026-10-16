@@ -31,6 +31,28 @@ func TestMotionClock(t *testing.T) {
 		})
 	}
 
+	// Aria, 2026-10-16: at still, attention is colour only.
+	attentionAt := func(level city.Liveliness, after time.Duration) float64 {
+		g := &Game{scene: city.NewScene(city.NewLayout()), record: "/frames", started: start}
+		g.setLiveliness(level)
+		g.ticks = uint64(after * liveTPS / time.Second)
+		return g.attention()
+	}
+
+	t.Run("when the level is still", func(t *testing.T) {
+		t.Run("it should hold the attention colour rather than pulse it", func(t *testing.T) {
+			assert.Equal(t, attentionAt(city.Still, time.Second), attentionAt(city.Still, 2*time.Second))
+		})
+	})
+
+	for _, level := range city.LivelinessLevels[1:] {
+		t.Run("when the level is "+level.String()+" and attention is wanted", func(t *testing.T) {
+			t.Run("it should pulse", func(t *testing.T) {
+				assert.NotEqual(t, attentionAt(level, time.Second), attentionAt(level, 2*time.Second))
+			})
+		})
+	}
+
 	t.Run("when the level changes partway", func(t *testing.T) {
 		m := newMotionClock(start)
 		m.step(start.Add(2*time.Second), city.Lively)
