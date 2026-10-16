@@ -12,8 +12,8 @@ import (
 // reports and never gates: the test beside it gates on steps, ticks and
 // work. Item 91.
 //
-// The terminal, for comparison: cd to the directory and run claude — not
-// yet timed by hand.
+// The terminal, for comparison: cd to the directory and run claude —
+// about 10 s, timed by hand by Aria on 2026-10-16.
 func BenchmarkStartASessionAnywhere(b *testing.B) {
 	homes := []struct {
 		name string

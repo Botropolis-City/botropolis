@@ -12,7 +12,7 @@ import (
 // test beside it gates on steps, ticks and work. Item 91.
 //
 // The terminal, for comparison: open a Claude session and ask it to
-// search — not yet timed by hand.
+// search — about 10 s, timed by hand by Aria on 2026-10-16.
 func BenchmarkFindByThreeWords(b *testing.B) {
 	homes := []struct {
 		name string

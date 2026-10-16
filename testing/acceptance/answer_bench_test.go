@@ -13,7 +13,7 @@ import (
 // Item 91.
 //
 // The terminal, for comparison: find the session's terminal on whichever
-// workspace it is on — not yet timed by hand.
+// workspace it is on — about 10 s, timed by hand by Aria on 2026-10-16.
 func BenchmarkAnswerAndComeBack(b *testing.B) {
 	hamlet := filepath.Join("..", "..", "demo", "scenarios", "hamlet.yaml")
 	homes := []struct {
