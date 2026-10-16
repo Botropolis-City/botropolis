@@ -91,6 +91,41 @@ func TestDressLot(t *testing.T) {
 			}
 		})
 
+		t.Run("it should grow along the whole length of both front edges", func(t *testing.T) {
+			r := b.Rect
+			var east, south [5]int
+			for _, w := range d.Weeds {
+				switch {
+				case w.At.X > r.Max.X && w.At.Y >= r.Min.Y && w.At.Y <= r.Max.Y:
+					east[min(4, int(5*(w.At.Y-r.Min.Y)/r.Height()))]++
+				case w.At.Y > r.Max.Y && w.At.X >= r.Min.X && w.At.X <= r.Max.X:
+					south[min(4, int(5*(w.At.X-r.Min.X)/r.Width()))]++
+				}
+			}
+			for i := range 5 {
+				assert.Positive(t, east[i], "east fifth %d", i)
+				assert.Positive(t, south[i], "south fifth %d", i)
+			}
+		})
+
+		t.Run("it should reach further out in front than behind", func(t *testing.T) {
+			r := b.Rect
+			var front, back []float64
+			for _, w := range d.Weeds {
+				switch {
+				case w.At.X > r.Max.X:
+					front = append(front, w.At.X-r.Max.X)
+				case w.At.Y > r.Max.Y:
+					front = append(front, w.At.Y-r.Max.Y)
+				case w.At.X < r.Min.X:
+					back = append(back, r.Min.X-w.At.X)
+				case w.At.Y < r.Min.Y:
+					back = append(back, r.Min.Y-w.At.Y)
+				}
+			}
+			assert.Greater(t, mean(front), mean(back))
+		})
+
 		t.Run("it should grow some of it in the cracks", func(t *testing.T) {
 			inCracks := 0
 			for _, w := range d.Weeds {

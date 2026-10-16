@@ -62,11 +62,15 @@ func dressLot(b *city.Building, mowing float64) lot {
 	return d
 }
 
+// frontReach is how much further out than behind growth reaches in
+// front of a building, as a share of its half of the gap.
+const frontReach = 1.6
+
 // lotRect is a building's lot: its footprint and its half of the gap to
-// its neighbours.
+// its neighbours, reaching further out in front, where it is seen.
 func lotRect(b *city.Building) city.Rect {
 	g := city.BuildingGap / 2
-	return city.Rect{Min: city.Point{X: b.Rect.Min.X - g, Y: b.Rect.Min.Y - g}, Max: city.Point{X: b.Rect.Max.X + g, Y: b.Rect.Max.Y + g}}
+	return city.Rect{Min: city.Point{X: b.Rect.Min.X - g, Y: b.Rect.Min.Y - g}, Max: city.Point{X: b.Rect.Max.X + frontReach*g, Y: b.Rect.Max.Y + frontReach*g}}
 }
 
 func shrink(r city.Rect, by float64) city.Rect {
@@ -115,18 +119,31 @@ func cracks(b *city.Building) [][]city.Point {
 	return out
 }
 
+// frontTufts is how many tufts grow along each front edge, one in each
+// stretch of it, so the growth runs the whole length of the front.
+const frontTufts = 7
+
 // growth is what grows on an overgrown lot: grass in each crack, tufts
-// at the base of the walls and in the yard, and now and then a sapling,
-// seeded by the session's id so a lot always grows the same way.
+// the whole length of both front edges reaching out into the yard, a few
+// at the back, and now and then a sapling, seeded by the session's id so
+// a lot always grows the same way.
 func growth(b *city.Building, cracks [][]city.Point) []weed {
 	grass := overgrowthPieces[:len(overgrowthPieces)-1]
 	var out []weed
 	for i, c := range cracks {
 		out = append(out, weed{Piece: grass[int(draw(b, "crackgrass", i)*float64(len(grass)))], At: c[1]})
 	}
-	tufts := 10 + int(draw(b, "tufts", 0)*4)
+	for _, side := range []int{1, 2} {
+		for i := 0; i < frontTufts; i++ {
+			n := side*frontTufts + i
+			along := (float64(i) + 0.2 + 0.6*draw(b, "frontalong", n)) / frontTufts
+			at := yard(b, side, along, 0.1+(frontReach-0.2)*draw(b, "frontout", n))
+			out = append(out, weed{Piece: grass[int(draw(b, "front", n)*float64(len(grass)))], At: at})
+		}
+	}
+	tufts := 4 + int(draw(b, "tufts", 0)*3)
 	for i := 0; i < tufts; i++ {
-		side := int(draw(b, "tuftside", i) * 4)
+		side := 3 * int(draw(b, "tuftside", i)*2)
 		at := yard(b, side, 0.05+0.9*draw(b, "tuftalong", i), 0.05+0.85*draw(b, "tuftout", i))
 		out = append(out, weed{Piece: grass[int(draw(b, "tuft", i)*float64(len(grass)))], At: at})
 	}
@@ -135,4 +152,79 @@ func growth(b *city.Building, cracks [][]city.Point) []weed {
 		out = append(out, weed{Piece: kitSapling, At: yard(b, side, 0.2+0.6*draw(b, "saplingalong", 0), 0.6)})
 	}
 	return out
+}
+
+// districtGround is a whole district's floor once every session on it
+// has reached a rung: it wears, cracks once shuttered, and once overgrown
+// turns mossy and grows edge to edge (item 86).
+type districtGround struct {
+	Wear   float64
+	Mossy  bool
+	Cracks [][]city.Point
+	Weeds  []weed
+}
+
+// districtStep is how far apart growth stands on an overgrown district's
+// floor.
+const districtStep = city.Tile * 1.1
+
+// dressDistrict dresses a district's floor for its rung: nothing while
+// any session on it is live.
+func dressDistrict(d *city.District) districtGround {
+	if d.Depot || d.Rung == "" || d.Rung == state.RungLive {
+		return districtGround{}
+	}
+	g := districtGround{Wear: wear[d.Rung], Mossy: d.Rung == state.RungOvergrown}
+	r := d.Rect
+	pad := city.Point{X: r.Width() * 0.02, Y: r.Height() * 0.02}
+	onFloor := func(p city.Point) bool {
+		if p.X < r.Min.X+pad.X || p.X > r.Max.X-pad.X || p.Y < r.Min.Y+pad.Y || p.Y > r.Max.Y-pad.Y {
+			return false
+		}
+		for _, b := range d.Buildings {
+			if b.Rect.Contains(p) {
+				return false
+			}
+		}
+		return true
+	}
+	seed := func(what string, i int) float64 {
+		f := fnv.New32a()
+		_, _ = f.Write([]byte(d.Root + "/" + what + "/" + strconv.Itoa(i)))
+		return float64(f.Sum32()%10000) / 10000
+	}
+	if d.Rung == state.RungShuttered || d.Rung == state.RungOvergrown {
+		n := 6 + int(r.Width()*r.Height()/(city.BuildingSize*city.BuildingSize))
+		for i := 0; i < n; i++ {
+			at := city.Point{X: r.Min.X + r.Width()*seed("cx", i), Y: r.Min.Y + r.Height()*seed("cy", i)}
+			var crack []city.Point
+			for step := 0; step < 4 && onFloor(at); step++ {
+				crack = append(crack, at)
+				at = at.Add(city.Point{X: (seed("dx", i*4+step) - 0.3) * city.Tile, Y: (seed("dy", i*4+step) - 0.5) * city.Tile * 0.6})
+			}
+			if len(crack) > 1 {
+				g.Cracks = append(g.Cracks, crack)
+			}
+		}
+	}
+	if !g.Mossy {
+		return g
+	}
+	grass := overgrowthPieces[:len(overgrowthPieces)-1]
+	i := 0
+	for y := r.Min.Y + districtStep/2; y < r.Max.Y; y += districtStep {
+		for x := r.Min.X + districtStep/2; x < r.Max.X; x += districtStep {
+			i++
+			at := city.Point{X: x + (seed("jx", i)-0.5)*districtStep*0.8, Y: y + (seed("jy", i)-0.5)*districtStep*0.8}
+			if !onFloor(at) {
+				continue
+			}
+			piece := grass[int(seed("grass", i)*float64(len(grass)))]
+			if seed("sapling", i) < 0.06 {
+				piece = kitSapling
+			}
+			g.Weeds = append(g.Weeds, weed{Piece: piece, At: at})
+		}
+	}
+	return g
 }

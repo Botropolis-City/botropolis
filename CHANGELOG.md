@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Each rung is drawn.**
   A stopped building's windows go dark, with no beacon or sign; a shuttered one has planks nailed across each of its own windows; and its lot ages: the paving wears and cracks, and an overgrown lot grows grass in the cracks, tufts at the base of the walls and in the yard, and now and then a sapling.
   When an overgrown session wakes, its lot is mowed in 1.5 s, or cross-faded in 0.3 s under reduced motion.
+- **A district ages as a whole once every session on it has.** A district takes the freshest rung among its sessions: when all of them are resting its whole floor wears, when all are shuttered it cracks, and when all are overgrown it turns mossy and grows over edge to edge. One live session keeps it as it is. An overgrown building grows along the whole of its front.
 - **Packing up and unpacking are drawn.** A truck carries the crate between its lot and the depot over 2 s; under reduced motion the session fades in where it lands.
 - **Pack up and unpack.**
   *Pack up* takes a session off the map and keeps it as a crate in the depot along the city's south edge, a row per project, oldest first; *Unpack* brings it back to its old lot.

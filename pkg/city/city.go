@@ -83,7 +83,10 @@ type District struct {
 	// Depot marks the one district that keeps every packed-up session,
 	// a row per district (item 86).
 	Depot bool
-	Rows  []DepotRow
+	// Rung is the freshest rung among the district's sessions: its whole
+	// lot ages only when every session on it has (item 86).
+	Rung state.Rung
+	Rows []DepotRow
 }
 
 type roadNote struct {
@@ -364,6 +367,7 @@ func buildDistrict(root string, sessions []state.Session, layout *Layout, now ti
 		at := Point{X: DistrictPadding + float64(column)*(BuildingSize+BuildingGap), Y: DistrictPadding + float64(row)*(BuildingSize+BuildingGap)}
 		district.Buildings = append(district.Buildings, newBuilding(s, slots[s.ID], at, BuildingSize, s.Rung(now, ladder)))
 	}
+	district.Rung = freshest(district.Buildings)
 	sort.Slice(district.Buildings, func(i, j int) bool {
 		return district.Buildings[i].slot < district.Buildings[j].slot
 	})
@@ -654,4 +658,22 @@ func (d *District) Card() Card {
 		lines = append(lines, "roads    "+strings.Join(parts, ", "))
 	}
 	return d.face(lines)
+}
+
+// rungOrder is the ladder from freshest to quietest.
+var rungOrder = map[state.Rung]int{state.RungLive: 0, state.RungResting: 1, state.RungShuttered: 2, state.RungOvergrown: 3}
+
+// freshest is the freshest rung among buildings, or live when there are
+// none.
+func freshest(buildings []*Building) state.Rung {
+	if len(buildings) == 0 {
+		return state.RungLive
+	}
+	best := state.RungOvergrown
+	for _, b := range buildings {
+		if rungOrder[b.Rung] < rungOrder[best] {
+			best = b.Rung
+		}
+	}
+	return best
 }

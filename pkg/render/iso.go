@@ -1388,6 +1388,27 @@ func (g *Game) dressing(b *city.Building) lot {
 // the worn paving, its cracks, and the growth in them, at the base of
 // the walls and in the yard. Item 86.
 func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
+	width := float32(math.Max(1, 1.2*cam.Zoom))
+	for _, d := range c.Districts {
+		ground := dressDistrict(d)
+		if ground.Wear == 0 {
+			continue
+		}
+		stain := colorLotWear
+		if ground.Mossy {
+			stain = colorLotMoss
+		}
+		stain.A = uint8(255 * ground.Wear)
+		g.poly(screen, cam, d.Rect, stain)
+		for _, crack := range ground.Cracks {
+			for i := 1; i < len(crack); i++ {
+				g.line(screen, cam, crack[i-1], crack[i], width, colorLotCrack)
+			}
+		}
+		for _, w := range ground.Weeds {
+			g.kit(screen, cam, w.Piece, 0, w.At, nil)
+		}
+	}
 	for _, b := range c.Buildings() {
 		if g.scene.Dimmed(b) {
 			continue
