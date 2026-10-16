@@ -293,8 +293,17 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	if g.scene.Hauling(b.Session.ID) && !g.reduced {
 		return
 	}
+	site, building := g.scene.Construction(b.Session.ID)
+	building = building && !b.Vacant
+	drawSite := func() {
+		if building {
+			foot := cam.WorldToScreen(b.Rect.Center())
+			g.drawSite(screen, lotCorners(cam, b.Rect), foot.Y-g.kitTop(cam, buildingPiece(b)), site, cam.Zoom)
+		}
+	}
 	if b.Vacant || rise <= 0 {
 		g.vacantPlot(screen, cam, b, selected)
+		drawSite()
 		return
 	}
 	var tint *ebiten.ColorScale
@@ -327,6 +336,9 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		faded.ScaleAlpha(float32(fade))
 		tint = faded
 	}
+	if building {
+		tint = buildTint(tint, site)
+	}
 	dress := g.dressing(b)
 	settle, progress := g.scene.Settling(b.Session.ID)
 	settling := settle != city.SettleNone && rise >= 1 && !g.scene.Dimmed(b) && !g.viewing()
@@ -334,6 +346,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		tint = settleTint(settle, progress)
 	}
 	r := g.kitRising(screen, cam, buildingPiece(b), b.Rect.Center(), tint, rise)
+	drawSite()
 	district := g.scene.City().DistrictOf(b)
 	g.noteHit(r, city.Hit{Building: b, District: district})
 	if r.Area() == 0 || g.scene.Dimmed(b) {

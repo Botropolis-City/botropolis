@@ -1316,7 +1316,7 @@ func TestVoyages(t *testing.T) {
 		})
 
 		t.Run("and it has sailed its time", func(t *testing.T) {
-			clock = clock.Add(city.SailFor + city.RiseFor/2)
+			clock = clock.Add(city.SailFor + city.BuildFor/2)
 
 			t.Run("it should be rising", func(t *testing.T) {
 				r := s.Rising("b")
@@ -1325,7 +1325,7 @@ func TestVoyages(t *testing.T) {
 			})
 
 			t.Run("and it has risen", func(t *testing.T) {
-				clock = clock.Add(city.RiseFor)
+				clock = clock.Add(city.BuildFor)
 
 				t.Run("it should stand and the voyage be over", func(t *testing.T) {
 					assert.InDelta(t, 1, s.Rising("b"), 1e-9)

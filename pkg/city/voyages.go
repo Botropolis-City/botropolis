@@ -22,8 +22,6 @@ const (
 const (
 	// SailFor is how long a tug takes from the river's end to the dock.
 	SailFor = 6 * time.Second
-	// RiseFor is how long a docked session's building takes to rise.
-	RiseFor = 1500 * time.Millisecond
 )
 
 // Voyage is one tug on the river, and whose session it is carrying.
@@ -197,7 +195,7 @@ func (s *Scene) Voyages() []*Voyage {
 		if v.Kind == Departure && v.Progress(now) >= 1 {
 			continue
 		}
-		if v.Kind == Arrival && now.Sub(v.StartedAt) >= SailFor+RiseFor {
+		if v.Kind == Arrival && now.Sub(v.StartedAt) >= SailFor+s.buildFor() {
 			continue
 		}
 		kept = append(kept, v)
@@ -230,19 +228,14 @@ func (s *Scene) Voyages() []*Voyage {
 }
 
 // Rising is how far a session's building has risen: 0 while its tug is
-// still at sea, climbing to 1 over RiseFor once it docks, and 1 for
-// every building that did not arrive by river.
+// still at sea, its floors through the build once it docks (item 89),
+// and 1 for every building that did not arrive by river.
 func (s *Scene) Rising(id string) float64 {
-	now := s.now()
-	for _, v := range s.voyages {
-		if v.SessionID != id || v.Kind != Arrival {
-			continue
-		}
-		since := now.Sub(v.StartedAt)
-		if since < SailFor {
-			return 0
-		}
-		return min(1, float64(since-SailFor)/float64(RiseFor))
+	if site, ok := s.Construction(id); ok {
+		return site.Floors
+	}
+	if v := s.arriving(id); v != nil && s.now().Sub(v.StartedAt) < SailFor {
+		return 0
 	}
 	return 1
 }

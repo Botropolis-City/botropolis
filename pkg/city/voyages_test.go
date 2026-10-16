@@ -118,7 +118,7 @@ func TestVoyagesKeepTheirPlaceAlongTheRun(t *testing.T) {
 // Bug 54. Aria: "it shouldn't just despawn, it should run the whole
 // length of the water or turn off the map or something."
 //
-// An arrival was dropped at SailFor+RiseFor wherever it floated. For a
+// An arrival was dropped at SailFor+BuildFor wherever it floated. For a
 // session whose building rises, the rising covers it. For one that goes
 // away before it docks — every probe, and any short-lived session — the
 // tug reached mid-river and evaporated, and a *second* tug was launched

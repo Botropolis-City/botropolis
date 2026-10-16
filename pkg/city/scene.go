@@ -610,6 +610,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.noteMowing(s.now())
 	s.noteSettling(s.now())
 	s.noteHauls(s.now())
+	s.finishBuilds(s.now())
 	s.holdDepot()
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
