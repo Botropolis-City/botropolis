@@ -1,6 +1,7 @@
 package state_test
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -362,6 +363,62 @@ func TestCatalogue(t *testing.T) {
 			for _, s := range snapshot.Sessions {
 				assert.NotEqual(t, "bbbbbbbb-0000-0000-0000-000000000002", s.ID)
 			}
+		})
+	})
+}
+
+// Item 94. A stopped transcript was read through a 64 KB head-and-tail
+// window, and the plant summed only what the window held, so a long
+// session that stopped yesterday lost most of its last day.
+func TestStoppedTranscriptsInThePowerWindow(t *testing.T) {
+	const sid = "cccccccc-0000-0000-0000-000000000003"
+	bigHome := func(t *testing.T, start time.Time) (*helpers.Home, string) {
+		t.Helper()
+		lines := []string{helpers.UserPrompt(sid, loaderCWD, start.Format(time.RFC3339Nano))}
+		for i := range 1000 {
+			at := start.Add(time.Duration(i) * 30 * time.Second).Format(time.RFC3339Nano)
+			lines = append(lines, helpers.AssistantReply(sid, fmt.Sprintf("msg_%04d", i), at))
+		}
+		home := helpers.NewHome(t)
+		return home, home.Transcript(sid, loaderCWD, lines...)
+	}
+
+	t.Run("when a stopped transcript is larger than the window", func(t *testing.T) {
+		t.Run("and its last activity is inside the power window", func(t *testing.T) {
+			home, path := bigHome(t, now.Add(-20*time.Hour))
+			loader := state.NewLoader(home.Path, alive)
+			snapshot, err := loader.Load(now)
+			require.NoError(t, err)
+			whole, err := claude.ReadTranscript(path)
+			require.NoError(t, err)
+
+			t.Run("it should give the plant what a whole read gives", func(t *testing.T) {
+				assert.Equal(t, state.PowerSince([]claude.Transcript{whole}, now.Add(-state.PowerWindow)), snapshot.Power)
+			})
+
+			t.Run("it should not mark its usage partial", func(t *testing.T) {
+				assert.False(t, sessionByID(t, snapshot, sid).Usage.Partial)
+			})
+
+			t.Run("and it loads again with nothing changed", func(t *testing.T) {
+				before := loader.Reads()
+				_, err := loader.Load(now.Add(time.Second))
+				require.NoError(t, err)
+
+				t.Run("it should read nothing again", func(t *testing.T) {
+					assert.Equal(t, before, loader.Reads())
+				})
+			})
+		})
+
+		t.Run("and its last activity is older than the power window", func(t *testing.T) {
+			home, _ := bigHome(t, now.Add(-7*24*time.Hour))
+			snapshot, err := state.NewLoader(home.Path, alive).Load(now)
+			require.NoError(t, err)
+
+			t.Run("it should still read it through the window", func(t *testing.T) {
+				assert.True(t, sessionByID(t, snapshot, sid).Usage.Partial)
+			})
 		})
 	})
 }

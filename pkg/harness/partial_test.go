@@ -31,9 +31,9 @@ func TestPartialMessageCount(t *testing.T) {
 		t.Helper()
 		home := helpers.NewHome(t)
 		sid := "aaaaaaaa-0000-0000-0000-000000000001"
-		lines := []string{helpers.UserPrompt(sid, cwd, "2026-10-15T09:00:00.000Z")}
+		lines := []string{helpers.UserPrompt(sid, cwd, "2026-10-14T09:00:00.000Z")}
 		for i := 0; i < replies; i++ {
-			lines = append(lines, helpers.AssistantReply(sid, fmt.Sprintf("msg_%04d", i), fmt.Sprintf("2026-10-15T09:%02d:%02d.000Z", (i/60)%60, i%60)))
+			lines = append(lines, helpers.AssistantReply(sid, fmt.Sprintf("msg_%04d", i), fmt.Sprintf("2026-10-14T09:%02d:%02d.000Z", (i/60)%60, i%60)))
 		}
 		home.Transcript(sid, cwd, lines...)
 		return harness.NewClaude(state.NewLoader(home.Path, state.Probes{Alive: func(int) bool { return false }, Attached: func(string) bool { return false }}))

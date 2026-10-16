@@ -151,7 +151,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	// Every stopped session Claude Code still has a transcript for is
 	// catalogued, however old: time ages a session, it never takes one
 	// off the map (item 86).
-	stopped, stoppedSubs, skipped, err := l.catalogue(projectsDir, live)
+	stopped, stoppedSubs, skipped, err := l.catalogue(projectsDir, live, now.Add(-PowerWindow))
 	if err != nil {
 		return snapshot, err
 	}
@@ -215,7 +215,7 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 	return l.stats, nil
 }
 
-func (l *Loader) catalogue(projectsDir string, live map[string]bool) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
+func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince time.Time) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
 	paths, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
 	if err != nil {
 		return nil, nil, nil, err
@@ -238,7 +238,7 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool) ([]claude.T
 		entry, ok := l.parked[path]
 		if !ok || entry.key != key {
 			l.reads++
-			transcript, err := claude.ReadTranscriptWindow(path, stoppedWindowBytes)
+			transcript, err := l.stoppedTranscript(path, powerSince)
 			if err != nil {
 				skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
 				continue
@@ -264,6 +264,19 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool) ([]claude.T
 	}
 	l.parked, l.parkedSubagents = cache, subCache
 	return parked, stoppedSubs, skipped, nil
+}
+
+// stoppedTranscript reads a stopped transcript through the window, and
+// whole if it was active since the plant's window opened, because the
+// plant sums its hours and a window keeps only the head and the tail of
+// them (item 94).
+func (l *Loader) stoppedTranscript(path string, powerSince time.Time) (claude.Transcript, error) {
+	transcript, err := claude.ReadTranscriptWindow(path, stoppedWindowBytes)
+	if err != nil || !transcript.Partial || transcript.LastAt.Before(powerSince) {
+		return transcript, err
+	}
+	l.reads++
+	return claude.ReadTranscript(path)
 }
 
 // stoppedSubagents are a stopped session's subagents, from the cache
