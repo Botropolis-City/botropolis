@@ -22,7 +22,7 @@ Usage: tools/check-publishable [--help]
 Checks:
   1. no employer token appears in any blob or any commit message, anywhere in history
      (only where .publishable-tokens exists; elsewhere it is skipped, and said so)
-  2. every ref the remote advertises is an ancestor of main
+  2. every ref the remote advertises is an ancestor of HEAD, the history being published
      (a remote that cannot be reached is said so, not passed)
   3. every image in the tree is on the reviewed list below
 
@@ -98,8 +98,12 @@ else
     while read -r sha ref; do
         [ -n "${sha}" ] || continue
         case "${ref}" in *"^{}") continue;; esac
-        if ! git merge-base --is-ancestor "${sha}" main 2>/dev/null; then
-            note "${ref} (${sha:0:10}) is not in main's history"
+        # HEAD, not main: what is published is what is about to be pushed,
+        # and a session in a worktree lands with push HEAD:main while the
+        # local main, checked out elsewhere, stays where it was. Measured
+        # against it, every ref anyone else had landed read as unpublishable.
+        if ! git merge-base --is-ancestor "${sha}" HEAD 2>/dev/null; then
+            note "${ref} (${sha:0:10}) is not in the history being published"
         fi
     done <<< "${advertised}"
 fi
@@ -127,7 +131,7 @@ if [ "${fail}" -ne 0 ]; then
     exit 1
 fi
 if [ "${refs}" = "checked" ]; then
-    refs_said="every remote ref is in main"
+    refs_said="every remote ref is in the history being published"
 else
     refs_said="remote refs NOT checked: github could not be reached"
 fi
