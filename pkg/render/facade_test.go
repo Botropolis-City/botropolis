@@ -10,7 +10,8 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 )
 
-// Item 86: planks are nailed across a shuttered building's own windows.
+// Item 86: planks are nailed across a shuttered building's own windows,
+// covering each window's frame and sill, not only its glass.
 func TestPlanks(t *testing.T) {
 	for _, c := range []struct {
 		face  string
@@ -26,9 +27,16 @@ func TestPlanks(t *testing.T) {
 			}
 			planks := planksFor(pane, 7)
 			require.NotEmpty(t, planks)
+			top, bottom, left, right := math.Inf(1), math.Inf(-1), math.Inf(1), math.Inf(-1)
+			for _, p := range planks {
+				for _, corner := range p {
+					top, bottom = math.Min(top, corner.Y), math.Max(bottom, corner.Y)
+					left, right = math.Min(left, corner.X), math.Max(right, corner.X)
+				}
+			}
 
-			t.Run("it should lay two planks across it", func(t *testing.T) {
-				assert.Len(t, planks, 2)
+			t.Run("it should lay three planks across it", func(t *testing.T) {
+				assert.Len(t, planks, 3)
 			})
 
 			for i, p := range planks {
@@ -37,19 +45,20 @@ func TestPlanks(t *testing.T) {
 				t.Run("it should run each plank near the face's slope", func(t *testing.T) {
 					assert.InDelta(t, c.slope, run.Y/run.X, 0.15, "plank %d", i)
 				})
-
-				t.Run("it should run each plank past both sides of the pane", func(t *testing.T) {
-					assert.Less(t, math.Min(p[0].X, p[3].X), 100.0, "plank %d", i)
-					assert.Greater(t, math.Max(p[1].X, p[2].X), 120.0, "plank %d", i)
-				})
-
-				t.Run("it should keep each plank within the pane's height", func(t *testing.T) {
-					for _, corner := range p {
-						assert.GreaterOrEqual(t, corner.Y, 200.0-20*math.Abs(c.slope)-1, "plank %d", i)
-						assert.LessOrEqual(t, corner.Y, 230.0+20*math.Abs(c.slope)+1, "plank %d", i)
-					}
-				})
 			}
+
+			t.Run("it should cover the frame on both sides of the glass", func(t *testing.T) {
+				assert.Less(t, left, 100-0.25*20)
+				assert.Greater(t, right, 120+0.25*20)
+			})
+
+			t.Run("it should reach above the window", func(t *testing.T) {
+				assert.Less(t, top, 200-math.Abs(20*c.slope)/2)
+			})
+
+			t.Run("it should cover the sill below it", func(t *testing.T) {
+				assert.Greater(t, bottom, 230+math.Abs(20*c.slope)/2+0.15*30)
+			})
 		})
 	}
 

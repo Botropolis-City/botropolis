@@ -20,12 +20,21 @@ var (
 	colorNail      = color.NRGBA{0x2b, 0x2b, 0x2b, 0xff}
 )
 
-// plankRows are where across a pane's height the two planks run.
-var plankRows = [2]float64{0.3, 0.68}
+// plankRows are where down a window's frame its three planks run.
+var plankRows = [3]float64{0.17, 0.5, 0.83}
 
-// planksFor is the planks across one pane: two boards along its face,
-// each a little skewed and running past both sides, as the corners of
-// each board, top left first. seed keeps a pane's boards the same from
+// frame is how far a window's frame and sill reach past its glass, as
+// shares of the pane: to each side, above, and below, where the sill is.
+const (
+	frameSide  = 0.3
+	frameAbove = 0.3
+	frameSill  = 0.4
+)
+
+// planksFor is the planks across one window: three boards along its
+// face, covering its frame and sill rather than only the glass, each a
+// little skewed and running just past the frame, as the corners of each
+// board, top left first. seed keeps a window's boards the same from
 // frame to frame.
 func planksFor(pane [4]city.Point, seed uint32) [][4]city.Point {
 	tl, tr, br, bl := pane[0], pane[1], pane[2], pane[3]
@@ -33,14 +42,19 @@ func planksFor(pane [4]city.Point, seed uint32) [][4]city.Point {
 	if height <= 0 || tr.X <= tl.X {
 		return nil
 	}
-	thick := height * 0.11
+	run := tr.Sub(tl)
+	above, below := city.Point{Y: -frameAbove * height}, city.Point{Y: frameSill * height}
+	tl, bl = tl.Sub(run.Scale(frameSide)).Add(above), bl.Sub(run.Scale(frameSide)).Add(below)
+	tr, br = tr.Add(run.Scale(frameSide)).Add(above), br.Add(run.Scale(frameSide)).Add(below)
+	framed := height * (1 + frameAbove + frameSill)
+	thick := framed * 0.12
 	out := make([][4]city.Point, 0, len(plankRows))
 	for i, row := range plankRows {
 		tilt := city.Point{Y: (float64((seed>>(4*i))%5) - 2) * 0.02 * (tr.X - tl.X)}
 		left := lerp(tl, bl, row).Add(tilt)
 		right := lerp(tr, br, row).Sub(tilt)
-		run := right.Sub(left)
-		left, right = left.Sub(run.Scale(0.18)), right.Add(run.Scale(0.18))
+		reach := right.Sub(left).Scale(0.06)
+		left, right = left.Sub(reach), right.Add(reach)
 		up := city.Point{Y: -thick}
 		out = append(out, [4]city.Point{left.Add(up), right.Add(up), right.Sub(up), left.Sub(up)})
 	}
