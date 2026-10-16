@@ -80,9 +80,9 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 		if i == g.scene.DiveStep() {
 			g.roundRect(screen, city.RectAt(dock.Min.X+grid/2, y-grid/4, dock.Width()-grid, rowHeight-grid/2), 0, th.Palette.Hairline)
 		}
-		move := g.clip(string(row.Move)+"   waited "+format.Age(row.Waited), inner*0.7, ui.Small)
+		site, move := diveColumns(row, inner, g.faces.Measure)
 		mw, _ := g.faces.Measure(move, ui.Small)
-		g.text(screen, city.Point{X: x, Y: y}, g.clip(row.Site, inner-mw-grid, ui.Body), ui.Body, th.Palette.Text)
+		g.text(screen, city.Point{X: x, Y: y}, site, ui.Body, th.Palette.Text)
 		g.text(screen, city.Point{X: x + inner - mw, Y: y}, move, ui.Small, th.Color(ui.MoveTone(row.Move)))
 		g.text(screen, city.Point{X: x, Y: y + body}, g.clip(row.Sentence, inner, ui.Small), ui.Small, th.Palette.Dim)
 		if row.PR != "" {
@@ -91,6 +91,21 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 		y += rowHeight
 	}
 	return dock
+}
+
+// diveColumns are a row's two heads: the site on the left, and whose
+// move it is with how long it has waited on the right. The time is
+// never cut: whose move gives way first, then the site.
+func diveColumns(row city.DiveRow, inner float64, measure ui.Measure) (site, move string) {
+	waited := "waited " + format.Age(row.Waited)
+	ww, _ := measure(waited, ui.Small)
+	gap, _ := measure("   ", ui.Small)
+	move = waited
+	if who := clipTo(string(row.Move), inner*0.7-ww-gap, ui.Small, measure); who != "" {
+		move = who + "   " + waited
+	}
+	mw, _ := measure(move, ui.Small)
+	return clipTo(row.Site, inner-mw-gap, ui.Body, measure), move
 }
 
 // diveKeys answers j, k, Enter and Esc while a group is focused, and

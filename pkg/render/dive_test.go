@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -99,6 +101,19 @@ func TestDive(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("when a row's waited time is long", func(t *testing.T) {
+		row := city.DiveRow{Site: "ratelimit-lib", Move: state.MoveTheirs, Waited: 69 * time.Hour}
+		for _, inner := range []float64{400, 200, 120} {
+			t.Run(fmt.Sprintf("in a list %.0fpx wide", inner), func(t *testing.T) {
+				_, move := diveColumns(row, inner, measure)
+
+				t.Run("it should be drawn whole", func(t *testing.T) {
+					assert.Contains(t, move, "waited "+format.Age(row.Waited))
+				})
+			})
+		}
+	})
 
 	t.Run("when no group is focused", func(t *testing.T) {
 		g := newGame(t, 0, false)

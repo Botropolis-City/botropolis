@@ -166,13 +166,17 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 
 // clip cuts text to a width, ending it with an ellipsis when it is cut.
 func (g *Game) clip(s string, width float64, size ui.Size) string {
-	if w, _ := g.faces.Measure(s, size); w <= width {
+	return clipTo(s, width, size, g.faces.Measure)
+}
+
+func clipTo(s string, width float64, size ui.Size, measure ui.Measure) string {
+	if w, _ := measure(s, size); w <= width {
 		return s
 	}
 	r := []rune(s)
 	for len(r) > 0 {
 		r = r[:len(r)-1]
-		if w, _ := g.faces.Measure(string(r)+"…", size); w <= width {
+		if w, _ := measure(string(r)+"…", size); w <= width {
 			return string(r) + "…"
 		}
 	}
