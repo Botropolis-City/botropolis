@@ -24,6 +24,7 @@ import (
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
@@ -179,7 +180,10 @@ type Game struct {
 	carrying *city.Building
 	// firstRunAsked is whether this launch has shown the first run.
 	firstRunAsked bool
-	reduced       bool
+	// groupSource is what New session guesses from: the history
+	// detected once, and the recently used directories.
+	groupSource func() (*group.Guesser, []string)
+	reduced     bool
 	// signage is which of phase 21 item 38's title treatments is drawn.
 	signage city.Signage
 	apply   func(ui.Setting) error

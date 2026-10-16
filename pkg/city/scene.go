@@ -48,6 +48,9 @@ const (
 	ActionOpenPR    ActionKind = "open pull request"
 	ActionShowRoad  ActionKind = "show the road"
 	ActionFork      ActionKind = "fork a fresh session"
+	// ActionNewSession starts a session from New session, in Group or a
+	// new group named GroupName, or in none (item 87).
+	ActionNewSession ActionKind = "start a session"
 )
 
 const DemolishArmFor = 3 * time.Second
@@ -60,8 +63,12 @@ type Action struct {
 	Dir       string
 	// Text is what ActionCopy copies.
 	Text string
-	// Group is where ActionMove puts the session; empty is no group.
-	Group string
+	// Group is where ActionMove puts the session, or where
+	// ActionNewSession starts it; empty is no group. GroupName is a new
+	// group to start it in, and Prompt the prompt it starts with.
+	Group     string
+	GroupName string
+	Prompt    string
 	// Review is the first run's groups as confirmed.
 	Review *group.Review
 }
@@ -231,6 +238,11 @@ func (s *Scene) City() *City {
 // see the city lit; the next snapshot keeps the override.
 // CycleLight steps the light auto → night → day → auto and says where
 // it landed.
+// Light is how night is decided: from the sessions, or forced.
+func (s *Scene) Light() Light {
+	return s.light
+}
+
 func (s *Scene) CycleLight() Light {
 	s.light = (s.light + 1) % 3
 	s.applyNight()

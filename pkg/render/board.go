@@ -18,6 +18,8 @@ import (
 type board struct {
 	selected int
 	rect     city.Rect
+	// newButton is New session's button on the board.
+	newButton city.Rect
 }
 
 type boardRow struct {
@@ -100,8 +102,12 @@ func (b *board) keys(g *Game) bool {
 // click closes the board when the press lands outside it.
 func (b *board) click(g *Game, at city.Point) bool {
 	g.mu.Lock()
-	panel := b.rect
+	panel, button := b.rect, b.newButton
 	g.mu.Unlock()
+	if button.Contains(at) {
+		g.openNewSession()
+		return true
+	}
 	return panel.Contains(at)
 }
 
@@ -126,6 +132,14 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	inner := panelWidth - grid*4
 	x, y := panel.Min.X+grid*2, panel.Min.Y+grid*2
 	g.text(screen, city.Point{X: x, Y: y}, "City Hall · groups", ui.Title, th.Palette.Text)
+	label := "New session  " + g.findChords().New.String()
+	lw, lh := g.faces.Measure(label, ui.Small)
+	button := city.RectAt(panel.Max.X-grid*2-lw-grid*2, y, lw+grid*2, lh+grid/2)
+	g.mu.Lock()
+	b.newButton = button
+	g.mu.Unlock()
+	g.roundRect(screen, button, th.Radius()/2, th.Palette.Hairline)
+	g.text(screen, city.Point{X: button.Min.X + grid, Y: button.Min.Y + grid/4}, label, ui.Small, th.Palette.Accent)
 	y += title
 	status := boardStatus(rows)
 	if len(rows) > 0 && !g.scene.Snapshot().GroupsReviewed {

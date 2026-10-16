@@ -13,7 +13,7 @@ import (
 // known stands in for the city's key names.
 func known(name string) bool {
 	switch strings.ToLower(name) {
-	case "k", "m", "y", "h", "q", "w", "s", "f3":
+	case "k", "m", "y", "h", "q", "w", "s", "n", "f3":
 		return true
 	}
 	return false
@@ -65,18 +65,18 @@ func TestParseChord(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		goos             string
-		open, copy, show config.Chord
+		goos                  string
+		open, copy, show, new config.Chord
 	}{
-		{"darwin", config.Chord{Cmd: true, Key: "k"}, config.Chord{Cmd: true, Key: "y"}, config.Chord{Ctrl: true, Key: "m"}},
-		{"linux", config.Chord{Ctrl: true, Key: "k"}, config.Chord{Ctrl: true, Key: "y"}, config.Chord{Ctrl: true, Key: "m"}},
+		{"darwin", config.Chord{Cmd: true, Key: "k"}, config.Chord{Cmd: true, Key: "y"}, config.Chord{Ctrl: true, Key: "m"}, config.Chord{Shift: true, Key: "n"}},
+		{"linux", config.Chord{Ctrl: true, Key: "k"}, config.Chord{Ctrl: true, Key: "y"}, config.Chord{Ctrl: true, Key: "m"}, config.Chord{Shift: true, Key: "n"}},
 	} {
 		t.Run("when nothing is set, on "+tc.goos, func(t *testing.T) {
 			chords, err := config.FindChords(config.Config{}, tc.goos, known)
 			require.NoError(t, err)
 
-			t.Run("it should open the finder on mod+k, copy on mod+y and show on ctrl+m", func(t *testing.T) {
-				assert.Equal(t, config.Chords{Open: tc.open, Copy: tc.copy, Show: tc.show}, chords)
+			t.Run("it should open the finder on mod+k, copy on mod+y, show on ctrl+m, and open New session on shift+n", func(t *testing.T) {
+				assert.Equal(t, config.Chords{Open: tc.open, Copy: tc.copy, Show: tc.show, New: tc.new}, chords)
 			})
 		})
 	}

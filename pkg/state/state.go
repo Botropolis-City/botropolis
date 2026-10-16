@@ -34,13 +34,16 @@ const (
 )
 
 type Session struct {
-	ID       string      `json:"id"`
-	Harness  string      `json:"harness,omitempty"`
-	Title    string      `json:"title"`
-	CWD      string      `json:"cwd"`
-	Branch   string      `json:"branch"`
-	Model    string      `json:"model"`
-	Kind     claude.Kind `json:"kind"`
+	ID      string      `json:"id"`
+	Harness string      `json:"harness,omitempty"`
+	Title   string      `json:"title"`
+	CWD     string      `json:"cwd"`
+	Branch  string      `json:"branch"`
+	Model   string      `json:"model"`
+	Kind    claude.Kind `json:"kind"`
+	// Job is the background job the session runs as, by which New
+	// session records the group it was started in (item 87).
+	Job      string      `json:"job,omitempty"`
 	PID      int         `json:"pid"`
 	Alive    bool        `json:"alive"`
 	Attached bool        `json:"attached"`
@@ -282,6 +285,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 		Title:        r.Name,
 		CWD:          r.CWD,
 		Kind:         r.Kind,
+		Job:          r.JobID,
 		PID:          r.PID,
 		Alive:        isAlive,
 		Attached:     isAttached,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,11 +23,13 @@ import (
 
 	"botropolis.city/botropolis/pkg/appd"
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/cli"
 	"botropolis.city/botropolis/pkg/commands"
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/render"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/single"
@@ -365,6 +368,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		DailyBudget:    c.config.DailyBudget,
 		Detail:         detail,
 		HideGroupLines: !c.config.GroupLines,
+		GroupSource:    groupSource(c.config),
 		Ladder:         state.Thresholds{Shuttered: time.Duration(c.config.ShutteredDays) * 24 * time.Hour, Overgrown: time.Duration(c.config.OvergrownDays) * 24 * time.Hour},
 		UsageRefresh:   usageEvery,
 		Signage:        signage,
@@ -457,4 +461,23 @@ func settingValue(s ui.Setting) (string, any) {
 		}
 	}
 	return s.Key, s.Value
+}
+
+// groupSource reads Claude Code's prompt history where it is kept, in
+// memory, and the default home's groups, for New session to guess from
+// (item 87). A home the run was pointed at has no groups of its own.
+func groupSource(cfg *config.Config) func([]state.Session, time.Time) (*group.Guesser, []string) {
+	return func(sessions []state.Session, now time.Time) (*group.Guesser, []string) {
+		history, err := claude.ReadPromptHistory(filepath.Join(cfg.Home, ".claude", "history.jsonl"))
+		if err != nil {
+			return nil, nil
+		}
+		memory := group.Memory{}
+		if path := appd.GroupsPath(cfg); path != "" {
+			if loaded, err := group.Load(path); err == nil {
+				memory = loaded
+			}
+		}
+		return group.NewGuesser(state.GuessMembers(history, sessions, now), memory), state.RecentDirs(history)
+	}
 }

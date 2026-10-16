@@ -85,6 +85,18 @@ func TestFirstRun(t *testing.T) {
 				assert.NotNil(t, g.firstRun())
 			})
 		})
+
+		t.Run("and r is pressed, which turns the camera on the map", func(t *testing.T) {
+			g, _ := newGame(groups, false)
+			g.firstRunAsked = true
+			heading := g.scene.Camera().Heading
+			g.openBoard()
+			press(t, g, ebiten.KeyR)
+
+			t.Run("it should not turn the camera", func(t *testing.T) {
+				assert.Equal(t, heading, g.scene.Camera().Heading)
+			})
+		})
 	})
 
 	t.Run("when the board is open and the first run has been reviewed", func(t *testing.T) {

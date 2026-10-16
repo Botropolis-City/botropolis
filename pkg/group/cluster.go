@@ -27,7 +27,7 @@ func Detect(members []Member, memory Memory) Result {
 	comps := d.cluster(edges)
 	groups := d.groups(comps, edges, memory)
 	groups = d.placeMoved(groups, memory)
-	d.joinStarted(groups)
+	groups = d.joinStarted(groups, memory)
 	result := Result{Groups: groups}
 	result.Suggestions = d.suggest(groups, edges)
 	return result
@@ -38,6 +38,16 @@ func newDetection(members []Member, memory Memory) *detection {
 		moved: map[string]bool{}, confirmed: map[string]bool{}}
 	for _, mv := range memory.Moves {
 		d.moved[mv.Session] = true
+	}
+	d.started = map[string]string{}
+	for _, m := range members {
+		from := m.StartedFrom
+		if from == "" && m.Job != "" {
+			from = memory.StartedFrom[m.Job]
+		}
+		if from != "" && !d.moved[m.ID] {
+			d.started[m.ID] = from
+		}
 	}
 	for _, id := range memory.Confirmed {
 		d.confirmed[id] = true
@@ -66,7 +76,7 @@ func (d *detection) edges() []edge {
 	var edges []edge
 	for i := range d.members {
 		for j := i + 1; j < len(d.members); j++ {
-			if d.blocked[[2]string{d.members[i].ID, d.members[j].ID}] || d.moved[d.members[i].ID] || d.moved[d.members[j].ID] {
+			if d.blocked[[2]string{d.members[i].ID, d.members[j].ID}] || d.sitsOut(d.members[i].ID) || d.sitsOut(d.members[j].ID) {
 				continue
 			}
 			if e, ok := d.pair(i, j); ok {
@@ -317,19 +327,33 @@ func matchStored(comp []int, d *detection, memory Memory, taken map[string]bool)
 	return best, bestOverlap > 0
 }
 
+// NewGroupID is an id for a group made by hand, from a seed unique to it.
+func NewGroupID(seed string) string {
+	return newID(seed)
+}
+
 func newID(seed string) string {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(seed))
 	return fmt.Sprintf("g-%08x", h.Sum32())
 }
 
-// joinStarted adds the loose sessions that were started from a group.
-func (d *detection) joinStarted(groups []Group) {
+// joinStarted adds the loose sessions that were started from a group,
+// making the group from memory when detection did not find it.
+func (d *detection) joinStarted(groups []Group, memory Memory) []Group {
 	for _, m := range d.members {
-		if m.StartedFrom == "" || d.moved[m.ID] || inAny(groups, m.ID) {
+		from := d.started[m.ID]
+		if from == "" || inAny(groups, m.ID) {
 			continue
 		}
-		if g := groupByID(groups, m.StartedFrom); g != nil {
+		if groupByID(groups, from) == nil {
+			for _, s := range memory.Groups {
+				if s.ID == from {
+					groups = append(groups, Group{ID: s.ID, Name: s.Name, Renamed: s.Renamed, Anchor: s.Anchor})
+				}
+			}
+		}
+		if g := groupByID(groups, from); g != nil {
 			g.Members = append(g.Members, Membership{Session: m.ID, Dir: m.Dir, Started: m.Started, Tier: Sure,
 				Reason: Reason{Signal: SignalStartedFrom, Detail: g.Name}})
 		}
@@ -339,6 +363,7 @@ func (d *detection) joinStarted(groups []Group) {
 			return groups[gi].Members[x].Started.Before(groups[gi].Members[y].Started)
 		})
 	}
+	return groups
 }
 
 func (d *detection) suggest(groups []Group, edges []edge) []Suggestion {
@@ -407,4 +432,10 @@ func sortedKeys(set map[string]bool) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// sitsOut reports whether a session is placed by hand or by where it was
+// started rather than by detection.
+func (d *detection) sitsOut(id string) bool {
+	return d.moved[id] || d.started[id] != ""
 }

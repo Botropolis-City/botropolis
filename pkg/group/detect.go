@@ -29,8 +29,11 @@ type Member struct {
 	// Messaged are the sessions this one sent messages to.
 	Messaged []string
 	Files    []string
-	// StartedFrom is the group the session was started from, if any.
+	// StartedFrom is the group the session was started from, if any,
+	// and Job the background job it was started as, by which memory
+	// records where New session started it.
 	StartedFrom string
+	Job         string
 }
 
 type Tier int
@@ -152,4 +155,7 @@ type detection struct {
 	// out detection and are placed where they were put.
 	moved     map[string]bool
 	confirmed map[string]bool
+	// started are the sessions started from a group, by session; like
+	// the moved, they sit out detection and join where they were started.
+	started map[string]string
 }

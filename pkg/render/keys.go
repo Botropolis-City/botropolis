@@ -38,6 +38,7 @@ var bindings = []ui.Key{
 	{Key: "s", Action: "settings"},
 	{Key: "x", Action: "power breakdown (also click the plant)"},
 	{Key: "g", Action: "groups board (also click City Hall)"},
+	{Key: "shift+n", Action: "New session, in any directory (also on the board)"},
 	{Key: "t", Action: "timeline; enter jumps to the session"},
 	{Key: "b", Action: "sidebar"},
 	{Key: "h", Action: "hide the UI"},
@@ -300,6 +301,10 @@ func (g *Game) handleKeys() error {
 		action, note := g.scene.NewHere()
 		g.SetStatus(note)
 		g.act(action)
+	}
+	if g.chordPressed(g.findChords().New) {
+		g.openNewSession()
+		return nil
 	}
 	if just(ebiten.KeyN) {
 		switch g.scene.CycleLight() {

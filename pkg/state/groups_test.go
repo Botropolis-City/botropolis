@@ -35,6 +35,23 @@ func groupedHome(t *testing.T) *helpers.Home {
 	return home
 }
 
+func TestLoaderStartedFrom(t *testing.T) {
+	t.Run("when memory says a live session's job was started from a group", func(t *testing.T) {
+		home := groupedHome(t).Session(4242, sidA, libDir, "interactive", "idle")
+		path := filepath.Join(t.TempDir(), "groups.json")
+		require.NoError(t, group.Save(path, group.Memory{
+			Groups:      []group.Stored{{ID: "g-new", Name: "Gateway", Renamed: true}},
+			StartedFrom: map[string]string{"0898d7e4": "g-new"},
+		}))
+		snapshot, err := state.NewLoader(home.Path, alive).WithGroups(path).Load(now)
+		require.NoError(t, err)
+
+		t.Run("it should put the session in that group", func(t *testing.T) {
+			assert.Equal(t, "g-new", sessionByID(t, snapshot, sidA).Group)
+		})
+	})
+}
+
 func TestLoaderGroups(t *testing.T) {
 	t.Run("when two sessions in different directories share a ticket key in their prompts", func(t *testing.T) {
 		home := groupedHome(t)

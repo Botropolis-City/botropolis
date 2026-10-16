@@ -29,6 +29,9 @@ type Memory struct {
 	// Reviewed is when the first run's proposal was confirmed; until then
 	// it is shown at every launch.
 	Reviewed *time.Time `json:"reviewed,omitempty"`
+	// StartedFrom is the group each session New session started was
+	// started in, by its background job.
+	StartedFrom map[string]string `json:"startedFrom,omitempty"`
 }
 
 // Move puts a session in a group by hand; an empty Group is no group.
@@ -64,7 +67,7 @@ type Pair [2]string
 // Remember is memory with a detection's groups in it, keeping the
 // stored groups the detection did not see.
 func (m Memory) Remember(r Result) Memory {
-	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted, Moves: m.Moves, Confirmed: m.Confirmed, LikelySince: m.LikelySince, Reviewed: m.Reviewed}
+	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted, Moves: m.Moves, Confirmed: m.Confirmed, LikelySince: m.LikelySince, Reviewed: m.Reviewed, StartedFrom: m.StartedFrom}
 	seen := map[string]bool{}
 	for _, g := range r.Groups {
 		seen[g.ID] = true

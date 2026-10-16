@@ -11,6 +11,7 @@ import (
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
+	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
@@ -66,6 +67,10 @@ type Options struct {
 	// HideGroupLines hides the line each group draws across its
 	// districts, which are on unless the settings say otherwise.
 	HideGroupLines bool
+	// GroupSource builds what New session guesses a group from, for the
+	// sessions on the map: the history detected once, and the recently
+	// used directories.
+	GroupSource func(sessions []state.Session, now time.Time) (*group.Guesser, []string)
 	// Ladder is how long a stopped session rests before it is shuttered,
 	// and before it is overgrown; zero keeps the defaults. Item 86.
 	Ladder state.Thresholds
@@ -130,6 +135,11 @@ func Run(ctx context.Context, opts Options) error {
 	game.home = opts.Home
 	game.search = opts.Search
 	game.chords = opts.FindChords
+	if opts.GroupSource != nil {
+		game.groupSource = func() (*group.Guesser, []string) {
+			return opts.GroupSource(game.scene.Snapshot().Sessions, game.scene.Clock())
+		}
+	}
 	game.requests = opts.Requests
 	if opts.OpenFinder {
 		game.openFinder()

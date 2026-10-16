@@ -134,6 +134,8 @@ func (a Actor) Do(action city.Action) error {
 		return a.move(action.SessionID, action.Group)
 	case city.ActionReviewGroups:
 		return a.review(action.Review)
+	case city.ActionNewSession:
+		return a.newSession(action)
 	}
 	return nil
 }
@@ -172,3 +174,30 @@ func (a Actor) review(r *group.Review) error {
 }
 
 var errNoGroups = errors.New("groups are kept only for your own home, not for one --home points at")
+
+// newSession starts a session in the background and records the group it
+// was started in by the job it runs as, which is the surest sign there
+// is that it belongs there. A new group is stored under the name typed.
+func (a Actor) newSession(action city.Action) error {
+	job, err := a.Sessions.New(context.Background(), action.Dir, action.Prompt)
+	if err != nil {
+		return err
+	}
+	if a.GroupStore == "" || job == "" || (action.Group == "" && action.GroupName == "") {
+		return nil
+	}
+	memory, err := group.Load(a.GroupStore)
+	if err != nil {
+		return err
+	}
+	id := action.Group
+	if id == "" {
+		id = group.NewGroupID(action.GroupName + "\x00" + job)
+		memory.Groups = append(memory.Groups, group.Stored{ID: id, Name: action.GroupName, Renamed: true})
+	}
+	if memory.StartedFrom == nil {
+		memory.StartedFrom = map[string]string{}
+	}
+	memory.StartedFrom[job] = id
+	return group.Save(a.GroupStore, memory)
+}

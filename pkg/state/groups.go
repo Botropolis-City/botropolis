@@ -167,7 +167,7 @@ func confirmLikely(memory *group.Memory, result group.Result, history map[string
 func groupSignature(sessions []Session) string {
 	parts := make([]string, 0, len(sessions))
 	for _, s := range sessions {
-		parts = append(parts, strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, boolString(s.State == Resting)}, "\x00"))
+		parts = append(parts, strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, boolString(s.State == Resting)}, "\x00"))
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, "\x01")
@@ -216,7 +216,7 @@ func enrich(m *group.Member, s Session) {
 	if s.CWD != "" {
 		m.Dir = s.CWD
 	}
-	m.Branch, m.Team = s.Branch, s.Team
+	m.Branch, m.Team, m.Job = s.Branch, s.Team, s.Job
 	if s.State == Resting {
 		m.Ended = s.LastActivity
 	}
