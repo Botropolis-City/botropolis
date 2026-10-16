@@ -67,6 +67,7 @@ A press anywhere else pans, and so does any drag with Shift or Alt held.
 The lake, the hashed river and the per-cell hashed grass, dirt and trees are gone.
 The plan stands on an island (`City.Island()`, item 85): its coast lies about two cells past the plan's edge and wanders by a smooth noise seeded only by position, so the same plan always has the same coast and a bigger city a bigger island.
 A beach lies on the land side of the coast and shallows on the sea's, and a faint far shore stands some twenty-four cells out.
-The river runs through the island and out to the sea at both ends; tugs come in from the sea at its north mouth and leave by the south, while the usage gauges and the refresh courier keep to the river's band inside the plan.
+The river runs through the island and out to the sea at both ends.
+Its drawn banks wander outward from its band by a smooth noise and never inward, so the band the gauges hold station in is always water, and each mouth flares across the coast while its blue fades into the shallows', so it meets the sea with no edge; tugs come in from the sea at its north mouth and leave by the south, while the usage gauges and the refresh courier keep to the river's band inside the plan.
 `pkg/city` says what ground lies at any point, and `pkg/render` paints that once per plan into a texture in world space and draws it through the camera's own affine projection, so the coast is soft and costs one draw a frame.
 The fit frames the plan, and the camera clamps so the island or its shallows stay under the middle of the window.

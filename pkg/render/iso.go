@@ -108,15 +108,9 @@ func (g *Game) isoGround(screen *ebiten.Image, cam *city.Camera, c *city.City, w
 	if bounds.Area() == 0 {
 		return
 	}
-	grass, water := colorKitGrass, colorKitWater
-	if c.Night {
-		grass, water = ui.DefaultPalette.GroundNight, colorWaterNight
-	}
+	// The island's texture paints the plan's grass and the river too, so
+	// the river's banks can wander and its mouths blend. Item 85.
 	g.shore(screen, cam, c)
-	g.poly(screen, cam, bounds, grass)
-	for _, rc := range c.RiverCells {
-		g.poly(screen, cam, rc.Cell.Rect(), water)
-	}
 	g.isoRails(screen, cam, c)
 }
 

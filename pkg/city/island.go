@@ -80,7 +80,11 @@ func (i Island) Mouths() (north, south Point) {
 // point lies, from 0 at the band's landward edge to 1 at its seaward.
 func (i Island) At(p Point) (Ground, float64) {
 	d := outside(i.plan, p)
-	inRiver := i.hasRiver && p.X >= i.riverW && p.X < i.riverE
+	inRiver := false
+	if i.hasRiver {
+		w, east := i.riverBanks(p.Y)
+		inRiver = p.X >= w && p.X < east
+	}
 	if d == 0 {
 		if inRiver {
 			return GroundRiver, 0
@@ -89,7 +93,14 @@ func (i Island) At(p Point) (Ground, float64) {
 	}
 	e := d/CellSize - (coastCells + coastWobble*coastNoise(p))
 	if inRiver && e < 0 {
-		return GroundRiver, 0
+		// Past the plan's end the river fades from its own blue to the
+		// shallows' over the way to the coast, so it meets the sea with
+		// no edge: t is how far along that way the point lies.
+		out := math.Max(0, math.Max(i.plan.Min.Y-p.Y, p.Y-i.plan.Max.Y)) / CellSize
+		if out == 0 {
+			return GroundRiver, 0
+		}
+		return GroundRiver, out / (out - e)
 	}
 	switch {
 	case e < -sandCells:
@@ -104,6 +115,26 @@ func (i Island) At(p Point) (Ground, float64) {
 		return GroundFarShore, math.Sin(math.Pi * fd / farShoreBand)
 	}
 	return GroundSea, 0
+}
+
+// The river's drawn water, as against its band: each bank wanders
+// outward by up to riverWobble cells along a smooth noise, never in, so
+// the band the gauges hold station in is always water; and past the
+// plan's ends each mouth flares by riverFlare of a cell per cell, so it
+// opens into the sea. The west bank's wander stays inside the belt cell
+// between the river and the rail loop. Item 85.
+const (
+	riverWobble  = 0.45
+	riverFeature = 1.5
+	riverFlare   = 0.35
+)
+
+func (i Island) riverBanks(y float64) (west, east float64) {
+	wander := func(seed float64) float64 {
+		return riverWobble * CellSize * (0.5 + 0.5*valueNoise(y/(riverFeature*CellSize), seed))
+	}
+	flare := math.Max(0, math.Max(i.plan.Min.Y-y, y-i.plan.Max.Y)) * riverFlare
+	return i.riverW - wander(31) - flare, i.riverE + wander(57) + flare
 }
 
 func grow(r Rect, by float64) Rect {
