@@ -63,8 +63,10 @@ type Shown struct {
 	Captions   []string
 	// Explaining is whether explain mode's key is held.
 	Explaining bool
-	// Triage is the session triage is on, or "" when it is not walking.
+	// Triage is the session triage is on, or "" when it is not walking,
+	// and Stream whether the stream's column is up.
 	Triage string
+	Stream bool
 	// Found is the finder's results, by session id, best first, while it
 	// is open.
 	Found []string
@@ -370,6 +372,7 @@ func (g *Game) noteShown() {
 	}
 	s.Lens, s.View = g.scene.Lens().Name(), g.scene.View().Name()
 	s.Explaining = g.explainHeld()
+	s.Stream = g.streamShown()
 	if step, ok := g.scene.TriageStep(); ok && g.triage() != nil {
 		s.Triage = step.Building.Session.ID
 	}

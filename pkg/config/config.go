@@ -94,7 +94,9 @@ type Config struct {
 	// GlobalShortcut opens the finder from any application; empty is off
 	// (item 84).
 	GlobalShortcut string
-	File           string
+	// StreamKey hides and shows the stream (item 88).
+	StreamKey string
+	File      string
 	// GroupLines draws each group as a line across its districts (item 87).
 	GroupLines bool
 }
@@ -122,6 +124,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyNewSession, DefaultNewSession)
 	v.SetDefault(KeyExplain, DefaultExplain)
 	v.SetDefault(KeyTriage, DefaultTriage)
+	v.SetDefault(KeyStream, DefaultStream)
 	v.SetDefault(KeyGroupLines, true)
 	v.SetDefault(KeyGlobalShortcut, "")
 	v.SetConfigName(configName)
@@ -157,12 +160,14 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyNewSession, DefaultNewSession, "the chord that opens New session, which starts a session in any directory")
 	flags.String(KeyExplain, DefaultExplain, "the key held to caption everything on the map")
 	flags.String(KeyTriage, DefaultTriage, "the key that walks what waits on you, longest-waiting first")
+	flags.String(KeyStream, DefaultStream, "the key that hides and shows the stream down the right")
 	_ = v.BindPFlag(KeyFind, flags.Lookup(KeyFind))
 	_ = v.BindPFlag(KeyFindCopy, flags.Lookup(KeyFindCopy))
 	_ = v.BindPFlag(KeyFindShow, flags.Lookup(KeyFindShow))
 	_ = v.BindPFlag(KeyNewSession, flags.Lookup(KeyNewSession))
 	_ = v.BindPFlag(KeyExplain, flags.Lookup(KeyExplain))
 	_ = v.BindPFlag(KeyTriage, flags.Lookup(KeyTriage))
+	_ = v.BindPFlag(KeyStream, flags.Lookup(KeyStream))
 	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
 }
 
@@ -195,6 +200,7 @@ func New(v *viper.Viper) (*Config, error) {
 		NewSessionKey:  v.GetString(KeyNewSession),
 		ExplainKey:     v.GetString(KeyExplain),
 		TriageKey:      v.GetString(KeyTriage),
+		StreamKey:      v.GetString(KeyStream),
 		GroupLines:     v.GetBool(KeyGroupLines),
 		GlobalShortcut: v.GetString(KeyGlobalShortcut),
 		File:           v.ConfigFileUsed(),

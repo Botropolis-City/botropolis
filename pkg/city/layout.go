@@ -49,6 +49,8 @@ type Layout struct {
 	// then, and Snoozed each one snoozed, until when (item 88).
 	Done    map[string]time.Time `json:"done,omitempty"`
 	Snoozed map[string]time.Time `json:"snoozed,omitempty"`
+	// StreamHidden is whether the stream's column was hidden (item 88).
+	StreamHidden bool `json:"streamHidden,omitempty"`
 }
 
 func NewLayout() *Layout {

@@ -219,6 +219,9 @@ type Game struct {
 	// footprints, so a tall building or tower is hovered by its body.
 	hits      []spriteHit
 	frameHits []spriteHit
+	// streamLaid is the stream as last drawn, so a click lands on the
+	// entry that is there (item 88).
+	streamLaid ui.Stream
 	// captions are explain mode's, or a first sighting's, as last drawn;
 	// scriptedHeld is the keys a script holds down (item 88).
 	captions     []ui.Caption
@@ -415,7 +418,7 @@ func (g *Game) Update() error {
 	// along from attach. Move either to the other event and a click
 	// becomes able to stop a session.
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press {
-		if !g.clickOverlay(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
+		if !g.clickOverlay(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickStream(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
 			// A press on a district's floor or sign picks the district up;
 			// anywhere else, or with Shift or Alt held anywhere, it pans.
 			if carries(g.scene.Hover(), g.scene.Selected()) {

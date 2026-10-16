@@ -37,6 +37,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	}
 	pointer := g.pointer()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
+	bounds.Max.X = g.drawStream(screen, width, height, top, bottom)
 	hint := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
 	g.pinnedKinds = nil

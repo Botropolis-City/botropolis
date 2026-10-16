@@ -16,6 +16,8 @@ const (
 	KeyExplain = "explain_key"
 	// KeyTriage starts triage (item 88).
 	KeyTriage = "triage_key"
+	// KeyStream hides and shows the stream (item 88).
+	KeyStream = "stream_key"
 
 	// DefaultFindShow is Control+M on every system: ⌘M would minimize
 	// the window on macOS, where mod is ⌘.
@@ -29,6 +31,8 @@ const (
 	// DefaultTriage is w, for walk: tab and shift+tab already mean
 	// the next and the previous session needing you.
 	DefaultTriage = "w"
+	// DefaultStream is l, for log.
+	DefaultStream = "l"
 )
 
 // Chord is a key with the modifiers held for it.
@@ -53,7 +57,7 @@ func (c Chord) String() string {
 
 // Chords are the finder's: the one that opens it, the one that copies
 // how to resume a session, and the one that shows it on the map.
-type Chords struct{ Open, Copy, Show, New, Explain, Triage Chord }
+type Chords struct{ Open, Copy, Show, New, Explain, Triage, Stream Chord }
 
 // macOSKeeps is what macOS does with the ⌘ chords it takes for itself
 // before an application sees them.
@@ -113,6 +117,7 @@ func FindChords(cfg Config, goos string, known func(string) bool) (Chords, error
 		{KeyNewSession, cfg.NewSessionKey, DefaultNewSession, &chords.New},
 		{KeyExplain, cfg.ExplainKey, DefaultExplain, &chords.Explain},
 		{KeyTriage, cfg.TriageKey, DefaultTriage, &chords.Triage},
+		{KeyStream, cfg.StreamKey, DefaultStream, &chords.Stream},
 	} {
 		value := s.value
 		if value == "" {
