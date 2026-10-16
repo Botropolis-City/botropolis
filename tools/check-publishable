@@ -113,7 +113,7 @@ fi
 reviewed=$(cat <<'LIST'
 docs/screenshots/hero.png
 docs/screenshots/r414-item-82-finder.png
-docs/screenshots/r421-item-82-results.png
+docs/screenshots/r423-item-82-results.png
 docs/botropolis.gif
 packaging/botropolis.svg
 LIST
