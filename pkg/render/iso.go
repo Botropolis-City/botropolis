@@ -755,6 +755,17 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.isoLandmark(screen, cam, c.Hall.Rect, kitHall, g.scenery(), city.Hit{Landmark: city.LandmarkHall})
 		}))
 	}
+	// Each district's board stands in the world, ordered with the
+	// buildings around it (item 88).
+	signed := map[*city.District]bool{}
+	if !g.hidden {
+		for _, d := range c.Districts {
+			at := d.Sign().At
+			items = append(items, footprintAt(cam, city.RectAt(at.X-1, at.Y-1, 2, 2), func() {
+				signed[d] = g.districtSign(screen, cam, d)
+			}))
+		}
+	}
 	items = order(cam, items)
 	for _, item := range items {
 		item.draw()
@@ -768,7 +779,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	g.groupLines(screen, cam)
 	for _, d := range c.Districts {
-		if g.districtLabelVisible(d) {
+		// The sign stands in the district; the plate is for when it is
+		// too small to read, and for the district under the pointer.
+		if g.districtLabelVisible(d) && (!signed[d] || hover.District == d) {
 			g.floorLabel(screen, g.districtLabelAt(d), d.Name, colorText)
 		}
 	}

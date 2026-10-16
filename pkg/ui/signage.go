@@ -234,3 +234,29 @@ func abs(n int) int {
 	}
 	return n
 }
+
+// DistrictSign is a district's board (item 88): its name over whose
+// move it is, both at one scale.
+type DistrictSign struct {
+	Name, Move Sign
+}
+
+// LayoutDistrictSign fits the name and the move on two lines of a
+// board, centred, and declines when the board is too small to read, so
+// the hover plate carries the name instead.
+func LayoutDistrictSign(name, move string, face city.Rect, measure Measure) (DistrictSign, bool) {
+	nw, h := measure(name, Small)
+	mw, _ := measure(move, Small)
+	if name == "" || nw <= 0 || h <= 0 {
+		return DistrictSign{}, false
+	}
+	scale := fit(face.Width(), face.Height(), math.Max(nw, mw), 2*h)
+	if h*scale < MinSignPx {
+		return DistrictSign{}, false
+	}
+	top := face.Center().Y - h*scale
+	line := func(text string, w, y float64) Sign {
+		return Sign{Text: text, Scale: scale, At: city.Point{X: face.Center().X - w*scale/2, Y: y}}
+	}
+	return DistrictSign{Name: line(name, nw, top), Move: line(move, mw, top+h*scale)}, true
+}
