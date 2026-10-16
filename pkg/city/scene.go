@@ -632,7 +632,12 @@ const zoomEase = 12.0
 // clamp keeps the map under the middle of the window: the camera can
 // reach the edge but never leave the plan for the void beyond it.
 func (s *Scene) clamp() {
-	plane := s.camera.Bounds(s.city.Extent())
+	// The view may wander off the plan as far as the island's coast and
+	// the shallows past it, so the sea round the city can be seen. Item 85.
+	plane := s.camera.Bounds(s.city.Island().Reach())
+	if s.city.bounds.Area() == 0 {
+		plane = s.camera.Bounds(s.city.Extent())
+	}
 	if plane.Area() == 0 {
 		return
 	}

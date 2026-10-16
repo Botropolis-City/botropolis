@@ -62,5 +62,9 @@ A district can be dragged to another slot: a press on its floor or name plate pi
 Dropping on a slot another district holds swaps the two; the ring just outside the city takes a drop and grows the city by a ring; the plaza and anything further out refuse it, outlined in the error colour.
 A press anywhere else pans, and so does any drag with Shift or Alt held.
 `pkg/city` also puts the plant, hall and library on the plaza and one shed per parked session in storage, grouped by project.
-The lake, the hashed river and the per-cell hashed grass, dirt and trees are gone; beyond the plan's edge there is nothing,
-and the camera clamps so the plan stays under the middle of the window.
+The lake, the hashed river and the per-cell hashed grass, dirt and trees are gone.
+The plan stands on an island (`City.Island()`, item 85): its coast lies about two cells past the plan's edge and wanders by a smooth noise seeded only by position, so the same plan always has the same coast and a bigger city a bigger island.
+A beach lies on the land side of the coast and shallows on the sea's, and a faint far shore stands some twenty-four cells out.
+The river runs through the island and out to the sea at both ends; tugs come in from the sea at its north mouth and leave by the south, while the usage gauges and the refresh courier keep to the river's band inside the plan.
+`pkg/city` says what ground lies at any point, and `pkg/render` paints that once per plan into a texture in world space and draws it through the camera's own affine projection, so the coast is soft and costs one draw a frame.
+The fit frames the plan, and the camera clamps so the island or its shallows stay under the middle of the window.

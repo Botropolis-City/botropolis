@@ -112,6 +112,7 @@ func (g *Game) isoGround(screen *ebiten.Image, cam *city.Camera, c *city.City, w
 	if c.Night {
 		grass, water = ui.DefaultPalette.GroundNight, colorWaterNight
 	}
+	g.shore(screen, cam, c)
 	g.poly(screen, cam, bounds, grass)
 	for _, rc := range c.RiverCells {
 		g.poly(screen, cam, rc.Cell.Rect(), water)

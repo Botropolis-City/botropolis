@@ -1,0 +1,99 @@
+package render
+
+import (
+	"image/color"
+	"math"
+
+	"github.com/hajimehoshi/ebiten/v2"
+
+	"botropolis.city/botropolis/pkg/city"
+)
+
+// The island and the sea round it, painted from pkg/city's model of the
+// ground. It is painted once per plan into a texture in world space, a
+// texel to shoreTexel world units, and drawn under the plan through the
+// camera's own affine projection, so the coast is soft and costs one
+// draw a frame. Item 85.
+
+const shoreTexel = 4.0
+
+var (
+	colorSea      = color.NRGBA{0x4f, 0x8c, 0xbd, 0xff}
+	colorShallows = color.NRGBA{0x8c, 0xc4, 0xd8, 0xff}
+	colorSand     = color.NRGBA{0xd9, 0xcb, 0x9a, 0xff}
+	colorFarShore = color.NRGBA{0x9f, 0xb8, 0xa4, 0xff}
+)
+
+// shorePaint is the colour of a kind of ground, t across its band.
+func shorePaint(g city.Ground, t float64) color.NRGBA {
+	switch g {
+	case city.GroundSand:
+		return mix(colorKitGrass, colorSand, 0.65+0.35*t)
+	case city.GroundShallows:
+		return mix(colorShallows, colorSea, t)
+	case city.GroundFarShore:
+		return mix(colorSea, colorFarShore, 0.15+0.4*t)
+	case city.GroundRiver:
+		return colorKitWater
+	case city.GroundSea:
+		return colorSea
+	}
+	return colorKitGrass
+}
+
+func mix(a, b color.NRGBA, t float64) color.NRGBA {
+	t = math.Max(0, math.Min(1, t))
+	l := func(x, y uint8) uint8 { return uint8(math.Round(float64(x) + (float64(y)-float64(x))*t)) }
+	return color.NRGBA{l(a.R, b.R), l(a.G, b.G), l(a.B, b.B), 0xff}
+}
+
+type shoreLayer struct {
+	island city.Island
+	sea    city.Rect
+	img    *ebiten.Image
+}
+
+func (g *Game) shoreImage(c *city.City) *shoreLayer {
+	island := c.Island()
+	if g.shoreLayer != nil && g.shoreLayer.island == island {
+		return g.shoreLayer
+	}
+	sea := island.Sea()
+	w, h := int(sea.Width()/shoreTexel), int(sea.Height()/shoreTexel)
+	pix := make([]byte, 4*w*h)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			kind, t := island.At(city.Point{X: sea.Min.X + (float64(x)+0.5)*shoreTexel, Y: sea.Min.Y + (float64(y)+0.5)*shoreTexel})
+			col := shorePaint(kind, t)
+			i := 4 * (y*w + x)
+			pix[i], pix[i+1], pix[i+2], pix[i+3] = col.R, col.G, col.B, 0xff
+		}
+	}
+	img := ebiten.NewImage(w, h)
+	img.WritePixels(pix)
+	if g.shoreLayer != nil {
+		g.shoreLayer.img.Deallocate()
+	}
+	g.shoreLayer = &shoreLayer{island: island, sea: sea, img: img}
+	return g.shoreLayer
+}
+
+// shore draws the island's ground and the sea under the plan.
+func (g *Game) shore(screen *ebiten.Image, cam *city.Camera, c *city.City) {
+	if c.Bounds().Area() == 0 {
+		return
+	}
+	s := g.shoreImage(c)
+	project := func(p city.Point) city.Point { return cam.Project(p).Add(cam.Offset).Scale(cam.Zoom) }
+	o := project(s.sea.Min)
+	ex := project(city.Point{X: s.sea.Min.X + shoreTexel, Y: s.sea.Min.Y}).Sub(o)
+	ey := project(city.Point{X: s.sea.Min.X, Y: s.sea.Min.Y + shoreTexel}).Sub(o)
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	op.GeoM.SetElement(0, 0, ex.X)
+	op.GeoM.SetElement(1, 0, ex.Y)
+	op.GeoM.SetElement(0, 1, ey.X)
+	op.GeoM.SetElement(1, 1, ey.Y)
+	op.GeoM.SetElement(0, 2, o.X)
+	op.GeoM.SetElement(1, 2, o.Y)
+	screen.DrawImage(s.img, op)
+}

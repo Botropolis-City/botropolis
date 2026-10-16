@@ -73,6 +73,7 @@ func (g *Game) ground(screen *ebiten.Image, cam *city.Camera, c *city.City, widt
 	if bounds.Area() == 0 {
 		return
 	}
+	g.shore(screen, cam, c)
 	flat := colorGround
 	if c.Night {
 		flat = colorGroundNight

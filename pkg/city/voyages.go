@@ -89,9 +89,14 @@ func (v *Voyage) Card() Card {
 }
 
 // riverEnds is where the river enters and leaves the map, and its x.
+// riverEnds are the river's mouths out at sea: arrivals come in at the
+// north one and departures leave by the south. Item 85.
 func (c *City) riverEnds() (north, south Point, ok bool) {
-	from, to, _, ok := c.RiverBand()
-	return from, to, ok
+	if _, _, _, ok := c.RiverBand(); !ok {
+		return Point{}, Point{}, false
+	}
+	north, south = c.Island().Mouths()
+	return north, south, true
 }
 
 // dock is the river point beside a project's district, or beside the

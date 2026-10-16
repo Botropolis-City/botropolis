@@ -987,9 +987,9 @@ func TestCameraClamp(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working))
 		s.Pan(city.Point{X: 100_000, Y: -100_000})
 		centre := s.Camera().ScreenToWorld(s.Size().Scale(0.5))
-		plane := s.Camera().Projection.Bounds(s.City().Extent())
+		plane := s.Camera().Projection.Bounds(s.City().Island().Reach())
 
-		t.Run("it should keep the map under the window's centre", func(t *testing.T) {
+		t.Run("it should keep the island or its shallows under the window's centre", func(t *testing.T) {
 			assert.True(t, plane.Inset(-1e-6).Contains(s.Camera().Projection.Apply(centre)), centre)
 		})
 	})
@@ -1299,9 +1299,8 @@ func TestVoyages(t *testing.T) {
 
 		// The river is plan.RiverCols wide now, so a tug sails its
 		// centre line rather than the middle of its western column.
-		t.Run("it should start at the river's north end", func(t *testing.T) {
-			north, _, _, ok := s.City().RiverBand()
-			require.True(t, ok)
+		t.Run("it should come in from the sea at the river's north mouth", func(t *testing.T) {
+			north, _ := s.City().Island().Mouths()
 			assert.Equal(t, north, v.From)
 		})
 
@@ -1354,9 +1353,8 @@ func TestVoyages(t *testing.T) {
 			assert.Equal(t, "Symbol meaning", v.Title)
 		})
 
-		t.Run("it should leave downriver", func(t *testing.T) {
-			_, south, _, ok := s.City().RiverBand()
-			require.True(t, ok)
+		t.Run("it should leave downriver and out to sea", func(t *testing.T) {
+			_, south := s.City().Island().Mouths()
 			assert.Equal(t, south, v.To)
 		})
 

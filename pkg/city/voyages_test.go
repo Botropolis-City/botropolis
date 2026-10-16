@@ -152,7 +152,7 @@ func TestAVoyageWhoseSessionGoesSailsOnRatherThanVanishing(t *testing.T) {
 			clock = clock.Add(city.SailFor)
 
 			t.Run("it should have left by the south end rather than vanished mid-river", func(t *testing.T) {
-				_, south, _, _ := s.City().RiverBand()
+				_, south := s.City().Island().Mouths()
 				last := tugs[0].At(clock)
 				assert.InDelta(t, south.Y, last.Y, 1.0)
 			})

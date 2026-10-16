@@ -85,7 +85,9 @@ func (s *Scene) Couriers() []*Courier {
 		kept = append(kept, c)
 	}
 	s.couriers = kept
-	head, mouth, ok := s.city.riverEnds()
+	// The courier runs the river's own length, head to foot, not out to
+	// sea: it is a usage refresh, not an arrival.
+	head, mouth, _, ok := s.city.RiverBand()
 	if !ok {
 		return nil
 	}
