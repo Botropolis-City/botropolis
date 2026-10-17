@@ -33,7 +33,7 @@ var bindings = []ui.Key{
 	{Key: "1-6", Action: "a lens; press again for its next view"},
 	{Key: "c", Action: "new session here"},
 	{Key: "d d", Action: "demolish the selection"},
-	{Key: "f", Action: "fit"},
+	{Key: "f", Action: "Skyline"},
 	{Key: "0", Action: "reset the view"},
 	{Key: "r", Action: "turn the camera"},
 	{Key: "n", Action: "night, day, auto"},
@@ -82,7 +82,7 @@ var footerKeys = []ui.Key{
 	{Key: "tab", Action: "next needs-you"},
 	{Key: "v", Action: "lenses"},
 	{Key: "b", Action: "sidebar"},
-	{Key: "f", Action: "fit"},
+	{Key: "f", Action: "Skyline"},
 	{Key: "?", Action: "help"},
 	{Key: "q", Action: "quit (asks; y or enter confirms)"},
 }

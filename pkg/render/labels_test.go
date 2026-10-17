@@ -59,7 +59,6 @@ func TestFooterVerbsMatchWhatTheyDo(t *testing.T) {
 	})
 
 	t.Run("when a building is actually clicked", func(t *testing.T) {
-		toBuildings(scene)
 		got := scene.Click(scene.Camera().WorldToScreen(b.Rect.Center()))
 
 		t.Run("it should ask for nothing, which is what select means", func(t *testing.T) {

@@ -19,7 +19,7 @@ Phase 7 finished the same day.
 `pkg/ui` holds the strip, the plate (every in-world label sits on one), the card, the footer with its key row, the minimap's box,
 the help overlay, the settings panel and its model, and a button row for the cards to come;
 each is a pure layout with its own tests.
-Keys: `?` help, `h` hide the UI, `p` save a frame to `~/Pictures` from the game's own buffer, `0` and `f` fit, arrows pan, `+`/`-` zoom, `s` settings.
+Keys: `?` help, `h` hide the UI, `p` save a frame to `~/Pictures` from the game's own buffer, `0` resets the view and `f` is Skyline (the whole city if it reads at the zoom-out floor, otherwise the floor centred on it), arrows pan, `+`/`-` zoom, `s` settings.
 The settings panel edits `liveliness` (still, calm, steady or lively; `reduced_motion` forces still), `render_scale`, `projection`, `shuttered_days`, `overgrown_days` and `terminal` live where it can
 and writes the one key back through `config.Save`, which never spells out defaults.
 The acceptance test shoots the sample city at 1× and 2× with no daemon and checks the frame doubles,

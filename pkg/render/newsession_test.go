@@ -121,7 +121,6 @@ func TestNewSession(t *testing.T) {
 	t.Run("when a building is selected and New session opens", func(t *testing.T) {
 		g, _ := newGame(t)
 		b := g.scene.City().Buildings()[0]
-		toBuildings(g.scene)
 		g.scene.Click(g.scene.Camera().WorldToScreen(b.Rect.Center()))
 		require.NotNil(t, g.scene.Selected())
 		press(t, g, ebiten.KeyN, true)

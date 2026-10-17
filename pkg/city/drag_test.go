@@ -253,7 +253,6 @@ func TestDistrictDrag(t *testing.T) {
 	t.Run("when a press starts on a building", func(t *testing.T) {
 		s, _, d := setup(t)
 		require.NotEmpty(t, d.Buildings)
-		readable(s)
 
 		t.Run("it should not pick up the district", func(t *testing.T) {
 			assert.False(t, s.PressDistrict(s.Camera().WorldToScreen(d.Buildings[0].Rect.Center()), false))

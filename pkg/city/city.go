@@ -162,9 +162,6 @@ type Hit struct {
 	Delivery  *Delivery
 	// Message is a van carrying one message between sessions (item 89).
 	Message *Message
-	// Badge is a district drawn as its badge at fit or zoomed out
-	// (item 89).
-	Badge *District
 	// Station is a stop on a group's line (item 87).
 	Station *StationHit
 }
