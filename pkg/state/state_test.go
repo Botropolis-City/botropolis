@@ -352,6 +352,18 @@ func TestBuild(t *testing.T) {
 		})
 	})
 
+	// Item 89: the main thread's tool calls, for the building's pulses.
+	t.Run("when the main thread has made tool calls", func(t *testing.T) {
+		tr := transcript(sidA, claude.TurnWorking)
+		tr.ToolCalls = 7
+		session := build(t, []claude.SessionRecord{record(sidA, claude.KindInteractive, claude.StatusBusy)},
+			[]claude.Transcript{tr}, nil, alive)[0]
+
+		t.Run("it should carry the count", func(t *testing.T) {
+			assert.Equal(t, 7, session.ToolCalls)
+		})
+	})
+
 	// Item 89: where each subagent in flight works, for its drone.
 	t.Run("when subagents are in flight", func(t *testing.T) {
 		away := claude.Subagent{ToolUseID: "toolu_A", Transcript: claude.Transcript{

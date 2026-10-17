@@ -189,10 +189,12 @@ type Scene struct {
 	gaugeOrder   []string
 	gaugesManual bool
 	gaugeLeaveAt time.Time
-	// tools is each session's tool call at the last snapshot, and pulses
-	// when each tool call since started, for its building (item 89).
-	tools  map[string]string
-	pulses map[string][]time.Time
+	// calls is each session's count of tool calls at the last snapshot,
+	// lastRead when that snapshot came, and pulses the pulses its new
+	// calls sent up its building (item 89).
+	calls    map[string]int
+	lastRead time.Time
+	pulses   map[string][]pulse
 	// overgrowth is the road cells growing over since their connection
 	// ceased. Item 85.
 	overgrowth map[Cell]overgrowing

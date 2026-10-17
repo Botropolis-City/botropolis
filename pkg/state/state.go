@@ -91,6 +91,9 @@ type Session struct {
 	GroupLikely bool           `json:"groupLikely,omitempty"`
 	Agent       string         `json:"agent,omitempty"`
 	Messages    map[string]int `json:"messages,omitempty"`
+	// ToolCalls counts the main thread's tool calls, for the pulses up
+	// its building (item 89).
+	ToolCalls int `json:"toolCalls,omitempty"`
 	// PeerMessages are the messages other sessions sent this one. Roads
 	// read them in the loader, so they are not sent on (item 89).
 	PeerMessages []claude.PeerMessage `json:"-"`
@@ -494,6 +497,7 @@ func attribute(s *Session, t claude.Transcript) {
 	s.Hourly = recentHours(t.Hourly, HourlyKeep)
 	s.Messages = t.Messages
 	s.PeerMessages = t.PeerMessages
+	s.ToolCalls = t.ToolCalls
 	s.Touches = t.Touches
 	s.MCPCalls = t.MCPCalls
 	s.Skills = t.SkillCalls

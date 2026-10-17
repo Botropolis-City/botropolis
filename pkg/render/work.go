@@ -84,6 +84,12 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		radius := float32(max(2, roofLift*0.05))
 		c := colorPulse
 		c.A = uint8(255 * (1 - p.P*0.6))
+		// The last of a burst too close to show one by one stands for
+		// the rest, so it is drawn bigger and at full brightness.
+		if p.Merged {
+			radius *= 1.6
+			c.A = 255
+		}
 		vector.FillCircle(screen, float32(at.X), float32(at.Y), radius, c, true)
 	}
 }

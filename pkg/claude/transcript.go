@@ -111,6 +111,9 @@ type Transcript struct {
 	// PeerMessages are the messages other sessions sent this one, each
 	// once (item 89).
 	PeerMessages []PeerMessage
+	// ToolCalls counts the main thread's tool calls, each once, so the
+	// map can show every one however short (item 89).
+	ToolCalls int
 	// OrderLines are the newest lines that name an order (item 90).
 	OrderLines       []OrderLine
 	APIErrors        int
@@ -402,6 +405,13 @@ func (s *transcriptScan) applyAssistant(rec transcriptLineJSON, mainLine bool) {
 		}
 	}
 	at, _ := parseTimestamp(rec.Timestamp)
+	for _, block := range rec.Message.Content {
+		// A message is read once (seenMessages, above), so each of its
+		// tool calls is counted once.
+		if mainLine && block.Type == "tool_use" {
+			t.ToolCalls++
+		}
+	}
 	for _, block := range rec.Message.Content {
 		if block.Type == "text" && mainLine {
 			s.keepOrder(OrderLines(block.Text, false, at))
