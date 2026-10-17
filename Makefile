@@ -11,6 +11,18 @@ LOG := @sh -c '\
 DEMO_TOKEN_FROM_ENV := $(CLAUDE_CODE_OAUTH_TOKEN)
 -include .env
 
+# Item 103: Go and golangci-lint are pinned in the repository, not taken from
+# whatever the package manager last installed. GOTOOLCHAIN=auto would let a
+# newer local Go win over go.mod's toolchain line, so make names it exactly,
+# and Go downloads that toolchain into the module cache if it is missing. The
+# linter lives in its own module because golangci-lint's dependencies would
+# otherwise upgrade the app's own (24 of them, at v2.15.0).
+GO_MOD ?= go.mod
+GO_TOOLCHAIN := $(shell awk '$$1 == "toolchain" { print $$2 }' ${GO_MOD})
+export GOTOOLCHAIN := ${GO_TOOLCHAIN}
+GOLANGCI_LINT := go tool -modfile=tools/lint/go.mod golangci-lint
+GOLANGCI_LINT_PIN := $(shell awk '$$1 == "github.com/golangci/golangci-lint/v2" { print $$2 }' tools/lint/go.mod)
+
 MODULE := botropolis.city/botropolis
 BINARIES := botropolis botropolisd botropolis-hook
 VERSION ?= $(shell cat VERSION)
@@ -144,10 +156,18 @@ bench ::
 	$(LOG) "Benchmarking the bar's tasks"
 	@go test ./testing/acceptance -run '^$$' -bench . -benchtime ${BENCH_TIME} -count ${BENCH_COUNT}
 
-lint :: docs-check version-check workflows-check demo-check darwin-check
+lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check
 	$(LOG) "Linting"
 	@go vet ./...
-	@golangci-lint run ./...
+	@${GOLANGCI_LINT} run ./...
+
+go-version-check ::
+	$(LOG) "Checking Go is the toolchain go.mod pins"
+	@tools/check-pin go "${GO_TOOLCHAIN}" -- go env GOVERSION
+
+lint-version-check ::
+	$(LOG) "Checking golangci-lint is the version tools/lint/go.mod pins"
+	@tools/check-pin golangci-lint "${GOLANGCI_LINT_PIN}" -- ${GOLANGCI_LINT} version
 
 # Everything under demo/ is published in effect, so it is checked for anything
 # from a real machine, and every corpus file must be on a reviewed list.

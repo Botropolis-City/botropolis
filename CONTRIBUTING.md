@@ -39,6 +39,11 @@ make lint       # docs-check, version-check, go vet, golangci-lint
 make format     # gofmt
 ```
 
+Nothing needs installing beyond Go.
+make runs the Go that `go.mod`'s `toolchain` line names and the golangci-lint that `tools/lint/go.mod` pins, whatever is installed, and Go downloads either into its module cache the first time.
+`make lint` fails if the versions that ran are not the pinned ones.
+To move either, change its pin and nothing else: CI reads the same two files.
+
 `make test lint` must be green before a pull request.
 Work in this order and you will not be surprised at the end:
 write, build, test, fix, lint, format, build again, commit.

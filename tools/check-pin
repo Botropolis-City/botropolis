@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: check-pin NAME PIN -- COMMAND [ARGS...]
+
+Runs COMMAND, takes the first version number it prints on stdout, and fails, naming
+both, unless it is PIN. A leading "v" or "go" on either side is ignored, so
+v2.15.0, 2.15.0 and go1.27.2 compare as plain versions.
+
+Item 103: make lint runs the linter and Go pinned in the repository, and this
+is how make proves the versions that ran are the pinned ones.
+
+Stdout only, because building a tool the first time prints "go: downloading"
+lines, each with some other module's version, on stderr.
+
+  NAME   what is being checked, for the messages
+  PIN    the pinned version; empty fails, since an absent pin pins nothing
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+fi
+
+if [[ $# -lt 4 || "$3" != "--" ]]; then
+    usage >&2
+    exit 2
+fi
+
+name=$1
+pin=$2
+shift 3
+
+normalise() {
+    sed -E 's/^(go|v)//' <<<"$1"
+}
+
+if [[ -z "$pin" ]]; then
+    echo "check-pin: ${name} has no pinned version" >&2
+    exit 1
+fi
+
+errors=$(mktemp)
+trap 'rm -f "$errors"' EXIT
+if ! out=$("$@" 2>"$errors"); then
+    echo "check-pin: running ${name} failed: $(cat "$errors")" >&2
+    exit 1
+fi
+
+ran=$(grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' <<<"$out" | head -n 1 || true)
+want=$(normalise "$pin")
+
+if [[ "$ran" != "$want" ]]; then
+    echo "check-pin: ${name} is pinned at ${want} but ${ran:-no version} ran (${out%%$'\n'*})" >&2
+    exit 1
+fi
+
+echo "${name} ${ran}, as pinned"
