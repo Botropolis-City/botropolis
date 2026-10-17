@@ -87,8 +87,9 @@ func TestConstruction(t *testing.T) {
 	})
 
 	t.Run("BuildFor", func(t *testing.T) {
-		t.Run("it should be between one and two seconds", func(t *testing.T) {
-			assert.True(t, city.BuildFor >= time.Second && city.BuildFor <= 2*time.Second)
+		// Aria, 2026-10-17: slower than the first cut's 1.8 s.
+		t.Run("it should be three seconds", func(t *testing.T) {
+			assert.Equal(t, 3*time.Second, city.BuildFor)
 		})
 	})
 

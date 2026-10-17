@@ -42,14 +42,6 @@ func TestDroneFlights(t *testing.T) {
 		}
 		return city.Point{}
 	}
-	elsewhere := func(s *city.Scene) city.Point {
-		for _, d := range s.City().Districts {
-			if d.Root == botropolis {
-				return d.Rect.Center()
-			}
-		}
-		return city.Point{}
-	}
 
 	t.Run("when a subagent starts", func(t *testing.T) {
 		var clock time.Time
@@ -66,6 +58,11 @@ func TestDroneFlights(t *testing.T) {
 
 			t.Run("it should be loitering", func(t *testing.T) {
 				assert.Equal(t, city.Loitering, flights(s)[0].Stage)
+			})
+
+			t.Run("it should work on its own building", func(t *testing.T) {
+				require.NotNil(t, flights(s)[0].On)
+				assert.Equal(t, "a", flights(s)[0].On.Session.ID)
 			})
 		})
 	})
@@ -117,10 +114,11 @@ func TestDroneFlights(t *testing.T) {
 		s := scene(t, &clock, city.Lively, botropolis+"/pkg/city")
 		clock = start.Add(city.TakeoffFor + city.FlyFor)
 
-		t.Run("it should loiter over that district", func(t *testing.T) {
+		t.Run("it should work on that district's most recently active building", func(t *testing.T) {
 			got := flights(s)
 			require.Len(t, got, 1)
-			assert.Equal(t, [2]any{city.Loitering, elsewhere(s)}, [2]any{got[0].Stage, got[0].Over})
+			require.NotNil(t, got[0].On)
+			assert.Equal(t, [2]any{city.Loitering, "b"}, [2]any{got[0].Stage, got[0].On.Session.ID})
 		})
 
 		t.Run("and it finishes", func(t *testing.T) {
@@ -193,9 +191,10 @@ func TestDroneFlights(t *testing.T) {
 			s := scene(t, &clock, city.Still, botropolis+"/pkg/city")
 			clock = start.Add(city.DroneFadeFor / 2)
 
-			t.Run("it should stand over that district as a marker, with no flight", func(t *testing.T) {
+			t.Run("it should stand at the building it works on there, as a marker, with no flight", func(t *testing.T) {
 				require.Len(t, flights(s), 1)
-				assert.Equal(t, elsewhere(s), flights(s)[0].Over)
+				require.NotNil(t, flights(s)[0].On)
+				assert.Equal(t, "b", flights(s)[0].On.Session.ID)
 			})
 		})
 	})

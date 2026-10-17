@@ -59,10 +59,13 @@ var shown = map[View][]Network{
 	// sessions passing between them, which is what section 10's item 5
 	// asked for. Unexplained motion would be the complaint that started
 	// this project; motion that says what it is on hover is not.
-	ViewAttention: {NetworkTraffic},
+	//
+	// A drone answers for itself the same way, so the drones show
+	// wherever the cars do (item 89).
+	ViewAttention: {NetworkTraffic, NetworkCranes},
 	ViewSpend:     {NetworkWires, NetworkFreight},
 	ViewServers:   {NetworkBeams},
-	ViewTraffic:   {NetworkTraffic},
+	ViewTraffic:   {NetworkTraffic, NetworkCranes},
 	ViewFanout:    {NetworkCranes},
 	// Health draws the wires for what is *not* there. A session the
 	// daemon has seen no hook events from has no wire to the plant, and

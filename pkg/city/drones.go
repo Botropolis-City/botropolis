@@ -35,12 +35,14 @@ const (
 	Landing
 )
 
-// Flight is one drone as it is now. Over is the world point it loiters
-// about or stands over, Climb how far it is from its pad to its cruising
-// height, and Fade its opacity, which only a cross-fade lowers.
+// Flight is one drone as it is now. On is the building it works on, or
+// nil while it flies between districts; Over is the world point it is
+// over, Climb how far it is from its pad to its working height, and Fade
+// its opacity, which only a cross-fade lowers.
 type Flight struct {
 	Seat  int
 	Stage FlightStage
+	On    *Building
 	Over  Point
 	Climb float64
 	Fade  float64
@@ -53,9 +55,11 @@ type flight struct {
 	works    string
 	launched time.Time
 	ended    time.Time
-	// left is where it was when it ended, and how far up.
+	// left is where it was when it ended, how far up, and whose building
+	// it was working on, by session.
 	left      Point
 	leftClimb float64
+	leftOn    string
 }
 
 // noteDrones launches a drone for every new subagent in flight and ends
@@ -122,6 +126,9 @@ func (s *Scene) freeSeat(id string) int {
 func (s *Scene) endFlight(id string, f *flight, now time.Time) {
 	at := s.flightAt(id, f, now)
 	f.ended, f.left, f.leftClimb = now, at.Over, at.Climb
+	if at.On != nil {
+		f.leftOn = at.On.Session.ID
+	}
 }
 
 // Flights is every drone flying for a session, landed ones pruned.
@@ -171,13 +178,14 @@ func (s *Scene) returnFor(id string, f *flight) time.Duration {
 
 // flightAt is a drone at now.
 func (s *Scene) flightAt(id string, f *flight, now time.Time) Flight {
-	home, away := s.roof(id), s.worksOver(id, f)
-	out := Flight{Seat: f.seat, Over: away, Climb: 1, Fade: 1}
+	mine, on := s.buildingOf(id), s.worksOn(id, f)
+	home, away := s.roof(id), centre(on)
+	out := Flight{Seat: f.seat, On: on, Over: away, Climb: 1, Fade: 1}
 	if s.reduced {
 		out.Stage = Loitering
 		out.Fade = min(1, float64(now.Sub(f.launched))/float64(DroneFadeFor))
 		if !f.ended.IsZero() {
-			out.Over = f.left
+			out.On, out.Over = s.buildingOf(f.leftOn), f.left
 			out.Fade = max(0, 1-float64(now.Sub(f.ended))/float64(DroneFadeFor))
 		}
 		return out
@@ -187,11 +195,11 @@ func (s *Scene) flightAt(id string, f *flight, now time.Time) Flight {
 		back := s.returnFor(id, f)
 		if since < back {
 			p := float64(since) / float64(back)
-			out.Stage, out.Over, out.Climb = Returning, lerp(f.left, home, p), f.leftClimb
+			out.Stage, out.On, out.Over, out.Climb = Returning, nil, lerp(f.left, home, p), f.leftClimb
 			return out
 		}
 		p := float64(since-back) / float64(LandFor)
-		out.Stage, out.Over, out.Climb = Landing, home, f.leftClimb*(1-min(1, p))
+		out.Stage, out.On, out.Over, out.Climb = Landing, mine, home, f.leftClimb*(1-min(1, p))
 		if p >= 1 {
 			out.Fade = 0
 		}
@@ -200,9 +208,9 @@ func (s *Scene) flightAt(id string, f *flight, now time.Time) Flight {
 	since := now.Sub(f.launched)
 	switch {
 	case since < TakeoffFor:
-		out.Stage, out.Over, out.Climb = TakingOff, home, float64(since)/float64(TakeoffFor)
-	case away != home && since < TakeoffFor+FlyFor:
-		out.Stage, out.Over = Outbound, lerp(home, away, float64(since-TakeoffFor)/float64(FlyFor))
+		out.Stage, out.On, out.Over, out.Climb = TakingOff, mine, home, float64(since)/float64(TakeoffFor)
+	case on != mine && since < TakeoffFor+FlyFor:
+		out.Stage, out.On, out.Over = Outbound, nil, lerp(home, away, float64(since-TakeoffFor)/float64(FlyFor))
 	default:
 		out.Stage = Loitering
 	}
@@ -214,30 +222,51 @@ func lerp(a, b Point, p float64) Point {
 	return Point{X: a.X + (b.X-a.X)*p, Y: a.Y + (b.Y-a.Y)*p}
 }
 
-// roof is the middle of a session's building, where its pad is.
-func (s *Scene) roof(id string) Point {
+// buildingOf is a session's building, or nil.
+func (s *Scene) buildingOf(id string) *Building {
 	for _, b := range s.city.Buildings() {
 		if b.Session.ID == id {
-			return b.Rect.Center()
+			return b
 		}
 	}
-	return Point{}
+	return nil
 }
 
-// worksOver is where a drone loiters: over the district its subagent
-// works in when that is another, and over its own roof otherwise.
-func (s *Scene) worksOver(id string, f *flight) Point {
-	home := s.roof(id)
+// roof is the middle of a session's building, where its pad is.
+func (s *Scene) roof(id string) Point { return centre(s.buildingOf(id)) }
+
+func centre(b *Building) Point {
+	if b == nil {
+		return Point{}
+	}
+	return b.Rect.Center()
+}
+
+// worksOn is the building a drone works on: in the district its
+// subagent works in when that is another, the building there that was
+// active last; otherwise its own.
+func (s *Scene) worksOn(id string, f *flight) *Building {
+	mine := s.buildingOf(id)
 	d := s.city.districtAt(f.works)
 	if d == nil {
-		return home
+		return mine
 	}
+	var last *Building
 	for _, b := range d.Buildings {
 		if b.Session.ID == id {
-			return home
+			return mine
+		}
+		if b.Vacant {
+			continue
+		}
+		if last == nil || b.Session.LastActivity.After(last.Session.LastActivity) {
+			last = b
 		}
 	}
-	return d.Rect.Center()
+	if last == nil {
+		return mine
+	}
+	return last
 }
 
 // districtAt is the district a path lies in: the one with the longest

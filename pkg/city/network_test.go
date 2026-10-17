@@ -23,9 +23,15 @@ func TestNetworksPerView(t *testing.T) {
 			require.True(t, city.ViewAttention.Shows(city.NetworkTraffic))
 		})
 
+		// Item 89: a drone answers for itself the same way, and shows
+		// wherever cars do (Aria, 2026-10-17).
+		t.Run("it should draw the drones, which explain themselves on hover", func(t *testing.T) {
+			require.True(t, city.ViewAttention.Shows(city.NetworkCranes))
+		})
+
 		t.Run("it should draw no other network, so the view stays quiet", func(t *testing.T) {
 			for _, n := range city.Networks {
-				if n == city.NetworkTraffic {
+				if n == city.NetworkTraffic || n == city.NetworkCranes {
 					continue
 				}
 				require.False(t, city.ViewAttention.Shows(n), n.String())
@@ -36,7 +42,7 @@ func TestNetworksPerView(t *testing.T) {
 	owns := map[city.View][]city.Network{
 		city.ViewSpend:   {city.NetworkWires, city.NetworkFreight},
 		city.ViewServers: {city.NetworkBeams},
-		city.ViewTraffic: {city.NetworkTraffic},
+		city.ViewTraffic: {city.NetworkTraffic, city.NetworkCranes},
 		city.ViewFanout:  {city.NetworkCranes},
 		city.ViewHealth:  {city.NetworkWires},
 	}

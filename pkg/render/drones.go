@@ -11,33 +11,180 @@ import (
 )
 
 // Drones in flight, with their shadows. Item 89.
+//
+// A drone works on a building: it flits between points on the two faces
+// toward the camera and over the roof, pausing at each, the way someone
+// inspecting it would. Its points come from its seat and its rhythm is
+// its own, so several on one building never move in step. Between
+// districts it flies above the rooftops.
 
 const (
-	// droneCruise is how far above the roofline a drone loiters, in
-	// pixels at zoom 1.
+	// droneCruise is how far above the roofline a drone flies between
+	// districts, in pixels at zoom 1.
 	droneCruise = droneHover
-	// loiterRadius is the loiter's mean radius in world units, and
-	// loiterPeriod how long one loop takes at full pace.
-	loiterRadius = city.Tile * 1.2
-	loiterPeriod = 8.0
+	// droneShrink is how small a drone is drawn against its sprite.
+	droneShrink = 0.4
+	// droneHop is how far above the roof a drone works there, in pixels
+	// at zoom 1, and droneOff how far off a face, in world units.
+	droneHop = 6.0
+	droneOff = 1.0
+	// droneDwell is the share of each beat a drone holds still.
+	droneDwell = 0.6
 )
 
 var colorDroneShadow = color.NRGBA{0, 0, 0, 0x50}
 
+// station is one point a drone works at: on the faces toward the camera,
+// s from 0 to 2 along them and v up them from 0 to 1, or over the roof
+// at a world point.
+type station struct {
+	roof bool
+	s, v float64
+	at   city.Point
+}
+
+// spot is a drone's ground point and how high above it it is drawn.
+type spot struct {
+	base city.Point
+	lift float64
+}
+
 // droneAt is where a drone is drawn on screen and the world point its
-// shadow falls on, over a roof roofLift pixels above the ground. The
-// loiter is a loose, uneven circle that widens as the drone climbs, and
-// each seat flies its own.
+// shadow falls on. roofLift is how far its building's roof stands above
+// the ground on screen.
 func droneAt(cam *city.Camera, f city.Flight, roofLift, seconds float64) (city.Point, city.Point) {
-	seat := float64(f.Seat)
-	speed := 1 + 0.17*seat
-	theta := 2*math.Pi*seconds*speed/loiterPeriod + seat*2*math.Pi/3
-	r := loiterRadius * f.Climb * (1 + 0.22*math.Sin(2*theta+seat) + 0.08*math.Sin(3*theta+1.3*seat))
-	shadow := city.Point{X: f.Over.X + r*math.Cos(theta), Y: f.Over.Y + r*math.Sin(theta)}
-	bob := 2 * math.Sin(seconds*3+seat) * f.Climb
-	ground := cam.WorldToScreen(shadow)
-	lift := roofLift + (droneCruise+bob)*cam.Zoom*f.Climb
-	return city.Point{X: ground.X, Y: ground.Y - lift}, shadow
+	var at spot
+	if f.On == nil {
+		at = spot{base: f.Over, lift: roofLift + droneCruise*cam.Zoom}
+	} else {
+		r := f.On.Rect
+		work := droneWork(cam, r, roofLift, f.Seat, seconds)
+		pad := spot{base: r.Center(), lift: roofLift}
+		at = spot{base: lerpPoint(pad.base, work.base, f.Climb), lift: pad.lift + (work.lift-pad.lift)*f.Climb}
+	}
+	ground := cam.WorldToScreen(at.base)
+	return city.Point{X: ground.X, Y: ground.Y - at.lift}, at.base
+}
+
+// droneWork is where a working drone is at seconds: held at a station
+// for most of each beat, then moving to the next.
+func droneWork(cam *city.Camera, r city.Rect, roofLift float64, seat int, seconds float64) spot {
+	period := 1.6 + 0.47*float64(seat)
+	beat := seconds/period + 0.73*float64(seat)
+	n := math.Floor(beat)
+	from := droneStation(r, seat, int(n))
+	frac := beat - n
+	if frac < droneDwell {
+		return stationSpot(cam, r, roofLift, from)
+	}
+	to := droneStation(r, seat, int(n)+1)
+	p := (frac - droneDwell) / (1 - droneDwell)
+	p = p * p * (3 - 2*p)
+	return moveSpot(cam, r, roofLift, from, to, p)
+}
+
+// droneStation is a seat's nth station, the same every time it is asked.
+func droneStation(r city.Rect, seat, n int) station {
+	h := func(k int) float64 {
+		x := math.Sin(float64(seat)*12.9898+float64(n)*78.233+float64(k)*37.719) * 43758.5453
+		return x - math.Floor(x)
+	}
+	if h(0) > 0.7 {
+		return station{roof: true, at: city.Point{
+			X: r.Min.X + r.Width()*(0.25+0.5*h(1)),
+			Y: r.Min.Y + r.Height()*(0.25+0.5*h(2)),
+		}}
+	}
+	s := 0.15 + 0.7*h(1)
+	if h(0) > 0.35 {
+		s++
+	}
+	return station{s: s, v: 0.25 + 0.65*h(2)}
+}
+
+// stationSpot is a station on screen. A roof station is drawn above the
+// roof plane; a face station just off the face.
+func stationSpot(cam *city.Camera, r city.Rect, roofLift float64, st station) spot {
+	if st.roof {
+		return spot{base: st.at, lift: roofLift + droneHop*cam.Zoom}
+	}
+	return spot{base: faceBase(cam, r, st.s), lift: st.v * roofLift}
+}
+
+// moveSpot is a drone p of the way from one station to the next. Along
+// the faces it follows them; to the roof it climbs its face first and
+// then crosses, and from the roof it does the reverse, so it never
+// passes through the building.
+func moveSpot(cam *city.Camera, r city.Rect, roofLift float64, from, to station, p float64) spot {
+	top := roofLift + droneHop*cam.Zoom
+	switch {
+	case !from.roof && !to.roof:
+		return spot{base: faceBase(cam, r, from.s+(to.s-from.s)*p), lift: (from.v + (to.v-from.v)*p) * roofLift}
+	case from.roof && to.roof:
+		return spot{base: lerpPoint(from.at, to.at, p), lift: top}
+	case to.roof:
+		edge := faceBase(cam, r, from.s)
+		if p < 0.5 {
+			return spot{base: edge, lift: from.v*roofLift + (top-from.v*roofLift)*p*2}
+		}
+		return spot{base: lerpPoint(edge, to.at, (p-0.5)*2), lift: top}
+	}
+	edge := faceBase(cam, r, to.s)
+	if p < 0.5 {
+		return spot{base: lerpPoint(from.at, edge, p*2), lift: top}
+	}
+	return spot{base: edge, lift: top + (to.v*roofLift-top)*(p-0.5)*2}
+}
+
+// faceBase is the ground point s along the faces toward the camera, from
+// one side corner through the front corner to the other, just off them.
+func faceBase(cam *city.Camera, r city.Rect, s float64) city.Point {
+	front, sides := frontCorner(cam, r)
+	from, to, t := sides[0], front, s
+	if s > 1 {
+		from, to, t = front, sides[1], s-1
+	}
+	at := lerpPoint(from, to, t)
+	edge := city.Point{X: to.X - from.X, Y: to.Y - from.Y}
+	length := math.Hypot(edge.X, edge.Y)
+	if length == 0 {
+		return at
+	}
+	normal := city.Point{X: -edge.Y / length, Y: edge.X / length}
+	centre := r.Center()
+	if normal.X*(at.X-centre.X)+normal.Y*(at.Y-centre.Y) < 0 {
+		normal = city.Point{X: -normal.X, Y: -normal.Y}
+	}
+	return city.Point{X: at.X + normal.X*droneOff, Y: at.Y + normal.Y*droneOff}
+}
+
+// frontCorner is the footprint's corner nearest the camera and the two
+// corners beside it, whose edges are the faces the camera sees.
+func frontCorner(cam *city.Camera, r city.Rect) (city.Point, [2]city.Point) {
+	corners := [4]city.Point{r.Min, {X: r.Max.X, Y: r.Min.Y}, r.Max, {X: r.Min.X, Y: r.Max.Y}}
+	best, depth := 0, math.Inf(-1)
+	for i, c := range corners {
+		t := cam.TurnPoint(c)
+		if d := t.X + t.Y; d > depth {
+			best, depth = i, d
+		}
+	}
+	return corners[best], [2]city.Point{corners[(best+3)%4], corners[(best+1)%4]}
+}
+
+func lerpPoint(a, b city.Point, p float64) city.Point {
+	return city.Point{X: a.X + (b.X-a.X)*p, Y: a.Y + (b.Y-a.Y)*p}
+}
+
+// segmentDistance is how far p is from the segment a–b.
+func segmentDistance(p, a, b city.Point) float64 {
+	d := city.Point{X: b.X - a.X, Y: b.Y - a.Y}
+	l := d.X*d.X + d.Y*d.Y
+	t := 0.0
+	if l > 0 {
+		t = math.Max(0, math.Min(1, ((p.X-a.X)*d.X+(p.Y-a.Y)*d.Y)/l))
+	}
+	return math.Hypot(p.X-(a.X+d.X*t), p.Y-(a.Y+d.Y*t))
 }
 
 // layered is the frame's paint order: everything on the ground in the
@@ -73,7 +220,7 @@ func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, sec
 					tint = &ebiten.ColorScale{}
 					tint.ScaleAlpha(float32(fade))
 				}
-				drone := g.kitAt(screen, cam, kitDrone, 0, at, tint)
+				drone := g.kitAtShrunk(screen, cam, kitDrone, at, droneShrink, tint)
 				g.noteHit(drone, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Subagent: b})
 			})
 		}
@@ -100,4 +247,24 @@ func droneShadow(screen *ebiten.Image, cam *city.Camera, at city.Point) {
 	op := &vector.DrawPathOptions{AntiAlias: true}
 	op.ColorScale.ScaleWithColor(colorDroneShadow)
 	vector.FillPath(screen, &path, nil, op)
+}
+
+// kitAtShrunk is kitAt at a fraction of the piece's size.
+func (g *Game) kitAtShrunk(screen *ebiten.Image, cam *city.Camera, name string, foot city.Point, shrink float64, tint *ebiten.ColorScale) city.Rect {
+	if g.kits == nil {
+		return city.Rect{}
+	}
+	atlas := g.kits.pick(cam.Zoom)
+	if atlas == nil {
+		return city.Rect{}
+	}
+	sprite, ok := atlas.Sprite(name, cam.Heading)
+	if !ok || sprite.Page >= len(atlas.pages) {
+		return city.Rect{}
+	}
+	scale := cam.Zoom / atlas.Zoom * shrink
+	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
+	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	g.drawSprite(screen, img, origin, scale, tint)
+	return city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale)
 }
