@@ -33,6 +33,17 @@ func TestToolCalls(t *testing.T) {
 		})
 	})
 
+	t.Run("when one message's two tool calls are on two lines that share its id", func(t *testing.T) {
+		line := func(id string) string {
+			return `{"type":"assistant","timestamp":"2026-10-17T12:00:00.000Z","message":{"id":"m-one","role":"assistant","content":[{"type":"tool_use","id":"` + id + `","name":"Read","input":{}}]}}`
+		}
+		tr := readTranscript(t, line("a"), line("b"))
+
+		t.Run("it should count both", func(t *testing.T) {
+			assert.Equal(t, 2, tr.ToolCalls)
+		})
+	})
+
 	t.Run("when a call is on a sidechain", func(t *testing.T) {
 		tr := readTranscript(t, call("a", false), call("b", true))
 

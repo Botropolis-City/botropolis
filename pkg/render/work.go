@@ -19,7 +19,7 @@ import (
 
 var (
 	colorWorkingFloor = color.NRGBA{0xff, 0xe0, 0x8a, 0xc0}
-	colorPulse        = color.NRGBA{0xff, 0xf4, 0xc8, 0xff}
+	colorPulse        = color.NRGBA{0xff, 0xa8, 0x28, 0xff}
 )
 
 // frontOf is a footprint's corner nearest the viewer on screen, the one
@@ -80,16 +80,24 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 			}
 			continue
 		}
+		// A comet up the corner: a saturated head with a dark rim, so it
+		// reads on a white wall, and a short tail below it.
 		at := pulseAt(lot, roofLift, floor, p.P)
-		radius := float32(max(2, roofLift*0.05))
-		c := colorPulse
-		c.A = uint8(255 * (1 - p.P*0.6))
+		tail := pulseAt(lot, roofLift, floor, max(0, p.P-0.25))
+		radius := float32(max(3, roofLift*0.09))
+		alpha := 1 - p.P*0.5
 		// The last of a burst too close to show one by one stands for
-		// the rest, so it is drawn bigger and at full brightness.
+		// the rest, so it is drawn bigger and at full strength.
 		if p.Merged {
-			radius *= 1.6
-			c.A = 255
+			radius *= 1.5
+			alpha = 1
 		}
-		vector.FillCircle(screen, float32(at.X), float32(at.Y), radius, c, true)
+		trail := colorPulse
+		trail.A = uint8(200 * alpha)
+		vector.StrokeLine(screen, float32(tail.X), float32(tail.Y), float32(at.X), float32(at.Y), radius, trail, true)
+		vector.FillCircle(screen, float32(at.X), float32(at.Y), radius+1.5, color.NRGBA{0x20, 0x18, 0x10, uint8(220 * alpha)}, true)
+		head := colorPulse
+		head.A = uint8(255 * alpha)
+		vector.FillCircle(screen, float32(at.X), float32(at.Y), radius, head, true)
 	}
 }

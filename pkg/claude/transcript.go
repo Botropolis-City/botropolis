@@ -253,6 +253,8 @@ type transcriptScan struct {
 	records       int
 	bridgeRecords int
 	seenMessages  map[string]bool
+	// lastTool is the last tool call counted, by id (item 89).
+	lastTool      string
 	tail          tailScan
 	sidechainMain bool
 	// recapPrompts is the prompt count when the newest recap was written.
@@ -387,6 +389,16 @@ func (s *transcriptScan) applyAssistant(rec transcriptLineJSON, mainLine bool) {
 			t.MaxContext = t.ContextTokens
 		}
 	}
+	// Tool calls are counted before the message check below: a message's
+	// blocks arrive on separate lines that share its id, so most tool
+	// calls are on a line whose message was already seen. A tool call
+	// repeated on the next line is counted once (item 89).
+	for _, block := range rec.Message.Content {
+		if mainLine && block.Type == "tool_use" && block.ID != s.lastTool {
+			s.lastTool = block.ID
+			t.ToolCalls++
+		}
+	}
 	if id := rec.Message.ID; id != "" {
 		if s.seenMessages[id] {
 			return
@@ -405,13 +417,6 @@ func (s *transcriptScan) applyAssistant(rec transcriptLineJSON, mainLine bool) {
 		}
 	}
 	at, _ := parseTimestamp(rec.Timestamp)
-	for _, block := range rec.Message.Content {
-		// A message is read once (seenMessages, above), so each of its
-		// tool calls is counted once.
-		if mainLine && block.Type == "tool_use" {
-			t.ToolCalls++
-		}
-	}
 	for _, block := range rec.Message.Content {
 		if block.Type == "text" && mainLine {
 			s.keepOrder(OrderLines(block.Text, false, at))
