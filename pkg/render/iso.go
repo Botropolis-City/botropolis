@@ -656,13 +656,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.overgrowth(screen, cam, false)
 	g.agedLots(screen, cam, c)
 	g.powerLines(screen, c, cam, hover, seconds)
-	// Drones fly over everything, so their shadows go on the ground
-	// first and the drones last (item 89).
-	shadows, airborne := g.flights(screen, c, cam, seconds)
+	// Drones stand in the depth sort on their shadows' ground points,
+	// and their shadows go on the ground first (item 89).
+	shadows, drones := g.flights(screen, c, cam, seconds)
 	for _, at := range shadows {
 		droneShadow(screen, cam, at)
 	}
-	var items []drawable
+	items := drones
+	var airborne []func()
 	if c.Fountain.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Fountain, func() {
 			g.fountain(screen, cam, c, seconds)

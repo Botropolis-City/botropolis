@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -94,14 +93,30 @@ func TestDroneWork(t *testing.T) {
 			assert.GreaterOrEqual(t, len(seen), 2)
 		})
 
+		held := 0
+		for i := 1; i < len(got); i++ {
+			if got[i].at == got[i-1].at {
+				held++
+			}
+		}
+
 		t.Run("it should pause at a point before moving on", func(t *testing.T) {
-			var held int
-			for i := 1; i < len(got); i++ {
-				if got[i].at == got[i-1].at {
-					held++
+			assert.Greater(t, held, samples/10)
+		})
+
+		// Aria, 2026-10-17: busy, not idle.
+		t.Run("it should hold still for under half of the samples", func(t *testing.T) {
+			assert.Less(t, held, samples/2)
+		})
+
+		t.Run("it should reach a new point at least once a second", func(t *testing.T) {
+			arrivals := 0
+			for i := 2; i < len(got); i++ {
+				if got[i].at == got[i-1].at && got[i-1].at != got[i-2].at {
+					arrivals++
 				}
 			}
-			assert.Greater(t, held, samples/4)
+			assert.GreaterOrEqual(t, float64(arrivals), samples*step)
 		})
 
 		t.Run("it should cast its shadow straight beneath it", func(t *testing.T) {
@@ -156,28 +171,55 @@ func TestDroneWork(t *testing.T) {
 		})
 	})
 
-	t.Run("when a drone is drawn", func(t *testing.T) {
-		t.Run("it should be drawn at under half its old size", func(t *testing.T) {
-			assert.Less(t, droneShrink, 0.5)
+	t.Run("when a drone is drawn on a building", func(t *testing.T) {
+		t.Run("it should be about one window wide: a tenth to a fifth of its building's drawn width", func(t *testing.T) {
+			assert.True(t, droneWindow >= 0.1 && droneWindow <= 0.2)
 		})
 	})
 
-	t.Run("when a drone works over a building and a taller one stands in front", func(t *testing.T) {
+	// Aria, 2026-10-17: proper perspective. A drone stands in the one
+	// depth sort on its shadow's ground point.
+	t.Run("in the depth sort", func(t *testing.T) {
 		cam := city.NewCamera()
-		var drawn []string
-		record := func(name string) func() { return func() { drawn = append(drawn, name) } }
-		behind := city.RectAt(5*city.Tile, 5*city.Tile, city.Tile, city.Tile)
-		front := city.RectAt(6*city.Tile, 6*city.Tile, city.Tile, city.Tile)
-		draws := layered(cam,
-			[]drawable{footprintAt(cam, front, record("front")), footprintAt(cam, behind, record("behind"))},
-			[]func(){record("drone")})
-		require.Len(t, draws, 3)
-		for _, draw := range draws {
-			draw()
+		named := func(build func(rec func(string) func()) []drawable) []string {
+			return namedOrder(cam, build)
 		}
+		own := building.Rect
+		offFace := faceBase(cam, own, 0.5)
+		taller := city.RectAt(own.Max.X+city.Tile, own.Max.Y+city.Tile, own.Width(), own.Height())
+		sign := func(at city.Point) city.Rect { return city.RectAt(at.X-1, at.Y-1, 2, 2) }
 
-		t.Run("it should be drawn after both buildings", func(t *testing.T) {
-			assert.Equal(t, []string{"behind", "front", "drone"}, drawn)
-		})
+		for _, c := range []struct {
+			name  string
+			build func(rec func(string) func()) []drawable
+			want  []string
+		}{
+			{"when a drone works on the roof of its own building, it should be drawn after its building",
+				func(rec func(string) func()) []drawable {
+					return []drawable{droneAtDepth(cam, own.Center(), rec("drone")), footprintAt(cam, own, rec("building"))}
+				}, []string{"building", "drone"}},
+			{"when a drone works on a face toward the camera, it should be drawn after its building",
+				func(rec func(string) func()) []drawable {
+					return []drawable{droneAtDepth(cam, offFace, rec("drone")), footprintAt(cam, own, rec("building"))}
+				}, []string{"building", "drone"}},
+			{"when a taller building stands in front of the drone's building, it should be drawn before that building",
+				func(rec func(string) func()) []drawable {
+					return []drawable{footprintAt(cam, taller, rec("taller")), droneAtDepth(cam, own.Center(), rec("drone")), footprintAt(cam, own, rec("building"))}
+				}, []string{"building", "drone", "taller"}},
+			{"when a drone is behind a district sign, it should be drawn before the sign",
+				func(rec func(string) func()) []drawable {
+					at := city.Point{X: own.Max.X + city.Tile, Y: own.Max.Y + city.Tile}
+					return []drawable{footprintAt(cam, sign(at), rec("sign")), droneAtDepth(cam, own.Center(), rec("drone"))}
+				}, []string{"drone", "sign"}},
+			{"when a drone is in front of a district sign, it should be drawn after the sign",
+				func(rec func(string) func()) []drawable {
+					at := city.Point{X: own.Min.X - city.Tile, Y: own.Min.Y - city.Tile}
+					return []drawable{droneAtDepth(cam, own.Center(), rec("drone")), footprintAt(cam, sign(at), rec("sign"))}
+				}, []string{"sign", "drone"}},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				assert.Equal(t, c.want, named(c.build))
+			})
+		}
 	})
 }

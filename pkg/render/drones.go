@@ -22,14 +22,16 @@ const (
 	// droneCruise is how far above the roofline a drone flies between
 	// districts, in pixels at zoom 1.
 	droneCruise = droneHover
-	// droneShrink is how small a drone is drawn against its sprite.
-	droneShrink = 0.4
+	// droneWindow is how wide a drone is drawn against its building's
+	// drawn width: about one window.
+	droneWindow = 0.15
 	// droneHop is how far above the roof a drone works there, in pixels
 	// at zoom 1, and droneOff how far off a face, in world units.
 	droneHop = 6.0
 	droneOff = 1.0
-	// droneDwell is the share of each beat a drone holds still.
-	droneDwell = 0.6
+	// droneDwell is the share of each beat a drone holds still: short,
+	// so it reads as busy.
+	droneDwell = 0.3
 )
 
 var colorDroneShadow = color.NRGBA{0, 0, 0, 0x50}
@@ -69,7 +71,7 @@ func droneAt(cam *city.Camera, f city.Flight, roofLift, seconds float64) (city.P
 // droneWork is where a working drone is at seconds: held at a station
 // for most of each beat, then moving to the next.
 func droneWork(cam *city.Camera, r city.Rect, roofLift float64, seat int, seconds float64) spot {
-	period := 1.6 + 0.47*float64(seat)
+	period := 0.55 + 0.13*float64(seat)
 	beat := seconds/period + 0.73*float64(seat)
 	n := math.Floor(beat)
 	from := droneStation(r, seat, int(n))
@@ -198,9 +200,15 @@ func layered(cam *city.Camera, standing []drawable, airborne []func()) []func() 
 	return append(out, airborne...)
 }
 
+// droneAtDepth is a drone in the depth sort, standing on the ground point
+// its shadow falls on, as a car stands on its road.
+func droneAtDepth(cam *city.Camera, shadow city.Point, draw func()) drawable {
+	return footprintAt(cam, city.RectAt(shadow.X-0.5, shadow.Y-0.5, 1, 1), draw)
+}
+
 // flights is every drone the map draws: the world points their shadows
-// fall on, and the drones themselves for the airborne pass.
-func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, seconds float64) (shadows []city.Point, airborne []func()) {
+// fall on, and the drones themselves for the depth sort.
+func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, seconds float64) (shadows []city.Point, drones []drawable) {
 	if !g.shows(city.NetworkCranes) {
 		return nil, nil
 	}
@@ -209,23 +217,28 @@ func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, sec
 			continue
 		}
 		b := b
-		lift := g.kitRoofLift(cam, buildingPiece(b))
 		for _, f := range g.scene.Flights(b.Session.ID) {
+			on := b
+			if f.On != nil {
+				on = f.On
+			}
+			lift := g.kitRoofLift(cam, buildingPiece(on))
 			at, shadow := droneAt(cam, f, lift, seconds)
 			shadows = append(shadows, shadow)
 			fade := f.Fade
-			airborne = append(airborne, func() {
+			shrink := g.droneShrink(cam, buildingPiece(on))
+			drones = append(drones, droneAtDepth(cam, shadow, func() {
 				var tint *ebiten.ColorScale
 				if fade < 1 {
 					tint = &ebiten.ColorScale{}
 					tint.ScaleAlpha(float32(fade))
 				}
-				drone := g.kitAtShrunk(screen, cam, kitDrone, at, droneShrink, tint)
+				drone := g.kitAtShrunk(screen, cam, kitDrone, at, shrink, tint)
 				g.noteHit(drone, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Subagent: b})
-			})
+			}))
 		}
 	}
-	return shadows, airborne
+	return shadows, drones
 }
 
 // droneShadow is a soft ellipse on the ground beneath a drone.
@@ -247,6 +260,16 @@ func droneShadow(screen *ebiten.Image, cam *city.Camera, at city.Point) {
 	op := &vector.DrawPathOptions{AntiAlias: true}
 	op.ColorScale.ScaleWithColor(colorDroneShadow)
 	vector.FillPath(screen, &path, nil, op)
+}
+
+// droneShrink is the shrink that draws a drone one window wide on a
+// building drawn as piece.
+func (g *Game) droneShrink(cam *city.Camera, piece string) float64 {
+	drone, building := g.kitSize(cam, kitDrone), g.kitSize(cam, piece)
+	if drone.X == 0 || building.X == 0 {
+		return droneWindow
+	}
+	return droneWindow * float64(building.X) / float64(drone.X)
 }
 
 // kitAtShrunk is kitAt at a fraction of the piece's size.
