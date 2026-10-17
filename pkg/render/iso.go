@@ -708,6 +708,12 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			}))
 		}
 	}
+	for _, m := range g.scene.Messages() {
+		m := m
+		items = append(items, standingAt(cam, m.At(g.scene.Clock()), func() {
+			g.drawMessage(screen, cam, m)
+		}))
+	}
 	for _, d := range g.scene.Deliveries() {
 		d := d
 		items = append(items, standingAt(cam, d.At(g.scene.Clock()), func() {

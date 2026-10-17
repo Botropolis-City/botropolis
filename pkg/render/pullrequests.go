@@ -20,6 +20,8 @@ const (
 	// not the depot's packing truck.
 	kitDelivery  = "car-kit/delivery"
 	kitInspector = "car-kit/suv"
+	// kitVan carries one message between sessions, and nothing else.
+	kitVan = "car-kit/van"
 	// bridgeStraight is the deck the bridge is laid with, east-west.
 	bridgeStraight = "city-kit-roads/road-straight"
 )
@@ -88,6 +90,25 @@ func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, d city.Deliv
 	r := g.kit(screen, cam, kitDelivery, turn, at, tint)
 	g.kitScaled(screen, cam, crates[d.PR.Number%len(crates)], turn, at, 0.3, tint)
 	g.noteHit(r, city.Hit{Delivery: &d})
+}
+
+// drawMessage draws a message on its way: a van on the road, or a
+// carriage on the group's line, fading in at its end at still.
+func (g *Game) drawMessage(screen *ebiten.Image, cam *city.Camera, m city.Message) {
+	now := g.scene.Clock()
+	var tint *ebiten.ColorScale
+	if m.Fades {
+		tint = &ebiten.ColorScale{}
+		tint.ScaleAlpha(float32(m.Progress(now)))
+	}
+	at := m.At(now)
+	turn := carTurn(m.At(now.Add(100 * 1e6)).Sub(at))
+	model := kitVan
+	if m.Train {
+		model = kitWagons[0]
+	}
+	r := g.kitScaled(screen, cam, model, turn, at, 0.9, tint)
+	g.noteHit(r, city.Hit{Message: &m})
 }
 
 // drawRibbon cuts a group's ribbon over a building: a ribbon that parts

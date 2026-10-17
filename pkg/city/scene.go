@@ -221,6 +221,10 @@ type Scene struct {
 	deliveries []Delivery
 	ribbons    []ribbon
 	celebrated map[string]bool
+	// mail is each road's message counts at the last snapshot, and
+	// messages the vans their rises sent (item 89).
+	mail     map[string]mailCount
+	messages []Message
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
@@ -624,6 +628,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.finishBuilds(s.now())
 	s.noteDrones(s.now())
 	s.notePRs(s.now())
+	s.noteMessages(s.now())
 	s.holdDepot()
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
@@ -682,7 +687,7 @@ func (h Hit) Ground() bool {
 // allowed to win or it can never be pointed at at all.
 func (h Hit) Mover() bool {
 	return h.Worker != nil || h.Subagent != nil || h.Smoke != nil || h.Car != nil || h.Flag != nil || h.Gauge != nil ||
-		h.Inspector != nil || h.Delivery != nil
+		h.Inspector != nil || h.Delivery != nil || h.Message != nil
 }
 
 func (h Hit) ground() bool {
@@ -1180,6 +1185,8 @@ func (s *Scene) cardFor(h Hit) (Card, bool) {
 		return FlagCard(h.Flag.PR), true
 	case h.Delivery != nil:
 		return DeliveryCard(*h.Delivery), true
+	case h.Message != nil:
+		return MessageCard(*h.Message), true
 	case h.Inspector != nil:
 		return InspectorCard(h.Inspector), true
 	case h.Subagent != nil:

@@ -122,6 +122,14 @@ func TestMoverCards(t *testing.T) {
 		})
 	})
 
+	t.Run("when a van is pointed at", func(t *testing.T) {
+		card := city.MessageCard(city.Message{From: &city.District{Name: "cinders"}, To: &city.District{Name: "mullet"}})
+
+		t.Run("it should say it is one message, from where to where", func(t *testing.T) {
+			assert.Equal(t, "message -> cinders → mullet", card.Title)
+		})
+	})
+
 	t.Run("when a delivery truck is pointed at", func(t *testing.T) {
 		card := city.DeliveryCard(city.Delivery{PR: claude.PR{Number: 7, Repository: "o/r", State: claude.PRMerged}})
 

@@ -33,11 +33,12 @@ const (
 	// movers (item 89).
 	KindInspector
 	KindDelivery
+	KindVan
 )
 
 // Kinds is every kind, in the order the reference lists them.
 var Kinds = []Kind{
-	KindSession, KindProject, KindStation, KindWorker, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery,
+	KindSession, KindProject, KindStation, KindWorker, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery, KindVan,
 	KindPlant, KindWire, KindTrain, KindTower, KindBeam, KindLibrary, KindHall,
 	KindRoad, KindCar, KindRiver, KindGauge, KindTug, KindLaunch, KindFountain, KindPlaza,
 }
@@ -64,6 +65,8 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindSession, KindInspector, KindDelivery}},
 	KindInspector: {"inspector", "pull requests waiting on review", "An inspector's car parks outside a session's building while the session has a pull request open, and drives off when none is.",
 		[]Kind{KindFlag, KindSession}},
+	KindVan: {"van", "a message between sessions", "A van drives the road from one project to another for each message one session sends another. Between two stations on a group's line, a carriage runs the line instead.",
+		[]Kind{KindRoad, KindCar}},
 	KindDelivery: {"delivery truck", "a merged pull request", "When a pull request merges, a truck takes a crate away over the bridge. When the merge leaves its group with nothing open, the group's ribbon is cut.",
 		[]Kind{KindFlag, KindInspector}},
 	KindPlant: {"power plant", "where the tokens go", "The power plant is the city's spend: tokens and cost across every session. Select it to see where the spend went.",
@@ -126,6 +129,8 @@ func KindOf(h Hit) Kind {
 		return KindFlag
 	case h.Delivery != nil:
 		return KindDelivery
+	case h.Message != nil:
+		return KindVan
 	case h.Inspector != nil:
 		return KindInspector
 	case h.Subagent != nil:

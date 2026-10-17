@@ -62,6 +62,7 @@ func TestKinds(t *testing.T) {
 			// Item 89.
 			city.KindInspector: {Building: b, Inspector: b},
 			city.KindDelivery:  {Delivery: &city.Delivery{PR: a.PRs[0]}},
+			city.KindVan:       {Message: &city.Message{}},
 		}
 
 		t.Run("it should have a hit for every kind", func(t *testing.T) {

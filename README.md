@@ -46,6 +46,7 @@ One district per project, one building per session, and every object stands for 
 A building's height is its context window used and its beacon is its state — needs-you amber, working blue, waiting teal, unattended violet, resting slate.
 A rover works at the door while a session is mid-turn, a drone works on the building for each subagent in flight and flies to the project it works in, and smoke rises per API error.
 A flag flies per PR, an inspector's car parks outside while one is open, and a merge sends a truck off the island by the bridge.
+Each message one session sends another drives a van along the road between their projects.
 A vacant plot is a session nothing has been typed into yet: never counted, and `botropolis prune` clears it after an hour.
 
 The plant on the plaza is the API — click it for the breakdown by model, project and session over an hour, a day or a week.

@@ -161,6 +161,8 @@ type Hit struct {
 	// request open, and Delivery a merged one's truck (item 89).
 	Inspector *Building
 	Delivery  *Delivery
+	// Message is a van carrying one message between sessions (item 89).
+	Message *Message
 	// Station is a stop on a group's line (item 87).
 	Station *StationHit
 }
