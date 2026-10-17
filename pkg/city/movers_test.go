@@ -15,25 +15,6 @@ import (
 // answer: what am I. They were the only objects with no card, which is
 // why three of them — all vehicles — read as the same thing.
 func TestMoverCards(t *testing.T) {
-	t.Run("when the rover at a door is pointed at", func(t *testing.T) {
-		s := session("a", cinders, state.Working)
-		s.Tool = "Edit"
-		sc := still(t, s)
-		card := city.WorkerCard(buildingOf(t, sc, "a"))
-
-		t.Run("it should say it is the session's own thread", func(t *testing.T) {
-			assert.Contains(t, card.Title, "worker")
-		})
-
-		t.Run("it should say what a trip means, because that is the datum", func(t *testing.T) {
-			assert.Contains(t, card.Lines[0], "tool call")
-		})
-
-		t.Run("it should name the tool it is out on", func(t *testing.T) {
-			assert.Contains(t, card.Lines[1], "Edit")
-		})
-	})
-
 	t.Run("when a drone over a roof is pointed at", func(t *testing.T) {
 		s := session("a", cinders, state.Working)
 		s.SubagentsInFlight = 3
@@ -102,7 +83,7 @@ func TestMoverCards(t *testing.T) {
 
 		t.Run("it should name the session it belongs to, so the card is not orphaned", func(t *testing.T) {
 			for _, c := range []city.Card{
-				city.WorkerCard(b), city.SubagentCard(b), city.SmokeCard(b),
+				city.SubagentCard(b), city.SmokeCard(b),
 			} {
 				require.NotEmpty(t, c.Title)
 				require.Contains(t, c.Title, b.Card(sc.City().Time).Title)
@@ -150,7 +131,6 @@ func TestMoverHitsBeatTheBuildingUnderThem(t *testing.T) {
 
 	for name, hit := range map[string]city.Hit{
 		"a drone over the roof": {Building: b, Subagent: b},
-		"the rover at the door": {Building: b, Worker: b},
 		"a plume of smoke":      {Building: b, Smoke: b},
 	} {
 		t.Run("when "+name+" is pointed at", func(t *testing.T) {

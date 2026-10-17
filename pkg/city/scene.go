@@ -189,10 +189,10 @@ type Scene struct {
 	gaugeOrder   []string
 	gaugesManual bool
 	gaugeLeaveAt time.Time
-	// tools is each live session's tool call at the last snapshot and
-	// trips the workers out on the road because one started.
-	tools map[string]string
-	trips map[string]*Trip
+	// tools is each session's tool call at the last snapshot, and pulses
+	// when each tool call since started, for its building (item 89).
+	tools  map[string]string
+	pulses map[string][]time.Time
 	// overgrowth is the road cells growing over since their connection
 	// ceased. Item 85.
 	overgrowth map[Cell]overgrowing
@@ -646,7 +646,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())
-	s.noteTrips(snapshot, s.now())
+	s.notePulses(snapshot, s.now())
 	s.applyNight()
 	s.selected = s.reselect()
 	s.hover = Hit{}
@@ -703,7 +703,7 @@ func (h Hit) Ground() bool {
 // resolves to the building first in world space; a mover has to be
 // allowed to win or it can never be pointed at at all.
 func (h Hit) Mover() bool {
-	return h.Worker != nil || h.Subagent != nil || h.Smoke != nil || h.Car != nil || h.Flag != nil || h.Gauge != nil ||
+	return h.Subagent != nil || h.Smoke != nil || h.Car != nil || h.Flag != nil || h.Gauge != nil ||
 		h.Inspector != nil || h.Delivery != nil || h.Message != nil
 }
 
@@ -1213,8 +1213,6 @@ func (s *Scene) cardFor(h Hit) (Card, bool) {
 		return InspectorCard(h.Inspector), true
 	case h.Subagent != nil:
 		return SubagentCard(h.Subagent), true
-	case h.Worker != nil:
-		return WorkerCard(h.Worker), true
 	case h.Smoke != nil:
 		return SmokeCard(h.Smoke), true
 	case h.Landmark == LandmarkPlant:

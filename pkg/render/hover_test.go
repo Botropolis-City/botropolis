@@ -9,10 +9,10 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 )
 
-// The rover stands at a door, the drone circles a roof, the flag stands
-// on one and the smoke rises off it — all four are inside or above a
+// The drone works on a building's faces and roof, the flag stands on one
+// and the smoke rises off it — all three are inside or above a
 // building's own footprint, so the pointer resolves to the building
-// before any sprite is considered. Without this the five movers are
+// before any sprite is considered. Without this those movers are
 // hoverable in principle and unreachable in practice.
 func TestPickHit(t *testing.T) {
 	b := &city.Building{}
@@ -48,7 +48,7 @@ func TestPickHit(t *testing.T) {
 	})
 
 	t.Run("when two movers overlap", func(t *testing.T) {
-		first := spriteHit{rect: box, hit: city.Hit{Building: b, Worker: b}}
+		first := spriteHit{rect: box, hit: city.Hit{Building: b, Smoke: b}}
 		got, ok := pickHit(city.Hit{}, []spriteHit{first, mover}, at)
 
 		t.Run("it should take the one drawn last, which is the one on top", func(t *testing.T) {

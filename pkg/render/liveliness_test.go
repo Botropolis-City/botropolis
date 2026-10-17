@@ -43,13 +43,18 @@ func TestMoversAtEveryLevel(t *testing.T) {
 		return out
 	}
 
+	working := func(b *city.Building) bool {
+		_, ok := city.NewScene(city.NewLayout()).WorkingFloor(b)
+		return ok
+	}
+
 	// frame is what one frame draws, a second after another.
 	type frame struct {
 		cars      []car
 		carriages []carriage
 		drones    []city.Point
 		smoke     []puff
-		rover     bool
+		working   bool
 	}
 	at := func(level city.Liveliness, after time.Duration) frame {
 		m := newMotionClock(start)
@@ -60,7 +65,7 @@ func TestMoversAtEveryLevel(t *testing.T) {
 			carriages: g.carriages(c, m.ambient),
 			drones:    dronesAt(m.ambient),
 			smoke:     smokePuffs(roof, 1, b.Smoke, m.ambient),
-			rover:     roverDrawn(b),
+			working:   working(b),
 		}
 	}
 
@@ -80,8 +85,8 @@ func TestMoversAtEveryLevel(t *testing.T) {
 				assert.Len(t, f.carriages, 3)
 			})
 
-			t.Run("it should draw the rover", func(t *testing.T) {
-				assert.True(t, f.rover)
+			t.Run("it should light the working floor", func(t *testing.T) {
+				assert.True(t, f.working)
 			})
 
 			t.Run("it should draw the smoke", func(t *testing.T) {

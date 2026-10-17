@@ -820,9 +820,9 @@ func (g *Game) hoverSprites(cursor city.Point) {
 // Sprites are searched back to front, so the thing drawn last — the
 // thing on top — wins. A sprite normally only gets a say when the world
 // hover is open ground, because a building already knows its own
-// footprint; the exception is the movers. A rover stands at a door, a
-// drone circles a roof, a flag stands on one and smoke rises off it, so
-// all four are inside or above the footprint of the building they belong
+// footprint; the exception is the movers. A drone works on a building's
+// faces and roof, a flag stands on one and smoke rises off it, so all
+// three are inside or above the footprint of the building they belong
 // to. Without letting them override, they are hoverable in principle and
 // unreachable in practice, which is the whole of what this was meant to
 // fix.

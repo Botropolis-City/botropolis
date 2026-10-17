@@ -34,27 +34,6 @@ func TestPanesLit(t *testing.T) {
 	}
 }
 
-func TestRoverHome(t *testing.T) {
-	work, door := city.Point{X: 10, Y: 20}, city.Point{X: 30, Y: 40}
-	for _, c := range []struct {
-		name string
-		kind city.Settle
-		p    float64
-		at   city.Point
-	}{
-		{"resting, at the start", city.SettleRest, 0, work},
-		{"resting, at the end", city.SettleRest, 1, door},
-		{"waking, at the start", city.SettleWake, 0, door},
-		{"waking, at the end", city.SettleWake, 1, work},
-	} {
-		t.Run("when a building is "+c.name, func(t *testing.T) {
-			t.Run("it should put the rover there", func(t *testing.T) {
-				assert.Equal(t, c.at, roverHome(c.kind, c.p, work, door))
-			})
-		})
-	}
-}
-
 func TestBeaconFade(t *testing.T) {
 	for _, c := range []struct {
 		name  string

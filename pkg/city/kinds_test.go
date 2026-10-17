@@ -52,7 +52,6 @@ func TestKinds(t *testing.T) {
 			city.KindTrain:    {Train: &city.Train{}},
 			city.KindTug:      {Voyage: &city.Voyage{}},
 			city.KindLaunch:   {Courier: &city.Courier{}},
-			city.KindWorker:   {Worker: b},
 			city.KindDrone:    {Subagent: b},
 			city.KindSmoke:    {Smoke: b},
 			city.KindGauge:    {Gauge: &city.GaugeHit{}},

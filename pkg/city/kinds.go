@@ -22,7 +22,6 @@ const (
 	KindTrain
 	KindTug
 	KindLaunch
-	KindWorker
 	KindDrone
 	KindSmoke
 	KindGauge
@@ -38,7 +37,7 @@ const (
 
 // Kinds is every kind, in the order the reference lists them.
 var Kinds = []Kind{
-	KindSession, KindProject, KindStation, KindWorker, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery, KindVan,
+	KindSession, KindProject, KindStation, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery, KindVan,
 	KindPlant, KindWire, KindTrain, KindTower, KindBeam, KindLibrary, KindHall,
 	KindRoad, KindCar, KindRiver, KindGauge, KindTug, KindLaunch, KindFountain, KindPlaza,
 }
@@ -49,16 +48,14 @@ type kindText struct {
 }
 
 var kindTexts = map[Kind]kindText{
-	KindSession: {"session", "a Claude Code session", "Each building is one Claude Code session. Its colour says its state: waiting for you, working, or resting. Select it to read its card; its card leads with what Claude said last.",
-		[]Kind{KindProject, KindWorker, KindDrone, KindSmoke, KindFlag}},
+	KindSession: {"session", "a Claude Code session", "Each building is one Claude Code session. Its colour says its state: waiting for you, working, or resting. While Claude is mid-turn one floor glows, and each tool it uses sends a pulse up the building to the roof. Select it to read its card; its card leads with what Claude said last.",
+		[]Kind{KindProject, KindDrone, KindSmoke, KindFlag}},
 	KindProject: {"project", "a directory where sessions run", "Each district is a project: a directory on this machine. Its buildings are the sessions started there.",
 		[]Kind{KindSession, KindRoad, KindStation}},
 	KindStation: {"station", "a project on a group's line", "A group of sessions working on one thing is drawn as a line through its projects, with a station at each. A station's colour says whose move it is there.",
 		[]Kind{KindProject, KindSession}},
-	KindWorker: {"rover", "a session's own work", "The rover at a building's door is the session itself. It waits there while Claude is mid-turn and drives out and back for each tool it uses.",
-		[]Kind{KindSession, KindDrone}},
 	KindDrone: {"drone", "one subagent in flight", "Each drone working on a building is one subagent the session has running. It flies to the project its subagent works in, and home when it finishes.",
-		[]Kind{KindSession, KindWorker}},
+		[]Kind{KindSession}},
 	KindSmoke: {"smoke", "errors from the API", "Smoke over a roof means the session has had errors from the API. The more smoke, the more errors.",
 		[]Kind{KindSession}},
 	KindFlag: {"flag", "a pull request", "A flag on a roof is a pull request the session opened. It turns green when the pull request is merged, and comes down when it is closed.",
@@ -135,8 +132,6 @@ func KindOf(h Hit) Kind {
 		return KindInspector
 	case h.Subagent != nil:
 		return KindDrone
-	case h.Worker != nil:
-		return KindWorker
 	case h.Smoke != nil:
 		return KindSmoke
 	case h.Landmark == LandmarkPlant:

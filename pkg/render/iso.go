@@ -388,22 +388,10 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			g.drawBadge(screen, b, foot)
 		}
 	}
-	// The worker: a rover that waits at the door while the session is
-	// mid-turn and drives out to the kerb and back for each tool call,
-	// bobbing as it goes.
-	// A resting building's worker drives home from the kerb to the door
-	// and goes in (item 86).
-	if settle == city.SettleRest && !g.reduced {
-		if route := g.scene.City().DistrictOf(b).Route(b); len(route) > 0 {
-			at := cam.WorldToScreen(roverHome(settle, progress, route[len(route)-1], route[0]))
-			g.kitAt(screen, cam, kitRover, 270, at, nil)
-		}
-	}
-	if roverDrawn(b) {
-		bob := 1.5 * cam.Zoom * math.Sin(seconds*4)
-		at := cam.WorldToScreen(g.scene.Worker(b))
-		rover := g.kitAt(screen, cam, kitRover, g.scene.WorkerTurn(b), city.Point{X: at.X, Y: at.Y + bob}, nil)
-		g.noteHit(rover, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Worker: b})
+	// The building's own work: a working floor while it is mid-turn,
+	// and a pulse up its face for each tool call (item 89).
+	if !g.viewing() {
+		g.drawWork(screen, b, r)
 	}
 	// One flag per PR, coloured by its state: open in the accent, merged
 	// green, closed slate.
@@ -442,10 +430,6 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		g.polyStroke(screen, cam, b.Rect, 2, colorSelected)
 	}
 }
-
-// roverDrawn is whether a building's worker is out: while its session
-// is mid-turn.
-func roverDrawn(b *city.Building) bool { return b.Session.State == state.Working }
 
 // puff is one plume of smoke on screen.
 type puff struct {

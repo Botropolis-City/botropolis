@@ -50,7 +50,6 @@ var (
 	kitLibrary    = "city-kit-commercial/building-l"
 	kitTower      = "city-kit-industrial/water-tower"
 	kitLamp       = "city-kit-roads/light-square"
-	kitRover      = "space-kit/rover"
 	kitDrone      = "botropolis/drone"
 	// The plaza's fountain, modelled in the pipeline like the drone:
 	// three frames of spray, cycled slowly.

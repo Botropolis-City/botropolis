@@ -31,16 +31,6 @@ func outFirst(panes [][4]city.Point) []int {
 	return order
 }
 
-// roverHome is where the worker is at p of a transition: driving home to
-// the door as the building rests, out from it as it wakes.
-func roverHome(kind city.Settle, p float64, work, door city.Point) city.Point {
-	from, to := work, door
-	if kind == city.SettleWake {
-		from, to = door, work
-	}
-	return city.Point{X: from.X + (to.X-from.X)*p, Y: from.Y + (to.Y-from.Y)*p}
-}
-
 // beaconFade is how strongly the beacon shows at p of a transition.
 func beaconFade(kind city.Settle, p float64) float64 {
 	if kind == city.SettleWake {

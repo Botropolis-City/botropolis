@@ -233,6 +233,12 @@ func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, sec
 					tint = &ebiten.ColorScale{}
 					tint.ScaleAlpha(float32(fade))
 				}
+				// A dark outline, so a drone reads on any ground.
+				for _, d := range []city.Point{{X: -1, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: -1}, {X: 0, Y: 1}} {
+					dark := &ebiten.ColorScale{}
+					dark.Scale(0, 0, 0, float32(fade)*0.9)
+					g.kitAtShrunk(screen, cam, kitDrone, city.Point{X: at.X + d.X, Y: at.Y + d.Y}, shrink, dark)
+				}
 				drone := g.kitAtShrunk(screen, cam, kitDrone, at, shrink, tint)
 				g.noteHit(drone, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Subagent: b})
 			}))
@@ -262,14 +268,24 @@ func droneShadow(screen *ebiten.Image, cam *city.Camera, at city.Point) {
 	vector.FillPath(screen, &path, nil, op)
 }
 
-// droneShrink is the shrink that draws a drone one window wide on a
+// droneMinWidth is the narrowest a drone is drawn, in pixels, so one
+// reads even at fit.
+const droneMinWidth = 12.0
+
+// droneWidth is how wide a drone is drawn on a building drawn
+// buildingWidth pixels wide: one window, and never under droneMinWidth.
+func droneWidth(buildingWidth float64) float64 {
+	return max(droneWindow*buildingWidth, droneMinWidth)
+}
+
+// droneShrink is the shrink that draws a drone droneWidth wide on a
 // building drawn as piece.
 func (g *Game) droneShrink(cam *city.Camera, piece string) float64 {
 	drone, building := g.kitSize(cam, kitDrone), g.kitSize(cam, piece)
-	if drone.X == 0 || building.X == 0 {
+	if drone.X == 0 {
 		return droneWindow
 	}
-	return droneWindow * float64(building.X) / float64(drone.X)
+	return droneWidth(float64(building.X)) / float64(drone.X)
 }
 
 // kitAtShrunk is kitAt at a fraction of the piece's size.

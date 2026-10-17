@@ -148,7 +148,6 @@ type Hit struct {
 	// The movers. These five were the only objects on the map that could
 	// not be asked what they meant, and three of them are vehicles, which
 	// is most of why they blurred together. See movers.go.
-	Worker   *Building
 	Subagent *Building
 	Smoke    *Building
 	// Gauge is a usage boat on the river. It carries its reading rather

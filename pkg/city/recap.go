@@ -74,6 +74,11 @@ func (s *Scene) buildingCard(b *Building) Card {
 	if summarisable(b.Session) {
 		card.Details = append([]string{s.summary(b.Session)}, card.Details...)
 	}
+	// The tool the main thread is using, which the rover carried until
+	// the building showed its own work (item 89).
+	if b.Session.Tool != "" {
+		card.Details = append(card.Details, "now      "+b.Session.Tool)
+	}
 	return card
 }
 
