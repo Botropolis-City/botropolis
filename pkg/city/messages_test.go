@@ -1,6 +1,7 @@
 package city_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -122,6 +124,29 @@ func TestMessages(t *testing.T) {
 				require.Len(t, off.s.Messages(), 1)
 				assert.False(t, off.s.Messages()[0].Train)
 			})
+		})
+	})
+
+	// Slice 9: a message between two ordinary sessions reaches the road
+	// the same way, and sends one van.
+	t.Run("when a peer message arrives between two districts", func(t *testing.T) {
+		sender := member("a", cinders, "")
+		sender.PID = 42
+		peered := func(n int) state.Snapshot {
+			recipient := member("b", mullet, "")
+			for i := 0; i < n; i++ {
+				recipient.PeerMessages = append(recipient.PeerMessages, claude.PeerMessage{ID: fmt.Sprint(i), FromPID: 42})
+			}
+			s := snapshot(sender, recipient)
+			s.Roads = state.Roads(s.Sessions, nil)
+			return s
+		}
+		sc := open(t, city.Lively, true, peered(0), peered(1))
+
+		t.Run("it should send one van, as a team message does", func(t *testing.T) {
+			vans := sc.s.Messages()
+			require.Len(t, vans, 1)
+			assert.Equal(t, [2]string{cinders, mullet}, [2]string{vans[0].From.Root, vans[0].To.Root})
 		})
 	})
 

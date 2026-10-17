@@ -50,7 +50,10 @@ type Session struct {
 	Kind    claude.Kind `json:"kind"`
 	// Job is the background job the session runs as, by which New
 	// session records the group it was started in (item 87).
-	Job      string      `json:"job,omitempty"`
+	Job string `json:"job,omitempty"`
+	// Name is the session's own name, the one other sessions message it
+	// by; the title can change from it (item 89).
+	Name     string      `json:"name,omitempty"`
 	PID      int         `json:"pid"`
 	Alive    bool        `json:"alive"`
 	Attached bool        `json:"attached"`
@@ -88,6 +91,9 @@ type Session struct {
 	GroupLikely bool           `json:"groupLikely,omitempty"`
 	Agent       string         `json:"agent,omitempty"`
 	Messages    map[string]int `json:"messages,omitempty"`
+	// PeerMessages are the messages other sessions sent this one. Roads
+	// read them in the loader, so they are not sent on (item 89).
+	PeerMessages []claude.PeerMessage `json:"-"`
 	// Messaged are the sessions those messages reached, by id (item 90).
 	Messaged []string `json:"messaged,omitempty"`
 	// GroupWords are the words that joined it to its group, when its
@@ -317,6 +323,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 	s := Session{
 		ID:           r.SessionID,
 		Title:        r.Name,
+		Name:         r.Name,
 		CWD:          r.CWD,
 		Kind:         r.Kind,
 		Job:          r.JobID,
@@ -486,6 +493,7 @@ func attribute(s *Session, t claude.Transcript) {
 	s.Agent = t.AgentName
 	s.Hourly = recentHours(t.Hourly, HourlyKeep)
 	s.Messages = t.Messages
+	s.PeerMessages = t.PeerMessages
 	s.Touches = t.Touches
 	s.MCPCalls = t.MCPCalls
 	s.Skills = t.SkillCalls
@@ -542,6 +550,11 @@ func Roads(sessions []Session, teams []claude.Team) []Road {
 		}
 		for dir, n := range s.Visits {
 			add(s, projectOf(roots, dir+"/"), "", 0, 0, n)
+		}
+		for _, m := range s.PeerMessages {
+			if from, ok := peerSender(sessions, m); ok {
+				add(from, s.CWD, "", 1, 0, 0)
+			}
 		}
 		if s.Team == "" {
 			continue
@@ -668,6 +681,28 @@ func projectRoots(sessions []Session) []string {
 	}
 	sort.Slice(roots, func(i, j int) bool { return len(roots[i]) > len(roots[j]) })
 	return roots
+}
+
+// peerSender is the session that sent a peer message: the one whose
+// process the recipient verified, or failing that the only one with the
+// name it gave. A message from a sender that cannot be told is dropped.
+func peerSender(sessions []Session, m claude.PeerMessage) (Session, bool) {
+	if m.FromPID != 0 {
+		for _, s := range sessions {
+			if s.PID == m.FromPID {
+				return s, true
+			}
+		}
+	}
+	var found Session
+	n := 0
+	for _, s := range sessions {
+		if m.FromName != "" && s.Name == m.FromName {
+			found = s
+			n++
+		}
+	}
+	return found, n == 1
 }
 
 // projectOf is the longest known project directory containing path.

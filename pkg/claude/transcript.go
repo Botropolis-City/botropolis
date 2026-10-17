@@ -108,6 +108,9 @@ type Transcript struct {
 	// Background is the tool calls that launched an agent in the
 	// background, which the session never waits on (item 89).
 	Background map[string]bool
+	// PeerMessages are the messages other sessions sent this one, each
+	// once (item 89).
+	PeerMessages []PeerMessage
 	// OrderLines are the newest lines that name an order (item 90).
 	OrderLines       []OrderLine
 	APIErrors        int
@@ -213,6 +216,8 @@ type transcriptLineJSON struct {
 	AgentName    string                    `json:"agentName"`
 	Compact      json.RawMessage           `json:"compactMetadata"`
 	ToolResult   json.RawMessage           `json:"toolUseResult"`
+	TurnOrigin   string                    `json:"turnOrigin"`
+	Origin       json.RawMessage           `json:"origin"`
 	TotalCostUSD float64                   `json:"totalCostUSD"`
 	ModelUsage   map[string]modelUsageJSON `json:"modelUsage"`
 	Attachment   struct {
@@ -306,6 +311,7 @@ func (s *transcriptScan) apply(rec transcriptLineJSON) {
 		if mainLine {
 			s.tail.user(rec, ts)
 			s.noteBackground(rec)
+			s.notePeer(rec, ts)
 		}
 	case "assistant":
 		s.applyAssistant(rec, mainLine)
@@ -462,6 +468,39 @@ func (s *transcriptScan) applyPR(rec transcriptLineJSON) {
 		}
 	}
 	s.transcript.PRs = append(s.transcript.PRs, PR{Number: rec.PRNumber, URL: rec.PRURL, Repository: rec.PRRepository, State: PROpen})
+}
+
+// PeerMessage is a message another session sent this one: its id, the
+// sender's process and name as the recipient saw them, and when.
+type PeerMessage struct {
+	ID       string
+	FromPID  int
+	FromName string
+	At       time.Time
+}
+
+// notePeer records a message from another session, once by its id. Only
+// the recipient's line is read, so a message is never counted twice.
+func (s *transcriptScan) notePeer(rec transcriptLineJSON, at time.Time) {
+	if rec.TurnOrigin != "peer" || len(rec.Origin) == 0 {
+		return
+	}
+	var origin struct {
+		Kind string `json:"kind"`
+		PID  int    `json:"verifiedPeerPid"`
+		Name string `json:"name"`
+		ID   string `json:"msg_id"`
+	}
+	if json.Unmarshal(rec.Origin, &origin) != nil || origin.Kind != "peer" || origin.ID == "" {
+		return
+	}
+	t := &s.transcript
+	for _, m := range t.PeerMessages {
+		if m.ID == origin.ID {
+			return
+		}
+	}
+	t.PeerMessages = append(t.PeerMessages, PeerMessage{ID: origin.ID, FromPID: origin.PID, FromName: origin.Name, At: at})
 }
 
 // noteBackground remembers the tool calls whose result says an agent

@@ -698,6 +698,62 @@ func TestRoads(t *testing.T) {
 			assert.Empty(t, roads)
 		})
 	})
+
+	// Item 89: a message one ordinary session sends another counts as a
+	// message on their road, read from the recipient's side.
+	t.Run("when sessions message each other directly", func(t *testing.T) {
+		const from, to = "/home/demo/src/tidepool", "/home/demo/src/beacon"
+		receiving := func(m claude.PeerMessage) state.Session {
+			return state.Session{ID: "r", CWD: to, PeerMessages: []claude.PeerMessage{m}}
+		}
+		sending := state.Session{ID: "s", CWD: from, PID: 42, Name: "item 89"}
+
+		t.Run("and the recipient names the sender's process", func(t *testing.T) {
+			roads := state.Roads([]state.Session{sending, receiving(claude.PeerMessage{ID: "m", FromPID: 42})}, nil)
+
+			t.Run("it should add one message on the road from the sender's project to the recipient's", func(t *testing.T) {
+				assert.Equal(t, []state.Road{{From: from, To: to, Messages: 1, Sessions: 1}}, roads)
+			})
+		})
+
+		t.Run("and the sender's process is gone but one session has its name", func(t *testing.T) {
+			gone := sending
+			gone.PID = 0
+			roads := state.Roads([]state.Session{gone, receiving(claude.PeerMessage{ID: "m", FromPID: 42, FromName: "item 89"})}, nil)
+
+			t.Run("it should resolve the sender by name", func(t *testing.T) {
+				assert.Len(t, roads, 1)
+			})
+		})
+
+		t.Run("and two sessions share the sender's name", func(t *testing.T) {
+			gone, twin := sending, sending
+			gone.PID, twin.PID, twin.ID = 0, 0, "s2"
+			roads := state.Roads([]state.Session{gone, twin, receiving(claude.PeerMessage{ID: "m", FromName: "item 89"})}, nil)
+
+			t.Run("it should add nothing", func(t *testing.T) {
+				assert.Empty(t, roads)
+			})
+		})
+
+		t.Run("and the sender cannot be resolved", func(t *testing.T) {
+			roads := state.Roads([]state.Session{sending, receiving(claude.PeerMessage{ID: "m", FromPID: 7, FromName: "nobody"})}, nil)
+
+			t.Run("it should add nothing", func(t *testing.T) {
+				assert.Empty(t, roads)
+			})
+		})
+
+		t.Run("and the sender is in the same project", func(t *testing.T) {
+			near := sending
+			near.CWD = to
+			roads := state.Roads([]state.Session{near, receiving(claude.PeerMessage{ID: "m", FromPID: 42})}, nil)
+
+			t.Run("it should add no road", func(t *testing.T) {
+				assert.Empty(t, roads)
+			})
+		})
+	})
 }
 
 func TestContextWindowInference(t *testing.T) {
