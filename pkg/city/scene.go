@@ -659,6 +659,10 @@ const LineHoverPixels = 6.0
 func (s *Scene) PointerMove(screen Point) {
 	world := s.camera.ScreenToWorld(screen)
 	s.spriteHover = false
+	if d := s.badgeAt(world); d != nil {
+		s.hover = Hit{Badge: d, District: d}
+		return
+	}
 	s.hover = s.city.At(world)
 	if s.hover.ground() {
 		if near := s.city.Near(world, LineHoverPixels/s.camera.Zoom); near != (Hit{}) {
@@ -835,6 +839,11 @@ func (s *Scene) CenterOn(world Point) {
 }
 
 func (s *Scene) Click(screen Point) Action {
+	if d := s.badgeAt(s.camera.ScreenToWorld(screen)); d != nil {
+		s.hover = Hit{Badge: d, District: d}
+		s.flyToDistrict(d)
+		return Action{}
+	}
 	hit := s.city.At(s.camera.ScreenToWorld(screen))
 	if hit.ground() && s.spriteHover && s.hover.Building != nil {
 		// The pointer is on a building's upper storeys, found by the

@@ -658,11 +658,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.powerLines(screen, c, cam, hover, seconds)
 	// Drones stand in the depth sort on their shadows' ground points,
 	// and their shadows go on the ground first (item 89).
-	shadows, drones := g.flights(screen, c, cam, seconds)
-	for _, at := range shadows {
-		droneShadow(screen, cam, at)
+	var items []drawable
+	if g.drawsBuildings() {
+		shadows, drones := g.flights(screen, c, cam, seconds)
+		for _, at := range shadows {
+			droneShadow(screen, cam, at)
+		}
+		items = drones
 	}
-	items := drones
 	var airborne []func()
 	if c.Fountain.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Fountain, func() {
@@ -678,8 +681,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.lamp(screen, cam, l, c.Night)
 		}))
 	}
+	// At fit and zoomed out the districts are badges, and their buildings
+	// and the movers on them are not drawn (item 89).
+	badged := !g.drawsBuildings()
 	for _, d := range c.Districts {
 		for _, b := range d.Buildings {
+			if badged {
+				break
+			}
 			b := b
 			items = append(items, footprintAt(cam, b.Rect, func() {
 				g.isoBuilding(screen, cam, b, b == selected, detailed, seconds)
@@ -701,6 +710,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 	}
 	for _, b := range c.Buildings() {
+		if badged {
+			break
+		}
 		if in, ok := g.scene.Inspector(b.Session.ID); ok && !b.Vacant && !g.scene.Dimmed(b) {
 			b := b
 			items = append(items, standingAt(cam, in.At, func() {
@@ -865,6 +877,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	for _, draw := range layered(cam, items, airborne) {
 		draw()
+	}
+	if badged {
+		g.drawBadges(screen, cam)
 	}
 	if hover.Building != nil && hover.Building != selected {
 		g.polyStroke(screen, cam, hover.Building.Rect, 1.5, colorHighlight)

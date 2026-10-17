@@ -749,8 +749,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			g.floorLabel(screen, g.districtLabelAt(d), d.Name, colorText)
 		}
 		for _, b := range d.Buildings {
+			if !g.drawsBuildings() {
+				break
+			}
 			g.building(screen, cam, b, b == selected, detailed, seconds)
 		}
+	}
+	if !g.drawsBuildings() {
+		g.drawBadges(screen, cam)
 	}
 	if g.titlesVisible() {
 		for _, b := range c.Buildings() {

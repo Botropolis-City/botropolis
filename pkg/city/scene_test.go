@@ -25,6 +25,7 @@ func scene(t *testing.T, sessions ...state.Session) *city.Scene {
 
 func centreOf(t *testing.T, s *city.Scene, id string) city.Point {
 	t.Helper()
+	readable(s)
 	for _, b := range s.City().Buildings() {
 		if b.Session.ID == id {
 			return s.Camera().WorldToScreen(b.Rect.Center())
@@ -32,6 +33,16 @@ func centreOf(t *testing.T, s *city.Scene, id string) city.Point {
 	}
 	t.Fatalf("no building for session %s", id)
 	return city.Point{}
+}
+
+// readable zooms in past fit and the badge threshold, so the scene draws
+// buildings rather than badges, as anyone pointing at a building has
+// (item 89).
+func readable(s *city.Scene) {
+	if !s.Badged() {
+		return
+	}
+	s.Camera().Zoom = min(city.MaxZoom, max(s.FitZoom(), city.BadgeZoom(s.Camera().Projection))*1.3)
 }
 
 func TestScene(t *testing.T) {
@@ -619,6 +630,7 @@ func TestSelectionActions(t *testing.T) {
 
 	t.Run("when a project is hidden", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working), session("b", botropolis, state.Working))
+		readable(s)
 		s.Click(s.Camera().WorldToScreen(s.City().Districts[1].Buildings[0].Rect.Center()))
 		require.NotNil(t, s.Selected())
 		_, note := s.Act(city.ActionHide)
@@ -1227,11 +1239,16 @@ func TestSidebarRoom(t *testing.T) {
 
 	t.Run("when the strip's height arrives after the first fit", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working))
-		before := centreOf(t, s, "a")
+		// Measured at the fit itself, where the city is drawn as badges,
+		// so the building's point is read without zooming in to it.
+		at := func() city.Point {
+			return s.Camera().WorldToScreen(s.City().Districts[0].Buildings[0].Rect.Center())
+		}
+		before := at()
 		s.SetTopChrome(26)
 
 		t.Run("it should refit the city below it", func(t *testing.T) {
-			assert.InDelta(t, before.Y+13, centreOf(t, s, "a").Y, 1e-6)
+			assert.InDelta(t, before.Y+13, at().Y, 1e-6)
 		})
 	})
 }
