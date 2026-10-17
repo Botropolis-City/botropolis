@@ -8,43 +8,42 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 )
 
-// Item 89: a working building lights one floor, and each tool call runs
-// a pulse up its face from that floor to the roof.
+// Item 89: a working building lights one floor round the faces toward
+// the camera, and each tool call runs a pulse up its front corner from
+// that floor to the roof.
 func TestBuildingWork(t *testing.T) {
-	r := city.RectAt(100, 50, 60, 120) // the building's drawn rect on screen
-	const floor = 0.4
+	// A footprint on screen, north, east, south, west, and a roof 60 px up.
+	lot := [4]city.Point{{X: 100, Y: 80}, {X: 160, Y: 110}, {X: 100, Y: 140}, {X: 40, Y: 110}}
+	const roofLift, floor = 60.0, 0.4
+	front := lot[2]
 
 	for _, level := range city.LivelinessLevels {
 		t.Run("when the level is "+level.String(), func(t *testing.T) {
-			t.Run("a mid-turn building should draw its working floor inside its own rect", func(t *testing.T) {
-				band := workingFloorBand(r, floor)
-				assert.True(t, band.Area() > 0 && r.Contains(band.Min) && r.Contains(band.Max))
+			t.Run("a mid-turn building should light its working floor on both faces toward the camera, at the floor's height", func(t *testing.T) {
+				faces := workingFloor(lot, roofLift, floor)
+				var wrong int
+				for _, face := range faces {
+					for _, p := range face {
+						h := front.Y - p.Y
+						if p.X < lot[3].X || p.X > lot[1].X || h < 0 || h > roofLift+lot[2].Y-lot[0].Y {
+							wrong++
+						}
+					}
+				}
+				assert.Zero(t, wrong)
 			})
 		})
 	}
 
 	t.Run("when a pulse starts", func(t *testing.T) {
-		t.Run("it should be on the working floor", func(t *testing.T) {
-			band := workingFloorBand(r, floor)
-			assert.InDelta(t, band.Center().Y, pulseAt(r, floor, 0).Y, 1e-9)
+		t.Run("it should be on the working floor, at the front corner", func(t *testing.T) {
+			assert.Equal(t, city.Point{X: front.X, Y: front.Y - floor*roofLift}, pulseAt(lot, roofLift, floor, 0))
 		})
 	})
 
 	t.Run("when a pulse ends", func(t *testing.T) {
-		t.Run("it should be at the roof", func(t *testing.T) {
-			assert.InDelta(t, r.Min.Y, pulseAt(r, floor, 1).Y, 1e-9)
-		})
-	})
-
-	t.Run("while a pulse climbs", func(t *testing.T) {
-		t.Run("it should stay on the building's face", func(t *testing.T) {
-			var off int
-			for i := 0; i <= 20; i++ {
-				if !r.Contains(pulseAt(r, floor, float64(i)/20)) {
-					off++
-				}
-			}
-			assert.Zero(t, off)
+		t.Run("it should be at the roof, at the front corner", func(t *testing.T) {
+			assert.Equal(t, city.Point{X: front.X, Y: front.Y - roofLift}, pulseAt(lot, roofLift, floor, 1))
 		})
 	})
 

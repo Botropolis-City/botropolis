@@ -391,7 +391,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	// The building's own work: a working floor while it is mid-turn,
 	// and a pulse up its face for each tool call (item 89).
 	if !g.viewing() {
-		g.drawWork(screen, b, r)
+		g.drawWork(screen, cam, b)
 	}
 	// One flag per PR, coloured by its state: open in the accent, merged
 	// green, closed slate.

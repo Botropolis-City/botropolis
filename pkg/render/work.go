@@ -12,54 +12,76 @@ import (
 // The building's own work. Item 89.
 //
 // While a session is mid-turn one floor glows brighter than its lit
-// windows, at the building's context fill. Each tool call sends a pulse
-// up the face toward the camera from that floor to the roof, and at still
-// it is a brief brightening of the whole face instead.
+// windows, at the building's context fill: a band round the two faces
+// toward the camera. Each tool call sends a pulse up the front corner
+// from that floor to the roof, and at still it is a brief brightening of
+// the faces instead.
 
 var (
-	colorWorkingFloor = color.NRGBA{0xff, 0xe0, 0x8a, 0xd0}
+	colorWorkingFloor = color.NRGBA{0xff, 0xe0, 0x8a, 0xc0}
 	colorPulse        = color.NRGBA{0xff, 0xf4, 0xc8, 0xff}
 )
 
-// workingFloorBand is the working floor's band across a building drawn
-// at r, floor of the way up from its foot.
-func workingFloorBand(r city.Rect, floor float64) city.Rect {
-	h := r.Height()
-	y := r.Max.Y - h*0.1 - floor*h*0.8
-	band := h * 0.06
-	return city.Rect{
-		Min: city.Point{X: r.Min.X + r.Width()*0.15, Y: y - band/2},
-		Max: city.Point{X: r.Max.X - r.Width()*0.15, Y: y + band/2},
+// frontOf is a footprint's corner nearest the viewer on screen, the one
+// lowest down, and the corners either side of it.
+func frontOf(lot [4]city.Point) (city.Point, [2]city.Point) {
+	best := 0
+	for i, p := range lot {
+		if p.Y > lot[best].Y {
+			best = i
+		}
 	}
+	return lot[best], [2]city.Point{lot[(best+3)%4], lot[(best+1)%4]}
 }
 
-// pulseAt is where a pulse is p of the way up a building drawn at r:
-// from the working floor at the start to the roof at the end.
-func pulseAt(r city.Rect, floor, p float64) city.Point {
-	from := workingFloorBand(r, floor).Center().Y
-	return city.Point{X: r.Min.X + r.Width()/2, Y: from + (r.Min.Y-from)*p}
+// workingFloor is the working floor's band on each face toward the
+// camera, floor of the way up a building whose roof stands roofLift
+// above its footprint lot on screen.
+func workingFloor(lot [4]city.Point, roofLift, floor float64) [2][4]city.Point {
+	front, sides := frontOf(lot)
+	band := max(2, roofLift*0.06)
+	lo, hi := floor*roofLift-band/2, floor*roofLift+band/2
+	up := func(p city.Point, h float64) city.Point { return city.Point{X: p.X, Y: p.Y - h} }
+	var out [2][4]city.Point
+	for i, side := range sides {
+		out[i] = [4]city.Point{up(front, lo), up(side, lo), up(side, hi), up(front, hi)}
+	}
+	return out
+}
+
+// pulseAt is where a pulse is p of the way up the front corner: from the
+// working floor at the start to the roof at the end.
+func pulseAt(lot [4]city.Point, roofLift, floor, p float64) city.Point {
+	front, _ := frontOf(lot)
+	h := floor*roofLift + (roofLift-floor*roofLift)*p
+	return city.Point{X: front.X, Y: front.Y - h}
 }
 
 // drawWork lights a mid-turn building's working floor and runs its
-// pulses, on the building's own drawn rect r.
-func (g *Game) drawWork(screen *ebiten.Image, b *city.Building, r city.Rect) {
-	if r.Area() == 0 {
+// pulses.
+func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building) {
+	lot := lotCorners(cam, b.Rect)
+	roofLift := g.kitRoofLift(cam, buildingPiece(b))
+	if roofLift <= 0 {
 		return
 	}
 	floor, working := g.scene.WorkingFloor(b)
 	if working {
-		band := workingFloorBand(r, floor)
-		vector.FillRect(screen, float32(band.Min.X), float32(band.Min.Y), float32(band.Width()), float32(band.Height()), colorWorkingFloor, false)
+		for _, face := range workingFloor(lot, roofLift, floor) {
+			fillQuad(screen, face, colorWorkingFloor)
+		}
 	}
 	for _, p := range g.scene.Pulses(b.Session.ID) {
 		if p.Brighten {
 			glow := colorPulse
 			glow.A = uint8(90 * (1 - p.P))
-			vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), glow, false)
+			for _, face := range workingFloor(lot, roofLift, 0.5) {
+				fillQuad(screen, [4]city.Point{face[0], face[1], {X: face[1].X, Y: face[1].Y - roofLift/2}, {X: face[0].X, Y: face[0].Y - roofLift/2}}, glow)
+			}
 			continue
 		}
-		at := pulseAt(r, floor, p.P)
-		radius := float32(max(2, r.Width()*0.05))
+		at := pulseAt(lot, roofLift, floor, p.P)
+		radius := float32(max(2, roofLift*0.05))
 		c := colorPulse
 		c.A = uint8(255 * (1 - p.P*0.6))
 		vector.FillCircle(screen, float32(at.X), float32(at.Y), radius, c, true)
