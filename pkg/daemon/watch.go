@@ -34,7 +34,10 @@ func (d *Daemon) Watch(ctx context.Context) error {
 			} else {
 				timer.Reset(debounce)
 			}
-		case <-watcher.Errors:
+		case _, ok := <-watcher.Errors:
+			if !ok {
+				return nil
+			}
 		case <-fire:
 			timer, fire = nil, nil
 			if err := d.Rescan(); err != nil {
