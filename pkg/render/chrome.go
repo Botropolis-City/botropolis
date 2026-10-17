@@ -43,15 +43,16 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	g.scene.SetTopChrome(top)
 	bottom := footer.KeyRow.Height() + legend.Rect.Height()
 	g.scene.SetBottomChrome(bottom)
+	streamFoot := max(bottom, height-footer.Rect.Min.Y)
 	if box, ok := ui.LayoutMinimap(th, width, height, bottom); ok {
 		if g.streamShown() {
-			box = ui.MinimapBesideStream(th, box, ui.StreamArea(th, ui.StreamCorner, width, height, top, bottom), ui.StreamCorner)
+			box = ui.MinimapBesideStream(th, box, ui.StreamArea(th, ui.StreamCorner, width, height, top, streamFoot), ui.StreamCorner)
 		}
 		g.minimap(screen, box)
 	}
 	pointer := g.pointer()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
-	bounds.Max.X = g.drawStream(screen, width, height, top, bottom)
+	bounds.Max.X = g.drawStream(screen, width, height, top, streamFoot)
 	hint := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
 	g.pinnedKinds = nil
