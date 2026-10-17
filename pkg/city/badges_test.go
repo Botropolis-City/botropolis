@@ -73,6 +73,42 @@ func TestSemanticZoom(t *testing.T) {
 		})
 	}
 
+	// Aria, 2026-10-17: the map opens one notch past fit when the city's
+	// buildings read there, so a fresh map stays one click from a
+	// building; pressing fit always gives badges.
+	opened := func(t *testing.T, width, height float64, sessions []state.Session) *city.Scene {
+		t.Helper()
+		s := city.NewScene(city.NewLayout())
+		s.SetClock(func() time.Time { return now }, time.UTC)
+		s.Resize(width, height)
+		s.SetSnapshot(snapshot(sessions...))
+		return s
+	}
+
+	t.Run("when a small city opens", func(t *testing.T) {
+		s := opened(t, 800, 600, cityOf(2))
+
+		t.Run("it should open past fit, on buildings", func(t *testing.T) {
+			assert.Equal(t, [2]bool{true, false}, [2]bool{s.Camera().Zoom > s.FitZoom(), s.Badged()})
+		})
+
+		t.Run("and fit is pressed", func(t *testing.T) {
+			s.Fit()
+
+			t.Run("it should draw badges", func(t *testing.T) {
+				assert.True(t, s.Badged())
+			})
+		})
+	})
+
+	t.Run("when a city too big to read one notch past fit opens", func(t *testing.T) {
+		s := opened(t, 400, 280, cityOf(12))
+
+		t.Run("it should open on badges", func(t *testing.T) {
+			assert.True(t, s.Badged())
+		})
+	})
+
 	t.Run("past fit, the threshold should not depend on the number of districts", func(t *testing.T) {
 		small, large := scene(t, 1600, 1000, cityOf(2)), scene(t, 1600, 1000, cityOf(12))
 		assert.Equal(t, city.BadgeZoom(small.Camera().Projection), city.BadgeZoom(large.Camera().Projection))

@@ -227,6 +227,9 @@ type Scene struct {
 	messages []Message
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
+	// exactFit is fit having been asked for, which draws the badges;
+	// before that the map opens a notch past it (item 89).
+	exactFit bool
 	// reduced is the reduced_motion setting: everything that moves on
 	// its own stands still. It is not the same as instant, which a
 	// still frame sets so the camera does not have to ease into place.
@@ -370,6 +373,7 @@ func (s *Scene) Resize(width, height float64) {
 func (s *Scene) Fit() {
 	s.zoomTarget = 0
 	s.touched = false
+	s.exactFit = true
 	s.fit()
 }
 
@@ -386,6 +390,15 @@ func (s *Scene) fit() {
 		// Labels are hidden this far out, so their room goes back to the
 		// map; the chrome's does not.
 		s.camera.FitWithInsets(s.city.Extent(), s.width, s.height, s.chromeInsets())
+	}
+	// The fit draws districts as badges. Until fit is asked for, the map
+	// opens one notch past it when buildings read there, so a fresh map
+	// is one click from a building; a city too big for that opens on
+	// its badges (item 89).
+	if notch := stepAbove(s.camera.Zoom); !s.exactFit && notch >= BadgeZoom(s.camera.Projection) {
+		in := s.Insets()
+		centre := Point{X: in.Left + (s.width-in.Left-in.Right)/2, Y: in.Top + (s.height-in.Top-in.Bottom)/2}
+		s.camera.SetZoomAt(centre, notch)
 	}
 }
 

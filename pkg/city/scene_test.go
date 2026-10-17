@@ -415,6 +415,8 @@ func TestDistrictLabelAt(t *testing.T) {
 func TestSceneProjection(t *testing.T) {
 	t.Run("when the scene switches to isometric", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working), session("b", botropolis, state.Working))
+		// Fit, asked for: the map opens a notch past it (item 89).
+		s.Fit()
 		s.SetProjection(city.Isometric)
 
 		t.Run("it should refit so the projected city is on screen", func(t *testing.T) {
@@ -1196,6 +1198,8 @@ func TestSidebarRoom(t *testing.T) {
 
 	t.Run("when the sidebar opens on an untouched fit view", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working), session("b", botropolis, state.Working))
+		// Fit, asked for: the map opens a notch past it (item 89).
+		s.Fit()
 		require.Less(t, leftmost(s), panel)
 		s.SetLeftChrome(panel)
 
