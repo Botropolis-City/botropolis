@@ -65,8 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Triage, the stream, and district signs.**
   `w` (`triage_key`) walks the sessions waiting on you, longest-waiting first, flying to each: Enter acts, `p` rests it, `d` marks it done, `s` snoozes it until a time you pick or type, `n` moves on.
-  A column down the right, the stream, shows what happens newest first, with what needs you in amber and errors in red and everything else muted; a click flies to the session, and `l` (`stream_key`) hides it.
-  It takes at most a quarter of the window, wrapping its entries to fit, and in a window too narrow for it, it stays hidden until `l` shows it.
+  The stream shows what happens newest first, with what needs you in amber and errors in red and everything else muted; a click flies to the session, and `l` (`stream_key`) hides it.
+  It is a panel in the top-right corner about a card's height, at most a quarter of the window wide, wrapping its entries to fit, and in a window too narrow for it, it stays hidden until `l` shows it.
   Each district stands a sign at its corner with its name and whose move it is, in place of the floating name plate wherever the sign is legible.
   Zoomed in, the board stays the size it reads at and its post grows instead.
 

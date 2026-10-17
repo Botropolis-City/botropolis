@@ -47,36 +47,61 @@ func TestStream(t *testing.T) {
 		})
 	})
 
-	right := func(s *city.Scene) float64 {
+}
+
+func TestSetCornerChrome(t *testing.T) {
+	onScreen := func(s *city.Scene) city.Rect {
 		cam, ext := s.Camera(), s.City().Extent()
-		most := math.Inf(-1)
-		for _, p := range []city.Point{ext.Min, ext.Max, {X: ext.Min.X, Y: ext.Max.Y}, {X: ext.Max.X, Y: ext.Min.Y}} {
-			most = math.Max(most, cam.WorldToScreen(p).X)
+		r := city.Rect{Min: cam.WorldToScreen(ext.Min), Max: cam.WorldToScreen(ext.Min)}
+		for _, p := range []city.Point{ext.Max, {X: ext.Min.X, Y: ext.Max.Y}, {X: ext.Max.X, Y: ext.Min.Y}} {
+			at := cam.WorldToScreen(p)
+			r = r.Union(city.Rect{Min: at, Max: at})
 		}
-		return most
+		return r
 	}
-	const column = 300.0
-
-	t.Run("when the stream takes the right edge", func(t *testing.T) {
+	fitted := func(t *testing.T, panel city.Rect) *city.Scene {
 		s := scene(t, session("a", cinders, state.NeedsYou), session("b", botropolis, state.Working))
-		s.SetRightChrome(column)
+		s.SetCornerChrome(panel)
 		s.Fit()
+		return s
+	}
+	const w, h = 200.0, 192.0
+	for _, c := range []struct {
+		name  string
+		panel city.Rect
+	}{
+		{"top right", city.RectAt(800-w, 32, w, h)},
+		{"bottom right", city.RectAt(800-w, 600-40-h, w, h)},
+	} {
+		t.Run("when a panel is reserved in the "+c.name+" corner", func(t *testing.T) {
+			s := fitted(t, c.panel)
 
-		t.Run("a fit should keep the city left of it", func(t *testing.T) {
-			assert.LessOrEqual(t, right(s), s.Size().X-column+1)
+			t.Run("it should keep the city's on-screen extent clear of the panel", func(t *testing.T) {
+				assert.False(t, onScreen(s).Inset(1).Overlaps(c.panel), "city %v, panel %v", onScreen(s), c.panel)
+			})
+
+			t.Run("it should fit the city at least as large as a full-height column of the same width", func(t *testing.T) {
+				column := fitted(t, city.RectAt(800-w, 0, w, 600))
+				assert.GreaterOrEqual(t, s.Camera().Zoom, column.Camera().Zoom)
+			})
+
+			t.Run("and the panel is taken away", func(t *testing.T) {
+				s.SetCornerChrome(city.Rect{})
+				s.Fit()
+
+				t.Run("it should fit as with no panel", func(t *testing.T) {
+					assert.Equal(t, fitted(t, city.Rect{}).Camera().Zoom, s.Camera().Zoom)
+				})
+			})
 		})
-	})
+	}
 
-	t.Run("when the stream is hidden", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.NeedsYou), session("b", botropolis, state.Working))
-		s.SetRightChrome(column)
-		s.Fit()
-		with := right(s)
-		s.SetRightChrome(0)
-		s.Fit()
+	t.Run("when the panel is far wider than it is tall", func(t *testing.T) {
+		s := fitted(t, city.RectAt(800-400, 32, 400, 40))
 
-		t.Run("a fit should give the city the full width", func(t *testing.T) {
-			assert.Greater(t, right(s), with)
+		t.Run("it should fit the city larger than a full-height column of its width would", func(t *testing.T) {
+			column := fitted(t, city.RectAt(800-400, 0, 400, 600))
+			assert.Greater(t, s.Camera().Zoom, column.Camera().Zoom)
 		})
 	})
 }

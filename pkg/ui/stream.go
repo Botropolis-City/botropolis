@@ -85,13 +85,39 @@ type Stream struct {
 
 // StreamArea is the column's room: down the right edge, under the
 // strip, and stopping above the minimap.
-func StreamArea(th Theme, width, height, top, footer float64) city.Rect {
+// Corner is which right-hand corner the stream's panel takes.
+type Corner int
+
+const (
+	// TopRight is under the strip.
+	TopRight Corner = iota
+	// BottomRight is above the minimap, or the footer without one.
+	BottomRight
+)
+
+func (c Corner) String() string { return [...]string{"top right", "bottom right"}[c] }
+
+// StreamCorner is where the panel sits; Aria picks between the two from
+// frames of each (item 100).
+const StreamCorner = TopRight
+
+// StreamPanelGrids is the panel's height in grid units, about a card's,
+// so it is a corner panel rather than a column (item 100).
+const StreamPanelGrids = 24
+
+// StreamArea is the panel's room: against the right edge, in its
+// corner, between the strip and the minimap or footer.
+func StreamArea(th Theme, corner Corner, width, height, top, footer float64) city.Rect {
 	w := StreamWidth(th, width)
 	bottom := height - footer
-	if mini, ok := LayoutMinimap(th, width, height, footer); ok {
+	if mini, ok := LayoutMinimap(th, width, height, footer); ok && mini.Min.Y-th.Grid() > top {
 		bottom = mini.Min.Y - th.Grid()
 	}
-	return city.RectAt(width-w, top, w, bottom-top)
+	h := min(StreamPanelGrids*th.Grid(), max(bottom-top, 0))
+	if corner == BottomRight {
+		return city.RectAt(width-w, bottom-h, w, h)
+	}
+	return city.RectAt(width-w, top, w, h)
 }
 
 // LayoutStream lays the events in the area, newest first, as many as

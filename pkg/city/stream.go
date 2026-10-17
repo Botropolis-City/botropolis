@@ -1,6 +1,10 @@
 package city
 
-import "botropolis.city/botropolis/pkg/events"
+import (
+	"math"
+
+	"botropolis.city/botropolis/pkg/events"
+)
 
 // The stream is the event log's live tail, docked as a column beside
 // the map (item 88). It stays calm by construction: routine entries are
@@ -18,8 +22,44 @@ func (s *Scene) FlyToEvent(e events.Event) bool {
 	return s.Select(e.SessionID)
 }
 
-// SetRightChrome reserves screen room down the right, for the stream,
-// so a fit keeps the city beside it and never under it.
-func (s *Scene) SetRightChrome(px float64) {
-	s.reserve(&s.right, px, Point{})
+// SetCornerChrome reserves a panel in a right-hand corner, for the
+// stream (item 100), so a fit keeps the city clear of it; an empty rect
+// takes it away.
+func (s *Scene) SetCornerChrome(panel Rect) {
+	if panel == s.corner {
+		return
+	}
+	s.corner = panel
+	if !s.touched {
+		s.fit()
+	}
+}
+
+// cornerInsets reserves the corner panel as a strip down the right or
+// along its top or bottom edge, whichever leaves the city larger.
+func (s *Scene) cornerInsets(in Insets) Insets {
+	if s.corner.Area() == 0 {
+		return in
+	}
+	side := in
+	side.Right = math.Max(in.Right, s.width-s.corner.Min.X)
+	edge := in
+	if s.corner.Center().Y < s.height/2 {
+		edge.Top = math.Max(in.Top, s.corner.Max.Y)
+	} else {
+		edge.Bottom = math.Max(in.Bottom, s.height-s.corner.Min.Y)
+	}
+	if s.fitScale(edge) > s.fitScale(side) {
+		return edge
+	}
+	return side
+}
+
+// fitScale is how large a fit within the insets would draw the city.
+func (s *Scene) fitScale(in Insets) float64 {
+	b := s.camera.Bounds(s.city.Extent())
+	if b.Width() <= 0 || b.Height() <= 0 {
+		return 0
+	}
+	return math.Min((s.width-in.Left-in.Right)/b.Width(), (s.height-in.Top-in.Bottom)/b.Height())
 }

@@ -41,20 +41,20 @@ func (g *Game) toggleStream() {
 	}
 }
 
-// drawStream lays the column down the right and reserves its room, so
-// the map sits beside it and never under it. It reports the column's
-// left edge, where the cards must stop.
+// drawStream lays the panel in its corner and reserves its room, so the
+// map is never under it (item 100). It reports the panel's left edge,
+// where the cards must stop.
 func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float64) float64 {
 	if !g.streamShown() {
-		g.scene.SetRightChrome(0)
+		g.scene.SetCornerChrome(city.Rect{})
 		g.mu.Lock()
 		g.streamLaid = ui.Stream{}
 		g.mu.Unlock()
 		return width
 	}
 	th := g.theme
-	area := ui.StreamArea(th, width, height, top, footer)
-	g.scene.SetRightChrome(area.Width())
+	area := ui.StreamArea(th, ui.StreamCorner, width, height, top, footer)
+	g.scene.SetCornerChrome(area)
 	s := ui.LayoutStream(th, g.scene.Events(), area, g.faces.Measure)
 	g.mu.Lock()
 	g.streamLaid = s
@@ -63,6 +63,11 @@ func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float
 	solid.A = 0xff
 	vector.FillRect(screen, float32(area.Min.X), float32(area.Min.Y), float32(area.Width()), float32(area.Height()), solid, false)
 	vector.FillRect(screen, float32(area.Min.X), float32(area.Min.Y), float32(th.Hairline()), float32(area.Height()), th.Palette.Hairline, false)
+	edge := area.Max.Y - th.Hairline()
+	if ui.StreamCorner == ui.BottomRight {
+		edge = area.Min.Y
+	}
+	vector.FillRect(screen, float32(area.Min.X), float32(edge), float32(area.Width()), float32(th.Hairline()), th.Palette.Hairline, false)
 	g.run(screen, s.Title, th.Palette.Text)
 	g.run(screen, s.Empty, th.Palette.Dim)
 	for _, r := range s.Rows {

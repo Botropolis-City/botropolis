@@ -140,7 +140,7 @@ type Scene struct {
 	topChrome   float64
 	bottom      float64
 	left        float64
-	right       float64
+	corner      Rect
 	layout      *Layout
 	camera      *Camera
 	city        *City
@@ -554,9 +554,9 @@ func (s *Scene) reserve(inset *float64, px float64, axis Point) {
 }
 
 // chromeInsets is the room the window's own chrome takes: the strip,
-// the footer and the sidebar, whatever the zoom.
+// the footer, the sidebar and the stream's corner, whatever the zoom.
 func (s *Scene) chromeInsets() Insets {
-	return Insets{Bottom: math.Max(FitFooter, s.bottom), Top: s.topChrome, Left: s.left, Right: s.right}
+	return s.cornerInsets(Insets{Bottom: math.Max(FitFooter, s.bottom), Top: s.topChrome, Left: s.left})
 }
 
 func (s *Scene) Insets() Insets {

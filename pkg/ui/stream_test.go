@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -22,22 +23,8 @@ func TestLayoutStream(t *testing.T) {
 		{At: at.Add(-time.Minute), Kind: events.NeedsYou, SessionID: "b", Title: "Allow the headers through"},
 		{At: at.Add(-2 * time.Minute), Kind: events.Error, SessionID: "c", Title: "Cap the log buffer"},
 	}
-	area := ui.StreamArea(th, width, height, top, footer)
+	area := ui.StreamArea(th, ui.TopRight, width, height, top, footer)
 	s := ui.LayoutStream(th, list, area, measure7)
-
-	t.Run("it should dock along the right edge", func(t *testing.T) {
-		assert.Equal(t, width, area.Max.X)
-	})
-
-	t.Run("it should sit under the strip", func(t *testing.T) {
-		assert.GreaterOrEqual(t, area.Min.Y, top)
-	})
-
-	t.Run("it should stop above the minimap", func(t *testing.T) {
-		mini, ok := ui.LayoutMinimap(th, width, height, footer)
-		require.True(t, ok)
-		assert.LessOrEqual(t, area.Max.Y, mini.Min.Y)
-	})
 
 	t.Run("it should put the newest first", func(t *testing.T) {
 		require.Len(t, s.Rows, 3)
@@ -78,48 +65,89 @@ func TestLayoutStream(t *testing.T) {
 	})
 }
 
-func TestStreamWidth(t *testing.T) {
+func TestStreamArea(t *testing.T) {
 	th := ui.NewTheme(1)
 	const height, top, footer = 800.0, 32.0, 40.0
-	for _, width := range []float64{600, 768, 960, 1280, 1600, 2560} {
-		t.Run(fmt.Sprintf("when the window is %v wide", width), func(t *testing.T) {
-			fits := ui.StreamFits(th, width)
-			area := ui.StreamArea(th, width, height, top, footer)
+	for _, corner := range []ui.Corner{ui.TopRight, ui.BottomRight} {
+		for _, width := range []float64{600, 700, 768, 960, 1280, 1600, 2560} {
+			t.Run(fmt.Sprintf("when the panel is in the %v corner, and the window is %v wide", corner, width), func(t *testing.T) {
+				area := ui.StreamArea(th, corner, width, height, top, footer)
+				mini, hasMini := ui.LayoutMinimap(th, width, height, footer)
+				streamWidthRules(t, th, area, width)
 
-			if width/4 >= ui.StreamMinGrids*th.Grid() {
-				t.Run("and the column fits", func(t *testing.T) {
-					t.Run("it should be no wider than a quarter of the window", func(t *testing.T) {
-						assert.LessOrEqual(t, area.Width(), width/4)
-					})
-
-					t.Run("it should be no wider than its full width", func(t *testing.T) {
-						assert.LessOrEqual(t, area.Width(), ui.StreamGrids*th.Grid())
-					})
-
-					t.Run("it should be shown by default", func(t *testing.T) {
-						assert.True(t, ui.StreamView{}.Shown(fits))
-					})
-				})
-				return
-			}
-
-			t.Run("and the column does not fit", func(t *testing.T) {
-				t.Run("it should be hidden by default", func(t *testing.T) {
-					assert.False(t, ui.StreamView{}.Shown(fits))
+				t.Run("it should be its panel's height", func(t *testing.T) {
+					assert.Equal(t, ui.StreamPanelGrids*th.Grid(), area.Height())
 				})
 
-				t.Run("and its key is pressed", func(t *testing.T) {
-					t.Run("it should be shown", func(t *testing.T) {
-						assert.True(t, ui.StreamView{}.Toggle(fits).Shown(fits))
-					})
-
-					t.Run("it should be its minimum width, within the window", func(t *testing.T) {
-						assert.Equal(t, min(ui.StreamMinGrids*th.Grid(), width), area.Width())
-					})
+				t.Run("it should sit against the right edge", func(t *testing.T) {
+					assert.Equal(t, width, area.Max.X)
 				})
+
+				switch {
+				case corner == ui.TopRight:
+					t.Run("it should sit under the strip", func(t *testing.T) {
+						assert.Equal(t, top, area.Min.Y)
+					})
+				case hasMini:
+					t.Run("it should stop just above the minimap", func(t *testing.T) {
+						assert.Equal(t, mini.Min.Y-th.Grid(), area.Max.Y)
+					})
+				default:
+					t.Run("it should stop just above the footer", func(t *testing.T) {
+						assert.Equal(t, height-footer, area.Max.Y)
+					})
+				}
+			})
+		}
+
+		t.Run(fmt.Sprintf("when the panel is in the %v corner, and the window is too short for it", corner), func(t *testing.T) {
+			const short = 180.0
+			area := ui.StreamArea(th, corner, 1600, short, top, footer)
+
+			t.Run("it should fit between the strip and the footer", func(t *testing.T) {
+				assert.True(t, area.Min.Y >= top && area.Max.Y <= short-footer && area.Height() > 0, "panel %v", area)
 			})
 		})
 	}
+}
+
+// streamWidthRules holds the column's width rules (item 100) in either
+// corner.
+func streamWidthRules(t *testing.T, th ui.Theme, area city.Rect, width float64) {
+	t.Helper()
+	fits := ui.StreamFits(th, width)
+	if width/4 >= ui.StreamMinGrids*th.Grid() {
+		t.Run("and the panel fits", func(t *testing.T) {
+			t.Run("it should be no wider than a quarter of the window", func(t *testing.T) {
+				assert.LessOrEqual(t, area.Width(), width/4)
+			})
+
+			t.Run("it should be no wider than its full width", func(t *testing.T) {
+				assert.LessOrEqual(t, area.Width(), ui.StreamGrids*th.Grid())
+			})
+
+			t.Run("it should be shown by default", func(t *testing.T) {
+				assert.True(t, ui.StreamView{}.Shown(fits))
+			})
+		})
+		return
+	}
+
+	t.Run("and the panel does not fit", func(t *testing.T) {
+		t.Run("it should be hidden by default", func(t *testing.T) {
+			assert.False(t, ui.StreamView{}.Shown(fits))
+		})
+
+		t.Run("and its key is pressed", func(t *testing.T) {
+			t.Run("it should be shown", func(t *testing.T) {
+				assert.True(t, ui.StreamView{}.Toggle(fits).Shown(fits))
+			})
+
+			t.Run("it should be its minimum width, within the window", func(t *testing.T) {
+				assert.Equal(t, min(ui.StreamMinGrids*th.Grid(), width), area.Width())
+			})
+		})
+	})
 }
 
 func TestToggleStream(t *testing.T) {
@@ -168,7 +196,7 @@ func TestLayoutStreamWraps(t *testing.T) {
 		{At: at, Kind: events.NeedsYou, SessionID: "a", Title: long},
 		{At: at.Add(-time.Minute), Kind: events.Started, SessionID: "b", Title: "Short"},
 	}
-	area := ui.StreamArea(th, 960, 800, 32, 40)
+	area := ui.StreamArea(th, ui.TopRight, 960, 800, 32, 40)
 	s := ui.LayoutStream(th, list, area, measure7)
 	require.Len(t, s.Rows, 2)
 	first := s.Rows[0]
