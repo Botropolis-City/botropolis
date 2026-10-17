@@ -23,6 +23,13 @@ sessions:
     visual: mcp
     prompts:
       - "Use the tracker MCP server to list the open tidepool issues, then pick up TIDE-16 (heights in feet). Implement it with tests, run go test ./..., then add a comment on TIDE-16 summarising the change and close it."
+  - label: borrow-beacon-report-style
+    title: Report style from beacon
+    model: sonnet
+    budget_usd: 0.40
+    visual: subagents
+    prompts:
+      - "Use the Agent tool once, in the foreground (do not run it in the background), to have a subagent read /home/demo/src/beacon/bin/beacon-report, /home/demo/src/beacon/lib/common.sh and /home/demo/src/beacon/README.md and describe how beacon lays out its daily report. Wait for it, then tell me in three sentences whether tidepool's `table` output should follow the same layout. Don't change any files."
   - label: review-loader-and-docs
     title: Constituent names and docs
     model: sonnet
