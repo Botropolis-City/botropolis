@@ -38,5 +38,6 @@ The history of each is kept here because it explains code that still exists.
 - **Stopped sessions.**
   Settled in milestone 5: catalogued by a head-and-tail window read over `projects/*/*.jsonl`, cached by size and mtime,
   aged by `parked_days` until item 86, which catalogues every transcript Claude Code still has.
+  Since item 94, one active in the last day is read from the start of the plant's window on, so the plant's 24-hour figures are a whole read's.
   `sessions-index.json` was tried as a seed and rejected (cinders: 28 transcripts on disk, 4 indexed).
   Since ROADMAP phase 8 they lived in one storage district on the plan; since item 86 each keeps its own lot.

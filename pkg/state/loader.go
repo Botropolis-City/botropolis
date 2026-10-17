@@ -267,16 +267,16 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince 
 }
 
 // stoppedTranscript reads a stopped transcript through the window, and
-// whole if it was active since the plant's window opened, because the
-// plant sums its hours and a window keeps only the head and the tail of
-// them (item 94).
+// from the plant's window on if it was active since that opened,
+// because the plant sums its hours and a window keeps only the head and
+// the tail of them (item 94).
 func (l *Loader) stoppedTranscript(path string, powerSince time.Time) (claude.Transcript, error) {
 	transcript, err := claude.ReadTranscriptWindow(path, stoppedWindowBytes)
 	if err != nil || !transcript.Partial || transcript.LastAt.Before(powerSince) {
 		return transcript, err
 	}
 	l.reads++
-	return claude.ReadTranscript(path)
+	return claude.ReadTranscriptSince(path, stoppedWindowBytes, powerSince)
 }
 
 // stoppedSubagents are a stopped session's subagents, from the cache

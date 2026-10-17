@@ -411,6 +411,20 @@ func TestStoppedTranscriptsInThePowerWindow(t *testing.T) {
 			})
 		})
 
+		t.Run("and it began before the power window opened and ended inside it", func(t *testing.T) {
+			home, path := bigHome(t, now.Add(-30*time.Hour))
+			home.AppendTranscript(sid, loaderCWD, `{"type":"cost-state","sessionId":"`+sid+`","totalCostUSD":4.5,`+
+				`"modelUsage":{"claude-opus-5":{"inputTokens":2002,"outputTokens":5000,"cacheReadInputTokens":250000000,"costUSD":4.5}}}`)
+			snapshot, err := state.NewLoader(home.Path, alive).Load(now)
+			require.NoError(t, err)
+			whole, err := claude.ReadTranscript(path)
+			require.NoError(t, err)
+
+			t.Run("it should give the plant what a whole read gives", func(t *testing.T) {
+				assert.Equal(t, state.PowerSince([]claude.Transcript{whole}, now.Add(-state.PowerWindow)), snapshot.Power)
+			})
+		})
+
 		t.Run("and its last activity is older than the power window", func(t *testing.T) {
 			home, _ := bigHome(t, now.Add(-7*24*time.Hour))
 			snapshot, err := state.NewLoader(home.Path, alive).Load(now)
