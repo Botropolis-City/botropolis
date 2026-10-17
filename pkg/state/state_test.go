@@ -290,6 +290,68 @@ func TestBuild(t *testing.T) {
 		})
 	})
 
+	// Item 89: an agent launched in the background is in flight while its
+	// own transcript is still mid-turn, the session is alive, and it has
+	// written something within BackgroundAgentQuiet.
+	t.Run("when the session launched agents in the background", func(t *testing.T) {
+		agent := func(id string, turn claude.Turn, last time.Time) claude.Subagent {
+			return claude.Subagent{ToolUseID: id, AgentType: "Explore", Transcript: claude.Transcript{
+				CWD: "/p/b", LastAt: last, Tail: claude.Tail{Turn: turn},
+			}}
+		}
+		parent := transcript(sidA, claude.TurnAwaitingUser)
+		parent.Background = map[string]bool{"toolu_A": true}
+		session := func(sub claude.Subagent, probes state.Probes) state.Session {
+			return build(t, []claude.SessionRecord{record(sidA, claude.KindInteractive, claude.StatusIdle)},
+				[]claude.Transcript{parent}, map[string][]claude.Subagent{sidA: {sub}}, probes)[0]
+		}
+		fresh := now.Add(-time.Minute)
+
+		t.Run("and one's own last turn is still going", func(t *testing.T) {
+			s := session(agent("toolu_A", claude.TurnWorking, fresh), alive)
+
+			t.Run("it should count it in flight", func(t *testing.T) {
+				assert.Equal(t, 1, s.SubagentsInFlight)
+			})
+
+			t.Run("it should name it and record where it works", func(t *testing.T) {
+				assert.Equal(t, [2][]string{{"Explore"}, {"/p/b"}}, [2][]string{s.SubagentNames, s.SubagentDirs})
+			})
+		})
+
+		t.Run("and one's last turn has finished", func(t *testing.T) {
+			s := session(agent("toolu_A", claude.TurnAwaitingUser, fresh), alive)
+
+			t.Run("it should not count it in flight", func(t *testing.T) {
+				assert.Zero(t, s.SubagentsInFlight)
+			})
+		})
+
+		t.Run("and the session's process is gone", func(t *testing.T) {
+			s := session(agent("toolu_A", claude.TurnWorking, fresh), dead)
+
+			t.Run("it should not count it in flight", func(t *testing.T) {
+				assert.Zero(t, s.SubagentsInFlight)
+			})
+		})
+
+		t.Run("and one has been quiet for longer than BackgroundAgentQuiet", func(t *testing.T) {
+			s := session(agent("toolu_A", claude.TurnWorking, now.Add(-state.BackgroundAgentQuiet-time.Second)), alive)
+
+			t.Run("it should not count it in flight", func(t *testing.T) {
+				assert.Zero(t, s.SubagentsInFlight)
+			})
+		})
+
+		t.Run("and a foreground one was abandoned mid-turn", func(t *testing.T) {
+			s := session(agent("toolu_Z", claude.TurnWorking, fresh), alive)
+
+			t.Run("it should not count it in flight", func(t *testing.T) {
+				assert.Zero(t, s.SubagentsInFlight)
+			})
+		})
+	})
+
 	// Item 89: where each subagent in flight works, for its drone.
 	t.Run("when subagents are in flight", func(t *testing.T) {
 		away := claude.Subagent{ToolUseID: "toolu_A", Transcript: claude.Transcript{

@@ -105,6 +105,9 @@ type Transcript struct {
 	MCPCalls      map[string]int
 	SkillCalls    map[string]int
 	PRs           []PR
+	// Background is the tool calls that launched an agent in the
+	// background, which the session never waits on (item 89).
+	Background map[string]bool
 	// OrderLines are the newest lines that name an order (item 90).
 	OrderLines       []OrderLine
 	APIErrors        int
@@ -209,6 +212,7 @@ type transcriptLineJSON struct {
 	TeamName     string                    `json:"teamName"`
 	AgentName    string                    `json:"agentName"`
 	Compact      json.RawMessage           `json:"compactMetadata"`
+	ToolResult   json.RawMessage           `json:"toolUseResult"`
 	TotalCostUSD float64                   `json:"totalCostUSD"`
 	ModelUsage   map[string]modelUsageJSON `json:"modelUsage"`
 	Attachment   struct {
@@ -301,6 +305,7 @@ func (s *transcriptScan) apply(rec transcriptLineJSON) {
 	case "user":
 		if mainLine {
 			s.tail.user(rec, ts)
+			s.noteBackground(rec)
 		}
 	case "assistant":
 		s.applyAssistant(rec, mainLine)
@@ -457,6 +462,30 @@ func (s *transcriptScan) applyPR(rec transcriptLineJSON) {
 		}
 	}
 	s.transcript.PRs = append(s.transcript.PRs, PR{Number: rec.PRNumber, URL: rec.PRURL, Repository: rec.PRRepository, State: PROpen})
+}
+
+// noteBackground remembers the tool calls whose result says an agent
+// was launched in the background.
+func (s *transcriptScan) noteBackground(rec transcriptLineJSON) {
+	if len(rec.ToolResult) == 0 || rec.ToolResult[0] != '{' {
+		return
+	}
+	var result struct {
+		IsAsync bool `json:"isAsync"`
+	}
+	if json.Unmarshal(rec.ToolResult, &result) != nil || !result.IsAsync {
+		return
+	}
+	t := &s.transcript
+	for _, block := range rec.Message.Content {
+		if block.Type != "tool_result" || block.ToolUseID == "" {
+			continue
+		}
+		if t.Background == nil {
+			t.Background = map[string]bool{}
+		}
+		t.Background[block.ToolUseID] = true
+	}
 }
 
 // applyPRAction follows a PR through its life: created opens it, merged

@@ -33,6 +33,13 @@ const (
 	minRateSpan                = time.Minute
 )
 
+// BackgroundAgentQuiet is how long an agent launched in the background
+// may go without writing a line before it no longer counts as in
+// flight: one that died mid-turn would otherwise fly for ever. The
+// loader has no other clock on work, since a session's state comes from
+// its process and its turn (item 89).
+const BackgroundAgentQuiet = 10 * time.Minute
+
 type Session struct {
 	ID      string      `json:"id"`
 	Harness string      `json:"harness,omitempty"`
@@ -256,7 +263,7 @@ func Build(src Sources, probes Probes, now time.Time) []Session {
 		if worker, ok := src.Roster[r.JobID]; ok && r.JobID != "" && worker.PtySock != "" {
 			isAttached = probes.Attached(worker.PtySock)
 		}
-		sessions = append(sessions, buildSession(r, transcript, hasTranscript, src.Subagents[r.SessionID], isAlive, isAttached))
+		sessions = append(sessions, buildSession(r, transcript, hasTranscript, src.Subagents[r.SessionID], isAlive, isAttached, now))
 	}
 	for _, t := range src.Stopped {
 		if isOwnRun(t.CWD) || isOwnProject(t.Project) {
@@ -306,7 +313,7 @@ func ShortID(id string) string {
 }
 
 func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript bool,
-	subagents []claude.Subagent, isAlive, isAttached bool) Session {
+	subagents []claude.Subagent, isAlive, isAttached bool, now time.Time) Session {
 	s := Session{
 		ID:           r.SessionID,
 		Title:        r.Name,
@@ -354,7 +361,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 		visit(&s, sub.Transcript)
 		s.Subagents++
 		s.Usage = s.Usage.Add(sub.Usage)
-		if pending[sub.ToolUseID] {
+		if pending[sub.ToolUseID] || backgroundWorking(t, sub, isAlive, now) {
 			s.SubagentsInFlight++
 			name := sub.AgentType
 			if name == "" {
@@ -373,6 +380,14 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 	conversation := hasTranscript && (t.Tail.Prompts > 0 || !t.Tail.LastAssistantAt.IsZero())
 	s.State = derive(r, s.Turn, conversation, isAlive, isAttached)
 	return s
+}
+
+// backgroundWorking reports whether an agent launched in the background
+// is still at work: the session is alive, the agent's own turn is not
+// finished, and it has written within BackgroundAgentQuiet.
+func backgroundWorking(parent claude.Transcript, sub claude.Subagent, isAlive bool, now time.Time) bool {
+	return isAlive && parent.Background[sub.ToolUseID] &&
+		sub.Tail.Turn == claude.TurnWorking && now.Sub(sub.LastAt) <= BackgroundAgentQuiet
 }
 
 // worksIn is where a transcript did its work: the file it touched most
