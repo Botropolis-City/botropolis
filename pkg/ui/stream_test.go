@@ -24,7 +24,7 @@ func TestLayoutStream(t *testing.T) {
 		{At: at.Add(-2 * time.Minute), Kind: events.Error, SessionID: "c", Title: "Cap the log buffer"},
 	}
 	area := ui.StreamArea(th, ui.TopRight, width, height, top, footer)
-	s := ui.LayoutStream(th, list, area, measure7)
+	s := ui.LayoutStream(th, list, area, measure7, 0)
 
 	t.Run("it should put the newest first", func(t *testing.T) {
 		require.Len(t, s.Rows, 3)
@@ -40,7 +40,7 @@ func TestLayoutStream(t *testing.T) {
 		for i := range 200 {
 			many = append(many, events.Event{At: at.Add(-time.Duration(i) * time.Minute), Kind: events.Started, SessionID: fmt.Sprint(i)})
 		}
-		laid := ui.LayoutStream(th, many, area, measure7)
+		laid := ui.LayoutStream(th, many, area, measure7, 0)
 
 		t.Run("it should keep the newest", func(t *testing.T) {
 			require.NotEmpty(t, laid.Rows)
@@ -49,7 +49,7 @@ func TestLayoutStream(t *testing.T) {
 	})
 
 	t.Run("when nothing has happened yet", func(t *testing.T) {
-		empty := ui.LayoutStream(th, nil, area, measure7)
+		empty := ui.LayoutStream(th, nil, area, measure7, 0)
 
 		t.Run("it should say so", func(t *testing.T) {
 			assert.Equal(t, ui.StreamEmpty, empty.Empty.Text)
@@ -72,7 +72,6 @@ func TestStreamArea(t *testing.T) {
 		for _, width := range []float64{600, 700, 768, 960, 1280, 1600, 2560} {
 			t.Run(fmt.Sprintf("when the panel is in the %v corner, and the window is %v wide", corner, width), func(t *testing.T) {
 				area := ui.StreamArea(th, corner, width, height, top, footer)
-				mini, hasMini := ui.LayoutMinimap(th, width, height, footer)
 				streamWidthRules(t, th, area, width)
 
 				t.Run("it should be its panel's height", func(t *testing.T) {
@@ -83,17 +82,12 @@ func TestStreamArea(t *testing.T) {
 					assert.Equal(t, width, area.Max.X)
 				})
 
-				switch {
-				case corner == ui.TopRight:
+				if corner == ui.TopRight {
 					t.Run("it should sit under the strip", func(t *testing.T) {
 						assert.Equal(t, top, area.Min.Y)
 					})
-				case hasMini:
-					t.Run("it should stop just above the minimap", func(t *testing.T) {
-						assert.Equal(t, mini.Min.Y-th.Grid(), area.Max.Y)
-					})
-				default:
-					t.Run("it should stop just above the footer", func(t *testing.T) {
+				} else {
+					t.Run("it should sit on the footer", func(t *testing.T) {
 						assert.Equal(t, height-footer, area.Max.Y)
 					})
 				}
@@ -197,7 +191,7 @@ func TestLayoutStreamWraps(t *testing.T) {
 		{At: at.Add(-time.Minute), Kind: events.Started, SessionID: "b", Title: "Short"},
 	}
 	area := ui.StreamArea(th, ui.TopRight, 960, 800, 32, 40)
-	s := ui.LayoutStream(th, list, area, measure7)
+	s := ui.LayoutStream(th, list, area, measure7, 0)
 	require.Len(t, s.Rows, 2)
 	first := s.Rows[0]
 
@@ -224,6 +218,140 @@ func TestLayoutStreamWraps(t *testing.T) {
 		t.Run("it should push the next entry below the wrapped one", func(t *testing.T) {
 			last := first.Lines[len(first.Lines)-1]
 			assert.Greater(t, s.Rows[1].Lines[0].At.Y, last.At.Y)
+		})
+	})
+}
+
+func TestMinimapBesideStream(t *testing.T) {
+	th := ui.NewTheme(1)
+	const width, height, top, footer = 1600.0, 900.0, 32.0, 40.0
+	mini, ok := ui.LayoutMinimap(th, width, height, footer)
+	require.True(t, ok)
+
+	t.Run("when the panel is in the bottom right and the minimap is drawn", func(t *testing.T) {
+		panel := ui.StreamArea(th, ui.BottomRight, width, height, top, footer)
+		moved := ui.MinimapBesideStream(th, mini, panel, ui.BottomRight)
+
+		t.Run("it should sit above the panel, clear of it", func(t *testing.T) {
+			assert.True(t, moved.Max.Y < panel.Min.Y && moved.Height() == mini.Height(), "minimap %v, panel %v", moved, panel)
+		})
+
+		t.Run("it should keep against the right edge", func(t *testing.T) {
+			assert.Equal(t, mini.Max.X, moved.Max.X)
+		})
+	})
+
+	t.Run("when the panel is in the top right", func(t *testing.T) {
+		panel := ui.StreamArea(th, ui.TopRight, width, height, top, footer)
+
+		t.Run("it should not move", func(t *testing.T) {
+			assert.Equal(t, mini, ui.MinimapBesideStream(th, mini, panel, ui.TopRight))
+		})
+	})
+}
+
+func TestLayoutStreamScrolled(t *testing.T) {
+	th := ui.NewTheme(1)
+	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	var list []events.Event
+	for i := range 40 {
+		list = append(list, events.Event{At: at.Add(-time.Duration(i) * time.Minute), Kind: events.Started, SessionID: fmt.Sprint(i)})
+	}
+	area := ui.StreamArea(th, ui.TopRight, 1600, 900, 32, 40)
+	laid := func(skip int) ui.Stream { return ui.LayoutStream(th, list, area, measure7, skip) }
+	first := func(s ui.Stream) string {
+		require.NotEmpty(t, s.Rows)
+		return s.Rows[0].Event.SessionID
+	}
+
+	t.Run("when it is not scrolled", func(t *testing.T) {
+		s := laid(0)
+
+		t.Run("it should start at the newest entry", func(t *testing.T) {
+			assert.Equal(t, "0", first(s))
+		})
+
+		t.Run("it should show no newer mark", func(t *testing.T) {
+			assert.Empty(t, s.Newer.Text)
+		})
+
+		t.Run("it should draw a scroll bar", func(t *testing.T) {
+			assert.Positive(t, s.Thumb.Area())
+		})
+
+		t.Run("it should put the thumb at the top of the track", func(t *testing.T) {
+			assert.Equal(t, s.Track.Min.Y, s.Thumb.Min.Y)
+		})
+	})
+
+	t.Run("when it is scrolled back by 5", func(t *testing.T) {
+		s := laid(5)
+
+		t.Run("it should start at the fifth-newest entry", func(t *testing.T) {
+			assert.Equal(t, "5", first(s))
+		})
+
+		t.Run("it should say how many newer entries are above", func(t *testing.T) {
+			assert.Contains(t, s.Newer.Text, "5 newer")
+		})
+
+		t.Run("it should move the thumb down the track", func(t *testing.T) {
+			assert.Greater(t, s.Thumb.Min.Y, laid(0).Thumb.Min.Y)
+		})
+	})
+
+	t.Run("when it is scrolled past the oldest", func(t *testing.T) {
+		s := laid(1000)
+
+		t.Run("it should stop where the oldest entry is the last one shown", func(t *testing.T) {
+			require.NotEmpty(t, s.Rows)
+			assert.True(t, s.Rows[len(s.Rows)-1].Event.SessionID == "39" && laid(s.Skip - 1).Rows[len(laid(s.Skip-1).Rows)-1].Event.SessionID != "39", "skip %d", s.Skip)
+		})
+	})
+
+	t.Run("when it is scrolled before the newest", func(t *testing.T) {
+		t.Run("it should start at the newest", func(t *testing.T) {
+			assert.Equal(t, "0", first(laid(-3)))
+		})
+	})
+
+	t.Run("when everything fits", func(t *testing.T) {
+		s := ui.LayoutStream(th, list[:2], area, measure7, 0)
+
+		t.Run("it should draw no scroll bar", func(t *testing.T) {
+			assert.Zero(t, s.Thumb.Area())
+		})
+	})
+
+	t.Run("when the bar is dragged", func(t *testing.T) {
+		s := laid(0)
+		for _, c := range []struct {
+			name string
+			y    float64
+			want int
+		}{
+			{"to the top of the track", s.Track.Min.Y, 0},
+			{"to the bottom of the track", s.Track.Max.Y, laid(1000).Skip},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				t.Run("it should scroll to the entry at that point", func(t *testing.T) {
+					assert.Equal(t, c.want, s.SkipAt(c.y))
+				})
+			})
+		}
+	})
+}
+
+func TestFollowStream(t *testing.T) {
+	t.Run("when at the newest and entries arrive", func(t *testing.T) {
+		t.Run("it should stay at the newest", func(t *testing.T) {
+			assert.Equal(t, 0, ui.FollowStream(0, 10, 13))
+		})
+	})
+
+	t.Run("when scrolled back and entries arrive", func(t *testing.T) {
+		t.Run("it should move back by as many, keeping the same entries in view", func(t *testing.T) {
+			assert.Equal(t, 7, ui.FollowStream(4, 10, 13))
 		})
 	})
 }

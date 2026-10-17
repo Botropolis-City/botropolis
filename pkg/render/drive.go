@@ -14,6 +14,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
@@ -51,6 +52,9 @@ type DriveOptions struct {
 	// zero is a map never opened before. A Seen journal_hours or more
 	// before Now opens the journal (item 86).
 	Seen time.Time
+	// Events is the event log the city opens with, as the daemon would
+	// hand it over (item 100).
+	Events []events.Event
 }
 
 // Shown is what the last frame drew.
@@ -78,6 +82,12 @@ type Shown struct {
 	// and Stream whether the stream's column is up.
 	Triage string
 	Stream bool
+	// StreamRect is where the stream was drawn, StreamScrolled how many
+	// of its newest entries are scrolled past, and Zoom the camera's
+	// (item 100).
+	StreamRect     city.Rect
+	StreamScrolled int
+	Zoom           float64
 	// Found is the finder's results, by session id, best first, while it
 	// is open.
 	Found []string
@@ -100,6 +110,7 @@ type driveInput struct {
 	pointer        string
 	at             *city.Point
 	press, release bool
+	wheel          float64
 }
 
 // keys the harness refuses: each reaches outside the city, p to the
@@ -132,6 +143,7 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	}
 	sprites, kitSprites := art.sprites, art.kits
 	d := &Drive{screen: ebiten.NewImage(width, height)}
+	scene.AddEvents(opts.Events)
 	g := NewGame(scene, d, theme, faces, nil, sprites)
 	g.kits = kitSprites
 	g.home = opts.Home
@@ -281,6 +293,14 @@ func (d *Drive) Click(target string) error {
 // It is one step.
 func (d *Drive) ClickAt(at city.Point) error {
 	d.queue = append(d.queue, driveInput{at: &at, press: true}, driveInput{at: &at, release: true})
+	d.steps++
+	return nil
+}
+
+// WheelAt turns the scroll wheel by notches with the pointer at a point
+// of the window; up is positive. It is one step.
+func (d *Drive) WheelAt(at city.Point, notches float64) error {
+	d.queue = append(d.queue, driveInput{at: &at, wheel: notches})
 	d.steps++
 	return nil
 }
@@ -468,6 +488,7 @@ func (g *Game) injectInput() {
 			g.play.shown, g.play.pointer = true, at
 		}
 		g.play.press, g.play.release = in.press, in.release
+		g.play.wheel = in.wheel
 	}
 }
 
@@ -483,6 +504,10 @@ func (g *Game) noteShown() {
 	s.Lens, s.View = g.scene.Lens().Name(), g.scene.View().Name()
 	s.Explaining = g.explainHeld()
 	s.Stream = g.streamShown()
+	g.mu.Lock()
+	s.StreamRect, s.StreamScrolled = g.streamLaid.Rect, g.streamLaid.Skip
+	g.mu.Unlock()
+	s.Zoom = g.scene.Camera().Zoom
 	if step, ok := g.scene.TriageStep(); ok && g.triage() != nil {
 		s.Triage = step.Building.Session.ID
 	}

@@ -1,6 +1,9 @@
 package render
 
 import (
+	"image/color"
+	"math"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
@@ -55,21 +58,28 @@ func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float
 	th := g.theme
 	area := ui.StreamArea(th, ui.StreamCorner, width, height, top, footer)
 	g.scene.SetCornerChrome(area)
-	s := ui.LayoutStream(th, g.scene.Events(), area, g.faces.Measure)
+	list := g.scene.Events()
 	g.mu.Lock()
-	g.streamLaid = s
+	g.streamSkip = ui.FollowStream(g.streamSkip, g.streamSeen, len(list))
+	g.streamSeen = len(list)
+	s := ui.LayoutStream(th, list, area, g.faces.Measure, g.streamSkip)
+	g.streamSkip, g.streamLaid = s.Skip, s
 	g.mu.Unlock()
 	solid := th.Palette.Panel
 	solid.A = 0xff
-	vector.FillRect(screen, float32(area.Min.X), float32(area.Min.Y), float32(area.Width()), float32(area.Height()), solid, false)
-	vector.FillRect(screen, float32(area.Min.X), float32(area.Min.Y), float32(th.Hairline()), float32(area.Height()), th.Palette.Hairline, false)
+	fill := func(r city.Rect, c color.NRGBA) {
+		vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), c, false)
+	}
+	fill(area, solid)
+	fill(city.RectAt(area.Min.X, area.Min.Y, th.Hairline(), area.Height()), th.Palette.Hairline)
 	edge := area.Max.Y - th.Hairline()
 	if ui.StreamCorner == ui.BottomRight {
 		edge = area.Min.Y
 	}
-	vector.FillRect(screen, float32(area.Min.X), float32(edge), float32(area.Width()), float32(th.Hairline()), th.Palette.Hairline, false)
+	fill(city.RectAt(area.Min.X, edge, area.Width(), th.Hairline()), th.Palette.Hairline)
 	g.run(screen, s.Title, th.Palette.Text)
 	g.run(screen, s.Empty, th.Palette.Dim)
+	g.run(screen, s.Newer, th.Palette.Text)
 	for _, r := range s.Rows {
 		tone := th.Palette.Dim
 		switch r.Event.Kind {
@@ -83,10 +93,16 @@ func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float
 			g.run(screen, line, tone)
 		}
 	}
+	if s.Thumb.Area() > 0 {
+		fill(s.Track, th.Palette.Hairline)
+		fill(s.Thumb, th.Palette.Dim)
+	}
 	return area.Min.X
 }
 
-// clickStream flies the camera to the session an entry is about.
+// clickStream takes a press on the panel: on the bar it starts a drag,
+// on the newer mark it goes back to the newest, and on an entry it
+// flies the camera to the session it is about.
 func (g *Game) clickStream(cursor city.Point) bool {
 	g.mu.Lock()
 	s := g.streamLaid
@@ -94,8 +110,42 @@ func (g *Game) clickStream(cursor city.Point) bool {
 	if !s.Rect.Contains(cursor) {
 		return false
 	}
+	if s.Thumb.Area() > 0 && s.Track.Inset(-g.theme.Grid()/2).Contains(cursor) {
+		g.streamDrag = true
+		g.dragStream(cursor)
+		return true
+	}
+	if s.NewerRect.Contains(cursor) {
+		g.mu.Lock()
+		g.streamSkip = 0
+		g.mu.Unlock()
+		return true
+	}
 	if e, ok := s.Hit(cursor); ok && !g.scene.FlyToEvent(e) {
 		g.SetStatus(e.Title + " is no longer on the map")
 	}
+	return true
+}
+
+// dragStream scrolls the panel to where the bar is dragged.
+func (g *Game) dragStream(cursor city.Point) {
+	g.mu.Lock()
+	g.streamSkip = g.streamLaid.SkipAt(cursor.Y)
+	g.mu.Unlock()
+}
+
+// wheelStream scrolls the panel by whole entries while the pointer is
+// over it, and reports whether it took the wheel; elsewhere the wheel
+// zooms the map (item 100).
+func (g *Game) wheelStream(cursor city.Point, notches float64) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.streamLaid.Rect.Contains(cursor) {
+		return false
+	}
+	g.streamWheel += notches
+	whole := math.Trunc(g.streamWheel)
+	g.streamWheel -= whole
+	g.streamSkip = max(g.streamSkip-int(whole), 0)
 	return true
 }

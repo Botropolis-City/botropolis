@@ -44,6 +44,9 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	bottom := footer.KeyRow.Height() + legend.Rect.Height()
 	g.scene.SetBottomChrome(bottom)
 	if box, ok := ui.LayoutMinimap(th, width, height, bottom); ok {
+		if g.streamShown() {
+			box = ui.MinimapBesideStream(th, box, ui.StreamArea(th, ui.StreamCorner, width, height, top, bottom), ui.StreamCorner)
+		}
 		g.minimap(screen, box)
 	}
 	pointer := g.pointer()

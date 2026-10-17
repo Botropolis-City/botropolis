@@ -235,6 +235,14 @@ type Game struct {
 	// streamAsked is a show the stream's key made this run in a window
 	// too narrow for the column (item 100).
 	streamAsked bool
+	// streamSkip is how many of the newest entries the panel is scrolled
+	// past, streamSeen how many entries there were when it was last laid
+	// out, streamWheel the part of a notch not yet scrolled, and
+	// streamDrag whether its bar is held (item 100).
+	streamSkip  int
+	streamSeen  int
+	streamWheel float64
+	streamDrag  bool
 	// captions are explain mode's, or a first sighting's, as last drawn;
 	// scriptedHeld is the keys a script holds down (item 88).
 	captions     []ui.Caption
@@ -424,11 +432,18 @@ func (g *Game) Update() error {
 	g.scene.PointerMove(cursor)
 	g.hoverSprites(cursor)
 
-	if _, wheel := ebiten.Wheel(); wheel != 0 {
+	if _, wheel := ebiten.Wheel(); wheel != 0 && !g.wheelStream(cursor, wheel) {
 		g.scene.Wheel(cursor, wheel)
 	}
-	if g.play.wheel != 0 {
+	if g.play.wheel != 0 && !g.wheelStream(cursor, g.play.wheel) {
 		g.scene.Wheel(cursor, g.play.wheel)
+	}
+	if g.streamDrag {
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown && !g.play.release {
+			g.dragStream(cursor)
+		} else {
+			g.streamDrag = false
+		}
 	}
 	if g.play.pan != (city.Point{}) {
 		g.scene.Pan(g.play.pan)
