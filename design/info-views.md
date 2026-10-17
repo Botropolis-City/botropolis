@@ -44,8 +44,8 @@ So a categorical view colours the top three kinds and folds everything else into
 "other" is the absence of a category, and giving it a colour would claim the sessions inside it had something in common.
 Thirteen MCP servers were never going to be thirteen colours; Servers is legible because colour carries the top three and the contextual highlight carries the rest.
 
-The networks — the wires from the plant, the beams from the towers, the cars on the roads, the freight loop, the drones over a roof — each sit behind the view that asks about them.
-Spend has the wires and the train, Servers the beams, Traffic the cars, Fan-out the drones, and Attention none of them.
+The networks — the wires from the plant, the beams from the towers, the cars on the roads, the freight loop, the drones at work on the buildings — each sit behind the view that asks about them.
+Spend has the wires and the train, Servers the beams, Traffic the cars and the drones, Fan-out the drones, and Attention the cars and the drones, because each of those answers for itself on hover.
 Health keeps the wires too, for what is *not* there: a session the daemon has seen no hook events from has no wire, and that missing wire says the numbers beside that building are files-only guesses.
 Which view draws which network is a property of `pkg/city`, so it is testable without a window.
 

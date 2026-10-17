@@ -29,11 +29,15 @@ const (
 	KindCar
 	KindFlag
 	KindStation
+	// KindInspector and KindDelivery are a pull request's other two
+	// movers (item 89).
+	KindInspector
+	KindDelivery
 )
 
 // Kinds is every kind, in the order the reference lists them.
 var Kinds = []Kind{
-	KindSession, KindProject, KindStation, KindWorker, KindDrone, KindSmoke, KindFlag,
+	KindSession, KindProject, KindStation, KindWorker, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery,
 	KindPlant, KindWire, KindTrain, KindTower, KindBeam, KindLibrary, KindHall,
 	KindRoad, KindCar, KindRiver, KindGauge, KindTug, KindLaunch, KindFountain, KindPlaza,
 }
@@ -52,12 +56,16 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindProject, KindSession}},
 	KindWorker: {"rover", "a session's own work", "The rover at a building's door is the session itself. It waits there while Claude is mid-turn and drives out and back for each tool it uses.",
 		[]Kind{KindSession, KindDrone}},
-	KindDrone: {"drone", "one subagent in flight", "Each drone circling a roof is one subagent the session has running somewhere else.",
+	KindDrone: {"drone", "one subagent in flight", "Each drone working on a building is one subagent the session has running. It flies to the project its subagent works in, and home when it finishes.",
 		[]Kind{KindSession, KindWorker}},
 	KindSmoke: {"smoke", "errors from the API", "Smoke over a roof means the session has had errors from the API. The more smoke, the more errors.",
 		[]Kind{KindSession}},
-	KindFlag: {"flag", "a pull request", "A flag on a roof is a pull request the session opened. It changes when the pull request is merged or closed.",
-		[]Kind{KindSession}},
+	KindFlag: {"flag", "a pull request", "A flag on a roof is a pull request the session opened. It turns green when the pull request is merged, and comes down when it is closed.",
+		[]Kind{KindSession, KindInspector, KindDelivery}},
+	KindInspector: {"inspector", "pull requests waiting on review", "An inspector's car parks outside a session's building while the session has a pull request open, and drives off when none is.",
+		[]Kind{KindFlag, KindSession}},
+	KindDelivery: {"delivery truck", "a merged pull request", "When a pull request merges, a truck takes a crate away over the bridge. When the merge leaves its group with nothing open, the group's ribbon is cut.",
+		[]Kind{KindFlag, KindInspector}},
 	KindPlant: {"power plant", "where the tokens go", "The power plant is the city's spend: tokens and cost across every session. Select it to see where the spend went.",
 		[]Kind{KindWire, KindTrain}},
 	KindWire: {"wire", "a session's tokens, from the plant", "A wire runs from the plant to every session the daemon hears from. A thicker wire carries more tokens. A building with no wire is read from files only.",
@@ -116,6 +124,10 @@ func KindOf(h Hit) Kind {
 		return KindCar
 	case h.Flag != nil:
 		return KindFlag
+	case h.Delivery != nil:
+		return KindDelivery
+	case h.Inspector != nil:
+		return KindInspector
 	case h.Subagent != nil:
 		return KindDrone
 	case h.Worker != nil:

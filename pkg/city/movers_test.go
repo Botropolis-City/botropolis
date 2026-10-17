@@ -110,6 +110,25 @@ func TestMoverCards(t *testing.T) {
 			assert.NotEmpty(t, city.CarCard(&road, "a", "b").Title)
 		})
 	})
+
+	// Item 89: the inspector and the delivery truck each mean one datum.
+	t.Run("when an inspector's car is pointed at", func(t *testing.T) {
+		s := session("a", cinders, state.Working)
+		s.PRs = []claude.PR{{Number: 7, State: claude.PROpen}, {Number: 8, State: claude.PRMerged}, {Number: 9, State: claude.PROpen}}
+		card := city.InspectorCard(buildingOf(t, still(t, s), "a"))
+
+		t.Run("it should name the open PRs it is waiting on, and only those", func(t *testing.T) {
+			assert.Equal(t, "waiting on #7, #9", card.Lines[0])
+		})
+	})
+
+	t.Run("when a delivery truck is pointed at", func(t *testing.T) {
+		card := city.DeliveryCard(city.Delivery{PR: claude.PR{Number: 7, Repository: "o/r", State: claude.PRMerged}})
+
+		t.Run("it should name the PR it carries", func(t *testing.T) {
+			assert.Contains(t, card.Title, "#7 o/r")
+		})
+	})
 }
 
 func TestMoverHitsBeatTheBuildingUnderThem(t *testing.T) {

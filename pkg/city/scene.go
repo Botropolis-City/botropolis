@@ -212,6 +212,15 @@ type Scene struct {
 	keepDepot bool
 	// drones are the subagents' drones by session (item 89).
 	drones map[string][]*flight
+	// prs is each pull request's state at the last snapshot, by session
+	// and URL; hoists, parked, deliveries, ribbons and celebrated are
+	// what their changes set going (item 89).
+	prs        map[string]string
+	hoists     map[string]hoist
+	parked     map[string]parking
+	deliveries []Delivery
+	ribbons    []ribbon
+	celebrated map[string]bool
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// reduced is the reduced_motion setting: everything that moves on
@@ -614,6 +623,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.noteHauls(s.now())
 	s.finishBuilds(s.now())
 	s.noteDrones(s.now())
+	s.notePRs(s.now())
 	s.holdDepot()
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
@@ -671,7 +681,8 @@ func (h Hit) Ground() bool {
 // resolves to the building first in world space; a mover has to be
 // allowed to win or it can never be pointed at at all.
 func (h Hit) Mover() bool {
-	return h.Worker != nil || h.Subagent != nil || h.Smoke != nil || h.Car != nil || h.Flag != nil || h.Gauge != nil
+	return h.Worker != nil || h.Subagent != nil || h.Smoke != nil || h.Car != nil || h.Flag != nil || h.Gauge != nil ||
+		h.Inspector != nil || h.Delivery != nil
 }
 
 func (h Hit) ground() bool {
@@ -1167,6 +1178,10 @@ func (s *Scene) cardFor(h Hit) (Card, bool) {
 		return CarCard(h.Car.Road, h.Car.From, h.Car.To), true
 	case h.Flag != nil:
 		return FlagCard(h.Flag.PR), true
+	case h.Delivery != nil:
+		return DeliveryCard(*h.Delivery), true
+	case h.Inspector != nil:
+		return InspectorCard(h.Inspector), true
 	case h.Subagent != nil:
 		return SubagentCard(h.Subagent), true
 	case h.Worker != nil:

@@ -408,6 +408,13 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	// One flag per PR, coloured by its state: open in the accent, merged
 	// green, closed slate.
 	for i := 0; i < min(b.Flags, 3); i++ {
+		hoist := 1.0
+		if i < len(b.Session.PRs) {
+			hoist = g.scene.Hoist(b.Session.ID, b.Session.PRs[i].Number)
+		}
+		if hoist <= 0 {
+			continue
+		}
 		x := r.Min.X + r.Width()*0.62 + float64(i)*dot*1.8
 		flag := g.theme.Palette.Accent
 		if i < b.Merged {
@@ -416,7 +423,8 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			flag = g.theme.Palette.Resting
 		}
 		vector.FillRect(screen, float32(x), float32(roofTop-dot*2), float32(dot*0.4), float32(dot*2.5), colorPole, false)
-		vector.FillRect(screen, float32(x), float32(roofTop-dot*2), float32(dot*1.4), float32(dot), flag, false)
+		// The flag runs up its pole as it is hoisted (item 89).
+		vector.FillRect(screen, float32(x), float32(roofTop+dot*0.5-dot*2.5*hoist), float32(dot*1.4), float32(dot), flag, false)
 		if i < len(b.Session.PRs) {
 			g.noteHit(city.RectAt(x, roofTop-dot*2, dot*1.4, dot*2.5),
 				city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Flag: &city.FlagHit{Building: b, PR: b.Session.PRs[i]}})
@@ -691,6 +699,24 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			}))
 		}
 	}
+	for _, b := range c.Buildings() {
+		if in, ok := g.scene.Inspector(b.Session.ID); ok && !b.Vacant && !g.scene.Dimmed(b) {
+			b := b
+			items = append(items, standingAt(cam, in.At, func() {
+				g.drawInspector(screen, cam, b, in)
+			}))
+		}
+	}
+	for _, d := range g.scene.Deliveries() {
+		d := d
+		items = append(items, standingAt(cam, d.At(g.scene.Clock()), func() {
+			g.drawDelivery(screen, cam, d)
+		}))
+	}
+	for _, r := range g.scene.Ribbons() {
+		r := r
+		airborne = append(airborne, func() { g.drawRibbon(screen, cam, r) })
+	}
 	for _, k := range g.freight(c, seconds) {
 		k := k
 		items = append(items, standingAt(cam, k.at, func() {
@@ -958,6 +984,7 @@ func (g *Game) streets(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		name, turn := roadPiece(sc.Mask)
 		g.kitGround(screen, cam, name, turn, sc.Cell.Center(), nil)
 	}
+	g.bridge(screen, c, cam)
 	g.streetSigns(screen, c, cam, hover, labels)
 }
 

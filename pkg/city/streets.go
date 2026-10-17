@@ -163,6 +163,12 @@ func (c *City) routeStreets(road *RoadLine) []Cell {
 		sort.Slice(shared, func(i, j int) bool { return lessCell(shared[i], shared[j]) })
 		return shared
 	}
+	return c.walkStreets(from, to)
+}
+
+// walkStreets is the cheapest walk along the avenues from any of one set
+// of cells to any of another, or nil when none joins them.
+func (c *City) walkStreets(from, to map[Cell]bool) []Cell {
 	type entry struct {
 		node routeNode
 		cost float64

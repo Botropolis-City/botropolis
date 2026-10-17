@@ -2,6 +2,7 @@ package city
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
@@ -74,6 +75,34 @@ func FlagCard(pr claude.PR) Card {
 	card := Card{Title: title, Lines: []string{fmt.Sprintf("state      %s", state)}}
 	if pr.URL != "" {
 		card.Lines = append(card.Lines, pr.URL)
+	}
+	return card
+}
+
+// InspectorCard is the inspector's car outside a building: the session's
+// open pull requests, which it waits on. Item 89.
+func InspectorCard(b *Building) Card {
+	var open []string
+	for _, pr := range b.Session.PRs {
+		if pr.State == "" || pr.State == claude.PROpen {
+			open = append(open, fmt.Sprintf("#%d", pr.Number))
+		}
+	}
+	return Card{Title: "inspector" + arrow + b.Card(time.Time{}).Title, Lines: []string{
+		"waiting on " + strings.Join(open, ", "),
+	}}
+}
+
+// DeliveryCard is a truck taking a merged pull request's crate away.
+// Item 89.
+func DeliveryCard(d Delivery) Card {
+	title := fmt.Sprintf("merged"+arrow+"#%d", d.PR.Number)
+	if d.PR.Repository != "" {
+		title += " " + d.PR.Repository
+	}
+	card := Card{Title: title, Lines: []string{"leaving by the bridge"}}
+	if d.PR.URL != "" {
+		card.Lines = append(card.Lines, d.PR.URL)
 	}
 	return card
 }

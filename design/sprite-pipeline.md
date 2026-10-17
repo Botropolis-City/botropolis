@@ -45,7 +45,7 @@ The atlases therefore do not churn in git, so they stay committed: no git-lfs, n
 a session's building is one of five classes of Commercial pieces by how much of its context window it has used, with variety from its id and a state-coloured beacon over the door;
 the Industrial shipping containers are held in reserve for item 86; avenues are Roads pieces picked and turned by each cell's joins;
 the plant is an Industrial hall with a stack, the hall and library Commercial pieces, the MCP towers water towers; trees are the Suburban kit's; cars the Car Kit's;
-the worker is the Space Kit rover at the door of a working session, bobbing; each subagent in flight is a drone circling the roof.
+the worker is the Space Kit rover at the door of a working session, bobbing; each subagent in flight is a small drone working on a building's faces and roof.
 The camera carries a heading (`r` turns it a quarter about the window's middle) and the projection, corners, fit bounds, minimap and back-to-front order all go through it;
 the wheel eases the zoom to its ladder target unless motion is reduced.
 The fit view shows the sprites; only far below it does the flat map view take over.

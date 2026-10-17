@@ -55,7 +55,10 @@ var (
 	// The plaza's fountain, modelled in the pipeline like the drone:
 	// three frames of spray, cycled slowly.
 	kitFountain = []string{"botropolis/fountain-a", "botropolis/fountain-b", "botropolis/fountain-c"}
-	kitCars     = []string{"car-kit/sedan", "car-kit/van", "car-kit/taxi", "car-kit/suv", "car-kit/hatchback-sports", "car-kit/delivery"}
+	// The traffic keeps to the cars no other mover drives: the delivery
+	// truck and the inspector's SUV mean a pull request, and the van is
+	// kept for a message (item 89).
+	kitCars = []string{"car-kit/sedan", "car-kit/taxi", "car-kit/hatchback-sports"}
 	// The park palette: the Suburban kit's two, and six of the Nature
 	// Kit's cut to their height and repainted in their greens by the
 	// pipeline. plan.ParkSpecies is how many the plan may ask for.

@@ -30,6 +30,7 @@ var atlasReserve = map[string]string{
 	"city-kit-roads/traffic-light":     "street furniture the detail setting gives a home to",
 	"city-kit-roads/construction-cone": "street furniture, as above",
 	"city-kit-roads/light-curved":      "street furniture, as above",
+	"car-kit/van":                      "taken out of the traffic to mean a message between sessions, item 89's slice 5",
 }
 
 // sourceLiterals is every string literal in every tracked non-test .go

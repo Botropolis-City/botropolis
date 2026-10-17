@@ -157,6 +157,10 @@ type Hit struct {
 	Gauge *GaugeHit
 	Car   *CarHit
 	Flag  *FlagHit
+	// Inspector is the car parked outside while a session has a pull
+	// request open, and Delivery a merged one's truck (item 89).
+	Inspector *Building
+	Delivery  *Delivery
 	// Station is a stop on a group's line (item 87).
 	Station *StationHit
 }
