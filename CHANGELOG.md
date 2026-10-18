@@ -162,6 +162,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Labels on the map no longer cover one another, and `z` turns them all off.**
+  Group badges, a line's station label, district signs and the plates that stand in for them, a first sighting's caption and a road's traffic tag are laid out together each frame: a district sign never moves, and any other label that would cover one steps down or aside, further out on a short leader if it must, and is left off where there is no room.
+  Labels are drawn over the world, so a building or a sign no longer hides a badge.
+  `z` (`labels_key`) turns every label off and on, as does the settings panel's new `labels` row (shown or hidden); the signs on their posts and the names painted on buildings stay, because they are part of the map, and holding `e` still captions everything.
+  Pointing at a car fades every label outside its two districts and its road, with the rest of the city.
+
 - **A recorded clip plays at the city's own speed.**
   With `--record`, the city's clock counted updates while the clip counted drawn frames, and on software GL several updates ran per frame, so clips ran about twice to three times fast and every debounce, ease and transition in them with it.
   A recording now runs exactly one update per drawn frame, so N seconds of clip are N seconds on the city's clock, and it ends by printing how many frames it wrote and how much of the city's clock they span.
