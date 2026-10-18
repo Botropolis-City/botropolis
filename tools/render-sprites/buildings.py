@@ -15,10 +15,13 @@ TYPES = ("residential", "shopping", "office", "industrial")
 MAX_STOREYS = 5
 STOREY = 0.36
 PLINTH = 0.03
-# A course is the slab one compaction slides under a building: a third
-# of a storey, in the building's own material, a little wider than it.
-COURSE = STOREY / 3
-COURSE_MARGIN = 0.025
+# A course is the slab one compaction slides under a building: a sixth
+# of a storey, in the building's own material. Up to three are drawn,
+# stepping in as they rise like steps up to a door: the top one a step
+# wider than the building on every side, each below a step wider again.
+COURSE = STOREY / 6
+COURSE_STEP = 0.025
+COURSES = 3
 COURSE_MATERIAL = {"residential": ("brick", "brick-trim"), "shopping": ("render", "render-trim"),
                    "office": ("slab", "office-roof"), "industrial": ("cladding", "rib")}
 
@@ -45,7 +48,7 @@ PALETTE = {
     "awning-teal": "#2f8f7f",
     "banner": "#f2e3b8",
     "sign-white": "#f4f1ea",
-    "billboard": "#f2c230",
+    "billboard": "#f0a818",
     "display": "#cfe3ee",
     "curtain": "#7d93ab",
     "slab": "#9aa1ab",
@@ -66,6 +69,18 @@ PALETTE = {
     "truck-cab": "#c0392b",
     "truck-box": "#eceff1",
     "yard": "#6b6a64",
+    "skip": "#e0a400",
+    "skip-rim": "#b88400",
+    "rubble": "#7a6f62",
+    "rubble-dark": "#55504a",
+    "rubble-light": "#a39a8c",
+    "chassis": "#33373d",
+    "tyre": "#1d2026",
+    "hook": "#8a8f96",
+    "mixer-cab": "#3c6fb0",
+    "drum": "#eceff1",
+    "drum-band": "#e0b23c",
+    "chute": "#6b7280",
 }
 
 
@@ -406,8 +421,172 @@ def names():
     return [f"{t}-{n}" for t in TYPES for n in range(1, MAX_STOREYS + 1)]
 
 
+# The site's own vehicles and the skip that shows how full a session's
+# context is (item 109): four fills, a hook-lift truck empty and loaded,
+# and a cement mixer. Vehicles are modelled nose along +y, as the Car
+# Kit's are, so the map turns them the same way.
+SKIP_FILLS = 4
+VEHICLES = ["skip-truck", "skip-truck-loaded", "mixer-truck"]
+
+
+# A building whose session's transcript is gone: abandoned and fallen
+# apart, walls broken to uneven heights, its roof down inside them and
+# rubble spilled round it, in its district type's own material.
+RUINS_MATERIAL = {
+    "residential": ("brick", "tile-roof", "brick-b"),
+    "shopping": ("render", "awning-red", "render-trim"),
+    "office": ("slab", "curtain", "office-roof"),
+    "industrial": ("cladding", "shed-roof", "rib"),
+}
+
+
+def ruins_names():
+    return [f"{t}-ruins" for t in TYPES]
+
+
+def is_ruins(name):
+    return name in ruins_names()
+
+
+def ruins(name, at=(0, 0)):
+    t = name[: -len("-ruins")]
+    wall, roof, trim = RUINS_MATERIAL[t]
+    m = Model(f"botropolis/{name}")
+    w, d = footprint(3, 0.5, 0.7), footprint(3, 0.5, 0.7) * 0.8
+    m.body = (w, d, 0.0)
+    m.box((w + 0.03, d + 0.03, PLINTH), (0, 0, 0), "plinth")
+    thick = 0.03
+    # Each wall is broken into stretches of uneven height, with gaps.
+    walls = (
+        ((-w / 2, -d / 2), (w / 2, -d / 2), (0.9, 0.35, 0.0, 0.6, 0.2)),
+        ((w / 2, -d / 2), (w / 2, d / 2), (0.25, 0.55, 0.15, 0.0)),
+        ((w / 2, d / 2), (-w / 2, d / 2), (0.7, 0.0, 0.4, 1.1, 0.5)),
+        ((-w / 2, d / 2), (-w / 2, -d / 2), (0.45, 0.8, 0.0, 0.3)),
+    )
+    for (x0, y0), (x1, y1), heights in walls:
+        n = len(heights)
+        for k, frac in enumerate(heights):
+            if frac <= 0:
+                continue
+            a, b = k / n, (k + 1) / n
+            cx, cy = x0 + (x1 - x0) * (a + b) / 2, y0 + (y1 - y0) * (a + b) / 2
+            seg = math.hypot(x1 - x0, y1 - y0) / n
+            size = (seg, thick, frac * STOREY) if y0 == y1 else (thick, seg, frac * STOREY)
+            m.box(size, (cx, cy, PLINTH), wall if k % 2 == 0 else trim)
+    # The roof, fallen in: a slab leaning from one wall to the floor.
+    slab = m.box((w * 0.7, d * 0.6, 0.025), (0.02, 0.03, PLINTH + 0.12), roof)
+    slab.rotation_euler = (0.35, -0.25, 0.2)
+    # Rubble inside and spilled out through the gaps.
+    for x, y, s in ((-0.12, -0.05, 0.06), (0.1, 0.08, 0.05), (0.0, -0.12, 0.04), (0.16, -0.14, 0.035),
+                    (-0.18, 0.12, 0.045), (w / 2 + 0.04, 0.02, 0.04), (-0.05, -d / 2 - 0.05, 0.035), (0.06, d / 2 + 0.04, 0.03)):
+        m.box((s, s * 1.2, s * 0.6), (x, y, PLINTH), "rubble" if s > 0.04 else "rubble-dark")
+    m.root.location = Vector((at[0], at[1], 0))
+    m.root["body"] = [round(v, 4) for v in m.body]
+    return m.done()
+
+
+def site_names():
+    return [f"skip-{k}" for k in range(1, SKIP_FILLS + 1)] + VEHICLES
+
+
+def is_site(name):
+    return name in site_names()
+
+
+def skip_body(m, at=(0.0, 0.0, 0.0), turn_y=True):
+    """A skip's tapered steel body, open at the top, with a rim."""
+    x0, y0, z0 = at
+    bl, bw, tl, tw, h = 0.17, 0.10, 0.22, 0.12, 0.07
+    if not turn_y:
+        bl, bw, tl, tw = bw, bl, tw, tl
+    v = [(x0 - bl / 2, y0 - bw / 2, z0), (x0 + bl / 2, y0 - bw / 2, z0), (x0 + bl / 2, y0 + bw / 2, z0), (x0 - bl / 2, y0 + bw / 2, z0),
+         (x0 - tl / 2, y0 - tw / 2, z0 + h), (x0 + tl / 2, y0 - tw / 2, z0 + h), (x0 + tl / 2, y0 + tw / 2, z0 + h), (x0 - tl / 2, y0 + tw / 2, z0 + h)]
+    m.mesh(v, [(0, 1, 2, 3), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], "skip")
+    m.box((tl + 0.008, 0.008, 0.008), (x0, y0 - tw / 2, z0 + h - 0.004), "skip-rim")
+    m.box((tl + 0.008, 0.008, 0.008), (x0, y0 + tw / 2, z0 + h - 0.004), "skip-rim")
+    m.box((0.008, tw + 0.008, 0.008), (x0 - tl / 2, y0, z0 + h - 0.004), "skip-rim")
+    m.box((0.008, tw + 0.008, 0.008), (x0 + tl / 2, y0, z0 + h - 0.004), "skip-rim")
+    return tl, tw, h
+
+
+def rubble(m, level, at=(0.0, 0.0, 0.0), tl=0.22, tw=0.12, h=0.07):
+    """What a skip holds at a fill level: a third, to the rim, heaped
+    over it, and heaped with spill on the ground beside it."""
+    x0, y0, z0 = at
+    fill = {1: 0.4, 2: 0.95, 3: 1.0, 4: 1.0}[level]
+    m.box((tl * 0.86, tw * 0.84, h * fill), (x0, y0, z0 + 0.004), "rubble")
+    if level >= 3:
+        rise = 0.05 if level == 3 else 0.08
+        top = z0 + h
+        m.mesh([(x0 - tl * 0.42, y0 - tw * 0.4, top), (x0 + tl * 0.42, y0 - tw * 0.4, top), (x0 + tl * 0.42, y0 + tw * 0.4, top),
+                (x0 - tl * 0.42, y0 + tw * 0.4, top), (x0 - tl * 0.1, y0, top + rise), (x0 + tl * 0.12, y0, top + rise * 0.9)],
+               [(0, 1, 5, 4), (1, 2, 5), (2, 3, 4, 5), (3, 0, 4)], "rubble-dark")
+        for dx, dy, s in ((-0.06, -0.02, 0.03), (0.05, 0.02, 0.025), (0.0, 0.03, 0.02)):
+            m.box((s, s, s), (x0 + dx, y0 + dy, top + rise * 0.4), "rubble-light")
+    if level == 4:
+        for dx, dy, s in ((tl * 0.6, 0.02, 0.035), (tl * 0.66, -0.04, 0.025), (-tl * 0.62, 0.03, 0.03), (0.02, tw * 0.75, 0.028)):
+            m.box((s, s, s * 0.7), (x0 + dx, y0 + dy, z0), "rubble-dark")
+
+
+def skip(m, level):
+    tl, tw, h = skip_body(m)
+    rubble(m, level, tl=tl, tw=tw, h=h)
+
+
+def wheels(m, length, width, axles):
+    for y in axles:
+        for x in (-width / 2 - 0.004, width / 2 + 0.004):
+            m.cylinder(0.026, 0.02, (x, y, 0.026), "tyre", axis="x", vertices=12)
+
+
+def skip_truck(m, loaded):
+    """A hook-lift truck: cab at the front (+y), a chassis, and the hook
+    arm that drags a skip up onto it."""
+    width, length = 0.13, 0.42
+    m.box((width, length, 0.03), (0, 0, 0.03), "chassis")
+    m.box((width, 0.1, 0.1), (0, length / 2 - 0.05, 0.05), "truck-cab")
+    m.box((width * 0.92, 0.012, 0.045), (0, length / 2 + 0.001, 0.09), "window", 0.3)
+    m.box((0.02, 0.26, 0.012), (-width * 0.3, -0.06, 0.062), "hook")
+    m.box((0.02, 0.26, 0.012), (width * 0.3, -0.06, 0.062), "hook")
+    m.box((width * 0.7, 0.02, 0.09), (0, 0.08, 0.062), "hook")
+    wheels(m, length, width, (length / 2 - 0.06, -length / 2 + 0.08, -length / 2 + 0.14))
+    if loaded:
+        tl, tw, h = skip_body(m, at=(0, -0.06, 0.075), turn_y=False)
+        rubble(m, 3, at=(0, -0.06, 0.075), tl=tw, tw=tl, h=h)
+
+
+def mixer_truck(m):
+    """A cement mixer: cab at the front (+y), the drum tilted up toward
+    the back, and the chute it pours down."""
+    width, length = 0.13, 0.42
+    m.box((width, length, 0.03), (0, 0, 0.03), "chassis")
+    m.box((width, 0.1, 0.1), (0, length / 2 - 0.05, 0.05), "mixer-cab")
+    m.box((width * 0.92, 0.012, 0.045), (0, length / 2 + 0.001, 0.09), "window", 0.3)
+    drum = m.cylinder(0.06, 0.26, (0, -0.05, 0.13), "drum", axis="y", vertices=20)
+    drum.rotation_euler.x = 1.5708 + 0.25
+    for y in (-0.1, -0.02, 0.06):
+        band = m.cylinder(0.063, 0.014, (0, y, 0.13 - (y + 0.05) * 0.25), "drum-band", axis="y", vertices=20)
+        band.rotation_euler.x = 1.5708 + 0.25
+    chute = m.box((0.03, 0.12, 0.008), (0, -length / 2 - 0.04, 0.09), "chute")
+    chute.rotation_euler.x = 0.4
+    wheels(m, length, width, (length / 2 - 0.06, -length / 2 + 0.08, -length / 2 + 0.14))
+
+
+def site(name, at=(0, 0)):
+    """botropolis/<skip-k | skip-truck | skip-truck-loaded | mixer-truck>."""
+    m = Model(f"botropolis/{name}")
+    if name.startswith("skip-") and name[len("skip-"):].isdigit():
+        skip(m, int(name[len("skip-"):]))
+    elif name == "mixer-truck":
+        mixer_truck(m)
+    else:
+        skip_truck(m, name.endswith("loaded"))
+    m.root.location = Vector((at[0], at[1], 0))
+    return m.done()
+
+
 def course_names():
-    return [f"{n}-course" for n in names()]
+    return [f"{n}-course-{k}" for n in names() for k in range(1, COURSES + 1)]
 
 
 def is_kind(name):
@@ -419,10 +598,11 @@ def is_course(name):
 
 
 def course(name, at=(0, 0)):
-    """The course under botropolis/<type>-<storeys>: a slab of the
-    building's own material, its footprint and a margin round it, with a
+    """Course k under botropolis/<type>-<storeys>: a slab of the
+    building's own material, its footprint and k steps round it, with a
     lighter joint along its top so a stack of them reads as layers."""
-    kind = name[: -len("-course")]
+    kind, k = name.rsplit("-course-", 1)
+    margin = COURSE_STEP * int(k)
     t = kind.rsplit("-", 1)[0]
     probe = build(kind)
     w, d, x = probe["body"]
@@ -430,9 +610,9 @@ def course(name, at=(0, 0)):
         bpy.data.objects.remove(o, do_unlink=True)
     m = Model(f"botropolis/{name}")
     body, joint = COURSE_MATERIAL[t]
-    m.box((w + 2 * COURSE_MARGIN, d + 2 * COURSE_MARGIN, COURSE * 0.86), (x, 0, 0), body)
-    m.box((w + 2 * COURSE_MARGIN + 0.004, d + 2 * COURSE_MARGIN + 0.004, COURSE * 0.14), (x, 0, COURSE * 0.86), joint)
-    m.body = (w + 2 * COURSE_MARGIN, d + 2 * COURSE_MARGIN, x)
+    m.box((w + 2 * margin, d + 2 * margin, COURSE * 0.8), (x, 0, 0), body)
+    m.box((w + 2 * margin, d + 2 * margin, COURSE * 0.2), (x, 0, COURSE * 0.8), joint)
+    m.body = (w + 2 * margin, d + 2 * margin, x)
     m.root.location = Vector((at[0], at[1], 0))
     m.root["body"] = [round(v, 4) for v in m.body]
     m.root["roof"] = round(COURSE, 4)

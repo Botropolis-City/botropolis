@@ -65,9 +65,9 @@ func lerp(a, b city.Point, t float64) city.Point {
 	return city.Point{X: a.X + (b.X-a.X)*t, Y: a.Y + (b.Y-a.Y)*t}
 }
 
-// facadePanes is every pane of a piece as drawn at its foot this frame,
-// in screen pixels.
-func (g *Game) facadePanes(cam *city.Camera, name string, at city.Point) [][4]city.Point {
+// facadePanes is every pane of a piece as drawn with its foot on a
+// screen point this frame, in screen pixels.
+func (g *Game) facadePanes(cam *city.Camera, name string, foot city.Point) [][4]city.Point {
 	if g.kits == nil {
 		return nil
 	}
@@ -80,7 +80,6 @@ func (g *Game) facadePanes(cam *city.Camera, name string, at city.Point) [][4]ci
 		return nil
 	}
 	scale := cam.Zoom / atlas.Zoom
-	foot := cam.WorldToScreen(at)
 	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
 	out := make([][4]city.Point, 0, len(sprite.Panes))
 	for _, p := range sprite.Panes {
@@ -96,7 +95,7 @@ func (g *Game) facadePanes(cam *city.Camera, name string, at city.Point) [][4]ci
 // shutter darkens a stopped building's glass and, once it is shuttered,
 // boards each pane.
 func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building, name string, boarded bool) {
-	panes := g.facadePanes(cam, name, b.Rect.Center())
+	panes := g.facadePanes(cam, name, g.footOf(cam, b))
 	seed := hashID(b.Session.ID)
 	for i, pane := range panes {
 		fillQuad(screen, pane, colorDarkGlass)

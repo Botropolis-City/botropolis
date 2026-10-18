@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"go/scanner"
 	"go/token"
 	"os"
@@ -31,16 +30,18 @@ var atlasReserve = map[string]string{
 	"city-kit-roads/traffic-light":     "street furniture the detail setting gives a home to",
 	"city-kit-roads/construction-cone": "street furniture, as above",
 	"city-kit-roads/light-curved":      "street furniture, as above",
-}
-
-// Item 109, slice 4: the courses are cut before they are drawn, which
-// waits on Aria judging their frame.
-func init() {
-	for _, kind := range []string{"residential", "shopping", "office", "industrial"} {
-		for n := 1; n <= 5; n++ {
-			atlasReserve[fmt.Sprintf("botropolis/%s-%d-course", kind, n)] = "the course under that kind, drawn in item 109's slice 4"
-		}
-	}
+	// Item 109: cut with the courses, drawn by the commits that follow.
+	"botropolis/skip-1":            "the skip at the kerb, drawn once the skip lands",
+	"botropolis/skip-2":            "as above",
+	"botropolis/skip-3":            "as above",
+	"botropolis/skip-4":            "as above",
+	"botropolis/skip-truck":        "the truck that collects the skip, as above",
+	"botropolis/skip-truck-loaded": "as above",
+	"botropolis/mixer-truck":       "the mixer that pours a course, as above",
+	"botropolis/residential-ruins": "a building whose transcript is gone, drawn once the ruins land",
+	"botropolis/shopping-ruins":    "as above",
+	"botropolis/office-ruins":      "as above",
+	"botropolis/industrial-ruins":  "as above",
 }
 
 // sourceLiterals is every string literal in every tracked non-test .go

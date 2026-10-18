@@ -345,7 +345,10 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	if settling && !g.reduced {
 		tint = settleTint(settle, progress)
 	}
-	r := g.kitRising(screen, cam, buildingPiece(b), b.Rect.Center(), tint, rise)
+	if rise >= 1 {
+		g.drawCourses(screen, cam, b, tint)
+	}
+	r := g.kitRising(screen, cam, buildingPiece(b), g.footOf(cam, b), tint, rise)
 	drawSite()
 	district := g.scene.City().DistrictOf(b)
 	g.noteHit(r, city.Hit{Building: b, District: district})
@@ -360,7 +363,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	}
 	// The state light: a beacon over the door in the state's own colour,
 	// pulsing for needs-you, so the palette reads the same as the strip.
-	foot := cam.WorldToScreen(b.Rect.Center())
+	foot := g.footOf(cam, b)
 	if dress.Beacon || settle != city.SettleNone {
 		beacon := g.theme.Color(ui.StateTone(b.Session.State))
 		if b.Pulse {
@@ -1241,7 +1244,7 @@ func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City)
 		if !b.Lit || b.Blinds {
 			continue
 		}
-		foot := cam.WorldToScreen(b.Rect.Center())
+		foot := g.footOf(cam, b)
 		size := g.kitSize(cam, buildingPiece(b))
 		w, h := float64(size.X), float64(size.Y)
 		storeys := max(1, int(h/(38*cam.Zoom)))

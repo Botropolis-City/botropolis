@@ -45,7 +45,7 @@ func TestSpire(t *testing.T) {
 				require.True(t, ok)
 				t.Run(fmt.Sprintf("and it is %s at %d storeys", kind, n), func(t *testing.T) {
 					base := g.spireBase(cam, b)
-					foot := cam.WorldToScreen(b.Rect.Center())
+					foot := g.footOf(cam, b)
 
 					t.Run("it should stand its base on the roof at the roof's centre", func(t *testing.T) {
 						assert.InDelta(t, foot.Y-sprite.Body.Roof*storeyHeight(cam.Zoom)/kindStorey, base.Y, 1)

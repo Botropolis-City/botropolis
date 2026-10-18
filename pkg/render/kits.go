@@ -269,9 +269,9 @@ const groundBleed = 1.01
 // kitRising draws a piece standing on a world point at a fraction of its
 // height, growing from its foot: a building rising as its session
 // arrives. At 1 it is kit.
-func (g *Game) kitRising(screen *ebiten.Image, cam *city.Camera, name string, at city.Point, tint *ebiten.ColorScale, rise float64) city.Rect {
+func (g *Game) kitRising(screen *ebiten.Image, cam *city.Camera, name string, foot city.Point, tint *ebiten.ColorScale, rise float64) city.Rect {
 	if rise >= 1 || g.kits == nil {
-		return g.kit(screen, cam, name, 0, at, tint)
+		return g.kitAt(screen, cam, name, 0, foot, tint)
 	}
 	atlas := g.kits.pick(cam.Zoom)
 	if atlas == nil {
@@ -282,7 +282,6 @@ func (g *Game) kitRising(screen *ebiten.Image, cam *city.Camera, name string, at
 		return city.Rect{}
 	}
 	scale := cam.Zoom / atlas.Zoom
-	foot := cam.WorldToScreen(at)
 	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(-float64(sprite.Anchor.X), -float64(sprite.Anchor.Y))

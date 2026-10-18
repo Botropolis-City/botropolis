@@ -53,7 +53,7 @@ func settleTint(kind city.Settle, p float64) *ebiten.ColorScale {
 // putOut darkens the panes that are out at p of a transition, the top
 // ones first; under reduced motion every pane fades together instead.
 func (g *Game) putOut(screen *ebiten.Image, cam *city.Camera, b *city.Building, name string, kind city.Settle, p float64) {
-	panes := g.facadePanes(cam, name, b.Rect.Center())
+	panes := g.facadePanes(cam, name, g.footOf(cam, b))
 	if g.reduced {
 		glass := colorDarkGlass
 		glass.A = uint8(float64(glass.A) * (1 - beaconFade(kind, p)))

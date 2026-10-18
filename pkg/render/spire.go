@@ -64,7 +64,7 @@ func spireOf(base city.Point, storey float64, n int) spire {
 // building's own footprint, at the height the pipeline found the roof
 // there. A piece without one stands it on its sprite's top.
 func (g *Game) spireBase(cam *city.Camera, b *city.Building) city.Point {
-	foot := cam.WorldToScreen(b.Rect.Center())
+	foot := g.footOf(cam, b)
 	if g.kits != nil {
 		if atlas := g.kits.pick(cam.Zoom); atlas != nil {
 			if sprite, ok := atlas.Sprite(buildingPiece(b), cam.Heading); ok && sprite.Body.Roof > 0 {
@@ -78,12 +78,22 @@ func (g *Game) spireBase(cam *city.Camera, b *city.Building) city.Point {
 	return city.Point{X: foot.X, Y: foot.Y - g.kitTop(cam, buildingPiece(b))}
 }
 
+// spireSegments is how many segments a building's spire has: none for a
+// crate.
+func spireSegments(b *city.Building) int {
+	if b.Packed {
+		return 0
+	}
+	return max(0, b.Session.Spire)
+}
+
 // drawSpire draws a building's spire, if its session has one.
 func (g *Game) drawSpire(screen *ebiten.Image, cam *city.Camera, b *city.Building) {
-	if b.Session.Spire <= 0 || b.Packed {
+	n := spireSegments(b)
+	if n == 0 {
 		return
 	}
-	s := spireOf(g.spireBase(cam, b), storeyHeight(cam.Zoom), b.Session.Spire)
+	s := spireOf(g.spireBase(cam, b), storeyHeight(cam.Zoom), n)
 	for _, seg := range s.segments {
 		vector.StrokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width+1.5), colorSpireEdge, true)
 		vector.StrokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width), colorSpire, true)

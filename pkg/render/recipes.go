@@ -21,6 +21,31 @@ var (
 		city.IndustrialDistrict:  {"botropolis/industrial-1", "botropolis/industrial-2", "botropolis/industrial-3", "botropolis/industrial-4", "botropolis/industrial-5"},
 	}
 
+	// The courses under each kind, one per compaction, the top one first
+	// and each below it a step wider (item 109).
+	kindCourses = map[string][maxCourses]string{
+		"botropolis/residential-1": {"botropolis/residential-1-course-1", "botropolis/residential-1-course-2", "botropolis/residential-1-course-3"},
+		"botropolis/residential-2": {"botropolis/residential-2-course-1", "botropolis/residential-2-course-2", "botropolis/residential-2-course-3"},
+		"botropolis/residential-3": {"botropolis/residential-3-course-1", "botropolis/residential-3-course-2", "botropolis/residential-3-course-3"},
+		"botropolis/residential-4": {"botropolis/residential-4-course-1", "botropolis/residential-4-course-2", "botropolis/residential-4-course-3"},
+		"botropolis/residential-5": {"botropolis/residential-5-course-1", "botropolis/residential-5-course-2", "botropolis/residential-5-course-3"},
+		"botropolis/shopping-1":    {"botropolis/shopping-1-course-1", "botropolis/shopping-1-course-2", "botropolis/shopping-1-course-3"},
+		"botropolis/shopping-2":    {"botropolis/shopping-2-course-1", "botropolis/shopping-2-course-2", "botropolis/shopping-2-course-3"},
+		"botropolis/shopping-3":    {"botropolis/shopping-3-course-1", "botropolis/shopping-3-course-2", "botropolis/shopping-3-course-3"},
+		"botropolis/shopping-4":    {"botropolis/shopping-4-course-1", "botropolis/shopping-4-course-2", "botropolis/shopping-4-course-3"},
+		"botropolis/shopping-5":    {"botropolis/shopping-5-course-1", "botropolis/shopping-5-course-2", "botropolis/shopping-5-course-3"},
+		"botropolis/office-1":      {"botropolis/office-1-course-1", "botropolis/office-1-course-2", "botropolis/office-1-course-3"},
+		"botropolis/office-2":      {"botropolis/office-2-course-1", "botropolis/office-2-course-2", "botropolis/office-2-course-3"},
+		"botropolis/office-3":      {"botropolis/office-3-course-1", "botropolis/office-3-course-2", "botropolis/office-3-course-3"},
+		"botropolis/office-4":      {"botropolis/office-4-course-1", "botropolis/office-4-course-2", "botropolis/office-4-course-3"},
+		"botropolis/office-5":      {"botropolis/office-5-course-1", "botropolis/office-5-course-2", "botropolis/office-5-course-3"},
+		"botropolis/industrial-1":  {"botropolis/industrial-1-course-1", "botropolis/industrial-1-course-2", "botropolis/industrial-1-course-3"},
+		"botropolis/industrial-2":  {"botropolis/industrial-2-course-1", "botropolis/industrial-2-course-2", "botropolis/industrial-2-course-3"},
+		"botropolis/industrial-3":  {"botropolis/industrial-3-course-1", "botropolis/industrial-3-course-2", "botropolis/industrial-3-course-3"},
+		"botropolis/industrial-4":  {"botropolis/industrial-4-course-1", "botropolis/industrial-4-course-2", "botropolis/industrial-4-course-3"},
+		"botropolis/industrial-5":  {"botropolis/industrial-5-course-1", "botropolis/industrial-5-course-2", "botropolis/industrial-5-course-3"},
+	}
+
 	kitPlant = "city-kit-industrial/building-a"
 	kitStack = "city-kit-industrial/chimney-medium"
 	// Phase 21 item 38's signage prototypes. Only the gantry carries a

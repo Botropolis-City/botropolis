@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A district keeps its type once it has one, and a building's card changes it.
   A session heavier than where your five-storey buildings begin raises a thin spire from its roof: one segment at twice that line and one more at each doubling, up to six, with a red beacon at the tip; like a storey, a segment once reached stays.
   Mid-turn, the storey being built is scaffolded on the roof, one storey high on the building's own footprint, and each tool call's load goes up the hoist to it.
+  Each compaction slides a course of the building's own material under it, up to three, stepping in like steps up to its door, the newest lit for a moment; past three, the bottom course carries the count.
   How full a session's context is shows on the map as one alert: four steady amber lights at the corners of a live session's roof from 80% of its window, with the exact figures on its card.
 
 - **The city moves to say what changed, as much as you choose.**

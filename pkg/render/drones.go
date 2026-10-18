@@ -222,7 +222,7 @@ func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, sec
 			if f.On != nil {
 				on = f.On
 			}
-			lift := g.kitRoofLift(cam, buildingPiece(on))
+			lift := g.kitRoofLift(cam, buildingPiece(on)) + g.courseLift(cam, on)
 			at, shadow := droneAt(cam, f, lift, seconds)
 			shadows = append(shadows, shadow)
 			fade := f.Fade

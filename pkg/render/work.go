@@ -91,6 +91,10 @@ func (g *Game) workFrame(cam *city.Camera, b *city.Building) (workSite, bool) {
 	for i, p := range []city.Point{{X: c.X - hw, Y: c.Y - hd}, {X: c.X + hw, Y: c.Y - hd}, {X: c.X + hw, Y: c.Y + hd}, {X: c.X - hw, Y: c.Y + hd}} {
 		lot[i] = cam.WorldToScreen(p)
 	}
+	lift := g.courseLift(cam, b)
+	for i := range lot {
+		lot[i].Y -= lift
+	}
 	storey := storeyHeight(cam.Zoom)
 	n := min(max(b.Session.Storeys, 1), 5)
 	return workSite{lot: lot, wallTop: (kindPlinth/kindStorey + float64(n)) * storey, storey: storey}, true

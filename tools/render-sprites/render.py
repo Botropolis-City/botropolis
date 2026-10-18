@@ -130,7 +130,7 @@ PIECES = {
                        "boat-speed-j"],
     # Item 109: the city's own buildings, one kind per district type and
     # storey count, modelled in buildings.py.
-    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names() + buildings.course_names(),
+    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names() + buildings.course_names() + buildings.site_names() + buildings.ruins_names(),
 }
 
 # Kits that are not modelled at one unit per cell are scaled on import:
@@ -321,6 +321,10 @@ def piece(kits, kit, name, at, turn=0.0):
             return buildings.build(name, at)
         if buildings.is_course(name):
             return buildings.course(name, at)
+        if buildings.is_site(name):
+            return buildings.site(name, at)
+        if buildings.is_ruins(name):
+            return buildings.ruins(name, at)
         raise FileNotFoundError(f"botropolis/{name} is not a piece we model")
     before = set(bpy.context.scene.objects)
     bpy.ops.import_scene.gltf(filepath=model_path(kits, kit, name))
@@ -600,7 +604,7 @@ def kit_glass(r, g, b, a):
 
 def warm_glass(r, g, b, a):
     """Our own buildings' lit windows, buildings.WINDOW as rendered."""
-    return (a > 200) & (r > 225) & (g > 175) & (g < 245) & (b > 70) & (b < 185) & (r - b > 70)
+    return (a > 200) & (r > 225) & (g > 190) & (b > 90) & (b < 185) & (r - b > 70)
 
 
 def panes(rgba, glass_of=kit_glass):
@@ -746,6 +750,8 @@ def atlas(args):
                     if kit == "botropolis" and buildings.is_kind(name):
                         sprites[key][str(heading)]["panes"] = panes(cut, warm_glass)
                         sprites[key][str(heading)]["body"] = list(root["body"]) + [root["roof"]]
+                    if kit == "botropolis" and buildings.is_course(name):
+                        sprites[key][str(heading)]["body"] = list(root["body"])
                     count += 1
                 remove(root)
         stem = f"kits-z{zoom:g}"
