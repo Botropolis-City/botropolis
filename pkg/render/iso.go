@@ -670,11 +670,15 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 				g.isoBuilding(screen, cam, b, b == selected, detailed, seconds)
 			}, func() {
 				if g.kits != nil && !b.Vacant && !g.scene.Dimmed(b) {
-					g.drawSpire(screen, cam, b)
 					g.drawSkip(screen, cam, b, nil)
 				}
 				if detailed && g.kits != nil && !g.viewing() && !b.Vacant && !g.scene.Dimmed(b) {
 					g.drawWork(screen, cam, b)
+				}
+				// The spire goes over the work: a segment is half a storey,
+				// so the storey being built would hide the first of them.
+				if g.kits != nil && !b.Vacant && !g.scene.Dimmed(b) {
+					g.drawSpire(screen, cam, b)
 				}
 			}))
 		}
