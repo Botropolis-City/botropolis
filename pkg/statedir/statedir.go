@@ -74,6 +74,22 @@ func MakePrivate(seed string) (func() error, error) {
 	return cleanup, nil
 }
 
+// Adopt works in a private directory another process made and will
+// remove: a --headless city's parent makes it, so it is removed however
+// the child ends (item 114). forget stops using it and leaves it there.
+func Adopt(dir string) (forget func()) {
+	mu.Lock()
+	private = dir
+	mu.Unlock()
+	return func() {
+		mu.Lock()
+		if private == dir {
+			private = ""
+		}
+		mu.Unlock()
+	}
+}
+
 func copyFiles(src, dst string) error {
 	entries, err := os.ReadDir(src)
 	if os.IsNotExist(err) {

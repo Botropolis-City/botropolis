@@ -83,6 +83,31 @@ func TestDir(t *testing.T) {
 		})
 	})
 
+	t.Run("when a private directory another process made is adopted", func(t *testing.T) {
+		made := t.TempDir()
+		forget := statedir.Adopt(made)
+
+		t.Run("it should resolve to it", func(t *testing.T) {
+			assert.Equal(t, made, statedir.Dir())
+		})
+
+		t.Run("it should say the state is private", func(t *testing.T) {
+			assert.True(t, statedir.IsPrivate())
+		})
+
+		t.Run("and it is forgotten", func(t *testing.T) {
+			forget()
+
+			t.Run("it should leave the directory for the process that made it", func(t *testing.T) {
+				assert.DirExists(t, made)
+			})
+
+			t.Run("it should resolve to the default again", func(t *testing.T) {
+				assert.Equal(t, statedir.Default(), statedir.Dir())
+			})
+		})
+	})
+
 	t.Run("when a private directory is made from a seed that does not exist", func(t *testing.T) {
 		cleanup, err := statedir.MakePrivate(filepath.Join(t.TempDir(), "missing"))
 		t.Cleanup(func() { _ = cleanup() })

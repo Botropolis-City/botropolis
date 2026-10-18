@@ -54,13 +54,41 @@ func (r stateRun) city(t *testing.T, args ...string) {
 	require.NoError(t, err, string(out))
 }
 
-// interrupted opens the city on a virtual display, waits for its private
-// state directory, sends the city itself sig, the way a terminal's
-// Ctrl-C or a kill would, and returns how it exited.
-func (r stateRun) interrupted(t *testing.T, sig syscall.Signal, args ...string) error {
+// interruption is one way a city is signalled: the run, the signal,
+// and which process it reaches.
+type interruption struct {
+	name     string
+	headless bool
+	sig      syscall.Signal
+	// to picks what to signal from the process the test started and the
+	// city's own; a negative pid is a process group.
+	to func(started, city int) int
+}
+
+func toCity(_, city int) int        { return city }
+func toStarted(started, _ int) int  { return started }
+func toTerminal(started, _ int) int { return -started }
+
+// interrupted is what an interruption left behind.
+type interrupted struct {
+	err          error
+	citiesLeft   int
+	siblingAlive bool
+}
+
+// interrupt opens the city in a process group of its own, standing for
+// a terminal's, beside a sibling in that group that ignores SIGINT and
+// SIGTERM; waits for its private state directory and its window; sends
+// the signal; and returns what was left once it exited.
+func (r stateRun) interrupt(t *testing.T, how interruption, args ...string) interrupted {
 	t.Helper()
-	full := append([]string{"-a", botropolis, "city", "--socket", filepath.Join(r.tmp, "none.sock")}, args...)
-	cmd := exec.Command("xvfb-run", full...)
+	full := append([]string{"city", "--socket", filepath.Join(r.tmp, "none.sock")}, args...)
+	var cmd *exec.Cmd
+	if how.headless {
+		cmd = exec.Command(botropolis, append(full, "--headless")...)
+	} else {
+		cmd = exec.Command("xvfb-run", append([]string{"-a", botropolis}, full...)...)
+	}
 	cmd.Env = r.env()
 	var out strings.Builder
 	cmd.Stdout, cmd.Stderr = &out, &out
@@ -68,9 +96,18 @@ func (r stateRun) interrupted(t *testing.T, sig syscall.Signal, args ...string) 
 	require.NoError(t, cmd.Start())
 	exited := make(chan error, 1)
 	go func() { exited <- cmd.Wait() }()
+
+	sibling := exec.Command("sh", "-c", `trap "" INT TERM; exec sleep 300`)
+	sibling.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: cmd.Process.Pid}
+	require.NoError(t, sibling.Start())
+	siblingDone := make(chan struct{})
+	go func() { _ = sibling.Wait(); close(siblingDone) }()
 	t.Cleanup(func() {
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		_ = cmd.Process.Kill()
+		_ = sibling.Process.Kill()
+		for _, pid := range cities(r.tmp) {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
 	})
 
 	deadline := time.Now().Add(60 * time.Second)
@@ -93,16 +130,45 @@ func (r stateRun) interrupted(t *testing.T, sig syscall.Signal, args ...string) 
 	// The window must be up before the signal, or it lands before the
 	// loop that answers it has started.
 	time.Sleep(2 * time.Second)
-	require.NoError(t, syscall.Kill(city, sig))
+	require.NoError(t, syscall.Kill(how.to(cmd.Process.Pid, city), how.sig))
+
+	var left interrupted
 	select {
 	case err := <-exited:
 		if err != nil {
-			return errors.New(err.Error() + "\n" + out.String())
+			left.err = errors.New(err.Error() + "\n" + out.String())
 		}
-		return nil
 	case <-time.After(30 * time.Second):
-		return errors.New("the city was still running 30 s after " + sig.String() + "\n" + out.String())
+		left.err = errors.New("still running 30 s after " + how.name + "\n" + out.String())
 	}
+	left.citiesLeft = len(cities(r.tmp))
+	select {
+	case <-siblingDone:
+	default:
+		left.siblingAlive = true
+	}
+	return left
+}
+
+// cities finds every city process still running whose command line
+// names dir.
+func cities(dir string) []int {
+	var out []int
+	entries, _ := os.ReadDir("/proc")
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+		comm, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "comm"))
+		cmdline, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "cmdline"))
+		stat, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
+		zombie := strings.Contains(string(stat), ") Z ")
+		if strings.TrimSpace(string(comm)) == "botropolis" && strings.Contains(string(cmdline), dir) && !zombie {
+			out = append(out, pid)
+		}
+	}
+	return out
 }
 
 // descendant finds the process named name below root, by walking /proc.
@@ -233,24 +299,34 @@ func TestFrameRunsKeepTheirOwnState(t *testing.T) {
 		})
 	}
 
-	signals := []struct {
-		name string
-		sig  syscall.Signal
-	}{{"SIGINT", syscall.SIGINT}, {"SIGTERM", syscall.SIGTERM}}
-	for _, s := range signals {
-		t.Run("when a --home city is sent "+s.name, func(t *testing.T) {
+	interruptions := []interruption{
+		{name: "a --home city is sent SIGINT", sig: syscall.SIGINT, to: toCity},
+		{name: "a --home city is sent SIGTERM", sig: syscall.SIGTERM, to: toCity},
+		{name: "a --headless city's terminal sends SIGINT", headless: true, sig: syscall.SIGINT, to: toTerminal},
+		{name: "a --headless city is sent SIGTERM", headless: true, sig: syscall.SIGTERM, to: toStarted},
+	}
+	for _, how := range interruptions {
+		t.Run("when "+how.name, func(t *testing.T) {
 			r := newStateRun(t)
 			other := filepath.Join(r.tmp, "other-home")
 			withSession(t, other)
-			err := r.interrupted(t, s.sig, "--home", other)
+			left := r.interrupt(t, how, "--home", other)
 
 			t.Run("it should exit cleanly", func(t *testing.T) {
-				assert.NoError(t, err)
+				assert.NoError(t, left.err)
 			})
 
 			t.Run("it should leave no private state directory behind", func(t *testing.T) {
 				matches, _ := filepath.Glob(filepath.Join(r.tmp, "botropolis-state-*"))
 				assert.Empty(t, matches)
+			})
+
+			t.Run("it should leave no city running", func(t *testing.T) {
+				assert.Zero(t, left.citiesLeft)
+			})
+
+			t.Run("it should leave the terminal's own process group untouched", func(t *testing.T) {
+				assert.True(t, left.siblingAlive)
 			})
 		})
 	}

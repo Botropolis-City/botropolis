@@ -237,10 +237,22 @@ func xvfbScreen(width, height int) string {
 // headlessEnv marks the re-executed child so it does not re-exec again.
 const headlessEnv = "BOTROPOLIS_HEADLESS_CHILD"
 
+// privateStateEnv hands the headless parent's private state directory
+// to its child. It is plumbing between the two, not a setting, and the
+// child honours it only alongside headlessEnv (item 114).
+const privateStateEnv = "BOTROPOLIS_INTERNAL_PRIVATE_STATE"
+
 // runHeadless re-runs this same command under xvfb-run, on a virtual X
 // display of the window's size, with the desktop's displays hidden from
-// it, so no window opens.
-func runHeadless(cmd *cobra.Command) error {
+// it, so no window opens. The child works in stateDir, which this
+// process made and removes.
+//
+// The child runs in a process group of its own, so a terminal's Ctrl-C
+// reaches only this process and not Xvfb, which would take the city's
+// display away mid-cleanup. On a signal this process kills that group,
+// and only that group, waits until none of it can still write, and
+// returns, so stateDir is removed after the city is gone (item 114).
+func runHeadless(cmd *cobra.Command, stateDir string) error {
 	xvfb, err := exec.LookPath("xvfb-run")
 	if err != nil {
 		return fmt.Errorf("--headless needs xvfb-run (package xorg-server-xvfb on Arch, xvfb on Debian): %w", err)
@@ -250,23 +262,80 @@ func runHeadless(cmd *cobra.Command) error {
 		return err
 	}
 	args := append([]string{"-a", "-s", xvfbScreen(width, height), os.Args[0]}, os.Args[1:]...)
-	child := exec.CommandContext(cmd.Context(), xvfb, args...)
+	child := exec.Command(xvfb, args...)
 	child.Stdout, child.Stderr, child.Stdin = cmd.OutOrStdout(), cmd.ErrOrStderr(), os.Stdin
+	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var env []string
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "DISPLAY=") && !strings.HasPrefix(kv, "WAYLAND_DISPLAY=") {
+		if !strings.HasPrefix(kv, "DISPLAY=") && !strings.HasPrefix(kv, "WAYLAND_DISPLAY=") && !strings.HasPrefix(kv, privateStateEnv+"=") {
 			env = append(env, kv)
 		}
 	}
-	child.Env = append(env, headlessEnv+"=1")
-	return child.Run()
+	child.Env = append(env, headlessEnv+"=1", privateStateEnv+"="+stateDir)
+	if err := child.Start(); err != nil {
+		return err
+	}
+	var waited error
+	done := make(chan struct{})
+	go func() { waited = child.Wait(); close(done) }()
+	select {
+	case <-done:
+		return waited
+	case <-cmd.Context().Done():
+		group := child.Process.Pid
+		_ = syscall.Kill(-group, syscall.SIGKILL)
+		<-done
+		waitGroupGone(group, 5*time.Second)
+		return nil
+	}
+}
+
+// waitGroupGone waits until nothing in group is left but zombies, which
+// can write nothing, or until limit passes.
+func waitGroupGone(group int, limit time.Duration) {
+	deadline := time.Now().Add(limit)
+	for time.Now().Before(deadline) && groupAlive(group) {
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func groupAlive(group int) bool {
+	if err := syscall.Kill(-group, 0); err != nil {
+		return false
+	}
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return true
+	}
+	for _, e := range entries {
+		stat, err := os.ReadFile("/proc/" + e.Name() + "/stat")
+		if err != nil {
+			continue
+		}
+		shut := strings.LastIndexByte(string(stat), ')')
+		if shut < 0 {
+			continue
+		}
+		fields := strings.Fields(string(stat[shut+1:]))
+		if len(fields) >= 3 && fields[2] == strconv.Itoa(group) && fields[0] != "Z" {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *cityRunner) Run(cmd *cobra.Command) error {
 	if cli.Headless(cmd) && os.Getenv(headlessEnv) == "" {
-		return runHeadless(cmd)
+		cleanup, err := statedir.MakePrivate(seedState(c.config))
+		if err != nil {
+			return err
+		}
+		defer func() { _ = cleanup() }()
+		return runHeadless(cmd, statedir.Dir())
 	}
-	if notOwnCity(cmd, c.config) {
+	if dir := os.Getenv(privateStateEnv); dir != "" && os.Getenv(headlessEnv) != "" {
+		defer statedir.Adopt(dir)()
+	} else if notOwnCity(cmd, c.config) {
 		cleanup, err := statedir.MakePrivate(seedState(c.config))
 		if err != nil {
 			return err
