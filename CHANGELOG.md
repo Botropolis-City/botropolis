@@ -139,6 +139,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A stopped session's transcript was read through a 64 KB head and tail, so the plant's 24-hour tokens and cost left out most of a long session that stopped yesterday; on one home it showed a third of the fresh tokens and a sixth of the cached ones.
   A transcript active in the last day is now read from the start of the plant's window to its end, and older ones are still read through the window.
 
+- **The map sees every file a session touches in another project and every message it sends.**
+  Most of what Claude does in one turn was skipped when the city read a session, so roads, cars and drones between projects, team vans, and the `Depends-On:` lines and pull requests that order a group's line missed most of it.
+  Tokens and MCP and skill counts are unchanged; they were already counted once per reply.
+
 ## [0.1.7] - 2026-10-15
 
 ### Added
