@@ -34,13 +34,13 @@ func SkipLevel(s state.Session) int {
 
 // The job's timeline, from the moment the scene sees the compaction.
 const (
-	jobSkipArrive  = 800 * time.Millisecond
-	jobSkipHooked  = 1600 * time.Millisecond
-	jobSkipGone    = 3600 * time.Millisecond
-	jobMixerSet    = 1800 * time.Millisecond
-	jobMixerArrive = 2600 * time.Millisecond
-	jobPoured      = 3800 * time.Millisecond
-	CompactionFor  = 4800 * time.Millisecond
+	jobSkipArrive  = 400 * time.Millisecond
+	jobSkipHooked  = 800 * time.Millisecond
+	jobSkipGone    = 1800 * time.Millisecond
+	jobMixerSet    = 900 * time.Millisecond
+	jobMixerArrive = 1300 * time.Millisecond
+	jobPoured      = 1900 * time.Millisecond
+	CompactionFor  = 2400 * time.Millisecond
 )
 
 // Truck is one of a job's trucks: whether it is on the lot, and how far

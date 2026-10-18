@@ -37,7 +37,7 @@ func TestSkipLevel(t *testing.T) {
 }
 
 // Item 109: a compaction is a skip collected and a course poured, as one
-// moment of about 4.8 s.
+// moment of about 2.4 s.
 func TestCompactionJob(t *testing.T) {
 	start := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 	clocked := func(t *testing.T, compactions int) (*city.Scene, *time.Time) {
@@ -71,8 +71,8 @@ func TestCompactionJob(t *testing.T) {
 			assert.Equal(t, 3, job.SkipLevel)
 		})
 
-		t.Run("and 1 s in", func(t *testing.T) {
-			*clock = start.Add(1000 * time.Millisecond)
+		t.Run("and 0.5 s in", func(t *testing.T) {
+			*clock = start.Add(500 * time.Millisecond)
 			job, ok := s.CompactionJob("a")
 			require.True(t, ok)
 
@@ -85,8 +85,8 @@ func TestCompactionJob(t *testing.T) {
 			})
 		})
 
-		t.Run("and 3.2 s in", func(t *testing.T) {
-			*clock = start.Add(3200 * time.Millisecond)
+		t.Run("and 1.6 s in", func(t *testing.T) {
+			*clock = start.Add(1600 * time.Millisecond)
 			job, ok := s.CompactionJob("a")
 			require.True(t, ok)
 
@@ -103,8 +103,8 @@ func TestCompactionJob(t *testing.T) {
 			})
 		})
 
-		t.Run("and 4.8 s in", func(t *testing.T) {
-			*clock = start.Add(4800 * time.Millisecond)
+		t.Run("and 2.4 s in", func(t *testing.T) {
+			*clock = start.Add(2400 * time.Millisecond)
 
 			t.Run("it should have finished the job and taken both trucks away", func(t *testing.T) {
 				_, ok := s.CompactionJob("a")
@@ -125,7 +125,7 @@ func TestCompactionJob(t *testing.T) {
 	t.Run("when compactions rise by two in one snapshot", func(t *testing.T) {
 		s, clock := clocked(t, 1)
 		compact(s, 2)
-		*clock = start.Add(4800 * time.Millisecond)
+		*clock = start.Add(2400 * time.Millisecond)
 		compact(s, 2)
 
 		t.Run("it should start one job", func(t *testing.T) {

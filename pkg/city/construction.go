@@ -11,7 +11,7 @@ import "time"
 // to the same session — resting, waking, packing up — jumps the build to
 // its end.
 const (
-	BuildFor     = 4 * time.Second
+	BuildFor     = 1800 * time.Millisecond
 	BuildFadeFor = 300 * time.Millisecond
 )
 

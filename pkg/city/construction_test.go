@@ -115,9 +115,10 @@ func TestConstruction(t *testing.T) {
 	})
 
 	t.Run("BuildFor", func(t *testing.T) {
-		// Aria, 2026-10-17: slower than the first cut's 1.8 s, and slower still.
-		t.Run("it should be four seconds", func(t *testing.T) {
-			assert.Equal(t, 4*time.Second, city.BuildFor)
+		// Aria, 2026-10-18, judging true-speed clips: back to the first
+		// cut's 1.8 s, which earlier clips had shown about three times fast.
+		t.Run("it should be 1.8 seconds", func(t *testing.T) {
+			assert.Equal(t, 1800*time.Millisecond, city.BuildFor)
 		})
 	})
 
