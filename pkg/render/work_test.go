@@ -62,18 +62,50 @@ func TestBuildingWork(t *testing.T) {
 		})
 	})
 
-	// Aria, 2026-10-17: a storey going up, not a rail round the edge.
-	t.Run("when a scaffold fills the roof", func(t *testing.T) {
+	// Aria, 2026-10-17: eight supports, four corners and four middles, and
+	// those at the back drawn behind the wood.
+	t.Run("when a scaffold stands on a roof", func(t *testing.T) {
 		lines := roofScaffold(lot, roofLift, 1)
-		var middle int
+		var poles, corners int
 		for _, s := range lines {
-			if s.pole && s.a.X > lot[3].X+15 && s.a.X < lot[1].X-15 && s.a.Y > lot[0].Y-roofLift+8 && s.a.Y < lot[2].Y-roofLift-8 {
-				middle++
+			if s.pole {
+				poles++
+				if s.corner {
+					corners++
+				}
 			}
 		}
 
-		t.Run("it should stand poles in the middle of the roof, not only on its edge", func(t *testing.T) {
-			assert.Greater(t, middle, 0)
+		t.Run("it should have eight poles, four of them at the corners", func(t *testing.T) {
+			assert.Equal(t, [2]int{8, 4}, [2]int{poles, corners})
+		})
+
+		t.Run("no pole should stand in the middle of the roof", func(t *testing.T) {
+			mid := onRoof(lot, roofLift, 0.5, 0.5)
+			var central int
+			for _, s := range lines {
+				if s.pole && s.a == mid {
+					central++
+				}
+			}
+			assert.Zero(t, central)
+		})
+	})
+
+	t.Run("when a scaffold is drawn in order", func(t *testing.T) {
+		drawn := scaffoldOrder(roofScaffold(lot, roofLift, 1))
+		lastBackPole, firstPlank := -1, len(drawn)
+		for i, s := range drawn {
+			if s.pole && s.back && i > lastBackPole {
+				lastBackPole = i
+			}
+			if s.plank && i < firstPlank {
+				firstPlank = i
+			}
+		}
+
+		t.Run("no back pole should be drawn after a plank it passes behind", func(t *testing.T) {
+			assert.Less(t, lastBackPole, firstPlank)
 		})
 	})
 

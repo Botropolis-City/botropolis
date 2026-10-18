@@ -83,10 +83,20 @@ func roofScaffold(lot [4]city.Point, roofLift, up float64) []segment {
 	first, last := scaffoldGrid[0], scaffoldGrid[len(scaffoldGrid)-1]
 	edge := func(x float64) bool { return x == first || x == last }
 	var out []segment
+	// Eight poles: the corners and the middle of each edge, none in the
+	// middle of the roof, where in this view it would stand in line with
+	// the front corner and cross the boards.
+	middle := onRoof(lot, roofLift, 0.5, 0.5)
 	for _, u := range scaffoldGrid {
 		for _, v := range scaffoldGrid {
+			if !edge(u) && !edge(v) {
+				continue
+			}
 			foot := onRoof(lot, roofLift, u, v)
-			out = append(out, segment{a: foot, b: city.Point{X: foot.X, Y: foot.Y - h}, width: pole, pole: true, corner: edge(u) && edge(v)})
+			out = append(out, segment{
+				a: foot, b: city.Point{X: foot.X, Y: foot.Y - h}, width: pole,
+				pole: true, corner: edge(u) && edge(v), back: foot.Y < middle.Y-1e-9,
+			})
 		}
 	}
 	// A diagonal across each bay of the two faces toward the camera,
@@ -135,6 +145,25 @@ func roofScaffold(lot [4]city.Point, roofLift, up float64) []segment {
 		}
 	}
 	return out
+}
+
+// scaffoldOrder is a scaffold's strokes in the order they are drawn,
+// back to front: the poles on its far side, then the boards, then the
+// poles and braces in front, so the wood passes in front of what is
+// behind it.
+func scaffoldOrder(lines []segment) []segment {
+	var back, boards, front []segment
+	for _, s := range lines {
+		switch {
+		case s.pole && s.back:
+			back = append(back, s)
+		case s.plank:
+			boards = append(boards, s)
+		default:
+			front = append(front, s)
+		}
+	}
+	return append(append(back, boards...), front...)
 }
 
 // workLights is where the work lights hang: on the scaffold's corner
@@ -210,16 +239,13 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	}
 	lines := roofScaffold(lot, roofLift, up)
 	g.drawRoofItems(screen, roofItems(lot, roofLift, up), storeyOf(roofLift)*up)
-	// Wood first, under the tubes: each plank a tan board with a dark
-	// underside, a light top edge and seams; then the galvanised tubes,
-	// a dark edge with a light core.
-	for _, s := range lines {
+	// Back to front: the far poles, then the boards, each a tan board with
+	// a dark underside, a light top edge and seams, then the near poles
+	// and braces, galvanised tubes with a dark edge and a light core.
+	for _, s := range scaffoldOrder(lines) {
 		if s.plank {
 			drawBoard(screen, s)
-		}
-	}
-	for _, s := range lines {
-		if s.pole || s.brace {
+		} else {
 			drawTube(screen, s)
 		}
 	}

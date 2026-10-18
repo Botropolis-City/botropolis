@@ -25,8 +25,9 @@ type segment struct {
 	width float64
 	pole  bool
 	// plank is a deck board on a scaffold, brace a diagonal tube across
-	// one of its bays, and corner a pole at its corner (item 89).
-	plank, brace, corner bool
+	// one of its bays, corner a pole at its corner, and back a pole on
+	// its far side, which the boards pass in front of (item 89).
+	plank, brace, corner, back bool
 }
 
 // siteLines is the build's strokes on a lot whose screen corners are
