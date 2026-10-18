@@ -242,6 +242,12 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	// Back to front: the far poles, then the boards, each a tan board with
 	// a dark underside, a light top edge and seams, then the near poles
 	// and braces, galvanised tubes with a dark edge and a light core.
+	// The hoist's line goes on first, so the front corner pole it runs
+	// beside is drawn over it in the same silver as the others.
+	if up > 0 {
+		foot, top := hoistAt(lot, roofLift, 0), hoistAt(lot, roofLift, 1)
+		vector.StrokeLine(screen, float32(foot.X), float32(foot.Y), float32(top.X), float32(top.Y-storeyOf(roofLift)), float32(max(1, cam.Zoom)), colorHoist, true)
+	}
 	for _, s := range scaffoldOrder(lines) {
 		if s.plank {
 			drawBoard(screen, s)
@@ -267,8 +273,6 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	if up <= 0 {
 		return
 	}
-	foot, top := hoistAt(lot, roofLift, 0), hoistAt(lot, roofLift, 1)
-	vector.StrokeLine(screen, float32(foot.X), float32(foot.Y), float32(top.X), float32(top.Y-storeyOf(roofLift)), float32(max(1, cam.Zoom)), colorHoist, true)
 	for _, l := range loads {
 		if l.Flash {
 			continue
