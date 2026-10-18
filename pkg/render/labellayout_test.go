@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +9,28 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 )
+
+// The label layout runs every frame (item 102). Labels are packed so
+// that most collide and walk their steps: metropolis close up lays out
+// about 42, so 200 and 800 are a crowded city and a far larger one.
+func BenchmarkLayoutLabels(b *testing.B) {
+	for _, n := range []int{42, 200, 800} {
+		labels := make([]mapLabel, n)
+		for i := range labels {
+			x, y := float64(i%20)*40, float64(i/20)*10
+			kind := labelBadge
+			if i%10 == 0 {
+				kind = labelSign
+			}
+			labels[i] = mapLabel{Kind: kind, Rect: city.RectAt(x, y, 60, 12), Anchor: city.Point{X: x + 30, Y: y}}
+		}
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			for b.Loop() {
+				layoutLabels(labels, 2)
+			}
+		})
+	}
+}
 
 // Item 102: badges, station labels and district signs are laid out
 // together, so none of them covers another.
