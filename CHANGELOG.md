@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The plan is drawn as a map: the city's land lies inside an inked coast that wanders about a cell out from its lots, in a wash of water, each lot is tinted faintly by whose move it is, and the plaza is a small civic mark that no badge covers.
   The roads between districts run along their streets as dashed ink, full while travellers are working on them and faint while they are quiet.
   A compass in the top-right corner points north as the plan lies and turns with it on `r`, and a title block in the top-left reads *City Plan* and the time on the city's clock.
-  Badges, the compass and the title block keep clear of the lens panel, a hovered badge's card is raised beside it, and the minimap is put away while the plan is open.
+  Badges, the compass and the title block keep clear of the lens panel and the stream's corner, which the plan works round rather than giving up the band beside it, a hovered badge's card is raised beside it, and the minimap is put away while the plan is open.
   The top-down projection is no longer offered: `--projection top` and a config that asks for it open the isometric map, with a warning.
 
 - **A building's height is how much work its session has done, on your own scale.**

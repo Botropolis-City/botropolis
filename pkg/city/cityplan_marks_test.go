@@ -98,6 +98,32 @@ func TestCityPlanCompassAndCartouche(t *testing.T) {
 		})
 	})
 
+	t.Run("when the stream's corner is reserved along the top", func(t *testing.T) {
+		s := open(t, 40, 1920, 1080, nil)
+		corner := city.RectAt(1600, 32, 320, 190)
+		s.SetCornerChrome(corner)
+		require.Greater(t, s.Insets().Top, corner.Max.Y, "precondition: the map reserves the corner along the top")
+		plan := s.CityPlan()
+
+		t.Run("the plan's area should keep the band beside the corner", func(t *testing.T) {
+			assert.Less(t, plan.Area.Min.Y, corner.Max.Y)
+		})
+
+		t.Run("no badge should overlap the corner", func(t *testing.T) {
+			var over []string
+			for _, b := range plan.Badges {
+				if b.Rect.Overlaps(corner) {
+					over = append(over, b.Name)
+				}
+			}
+			assert.Empty(t, over)
+		})
+
+		t.Run("the compass should overlap the corner nowhere", func(t *testing.T) {
+			assert.False(t, plan.Compass.Box.Overlaps(corner))
+		})
+	})
+
 	// A cover a third of the window across and down, in the top-left
 	// corner where the lens panel sits.
 	topLeft := func(width, height float64) []city.Rect {

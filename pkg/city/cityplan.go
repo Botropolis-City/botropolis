@@ -648,7 +648,12 @@ func (s *Scene) closePlanAt(cursor Point) {
 // planArea is where badges may stand: the window inside the chrome, less
 // the legend's strip.
 func (s *Scene) planArea() (Rect, Rect) {
+	// The stream's corner is a cover on the plan rather than a band cut
+	// off its top, so the plan keeps the room beside it.
+	corner := s.corner
+	s.corner = Rect{}
 	in := s.Insets()
+	s.corner = corner
 	area := Rect{Min: Point{X: in.Left, Y: in.Top}, Max: Point{X: s.width - in.Right, Y: s.height - in.Bottom}}
 	legend := Rect{Min: Point{X: area.Min.X, Y: area.Max.Y - PlanLegendHeight}, Max: area.Max}
 	area.Max.Y -= PlanLegendHeight
@@ -723,8 +728,12 @@ func (s *Scene) CityPlan() CityPlan {
 	for _, w := range coast {
 		plan.Coast = append(plan.Coast, frame.toScreen(w))
 	}
-	fixed := slices.Clone(s.planCovers)
-	cartouche, compass := planMarks(area, s.planCovers)
+	covers := slices.Clone(s.planCovers)
+	if s.corner.Area() > 0 {
+		covers = append(covers, s.corner)
+	}
+	fixed := slices.Clone(covers)
+	cartouche, compass := planMarks(area, covers)
 	fixed = append(fixed, cartouche, compass)
 	up := frame.plane(Point{Y: -CellSize}).Sub(frame.plane(Point{}))
 	plan.Compass = PlanCompass{Box: compass, North: up.Scale(1 / math.Hypot(up.X, up.Y))}
