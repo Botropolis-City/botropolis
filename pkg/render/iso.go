@@ -1004,7 +1004,7 @@ func (g *Game) streets(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		name, turn := roadPiece(sc.Mask)
 		g.kitGround(screen, cam, name, turn, sc.Cell.Center(), groundTint(lit, sc.Cell))
 	}
-	g.bridge(screen, c, cam)
+	g.fadeAll(&screen, func() { g.bridge(screen, c, cam) })
 	g.streetSigns(screen, c, cam, hover, labels)
 }
 
