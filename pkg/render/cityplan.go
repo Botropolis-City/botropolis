@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -111,9 +112,44 @@ func (g *Game) drawPlanSheet(screen *ebiten.Image, width, height float64) {
 	}
 }
 
+// compactCount is what a compact badge keeps of its counts: how many
+// need you, when any do.
+func compactCount(b city.PlanBadge) string {
+	if b.NeedsYou == 0 {
+		return ""
+	}
+	return strconv.Itoa(b.NeedsYou)
+}
+
+// drawCompactBadge is a district on a crowded plan: a status dot in the
+// tone of whose move it is, its name, and how many need you.
+func (g *Game) drawCompactBadge(screen *ebiten.Image, b city.PlanBadge) {
+	th := g.theme
+	r := b.Rect
+	g.roundRect(screen, r, r.Height()/2, colorPlanPaper)
+	g.roundRect(screen, r, r.Height()/2, th.Palette.Panel)
+	mid := r.Min.Y + r.Height()/2
+	vector.FillCircle(screen, float32(r.Min.X+r.Height()/2), float32(mid), 4, th.Color(ui.MoveTone(b.Tone)), true)
+	x := r.Min.X + r.Height()
+	room := r.Max.X - r.Height()/2 - x
+	count := compactCount(b)
+	if count != "" {
+		cw, ch := g.faces.Measure(count, ui.Small)
+		g.text(screen, city.Point{X: r.Max.X - r.Height()/2 - cw, Y: mid - ch/2}, count, ui.Small, th.Palette.NeedsYou)
+		room -= cw + 4
+	}
+	name := g.fitText(b.Name, ui.Small, room)
+	_, nh := g.faces.Measure(name, ui.Small)
+	g.text(screen, city.Point{X: x, Y: mid - nh/2}, name, ui.Small, th.Palette.Text)
+}
+
 // drawPlanBadge is one district: a flat card edged in the tone of whose
 // move it is, with its name, the move, and its counts.
 func (g *Game) drawPlanBadge(screen *ebiten.Image, b city.PlanBadge) {
+	if b.Compact {
+		g.drawCompactBadge(screen, b)
+		return
+	}
 	th := g.theme
 	tone := th.Color(ui.MoveTone(b.Tone))
 	r := b.Rect

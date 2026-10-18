@@ -140,6 +140,7 @@ type Scene struct {
 	planShown, planFadeFor float64
 	// planFrom is the camera as it was when the plan opened.
 	planFrom Camera
+	planLaid planLaid
 	// lastWheel is when the wheel last turned, for PlanDebounce.
 	lastWheel time.Time
 	light     Light

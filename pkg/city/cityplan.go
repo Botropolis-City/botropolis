@@ -2,6 +2,9 @@ package city
 
 import (
 	"math"
+	"slices"
+	"sort"
+	"strconv"
 	"time"
 
 	"botropolis.city/botropolis/pkg/state"
@@ -32,7 +35,150 @@ const (
 	// planMaxScale is the most screen pixels a world unit is given, so a
 	// city of two districts is not flung to opposite corners.
 	planMaxScale = 0.9
+	// PlanCompactHeight is a compact badge's height, and its width runs
+	// with its name up to planCompactMaxWidth.
+	PlanCompactHeight   = 22.0
+	planCompactMaxWidth = 150.0
+	planCompactMinWidth = 56.0
+	// PlanCompactChar is roughly one character's width on a compact
+	// badge, for sizing it before any text is measured.
+	PlanCompactChar = 8.0
+	// planFullCover is the share of the plan full badges may cover
+	// before every badge goes compact.
+	planFullCover = 0.3
+	// planGap is the least space between two badges.
+	planGap = 4.0
+	// planReach is how far, in pixels, a badge may be moved from its
+	// place to find room, and planStep how finely the room is searched.
+	planReach = 480.0
+	planStep  = 3.0
 )
+
+// size is a badge's box: full, or compact to fit its name, its dot and
+// how many need you.
+func (b PlanBadge) size() (float64, float64) {
+	if !b.Compact {
+		return PlanBadgeWidth, PlanBadgeHeight
+	}
+	chars := len([]rune(b.Name))
+	if b.NeedsYou > 0 {
+		chars += len(strconv.Itoa(b.NeedsYou)) + 1
+	}
+	w := 36 + PlanCompactChar*float64(chars)
+	return math.Max(planCompactMinWidth, math.Min(planCompactMaxWidth, w)), PlanCompactHeight
+}
+
+// LayoutPlanBadges places boxes so each is at least gap from every
+// other, inside the area: in order, each keeps its own spot if it is
+// free, and otherwise takes the nearest free spot. So two boxes on the
+// same spot part on the axis on which they overlap least, and boxes
+// already apart do not move.
+func LayoutPlanBadges(in []Rect, area Rect, gap float64) []Rect {
+	order := make([]int, len(in))
+	for i := range order {
+		order[i] = i
+	}
+	return layoutPlan(in, area, gap, order)
+}
+
+// planOffsets are the moves a badge may make to find room, nearest
+// first; ties go up before down and left before right, so the result
+// never depends on the sort.
+var planOffsets = func() []Point {
+	var out []Point
+	steps := int(planReach / planStep)
+	for iy := -steps; iy <= steps; iy++ {
+		for ix := -steps; ix <= steps; ix++ {
+			p := Point{X: float64(ix) * planStep, Y: float64(iy) * planStep}
+			if math.Hypot(p.X, p.Y) <= planReach {
+				out = append(out, p)
+			}
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		di, dj := math.Hypot(out[i].X, out[i].Y), math.Hypot(out[j].X, out[j].Y)
+		if di != dj {
+			return di < dj
+		}
+		if out[i].Y != out[j].Y {
+			return out[i].Y < out[j].Y
+		}
+		return out[i].X < out[j].X
+	})
+	return out
+}()
+
+// planLaid is the last layout, kept because the plan is laid out every
+// frame and its badges move only when the city or the window does.
+type planLaid struct {
+	in    []Rect
+	area  Rect
+	order []int
+	out   []Rect
+}
+
+// planLayout is layoutPlan, remembered.
+func (s *Scene) planLayout(in []Rect, area Rect, order []int) []Rect {
+	c := s.planLaid
+	if c.area == area && slices.Equal(c.in, in) && slices.Equal(c.order, order) {
+		return c.out
+	}
+	out := layoutPlan(in, area, planGap, order)
+	s.planLaid = planLaid{in: slices.Clone(in), area: area, order: slices.Clone(order), out: out}
+	return out
+}
+
+// layoutPlan is LayoutPlanBadges placing the boxes in the given order,
+// so the earlier ones keep their spots.
+func layoutPlan(in []Rect, area Rect, gap float64, order []int) []Rect {
+	out := make([]Rect, len(in))
+	placed := make([]Rect, 0, len(in))
+	free := func(r Rect) bool {
+		if r.Min.X < area.Min.X-1e-9 || r.Min.Y < area.Min.Y-1e-9 || r.Max.X > area.Max.X+1e-9 || r.Max.Y > area.Max.Y+1e-9 {
+			return false
+		}
+		grown := r.Inset(-gap)
+		for _, p := range placed {
+			if grown.Overlaps(p) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, i := range order {
+		want := keepInside(in[i], area)
+		got := want
+		for _, by := range planOffsets {
+			if r := shift(want, by); free(r) {
+				got = r
+				break
+			}
+		}
+		out[i] = got
+		placed = append(placed, got)
+	}
+	return out
+}
+
+func shift(r Rect, by Point) Rect { return Rect{Min: r.Min.Add(by), Max: r.Max.Add(by)} }
+
+// keepInside slides a box back inside an area it would leave.
+func keepInside(r Rect, area Rect) Rect {
+	var by Point
+	switch {
+	case r.Min.X < area.Min.X:
+		by.X = area.Min.X - r.Min.X
+	case r.Max.X > area.Max.X:
+		by.X = area.Max.X - r.Max.X
+	}
+	switch {
+	case r.Min.Y < area.Min.Y:
+		by.Y = area.Min.Y - r.Min.Y
+	case r.Max.Y > area.Max.Y:
+		by.Y = area.Max.Y - r.Max.Y
+	}
+	return shift(r, by)
+}
 
 // PlanBadge is a district on the plan.
 type PlanBadge struct {
@@ -44,9 +190,13 @@ type PlanBadge struct {
 	NeedsYou int
 	// Subagents is how many subagents are in flight across the district.
 	Subagents int
-	// At is the badge's centre on screen, and Rect its box.
-	At   Point
-	Rect Rect
+	// Place is where the district lies on the plan; At is the badge's
+	// centre once badges are pushed apart, and Rect its box.
+	Place Point
+	At    Point
+	Rect  Rect
+	// Compact is a badge shrunk to its name and a status dot.
+	Compact bool
 	// Lot is the district's ground on the plan, corner by corner.
 	Lot [4]Point
 }
@@ -74,7 +224,9 @@ type CityPlan struct {
 	// Tones are the moves the badges carry, most urgent first, for the
 	// legend to key.
 	Tones []state.Move
-	// Legend is the strip the legend draws in.
+	// Area is where badges stand, and Legend the strip the legend draws
+	// in.
+	Area   Rect
 	Legend Rect
 	frame  planFrame
 }
@@ -287,9 +439,14 @@ func (s *Scene) CityPlan() CityPlan {
 		}
 	}
 	frame := planFrame{heading: s.camera.Heading, centre: area.Center()}
+	compact := float64(len(districts))*PlanBadgeWidth*PlanBadgeHeight > planFullCover*area.Area()
+	halfW, halfH := PlanBadgeWidth/2, PlanBadgeHeight/2
+	if compact {
+		halfW, halfH = planCompactMaxWidth/2, PlanCompactHeight/2
+	}
 	inner := Rect{
-		Min: area.Min.Add(Point{X: PlanBadgeWidth/2 + planPad, Y: PlanBadgeHeight/2 + planPad}),
-		Max: area.Max.Sub(Point{X: PlanBadgeWidth/2 + planPad, Y: PlanBadgeHeight/2 + planPad}),
+		Min: area.Min.Add(Point{X: halfW + planPad, Y: halfH + planPad}),
+		Max: area.Max.Sub(Point{X: halfW + planPad, Y: halfH + planPad}),
 	}
 	if len(districts) > 0 {
 		first := frame.plane(districts[0].Rect.Center())
@@ -310,19 +467,19 @@ func (s *Scene) CityPlan() CityPlan {
 		frame.centre = inner.Center()
 	}
 
-	plan := CityPlan{Legend: legend, frame: frame}
-	at := map[*District]Point{}
+	plan := CityPlan{Area: area, Legend: legend, frame: frame}
 	tones := map[state.Move]bool{}
+	rects := make([]Rect, 0, len(districts))
 	for _, d := range districts {
 		sign := d.Sign()
-		b := PlanBadge{District: d, Name: sign.Name, Move: sign.Move, Tone: sign.Tone, Sessions: len(d.Buildings)}
+		b := PlanBadge{District: d, Name: sign.Name, Move: sign.Move, Tone: sign.Tone, Sessions: len(d.Buildings), Compact: compact}
 		for _, bd := range d.Buildings {
 			if bd.Session.State == state.NeedsYou {
 				b.NeedsYou++
 			}
 			b.Subagents += bd.Session.SubagentsInFlight
 		}
-		b.At = frame.toScreen(d.Rect.Center())
+		b.Place = frame.toScreen(d.Rect.Center())
 		r := d.Rect
 		b.Lot = [4]Point{
 			frame.toScreen(r.Min),
@@ -330,10 +487,24 @@ func (s *Scene) CityPlan() CityPlan {
 			frame.toScreen(r.Max),
 			frame.toScreen(Point{X: r.Min.X, Y: r.Max.Y}),
 		}
-		b.Rect = RectAt(b.At.X-PlanBadgeWidth/2, b.At.Y-PlanBadgeHeight/2, PlanBadgeWidth, PlanBadgeHeight)
-		at[d] = b.At
+		w, h := b.size()
+		rects = append(rects, RectAt(b.Place.X-w/2, b.Place.Y-h/2, w, h))
 		tones[b.Tone] = true
 		plan.Badges = append(plan.Badges, b)
+	}
+	order := make([]int, len(plan.Badges))
+	for i := range order {
+		order[i] = i
+	}
+	// A district needing you keeps its own spot; the rest make room.
+	sort.SliceStable(order, func(i, j int) bool {
+		return plan.Badges[order[i]].NeedsYou > 0 && plan.Badges[order[j]].NeedsYou == 0
+	})
+	at := map[*District]Point{}
+	for i, r := range s.planLayout(rects, area, order) {
+		plan.Badges[i].Rect = r
+		plan.Badges[i].At = r.Center()
+		at[plan.Badges[i].District] = r.Center()
 	}
 	for _, m := range []state.Move{state.MoveYours, state.MoveTheirs, state.MoveAgents, state.MoveNobody} {
 		if tones[m] {

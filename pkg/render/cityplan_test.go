@@ -72,6 +72,22 @@ func TestCityPlanDraw(t *testing.T) {
 	})
 }
 
+// Item 106: a compact badge keeps how many need you, and nothing else.
+func TestCompactBadgeCount(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		needsYou int
+		want     string
+	}{
+		{"when two need you, it should carry the count", 2, "2"},
+		{"when none need you, it should carry no count", 0, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, compactCount(city.PlanBadge{Name: "lanternfish", NeedsYou: c.needsYou, Sessions: 3, Subagents: 2, Compact: true}))
+		})
+	}
+}
+
 // Item 106: m opens and closes the City Plan from anywhere, Esc closes
 // it, and the key can be rebound.
 func TestCityPlanKey(t *testing.T) {
