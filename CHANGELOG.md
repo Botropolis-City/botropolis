@@ -166,6 +166,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   With `--record`, the city's clock counted updates while the clip counted drawn frames, and on software GL several updates ran per frame, so clips ran about twice to three times fast and every debounce, ease and transition in them with it.
   A recording now runs exactly one update per drawn frame, so N seconds of clip are N seconds on the city's clock, and it ends by printing how many frames it wrote and how much of the city's clock they span.
 
+- **A recording or screenshot no longer hovers whatever lies under the hidden cursor.**
+  With `--record` or `--screenshot` and no pointer shown by the script or set by `--hover`, the city read the system cursor, which a headless display leaves in the middle of the screen, so a district panned to the centre stayed hovered and the rest of the city receded for the whole clip.
+  Until the script shows a pointer, it is now over nothing.
+
 - The isometric map's fit kept the stream's corner panel clear only when it was reserved down the right; reserved along the top, the city and the City Plan could run under it.
 
 - **A frame or a run pointed at another home never touches your own city's state.**
