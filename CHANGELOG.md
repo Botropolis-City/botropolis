@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The city moves to say what changed, as much as you choose.**
+  A `liveliness` setting (still, calm, steady or lively; `--liveliness`, and `--reduced_motion` means still) sets how much the city moves; at still every mover stays on the map where it is and changes cross-fade.
+  A new session's building is built on its lot when its tug docks: fence, scaffolding and crane, then the floors, then the lights.
+  While a session is mid-turn its roof is scaffolded with work lights, each tool call runs a load up a hoist on its corner, and the building's card names the tool; the rover at the door is gone.
+  Each subagent in flight is a small drone at work on its session's building, or on a building in the project it works in, with a shadow beneath it, counting agents launched in the background too.
+  A pull request hoists a flag and parks an inspector's car outside while it is open; a merge sends a crate off the island by the new bridge, and the merge that leaves a group with nothing open cuts its ribbon.
+  Each message one session sends another, in a team or directly, drives a van along the road between their projects, or runs a carriage along their group's line.
+  The map zooms out no further than where buildings still read, and `f` is now Skyline: the whole city if it reads there, otherwise that furthest zoom, centred.
+
 - **The footer names the session that has waited longest for you.**
   While a session needs you, a line above the key row reads `needs-you: <its title>`, with `(+N more)` when others wait too, in the order triage walks them.
   A click on the line attaches to that session; a click on a building still only selects it.
