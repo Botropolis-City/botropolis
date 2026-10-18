@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -71,7 +72,10 @@ type Actor interface {
 }
 
 type Game struct {
-	scene *city.Scene
+	// stopping is set by a signal: the loop ends at its next update, so
+	// Run returns and whoever started it can clean up (item 114).
+	stopping atomic.Bool
+	scene    *city.Scene
 	// home is the directory holding .claude, the one the city is drawn
 	// from; see Options.Home.
 	home string
@@ -366,7 +370,17 @@ func (g *Game) SetStatus(status string) {
 	g.notice.Set(status, timeNow())
 }
 
+// Stop ends the loop at its next update, from any goroutine.
+func (g *Game) Stop() { g.stopping.Store(true) }
+
 func (g *Game) Update() error {
+	if g.stopping.Load() {
+		if g.frames != nil {
+			_ = g.frames.close()
+			g.frames = nil
+		}
+		return ebiten.Termination
+	}
 	if !g.startTick() {
 		return nil
 	}

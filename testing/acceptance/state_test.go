@@ -1,11 +1,15 @@
 package acceptance_test
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,6 +52,95 @@ func (r stateRun) city(t *testing.T, args ...string) {
 	cmd.Env = r.env()
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(out))
+}
+
+// interrupted opens the city on a virtual display, waits for its private
+// state directory, sends the city itself sig, the way a terminal's
+// Ctrl-C or a kill would, and returns how it exited.
+func (r stateRun) interrupted(t *testing.T, sig syscall.Signal, args ...string) error {
+	t.Helper()
+	full := append([]string{"-a", botropolis, "city", "--socket", filepath.Join(r.tmp, "none.sock")}, args...)
+	cmd := exec.Command("xvfb-run", full...)
+	cmd.Env = r.env()
+	var out strings.Builder
+	cmd.Stdout, cmd.Stderr = &out, &out
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	require.NoError(t, cmd.Start())
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	t.Cleanup(func() {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		_ = cmd.Process.Kill()
+	})
+
+	deadline := time.Now().Add(60 * time.Second)
+	city := 0
+	for city == 0 {
+		matches, _ := filepath.Glob(filepath.Join(r.tmp, "botropolis-state-*"))
+		if len(matches) > 0 {
+			city = descendant(cmd.Process.Pid, "botropolis")
+		}
+		select {
+		case err := <-exited:
+			t.Fatalf("the city exited before it was signalled: %v\n%s", err, out.String())
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the city made no private state directory in a minute\n%s", out.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	// The window must be up before the signal, or it lands before the
+	// loop that answers it has started.
+	time.Sleep(2 * time.Second)
+	require.NoError(t, syscall.Kill(city, sig))
+	select {
+	case err := <-exited:
+		if err != nil {
+			return errors.New(err.Error() + "\n" + out.String())
+		}
+		return nil
+	case <-time.After(30 * time.Second):
+		return errors.New("the city was still running 30 s after " + sig.String() + "\n" + out.String())
+	}
+}
+
+// descendant finds the process named name below root, by walking /proc.
+func descendant(root int, name string) int {
+	entries, _ := os.ReadDir("/proc")
+	parent := map[int]int{}
+	comm := map[int]string{}
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+		stat, err := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
+		if err != nil {
+			continue
+		}
+		open, shut := strings.IndexByte(string(stat), '('), strings.LastIndexByte(string(stat), ')')
+		if open < 0 || shut < open {
+			continue
+		}
+		fields := strings.Fields(string(stat[shut+1:]))
+		if len(fields) < 2 {
+			continue
+		}
+		ppid, _ := strconv.Atoi(fields[1])
+		parent[pid], comm[pid] = ppid, string(stat[open+1:shut])
+	}
+	for pid, c := range comm {
+		if c != name {
+			continue
+		}
+		for p := parent[pid]; p > 1; p = parent[p] {
+			if p == root {
+				return pid
+			}
+		}
+	}
+	return 0
 }
 
 // env is this run's environment: its own HOME, state and TMPDIR, and no
@@ -131,6 +224,28 @@ func TestFrameRunsKeepTheirOwnState(t *testing.T) {
 
 			t.Run("it should write nothing under the real state directory", func(t *testing.T) {
 				assert.Empty(t, names(r.realState))
+			})
+
+			t.Run("it should leave no private state directory behind", func(t *testing.T) {
+				matches, _ := filepath.Glob(filepath.Join(r.tmp, "botropolis-state-*"))
+				assert.Empty(t, matches)
+			})
+		})
+	}
+
+	signals := []struct {
+		name string
+		sig  syscall.Signal
+	}{{"SIGINT", syscall.SIGINT}, {"SIGTERM", syscall.SIGTERM}}
+	for _, s := range signals {
+		t.Run("when a --home city is sent "+s.name, func(t *testing.T) {
+			r := newStateRun(t)
+			other := filepath.Join(r.tmp, "other-home")
+			withSession(t, other)
+			err := r.interrupted(t, s.sig, "--home", other)
+
+			t.Run("it should exit cleanly", func(t *testing.T) {
+				assert.NoError(t, err)
 			})
 
 			t.Run("it should leave no private state directory behind", func(t *testing.T) {

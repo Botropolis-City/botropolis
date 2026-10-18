@@ -211,10 +211,11 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.Feed != nil {
 		go opts.Feed(feedCtx, game.Offer, game.AddEvents)
 	}
+	// A signal ends the loop, never the process: Run returns, and the
+	// private state directory a caller made is removed (item 114).
 	go func() {
 		<-feedCtx.Done()
-		save(opts.Layout)
-		os.Exit(0)
+		game.Stop()
 	}()
 
 	ebiten.SetWindowTitle(windowTitle)
