@@ -85,7 +85,11 @@ func TestDrive(t *testing.T) {
 			})
 
 			t.Run("it should leave nothing opened or selected after ten ticks", func(t *testing.T) {
-				assert.Equal(t, before, d.Shown())
+				// Labels are where the map put its names, which move as the
+				// city settles; they are neither opened nor selected (item 102).
+				after := d.Shown()
+				before.Labels, after.Labels = nil, nil
+				assert.Equal(t, before, after)
 			})
 		})
 

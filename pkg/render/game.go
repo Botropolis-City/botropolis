@@ -328,6 +328,11 @@ type Game struct {
 	driven bool
 	inject *driveInput
 	shown  Shown
+	// mapLabels is the labels this frame asked for, laid out together
+	// once the world is drawn, and shownLabels where they went (item
+	// 102).
+	mapLabels   []pendingLabel
+	shownLabels []ShownLabel
 }
 
 func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveLayout func(*city.Layout), sprites *sprites) *Game {

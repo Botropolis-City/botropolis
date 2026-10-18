@@ -105,11 +105,7 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 			vector.FillRect(screen, float32(inner.Min.X), float32(inner.Min.Y), float32(inner.Width()), float32(inner.Height()), tone, true)
 		}
 		if len(points) > 0 && g.labelsVisible() && l.Group.Short != "" {
-			at := city.Point{X: points[0].X + radius + 4, Y: points[0].Y - radius*2 - g.lineHeight()}
-			w, h := g.measure(l.Group.Short)
-			plate := city.RectAt(at.X-3, at.Y-1, w+6, h+2)
-			vector.FillRect(screen, float32(plate.Min.X), float32(plate.Min.Y), float32(plate.Width()), float32(plate.Height()), casing, false)
-			g.label(screen, at, l.Group.Short, ink)
+			g.queueStationLabel(points[0], radius, l.Group.Short, ink, casing)
 		}
 	}
 }

@@ -101,6 +101,16 @@ type Shown struct {
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
 	Settled bool
+	// Labels is every badge, station label and district sign the frame
+	// drew, where it drew it (item 102).
+	Labels []ShownLabel
+}
+
+// ShownLabel is one drawn label: its kind, "sign", "station label" or
+// "badge", and where it stands.
+type ShownLabel struct {
+	Kind string
+	Rect city.Rect
 }
 
 // driveInput is one tick's share of an input: a key, or one half of a
@@ -516,6 +526,9 @@ func (g *Game) noteShown() {
 		s.Captions = append(s.Captions, c.Kind.Name())
 	}
 	s.Settled = !g.scene.Easing()
+	g.mu.Lock()
+	s.Labels = slices.Clone(g.shownLabels)
+	g.mu.Unlock()
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID
 	}

@@ -388,7 +388,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			g.buildingSign(screen, r, foot, title)
 		}
 		if g.labelsVisible() {
-			g.drawBadge(screen, b, foot)
+			g.queueBadge(b, foot)
 		}
 	}
 	// One flag per PR, coloured by its state: open in the accent, merged
@@ -875,9 +875,10 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		// The sign stands in the district; the plate is for when it is
 		// too small to read, and for the district under the pointer.
 		if g.districtLabelVisible(d) && (!signed[d] || hover.District == d) {
-			g.floorLabel(screen, g.districtLabelAt(d), d.Name, colorText)
+			g.queueDistrictPlate(d)
 		}
 	}
+	g.drawMapLabels(screen)
 	if labels {
 		g.isoLandmarkLabels(screen, cam, c, hover)
 	}

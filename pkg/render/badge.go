@@ -45,11 +45,16 @@ func badgeLayout(b *city.Building, foot city.Point, measure func(string) (float6
 	}, true
 }
 
-func (g *Game) drawBadge(screen *ebiten.Image, b *city.Building, foot city.Point) {
-	bd, ok := badgeLayout(b, foot, g.measure)
-	if !ok {
-		return
-	}
+// moved is the badge with its panel's corner at min, where the label
+// layout put it (item 102).
+func (bd badge) moved(min city.Point) badge {
+	d := min.Sub(bd.Panel.Min)
+	bd.Panel = city.Rect{Min: bd.Panel.Min.Add(d), Max: bd.Panel.Max.Add(d)}
+	bd.Dot, bd.Ink = bd.Dot.Add(d), bd.Ink.Add(d)
+	return bd
+}
+
+func (g *Game) drawBadge(screen *ebiten.Image, bd badge) {
 	p := bd.Panel
 	vector.FillRect(screen, float32(p.Min.X), float32(p.Min.Y), float32(p.Width()), float32(p.Height()), colorText, false)
 	vector.StrokeRect(screen, float32(p.Min.X), float32(p.Min.Y), float32(p.Width()), float32(p.Height()), 1, colorBadgeInk, false)
