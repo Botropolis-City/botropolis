@@ -52,6 +52,8 @@ const (
 	// place to find room, and planStep how finely the room is searched.
 	planReach = 480.0
 	planStep  = 3.0
+	// PlanPlazaSize is the plaza glyph's box on screen.
+	PlanPlazaSize = 30.0
 )
 
 // size is a badge's box: full, or compact to fit its name, its dot and
@@ -78,7 +80,7 @@ func LayoutPlanBadges(in []Rect, area Rect, gap float64) []Rect {
 	for i := range order {
 		order[i] = i
 	}
-	return layoutPlan(in, area, gap, order)
+	return layoutPlan(in, area, gap, order, nil)
 }
 
 // planOffsets are the moves a badge may make to find room, nearest
@@ -114,25 +116,192 @@ type planLaid struct {
 	in    []Rect
 	area  Rect
 	order []int
+	fixed []Rect
 	out   []Rect
 }
 
+// The plan's coast keeps about a cell's margin round the districts'
+// lots, wandering by the island's own noise, so a small city is not
+// drawn small in a wide sea. Item 112.
+const (
+	planCoastMargin = 1.0
+	planCoastWobble = 0.35
+)
+
+// planCoast is the traced coast, kept because tracing it is the plan's
+// dearest step and the lots move only with the city.
+type planCoast struct {
+	lots  []Rect
+	world []Point
+}
+
+// coast is the plan's coastline round the lots in world points,
+// remembered.
+func (s *Scene) coast(lots []Rect) []Point {
+	if s.planCoast.world == nil || !slices.Equal(s.planCoast.lots, lots) {
+		s.planCoast = planCoast{lots: slices.Clone(lots), world: PlanCoastline(lots)}
+	}
+	return s.planCoast.world
+}
+
+// PlanCoastline is a closed ring of world points round some lots: the
+// outer edge of the ground lying within the margin of a lot, the margin
+// wandering by the island's noise, traced on a fine grid.
+func PlanCoastline(lots []Rect) []Point {
+	if len(lots) == 0 {
+		return nil
+	}
+	bounds := lots[0]
+	for _, r := range lots[1:] {
+		bounds = bounds.Union(r)
+	}
+	shore := func(p Point) float64 {
+		nearest := math.Inf(1)
+		for _, r := range lots {
+			nearest = math.Min(nearest, outside(r, p))
+		}
+		return nearest/CellSize - (planCoastMargin + planCoastWobble*coastNoise(p))
+	}
+	reach := (planCoastMargin + planCoastWobble + 0.5) * CellSize
+	box := grow(bounds, reach)
+	h := math.Max(0.1*CellSize, math.Max(box.Width(), box.Height())/400)
+	cols, rows := int(math.Ceil(box.Width()/h))+1, int(math.Ceil(box.Height()/h))+1
+	node := func(i, j int) Point { return Point{X: box.Min.X + float64(i)*h, Y: box.Min.Y + float64(j)*h} }
+	v := make([]float64, cols*rows)
+	for j := 0; j < rows; j++ {
+		for i := 0; i < cols; i++ {
+			v[j*cols+i] = shore(node(i, j))
+		}
+	}
+	at := func(i, j int) float64 { return v[j*cols+i] }
+	// An edge is named by its lower node and its direction: 0 across,
+	// 1 down.
+	type edge struct{ i, j, dir int }
+	cross := func(e edge) Point {
+		a, b := node(e.i, e.j), node(e.i+1-e.dir, e.j+e.dir)
+		va, vb := at(e.i, e.j), at(e.i+1-e.dir, e.j+e.dir)
+		t := va / (va - vb)
+		return a.Add(b.Sub(a).Scale(t))
+	}
+	links := map[edge][]edge{}
+	join := func(a, b edge) {
+		links[a] = append(links[a], b)
+		links[b] = append(links[b], a)
+	}
+	for j := 0; j+1 < rows; j++ {
+		for i := 0; i+1 < cols; i++ {
+			top, right, bottom, left := edge{i, j, 0}, edge{i + 1, j, 1}, edge{i, j + 1, 0}, edge{i, j, 1}
+			in := func(ii, jj int) bool { return at(ii, jj) < 0 }
+			k := 0
+			if in(i, j) {
+				k |= 1
+			}
+			if in(i+1, j) {
+				k |= 2
+			}
+			if in(i+1, j+1) {
+				k |= 4
+			}
+			if in(i, j+1) {
+				k |= 8
+			}
+			switch k {
+			case 1, 14:
+				join(left, top)
+			case 2, 13:
+				join(top, right)
+			case 3, 12:
+				join(left, right)
+			case 4, 11:
+				join(right, bottom)
+			case 6, 9:
+				join(top, bottom)
+			case 7, 8:
+				join(left, bottom)
+			case 5, 10:
+				centre := (at(i, j) + at(i+1, j) + at(i+1, j+1) + at(i, j+1)) / 4
+				if (k == 5) == (centre < 0) {
+					join(left, bottom)
+					join(top, right)
+				} else {
+					join(left, top)
+					join(right, bottom)
+				}
+			}
+		}
+	}
+	seen := map[edge]bool{}
+	starts := make([]edge, 0, len(links))
+	for e := range links {
+		starts = append(starts, e)
+	}
+	sort.Slice(starts, func(a, b int) bool {
+		x, y := starts[a], starts[b]
+		if x.j != y.j {
+			return x.j < y.j
+		}
+		if x.i != y.i {
+			return x.i < y.i
+		}
+		return x.dir < y.dir
+	})
+	var best []Point
+	bestArea := 0.0
+	for _, start := range starts {
+		if seen[start] {
+			continue
+		}
+		var loop []Point
+		prev, cur := edge{-1, -1, -1}, start
+		for !seen[cur] {
+			seen[cur] = true
+			loop = append(loop, cross(cur))
+			next := edge{-1, -1, -1}
+			for _, n := range links[cur] {
+				if n != prev && !seen[n] {
+					next = n
+					break
+				}
+			}
+			if next.dir < 0 {
+				break
+			}
+			prev, cur = cur, next
+		}
+		if a := math.Abs(ringArea(loop)); a > bestArea {
+			best, bestArea = loop, a
+		}
+	}
+	return best
+}
+
+func ringArea(ring []Point) float64 {
+	sum := 0.0
+	for i := range ring {
+		a, b := ring[i], ring[(i+1)%len(ring)]
+		sum += a.X*b.Y - b.X*a.Y
+	}
+	return sum / 2
+}
+
 // planLayout is layoutPlan, remembered.
-func (s *Scene) planLayout(in []Rect, area Rect, order []int) []Rect {
+func (s *Scene) planLayout(in []Rect, area Rect, order []int, fixed []Rect) []Rect {
 	c := s.planLaid
-	if c.area == area && slices.Equal(c.in, in) && slices.Equal(c.order, order) {
+	if c.area == area && slices.Equal(c.in, in) && slices.Equal(c.order, order) && slices.Equal(c.fixed, fixed) {
 		return c.out
 	}
-	out := layoutPlan(in, area, planGap, order)
-	s.planLaid = planLaid{in: slices.Clone(in), area: area, order: slices.Clone(order), out: out}
+	out := layoutPlan(in, area, planGap, order, fixed)
+	s.planLaid = planLaid{in: slices.Clone(in), area: area, order: slices.Clone(order), fixed: slices.Clone(fixed), out: out}
 	return out
 }
 
 // layoutPlan is LayoutPlanBadges placing the boxes in the given order,
-// so the earlier ones keep their spots.
-func layoutPlan(in []Rect, area Rect, gap float64, order []int) []Rect {
+// so the earlier ones keep their spots, round fixed boxes that take
+// their spots before any.
+func layoutPlan(in []Rect, area Rect, gap float64, order []int, fixed []Rect) []Rect {
 	out := make([]Rect, len(in))
-	placed := make([]Rect, 0, len(in))
+	placed := make([]Rect, 0, len(in)+len(fixed))
+	placed = append(placed, fixed...)
 	free := func(r Rect) bool {
 		if r.Min.X < area.Min.X-1e-9 || r.Min.Y < area.Min.Y-1e-9 || r.Max.X > area.Max.X+1e-9 || r.Max.Y > area.Max.Y+1e-9 {
 			return false
@@ -228,7 +397,11 @@ type CityPlan struct {
 	// in.
 	Area   Rect
 	Legend Rect
-	frame  planFrame
+	// Coast is the island's coastline on the plan, a closed ring.
+	Coast []Point
+	// Plaza is the plaza glyph's box, which no badge covers.
+	Plaza Rect
+	frame planFrame
 }
 
 // planFrame takes the plan's own plane to the screen and back.
@@ -448,6 +621,7 @@ func (s *Scene) CityPlan() CityPlan {
 		Min: area.Min.Add(Point{X: halfW + planPad, Y: halfH + planPad}),
 		Max: area.Max.Sub(Point{X: halfW + planPad, Y: halfH + planPad}),
 	}
+	var coast []Point
 	if len(districts) > 0 {
 		first := frame.plane(districts[0].Rect.Center())
 		bounds := Rect{Min: first, Max: first}
@@ -456,18 +630,52 @@ func (s *Scene) CityPlan() CityPlan {
 			bounds.Min.X, bounds.Min.Y = math.Min(bounds.Min.X, p.X), math.Min(bounds.Min.Y, p.Y)
 			bounds.Max.X, bounds.Max.Y = math.Max(bounds.Max.X, p.X), math.Max(bounds.Max.Y, p.Y)
 		}
+		lots := make([]Rect, 0, len(districts)+1)
+		for _, d := range districts {
+			lots = append(lots, d.Rect)
+		}
+		if s.city.Plaza.Area() > 0 {
+			lots = append(lots, s.city.Plaza)
+		}
+		coast = s.coast(lots)
+		for _, w := range coast {
+			p := frame.plane(w)
+			bounds.Min.X, bounds.Min.Y = math.Min(bounds.Min.X, p.X), math.Min(bounds.Min.Y, p.Y)
+			bounds.Max.X, bounds.Max.Y = math.Max(bounds.Max.X, p.X), math.Max(bounds.Max.Y, p.Y)
+		}
 		frame.planeCentre = bounds.Center()
-		frame.scale = planMaxScale
-		if w := bounds.Width(); w > 0 {
-			frame.scale = math.Min(frame.scale, math.Max(0, inner.Width())/w)
-		}
-		if h := bounds.Height(); h > 0 {
-			frame.scale = math.Min(frame.scale, math.Max(0, inner.Height())/h)
-		}
 		frame.centre = inner.Center()
+		frame.scale = planMaxScale
+		// The whole coast fits the sheet, and every district's centre
+		// fits where its badge can stand there.
+		sheet := area.Inset(planPad)
+		fit := func(world Point, r Rect) {
+			off := frame.plane(world).Sub(frame.planeCentre)
+			if x := math.Abs(off.X); x > 0 {
+				frame.scale = math.Min(frame.scale, math.Max(0, r.Width()/2)/x)
+			}
+			if y := math.Abs(off.Y); y > 0 {
+				frame.scale = math.Min(frame.scale, math.Max(0, r.Height()/2)/y)
+			}
+		}
+		for _, w := range coast {
+			fit(w, sheet)
+		}
+		for _, d := range districts {
+			fit(d.Rect.Center(), inner)
+		}
 	}
 
 	plan := CityPlan{Area: area, Legend: legend, frame: frame}
+	for _, w := range coast {
+		plan.Coast = append(plan.Coast, frame.toScreen(w))
+	}
+	var fixed []Rect
+	if s.city.Plaza.Area() > 0 && len(districts) > 0 {
+		at := frame.toScreen(s.city.Plaza.Center())
+		plan.Plaza = RectAt(at.X-PlanPlazaSize/2, at.Y-PlanPlazaSize/2, PlanPlazaSize, PlanPlazaSize)
+		fixed = append(fixed, plan.Plaza)
+	}
 	tones := map[state.Move]bool{}
 	rects := make([]Rect, 0, len(districts))
 	for _, d := range districts {
@@ -501,7 +709,7 @@ func (s *Scene) CityPlan() CityPlan {
 		return plan.Badges[order[i]].NeedsYou > 0 && plan.Badges[order[j]].NeedsYou == 0
 	})
 	at := map[*District]Point{}
-	for i, r := range s.planLayout(rects, area, order) {
+	for i, r := range s.planLayout(rects, area, order, fixed) {
 		plan.Badges[i].Rect = r
 		plan.Badges[i].At = r.Center()
 		at[plan.Badges[i].District] = r.Center()

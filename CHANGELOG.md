@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Zooming in returns to the map at Skyline, with the district under the pointer still under it.
   A few dozen directories fit: as the plan fills, every badge shrinks to its name, a dot in the tone of whose move it is and how many need you, and no two badges overlap; one that needs you keeps its own place and the rest make room.
   `m` (`city_plan_key`) opens the plan from anywhere and closes it back to where you were, as does Esc; clicking a badge flies into its district on the map.
+  The plan is drawn as a map: the city's land lies inside an inked coast that wanders about a cell out from its lots, in a wash of water, each lot is tinted faintly by whose move it is, and the plaza is a small civic mark that no badge covers.
   The top-down projection is no longer offered: `--projection top` and a config that asks for it open the isometric map, with a warning.
 
 - **A building's height is how much work its session has done, on your own scale.**
