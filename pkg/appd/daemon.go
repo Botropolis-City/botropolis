@@ -116,7 +116,11 @@ func GroupsPath(cfg *config.Config) string {
 // Harnesses loads directly, without a daemon, and keeps no ledger: only
 // the daemon writes it.
 func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
-	return harnesses(cfg, probes, "", nil)
+	// The city runs this way when there is no daemon, and it loads again
+	// every few seconds, so it reads stopped sessions whole in the
+	// background too, and the next load picks up what a pass found
+	// (item 109).
+	return harnesses(cfg, probes, "", func() {})
 }
 
 // harnesses reads every session; wholeRead, when not nil, has the Claude

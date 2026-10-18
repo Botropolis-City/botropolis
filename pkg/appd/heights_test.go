@@ -34,6 +34,21 @@ func TestDaemonStartup(t *testing.T) {
 		return state.Session{}
 	}
 
+	t.Run("when the city loads directly, with no daemon", func(t *testing.T) {
+		small := helpers.NewHome(t)
+		for i := range 3 {
+			id := fmt.Sprintf("ffffffff-0000-0000-0000-00000000000%d", i)
+			small.Transcript(id, cwd, helpers.UserPrompt(id, cwd, start.Format(time.RFC3339Nano)),
+				helpers.AssistantReply(id, "msg_"+id[len(id)-4:], start.Add(time.Second).Format(time.RFC3339Nano)))
+		}
+		snapshot, err := Harnesses(&config.Config{Home: small.Path, HomeSet: true}, dead).Load(time.Now())
+		require.NoError(t, err)
+
+		t.Run("it should draw a home whose sessions are all read on its own scale", func(t *testing.T) {
+			assert.True(t, snapshot.HeftsRead)
+		})
+	})
+
 	t.Run("when the home has a history of stopped sessions", func(t *testing.T) {
 		d := newDaemon(&config.Config{Home: home.Path, HomeSet: true}, dead)
 		require.NoError(t, d.Rescan())
