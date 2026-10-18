@@ -130,7 +130,7 @@ PIECES = {
                        "boat-speed-j"],
     # Item 109: the city's own buildings, one kind per district type and
     # storey count, modelled in buildings.py.
-    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names(),
+    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names() + buildings.course_names(),
 }
 
 # Kits that are not modelled at one unit per cell are scaled on import:
@@ -319,6 +319,8 @@ def piece(kits, kit, name, at, turn=0.0):
             return fountain(at, name[len("fountain-"):])
         if buildings.is_kind(name):
             return buildings.build(name, at)
+        if buildings.is_course(name):
+            return buildings.course(name, at)
         raise FileNotFoundError(f"botropolis/{name} is not a piece we model")
     before = set(bpy.context.scene.objects)
     bpy.ops.import_scene.gltf(filepath=model_path(kits, kit, name))
@@ -743,7 +745,7 @@ def atlas(args):
                         sprites[key][str(heading)]["panes"] = panes(cut)
                     if kit == "botropolis" and buildings.is_kind(name):
                         sprites[key][str(heading)]["panes"] = panes(cut, warm_glass)
-                        sprites[key][str(heading)]["body"] = list(root["body"])
+                        sprites[key][str(heading)]["body"] = list(root["body"]) + [root["roof"]]
                     count += 1
                 remove(root)
         stem = f"kits-z{zoom:g}"

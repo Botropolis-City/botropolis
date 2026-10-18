@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -32,6 +33,27 @@ func TestSpire(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("when a building of each kind raises a spire", func(t *testing.T) {
+		g := kitGame(t)
+		cam := city.NewCamera()
+		for _, kind := range city.DistrictTypes {
+			for n := 1; n <= 5; n++ {
+				b := kindBuilding(kind, n)
+				b.Session.Spire = 2
+				sprite, ok := g.kits.pick(cam.Zoom).Sprite(buildingPiece(b), cam.Heading)
+				require.True(t, ok)
+				t.Run(fmt.Sprintf("and it is %s at %d storeys", kind, n), func(t *testing.T) {
+					base := g.spireBase(cam, b)
+					foot := cam.WorldToScreen(b.Rect.Center())
+
+					t.Run("it should stand its base on the roof at the roof's centre", func(t *testing.T) {
+						assert.InDelta(t, foot.Y-sprite.Body.Roof*storeyHeight(cam.Zoom)/kindStorey, base.Y, 1)
+					})
+				})
+			}
+		}
+	})
 
 	t.Run("when a building has no spire", func(t *testing.T) {
 		s := spireOf(base, storey, 0)

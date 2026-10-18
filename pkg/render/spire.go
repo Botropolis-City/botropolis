@@ -60,14 +60,30 @@ func spireOf(base city.Point, storey float64, n int) spire {
 	return s
 }
 
+// spireBase is where a spire stands: on the roof, at the centre of the
+// building's own footprint, at the height the pipeline found the roof
+// there. A piece without one stands it on its sprite's top.
+func (g *Game) spireBase(cam *city.Camera, b *city.Building) city.Point {
+	foot := cam.WorldToScreen(b.Rect.Center())
+	if g.kits != nil {
+		if atlas := g.kits.pick(cam.Zoom); atlas != nil {
+			if sprite, ok := atlas.Sprite(buildingPiece(b), cam.Heading); ok && sprite.Body.Roof > 0 {
+				c := b.Rect.Center()
+				c.X += sprite.Body.X * city.CellSize
+				at := cam.WorldToScreen(c)
+				return city.Point{X: at.X, Y: foot.Y - (at.Y - cam.WorldToScreen(b.Rect.Center()).Y) - sprite.Body.Roof*storeyHeight(cam.Zoom)/kindStorey}
+			}
+		}
+	}
+	return city.Point{X: foot.X, Y: foot.Y - g.kitTop(cam, buildingPiece(b))}
+}
+
 // drawSpire draws a building's spire, if its session has one.
 func (g *Game) drawSpire(screen *ebiten.Image, cam *city.Camera, b *city.Building) {
 	if b.Session.Spire <= 0 || b.Packed {
 		return
 	}
-	foot := cam.WorldToScreen(b.Rect.Center())
-	base := city.Point{X: foot.X, Y: foot.Y - g.kitTop(cam, buildingPiece(b))}
-	s := spireOf(base, storeyHeight(cam.Zoom), b.Session.Spire)
+	s := spireOf(g.spireBase(cam, b), storeyHeight(cam.Zoom), b.Session.Spire)
 	for _, seg := range s.segments {
 		vector.StrokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width+1.5), colorSpireEdge, true)
 		vector.StrokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width), colorSpire, true)

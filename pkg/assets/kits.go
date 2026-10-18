@@ -33,10 +33,11 @@ type KitSprite struct {
 }
 
 // Body is a building's footprint in kit units: its width along x, depth
-// along y, and how far along x its centre stands from the piece's.
-// Zero for a piece the pipeline does not model.
+// along y, how far along x its centre stands from the piece's, and how
+// high its roof is at that centre. Zero for a piece the pipeline does
+// not model.
 type Body struct {
-	W, D, X float64
+	W, D, X, Roof float64
 }
 
 // Pane is one window pane: the corners of the parallelogram it covers,
@@ -123,8 +124,11 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 				Rect:   image.Rect(s.X, s.Y, s.X+s.W, s.Y+s.H),
 				Anchor: image.Pt(int(s.AX+0.5), int(s.AY+0.5)),
 			}
-			if len(s.Body) == 3 {
+			if len(s.Body) >= 3 {
 				set[i].Body = Body{W: s.Body[0], D: s.Body[1], X: s.Body[2]}
+			}
+			if len(s.Body) == 4 {
+				set[i].Body.Roof = s.Body[3]
 			}
 			for _, q := range s.Panes {
 				set[i].Panes = append(set[i].Panes, Pane{{q[0], q[1]}, {q[2], q[3]}, {q[4], q[5]}, {q[6], q[7]}})

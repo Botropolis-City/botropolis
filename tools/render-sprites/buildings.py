@@ -15,6 +15,12 @@ TYPES = ("residential", "shopping", "office", "industrial")
 MAX_STOREYS = 5
 STOREY = 0.36
 PLINTH = 0.03
+# A course is the slab one compaction slides under a building: a third
+# of a storey, in the building's own material, a little wider than it.
+COURSE = STOREY / 3
+COURSE_MARGIN = 0.025
+COURSE_MATERIAL = {"residential": ("brick", "brick-trim"), "shopping": ("render", "render-trim"),
+                   "office": ("slab", "office-roof"), "industrial": ("cladding", "rib")}
 
 # Every lit window is this colour, which the pipeline's pane finder
 # looks for in our pieces, so a stopped building's glass still goes dark.
@@ -82,6 +88,7 @@ class Model:
         # The building's own body, without what stands beside it: its
         # width along x, depth along y and centre along x, in kit units.
         self.body = (0.0, 0.0, 0.0)
+        self.furniture = False
 
     def mat(self, key, emission=0.0):
         k = (key, emission)
@@ -101,6 +108,7 @@ class Model:
     def add(self, obj, key, emission=0.0):
         obj.data.materials.append(self.mat(key, emission))
         obj.parent = self.root
+        obj["furniture"] = self.furniture
         return obj
 
     def box(self, size, at, key, emission=0.0):
@@ -251,14 +259,15 @@ def awnings(m, w, d, z, drop, out, key):
         m.box((0.008, d, 0.03), (x1, 0, zb - 0.03), "sign-white")
 
 
-def sale_sign(m, at, angle, height, z):
-    """A blade sign down a corner, standing out from it, with white
-    squares for its lettering."""
-    blade = m.box((0.1, 0.018, height), (at[0], at[1], z), "awning-red")
-    blade.rotation_euler.z = angle
+def sale_sign(m, w, d, height, z):
+    """The sale sign: one tall board flat against the face the camera
+    shows on its left, near that face's right edge, with white squares
+    down it for its lettering."""
+    x = w / 2 - 0.075
+    y = -d / 2 - 0.009
+    m.box((0.085, 0.014, height), (x, y, z), "awning-red")
     for k in range(4):
-        sq = m.box((0.056, 0.024, height * 0.13), (at[0], at[1], z + height * (0.1 + 0.22 * k)), "sign-white")
-        sq.rotation_euler.z = angle
+        m.box((0.05, 0.02, height * 0.13), (x, y - 0.003, z + height * (0.1 + 0.22 * k)), "sign-white")
 
 
 def banner(m, w, d, z, h):
@@ -299,15 +308,14 @@ def shopping(m, n):
         banner(m, w, d, storey_z(2) + STOREY * 0.12, STOREY * 0.62)
     if n >= 4:
         sign_h = (n - 1) * STOREY * 0.9
-        reach = 0.05 / math.sqrt(2)
-        for sx, sy in ((1, -1), (-1, 1), (1, 1), (-1, -1)):
-            at = (sx * (w / 2 + reach), sy * (d / 2 + reach))
-            sale_sign(m, at, math.atan2(sy, sx), sign_h, storey_z(1) + STOREY * 0.05)
+        sale_sign(m, w, d, sign_h, storey_z(1) + STOREY * 0.05)
     if n == 5:
+        m.furniture = True
         for x in (-w * 0.25, w * 0.25):
             m.box((0.02, 0.02, 0.12), (x, 0, top + 0.02), "mast")
         m.box((w * 0.75, 0.03, 0.16), (0, 0, top + 0.14), "billboard")
         m.box((w * 0.5, 0.034, 0.07), (0, 0, top + 0.185), "awning-red")
+        m.furniture = False
 
 
 def office(m, n):
@@ -398,8 +406,54 @@ def names():
     return [f"{t}-{n}" for t in TYPES for n in range(1, MAX_STOREYS + 1)]
 
 
+def course_names():
+    return [f"{n}-course" for n in names()]
+
+
 def is_kind(name):
     return name in names()
+
+
+def is_course(name):
+    return name in course_names()
+
+
+def course(name, at=(0, 0)):
+    """The course under botropolis/<type>-<storeys>: a slab of the
+    building's own material, its footprint and a margin round it, with a
+    lighter joint along its top so a stack of them reads as layers."""
+    kind = name[: -len("-course")]
+    t = kind.rsplit("-", 1)[0]
+    probe = build(kind)
+    w, d, x = probe["body"]
+    for o in list(probe.children_recursive) + [probe]:
+        bpy.data.objects.remove(o, do_unlink=True)
+    m = Model(f"botropolis/{name}")
+    body, joint = COURSE_MATERIAL[t]
+    m.box((w + 2 * COURSE_MARGIN, d + 2 * COURSE_MARGIN, COURSE * 0.86), (x, 0, 0), body)
+    m.box((w + 2 * COURSE_MARGIN + 0.004, d + 2 * COURSE_MARGIN + 0.004, COURSE * 0.14), (x, 0, COURSE * 0.86), joint)
+    m.body = (w + 2 * COURSE_MARGIN, d + 2 * COURSE_MARGIN, x)
+    m.root.location = Vector((at[0], at[1], 0))
+    m.root["body"] = [round(v, 4) for v in m.body]
+    m.root["roof"] = round(COURSE, 4)
+    return m.done()
+
+
+def roof_height(root, x):
+    """How high the roof is at the body's centre: straight down from
+    above, the first surface met that is not rooftop furniture."""
+    bpy.context.view_layer.update()
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    origin = Vector((root.location.x + x, root.location.y, 50.0))
+    down = Vector((0, 0, -1))
+    while True:
+        hit, at, _, _, obj, _ = bpy.context.scene.ray_cast(depsgraph, origin, down)
+        if not hit:
+            return 0.0
+        if obj.get("furniture") or obj.parent is not root:
+            origin = at + down * 1e-4
+            continue
+        return at.z
 
 
 def build(name, at=(0, 0)):
@@ -409,4 +463,6 @@ def build(name, at=(0, 0)):
     BUILD[kind](m, int(n))
     m.root.location = Vector((at[0], at[1], 0))
     m.root["body"] = [round(v, 4) for v in m.body]
-    return m.done()
+    root = m.done()
+    root["roof"] = round(roof_height(root, m.body[2]), 4)
+    return root
