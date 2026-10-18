@@ -105,7 +105,7 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 			vector.FillRect(screen, float32(inner.Min.X), float32(inner.Min.Y), float32(inner.Width()), float32(inner.Height()), tone, true)
 		}
 		if len(points) > 0 && g.labelsVisible() && l.Group.Short != "" {
-			g.queueStationLabel(points[0], radius, l.Group.Short, ink, casing)
+			g.queueStationLabel(l.Stations[0].District, points[0], radius, l.Group.Short, ink, casing)
 		}
 	}
 }

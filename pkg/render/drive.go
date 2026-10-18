@@ -106,11 +106,13 @@ type Shown struct {
 	Labels []ShownLabel
 }
 
-// ShownLabel is one drawn label: its kind, "sign", "station label" or
-// "badge", and where it stands.
+// ShownLabel is one drawn label: its kind, "sign", "plate", "caption",
+// "station label", "badge" or "tag", where it stands, and whether it
+// was drawn faded under a highlight.
 type ShownLabel struct {
-	Kind string
-	Rect city.Rect
+	Kind  string
+	Rect  city.Rect
+	Faded bool
 }
 
 // driveInput is one tick's share of an input: a key, or one half of a

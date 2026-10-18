@@ -337,6 +337,11 @@ type Game struct {
 	// 102).
 	mapLabels   []pendingLabel
 	shownLabels []ShownLabel
+	// sightingsQueued is whether this frame's first sightings were laid
+	// out with the map's labels, so drawExplain leaves them be.
+	sightingsQueued bool
+	// labelFade is the layer faded labels are drawn into (item 102).
+	labelFade *ebiten.Image
 }
 
 func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveLayout func(*city.Layout), sprites *sprites) *Game {

@@ -18,6 +18,9 @@ type pendingLabel struct {
 	mapLabel
 	draw func(screen *ebiten.Image, at city.Rect)
 	ink  color.NRGBA
+	// faded is a label outside what the highlight ties together, drawn
+	// receded as the world around it is (item 102).
+	faded bool
 }
 
 func (g *Game) queueLabel(l pendingLabel) {
@@ -35,12 +38,13 @@ func (g *Game) queueBadge(b *city.Building, foot city.Point) {
 		draw: func(screen *ebiten.Image, at city.Rect) {
 			g.drawBadge(screen, bd.moved(at.Min))
 		},
-		ink: colorBadgeInk,
+		ink:   colorBadgeInk,
+		faded: g.lit.Recedes(g.scene.City().DistrictOf(b)),
 	})
 }
 
 // queueStationLabel asks for a line's name beside its first station.
-func (g *Game) queueStationLabel(station city.Point, radius float64, name string, ink, casing color.NRGBA) {
+func (g *Game) queueStationLabel(d *city.District, station city.Point, radius float64, name string, ink, casing color.NRGBA) {
 	at := city.Point{X: station.X + radius + 4, Y: station.Y - radius*2 - g.lineHeight()}
 	w, h := g.measure(name)
 	plate := city.RectAt(at.X-3, at.Y-1, w+6, h+2)
@@ -50,7 +54,8 @@ func (g *Game) queueStationLabel(station city.Point, radius float64, name string
 			vector.FillRect(screen, float32(p.Min.X), float32(p.Min.Y), float32(p.Width()), float32(p.Height()), casing, false)
 			g.label(screen, city.Point{X: p.Min.X + 3, Y: p.Min.Y + 1}, name, ink)
 		},
-		ink: casing,
+		ink:   casing,
+		faded: g.lit.Recedes(d),
 	})
 }
 
@@ -66,15 +71,55 @@ func (g *Game) queueSign(board, post city.Rect) {
 // sign is too small to read, or is under the pointer. It has a sign's
 // right of way.
 func (g *Game) queueDistrictPlate(d *city.District) {
-	at := g.districtLabelAt(d)
-	pad := g.theme.Grid() / 2
-	p := ui.LayoutPlate(g.theme, d.Name, city.Point{X: at.X - pad, Y: at.Y - g.theme.Grid()/4}, ui.Small, g.faces.Measure)
+	p := g.floorPlate(g.districtLabelAt(d), d.Name)
 	g.queueLabel(pendingLabel{
 		mapLabel: mapLabel{Kind: labelPlate, Rect: p.Rect, Anchor: p.Rect.Center()},
-		draw: func(screen *ebiten.Image, _ city.Rect) {
-			g.plate(screen, p, d.Name, colorText)
+		draw: func(screen *ebiten.Image, at city.Rect) {
+			g.plate(screen, p.Moved(at.Min), d.Name, colorText)
 		},
+		faded: g.lit.Recedes(d),
 	})
+}
+
+// queueFloorLabel asks for a plate that floorLabel would have drawn at
+// at, anchored there.
+func (g *Game) queueFloorLabel(kind labelKind, at city.Point, s string, ink color.NRGBA, faded bool) {
+	p := g.floorPlate(at, s)
+	g.queueLabel(pendingLabel{
+		mapLabel: mapLabel{Kind: kind, Rect: p.Rect, Anchor: at},
+		draw: func(screen *ebiten.Image, r city.Rect) {
+			g.plate(screen, p.Moved(r.Min), s, ink)
+		},
+		ink:   g.theme.Palette.Panel,
+		faded: faded,
+	})
+}
+
+// queueRoadTags asks for each road's traffic tag, where the static
+// layer used to paint it under everything (item 102).
+func (g *Game) queueRoadTags(c *city.City, cam *city.Camera) {
+	if !g.labelsVisible() {
+		return
+	}
+	if g.kits == nil {
+		for i := range c.Roads {
+			road := &c.Roads[i]
+			mid := city.Point{X: (road.A.X + road.B.X) / 2, Y: (road.A.Y + road.B.Y) / 2}
+			g.queueRoadTag(road, cam.WorldToScreen(mid).Add(city.Point{X: g.theme.Px(4), Y: -g.lineHeight() + g.theme.Px(2)}))
+		}
+		return
+	}
+	for i := range c.Streets {
+		street := &c.Streets[i]
+		mid := street.Path[len(street.Path)/2]
+		g.queueRoadTag(street.Road, cam.WorldToScreen(mid).Add(city.Point{X: g.theme.Px(6), Y: -g.lineHeight() - g.theme.Px(6)}))
+	}
+}
+
+// queueRoadTag asks for one road's tag at at, faded unless the road is
+// in the highlight.
+func (g *Game) queueRoadTag(road *city.RoadLine, at city.Point) {
+	g.queueFloorLabel(labelTag, at, road.Label(), colorDim, g.lit.RecedesGround() && !g.lit.HasRoad(road))
 }
 
 // drawMapLabels lays out every label the frame asked for and draws them
@@ -87,19 +132,29 @@ func (g *Game) drawMapLabels(screen *ebiten.Image) {
 	}
 	laid := layoutLabels(asks, g.theme.Px(2))
 	shown := make([]ShownLabel, 0, len(laid))
+	faded := g.fadeLayer(screen)
 	for i, at := range laid {
 		l := g.mapLabels[i]
 		if !at.Shown {
 			continue
 		}
-		shown = append(shown, ShownLabel{Kind: l.Kind.String(), Rect: at.At})
+		shown = append(shown, ShownLabel{Kind: l.Kind.String(), Rect: at.At, Faded: l.faded})
+		dst := screen
+		if l.faded {
+			dst = faded
+		}
 		if at.Leader {
 			end := nearestOn(at.At, l.Anchor)
-			vector.StrokeLine(screen, float32(l.Anchor.X), float32(l.Anchor.Y), float32(end.X), float32(end.Y), float32(g.theme.Px(1)), l.ink, true)
+			vector.StrokeLine(dst, float32(l.Anchor.X), float32(l.Anchor.Y), float32(end.X), float32(end.Y), float32(g.theme.Px(1)), l.ink, true)
 		}
 		if l.draw != nil {
-			l.draw(screen, at.At)
+			l.draw(dst, at.At)
 		}
+	}
+	if g.lit.RecedesGround() {
+		var op ebiten.DrawImageOptions
+		op.ColorScale.ScaleAlpha(labelFadedAlpha)
+		screen.DrawImage(faded, &op)
 	}
 	g.mu.Lock()
 	g.shownLabels = shown
@@ -123,6 +178,24 @@ func (g *Game) toggleLabels() {
 		}
 	}
 	g.applySetting(row)
+}
+
+// labelFadedAlpha is how much of a label outside the highlight is left.
+const labelFadedAlpha = 0.3
+
+// fadeLayer is a clear layer the size of the screen that the faded
+// labels are drawn into, so each is faded as a whole rather than piece
+// by piece over itself.
+func (g *Game) fadeLayer(screen *ebiten.Image) *ebiten.Image {
+	b := screen.Bounds()
+	if g.labelFade == nil || g.labelFade.Bounds() != b {
+		if g.labelFade != nil {
+			g.labelFade.Deallocate()
+		}
+		g.labelFade = ebiten.NewImage(b.Dx(), b.Dy())
+	}
+	g.labelFade.Clear()
+	return g.labelFade
 }
 
 // nearestOn is the point of r closest to p.

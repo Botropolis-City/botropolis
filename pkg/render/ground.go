@@ -141,8 +141,13 @@ func (g *Game) stroke(screen *ebiten.Image, cam *city.Camera, r city.Rect, width
 // floorLabel writes fixed-size text on a plate so it reads on any ground;
 // at is where the text starts, the plate wraps it.
 func (g *Game) floorLabel(screen *ebiten.Image, at city.Point, s string, c color.NRGBA) {
+	g.plate(screen, g.floorPlate(at, s), s, c)
+}
+
+// floorPlate is where floorLabel puts its plate.
+func (g *Game) floorPlate(at city.Point, s string) ui.Plate {
 	pad := g.theme.Grid() / 2
-	g.plate(screen, ui.LayoutPlate(g.theme, s, city.Point{X: at.X - pad, Y: at.Y - g.theme.Grid()/4}, ui.Small, g.faces.Measure), s, c)
+	return ui.LayoutPlate(g.theme, s, city.Point{X: at.X - pad, Y: at.Y - g.theme.Grid()/4}, ui.Small, g.faces.Measure)
 }
 
 // blockColor is a building's map colour: the state alone, saturated enough

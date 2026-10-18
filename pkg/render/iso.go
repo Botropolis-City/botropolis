@@ -881,6 +881,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.queueDistrictPlate(d)
 		}
 	}
+	g.queueRoadTags(c, cam)
+	g.queueSightings(width, height)
 	g.drawMapLabels(screen)
 	if labels {
 		g.isoLandmarkLabels(screen, cam, c, hover)

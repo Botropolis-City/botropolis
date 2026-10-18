@@ -9,12 +9,17 @@ import (
 	"botropolis.city/botropolis/pkg/ui"
 )
 
-// seen is every kind of thing the last frame drew, where it drew it.
-func (g *Game) seen() []ui.Seen {
+// seen is every kind of thing the last frame drew, where it drew it;
+// drawing, the frame so far.
+func (g *Game) seen(drawing bool) []ui.Seen {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	out := make([]ui.Seen, 0, len(g.hits))
-	for _, h := range g.hits {
+	hits := g.hits
+	if drawing {
+		hits = g.frameHits
+	}
+	out := make([]ui.Seen, 0, len(hits))
+	for _, h := range hits {
 		if k := city.KindOf(h.hit); k != city.KindNone {
 			out = append(out, ui.Seen{Kind: k, Rect: h.rect})
 		}
@@ -33,12 +38,16 @@ func (g *Game) explainHeld() bool {
 	return g.scriptedHeld[key] || ebiten.IsKeyPressed(key)
 }
 
-// drawExplain is explain mode while its key is held: a caption on one
-// of each kind on screen. Otherwise it is the first sightings: a kind
-// that appears for the first time on this machine says what it is,
-// once.
-func (g *Game) drawExplain(screen *ebiten.Image, width, height float64) {
-	seen := g.seen()
+// explainCaptions is explain mode while its key is held: a caption on
+// one of each kind on screen. Otherwise it is the first sightings: a
+// kind that appears for the first time on this machine says what it
+// is, once. Those are labels, so z hides them (item 102); explain mode
+// was asked for, and does not.
+func (g *Game) explainCaptions(held, drawing bool, width, height float64) []ui.Caption {
+	if !held && !g.scene.Labels() {
+		return nil
+	}
+	seen := g.seen(drawing)
 	kinds := make([]city.Kind, 0, len(seen))
 	for _, s := range seen {
 		if !slices.Contains(kinds, s.Kind) {
@@ -46,17 +55,52 @@ func (g *Game) drawExplain(screen *ebiten.Image, width, height float64) {
 		}
 	}
 	g.scene.Sight(kinds)
-	held := g.explainHeld()
 	if !held {
 		up := g.scene.Sightings()
 		seen = slices.DeleteFunc(seen, func(s ui.Seen) bool { return !slices.Contains(up, s.Kind) })
 	}
-	th := g.theme
 	top := g.scene.TopChrome()
 	window := city.RectAt(0, top, width, height-top-g.scene.Insets().Bottom)
-	g.captions = ui.LayoutExplain(th, seen, window, held || len(seen) > 0, g.faces.Measure)
-	for _, c := range g.captions {
-		g.roundRect(screen, c.Plate.Rect, th.Radius()/2, th.Palette.Panel)
-		g.text(screen, c.Plate.TextAt, c.Text, c.Plate.Size, th.Palette.Text)
+	return ui.LayoutExplain(g.theme, seen, window, held || len(seen) > 0, g.faces.Measure)
+}
+
+// queueSightings lays the first sightings' captions out with the map's
+// other labels, so one cannot land on a sign or a badge (item 102). The
+// map is isometric here; drawExplain draws them in the other views.
+func (g *Game) queueSightings(width, height float64) {
+	if g.hidden || g.explainHeld() {
+		return
 	}
+	g.captions = g.explainCaptions(false, true, width, height)
+	g.sightingsQueued = true
+	for _, c := range g.captions {
+		text, plate := c.Text, c.Plate
+		g.queueLabel(pendingLabel{
+			mapLabel: mapLabel{Kind: labelCaption, Rect: plate.Rect, Anchor: plate.Rect.Center()},
+			draw: func(screen *ebiten.Image, at city.Rect) {
+				g.drawCaption(screen, text, plate.Moved(at.Min))
+			},
+			ink:   g.theme.Palette.Panel,
+			faded: g.lit.RecedesGround() && c.Kind != city.KindCar,
+		})
+	}
+}
+
+// drawExplain draws explain mode's captions over everything, and the
+// first sightings when the map did not lay them out with its labels.
+func (g *Game) drawExplain(screen *ebiten.Image, width, height float64) {
+	held := g.explainHeld()
+	if !held && g.sightingsQueued {
+		g.sightingsQueued = false
+		return
+	}
+	g.captions = g.explainCaptions(held, false, width, height)
+	for _, c := range g.captions {
+		g.drawCaption(screen, c.Text, c.Plate)
+	}
+}
+
+func (g *Game) drawCaption(screen *ebiten.Image, text string, p ui.Plate) {
+	g.roundRect(screen, p.Rect, g.theme.Radius()/2, g.theme.Palette.Panel)
+	g.text(screen, p.TextAt, text, p.Size, g.theme.Palette.Text)
 }

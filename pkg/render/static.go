@@ -108,9 +108,10 @@ func (g *Game) staticCity(c *city.City, cam *city.Camera, hover city.Hit, width,
 
 // composeStatic paints the layers that sit under the sorted list.
 func (g *Game) composeStatic(dst *ebiten.Image, c *city.City, cam *city.Camera, hover city.Hit, width, height float64) {
-	labels := g.labelsVisible()
 	g.isoGround(dst, cam, c, width, height)
-	g.streets(dst, c, cam, hover, labels)
+	// The roads' tags are laid out with the other labels each frame,
+	// over the world, rather than painted here under it (item 102).
+	g.streets(dst, c, cam, hover, false)
 	g.beams(dst, c, cam, hover)
 	for _, d := range c.Districts {
 		g.isoDistrict(dst, cam, d, hover.District == d)

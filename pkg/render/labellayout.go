@@ -22,12 +22,17 @@ const (
 	// it, placed before every other label and stepping aside only for a
 	// sign.
 	labelPlate
+	// labelCaption is a first sighting's caption, saying what a kind of
+	// thing is the first time it is on screen: placed like a plate.
+	labelCaption
 	labelStation
 	labelBadge
+	// labelTag is a road's traffic tag, the least of them.
+	labelTag
 )
 
 func (k labelKind) String() string {
-	return [...]string{"sign", "plate", "station label", "badge"}[k]
+	return [...]string{"sign", "plate", "caption", "station label", "badge", "tag"}[k]
 }
 
 // mapLabel is a label asking for a place: Rect is where it would stand

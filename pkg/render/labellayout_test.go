@@ -53,6 +53,17 @@ func TestLayoutLabels(t *testing.T) {
 		{"a district's floating plate lands on its sign", []mapLabel{{Kind: labelPlate, Rect: city.RectAt(10, 20, 80, 16)}, sign(city.RectAt(0, 0, 80, 30))}, []then{
 			{"it should step the plate off the sign and still draw it", steps(0)},
 		}},
+		{"a road's tag lands on a badge", []mapLabel{{Kind: labelTag, Rect: city.RectAt(10, 4, 40, 12)}, badge(0, 0, 0)}, []then{
+			{"it should keep the badge where it asked to be", stays(1)},
+			{"it should step the tag off it, and still draw it", steps(0)},
+		}},
+		{"a first sighting's caption lands on a district sign", []mapLabel{{Kind: labelCaption, Rect: city.RectAt(10, 20, 120, 16)}, sign(city.RectAt(0, 0, 80, 30))}, []then{
+			{"it should step the caption off the sign, and still draw it", steps(0)},
+		}},
+		{"a first sighting's caption lands on a badge", []mapLabel{badge(5, 3, 0), {Kind: labelCaption, Rect: city.RectAt(0, 0, 120, 16)}}, []then{
+			{"it should keep the caption where it asked to be", stays(1)},
+			{"it should step the badge off it, and still draw it", steps(0)},
+		}},
 		{"two badges land on each other", []mapLabel{badge(10, 4, 5), badge(0, 0, 10)}, []then{
 			{"it should keep the front-most where it asked to be", stays(1)},
 			{"it should step the other aside or down, and still draw it", steps(0)},

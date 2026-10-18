@@ -23,6 +23,14 @@ type Plate struct {
 	Size   Size
 }
 
+// Moved is the plate with its top-left corner at min.
+func (p Plate) Moved(min city.Point) Plate {
+	d := min.Sub(p.Rect.Min)
+	p.Rect = city.Rect{Min: p.Rect.Min.Add(d), Max: p.Rect.Max.Add(d)}
+	p.TextAt = p.TextAt.Add(d)
+	return p
+}
+
 // LayoutPlate wraps s in a plate whose top-left corner is at.
 func LayoutPlate(th Theme, s string, at city.Point, size Size, measure Measure) Plate {
 	w, h := measure(s, size)
