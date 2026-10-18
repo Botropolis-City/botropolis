@@ -220,6 +220,20 @@ func TestHeights(t *testing.T) {
 		})
 	})
 
+	// Item 110.
+	t.Run("when the sample is stored hefts rather than the sessions shown", func(t *testing.T) {
+		h := state.NewHeights()
+		stored := evenly(30)
+		for i := range stored {
+			stored[i] *= 50
+		}
+		h.ApplyOn(heftSessions(big()), stored, true, at)
+
+		t.Run("it should cut the scale from the stored hefts", func(t *testing.T) {
+			assert.Equal(t, state.NewScale(stored, at).Cuts, h.Scale().Cuts)
+		})
+	})
+
 	t.Run("when a session's heft grows past a cut", func(t *testing.T) {
 		h := state.NewHeights()
 		sessions := heftSessions(big())

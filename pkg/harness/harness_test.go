@@ -220,4 +220,29 @@ func TestMultiHeights(t *testing.T) {
 			assert.Equal(t, state.Scale{Cuts: state.StarterCuts}.Storeys(codexSessions[0].Heft), snapshot.Sessions[20].Storeys)
 		})
 	})
+
+	// Item 110.
+	t.Run("when one harness gives stored hefts and another does not", func(t *testing.T) {
+		var stored []int64
+		for i := range 30 {
+			stored = append(stored, int64(i+1)*50_000)
+		}
+		a := fake{name: "claude", snapshot: state.Snapshot{Sessions: claudeSessions, ScaleHefts: stored, HeftsRead: true}}
+		b := fake{name: "codex", snapshot: state.Snapshot{Sessions: codexSessions, HeftsRead: true}}
+		snapshot, err := harness.NewMulti(a, b).Load(now)
+		require.NoError(t, err)
+
+		t.Run("it should cut from the stored hefts plus the other's sessions", func(t *testing.T) {
+			sample := append([]int64{}, stored...)
+			for _, s := range codexSessions {
+				sample = append(sample, s.Heft)
+			}
+			scale := state.NewScale(sample, now)
+			var want, got []int
+			for _, s := range snapshot.Sessions {
+				want, got = append(want, scale.Storeys(s.Heft)), append(got, s.Storeys)
+			}
+			assert.Equal(t, want, got)
+		})
+	})
 }

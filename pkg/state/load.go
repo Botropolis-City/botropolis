@@ -23,8 +23,12 @@ type Snapshot struct {
 	Skipped        []claude.SkippedFile `json:"skipped"`
 	// HeftsRead is whether every session's heft has been read whole at
 	// least once, so the user's own scale can be cut from them (item 109).
-	HeftsRead bool      `json:"heftsRead,omitempty"`
-	At        time.Time `json:"at"`
+	HeftsRead bool `json:"heftsRead,omitempty"`
+	// ScaleHefts is every stored session's heft, sessions whose
+	// transcripts are gone included, for the scale to be cut from when
+	// statistics are kept. It never leaves the daemon (item 110).
+	ScaleHefts []int64   `json:"-"`
+	At         time.Time `json:"at"`
 }
 
 func Load(home string, probes Probes, now time.Time) (Snapshot, error) {

@@ -109,13 +109,11 @@ func (h *Heights) Scale() Scale {
 // history has been read, without which the scale stays on the starter
 // lines and storeys may still fall.
 func (h *Heights) Apply(sessions []Session, read bool, now time.Time) {
+	h.apply(sessions, SampleOf(sessions), read, now)
+}
+
+func (h *Heights) apply(sessions []Session, sample []int64, read bool, now time.Time) {
 	if read && (!h.own || h.scale.Stale(now)) {
-		var sample []int64
-		for _, s := range sessions {
-			if s.Heft > 0 && !s.HeftPartial && !s.ConversationGone {
-				sample = append(sample, s.Heft)
-			}
-		}
 		h.scale, h.own = NewScale(sample, now), true
 	}
 	for i := range sessions {

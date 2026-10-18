@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"go.uber.org/fx"
@@ -22,6 +23,7 @@ import (
 	"botropolis.city/botropolis/pkg/harness/codex"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/statedir"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 const maxSocketPath = 107
@@ -136,7 +138,11 @@ func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
 func harnesses(cfg *config.Config, probes state.Probes, ledger string, wholeRead func()) *harness.Multi {
 	loader := state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger).WithCloseUp(closeUpPath(ledger))
 	if wholeRead != nil {
-		loader = loader.WithWholeRead(wholeRead)
+		if src := statsSource(cfg); src != nil {
+			loader = loader.WithStats(src, wholeRead)
+		} else {
+			loader = loader.WithWholeRead(wholeRead)
+		}
 	}
 	claudeLoader := harness.NewClaude(loader)
 	harnesses := []harness.Snapshotter{claudeLoader}
@@ -214,3 +220,34 @@ func closeUpPath(ledger string) string {
 	}
 	return state.CloseUpPath()
 }
+
+// statsSource opens the statistics store when statistics are on and
+// nothing about them is owed, and is nil otherwise: while the on prompt
+// is owed the store stays closed, so its last write still marks where a
+// gap starts. It is opened here, once, rather than when first written,
+// so a private run's directory is never made again after it is removed.
+// Item 110.
+func statsSource(cfg *config.Config) *stats.Store {
+	if !cfg.Stats || stats.Owed(statedir.Dir(), true) != stats.NoPrompt {
+		return nil
+	}
+	path := stats.Path()
+	openStores.Lock()
+	defer openStores.Unlock()
+	if s, ok := openStores.byPath[path]; ok {
+		return s
+	}
+	s, err := stats.Open(path)
+	if err != nil {
+		return nil
+	}
+	openStores.byPath[path] = s
+	return s
+}
+
+// openStores is the statistics store each path was opened as, so every
+// loader in a process shares one.
+var openStores = struct {
+	sync.Mutex
+	byPath map[string]*stats.Store
+}{byPath: map[string]*stats.Store{}}

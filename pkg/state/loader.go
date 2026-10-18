@@ -51,6 +51,7 @@ type Loader struct {
 	historyKey      fileKey
 	history         map[string][]claude.Prompt
 	whole           *wholeRead
+	stored          *storedHefts
 	stoppedFiles    map[string]stoppedFile
 }
 
@@ -168,7 +169,11 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 		}
 		snapshot.Sessions = sessions
 	}
-	snapshot.HeftsRead = l.applyHefts(snapshot.Sessions, l.stoppedFiles)
+	if l.stored != nil {
+		snapshot.HeftsRead, snapshot.ScaleHefts = l.stored.apply(snapshot.Sessions, projectsDir, now)
+	} else {
+		snapshot.HeftsRead = l.applyHefts(snapshot.Sessions, l.stoppedFiles)
+	}
 	snapshot.Servers = Servers(snapshot.Sessions, src.MCP)
 	snapshot.Skills = Skills(snapshot.Sessions)
 	snapshot.Roads = Roads(snapshot.Sessions, src.Teams)

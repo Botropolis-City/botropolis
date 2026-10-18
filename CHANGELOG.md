@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Badges, the compass and the title block keep clear of the lens panel and the stream's corner, which the plan works round rather than giving up the band beside it, a hovered badge's card is raised beside it, and the minimap is put away while the plan is open.
   The top-down projection is no longer offered: `--projection top` and a config that asks for it open the isometric map, with a warning.
 
+- **Statistics are kept, so the scale outlives the transcripts it was cut from.**
+  Botropolis keeps each assistant message's time, model, directory, thread and token counts in a SQLite database of its own, `stats.db` in its state directory, and never anything that was said.
+  A message a fork copies is counted once and belongs to both sessions.
+  The scale is cut from every stored session, including those whose transcripts Claude Code has since deleted, and a restart starts on it at once.
+  While statistics are on, the daemon reads only what is new in each transcript instead of reading stopped ones whole.
+  `botropolis prune` deletes the statistics of the sessions it removes.
+  The `stats` setting, or the statistics row in settings, turns it off.
+  Turning it off asks whether to keep what is stored or delete it,
+  and turning it back on over kept data asks whether to keep it, marking the gap, or start fresh.
+
 - **A building's height is how much work its session has done, on your own scale.**
   A session's heft is the tokens it has sent and received over its whole life, subagents included, with cache reads counted at a tenth.
   Your sessions are cut into fifths by heft, so a building stands one to five storeys and a typical session of yours sits at three; the scale is recomputed at most once a day, and no building ever loses a storey.

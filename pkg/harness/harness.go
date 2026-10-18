@@ -29,10 +29,17 @@ func (m *Multi) Name() string {
 func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 	merged := state.Snapshot{At: now, Power: state.Power{Since: now.Add(-state.PowerWindow), ByModel: map[string]claude.Usage{}}}
 	merged.HeftsRead = len(m.harnesses) > 0
+	var sample []int64
 	for _, h := range m.harnesses {
 		snapshot, err := h.Load(now)
 		if err != nil {
 			return merged, err
+		}
+		if snapshot.ScaleHefts != nil {
+			sample = append(sample, snapshot.ScaleHefts...)
+			merged.ScaleHefts = append(merged.ScaleHefts, snapshot.ScaleHefts...)
+		} else {
+			sample = append(sample, state.SampleOf(snapshot.Sessions)...)
 		}
 		for _, s := range snapshot.Sessions {
 			if s.Harness == "" {
@@ -59,7 +66,7 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		merged.Power.Cached += snapshot.Power.Cached
 		merged.HeftsRead = merged.HeftsRead && snapshot.HeftsRead
 	}
-	m.heights.Apply(merged.Sessions, merged.HeftsRead, now)
+	m.heights.ApplyOn(merged.Sessions, sample, merged.HeftsRead, now)
 	return merged, nil
 }
 
