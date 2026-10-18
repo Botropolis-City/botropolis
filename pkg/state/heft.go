@@ -8,8 +8,12 @@ import (
 	"botropolis.city/botropolis/pkg/claude"
 )
 
-// MaxStoreys is the tallest a building grows (item 109).
-const MaxStoreys = 5
+// MaxStoreys is the tallest a building grows, and MaxSpire the most
+// segments its spire carries past the top line (item 109).
+const (
+	MaxStoreys = 5
+	MaxSpire   = 6
+)
 
 // StarterCuts are the scale's cut points before the user has a history
 // of their own, and what a short history blends into.
@@ -65,6 +69,16 @@ func (s Scale) Storeys(heft int64) int {
 	return storeys
 }
 
+// Spire is how many segments a heft past the top line raises: one at
+// twice the top line and one more at each doubling, up to MaxSpire.
+func (s Scale) Spire(heft int64) int {
+	top := s.Cuts[len(s.Cuts)-1]
+	if top <= 0 || heft < 2*top {
+		return 0
+	}
+	return min(MaxSpire, int(math.Floor(math.Log2(float64(heft)/float64(top)))))
+}
+
 // Stale is whether the scale has stood a day.
 func (s Scale) Stale(now time.Time) bool {
 	return now.Sub(s.At) >= ScaleLife
@@ -76,11 +90,14 @@ func (s Scale) Stale(now time.Time) bool {
 type Heights struct {
 	scale   Scale
 	own     bool
-	reached map[string]int
+	reached map[string]reach
 }
 
+// reach is the storeys and spire segments a session has reached.
+type reach struct{ storeys, spire int }
+
 func NewHeights() *Heights {
-	return &Heights{scale: Scale{Cuts: StarterCuts}, reached: map[string]int{}}
+	return &Heights{scale: Scale{Cuts: StarterCuts}, reached: map[string]reach{}}
 }
 
 // Scale is the scale storeys are drawn on now.
@@ -103,14 +120,15 @@ func (h *Heights) Apply(sessions []Session, read bool, now time.Time) {
 	}
 	for i := range sessions {
 		s := &sessions[i]
-		storeys := h.scale.Storeys(s.Heft)
+		storeys, spire := h.scale.Storeys(s.Heft), h.scale.Spire(s.Heft)
 		if s.ConversationGone {
-			storeys = 1
+			storeys, spire = 1, 0
 		}
 		if h.own {
-			storeys = max(storeys, h.reached[s.ID])
-			h.reached[s.ID] = storeys
+			was := h.reached[s.ID]
+			storeys, spire = max(storeys, was.storeys), max(spire, was.spire)
+			h.reached[s.ID] = reach{storeys: storeys, spire: spire}
 		}
-		s.Storeys = storeys
+		s.Storeys, s.Spire = storeys, spire
 	}
 }

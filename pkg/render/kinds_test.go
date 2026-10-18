@@ -15,15 +15,13 @@ import (
 	"botropolis.city/botropolis/testing/helpers"
 )
 
-// kindStorey is one storey of the city's own buildings in kit units,
-// buildings.STOREY in the sprite pipeline.
-const kindStorey = 0.36
-
 // storeyPixels is how tall a storey stands on screen in an atlas cut at
-// zoom: a kit unit is the tile's diagonal across, and a vertical unit
+// zoom, worked from buildings.STOREY (0.36 kit units) here rather than
+// taken from storeyHeight, so the art is checked against its own
+// number: a kit unit is the tile's diagonal across, and a vertical unit
 // is foreshortened by the camera's thirty degrees.
 func storeyPixels(zoom float64) float64 {
-	return kindStorey * 132 / math.Sqrt2 * zoom * math.Cos(math.Pi/6)
+	return 0.36 * 132 / math.Sqrt2 * zoom * math.Cos(math.Pi/6)
 }
 
 // Item 109: floors can be counted, so each storey adds one storey's

@@ -158,6 +158,13 @@ func TestMultiKeepsEveryField(t *testing.T) {
 		// other exported field must come through untouched.
 		in.At, out.At = time.Time{}, time.Time{}
 		in.Power.Since, out.Power.Since = time.Time{}, time.Time{}
+		// Storeys and spires are the merge's own too: it draws every
+		// harness's sessions on one scale (item 109).
+		for _, snap := range []*state.Snapshot{&in, &out} {
+			for i := range snap.Sessions {
+				snap.Sessions[i].Storeys, snap.Sessions[i].Spire = 0, 0
+			}
+		}
 
 		for i := 0; i < reflect.TypeOf(in).NumField(); i++ {
 			field := reflect.TypeOf(in).Field(i)

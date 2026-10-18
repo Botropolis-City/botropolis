@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every district has a type, residential, shopping, office or industrial, and its buildings are that type's kinds: shops, glass offices and workshops through works yards grow the same way.
   A new district's type is chosen by the `district_type` setting: `random` (the default, the same for a directory every time), `guess` (from the names at the top of its directory, never its contents), or one type for every district.
   A district keeps its type once it has one, and a building's card changes it.
+  A session heavier than where your five-storey buildings begin raises a thin spire from its roof: one segment at twice that line and one more at each doubling, up to six, with a red beacon at the tip; like a storey, a segment once reached stays.
 
 - **The city moves to say what changed, as much as you choose.**
   A `liveliness` setting (still, calm, steady or lively; `--liveliness`, and `--reduced_motion` means still) sets how much the city moves; at still every mover stays on the map where it is and changes cross-fade.

@@ -84,9 +84,11 @@ type Session struct {
 	// included; HeftPartial marks one read only through the catalogue's
 	// window, so a lower bound. Storeys is its building's height on the
 	// user's own scale. Item 109.
-	Heft              int64  `json:"heft,omitempty"`
-	HeftPartial       bool   `json:"heftPartial,omitempty"`
-	Storeys           int    `json:"storeys,omitempty"`
+	Heft        int64 `json:"heft,omitempty"`
+	HeftPartial bool  `json:"heftPartial,omitempty"`
+	Storeys     int   `json:"storeys,omitempty"`
+	// Spire is how many segments rise past the top line (item 109).
+	Spire             int    `json:"spire,omitempty"`
 	Subagents         int    `json:"subagents"`
 	SubagentsInFlight int    `json:"subagentsInFlight"`
 	Team              string `json:"team,omitempty"`

@@ -666,6 +666,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			items = append(items, buildingItem(cam, b.Rect, func() {
 				g.isoBuilding(screen, cam, b, b == selected, detailed, seconds)
 			}, func() {
+				if g.kits != nil && !b.Vacant && !g.scene.Dimmed(b) {
+					g.drawSpire(screen, cam, b)
+				}
 				if detailed && g.kits != nil && !g.viewing() && !b.Vacant && !g.scene.Dimmed(b) {
 					g.drawWork(screen, cam, b)
 				}

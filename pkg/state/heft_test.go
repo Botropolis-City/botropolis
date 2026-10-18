@@ -1,6 +1,7 @@
 package state_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -317,6 +318,50 @@ func TestHeights(t *testing.T) {
 
 		t.Run("it should be left out of the sample", func(t *testing.T) {
 			assert.Equal(t, 40, h.Scale().Sample)
+		})
+	})
+}
+
+// Item 109, slice 5: past the top line, a spire, one segment per
+// doubling.
+func TestScaleSpire(t *testing.T) {
+	scale := state.Scale{Cuts: [4]int64{100, 200, 300, 1_000}}
+	cases := []struct {
+		times float64
+		want  int
+	}{{0.5, 0}, {1, 0}, {1.99, 0}, {2, 1}, {4, 2}, {63, 5}, {64, 6}, {1000, 6}}
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("when the heft is %g times the top line", c.times), func(t *testing.T) {
+			t.Run(fmt.Sprintf("it should have %d segments", c.want), func(t *testing.T) {
+				assert.Equal(t, c.want, scale.Spire(int64(c.times*1_000)))
+			})
+		})
+	}
+}
+
+func TestHeightsSpire(t *testing.T) {
+	at := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
+
+	t.Run("when the daily recompute raises the top line past a session's doubling", func(t *testing.T) {
+		hefts := evenly(40)
+		hefts[39] = 1_000_000
+		h := state.NewHeights()
+		first := heftSessions(hefts)
+		h.Apply(first, true, at)
+		heavier := evenly(40)
+		for i := range heavier {
+			heavier[i] *= 100
+		}
+		heavier[39] = 1_000_000
+		sessions := heftSessions(heavier)
+		h.Apply(sessions, true, at.Add(25*time.Hour))
+
+		t.Run("it should keep its segments", func(t *testing.T) {
+			assert.Equal(t, first[39].Spire, sessions[39].Spire)
+		})
+
+		t.Run("it should have had segments to keep", func(t *testing.T) {
+			assert.Positive(t, first[39].Spire)
 		})
 	})
 }
