@@ -45,6 +45,8 @@ type ViewKey struct {
 	// alike enough to need telling apart and the key is where the map
 	// explains its own vocabulary. Item 49.
 	Note Text
+	// Views names Skyline's key and the City Plan's (item 106).
+	Views Text
 }
 
 // RiverNote is what the key says about the river. Two meanings on one
@@ -58,9 +60,21 @@ type ViewKey struct {
 // say so somewhere, and this is where the map explains its vocabulary.
 const RiverNote = "on the river: liners gauge your usage between the buoys, tugs are sessions coming and going, the launch fetches fresh figures when you press " + city.RefreshKey
 
+// ViewsNote is the key's line on the two ways to see the whole city:
+// Skyline, and the City Plan (item 106).
+func ViewsNote(skyline, plan string) string {
+	return skyline + " Skyline: the whole city on the map · " + plan + " the City Plan, every district on one screen"
+}
+
 // LayoutViewKey centres the key in a width×height window and marks the
 // lens that is up.
 func LayoutViewKey(th Theme, width, height float64, current city.Lens, measure Measure) ViewKey {
+	return LayoutViewKeyFor(th, width, height, current, "m", measure)
+}
+
+// LayoutViewKeyFor is LayoutViewKey with the City Plan's key as
+// configured.
+func LayoutViewKeyFor(th Theme, width, height float64, current city.Lens, planKey string, measure Measure) ViewKey {
 	grid := th.Grid()
 	pad := 3 * grid
 	_, lineH := measure("", Small)
@@ -83,11 +97,13 @@ func LayoutViewKey(th Theme, width, height float64, current city.Lens, measure M
 	}
 	rowStep := chipH + grid/2
 	noteW, noteH := measure(RiverNote, Small)
+	views := ViewsNote("f", planKey)
+	viewsW, viewsH := measure(views, Small)
 	w := pad + chipW + grid + nameW + 2*grid + questionW + pad
-	if want := pad + noteW + pad; want > w {
+	if want := pad + max(noteW, viewsW) + pad; want > w {
 		w = want
 	}
-	h := pad + titleH + grid + rowStep*float64(len(city.Lenses)) - grid/2 + grid + noteH + pad
+	h := pad + titleH + grid + rowStep*float64(len(city.Lenses)) - grid/2 + grid + noteH + grid/2 + viewsH + pad
 	k := ViewKey{Rect: city.RectAt((width-w)/2, (height-h)/2, w, h), Size: Small}
 	k.Title = Text{Text: title, At: k.Rect.Min.Add(city.Point{X: pad, Y: pad}), Size: Title}
 	k.Subtitle = subtitleUnder(k.Title, PanelLenses, measure)
@@ -110,6 +126,7 @@ func LayoutViewKey(th Theme, width, height float64, current city.Lens, measure M
 		y += rowStep
 	}
 	k.Note = Text{Text: RiverNote, At: city.Point{X: k.Rect.Min.X + pad, Y: y - grid/2 + grid}, Size: Small}
+	k.Views = Text{Text: views, At: city.Point{X: k.Rect.Min.X + pad, Y: k.Note.At.Y + noteH + grid/2}, Size: Small}
 	return k
 }
 

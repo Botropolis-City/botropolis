@@ -72,7 +72,7 @@ and a **generate summary** button that asks your own `claude` CLI for one.
 That is the only thing on the map that spends tokens, and only when you press it:
 it runs Haiku with no tools, no MCP servers and no hooks, writes no transcript, and never appears in the city as a session.
 
-Keys: drag to pan, wheel to zoom (one notch out past Skyline is the City Plan, a flat map of every district), `r` to turn, `f` for Skyline, `tab` for the next session that needs you, `enter` to attach it, `i` its summary,
+Keys: drag to pan, wheel to zoom (one notch out past Skyline is the City Plan, a flat map of every district; `m` opens it from anywhere), `r` to turn, `f` for Skyline, `tab` for the next session that needs you, `enter` to attach it, `i` its summary,
 `c` for a new session here, `d d` to demolish, `b` sidebar, `x` breakdown, `t` timeline, `/` or `ctrl+k` find, `s` settings, `n` night/day/live, `[` `]` scrub the clock,
 `h` hide the UI, `p` save a frame, `?` all of them.
 

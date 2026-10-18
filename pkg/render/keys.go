@@ -35,6 +35,7 @@ var bindings = []ui.Key{
 	{Key: "d d", Action: "demolish the selection"},
 	{Key: "f", Action: "Skyline"},
 	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel in to return"},
+	{Key: planBinding, Action: "the City Plan: every district on one screen; click a badge to fly in"},
 	{Key: "0", Action: "reset the view"},
 	{Key: "r", Action: "turn the camera"},
 	{Key: "n", Action: "night, day, auto"},
@@ -60,6 +61,10 @@ func (g *Game) helpKeys() []ui.Key {
 	chords := g.findChords()
 	var keys []ui.Key
 	for _, k := range bindings {
+		if k.Key == planBinding {
+			keys = append(keys, ui.Key{Key: chords.Plan.String(), Action: k.Action})
+			continue
+		}
 		if k.Key != findBinding {
 			keys = append(keys, k)
 			continue
@@ -75,6 +80,10 @@ func (g *Game) helpKeys() []ui.Key {
 // findBinding is the help's row for the finder, which helpKeys spells
 // with the chords as configured.
 const findBinding = "/ or ctrl+k"
+
+// planBinding is the help's row for the City Plan, which helpKeys spells
+// with the key as configured.
+const planBinding = "m"
 
 var footerKeys = []ui.Key{
 	{Key: "drag", Action: "pan"},
@@ -231,6 +240,10 @@ func (g *Game) handleKeys() error {
 		g.viewKey = false
 		return nil
 	}
+	if just(ebiten.KeyEscape) && g.scene.CityPlanOpen() {
+		g.scene.CloseCityPlan()
+		return nil
+	}
 	if just(ebiten.KeyEscape) && g.scene.View() != city.ViewAttention {
 		// Escape is back before it is quit: leave the lens first.
 		g.selectLens(city.LensAttention)
@@ -339,6 +352,10 @@ func (g *Game) handleKeys() error {
 	}
 	if g.chordPressed(g.findChords().Stream) {
 		g.toggleStream()
+		return nil
+	}
+	if plan := g.findChords().Plan; g.chordPressed(plan) && g.onlyHeld(plan) {
+		g.scene.ToggleCityPlan()
 		return nil
 	}
 	if just(ebiten.KeyN) {

@@ -20,6 +20,8 @@ const (
 	KeyStream = "stream_key"
 	// KeyJournal brings the journal back (item 86).
 	KeyJournal = "journal_key"
+	// KeyCityPlan opens and closes the City Plan (item 106).
+	KeyCityPlan = "city_plan_key"
 
 	// DefaultFindShow is Control+M on every system: ⌘M would minimize
 	// the window on macOS, where mod is ⌘.
@@ -37,6 +39,8 @@ const (
 	DefaultStream = "l"
 	// DefaultJournal is shift+w, for where was I: w alone is triage.
 	DefaultJournal = "shift+w"
+	// DefaultCityPlan is m, for map.
+	DefaultCityPlan = "m"
 )
 
 // Chord is a key with the modifiers held for it.
@@ -61,7 +65,7 @@ func (c Chord) String() string {
 
 // Chords are the finder's: the one that opens it, the one that copies
 // how to resume a session, and the one that shows it on the map.
-type Chords struct{ Open, Copy, Show, New, Explain, Triage, Stream, Journal Chord }
+type Chords struct{ Open, Copy, Show, New, Explain, Triage, Stream, Journal, Plan Chord }
 
 // macOSKeeps is what macOS does with the ⌘ chords it takes for itself
 // before an application sees them.
@@ -123,6 +127,7 @@ func FindChords(cfg Config, goos string, known func(string) bool) (Chords, error
 		{KeyTriage, cfg.TriageKey, DefaultTriage, &chords.Triage},
 		{KeyStream, cfg.StreamKey, DefaultStream, &chords.Stream},
 		{KeyJournal, cfg.JournalKey, DefaultJournal, &chords.Journal},
+		{KeyCityPlan, cfg.CityPlanKey, DefaultCityPlan, &chords.Plan},
 	} {
 		value := s.value
 		if value == "" {

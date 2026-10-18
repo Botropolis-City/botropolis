@@ -44,6 +44,19 @@ func TestLayoutViewKey(t *testing.T) {
 		})
 	})
 
+	t.Run("when it names the two ways to see the whole city", func(t *testing.T) {
+		planned := ui.LayoutViewKeyFor(th, width, height, city.LensConnections, "j", measure7)
+
+		t.Run("it should name the City Plan's key as configured", func(t *testing.T) {
+			assert.Equal(t, ui.ViewsNote("f", "j"), planned.Views.Text)
+		})
+
+		t.Run("it should hold the line inside the panel", func(t *testing.T) {
+			_, h := measure7(planned.Views.Text, ui.Small)
+			assert.LessOrEqual(t, planned.Views.At.Y+h, planned.Rect.Max.Y)
+		})
+	})
+
 	t.Run("when the rows are laid out", func(t *testing.T) {
 		t.Run("it should give each one a band wide enough to click", func(t *testing.T) {
 			for _, r := range k.Rows {

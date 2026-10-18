@@ -119,7 +119,9 @@ type Config struct {
 	GlobalShortcut string
 	// StreamKey hides and shows the stream (item 88).
 	StreamKey string
-	File      string
+	// CityPlanKey opens and closes the City Plan (item 106).
+	CityPlanKey string
+	File        string
 	// GroupLines draws each group as a line across its districts (item 87).
 	GroupLines bool
 }
@@ -151,6 +153,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyJournal, DefaultJournal)
 	v.SetDefault(KeyJournalHours, DefaultJournalHours)
 	v.SetDefault(KeyStream, DefaultStream)
+	v.SetDefault(KeyCityPlan, DefaultCityPlan)
 	v.SetDefault(KeyGroupLines, true)
 	v.SetDefault(KeyGlobalShortcut, "")
 	v.SetConfigName(configName)
@@ -193,6 +196,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyJournal, DefaultJournal, "the key that brings back the journal of where you were")
 	flags.Int(KeyJournalHours, DefaultJournalHours, "how many hours away before the journal opens by itself")
 	flags.String(KeyStream, DefaultStream, "the key that hides and shows the stream down the right")
+	flags.String(KeyCityPlan, DefaultCityPlan, "the key that opens and closes the City Plan, a flat map of every district")
 	_ = v.BindPFlag(KeyFind, flags.Lookup(KeyFind))
 	_ = v.BindPFlag(KeyFindCopy, flags.Lookup(KeyFindCopy))
 	_ = v.BindPFlag(KeyFindShow, flags.Lookup(KeyFindShow))
@@ -202,6 +206,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyJournal, flags.Lookup(KeyJournal))
 	_ = v.BindPFlag(KeyJournalHours, flags.Lookup(KeyJournalHours))
 	_ = v.BindPFlag(KeyStream, flags.Lookup(KeyStream))
+	_ = v.BindPFlag(KeyCityPlan, flags.Lookup(KeyCityPlan))
 	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
 }
 
@@ -243,6 +248,7 @@ func New(v *viper.Viper) (*Config, error) {
 		JournalKey:     v.GetString(KeyJournal),
 		JournalHours:   v.GetInt(KeyJournalHours),
 		StreamKey:      v.GetString(KeyStream),
+		CityPlanKey:    v.GetString(KeyCityPlan),
 		GroupLines:     v.GetBool(KeyGroupLines),
 		GlobalShortcut: v.GetString(KeyGlobalShortcut),
 		File:           v.ConfigFileUsed(),

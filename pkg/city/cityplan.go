@@ -175,12 +175,80 @@ func (s *Scene) SkylineZoom() float64 {
 	return math.Max(s.FitZoom(), FloorZoom(s.camera.Projection))
 }
 
-// openPlan turns the map into the plan.
+// openPlan turns the map into the plan, remembering where the camera
+// was so the key can put it back.
 func (s *Scene) openPlan() {
+	if s.zoomTarget > 0 {
+		s.camera.SetZoomAt(s.zoomAnchor, s.zoomTarget)
+		s.clamp()
+	}
 	s.planOpen = true
+	s.planFrom = *s.camera
 	s.zoomTarget = 0
 	if s.instant {
 		s.planShown = 1
+	}
+}
+
+// ToggleCityPlan opens the plan from wherever the map is, or closes it
+// back to where the camera was when it opened.
+func (s *Scene) ToggleCityPlan() {
+	if s.camera.Projection != Isometric {
+		return
+	}
+	if s.planOpen {
+		s.CloseCityPlan()
+		return
+	}
+	s.openPlan()
+}
+
+// CloseCityPlan returns to the map as it was when the plan opened.
+func (s *Scene) CloseCityPlan() {
+	if !s.planOpen {
+		return
+	}
+	s.planOpen = false
+	if s.instant {
+		s.planShown = 0
+	}
+	from := s.planFrom
+	from.Heading = s.camera.Heading
+	*s.camera = from
+	s.zoomTarget = 0
+	s.touched = true
+}
+
+// badgeAt is the district whose badge is under a screen point on the
+// plan.
+func (s *Scene) badgeAt(screen Point) *District {
+	plan := s.CityPlan()
+	for i := len(plan.Badges) - 1; i >= 0; i-- {
+		if plan.Badges[i].Rect.Contains(screen) {
+			return plan.Badges[i].District
+		}
+	}
+	return nil
+}
+
+// flyInto leaves the plan for the map at Skyline, centred on a district,
+// and eases in until the district fills the view.
+func (s *Scene) flyInto(d *District) {
+	s.planOpen = false
+	if s.instant {
+		s.planShown = 0
+	}
+	s.touched = true
+	in := s.Insets()
+	middle := Point{X: in.Left + (s.width-in.Left-in.Right)/2, Y: in.Top + (s.height-in.Top-in.Bottom)/2}
+	s.camera.Zoom = s.SkylineZoom()
+	s.camera.Offset = middle.Scale(1 / s.camera.Zoom).Sub(s.camera.Project(d.Rect.Center()))
+	fit := *s.camera
+	fit.FitWithInsets(d.Rect, s.width, s.height, in)
+	s.zoomTarget = math.Min(MaxZoom, math.Max(fit.Zoom, s.camera.Zoom))
+	s.zoomAnchor = middle
+	if s.instant {
+		s.Animate(1)
 	}
 }
 

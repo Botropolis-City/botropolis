@@ -407,3 +407,132 @@ func TestProjectionTopDeprecated(t *testing.T) {
 		})
 	})
 }
+
+// planScene is a city of six districts on the isometric map, at Skyline,
+// with a clock the test can move.
+func planScene(t *testing.T) (*city.Scene, func(time.Duration)) {
+	t.Helper()
+	at := now
+	var sessions []state.Session
+	for i := 0; i < 6; i++ {
+		sessions = append(sessions, session(fmt.Sprintf("s%02d", i), fmt.Sprintf("/home/demo/src/p%02d", i), state.Working))
+	}
+	s := city.NewScene(city.NewLayout())
+	s.SetClock(func() time.Time { return at }, time.UTC)
+	s.SetProjection(city.Isometric)
+	s.SetInstant(true)
+	s.Resize(1600, 1000)
+	s.SetSnapshot(snapshot(sessions...))
+	s.Skyline()
+	return s, func(d time.Duration) { at = at.Add(d) }
+}
+
+// Item 106: a key opens the plan from anywhere and closes it back to
+// where the camera was.
+func TestCityPlanToggle(t *testing.T) {
+	t.Run("when the plan is toggled from a zoom above Skyline", func(t *testing.T) {
+		s, _ := planScene(t)
+		s.Wheel(s.Size().Scale(0.3), 2)
+		zoom, offset := s.Camera().Zoom, s.Camera().Offset
+		s.ToggleCityPlan()
+
+		t.Run("it should open the plan", func(t *testing.T) {
+			assert.True(t, s.CityPlanOpen())
+		})
+
+		t.Run("and toggled again", func(t *testing.T) {
+			s.ToggleCityPlan()
+
+			t.Run("it should close the plan", func(t *testing.T) {
+				assert.False(t, s.CityPlanOpen())
+			})
+
+			t.Run("it should restore the zoom it had", func(t *testing.T) {
+				assert.InDelta(t, zoom, s.Camera().Zoom, 1e-9)
+			})
+
+			t.Run("it should restore the offset it had", func(t *testing.T) {
+				assert.Equal(t, offset, s.Camera().Offset)
+			})
+		})
+	})
+
+	t.Run("when the plan is toggled just after a wheel event", func(t *testing.T) {
+		s, _ := planScene(t)
+		s.Wheel(s.Size().Scale(0.5), 1)
+		s.ToggleCityPlan()
+
+		t.Run("it should open the plan", func(t *testing.T) {
+			assert.True(t, s.CityPlanOpen())
+		})
+	})
+
+	t.Run("when the plan was opened by the wheel and is closed by the key", func(t *testing.T) {
+		s, tick := planScene(t)
+		tick(city.PlanDebounce)
+		s.Wheel(s.Size().Scale(0.5), -1)
+		require.True(t, s.CityPlanOpen(), "precondition: the wheel opened the plan")
+		s.ToggleCityPlan()
+
+		t.Run("it should return at Skyline", func(t *testing.T) {
+			assert.InDelta(t, s.SkylineZoom(), s.Camera().Zoom, 1e-9)
+		})
+	})
+}
+
+// Item 106: clicking a badge flies into its district on the map.
+func TestCityPlanFlyIn(t *testing.T) {
+	for _, pick := range []struct {
+		name string
+		at   func(n int) int
+	}{
+		{"the first", func(int) int { return 0 }},
+		{"the last", func(n int) int { return n - 1 }},
+	} {
+		t.Run("when "+pick.name+" badge is clicked on the plan", func(t *testing.T) {
+			s, _ := planScene(t)
+			s.ToggleCityPlan()
+			badges := s.CityPlan().Badges
+			badge := badges[pick.at(len(badges))]
+			s.Click(badge.At)
+			open, selected := s.CityPlanOpen(), s.Selected()
+			for i := 0; i < 200; i++ {
+				s.Animate(1)
+			}
+
+			t.Run("it should close the plan", func(t *testing.T) {
+				assert.False(t, open)
+			})
+
+			t.Run("it should select nothing", func(t *testing.T) {
+				assert.Nil(t, selected)
+			})
+
+			t.Run("once the ease settles, the district should be in the middle of the view", func(t *testing.T) {
+				in := s.Insets()
+				size := s.Size()
+				middle := city.Point{X: in.Left + (size.X-in.Left-in.Right)/2, Y: in.Top + (size.Y-in.Top-in.Bottom)/2}
+				d := badge.District.Rect.Center().Sub(s.Camera().ScreenToWorld(middle))
+				assert.InDelta(t, 0, math.Hypot(d.X, d.Y), city.CellSize)
+			})
+
+			t.Run("once the ease settles, the zoom should be past Skyline", func(t *testing.T) {
+				assert.Greater(t, s.Camera().Zoom, s.SkylineZoom())
+			})
+
+			t.Run("once the ease settles, the zoom should be at most MaxZoom", func(t *testing.T) {
+				assert.LessOrEqual(t, s.Camera().Zoom, city.MaxZoom)
+			})
+		})
+	}
+
+	t.Run("when a click on the plan lands between badges", func(t *testing.T) {
+		s, _ := planScene(t)
+		s.ToggleCityPlan()
+		s.Click(city.Point{X: 2, Y: s.Size().Y / 2})
+
+		t.Run("it should leave the plan open", func(t *testing.T) {
+			assert.True(t, s.CityPlanOpen())
+		})
+	})
+}

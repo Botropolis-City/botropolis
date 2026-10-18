@@ -157,6 +157,22 @@ func (g *Game) chordPressed(c config.Chord) bool {
 	return true
 }
 
+// onlyHeld reports that no Ctrl, Alt or Cmd is held beyond what a chord
+// asks for, so a bare key does not answer its modified chords too.
+func (g *Game) onlyHeld(c config.Chord) bool {
+	held := []struct{ want, down bool }{
+		{c.Ctrl, g.scriptedCtrl || ebiten.IsKeyPressed(ebiten.KeyControl)},
+		{c.Alt, g.scriptedAlt || ebiten.IsKeyPressed(ebiten.KeyAlt)},
+		{c.Cmd, g.scriptedCmd || ebiten.IsKeyPressed(ebiten.KeyMeta)},
+	}
+	for _, m := range held {
+		if m.down && !m.want {
+			return false
+		}
+	}
+	return true
+}
+
 func (g *Game) finding() bool {
 	_, ok := g.overlays.top().(*finder)
 	return ok

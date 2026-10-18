@@ -138,6 +138,8 @@ type Scene struct {
 	// planShown is the cross-fade between the map and the plan, and
 	// planFadeFor how long it takes.
 	planShown, planFadeFor float64
+	// planFrom is the camera as it was when the plan opened.
+	planFrom Camera
 	// lastWheel is when the wheel last turned, for PlanDebounce.
 	lastWheel time.Time
 	light     Light
@@ -880,6 +882,9 @@ func (s *Scene) CenterOn(world Point) {
 
 func (s *Scene) Click(screen Point) Action {
 	if s.planOpen {
+		if d := s.badgeAt(screen); d != nil {
+			s.flyInto(d)
+		}
 		return Action{}
 	}
 	hit := s.city.At(s.camera.ScreenToWorld(screen))

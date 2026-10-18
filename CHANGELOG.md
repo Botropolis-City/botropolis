@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Zooming out stops at Skyline; one more notch, once the wheel has rested, turns the city into a flat plan.
   Each district is a badge at its place on the map, with its name, whose move it is and its counts of sessions, of those needing you and of subagents in flight; the groups' lines run between them, and a legend reads the usage limits.
   Zooming in returns to the map at Skyline, with the district under the pointer still under it.
+  `m` (`city_plan_key`) opens the plan from anywhere and closes it back to where you were, as does Esc; clicking a badge flies into its district on the map.
   The top-down projection is no longer offered: `--projection top` and a config that asks for it open the isometric map, with a warning.
 
 - **The city moves to say what changed, as much as you choose.**
