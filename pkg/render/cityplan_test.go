@@ -72,6 +72,35 @@ func TestCityPlanDraw(t *testing.T) {
 	})
 }
 
+// Item 106: a script pointing at a district on the plan aims at its badge.
+func TestCityPlanScriptTarget(t *testing.T) {
+	at := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
+	var sessions []state.Session
+	for i := 0; i < 4; i++ {
+		cwd := fmt.Sprintf("/p/d%d", i)
+		sessions = append(sessions, state.Session{ID: cwd, CWD: cwd, State: state.Working, StartedAt: at})
+	}
+	s := city.NewScene(city.NewLayout())
+	s.SetClock(func() time.Time { return at }, time.UTC)
+	s.SetProjection(city.Isometric)
+	s.SetInstant(true)
+	s.Resize(1200, 800)
+	s.SetSnapshot(state.Snapshot{At: at, Sessions: sessions})
+	s.ToggleCityPlan()
+	g := &Game{scene: s, scripted: -1, clicked: -1}
+	var want city.Point
+	for _, b := range s.CityPlan().Badges {
+		if b.District.Root == "/p/d2" {
+			want = b.At
+		}
+	}
+	got, ok := g.resolveTarget("district:d2")
+
+	t.Run("when the plan is open, it should aim at the district's badge", func(t *testing.T) {
+		assert.Equal(t, []any{true, want}, []any{ok, got})
+	})
+}
+
 // Item 106: a compact badge keeps how many need you, and nothing else.
 func TestCompactBadgeCount(t *testing.T) {
 	for _, c := range []struct {
