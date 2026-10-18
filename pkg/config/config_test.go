@@ -550,6 +550,39 @@ func TestGlobalShortcutKey(t *testing.T) {
 	})
 }
 
+// Item 110: the statistics store is on unless turned off.
+func TestStatsKey(t *testing.T) {
+	t.Run("when stats is not set", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t)
+
+		t.Run("it should be on", func(t *testing.T) {
+			assert.True(t, cfg.Stats)
+		})
+	})
+
+	t.Run("when --stats=false is given", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t, "--stats=false")
+
+		t.Run("it should be off", func(t *testing.T) {
+			assert.False(t, cfg.Stats)
+		})
+	})
+
+	t.Run("when the config file says stats = false", func(t *testing.T) {
+		configHome := t.TempDir()
+		t.Setenv("XDG_CONFIG_HOME", configHome)
+		require.NoError(t, os.MkdirAll(filepath.Join(configHome, "botropolis"), 0o700))
+		require.NoError(t, os.WriteFile(filepath.Join(configHome, "botropolis", "config.toml"), []byte("stats = false\n"), 0o600))
+		cfg := load(t)
+
+		t.Run("it should be off", func(t *testing.T) {
+			assert.False(t, cfg.Stats)
+		})
+	})
+}
+
 // Item 109: how a new district's type is chosen.
 func TestDistrictTypeKey(t *testing.T) {
 	t.Run("when district_type is not set", func(t *testing.T) {
