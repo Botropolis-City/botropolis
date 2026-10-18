@@ -17,6 +17,7 @@ var actionText = map[ActionKind]string{
 	ActionHide:         "Takes this project off the map. Unhide it from the sidebar.",
 	ActionStar:         "Marks this project, so it is easy to find.",
 	ActionUnstar:       "Removes the mark from this project.",
+	ActionDistrictType: "Changes what kind of buildings this project's district grows.",
 	ActionDetails:      "Shows every number this card has.",
 	ActionDetailsHide:  "Folds the numbers away again.",
 	ActionMoveToGroup:  "Lets you choose which group this session belongs to.",

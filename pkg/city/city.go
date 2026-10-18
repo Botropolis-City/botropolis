@@ -74,8 +74,10 @@ func projectHue(root string) int {
 }
 
 type District struct {
-	Name      string
-	Root      string
+	Name string
+	Root string
+	// Type is what kind of buildings the district grows (item 109).
+	Type      DistrictType
 	columns   int
 	size      Point
 	Rect      Rect
@@ -361,7 +363,7 @@ func baseName(root string) string {
 }
 
 func buildDistrict(root string, sessions []state.Session, layout *Layout, now time.Time, ladder state.Thresholds) *District {
-	district := &District{Name: baseName(root), Root: root}
+	district := &District{Name: baseName(root), Root: root, Type: layout.DistrictType(root)}
 	sort.Slice(sessions, func(i, j int) bool {
 		if !sessions[i].StartedAt.Equal(sessions[j].StartedAt) {
 			return sessions[i].StartedAt.Before(sessions[j].StartedAt)
@@ -379,7 +381,9 @@ func buildDistrict(root string, sessions []state.Session, layout *Layout, now ti
 	for _, s := range sessions {
 		column, row := slots[s.ID]%district.columns, slots[s.ID]/district.columns
 		at := Point{X: DistrictPadding + float64(column)*(BuildingSize+BuildingGap), Y: DistrictPadding + float64(row)*(BuildingSize+BuildingGap)}
-		district.Buildings = append(district.Buildings, newBuilding(s, slots[s.ID], at, BuildingSize, s.Rung(now, ladder)))
+		b := newBuilding(s, slots[s.ID], at, BuildingSize, s.Rung(now, ladder))
+		b.Type = district.Type
+		district.Buildings = append(district.Buildings, b)
 	}
 	district.Rung = freshest(district.Buildings)
 	sort.Slice(district.Buildings, func(i, j int) bool {

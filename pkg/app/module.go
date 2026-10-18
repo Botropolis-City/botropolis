@@ -271,6 +271,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v; starting from an empty layout\n", err)
 		layout = city.NewLayout()
 	}
+	layout.SetTyping(typingFor(c.config.DistrictType, cmd.ErrOrStderr()))
 	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config), socket: c.config.Socket}
 	actor.terminal.Store(c.config.Terminal)
 	feed := commands.Feed{
@@ -474,6 +475,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyOvergrownDays, Label: "overgrown days", Options: withValue([]string{"7", "14", "30", "60", "90", "180"}, strconv.Itoa(cfg.OvergrownDays)), Value: strconv.Itoa(cfg.OvergrownDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
+		{Key: config.KeyDistrictType, Label: "new districts", Options: withValue(append([]string{}, city.TypingModes...), cfg.DistrictType), Value: cfg.DistrictType},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
 	})

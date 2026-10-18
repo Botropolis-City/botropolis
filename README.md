@@ -138,7 +138,7 @@ The package installs `botropolis.desktop`, so the city is in your launcher under
 Media for the website is filmed from recorded demo sessions rather than anyone's real ones: see [demo/](demo/README.md).
 
 Settings come from flags, then `BOTROPOLIS_HOME`, `BOTROPOLIS_SOCKET`, `BOTROPOLIS_TERMINAL`, `BOTROPOLIS_PARKED_DAYS`, `BOTROPOLIS_CODEX_HOME`,
-then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `shuttered_days`, `overgrown_days`, `codex_home`, `render_scale`, `liveliness`, `reduced_motion`, `daily_budget_usd`).
+then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `shuttered_days`, `overgrown_days`, `codex_home`, `render_scale`, `liveliness`, `reduced_motion`, `daily_budget_usd`, `district_type`).
 `s` in the city opens a settings panel for the same keys and writes the file back.
 
 A waybar module, for example:

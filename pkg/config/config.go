@@ -35,6 +35,9 @@ const (
 	KeyDetail       = "detail"
 	KeyUsageRefresh = "usage_refresh"
 	KeyGroupLines   = "group_lines"
+	// KeyDistrictType is how a new district's type is chosen: random,
+	// guess, or one type for all. Item 109.
+	KeyDistrictType = "district_type"
 	// KeyGlobalShortcut is the chord that opens the finder from any
 	// application, empty for off: there is no default. Item 84.
 	KeyGlobalShortcut = "global_shortcut"
@@ -51,6 +54,10 @@ const (
 )
 
 const DefaultProjection = "iso"
+
+// DefaultDistrictType gives each new district a type hashed from its
+// path. Item 109.
+const DefaultDistrictType = "random"
 
 // DefaultLiveliness is between calm and lively, and Stillness the level
 // reduced motion asks for. Item 89.
@@ -95,6 +102,7 @@ type Config struct {
 	RenderScale   float64
 	ReducedMotion bool
 	Liveliness    string
+	DistrictType  string
 	DailyBudget   float64
 	Detail        string
 	UsageRefresh  string
@@ -141,6 +149,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyRenderScale, 0.0)
 	v.SetDefault(KeyReducedMotion, false)
 	v.SetDefault(KeyLiveliness, DefaultLiveliness)
+	v.SetDefault(KeyDistrictType, DefaultDistrictType)
 	v.SetDefault(KeyDailyBudget, 0.0)
 	v.SetDefault(KeyDetail, DefaultDetail)
 	v.SetDefault(KeyUsageRefresh, UsageManual)
@@ -170,6 +179,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.Float64(KeyRenderScale, 0, "chrome and pixel scale (default: follow the display)")
 	flags.Bool(KeyReducedMotion, false, "stop every animation and keep the colours: liveliness still")
 	flags.String(KeyLiveliness, DefaultLiveliness, "how much the city moves: still, calm, steady or lively")
+	flags.String(KeyDistrictType, DefaultDistrictType, "how a new district's type is chosen: random, guess (from its file names), or one of residential, shopping, office and industrial for all")
 	flags.Float64(KeyDailyBudget, 0, "a daily spend to measure the strip and the plant against, in USD (0 for none)")
 	flags.String(KeyDetail, DefaultDetail, "how much of the city to draw: full or plain (plain drops the scenery)")
 	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
@@ -184,6 +194,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyRenderScale, flags.Lookup(KeyRenderScale))
 	_ = v.BindPFlag(KeyReducedMotion, flags.Lookup(KeyReducedMotion))
 	_ = v.BindPFlag(KeyLiveliness, flags.Lookup(KeyLiveliness))
+	_ = v.BindPFlag(KeyDistrictType, flags.Lookup(KeyDistrictType))
 	_ = v.BindPFlag(KeyDailyBudget, flags.Lookup(KeyDailyBudget))
 	_ = v.BindPFlag(KeyDetail, flags.Lookup(KeyDetail))
 	_ = v.BindPFlag(KeyUsageRefresh, flags.Lookup(KeyUsageRefresh))
@@ -236,6 +247,7 @@ func New(v *viper.Viper) (*Config, error) {
 		RenderScale:    v.GetFloat64(KeyRenderScale),
 		ReducedMotion:  v.GetBool(KeyReducedMotion),
 		Liveliness:     v.GetString(KeyLiveliness),
+		DistrictType:   v.GetString(KeyDistrictType),
 		DailyBudget:    v.GetFloat64(KeyDailyBudget),
 		Detail:         v.GetString(KeyDetail),
 		UsageRefresh:   v.GetString(KeyUsageRefresh),

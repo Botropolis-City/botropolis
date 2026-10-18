@@ -4,6 +4,7 @@
 | --- | --- | --- |
 | District | a project (cwd root, worktrees folded in) | active hours, sessions, tokens, PRs |
 | Building | a session | title, branch, model, state, age |
+| District type: residential, shopping, office or industrial | chosen once per district by `district_type` (random from its path, a guess from its top-level file names, or one type for all), kept in the layout and changed from a building's card (item 109) | what kind of buildings it grows |
 | Lit / blinds down / boarded up / overgrown | live / resting / shuttered after `shuttered_days` / overgrown after `overgrown_days` | the rung, and how long it has been quiet |
 | Building height (one to five storeys), and its kind within the district's type | the session's heft over its whole life, on the user's own history cut into fifths (item 109) | tokens in context, last compaction |
 | Worker at the bench | the main thread | current tool and file |

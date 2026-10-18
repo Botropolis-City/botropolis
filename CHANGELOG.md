@@ -22,7 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Your sessions are cut into fifths by heft, so a building stands one to five storeys and a typical session of yours sits at three; the scale is recomputed at most once a day, and no building ever loses a storey.
   The daemon reads stopped sessions' transcripts whole in the background after the map is up, so startup does not wait for it.
   Each height is its own kind of building, so floors can be counted at a glance: a cottage, a family house, townhouses, and apartment blocks.
-  Shops, offices and industrial buildings are drawn too, for district types still to come.
+  Every district has a type, residential, shopping, office or industrial, and its buildings are that type's kinds: shops, glass offices and workshops through works yards grow the same way.
+  A new district's type is chosen by the `district_type` setting: `random` (the default, the same for a directory every time), `guess` (from the names at the top of its directory, never its contents), or one type for every district.
+  A district keeps its type once it has one, and a building's card changes it.
 
 - **The city moves to say what changed, as much as you choose.**
   A `liveliness` setting (still, calm, steady or lively; `--liveliness`, and `--reduced_motion` means still) sets how much the city moves; at still every mover stays on the map where it is and changes cross-fade.

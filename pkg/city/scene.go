@@ -36,6 +36,9 @@ const (
 	ActionHide     ActionKind = "hide project"
 	ActionStar     ActionKind = "star"
 	ActionUnstar   ActionKind = "unstar"
+	// ActionDistrictType changes the district's type to the next of the
+	// four (item 109).
+	ActionDistrictType ActionKind = "district type"
 	// Details folds the card's full table out under its face; generate
 	// asks Claude Code for a summary, and is the only one that spends.
 	ActionDetails     ActionKind = "details"
@@ -903,6 +906,13 @@ func (s *Scene) Click(screen Point) Action {
 	return Action{}
 }
 
+// SetTyping is how districts with no type yet are given one; districts
+// that have one keep it (item 109).
+func (s *Scene) SetTyping(t Typing) {
+	s.layout.SetTyping(t)
+	s.SetSnapshot(s.snapshot)
+}
+
 // Actions is what the selection's card offers, in order: the way in
 // first, then the session, then the project.
 func (s *Scene) Actions() []ActionKind {
@@ -930,6 +940,7 @@ func (s *Scene) Actions() []ActionKind {
 	} else {
 		kinds = append(kinds, ActionStar)
 	}
+	kinds = append(kinds, ActionDistrictType)
 	if len(s.snapshot.Groups) > 0 && s.selected.Session.State != state.Resting {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
@@ -1048,6 +1059,11 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 	case ActionUnstar:
 		s.layout.SetStarred(root, false)
 		return Action{}, "unstarred " + name
+	case ActionDistrictType:
+		next := NextDistrictType(s.layout.DistrictType(root))
+		s.layout.SetDistrictType(root, next)
+		s.SetSnapshot(s.snapshot)
+		return Action{}, name + " is now " + string(next)
 	}
 	return Action{}, ""
 }

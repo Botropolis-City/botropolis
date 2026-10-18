@@ -549,3 +549,24 @@ func TestGlobalShortcutKey(t *testing.T) {
 		})
 	})
 }
+
+// Item 109: how a new district's type is chosen.
+func TestDistrictTypeKey(t *testing.T) {
+	t.Run("when district_type is not set", func(t *testing.T) {
+		cfg := load(t)
+
+		t.Run("it should be random", func(t *testing.T) {
+			assert.Equal(t, "random", cfg.DistrictType)
+		})
+	})
+
+	for _, value := range []string{"guess", "office"} {
+		t.Run("when --district_type is "+value, func(t *testing.T) {
+			cfg := load(t, "--district_type", value)
+
+			t.Run("it should be "+value, func(t *testing.T) {
+				assert.Equal(t, value, cfg.DistrictType)
+			})
+		})
+	}
+}

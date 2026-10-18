@@ -20,6 +20,9 @@ const (
 
 type districtLayout struct {
 	Slots map[string]int `json:"slots"`
+	// Type is the district's type, chosen the first time it appeared and
+	// kept, or set by hand (item 109).
+	Type DistrictType `json:"type,omitempty"`
 }
 
 // Layout is what the map remembers between runs: each district's block on
@@ -55,6 +58,27 @@ type Layout struct {
 	Snoozed map[string]time.Time `json:"snoozed,omitempty"`
 	// StreamHidden is whether the stream's column was hidden (item 88).
 	StreamHidden bool `json:"streamHidden,omitempty"`
+	// typing chooses a type for a district that has none yet; it is
+	// the district_type setting, never written here (item 109).
+	typing Typing
+}
+
+// SetTyping is how districts that have no type yet are given one.
+func (l *Layout) SetTyping(t Typing) { l.typing = t }
+
+// DistrictType is a district's type, chosen by the typing the first time
+// it is asked for and kept from then on.
+func (l *Layout) DistrictType(root string) DistrictType {
+	d := l.district(root)
+	if d.Type == "" {
+		d.Type = l.typing.Choose(root)
+	}
+	return d.Type
+}
+
+// SetDistrictType sets a district's type by hand.
+func (l *Layout) SetDistrictType(root string, t DistrictType) {
+	l.district(root).Type = t
 }
 
 func NewLayout() *Layout {

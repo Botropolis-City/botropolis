@@ -218,3 +218,22 @@ func TestLivelinessSetting(t *testing.T) {
 		})
 	})
 }
+
+// Item 109: how a new district's type is chosen is a row in the panel.
+func TestDistrictTypeSettingsRow(t *testing.T) {
+	t.Run("when the settings panel is open", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		var row ui.Setting
+		for _, s := range settingsFor(cfg).Items {
+			if s.Key == config.KeyDistrictType {
+				row = s
+			}
+		}
+
+		t.Run("it should offer random, guess and the four types, in that order", func(t *testing.T) {
+			assert.Equal(t, []string{"random", "guess", "residential", "shopping", "office", "industrial"}, row.Options)
+		})
+	})
+}

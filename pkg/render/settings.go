@@ -46,6 +46,9 @@ func (g *Game) settingsKeys() bool {
 func (g *Game) applySetting(s ui.Setting) {
 	note := fmt.Sprintf("%s: %s", s.Label, s.Value)
 	switch s.Key {
+	case config.KeyDistrictType:
+		typing, _ := city.ParseTyping(s.Value)
+		g.scene.SetTyping(typing)
 	case config.KeyLiveliness:
 		if l, ok := city.ParseLiveliness(s.Value); ok {
 			g.setLiveliness(l)
