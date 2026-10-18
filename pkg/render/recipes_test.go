@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 func TestTreePiece(t *testing.T) {
@@ -87,6 +89,64 @@ func TestSprayFrame(t *testing.T) {
 	t.Run("when there are no frames to show", func(t *testing.T) {
 		t.Run("it should not divide by zero", func(t *testing.T) {
 			assert.Equal(t, 0, sprayFrame(12, 0))
+		})
+	})
+}
+
+// Item 109: a building is its district type's kind for its storeys.
+func TestBuildingPiece(t *testing.T) {
+	t.Run("when a session is packed up", func(t *testing.T) {
+		b := &city.Building{Packed: true, Hue: 1, Session: state.Session{Storeys: 4}}
+
+		t.Run("it should be a crate in its district's hue", func(t *testing.T) {
+			assert.Equal(t, crates[1], buildingPiece(b))
+		})
+	})
+
+	for _, kind := range city.DistrictTypes {
+		for n := 1; n <= state.MaxStoreys; n++ {
+			t.Run(fmt.Sprintf("when a %s district's session reaches %d storeys", kind, n), func(t *testing.T) {
+				b := &city.Building{Type: kind, Session: state.Session{Storeys: n}}
+
+				t.Run("it should be that type's piece for that height", func(t *testing.T) {
+					assert.Equal(t, fmt.Sprintf("botropolis/%s-%d", kind, n), buildingPiece(b))
+				})
+			})
+		}
+	}
+
+	t.Run("when a session has no storeys yet", func(t *testing.T) {
+		b := &city.Building{Type: city.OfficeDistrict}
+
+		t.Run("it should be one storey", func(t *testing.T) {
+			assert.Equal(t, "botropolis/office-1", buildingPiece(b))
+		})
+	})
+
+	t.Run("when a district has no type yet", func(t *testing.T) {
+		b := &city.Building{Session: state.Session{Storeys: 2}}
+
+		t.Run("it should be residential", func(t *testing.T) {
+			assert.Equal(t, "botropolis/residential-2", buildingPiece(b))
+		})
+	})
+
+	t.Run("when every kind is looked up in the atlas", func(t *testing.T) {
+		atlases, err := assets.LoadKits()
+		require.NoError(t, err)
+		require.NotEmpty(t, atlases)
+
+		t.Run("it should be a piece the pipeline cut", func(t *testing.T) {
+			var missing []string
+			for _, kind := range city.DistrictTypes {
+				for n := 1; n <= state.MaxStoreys; n++ {
+					name := buildingPiece(&city.Building{Type: kind, Session: state.Session{Storeys: n}})
+					if _, ok := atlases[0].Sprite(name, 0); !ok {
+						missing = append(missing, name)
+					}
+				}
+			}
+			assert.Empty(t, missing, "add them to PIECES in render.py and re-run make sprites")
 		})
 	})
 }

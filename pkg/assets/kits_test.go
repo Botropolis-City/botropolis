@@ -75,27 +75,27 @@ func TestLoadKits(t *testing.T) {
 
 	t.Run("when a building is looked up", func(t *testing.T) {
 		for _, heading := range assets.Headings {
-			t.Run(fmt.Sprintf("it should have building-a at heading %d", heading), func(t *testing.T) {
-				s, ok := one.Sprite("city-kit-commercial/building-a", heading)
+			t.Run(fmt.Sprintf("it should have the hall at heading %d", heading), func(t *testing.T) {
+				s, ok := one.Sprite("city-kit-commercial/building-n", heading)
 				require.True(t, ok)
 				assert.Positive(t, s.Rect.Dx())
 			})
 		}
 
 		t.Run("it should keep the anchor inside the sprite", func(t *testing.T) {
-			s, _ := one.Sprite("city-kit-commercial/building-a", 0)
+			s, _ := one.Sprite("city-kit-commercial/building-n", 0)
 			assert.True(t, s.Anchor.X >= 0 && s.Anchor.X <= s.Rect.Dx())
 			assert.True(t, s.Anchor.Y >= 0 && s.Anchor.Y <= s.Rect.Dy())
 		})
 
 		t.Run("it should put the anchor near the foot", func(t *testing.T) {
-			s, _ := one.Sprite("city-kit-commercial/building-a", 0)
+			s, _ := one.Sprite("city-kit-commercial/building-n", 0)
 			assert.Greater(t, s.Anchor.Y, s.Rect.Dy()/2)
 		})
 
 		t.Run("it should wrap a full turn back to the first heading", func(t *testing.T) {
-			a, _ := one.Sprite("city-kit-commercial/building-a", 360)
-			b, _ := one.Sprite("city-kit-commercial/building-a", 0)
+			a, _ := one.Sprite("city-kit-commercial/building-n", 360)
+			b, _ := one.Sprite("city-kit-commercial/building-n", 0)
 			assert.Equal(t, b, a)
 		})
 

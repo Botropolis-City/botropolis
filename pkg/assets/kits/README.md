@@ -7,16 +7,15 @@ Only the rendered pages, the manifests and each kit's `License.txt` are committe
 
 | Kit | Page | Used for |
 | --- | --- | --- |
-| City Kit Commercial | https://kenney.nl/assets/city-kit-commercial | session buildings by context fill; the city hall and library |
+| City Kit Commercial | https://kenney.nl/assets/city-kit-commercial | the city hall and library |
 | City Kit Roads | https://kenney.nl/assets/city-kit-roads | avenues, bends, crossings, ends; lamp posts |
 | City Kit Industrial | https://kenney.nl/assets/city-kit-industrial | the power plant and its stack; the towers (water towers); shipping containers, in reserve |
 | City Kit Suburban | https://kenney.nl/assets/city-kit-suburban | two of the park and street trees; the planters on the plaza's edge |
 | Nature Kit | https://kenney.nl/assets/nature-kit | six more tree species, the plaza's bushes, and the grass, weeds and saplings on an overgrown lot, scaled to the Suburban trees' height and repainted in their greens by the render script |
 | Car Kit | https://kenney.nl/assets/car-kit | the cars on avenues with traffic (scaled to a third of a cell) |
-| Space Kit | https://kenney.nl/assets/space-kit | the rover that stood at a working session's door, retired in item 89 and kept only until the next render |
 | Train Kit | https://kenney.nl/assets/train-kit | the ledger: a diesel and container wagons per model on the freight loop (scaled to a quarter) |
 | Watercraft Kit | https://kenney.nl/assets/watercraft-kit | the tugs that bring a new session up the river and take a demolished one away (scaled to a quarter) |
-| (modelled in the script) | — | the drone that stands for a subagent in flight; the plaza's fountain, in three spray frames |
+| (modelled in the script) | — | the drone that stands for a subagent in flight; the plaza's fountain, in three spray frames; every session's building, one kind per district type and storey count, in `buildings.py` |
 
 Every piece is cut at four headings (0, 90, 180, 270 degrees) under one sun,
 seen by an orthographic camera 30 degrees above the ground and turned 45 degrees,

@@ -5,39 +5,21 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/state"
 )
 
-// Recipes: which kit piece stands for what. A session's building grows
-// with its context: the more of the window it has used, the taller the
-// piece, with a little variety from the session id so a block of equals
-// is not a row of clones.
+// Recipes: which kit piece stands for what. A session's building is as
+// many storeys as its heft has reached on the user's own scale, in its
+// district type's kind for that height (item 109).
 var (
-	// The commercial kit's buildings, banded by how full the context
-	// window is. The band each piece sits in is its sprite height at z2,
-	// which is the only thing that decides whether two buildings read as
-	// the same size — so the bands are derived from the atlas rather
-	// than chosen, and the heights are here so the next person can
-	// check rather than trust. Eight of these were cut into every atlas
-	// but named nowhere, which left band 0 with a single variant and
-	// every low-context session drawn as the same building.
-	fillClasses = [][]string{
-		// 253, 253
-		{"city-kit-commercial/building-c", "city-kit-commercial/building-e"},
-		// 265, 317, 318, 319
-		{"city-kit-commercial/building-d", "city-kit-commercial/building-h",
-			"city-kit-commercial/building-b", "city-kit-commercial/building-a"},
-		// 382, 383, 397
-		{"city-kit-commercial/building-g", "city-kit-commercial/building-f",
-			"city-kit-commercial/building-k"},
-		// 436, 489, 500, 594, 626
-		{"city-kit-commercial/building-i", "city-kit-commercial/building-j",
-			"city-kit-commercial/building-l", "city-kit-commercial/building-m",
-			"city-kit-commercial/building-skyscraper-a"},
-		// 770, 824, 884, 1017
-		{"city-kit-commercial/building-skyscraper-c", "city-kit-commercial/building-skyscraper-e",
-			"city-kit-commercial/building-skyscraper-b", "city-kit-commercial/building-skyscraper-d"},
+	// The city's own buildings, by district type and storeys: a kind
+	// for each height, so floors can be counted (item 109).
+	kinds = map[city.DistrictType][state.MaxStoreys]string{
+		city.ResidentialDistrict: {"botropolis/residential-1", "botropolis/residential-2", "botropolis/residential-3", "botropolis/residential-4", "botropolis/residential-5"},
+		city.ShoppingDistrict:    {"botropolis/shopping-1", "botropolis/shopping-2", "botropolis/shopping-3", "botropolis/shopping-4", "botropolis/shopping-5"},
+		city.OfficeDistrict:      {"botropolis/office-1", "botropolis/office-2", "botropolis/office-3", "botropolis/office-4", "botropolis/office-5"},
+		city.IndustrialDistrict:  {"botropolis/industrial-1", "botropolis/industrial-2", "botropolis/industrial-3", "botropolis/industrial-4", "botropolis/industrial-5"},
 	}
-	fillSteps = []float64{0.2, 0.45, 0.7, 0.9}
 
 	kitPlant = "city-kit-industrial/building-a"
 	kitStack = "city-kit-industrial/chimney-medium"
@@ -132,23 +114,19 @@ func hashID(id string) uint32 {
 // the order of city.ContainerHues (item 86).
 var crates = []string{"city-kit-industrial/shipping-container-a", "city-kit-industrial/shipping-container-b", "city-kit-industrial/shipping-container-c"}
 
-// buildingPiece is the piece for a session, by how full its context is,
-// or a crate in its district's colour once it is packed up. A stopped
-// session keeps its building on its own lot (item 86).
+// buildingPiece is the piece for a session: its district type's kind
+// for its storeys, or a crate in its district's colour once it is packed
+// up. A stopped session keeps its building on its own lot (item 86).
 func buildingPiece(b *city.Building) string {
-	h := hashID(b.Session.ID)
 	if b.Packed {
 		return crates[b.Hue%len(crates)]
 	}
-	class := len(fillSteps)
-	for i, step := range fillSteps {
-		if b.Fill < step {
-			class = i
-			break
-		}
+	column, ok := kinds[b.Type]
+	if !ok {
+		column = kinds[city.ResidentialDistrict]
 	}
-	choices := fillClasses[class]
-	return choices[h%uint32(len(choices))]
+	n := min(max(b.Session.Storeys, 1), state.MaxStoreys)
+	return column[n-1]
 }
 
 // treePiece is the tree on a park cell: the suburban kit's two trees,

@@ -2,6 +2,7 @@
 
     blender -b --python tools/render-sprites/render.py -- scene --out out.png
     blender -b --python tools/render-sprites/render.py -- atlas --out pkg/assets/kits
+    blender -b --python tools/render-sprites/render.py -- kinds --out kinds.png
     blender -b --python tools/render-sprites/render.py -- --help
 
 The `scene` mode composes one district from Kenney's City Kits — Commercial
@@ -27,6 +28,10 @@ import bpy
 import numpy as np
 from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import buildings  # noqa: E402
 
 KITS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "kits")
 
@@ -73,7 +78,9 @@ PAD = 2
 # rather than only written here, because item 59 existed at all through a
 # comment going stale when chimney-medium was drawn.
 PIECES = {
-    "city-kit-commercial": [f"building-{c}" for c in "abcdefghijklmn"] + [f"building-skyscraper-{c}" for c in "abcde"],
+    # Item 109 replaced the buildings context fill chose between with the
+    # city's own kinds; the hall and the library are all that is left.
+    "city-kit-commercial": ["building-l", "building-n"],
     "city-kit-industrial": ["building-a", "chimney-medium", "water-tower",
                             "shipping-container-a", "shipping-container-b", "shipping-container-c"],
     "city-kit-roads": ["road-straight", "road-bend", "road-crossroad", "road-intersection", "road-end", "road-square",
@@ -88,7 +95,6 @@ PIECES = {
                    # for long enough, and a sapling among it.
                    "grass", "grass_large", "grass_leafs", "plant_flatShort", "tree_small_dark"],
     "car-kit": ["sedan", "van", "taxi", "suv", "hatchback-sports", "truck", "delivery"],
-    "space-kit": ["rover"],
     "train-kit": ["train-diesel-a", "train-diesel-b", "train-diesel-c",
                   "train-carriage-container-red", "train-carriage-container-blue", "train-carriage-container-green"],
     # The gauge boats need a hull that is not a tug: the river already
@@ -122,7 +128,9 @@ PIECES = {
                        # against boat-tug-a's 3.47 and 1.94:1. Low and
                        # fast against tall and squat, on both axes.
                        "boat-speed-j"],
-    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"],
+    # Item 109: the city's own buildings, one kind per district type and
+    # storey count, modelled in buildings.py.
+    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names(),
 }
 
 # Kits that are not modelled at one unit per cell are scaled on import:
@@ -174,8 +182,9 @@ CONCRETE = (0.45, 0.45, 0.47, 1)
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     p = argparse.ArgumentParser(prog="render.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("mode", choices=["scene", "atlas"], help="what to render")
-    p.add_argument("--out", required=True, help="PNG to write (scene) or directory for the atlases (atlas)")
+    p.add_argument("mode", choices=["scene", "atlas", "kinds"], help="what to render")
+    p.add_argument("--out", required=True, help="PNG to write (scene, kinds) or directory for the atlases (atlas)")
+    p.add_argument("--heading", type=int, default=0, help="the heading to show the kinds from (kinds)")
     p.add_argument("--zooms", default="1,2", help="zoom levels to cut atlases for (atlas)")
     p.add_argument("--only", default="", help="render only pieces whose name contains this (atlas, for trying things)")
     p.add_argument("--kits", default=KITS, help="where the Kenney kits are (tools/kits)")
@@ -308,6 +317,8 @@ def piece(kits, kit, name, at, turn=0.0):
             return drone(at)
         if name.startswith("fountain-") and name[len("fountain-"):] in SPRAY:
             return fountain(at, name[len("fountain-"):])
+        if buildings.is_kind(name):
+            return buildings.build(name, at)
         raise FileNotFoundError(f"botropolis/{name} is not a piece we model")
     before = set(bpy.context.scene.objects)
     bpy.ops.import_scene.gltf(filepath=model_path(kits, kit, name))
@@ -581,14 +592,23 @@ def crop(rgba):
 PANE_MIN_AREA = 4
 
 
-def panes(rgba):
+def kit_glass(r, g, b, a):
+    return (a > 200) & (b - r > 40) & (b > 120)
+
+
+def warm_glass(r, g, b, a):
+    """Our own buildings' lit windows, buildings.WINDOW as rendered."""
+    return (a > 200) & (r > 225) & (g > 175) & (g < 245) & (b > 70) & (b < 185) & (r - b > 70)
+
+
+def panes(rgba, glass_of=kit_glass):
     """Each window pane in a cut sprite, as the four corners of the
     parallelogram it covers -- top left, top right, bottom right, bottom
     left -- in the sprite's own pixels. The corners are the topmost and
     bottommost glass pixel in the pane's leftmost and rightmost columns,
     so a pane on either face carries that face's slope. Item 86."""
     r, g, b, a = (rgba[:, :, i].astype(int) for i in range(4))
-    glass = (a > 200) & (b - r > 40) & (b > 120)
+    glass = glass_of(r, g, b, a)
     seen = np.zeros(glass.shape, dtype=bool)
     h, w = glass.shape
     out = []
@@ -721,6 +741,8 @@ def atlas(args):
                     }
                     if kit == "city-kit-commercial" and name.startswith("building"):
                         sprites[key][str(heading)]["panes"] = panes(cut)
+                    if kit == "botropolis" and buildings.is_kind(name):
+                        sprites[key][str(heading)]["panes"] = panes(cut, warm_glass)
                     count += 1
                 remove(root)
         stem = f"kits-z{zoom:g}"
@@ -747,10 +769,61 @@ def atlas(args):
         os.remove(tmp)
 
 
+def kinds(args):
+    """Every kind of building in one sheet: a row per district type, a
+    column per storey count, each standing on one ground line, so the
+    set can be held against the art it was drawn from. Prints each
+    piece's height and pane count, which the map's tests also read."""
+    out = os.path.abspath(args.out)
+    tmp = out + ".render.png"
+    reset()
+    settings()
+    bpy.context.scene.render.film_transparent = True
+    light()
+    camera((0, 0, 0), 4, 64, 64)
+    zoom = 2.0
+    cuts = {}
+    for name in buildings.names():
+        root = buildings.build(name)
+        ground = ground_point(root)
+        _, (ax, ay) = frame_piece(root, args.heading, zoom, ground)
+        cut, (x0, y0) = crop(render_pixels(tmp))
+        cuts[name] = (cut, ax - x0, ay - y0)
+        print(f"KIND {name}: {cut.shape[1]}x{cut.shape[0]} px, {len(panes(cut, warm_glass))} panes")
+        remove(root)
+    cell_w = max(c.shape[1] for c, _, _ in cuts.values()) + 24
+    above = max(ay for _, _, ay in cuts.values())
+    below = max(c.shape[0] - ay for c, _, ay in cuts.values())
+    cell_h = int(above + below) + 24
+    rows, cols = len(buildings.TYPES), buildings.MAX_STOREYS
+    sheet = np.zeros((rows * cell_h, cols * cell_w, 4), dtype=np.uint8)
+    sheet[:, :] = (17, 22, 28, 255)
+    for name, (cut, ax, ay) in cuts.items():
+        kind, n = name.rsplit("-", 1)
+        r, c = buildings.TYPES.index(kind), int(n) - 1
+        x = int(c * cell_w + cell_w / 2 - ax)
+        y = int(r * cell_h + 12 + above - ay)
+        region = sheet[y:y + cut.shape[0], x:x + cut.shape[1]]
+        alpha = cut[:, :, 3:4].astype(np.float32) / 255
+        region[:, :, :3] = (cut[:, :, :3] * alpha + region[:, :, :3] * (1 - alpha)).astype(np.uint8)
+    h, w = sheet.shape[:2]
+    img = bpy.data.images.new("kinds", w, h, alpha=True)
+    img.pixels.foreach_set((sheet[::-1].astype(np.float32) / 255).ravel())
+    img.filepath_raw = out
+    img.file_format = "PNG"
+    img.save()
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    print("WROTE", out)
+
+
 def main():
     args = parse_args()
     if args.mode == "atlas":
         atlas(args)
+        return
+    if args.mode == "kinds":
+        kinds(args)
         return
     reset()
     settings()

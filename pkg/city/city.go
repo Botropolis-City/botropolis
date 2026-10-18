@@ -58,6 +58,8 @@ type Building struct {
 	// index into ContainerHues (item 86).
 	Packed bool
 	Hue    int
+	// Type is its district's type; empty is residential (item 109).
+	Type DistrictType
 }
 
 // ContainerHues names the container colours a project's cargo comes in,

@@ -5,7 +5,7 @@
 | District | a project (cwd root, worktrees folded in) | active hours, sessions, tokens, PRs |
 | Building | a session | title, branch, model, state, age |
 | Lit / blinds down / boarded up / overgrown | live / resting / shuttered after `shuttered_days` / overgrown after `overgrown_days` | the rung, and how long it has been quiet |
-| Building fill level (storeys in the isometric view) | context window used (of 1M) | tokens in context, last compaction |
+| Building height (one to five storeys), and its kind within the district's type | the session's heft over its whole life, on the user's own history cut into fifths (item 109) | tokens in context, last compaction |
 | Worker at the bench | the main thread | current tool and file |
 | Cranes on the roof | subagents and workflows in flight | count, names, tokens |
 | Power plant at the centre | the API | tokens today by model, cache hit ratio |

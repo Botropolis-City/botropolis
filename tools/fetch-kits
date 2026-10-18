@@ -17,7 +17,7 @@ this follows that link.
 USAGE
 }
 
-default_kits=(city-kit-commercial city-kit-roads city-kit-industrial city-kit-suburban car-kit space-kit train-kit watercraft-kit nature-kit)
+default_kits=(city-kit-commercial city-kit-roads city-kit-industrial city-kit-suburban car-kit train-kit watercraft-kit nature-kit)
 dest="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/kits"
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then

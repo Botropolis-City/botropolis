@@ -161,7 +161,7 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	// depends on the scheduler.
 	g.dispatch = func(run func()) { run() }
 	d.game = g
-	snapshot, err := state.NewLoader(opts.Home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(now)
+	snapshot, err := driveSnapshot(opts.Home, now)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +325,7 @@ func (d *Drive) PointAtPoint(at city.Point) error {
 // when sessions change; the ticks Until counts start from the tick that
 // takes it. The finder keeps the index it opened with.
 func (d *Drive) Feed(home string) error {
-	snapshot, err := state.NewLoader(home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(d.game.now())
+	snapshot, err := driveSnapshot(home, d.game.now())
 	if err != nil {
 		return err
 	}
@@ -550,4 +550,15 @@ func (g *Game) noteShown() {
 		f.mu.Unlock()
 	}
 	g.shown = s
+}
+
+// driveSnapshot loads a home for the drive, with every session on the
+// home's own scale of storeys, as the daemon puts them (item 109).
+func driveSnapshot(home string, now time.Time) (state.Snapshot, error) {
+	snapshot, err := state.NewLoader(home, state.Probes{Alive: state.ProcessAlive, Attached: state.UnixSocketConnected}).Load(now)
+	if err != nil {
+		return snapshot, err
+	}
+	state.NewHeights().Apply(snapshot.Sessions, true, now)
+	return snapshot, nil
 }

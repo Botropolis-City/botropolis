@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `m` (`city_plan_key`) opens the plan from anywhere and closes it back to where you were, as does Esc; clicking a badge flies into its district on the map.
   The top-down projection is no longer offered: `--projection top` and a config that asks for it open the isometric map, with a warning.
 
+- **A building's height is how much work its session has done, on your own scale.**
+  A session's heft is the tokens it has sent and received over its whole life, subagents included, with cache reads counted at a tenth.
+  Your sessions are cut into fifths by heft, so a building stands one to five storeys and a typical session of yours sits at three; the scale is recomputed at most once a day, and no building ever loses a storey.
+  The daemon reads stopped sessions' transcripts whole in the background after the map is up, so startup does not wait for it.
+  Each height is its own kind of building, so floors can be counted at a glance: a cottage, a family house, townhouses, and apartment blocks.
+  Shops, offices and industrial buildings are drawn too, for district types still to come.
+
 - **The city moves to say what changed, as much as you choose.**
   A `liveliness` setting (still, calm, steady or lively; `--liveliness`, and `--reduced_motion` means still) sets how much the city moves; at still every mover stays on the map where it is and changes cross-fade.
   A new session's building is built on its lot when its tug docks: fence, scaffolding and crane, then the floors, then the lights.

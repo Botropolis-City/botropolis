@@ -3,6 +3,7 @@ package assets_test
 import (
 	"fmt"
 	"image"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -18,7 +19,10 @@ func TestKitPanes(t *testing.T) {
 	atlases, err := assets.LoadKits()
 	require.NoError(t, err)
 	building := func(name string) bool {
-		return strings.HasPrefix(name, "city-kit-commercial/building")
+		if strings.HasPrefix(name, "city-kit-commercial/building") {
+			return true
+		}
+		return regexp.MustCompile(`^botropolis/(residential|shopping|office|industrial)-[1-5]$`).MatchString(name)
 	}
 
 	for _, atlas := range atlases {
@@ -58,16 +62,16 @@ func TestKitPanes(t *testing.T) {
 		}
 	}
 
-	t.Run("when building-a is seen from its home heading at zoom 2", func(t *testing.T) {
+	t.Run("when the cottage is seen from its home heading at zoom 2", func(t *testing.T) {
 		var sprite assets.KitSprite
 		for _, atlas := range atlases {
 			if atlas.Zoom == 2 {
-				sprite, _ = atlas.Sprite("city-kit-commercial/building-a", 0)
+				sprite, _ = atlas.Sprite("botropolis/residential-1", 0)
 			}
 		}
 
-		t.Run("it should have the two windows its facade shows", func(t *testing.T) {
-			assert.Len(t, sprite.Panes, 2)
+		t.Run("it should have the five windows its two faces show", func(t *testing.T) {
+			assert.Len(t, sprite.Panes, 5)
 		})
 	})
 }
