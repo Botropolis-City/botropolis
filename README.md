@@ -44,7 +44,7 @@ Botropolis starts them, opens them in a terminal, parks them and wakes them, and
 
 One district per project, one building per session, and every object stands for one datum.
 A building's height is its context window used and its beacon is its state — needs-you amber, working blue, waiting teal, unattended violet, resting slate.
-While a session is mid-turn one floor of its building glows, and each tool call sends a pulse up the building to its roof.
+While a session is mid-turn its roof is scaffolded with work lights, and each tool call runs a load up a hoist on the building's corner.
 A drone works on the building for each subagent in flight and flies to the project it works in, and smoke rises per API error.
 A flag flies per PR, an inspector's car parks outside while one is open, and a merge sends a truck off the island by the bridge.
 Each message one session sends another drives a van along the road between their projects.

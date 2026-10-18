@@ -190,11 +190,14 @@ type Scene struct {
 	gaugesManual bool
 	gaugeLeaveAt time.Time
 	// calls is each session's count of tool calls at the last snapshot,
-	// lastRead when that snapshot came, and pulses the pulses its new
-	// calls sent up its building (item 89).
+	// lastRead when that snapshot came, loads the loads its new calls
+	// sent up its hoist, working whether it was mid-turn, and struck when
+	// each scaffold began coming down (item 89).
 	calls    map[string]int
 	lastRead time.Time
-	pulses   map[string][]pulse
+	loads    map[string][]load
+	working  map[string]bool
+	struck   map[string]time.Time
 	// overgrowth is the road cells growing over since their connection
 	// ceased. Item 85.
 	overgrowth map[Cell]overgrowing
@@ -638,7 +641,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())
-	s.notePulses(snapshot, s.now())
+	s.noteLoads(snapshot, s.now())
 	s.applyNight()
 	s.selected = s.reselect()
 	s.hover = Hit{}

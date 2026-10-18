@@ -13,7 +13,7 @@ import (
 )
 
 // Item 89: the building is the session, so it shows its own work: a
-// working floor while it is mid-turn, and one pulse up its face for each
+// scaffold on its roof while it is mid-turn, and one load up a hoist for each
 // tool call. There is no rover.
 func TestBuildingWorks(t *testing.T) {
 	start := time.Date(2026, 10, 17, 18, 0, 0, 0, time.UTC)
@@ -51,9 +51,8 @@ func TestBuildingWorks(t *testing.T) {
 	t.Run("when a session is mid-turn", func(t *testing.T) {
 		sc := open(t, city.Lively, with(state.Working, 0))
 
-		t.Run("it should have a working floor", func(t *testing.T) {
-			_, ok := sc.s.WorkingFloor(building(sc))
-			assert.True(t, ok)
+		t.Run("its roof should be scaffolded", func(t *testing.T) {
+			assert.Equal(t, 1.0, sc.s.Scaffold(building(sc)))
 		})
 	})
 
@@ -61,30 +60,29 @@ func TestBuildingWorks(t *testing.T) {
 		t.Run("when a session is "+string(st), func(t *testing.T) {
 			sc := open(t, city.Lively, with(st, 0))
 
-			t.Run("it should have no working floor", func(t *testing.T) {
-				_, ok := sc.s.WorkingFloor(building(sc))
-				assert.False(t, ok)
+			t.Run("it should have no scaffold", func(t *testing.T) {
+				assert.Zero(t, sc.s.Scaffold(building(sc)))
 			})
 		})
 	}
 
-	// starts is when each pulse a session's building ran began, watched
+	// starts is when each load a session's building ran began, watched
 	// in steps from the last read until every one has finished.
 	starts := func(sc scene, from time.Time) map[time.Duration]bool {
 		seen := map[time.Duration]bool{}
-		for at := from; at.Before(from.Add(city.ReadEvery + city.PulseFor)); at = at.Add(5 * time.Millisecond) {
+		for at := from; at.Before(from.Add(city.ReadEvery + city.LoadFor)); at = at.Add(5 * time.Millisecond) {
 			*sc.clock = at
-			for _, p := range sc.s.Pulses("a") {
-				began := at.Sub(from) - time.Duration(p.P*float64(city.PulseFor))
+			for _, p := range sc.s.Loads("a") {
+				began := at.Sub(from) - time.Duration(p.P*float64(city.LoadFor))
 				seen[began.Round(10*time.Millisecond)] = true
 			}
 		}
 		return seen
 	}
 	merged := func(sc scene, from time.Time) bool {
-		for at := from; at.Before(from.Add(city.ReadEvery + city.PulseFor)); at = at.Add(5 * time.Millisecond) {
+		for at := from; at.Before(from.Add(city.ReadEvery + city.LoadFor)); at = at.Add(5 * time.Millisecond) {
 			*sc.clock = at
-			for _, p := range sc.s.Pulses("a") {
+			for _, p := range sc.s.Loads("a") {
 				if p.Merged {
 					return true
 				}
@@ -97,15 +95,15 @@ func TestBuildingWorks(t *testing.T) {
 	t.Run("when one tool call is made between reads", func(t *testing.T) {
 		sc := open(t, city.Lively, with(state.Working, 0), with(state.Working, 1))
 
-		t.Run("it should send exactly one pulse", func(t *testing.T) {
+		t.Run("it should send exactly one load", func(t *testing.T) {
 			assert.Len(t, starts(sc, read), 1)
 		})
 
-		t.Run("and the pulse has run PulseFor", func(t *testing.T) {
-			*sc.clock = read.Add(city.PulseFor)
+		t.Run("and the load has run LoadFor", func(t *testing.T) {
+			*sc.clock = read.Add(city.LoadFor)
 
 			t.Run("it should be gone", func(t *testing.T) {
-				assert.Empty(t, sc.s.Pulses("a"))
+				assert.Empty(t, sc.s.Loads("a"))
 			})
 		})
 	})
@@ -113,7 +111,7 @@ func TestBuildingWorks(t *testing.T) {
 	t.Run("when three tool calls are made between reads", func(t *testing.T) {
 		sc := open(t, city.Lively, with(state.Working, 0), with(state.Working, 3))
 
-		t.Run("it should send three pulses, spread across the interval", func(t *testing.T) {
+		t.Run("it should send three loads, spread across the interval", func(t *testing.T) {
 			assert.Len(t, starts(sc, read), 3)
 		})
 	})
@@ -135,7 +133,7 @@ func TestBuildingWorks(t *testing.T) {
 	t.Run("when the count has not moved by the next read", func(t *testing.T) {
 		sc := open(t, city.Lively, with(state.Working, 0), with(state.Working, 1), with(state.Working, 1))
 
-		t.Run("it should send no new pulse", func(t *testing.T) {
+		t.Run("it should send no new load", func(t *testing.T) {
 			assert.Len(t, starts(sc, start.Add(2*city.ReadEvery)), 0)
 		})
 	})
@@ -151,25 +149,45 @@ func TestBuildingWorks(t *testing.T) {
 	t.Run("when the level is still", func(t *testing.T) {
 		sc := open(t, city.Still, with(state.Working, 0), with(state.Working, 1))
 		*sc.clock = read
-		pulses := sc.s.Pulses("a")
+		loads := sc.s.Loads("a")
 
-		t.Run("a tool call should be a brief brightening, with no climb", func(t *testing.T) {
-			require.Len(t, pulses, 1)
-			assert.True(t, pulses[0].Brighten)
+		t.Run("a tool call should be a flash of the work lights, with no climb", func(t *testing.T) {
+			require.Len(t, loads, 1)
+			assert.True(t, loads[0].Flash)
 		})
 
-		t.Run("and the brightening has run PulseFadeFor", func(t *testing.T) {
-			*sc.clock = read.Add(city.PulseFadeFor)
+		t.Run("and the flash has run LoadFlashFor", func(t *testing.T) {
+			*sc.clock = read.Add(city.LoadFlashFor)
 
 			t.Run("it should be gone", func(t *testing.T) {
-				assert.Empty(t, sc.s.Pulses("a"))
+				assert.Empty(t, sc.s.Loads("a"))
 			})
 		})
 	})
 
-	t.Run("while a pulse runs", func(t *testing.T) {
+	t.Run("when the turn ends", func(t *testing.T) {
+		sc := open(t, city.Lively, with(state.Working, 0), with(state.NeedsYou, 0))
+		ended := start.Add(city.ReadEvery)
+
+		t.Run("the scaffold should come down over ScaffoldDownFor", func(t *testing.T) {
+			*sc.clock = ended.Add(city.ScaffoldDownFor / 2)
+			assert.InDelta(t, 0.5, sc.s.Scaffold(building(sc)), 1e-9)
+		})
+
+		t.Run("while it comes down, the scene should be animating", func(t *testing.T) {
+			*sc.clock = ended.Add(city.ScaffoldDownFor / 2)
+			assert.True(t, sc.s.Animating())
+		})
+
+		t.Run("and ScaffoldDownFor has passed, it should be gone", func(t *testing.T) {
+			*sc.clock = ended.Add(city.ScaffoldDownFor)
+			assert.Zero(t, sc.s.Scaffold(building(sc)))
+		})
+	})
+
+	t.Run("while a load climbs", func(t *testing.T) {
 		sc := open(t, city.Lively, with(state.NeedsYou, 0), with(state.NeedsYou, 1))
-		*sc.clock = read.Add(city.PulseFor / 2)
+		*sc.clock = read.Add(city.LoadFor / 2)
 
 		t.Run("the scene should be animating", func(t *testing.T) {
 			assert.True(t, sc.s.Animating())

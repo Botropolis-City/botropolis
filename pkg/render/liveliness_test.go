@@ -44,8 +44,7 @@ func TestMoversAtEveryLevel(t *testing.T) {
 	}
 
 	working := func(b *city.Building) bool {
-		_, ok := city.NewScene(city.NewLayout()).WorkingFloor(b)
-		return ok
+		return city.NewScene(city.NewLayout()).Scaffold(b) > 0
 	}
 
 	// frame is what one frame draws, a second after another.
@@ -85,7 +84,7 @@ func TestMoversAtEveryLevel(t *testing.T) {
 				assert.Len(t, f.carriages, 3)
 			})
 
-			t.Run("it should light the working floor", func(t *testing.T) {
+			t.Run("it should scaffold the roof", func(t *testing.T) {
 				assert.True(t, f.working)
 			})
 

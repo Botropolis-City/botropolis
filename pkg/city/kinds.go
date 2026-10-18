@@ -48,7 +48,7 @@ type kindText struct {
 }
 
 var kindTexts = map[Kind]kindText{
-	KindSession: {"session", "a Claude Code session", "Each building is one Claude Code session. Its colour says its state: waiting for you, working, or resting. While Claude is mid-turn one floor glows, and each tool it uses sends a pulse up the building to the roof. Select it to read its card; its card leads with what Claude said last.",
+	KindSession: {"session", "a Claude Code session", "Each building is one Claude Code session. Its colour says its state: waiting for you, working, or resting. While Claude is mid-turn the roof is scaffolded, and each tool it uses sends a load up the hoist on the building's corner. Select it to read its card; its card leads with what Claude said last.",
 		[]Kind{KindProject, KindDrone, KindSmoke, KindFlag}},
 	KindProject: {"project", "a directory where sessions run", "Each district is a project: a directory on this machine. Its buildings are the sessions started there.",
 		[]Kind{KindSession, KindRoad, KindStation}},

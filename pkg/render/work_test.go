@@ -8,26 +8,31 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 )
 
-// Item 89: a working building lights one floor round the faces toward
-// the camera, and each tool call runs a pulse up its front corner from
-// that floor to the roof.
+// Item 89: a working building is scaffolded on its roof, and each tool
+// call runs a load up a hoist on its outside front corner to it.
 func TestBuildingWork(t *testing.T) {
 	// A footprint on screen, north, east, south, west, and a roof 60 px up.
 	lot := [4]city.Point{{X: 100, Y: 80}, {X: 160, Y: 110}, {X: 100, Y: 140}, {X: 40, Y: 110}}
-	const roofLift, floor = 60.0, 0.4
+	const roofLift = 60.0
 	front := lot[2]
 
 	for _, level := range city.LivelinessLevels {
 		t.Run("when the level is "+level.String(), func(t *testing.T) {
-			t.Run("a mid-turn building should light its working floor on both faces toward the camera, at the floor's height", func(t *testing.T) {
-				faces := workingFloor(lot, roofLift, floor)
+			t.Run("a mid-turn building's scaffold should stand on its roof, inside its footprint, and rise above it", func(t *testing.T) {
 				var wrong int
-				for _, face := range faces {
-					for _, p := range face {
-						h := front.Y - p.Y
-						if p.X < lot[3].X || p.X > lot[1].X || h < 0 || h > roofLift+lot[2].Y-lot[0].Y {
-							wrong++
+				for _, s := range roofScaffold(lot, roofLift, 1, 1) {
+					if !s.pole {
+						continue
+					}
+					onRoof := false
+					for _, c := range lot {
+						if s.a.Y <= c.Y-roofLift+1e-9 && s.a.Y >= lot[0].Y-roofLift-1e-9 {
+							onRoof = true
 						}
+					}
+					inside := s.a.X >= lot[3].X && s.a.X <= lot[1].X
+					if !onRoof || !inside || s.b.Y >= s.a.Y {
+						wrong++
 					}
 				}
 				assert.Zero(t, wrong)
@@ -35,15 +40,39 @@ func TestBuildingWork(t *testing.T) {
 		})
 	}
 
-	t.Run("when a pulse starts", func(t *testing.T) {
-		t.Run("it should be on the working floor, at the front corner", func(t *testing.T) {
-			assert.Equal(t, city.Point{X: front.X, Y: front.Y - floor*roofLift}, pulseAt(lot, roofLift, floor, 0))
+	t.Run("when a load starts", func(t *testing.T) {
+		t.Run("it should be at the foot of the outside front corner", func(t *testing.T) {
+			at := hoistAt(lot, roofLift, 0)
+			assert.InDelta(t, front.Y, at.Y, 1e-9)
 		})
 	})
 
-	t.Run("when a pulse ends", func(t *testing.T) {
-		t.Run("it should be at the roof, at the front corner", func(t *testing.T) {
-			assert.Equal(t, city.Point{X: front.X, Y: front.Y - roofLift}, pulseAt(lot, roofLift, floor, 1))
+	t.Run("when a load arrives", func(t *testing.T) {
+		t.Run("it should be at the scaffold, on the roof", func(t *testing.T) {
+			at := hoistAt(lot, roofLift, 1)
+			assert.InDelta(t, front.Y-roofLift, at.Y, 1e-9)
+		})
+	})
+
+	t.Run("while a load climbs", func(t *testing.T) {
+		t.Run("it should keep to one line up the corner", func(t *testing.T) {
+			assert.InDelta(t, hoistAt(lot, roofLift, 0).X, hoistAt(lot, roofLift, 0.6).X, 1e-9)
+		})
+	})
+
+	t.Run("when the scaffold and a load are drawn with their building and a nearer building", func(t *testing.T) {
+		cam := city.NewCamera()
+		own := city.RectAt(5*city.Tile, 5*city.Tile, city.Tile, city.Tile)
+		nearer := city.RectAt(6*city.Tile, 6*city.Tile, city.Tile, city.Tile)
+		got := namedOrder(cam, func(rec func(string) func()) []drawable {
+			return []drawable{
+				footprintAt(cam, nearer, rec("nearer")),
+				buildingItem(cam, own, rec("building"), rec("work")),
+			}
+		})
+
+		t.Run("they should be drawn after their building and before the nearer one", func(t *testing.T) {
+			assert.Equal(t, []string{"building", "work", "nearer"}, got)
 		})
 	})
 

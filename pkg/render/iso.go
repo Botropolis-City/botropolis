@@ -388,11 +388,6 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			g.drawBadge(screen, b, foot)
 		}
 	}
-	// The building's own work: a working floor while it is mid-turn,
-	// and a pulse up its face for each tool call (item 89).
-	if !g.viewing() {
-		g.drawWork(screen, cam, b)
-	}
 	// One flag per PR, coloured by its state: open in the accent, merged
 	// green, closed slate.
 	for i := 0; i < min(b.Flags, 3); i++ {
@@ -665,8 +660,15 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	for _, d := range c.Districts {
 		for _, b := range d.Buildings {
 			b := b
-			items = append(items, footprintAt(cam, b.Rect, func() {
+			// The building's own work, its scaffold and hoist, is drawn
+			// with it, so it takes the building's place in the sort
+			// (item 89).
+			items = append(items, buildingItem(cam, b.Rect, func() {
 				g.isoBuilding(screen, cam, b, b == selected, detailed, seconds)
+			}, func() {
+				if detailed && g.kits != nil && !g.viewing() && !b.Vacant && !g.scene.Dimmed(b) {
+					g.drawWork(screen, cam, b)
+				}
 			}))
 		}
 	}
