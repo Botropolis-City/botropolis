@@ -106,12 +106,12 @@ func (c *City) toBridge(b *Building) []Point {
 		start = route[len(route)-1]
 	}
 	path := []Point{start}
-	if d != nil {
-		land, ok := c.bridgeCell()
-		if ok {
-			for _, cell := range c.walkStreets(c.kerbCells(d), map[Cell]bool{land: true}) {
-				path = append(path, cell.Center())
-			}
+	land, ok := c.bridgeCell()
+	if dw, out := c.Driveway(d); ok && out {
+		// Out of the lot by its driveway, as every road leaves it. Item 108.
+		path = append(path, dw.Lot)
+		for _, cell := range c.walkStreets(map[Cell]bool{dw.Cell: true}, map[Cell]bool{land: true}) {
+			path = append(path, cell.Center())
 		}
 	}
 	return append(path, bridge.Land, bridge.Far)

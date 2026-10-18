@@ -108,6 +108,13 @@ func TestPullRequests(t *testing.T) {
 			assert.Equal(t, sc.s.City().Bridge().Far, path[len(path)-1])
 		})
 
+		t.Run("the truck should leave its lot by its driveway", func(t *testing.T) {
+			require.Len(t, trucks, 1)
+			c := sc.s.City()
+			dw, ok := c.Driveway(c.Districts[0])
+			assert.True(t, ok && byDriveway(trucks[0].Path, dw) >= 0, "path %v, driveway %+v", trucks[0].Path, dw)
+		})
+
 		t.Run("the truck's path should never cross the river band", func(t *testing.T) {
 			require.Len(t, trucks, 1)
 			from, _, width, ok := sc.s.City().RiverBand()

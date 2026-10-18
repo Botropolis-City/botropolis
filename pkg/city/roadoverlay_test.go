@@ -85,12 +85,14 @@ func TestRoadOverlay(t *testing.T) {
 		bare := city.Build(snapshot(sessions...), city.NewLayout())
 		require.Len(t, c.Streets, 1)
 		route := map[city.Cell]bool{}
-		for _, p := range c.Streets[0].Path {
+		path := c.Streets[0].Path
+		lots := map[city.Cell]bool{city.CellOf(path[0]): true, city.CellOf(path[len(path)-1]): true}
+		for _, p := range path[1 : len(path)-1] {
 			route[city.CellOf(p)] = true
 		}
 		road := laid(c)
 
-		t.Run("it should lay a road on exactly the corridor cells of its route", func(t *testing.T) {
+		t.Run("it should lay a road on exactly the corridor cells of its route, driveway to driveway", func(t *testing.T) {
 			got := map[city.Cell]bool{}
 			for cell := range road {
 				got[cell] = true
@@ -105,10 +107,11 @@ func TestRoadOverlay(t *testing.T) {
 			}
 		})
 
-		t.Run("it should autotile each road cell against road neighbours only", func(t *testing.T) {
+		t.Run("it should autotile each road cell against road neighbours and its lot only", func(t *testing.T) {
 			for cell, mask := range road {
 				for dir, n := range neighbours(cell) {
 					_, joined := road[n]
+					joined = joined || lots[n]
 					assert.Equal(t, joined, mask&dir != 0, "cell %v towards %d", cell, dir)
 				}
 			}

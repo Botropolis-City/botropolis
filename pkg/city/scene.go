@@ -324,7 +324,20 @@ func IsNight(t time.Time) bool {
 }
 
 func (s *Scene) City() *City {
+	s.face()
 	return s.city
+}
+
+// face places the city's streets for the camera's heading if it has
+// turned since they were placed, and grows over any road cell the turn
+// leaves behind. Item 108.
+func (s *Scene) face() {
+	if s.city.Heading() == s.camera.Heading {
+		return
+	}
+	was := s.city.StreetCells
+	s.city.Face(s.camera.Heading)
+	s.noteOvergrowth(was, s.now())
 }
 
 // ToggleNight forces night on or off regardless of what is running, to
@@ -652,6 +665,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.viewTop, s.viewCats = nil, nil
 	was := s.city.StreetCells
 	s.city = build(snapshot, s.layout, s.ladder, false)
+	s.city.Face(s.camera.Heading)
 	s.noteOvergrowth(was, s.now())
 	s.noteMowing(s.now())
 	s.noteSettling(s.now())
@@ -1173,6 +1187,7 @@ func (s *Scene) CenterOnProject(root string) bool {
 func (s *Scene) Turn() int {
 	s.touched = true
 	s.camera.Turn(1, s.Size().Scale(0.5))
+	s.face()
 	s.clamp()
 	return s.camera.Heading
 }

@@ -46,42 +46,62 @@ func (c Cell) Center() Point {
 }
 
 // placeStreets keeps the plan's avenues as corridors, routes each
-// connection along them from one district's kerb to the other's, and
-// lays road only on the corridor cells a route crosses. Item 85.
+// connection along them from one lot's driveway to the other's, and
+// lays road only on the corridor cells a route crosses. Items 85, 108.
 func (c *City) placeStreets() {
 	c.Streets = nil
 	c.StreetCells = nil
 	c.Corridors = nil
+	c.Lamps = append([]Cell(nil), c.planLamps...)
+	c.Trees = append([]Tree(nil), c.planTrees...)
 	for _, st := range c.plan.Streets {
 		c.Corridors = append(c.Corridors, StreetCell{Cell: toCell(st.Cell), Mask: st.Mask})
 	}
 	defer c.layRoads()
 	for i := range c.Roads {
 		road := &c.Roads[i]
-		cells := c.routeStreets(road)
-		var path []Point
-		for _, cell := range cells {
-			path = append(path, cell.Center())
-		}
-		if len(path) >= 2 {
+		if path := c.routeStreets(road); len(path) >= 2 {
 			c.Streets = append(c.Streets, Street{Road: road, Path: path})
 		}
 	}
 }
 
+// Face places the streets again for the camera at a heading, so every
+// driveway is on the side of its block the camera now faces.
+func (c *City) Face(heading int) {
+	heading = (heading%360 + 360) % 360
+	if heading == c.heading {
+		return
+	}
+	c.heading = heading
+	if c.plan.Streets != nil {
+		c.placeStreets()
+	}
+}
+
+// Heading is the camera heading the streets are placed for.
+func (c *City) Heading() int { return c.heading }
+
 // layRoads lays a road on every corridor cell a route crosses, each cell
-// joined only to the road cells beside it, and keeps the lamps and the
-// street trees to the roads: a corridor nothing travels is belt.
+// joined only to the road cells beside it and a driveway to its lot, and
+// keeps the lamps and the street trees to the roads: a corridor nothing
+// travels is belt.
 func (c *City) layRoads() {
 	road := map[Cell]bool{}
+	stub := map[Cell]int{}
 	for _, street := range c.Streets {
-		for _, p := range street.Path {
+		path := street.Path
+		for _, p := range path[1 : len(path)-1] {
 			road[CellOf(p)] = true
+		}
+		for _, end := range [][2]Point{{path[1], path[0]}, {path[len(path)-2], path[len(path)-1]}} {
+			cell := CellOf(end[0])
+			stub[cell] |= sideOf(cell, end[1])
 		}
 	}
 	for _, corridor := range c.Corridors {
 		if road[corridor.Cell] {
-			c.StreetCells = append(c.StreetCells, StreetCell{Cell: corridor.Cell, Mask: roadMask(corridor.Cell, road)})
+			c.StreetCells = append(c.StreetCells, StreetCell{Cell: corridor.Cell, Mask: roadMask(corridor.Cell, road) | stub[corridor.Cell]})
 		}
 	}
 	lamps := c.Lamps[:0]
@@ -124,46 +144,124 @@ func besideRoad(cell Cell, road map[Cell]bool) bool {
 	return roadMask(cell, road) != 0
 }
 
-// kerbCells is every street cell touching a district's block.
-func (c *City) kerbCells(d *District) map[Cell]bool {
-	kerb := map[Cell]bool{}
-	min, max := CellOf(d.Rect.Min), CellOf(d.Rect.Max.Sub(Point{X: 1, Y: 1}))
-	for col := min.Col - 1; col <= max.Col+1; col++ {
-		for row := min.Row - 1; row <= max.Row+1; row++ {
-			edge := col < min.Col || col > max.Col || row < min.Row || row > max.Row
-			corner := (col < min.Col || col > max.Col) && (row < min.Row || row > max.Row)
-			if edge && !corner && c.plan.IsStreet(fromCell(Cell{col, row})) {
-				kerb[Cell{col, row}] = true
-			}
-		}
+// sideOf is the side of a cell a point lies off, as a direction.
+func sideOf(cell Cell, p Point) int {
+	d := p.Sub(cell.Center())
+	switch {
+	case math.Abs(d.X) >= math.Abs(d.Y) && d.X > 0:
+		return DirE
+	case math.Abs(d.X) >= math.Abs(d.Y):
+		return DirW
+	case d.Y > 0:
+		return DirS
 	}
-	return kerb
+	return DirN
 }
 
-// routeStreets is the shortest walk along the avenues from one
-// district's kerb to the other's; a turn costs a little so traffic keeps
-// to one avenue where it can.
-func (c *City) routeStreets(road *RoadLine) []Cell {
+// front is the way out of a block towards the camera, in cells: south
+// before the camera is turned, and a quarter round for each turn.
+func (c *City) front() (int, int) {
+	switch c.heading / 90 {
+	case 1:
+		return 1, 0
+	case 2:
+		return 0, -1
+	case 3:
+		return -1, 0
+	}
+	return 0, 1
+}
+
+// depth is how near the camera a cell is, in cells: larger is nearer.
+func (c *City) depth(cell Cell) int {
+	dc, dr := c.front()
+	// The camera's own frame puts depth along x + y: Camera.turn, read
+	// off for each heading.
+	return cell.Col*(dc+dr) + cell.Row*(dr-dc)
+}
+
+// Driveway is where a lot meets the street: the avenue cell under the
+// middle of its block's camera-facing side, and the lot end just inside
+// the block that a road starts from. Item 108.
+type Driveway struct {
+	Cell Cell
+	Lot  Point
+}
+
+// Driveway is a district's driveway, if its block has one: the avenue
+// cell nearest the middle of the block's camera-facing side.
+func (c *City) Driveway(d *District) (Driveway, bool) {
+	if d == nil {
+		return Driveway{}, false
+	}
+	min, max := CellOf(d.Rect.Min), CellOf(d.Rect.Max.Sub(Point{X: 1, Y: 1}))
+	dc, dr := c.front()
+	var along []Cell
+	if dr != 0 {
+		row := max.Row + 1
+		if dr < 0 {
+			row = min.Row - 1
+		}
+		for col := min.Col; col <= max.Col; col++ {
+			along = append(along, Cell{col, row})
+		}
+	} else {
+		col := max.Col + 1
+		if dc < 0 {
+			col = min.Col - 1
+		}
+		for row := min.Row; row <= max.Row; row++ {
+			along = append(along, Cell{col, row})
+		}
+	}
+	mid := (len(along) - 1) / 2
+	for k := 0; k < 2*len(along); k++ {
+		// Out from the middle, one either side in turn.
+		i := mid + (k+1)/2
+		if k%2 == 1 {
+			i = mid - (k+1)/2
+		}
+		if i < 0 || i >= len(along) || !c.plan.IsStreet(fromCell(along[i])) {
+			continue
+		}
+		cell := along[i]
+		lot := cell.Center()
+		switch {
+		case dr > 0:
+			lot.Y = d.Rect.Max.Y - DoorInset
+		case dr < 0:
+			lot.Y = d.Rect.Min.Y + DoorInset
+		case dc > 0:
+			lot.X = d.Rect.Max.X - DoorInset
+		default:
+			lot.X = d.Rect.Min.X + DoorInset
+		}
+		return Driveway{Cell: cell, Lot: lot}, true
+	}
+	return Driveway{}, false
+}
+
+// routeStreets is a road's way from one lot to the other: out of the
+// first lot by its driveway, the cheapest walk along the avenues to the
+// other's driveway, and into that lot. Item 108.
+func (c *City) routeStreets(road *RoadLine) []Point {
 	if road.From == nil || road.To == nil {
 		return nil
 	}
-	from, to := c.kerbCells(road.From), c.kerbCells(road.To)
-	if len(from) == 0 || len(to) == 0 {
+	from, ok := c.Driveway(road.From)
+	to, ok2 := c.Driveway(road.To)
+	if !ok || !ok2 {
 		return nil
 	}
-	// Blocks across one avenue share its cells as kerb: the traffic runs
-	// along that stretch of avenue rather than nowhere at all.
-	var shared []Cell
-	for cell := range from {
-		if to[cell] {
-			shared = append(shared, cell)
-		}
+	cells := c.walkStreets(map[Cell]bool{from.Cell: true}, map[Cell]bool{to.Cell: true})
+	if len(cells) == 0 {
+		return nil
 	}
-	if len(shared) > 0 {
-		sort.Slice(shared, func(i, j int) bool { return lessCell(shared[i], shared[j]) })
-		return shared
+	path := []Point{from.Lot}
+	for _, cell := range cells {
+		path = append(path, cell.Center())
 	}
-	return c.walkStreets(from, to)
+	return append(path, to.Lot)
 }
 
 // walkStreets is the cheapest walk along the avenues from any of one set
@@ -175,6 +273,10 @@ func (c *City) walkStreets(from, to map[Cell]bool) []Cell {
 	}
 	best := map[routeNode]float64{}
 	prev := map[routeNode]routeNode{}
+	nearest := math.MinInt
+	for _, st := range c.plan.Streets {
+		nearest = max(nearest, c.depth(toCell(st.Cell)))
+	}
 	var frontier []entry
 	for cell := range from {
 		frontier = append(frontier, entry{routeNode{cell, 0}, 0})
@@ -204,7 +306,7 @@ func (c *City) walkStreets(from, to map[Cell]bool) []Cell {
 			if !c.plan.IsStreet(fromCell(next.cell)) {
 				continue
 			}
-			cost := cur.cost + 1
+			cost := cur.cost + 1 + tieCost*float64(nearest-c.depth(next.cell))
 			if cur.node.dir != 0 && cur.node.dir != st.dir {
 				cost += turnCost
 			}
@@ -227,6 +329,12 @@ func lessCell(a, b Cell) bool {
 }
 
 const turnCost = 0.6
+
+// tieCost settles two walks of the same length and turns toward the
+// camera, a cell nearer it costing less. It is far below any difference
+// steps and turns can make: a step and a turn differ by 0.2 at the
+// least, and a walk across the widest plan adds well under that.
+const tieCost = 1e-6
 
 type routeNode struct {
 	cell Cell

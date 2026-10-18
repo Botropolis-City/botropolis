@@ -134,6 +134,12 @@ type City struct {
 	Lamps  []Cell
 	bounds Rect
 	plan   plan.Plan
+	// heading is the camera's, which decides each lot's driveway; the
+	// plan's own lamps and trees are kept whole so the streets can be
+	// placed again when it turns. Item 108.
+	heading   int
+	planLamps []Cell
+	planTrees []Tree
 }
 
 type Hit struct {
@@ -346,6 +352,8 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	for _, l := range p.Lamps {
 		city.Lamps = append(city.Lamps, toCell(l))
 	}
+	city.planLamps = append([]Cell(nil), city.Lamps...)
+	city.planTrees = append([]Tree(nil), city.Trees...)
 	city.Plaza = cellRect(p.Plaza)
 	city.Fountain = cellAt(p.Fountain)
 	city.placeLandmarks(snapshot)

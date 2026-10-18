@@ -34,6 +34,24 @@ func TestTrafficCars(t *testing.T) {
 			t.Run(fmt.Sprintf("it should draw %d cars", active), func(t *testing.T) {
 				assert.Len(t, (&Game{}).cars(c, 0), active)
 			})
+
+			// Item 108: the path runs from one lot's driveway to the other's.
+			t.Run("it should keep every car on the road's path, lot to lot, as they drive", func(t *testing.T) {
+				path := c.Streets[0].Path
+				var strays []city.Point
+				for _, seconds := range []float64{0, 0.7, 3.1, 9.4, 20} {
+					for _, car := range (&Game{}).cars(c, seconds) {
+						near := false
+						for k := 1; k < len(path); k++ {
+							near = near || car.at.DistanceToSegment(path[k-1], path[k]) < 1e-6
+						}
+						if !near {
+							strays = append(strays, car.at)
+						}
+					}
+				}
+				assert.Empty(t, strays)
+			})
 		})
 	}
 

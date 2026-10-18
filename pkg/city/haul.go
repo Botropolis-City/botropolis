@@ -146,6 +146,7 @@ func (s *Scene) holdDepot() {
 	}
 	s.keepDepot = true
 	s.city = build(s.snapshot, s.layout, s.ladder, true)
+	s.city.Face(s.camera.Heading)
 }
 
 // releaseDepot lets an empty depot go once its truck has left.
@@ -155,5 +156,6 @@ func (s *Scene) releaseDepot() {
 	}
 	s.keepDepot = false
 	s.city = build(s.snapshot, s.layout, s.ladder, false)
+	s.city.Face(s.camera.Heading)
 	s.generation++
 }

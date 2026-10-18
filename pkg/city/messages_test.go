@@ -71,6 +71,15 @@ func TestMessages(t *testing.T) {
 			assert.Equal(t, sc.s.City().Streets[0].Path, vans[0].Path)
 		})
 
+		t.Run("it should leave by the sender's driveway and arrive by the recipient's", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			c := sc.s.City()
+			from, _ := c.Driveway(district(sc, cinders))
+			to, _ := c.Driveway(district(sc, mullet))
+			out, in := byDriveway(vans[0].Path, from), byDriveway(vans[0].Path, to)
+			assert.True(t, out >= 0 && in > out, "out at %d, in at %d", out, in)
+		})
+
 		t.Run("and its trip is over", func(t *testing.T) {
 			require.Len(t, vans, 1)
 			*sc.clock = start.Add(vans[0].For() + time.Millisecond)

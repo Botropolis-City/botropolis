@@ -68,8 +68,8 @@ func TestStreetsAroundDistricts(t *testing.T) {
 		require.Len(t, c.Streets, 1)
 		path := c.Streets[0].Path
 
-		t.Run("it should stay contiguous, cell to cell, the whole way", func(t *testing.T) {
-			for i := 1; i < len(path); i++ {
+		t.Run("it should stay contiguous, cell to cell, from driveway to driveway", func(t *testing.T) {
+			for i := 2; i < len(path)-1; i++ {
 				d := math.Hypot(path[i].X-path[i-1].X, path[i].Y-path[i-1].Y)
 				assert.InDelta(t, city.BuildingSize, d, 1e-9, "gap between %v and %v", path[i-1], path[i])
 			}
