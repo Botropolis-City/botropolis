@@ -145,6 +145,8 @@ type Scene struct {
 	planFrom  Camera
 	planLaid  planLaid
 	planCoast planCoast
+	// planCovers is the chrome lying over the plan (item 112).
+	planCovers []Rect
 	// lastWheel is when the wheel last turned, for PlanDebounce.
 	lastWheel time.Time
 	light     Light
@@ -612,7 +614,9 @@ func (s *Scene) insets() Insets {
 	if s.camera.Projection == Isometric {
 		// Isometric labels sit above their landmarks, inside the diamond's
 		// empty corners, so nothing is reserved at the sides.
-		in.Top = 2*LabelHeight + s.topChrome
+		// The chrome's top keeps the stream's corner when it is reserved
+		// along the top edge (item 112).
+		in.Top = math.Max(in.Top-LabelHeight, s.topChrome) + 2*LabelHeight
 		return in
 	}
 	if len(s.city.Towers) > 0 {

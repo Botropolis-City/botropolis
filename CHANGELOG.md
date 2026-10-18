@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `m` (`city_plan_key`) opens the plan from anywhere and closes it back to where you were, as does Esc; clicking a badge flies into its district on the map.
   The plan is drawn as a map: the city's land lies inside an inked coast that wanders about a cell out from its lots, in a wash of water, each lot is tinted faintly by whose move it is, and the plaza is a small civic mark that no badge covers.
   The roads between districts run along their streets as dashed ink, full while travellers are working on them and faint while they are quiet.
+  A compass in the top-right corner points north as the plan lies and turns with it on `r`, and a title block in the top-left reads *City Plan* and the time on the city's clock.
+  Badges, the compass and the title block keep clear of the lens panel, a hovered badge's card is raised beside it, and the minimap is put away while the plan is open.
   The top-down projection is no longer offered: `--projection top` and a config that asks for it open the isometric map, with a warning.
 
 - **A building's height is how much work its session has done, on your own scale.**
@@ -157,6 +159,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A config file that still sets it loads as before, and `shuttered_days` and `overgrown_days` replace it in the settings panel.
 
 ### Fixed
+
+- The isometric map's fit kept the stream's corner panel clear only when it was reserved down the right; reserved along the top, the city and the City Plan could run under it.
 
 - **A frame or a run pointed at another home never touches your own city's state.**
   `botropolis city` with `--headless`, `--record`, `--script` or `--home` kept its layout, groups and ledger in your state directory, so every frame rendered from a test home added its districts to your plan.

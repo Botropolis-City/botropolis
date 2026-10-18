@@ -386,6 +386,47 @@ type PlanTraffic struct {
 	Active bool
 }
 
+// PlanCompass is the plan's compass: its box, and the way north lies on
+// screen as a unit vector.
+type PlanCompass struct {
+	Box   Rect
+	North Point
+}
+
+// PlanCartouche is the plan's title block: its box, its title and the
+// time.
+type PlanCartouche struct {
+	Box   Rect
+	Title string
+	Time  string
+}
+
+// SetPlanCovers names the chrome lying over the plan's area, such as the
+// lens panel, so the plan lays its badges and marks out around it.
+func (s *Scene) SetPlanCovers(covers []Rect) {
+	s.planCovers = slices.Clone(covers)
+}
+
+// The compass's and the cartouche's boxes, and how far in from the
+// plan's corners they stand.
+const (
+	PlanCompassSize    = 56.0
+	PlanCartoucheWidth = 148.0
+	PlanCartoucheHigh  = 50.0
+	planMarkPad        = 12.0
+)
+
+// planMarks places the cartouche and the compass in the area's top-left
+// and top-right corners, each in the free spot nearest its corner.
+func planMarks(area Rect, covers []Rect) (cartouche, compass Rect) {
+	want := []Rect{
+		RectAt(area.Min.X+planMarkPad, area.Min.Y+planMarkPad, PlanCartoucheWidth, PlanCartoucheHigh),
+		RectAt(area.Max.X-planMarkPad-PlanCompassSize, area.Min.Y+planMarkPad, PlanCompassSize, PlanCompassSize),
+	}
+	got := layoutPlan(want, area, planGap, []int{0, 1}, covers)
+	return got[0], got[1]
+}
+
 // PlanReading is one usage limit, as the plan's legend reads it.
 type PlanReading struct {
 	Title    string
@@ -410,7 +451,10 @@ type CityPlan struct {
 	Coast []Point
 	// Plaza is the plaza glyph's box, which no badge covers.
 	Plaza Rect
-	frame planFrame
+	// Compass and Cartouche stand in the plan's top corners.
+	Compass   PlanCompass
+	Cartouche PlanCartouche
+	frame     planFrame
 }
 
 // planFrame takes the plan's own plane to the screen and back.
@@ -679,7 +723,12 @@ func (s *Scene) CityPlan() CityPlan {
 	for _, w := range coast {
 		plan.Coast = append(plan.Coast, frame.toScreen(w))
 	}
-	var fixed []Rect
+	fixed := slices.Clone(s.planCovers)
+	cartouche, compass := planMarks(area, s.planCovers)
+	fixed = append(fixed, cartouche, compass)
+	up := frame.plane(Point{Y: -CellSize}).Sub(frame.plane(Point{}))
+	plan.Compass = PlanCompass{Box: compass, North: up.Scale(1 / math.Hypot(up.X, up.Y))}
+	plan.Cartouche = PlanCartouche{Box: cartouche, Title: "City Plan", Time: s.Clock().Format("15:04")}
 	if s.city.Plaza.Area() > 0 && len(districts) > 0 {
 		at := frame.toScreen(s.city.Plaza.Center())
 		plan.Plaza = RectAt(at.X-PlanPlazaSize/2, at.Y-PlanPlazaSize/2, PlanPlazaSize, PlanPlazaSize)

@@ -44,7 +44,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	bottom := footer.KeyRow.Height() + legend.Rect.Height()
 	g.scene.SetBottomChrome(bottom)
 	streamFoot := max(bottom, height-footer.Rect.Min.Y)
-	if box, ok := ui.LayoutMinimap(th, width, height, bottom); ok {
+	if box, ok := ui.LayoutMinimap(th, width, height, bottom); ok && g.minimapAllowed() {
 		if g.streamShown() {
 			box = ui.MinimapBesideStream(th, box, ui.StreamArea(th, ui.StreamCorner, width, height, top, streamFoot), ui.StreamCorner)
 		}
@@ -82,7 +82,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		g.card(screen, ui.LayoutCard(th, g.scene.City().StateCard(st), bounds, g.faces.Measure))
 	} else if hover := g.scene.Hover(); hover.Building == nil || hover.Building != g.scene.Selected() {
 		if card, ok := g.scene.Card(); ok {
-			g.card(screen, ui.LayoutCard(th, card, bounds, g.faces.Measure))
+			g.card(screen, g.raisedCard(card, bounds))
 		}
 	}
 	g.drawSearch(screen, top, width)

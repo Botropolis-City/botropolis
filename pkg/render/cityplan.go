@@ -209,6 +209,7 @@ func (g *Game) drawCityPlan(screen *ebiten.Image, width, height, alpha float64) 
 		g.planLayer.Clear()
 		target = g.planLayer
 	}
+	g.scene.SetPlanCovers(g.planCovers(width, height))
 	plan := g.scene.CityPlan()
 	vector.FillRect(target, 0, 0, float32(width), float32(height), colorPlanPaper, false)
 	drawPlanCoast(target, width, height, plan.Coast)
@@ -230,6 +231,8 @@ func (g *Game) drawCityPlan(screen *ebiten.Image, width, height, alpha float64) 
 		}
 	}
 	drawPlanPlaza(target, plan.Plaza)
+	g.drawPlanCompass(target, plan.Compass)
+	g.drawPlanCartouche(target, plan.Cartouche)
 	for _, b := range plan.Badges {
 		g.drawPlanBadge(target, b)
 	}
@@ -376,4 +379,81 @@ func (g *Game) drawPlanLegend(screen *ebiten.Image, plan city.CityPlan) {
 		g.text(screen, city.Point{X: x + barW + pad/2, Y: bar.Min.Y + barH/2 - ph/2}, pct, ui.Small, th.Palette.Text)
 		x += math.Max(tw, barW+pad/2+pw) + 4*pad
 	}
+}
+
+// planCovers is the chrome lying over the plan's area, for the plan to
+// lay itself out around: the lens panel, in full or as its chip.
+func (g *Game) planCovers(width, height float64) []city.Rect {
+	if !g.lensPanelShown() {
+		return nil
+	}
+	laid := ui.LayoutLensPanel(g.theme, g.scene.LensPanel(), g.lensArea(width, height, g.faces.Measure), g.faces.Measure)
+	if laid.Rect.Area() == 0 {
+		return nil
+	}
+	return []city.Rect{laid.Rect}
+}
+
+// raisedCard is a hover card laid out in bounds: in its corner on the
+// map, and beside its badge on the plan.
+func (g *Game) raisedCard(card city.Card, bounds city.Rect) ui.Card {
+	laid := ui.LayoutCard(g.theme, card, bounds, g.faces.Measure)
+	hover := g.scene.Hover()
+	if !g.scene.CityPlanOpen() || hover.District == nil {
+		return laid
+	}
+	for _, b := range g.scene.CityPlan().Badges {
+		if b.District == hover.District {
+			return laid.PinTo(b.Rect, bounds, g.theme.Grid())
+		}
+	}
+	return laid
+}
+
+// minimapAllowed is whether the minimap may be drawn: not on the plan,
+// where the view it frames is hidden.
+func (g *Game) minimapAllowed() bool { return !g.scene.CityPlanOpen() }
+
+// drawPlanCompass is a compass rose whose needle points north as the
+// plan lies, with an N at its tip.
+func (g *Game) drawPlanCompass(screen *ebiten.Image, c city.PlanCompass) {
+	if c.Box.Area() == 0 {
+		return
+	}
+	th := g.theme
+	mid := c.Box.Center()
+	r := c.Box.Width()/2 - 2
+	vector.FillCircle(screen, float32(mid.X), float32(mid.Y), float32(r), colorPlanPaper, true)
+	vector.StrokeCircle(screen, float32(mid.X), float32(mid.Y), float32(r), 1.2, colorPlanInk, true)
+	n := c.North
+	side := city.Point{X: -n.Y, Y: n.X}
+	needle := r * 0.62
+	tip, tail := mid.Add(n.Scale(needle)), mid.Sub(n.Scale(needle))
+	fillRing(screen, []city.Point{tip, mid.Add(side.Scale(r * 0.18)), mid.Sub(side.Scale(r * 0.18))}, colorPlanInk)
+	strokeRing(screen, []city.Point{tail, mid.Add(side.Scale(r * 0.18)), mid.Sub(side.Scale(r * 0.18))}, 1.2, colorPlanInk)
+	w, h := g.faces.Measure("N", ui.Small)
+	at := mid.Add(n.Scale(r * 0.82))
+	g.text(screen, city.Point{X: at.X - w/2, Y: at.Y - h/2}, "N", ui.Small, th.Palette.Text)
+}
+
+// drawPlanCartouche is the plan's title block: its name and the time, in
+// a double-ruled frame.
+func (g *Game) drawPlanCartouche(screen *ebiten.Image, c city.PlanCartouche) {
+	if c.Box.Area() == 0 {
+		return
+	}
+	th := g.theme
+	r := c.Box
+	g.roundRect(screen, r, th.Radius()/2, colorPlanPaper)
+	g.roundRect(screen, r, th.Radius()/2, th.Palette.Panel)
+	for _, in := range []float64{1, 4} {
+		box := r.Inset(in)
+		strokeRing(screen, []city.Point{box.Min, {X: box.Max.X, Y: box.Min.Y}, box.Max, {X: box.Min.X, Y: box.Max.Y}}, 1, colorPlanCoast)
+	}
+	tw, th1 := g.faces.Measure(c.Title, ui.Body)
+	mw, mh := g.faces.Measure(c.Time, ui.Small)
+	top := r.Min.Y + (r.Height()-th1-mh)/2
+	mid := r.Center().X
+	g.text(screen, city.Point{X: mid - tw/2, Y: top}, c.Title, ui.Body, th.Palette.Text)
+	g.text(screen, city.Point{X: mid - mw/2, Y: top + th1}, c.Time, ui.Small, th.Palette.Dim)
 }
