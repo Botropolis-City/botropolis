@@ -21,6 +21,7 @@ import (
 	"botropolis.city/botropolis/pkg/harness"
 	"botropolis.city/botropolis/pkg/harness/codex"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/statedir"
 )
 
 const maxSocketPath = 107
@@ -106,21 +107,27 @@ func ledgerPath(cfg *config.Config) string {
 // GroupsPath is where the groups and their corrections are kept, and
 // "" for a home the run was pointed at: groups are the default home's,
 // so a fixture or a test's home never reads or writes them (item 87).
+// A private run keeps its own, in its private state (item 111).
 func GroupsPath(cfg *config.Config) string {
-	if cfg.HomeSet {
+	if cfg.HomeSet && !statedir.IsPrivate() {
 		return ""
 	}
 	return group.Path()
 }
 
 // Harnesses loads directly, without a daemon, and keeps no ledger: only
-// the daemon writes it.
+// the daemon writes the person's own. A private run keeps the one in its
+// private state, seeded from the home it was pointed at (item 111).
 func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
+	ledger := ""
+	if statedir.IsPrivate() {
+		ledger = state.LedgerPath()
+	}
 	// The city runs this way when there is no daemon, and it loads again
 	// every few seconds, so it reads stopped sessions whole in the
 	// background too, and the next load picks up what a pass found
 	// (item 109).
-	return harnesses(cfg, probes, "", func() {})
+	return harnesses(cfg, probes, ledger, func() {})
 }
 
 // harnesses reads every session; wholeRead, when not nil, has the Claude

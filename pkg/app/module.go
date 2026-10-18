@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/statedir"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -265,6 +266,13 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	if cli.Headless(cmd) && os.Getenv(headlessEnv) == "" {
 		return runHeadless(cmd)
 	}
+	if notOwnCity(cmd, c.config) {
+		cleanup, err := statedir.MakePrivate(seedState(c.config))
+		if err != nil {
+			return err
+		}
+		defer func() { _ = cleanup() }()
+	}
 	layoutPath := city.LayoutPath()
 	layout, err := city.LoadLayout(layoutPath)
 	if err != nil {
@@ -405,6 +413,24 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			return saveSetting(c.config.File, s)
 		},
 	})
+}
+
+// notOwnCity is whether a run draws something other than the person's
+// own city, a frame or a home it was pointed at, and so must keep its
+// state to itself (item 111).
+func notOwnCity(cmd *cobra.Command, cfg *config.Config) bool {
+	record, _ := cli.Record(cmd)
+	return cli.Headless(cmd) || record != "" || cli.Script(cmd) != "" || cfg.HomeSet
+}
+
+// seedState is where a private run's state is copied from: the state
+// directory inside a home it was pointed at, so a fixture home can carry
+// its own layout, ledger and groups, or nothing.
+func seedState(cfg *config.Config) string {
+	if !cfg.HomeSet {
+		return ""
+	}
+	return filepath.Join(cfg.Home, ".local", "state", "botropolis")
 }
 
 // liveActor builds its control on every action so a terminal chosen in

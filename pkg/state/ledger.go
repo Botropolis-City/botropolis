@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/statedir"
 )
 
 const ledgerFile = "sessions.json"
@@ -51,15 +52,7 @@ func (l Ledger) Unpack(id string, at time.Time) {
 
 // LedgerPath is where the daemon keeps the ledger.
 func LedgerPath() string {
-	dir := os.Getenv("XDG_STATE_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return filepath.Join(".", ledgerFile)
-		}
-		dir = filepath.Join(home, ".local", "state")
-	}
-	return filepath.Join(dir, "botropolis", ledgerFile)
+	return filepath.Join(statedir.Dir(), ledgerFile)
 }
 
 // Record notes a session and reports whether the ledger changed. An

@@ -24,6 +24,12 @@ func NewHome(t testing.TB) *Home {
 	return &Home{t: t, Path: t.TempDir()}
 }
 
+// HomeAt is a home at a path the test already owns.
+func HomeAt(t testing.TB, path string) *Home {
+	t.Helper()
+	return &Home{t: t, Path: path}
+}
+
 func (h *Home) ClaudeDir() string {
 	return filepath.Join(h.Path, ".claude")
 }

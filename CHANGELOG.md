@@ -155,6 +155,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A frame or a run pointed at another home never touches your own city's state.**
+  `botropolis city` with `--headless`, `--record`, `--script` or `--home` kept its layout, groups and ledger in your state directory, so every frame rendered from a test home added its districts to your plan.
+  Such a run now works in a temporary state directory of its own, removed when it exits, and starts no usage probe or summary.
+  With `--home`, it starts from a copy of that home's own `.local/state/botropolis`, so a fixture can carry a layout, groups or a ledger without being written to.
+
 - **The power plant counts all of a session that stopped in the last day.**
   A stopped session's transcript was read through a 64 KB head and tail, so the plant's 24-hour tokens and cost left out most of a long session that stopped yesterday; on one home it showed a third of the fresh tokens and a sixth of the cached ones.
   A transcript active in the last day is now read from the start of the plant's window to its end, and older ones are still read through the window.

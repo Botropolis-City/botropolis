@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"botropolis.city/botropolis/pkg/statedir"
 )
 
 // Utilization is Claude Code's own cached view of the account's limits,
@@ -213,16 +215,12 @@ func ReadUtilization(home string) (Utilization, bool) {
 // taking the city from 22 parked to 25. Running in a directory of its
 // own puts those transcripts in a project of their own, which the
 // loader skips.
+//
+// It stays under the person's own state directory in a private run too,
+// because the daemon fences these transcripts by this path; a private
+// run starts no probe at all instead (item 111).
 func UsageProbeDir() string {
-	dir := os.Getenv("XDG_STATE_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return filepath.Join(".", "botropolis", "usage-probe")
-		}
-		dir = filepath.Join(home, ".local", "state")
-	}
-	return filepath.Join(dir, "botropolis", "usage-probe")
+	return filepath.Join(statedir.Default(), "usage-probe")
 }
 
 // SummaryDir is the working directory summaries are generated in. It
@@ -262,6 +260,9 @@ func ProjectFolder(dir string) string {
 // accumulated one per refresh forever — see pruneProbeTranscripts for
 // why that is worth the few lines despite being 4 KB a time.
 func RefreshUtilization(ctx context.Context, bin string) bool {
+	if statedir.IsPrivate() {
+		return false
+	}
 	dir := UsageProbeDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false

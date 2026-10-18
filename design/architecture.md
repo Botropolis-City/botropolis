@@ -44,3 +44,7 @@ tools/                  analyze-history.py and the fixture generator
 
 Paths follow XDG: config in `~/.config/botropolis`, the saved layout in `~/.local/state/botropolis`,
 the socket under `$XDG_RUNTIME_DIR/botropolis`.
+Every store finds its state directory through `pkg/statedir`.
+A city run with `--headless`, `--record`, `--script` or `--home` works in a temporary one instead,
+seeded from a copy of `<home>/.local/state/botropolis` when it was given a home,
+and it starts no `claude -p` (item 111).

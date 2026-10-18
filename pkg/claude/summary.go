@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"botropolis.city/botropolis/pkg/statedir"
 )
 
 // excerptWindow is how much of a transcript's tail an excerpt reads. A
@@ -129,6 +131,10 @@ func excerptTurn(rec excerptLineJSON) string {
 	return speaker + text
 }
 
+// ErrPrivate is why a run that is not the person's own city does not
+// summarise: a frame must not spend tokens (item 111).
+var ErrPrivate = errors.New("this run is not your own city, so it generates no summaries")
+
 // Summarise asks Claude Code for a summary of an excerpt, through the
 // user's own CLI and its own login.
 //
@@ -152,6 +158,9 @@ func excerptTurn(rec excerptLineJSON) string {
 // The excerpt goes on stdin: it is the session's own words, and the
 // command line is visible to every process on the machine.
 func Summarise(ctx context.Context, bin, excerpt string) (string, error) {
+	if statedir.IsPrivate() {
+		return "", ErrPrivate
+	}
 	dir := SummaryDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err

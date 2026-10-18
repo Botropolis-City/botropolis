@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"botropolis.city/botropolis/pkg/statedir"
 )
 
 const (
-	appDir    = "botropolis"
 	storeFile = "groups.json"
 )
 
@@ -100,15 +101,7 @@ func (m Memory) Remember(r Result) Memory {
 }
 
 func Path() string {
-	dir := os.Getenv("XDG_STATE_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return filepath.Join(".", storeFile)
-		}
-		dir = filepath.Join(home, ".local", "state")
-	}
-	return filepath.Join(dir, appDir, storeFile)
+	return filepath.Join(statedir.Dir(), storeFile)
 }
 
 func Load(path string) (Memory, error) {

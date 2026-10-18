@@ -10,11 +10,11 @@ import (
 
 	"botropolis.city/botropolis/pkg/plan"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/statedir"
 )
 
 const (
 	layoutVersion = 1
-	appDir        = "botropolis"
 	layoutFile    = "layout.json"
 )
 
@@ -123,15 +123,7 @@ func (l *Layout) HiddenRoots() []string {
 }
 
 func LayoutPath() string {
-	dir := os.Getenv("XDG_STATE_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return filepath.Join(".", layoutFile)
-		}
-		dir = filepath.Join(home, ".local", "state")
-	}
-	return filepath.Join(dir, appDir, layoutFile)
+	return filepath.Join(statedir.Dir(), layoutFile)
 }
 
 func LoadLayout(path string) (*Layout, error) {
