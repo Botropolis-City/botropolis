@@ -360,3 +360,42 @@ func unwind(prev map[routeNode]routeNode, end routeNode) []Cell {
 func fromCell(c Cell) plan.Cell {
 	return plan.Cell{Col: c.Col, Row: c.Row}
 }
+
+// Pads is the paved strip from each driveway among the cells into its
+// lot: every side a cell is joined on that is not another street.
+func (c *City) Pads(cells []StreetCell) []Rect {
+	var out []Rect
+	for _, sc := range cells {
+		for _, s := range sides {
+			lot := Cell{sc.Cell.Col + s.dc, sc.Cell.Row + s.dr}
+			if sc.Mask&s.dir == 0 || c.plan.IsStreet(fromCell(lot)) {
+				continue
+			}
+			out = append(out, padInto(sc.Cell, s.dc, s.dr))
+		}
+	}
+	return out
+}
+
+// PadWidth and PadDepth are a driveway pad's size: about the road's own
+// width, and most of the lot's padding deep, short of the buildings.
+const (
+	PadWidth = 1.75 * Tile
+	PadDepth = 0.75 * DistrictPadding
+)
+
+// padInto is the pad off one side of a street cell, into the lot there.
+func padInto(cell Cell, dc, dr int) Rect {
+	r := cell.Rect()
+	mid := r.Center()
+	half := PadWidth / 2
+	switch {
+	case dr > 0:
+		return Rect{Min: Point{X: mid.X - half, Y: r.Max.Y}, Max: Point{X: mid.X + half, Y: r.Max.Y + PadDepth}}
+	case dr < 0:
+		return Rect{Min: Point{X: mid.X - half, Y: r.Min.Y - PadDepth}, Max: Point{X: mid.X + half, Y: r.Min.Y}}
+	case dc > 0:
+		return Rect{Min: Point{X: r.Max.X, Y: mid.Y - half}, Max: Point{X: r.Max.X + PadDepth, Y: mid.Y + half}}
+	}
+	return Rect{Min: Point{X: r.Min.X - PadDepth, Y: mid.Y - half}, Max: Point{X: r.Min.X, Y: mid.Y + half}}
+}

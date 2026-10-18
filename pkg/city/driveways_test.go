@@ -150,6 +150,54 @@ func TestDriveways(t *testing.T) {
 			_, paved := streetCellAt(without, dw.Cell)
 			assert.False(t, paved)
 		})
+
+		pads := with.Pads(with.StreetCells)
+		into := func(lot city.Point) bool {
+			for _, p := range pads {
+				if p.Contains(lot) {
+					return true
+				}
+			}
+			return false
+		}
+		end, _ := with.Driveway(districtNamed(with, "b"))
+
+		t.Run("it should pave a pad from each driveway into its lot", func(t *testing.T) {
+			assert.Equal(t, [2]bool{true, true}, [2]bool{into(dw.Lot), into(end.Lot)})
+		})
+
+		t.Run("it should pave no pad off any other street cell", func(t *testing.T) {
+			assert.Len(t, pads, 2)
+		})
+
+		t.Run("it should keep each pad inside its lot's padding", func(t *testing.T) {
+			var out []city.Rect
+			for _, p := range pads {
+				a, b := districtNamed(with, "a").Rect, districtNamed(with, "b").Rect
+				inA := a.Contains(p.Min) && a.Contains(p.Max) && p.Min.Y >= a.Max.Y-city.DistrictPadding
+				inB := b.Contains(p.Min) && b.Contains(p.Max) && p.Min.Y >= b.Max.Y-city.DistrictPadding
+				if !inA && !inB {
+					out = append(out, p)
+				}
+			}
+			assert.Empty(t, out)
+		})
+
+		t.Run("and the road has just gone", func(t *testing.T) {
+			s := city.NewScene(city.NewLayout())
+			s.SetClock(func() time.Time { return now }, time.UTC)
+			s.Resize(1600, 1000)
+			s.SetSnapshot(state.Snapshot{At: now, Sessions: sixDistricts(), Roads: roadsBetween([2]string{"a", "b"})})
+			s.SetSnapshot(snapshot(sixDistricts()...))
+			var growing []city.StreetCell
+			for _, o := range s.Overgrowth() {
+				growing = append(growing, city.StreetCell{Cell: o.Cell, Mask: o.Mask})
+			}
+
+			t.Run("it should grow the pads over with the driveways", func(t *testing.T) {
+				assert.Len(t, s.City().Pads(growing), 2)
+			})
+		})
 	})
 }
 

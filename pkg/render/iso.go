@@ -1009,6 +1009,7 @@ func (g *Game) overgrowth(screen *ebiten.Image, cam *city.Camera, flat bool) {
 		name, turn := roadPiece(o.Mask)
 		g.kitGround(screen, cam, name, turn, o.Cell.Center(), &tint)
 	}
+	g.overgrownPads(screen, g.scene.City(), cam, flat)
 }
 
 // streetSigns highlights the hovered street and signs each one at the

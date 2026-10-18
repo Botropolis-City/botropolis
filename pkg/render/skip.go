@@ -1,8 +1,6 @@
 package render
 
 import (
-	"math"
-
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -66,27 +64,49 @@ func (g *Game) skipAt(cam *city.Camera, b *city.Building) city.Point {
 	return at
 }
 
-// kerbPath is the way the job's trucks come and go: in along the lot's
-// front edge, stopping at the skip and, for the mixer, beside the
-// building, and on out the far end.
-func (g *Game) kerbPath(cam *city.Camera, b *city.Building) (from, skip, pour, to city.Point) {
-	corner, sides := lotCorner(cam, b)
-	far := sides[0]
-	if cam.WorldToScreen(sides[1]).X < cam.WorldToScreen(far).X {
-		far = sides[1]
+// jobPaths is a truck's way in to a stop at a building and back out:
+// off the street by the lot's driveway, along the strip inside the
+// lot's front to the service lane on the stop's side of the building,
+// up the lane, and across to the stop; out the same way. Item 108.
+func (g *Game) jobPaths(c *city.City, b *city.Building, stop city.Point) (in, out []city.Point) {
+	d := c.DistrictOf(b)
+	dw, ok := c.Driveway(d)
+	if !ok {
+		return []city.Point{stop}, []city.Point{stop}
 	}
-	dir := far.Sub(corner)
-	span := b.Rect.Width()
-	unit := dir.Scale(1 / max(1e-9, math.Hypot(dir.X, dir.Y)))
-	return corner.Sub(unit.Scale(span)), corner, corner.Add(dir.Scale(0.5)), far.Add(unit.Scale(span))
+	street, lot := dw.Cell.Center(), dw.Lot
+	r, gap := b.Rect, city.BuildingGap/2
+	in = []city.Point{street, lot}
+	if lot.X == street.X {
+		lane := r.Max.X + gap
+		if stop.X < r.Center().X {
+			lane = r.Min.X - gap
+		}
+		in = append(in, city.Point{X: lane, Y: lot.Y}, city.Point{X: lane, Y: stop.Y})
+	} else {
+		lane := r.Max.Y + gap
+		if stop.Y < r.Center().Y {
+			lane = r.Min.Y - gap
+		}
+		in = append(in, city.Point{X: lot.X, Y: lane}, city.Point{X: stop.X, Y: lane})
+	}
+	in = append(in, stop)
+	out = make([]city.Point, len(in))
+	for i, p := range in {
+		out[len(in)-1-i] = p
+	}
+	return in, out
 }
 
-// alongPath is a truck Along of the way from in through its stop to out.
-func alongPath(from, stop, to city.Point, along float64) (city.Point, city.Point) {
-	if along <= 1 {
-		return lerp(from, stop, along), stop.Sub(from)
+// alongJob is where a truck Along of its job is, and which way it
+// faces: from 0 at the street to 1 at its stop on the way in, and on to
+// 2 at the street on the way out.
+func alongJob(in, out []city.Point, along float64) (city.Point, city.Point) {
+	path, share := in, along
+	if along > 1 {
+		path, share = out, along-1
 	}
-	return lerp(stop, to, along-1), to.Sub(stop)
+	return pointAlong(path, min(1, max(0, share))*pathLength(path))
 }
 
 // drawSkip draws the skip at a building's kerb and the trucks of any
@@ -102,9 +122,12 @@ func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	if !collecting {
 		return
 	}
-	from, skip, pour, to := g.kerbPath(cam, b)
+	skip, sides := lotCorner(cam, b)
+	pour := skip.Add(sides[0].Sub(skip).Scale(0.5))
+	c := g.scene.City()
 	if t := job.SkipTruck; t.Present {
-		at, dir := alongPath(from, skip, to, t.Along)
+		in, out := g.jobPaths(c, b, skip)
+		at, dir := alongJob(in, out, t.Along)
 		piece := kitSkipTruck
 		if t.Loaded {
 			piece = kitSkipTruckLoaded
@@ -112,7 +135,8 @@ func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		g.kit(screen, cam, piece, carTurn(dir), at, tint)
 	}
 	if t := job.Mixer; t.Present {
-		at, dir := alongPath(from, pour, to, t.Along)
+		in, out := g.jobPaths(c, b, pour)
+		at, dir := alongJob(in, out, t.Along)
 		g.kit(screen, cam, kitMixer, carTurn(dir), at, tint)
 	}
 }

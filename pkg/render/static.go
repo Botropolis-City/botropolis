@@ -111,6 +111,7 @@ func (g *Game) composeStatic(dst *ebiten.Image, c *city.City, cam *city.Camera, 
 	for _, d := range c.Districts {
 		g.isoDistrict(dst, cam, d, hover.District == d)
 	}
+	g.drivewayPads(dst, c, cam, false)
 	g.isoPlaza(dst, cam, c)
 	g.camps(dst, c, cam)
 }
