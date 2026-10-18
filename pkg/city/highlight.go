@@ -20,6 +20,8 @@ type Highlight struct {
 	buildings map[*Building]bool
 	towers    map[*Tower]bool
 	roads     map[*RoadLine]bool
+	// districts are the lots kept lit when the ground recedes too.
+	districts map[*District]bool
 }
 
 func (h Highlight) HasBuilding(b *Building) bool { return h.buildings[b] }
@@ -40,11 +42,13 @@ func (s *Scene) Highlight() Highlight {
 		}
 		return h
 	}
-	pointedAway := s.hover.Tower != nil || (s.hover.Building != nil && s.hover.Building != s.selected)
+	pointedAway := s.hover.Tower != nil || s.hover.Car != nil || (s.hover.Building != nil && s.hover.Building != s.selected)
 	if !pointedAway && s.showRoad(&h) {
 		return h
 	}
 	switch hit := s.hover; {
+	case hit.Car != nil && hit.Car.Road != nil:
+		s.tieCar(&h, hit.Car.Road)
 	case hit.Tower != nil:
 		h.Active = true
 		h.towers[hit.Tower] = true
@@ -87,4 +91,24 @@ func (s *Scene) tieBuilding(h *Highlight, b *Building) {
 	}
 	h.Active = true
 	h.buildings[b] = true
+}
+
+// RecedesGround is whether the roads and lots outside the lit set step
+// back too, not only the buildings: pointing at a car. Item 108.
+func (h Highlight) RecedesGround() bool { return h.Active && h.districts != nil }
+
+// Recedes is whether a district's lot steps back under the highlight.
+func (h Highlight) Recedes(d *District) bool { return h.RecedesGround() && !h.districts[d] }
+
+// tieCar lights a car's road, driveway to driveway, and the two
+// districts it runs between, and everything else steps back. Item 108.
+func (s *Scene) tieCar(h *Highlight, road *RoadLine) {
+	h.Active = true
+	h.roads[road] = true
+	h.districts = map[*District]bool{road.From: true, road.To: true}
+	for _, b := range s.city.Buildings() {
+		if h.districts[s.city.DistrictOf(b)] {
+			h.buildings[b] = true
+		}
+	}
 }

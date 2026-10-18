@@ -40,6 +40,9 @@ type layerKey struct {
 	hoverDistrict *city.District
 	hoverTower    *city.Tower
 	hoverLine     *city.PowerLine
+	// hoverCar is the road of the car under the pointer, which recedes
+	// every other lot and road (item 108).
+	hoverCar *city.RoadLine
 	// roads is the session whose roads are shown (item 88).
 	roads string
 }
@@ -68,6 +71,7 @@ func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layer
 		hoverDistrict: hover.District,
 		hoverTower:    hover.Tower,
 		hoverLine:     hover.Line,
+		hoverCar:      carRoad(hover),
 		roads:         g.scene.RoadsShown(),
 	}
 }

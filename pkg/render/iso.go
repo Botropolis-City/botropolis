@@ -174,12 +174,15 @@ func (g *Game) lamp(screen *ebiten.Image, cam *city.Camera, cell city.Cell, nigh
 }
 
 func (g *Game) isoDistrict(screen *ebiten.Image, cam *city.Camera, d *city.District, hovered bool) {
-	fill := colorKitFloor
+	fill, kerb := colorKitFloor, colorKitKerb
 	if hovered {
 		fill = colorKitFloorHi
 	}
+	if g.lit.Recedes(d) {
+		fill, kerb = recededGround(fill), recededGround(kerb)
+	}
 	g.poly(screen, cam, d.Rect, fill)
-	g.polyStroke(screen, cam, d.Rect, 2, colorKitKerb)
+	g.polyStroke(screen, cam, d.Rect, 2, kerb)
 }
 
 const (
@@ -985,9 +988,10 @@ func (g *Game) streets(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		g.roadLines(screen, c, cam, hover, labels)
 		return
 	}
+	lit := g.litGround(c)
 	for _, sc := range c.StreetCells {
 		name, turn := roadPiece(sc.Mask)
-		g.kitGround(screen, cam, name, turn, sc.Cell.Center(), nil)
+		g.kitGround(screen, cam, name, turn, sc.Cell.Center(), groundTint(lit, sc.Cell))
 	}
 	g.bridge(screen, c, cam)
 	g.streetSigns(screen, c, cam, hover, labels)
@@ -1173,7 +1177,11 @@ func carTurn(d city.Point) int {
 }
 
 func (g *Game) drawCar(screen *ebiten.Image, cam *city.Camera, car car) {
-	r := g.kit(screen, cam, car.model, car.turn, car.at, nil)
+	var tint *ebiten.ColorScale
+	if g.lit.RecedesGround() && !g.lit.HasRoad(car.road) {
+		tint = dimmed()
+	}
+	r := g.kit(screen, cam, car.model, car.turn, car.at, tint)
 	if car.road == nil {
 		return
 	}

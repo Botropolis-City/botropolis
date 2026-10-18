@@ -222,7 +222,7 @@ func TestRoadsRunLotToLot(t *testing.T) {
 			start, _ := c.Driveway(from)
 			end, _ := c.Driveway(to)
 			path := street.Path
-			require.GreaterOrEqual(t, len(path), 4, "precondition: lot, driveway, driveway, lot")
+			require.GreaterOrEqual(t, len(path), 3, "precondition: lot, driveway, ..., driveway, lot")
 
 			t.Run("it should start in the first lot and leave by its driveway", func(t *testing.T) {
 				assert.Equal(t, [2]any{start.Lot, start.Cell}, [2]any{path[0], city.CellOf(path[1])})
@@ -242,19 +242,19 @@ func TestRoadsRunLotToLot(t *testing.T) {
 				assert.Empty(t, strays)
 			})
 
-			t.Run("it should not be only cells beside both lots", func(t *testing.T) {
+			t.Run("it should not run along the avenue beside both lots, only across it", func(t *testing.T) {
 				beside := func(d *city.District, p city.Point) bool {
 					grown := d.Rect.Inset(-city.BuildingSize)
 					corner := (p.X < d.Rect.Min.X || p.X > d.Rect.Max.X) && (p.Y < d.Rect.Min.Y || p.Y > d.Rect.Max.Y)
 					return grown.Contains(p) && !d.Rect.Contains(p) && !corner
 				}
-				only := true
+				both := 0
 				for _, p := range path[1 : len(path)-1] {
-					if !beside(from, p) || !beside(to, p) {
-						only = false
+					if beside(from, p) && beside(to, p) {
+						both++
 					}
 				}
-				assert.False(t, only)
+				assert.LessOrEqual(t, both, 1)
 			})
 
 			t.Run("it should lay both driveways with a stub into their lots", func(t *testing.T) {
@@ -268,24 +268,54 @@ func TestRoadsRunLotToLot(t *testing.T) {
 		})
 	}
 
-	t.Run("when two paths of equal length join the lots", func(t *testing.T) {
-		// a's driveway is on the avenue above d, and d's on the one below
-		// it: round d's west side or its east is the same distance.
+	// Aria, 2026-10-18: a driveway goes on the side that keeps its lot's
+	// roads shortest, the camera-facing side when it ties or is within a
+	// cell or two.
+	t.Run("when one lot stands directly behind the other", func(t *testing.T) {
+		// a's front faces d's back across one avenue: with both driveways
+		// facing the camera, the road went round d's whole depth.
 		snap := snapshot(sixDistricts()...)
 		snap.Roads = roadsBetween([2]string{"a", "d"})
 		c := city.Build(snap, city.NewLayout())
 		street, ok := streetOf(c, "a", "d")
 		require.True(t, ok, "precondition: the road is routed")
-		d := districtNamed(c, "d")
+		a, d := districtNamed(c, "a"), districtNamed(c, "d")
+		require.Less(t, a.Rect.Max.Y, d.Rect.Min.Y, "precondition: a is north of d")
 
-		t.Run("it should take the one on the camera's side", func(t *testing.T) {
-			var west []city.Point
-			for _, p := range street.Path {
-				if p.X < d.Rect.Min.X {
-					west = append(west, p)
+		t.Run("it should join them by the avenue between them", func(t *testing.T) {
+			var off []city.Point
+			for _, p := range street.Path[1 : len(street.Path)-1] {
+				if p.Y < a.Rect.Max.Y || p.Y > d.Rect.Min.Y {
+					off = append(off, p)
 				}
 			}
-			assert.Empty(t, west)
+			assert.Empty(t, off)
+		})
+
+		t.Run("it should keep the front lot's driveway on the side facing the camera", func(t *testing.T) {
+			dw, _ := c.Driveway(a)
+			assert.Greater(t, dw.Cell.Center().Y, a.Rect.Max.Y)
+		})
+
+		t.Run("and a lot has no roads, it should keep the side facing the camera", func(t *testing.T) {
+			other := districtNamed(c, "c")
+			dw, _ := c.Driveway(other)
+			assert.Greater(t, dw.Cell.Center().Y, other.Rect.Max.Y)
+		})
+	})
+
+	t.Run("when another side is shorter by only a cell or two", func(t *testing.T) {
+		// b and e meet across a corner: b's east side or e's west would
+		// save a step or two, which is not worth a driveway out of view.
+		snap := snapshot(sixDistricts()...)
+		snap.Roads = roadsBetween([2]string{"b", "e"})
+		c := city.Build(snap, city.NewLayout())
+		require.Len(t, c.Streets, 1, "precondition: the road is routed")
+		b := districtNamed(c, "b")
+
+		t.Run("it should keep the side facing the camera", func(t *testing.T) {
+			dw, _ := c.Driveway(b)
+			assert.Greater(t, dw.Cell.Center().Y, b.Rect.Max.Y)
 		})
 	})
 

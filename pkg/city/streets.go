@@ -58,6 +58,7 @@ func (c *City) placeStreets() {
 		c.Corridors = append(c.Corridors, StreetCell{Cell: toCell(st.Cell), Mask: st.Mask})
 	}
 	defer c.layRoads()
+	c.chooseDriveways()
 	for i := range c.Roads {
 		road := &c.Roads[i]
 		if path := c.routeStreets(road); len(path) >= 2 {
@@ -98,6 +99,15 @@ func (c *City) layRoads() {
 			cell := CellOf(end[0])
 			stub[cell] |= sideOf(cell, end[1])
 		}
+	}
+	// A road that reaches the bridge's landing joins it: a T, not a
+	// road running past the bridge's end (Aria, 2026-10-18).
+	if land, ok := c.bridgeCell(); ok && road[land] {
+		toward := DirE
+		if c.Bridge().Far.X < c.Bridge().Land.X {
+			toward = DirW
+		}
+		stub[land] |= toward
 	}
 	for _, corridor := range c.Corridors {
 		if road[corridor.Cell] {
@@ -188,14 +198,25 @@ type Driveway struct {
 	Lot  Point
 }
 
-// Driveway is a district's driveway, if its block has one: the avenue
-// cell nearest the middle of the block's camera-facing side.
+// Driveway is a district's driveway, if its block has one: the side
+// chosen for its roads when the streets were placed, and otherwise the
+// middle of the side facing the camera.
 func (c *City) Driveway(d *District) (Driveway, bool) {
+	if dw, ok := c.driveways[d]; ok {
+		return dw, true
+	}
+	dc, dr := c.front()
+	return c.drivewayOn(d, dc, dr)
+}
+
+// drivewayOn is a district's driveway on one side of its block: the
+// avenue cell nearest the middle of that side, an even side's middle
+// rounding toward the camera.
+func (c *City) drivewayOn(d *District, dc, dr int) (Driveway, bool) {
 	if d == nil {
 		return Driveway{}, false
 	}
 	min, max := CellOf(d.Rect.Min), CellOf(d.Rect.Max.Sub(Point{X: 1, Y: 1}))
-	dc, dr := c.front()
 	var along []Cell
 	if dr != 0 {
 		row := max.Row + 1
@@ -214,17 +235,18 @@ func (c *City) Driveway(d *District) (Driveway, bool) {
 			along = append(along, Cell{col, row})
 		}
 	}
-	mid := (len(along) - 1) / 2
-	for k := 0; k < 2*len(along); k++ {
-		// Out from the middle, one either side in turn.
-		i := mid + (k+1)/2
-		if k%2 == 1 {
-			i = mid - (k+1)/2
+	mid := float64(len(along)-1) / 2
+	sort.SliceStable(along, func(i, j int) bool {
+		di, dj := math.Abs(float64(i)-mid), math.Abs(float64(j)-mid)
+		if di != dj {
+			return di < dj
 		}
-		if i < 0 || i >= len(along) || !c.plan.IsStreet(fromCell(along[i])) {
+		return c.depth(along[i]) > c.depth(along[j])
+	})
+	for _, cell := range along {
+		if !c.plan.IsStreet(fromCell(cell)) {
 			continue
 		}
-		cell := along[i]
 		lot := cell.Center()
 		switch {
 		case dr > 0:
@@ -239,6 +261,110 @@ func (c *City) Driveway(d *District) (Driveway, bool) {
 		return Driveway{Cell: cell, Lot: lot}, true
 	}
 	return Driveway{}, false
+}
+
+// drivewaySlack is how many cells shorter a lot's roads must be by
+// another side before its driveway leaves the side facing the camera
+// (Aria, 2026-10-18: "within a cell or two").
+const drivewaySlack = 2
+
+// chooseDriveways gives each lot with roads the side that keeps the
+// total length of its roads shortest, the camera-facing side unless
+// another is more than drivewaySlack cells shorter, settling each lot
+// against the others' choices until none moves. Item 108.
+func (c *City) chooseDriveways() {
+	c.driveways = map[*District]Driveway{}
+	partners := map[*District][]*District{}
+	for i := range c.Roads {
+		r := &c.Roads[i]
+		if r.From == nil || r.To == nil || r.From == r.To {
+			continue
+		}
+		partners[r.From] = append(partners[r.From], r.To)
+		partners[r.To] = append(partners[r.To], r.From)
+	}
+	fc, fr := c.front()
+	type side struct {
+		dw       Driveway
+		facing   bool
+		distance map[Cell]int
+	}
+	sides := map[*District][]side{}
+	var order []*District
+	for _, d := range c.Districts {
+		if front, ok := c.drivewayOn(d, fc, fr); ok {
+			c.driveways[d] = front
+		}
+		if len(partners[d]) == 0 {
+			continue
+		}
+		order = append(order, d)
+		for _, s := range []struct{ dc, dr int }{{fc, fr}, {-fr, fc}, {fr, -fc}, {-fc, -fr}} {
+			if dw, ok := c.drivewayOn(d, s.dc, s.dr); ok {
+				sides[d] = append(sides[d], side{dw: dw, facing: s.dc == fc && s.dr == fr, distance: c.streetDistances(dw.Cell)})
+			}
+		}
+	}
+	const far = 1 << 20
+	for round := 0; round < 8; round++ {
+		moved := false
+		for _, d := range order {
+			total := func(s side) int {
+				sum := 0
+				for _, p := range partners[d] {
+					n, ok := s.distance[c.driveways[p].Cell]
+					if !ok {
+						n = far
+					}
+					sum += n
+				}
+				return sum
+			}
+			best, bestTotal, facing, facingTotal := -1, far*len(partners[d]), -1, 0
+			for i, s := range sides[d] {
+				n := total(s)
+				if s.facing {
+					facing, facingTotal = i, n
+				}
+				if n < bestTotal || (n == bestTotal && best >= 0 && c.depth(s.dw.Cell) > c.depth(sides[d][best].dw.Cell)) {
+					best, bestTotal = i, n
+				}
+			}
+			if best < 0 {
+				continue
+			}
+			pick := sides[d][best].dw
+			if facing >= 0 && facingTotal-bestTotal <= drivewaySlack {
+				pick = sides[d][facing].dw
+			}
+			if pick != c.driveways[d] {
+				c.driveways[d], moved = pick, true
+			}
+		}
+		if !moved {
+			break
+		}
+	}
+}
+
+// streetDistances is how many steps along the avenues every street cell
+// is from one.
+func (c *City) streetDistances(from Cell) map[Cell]int {
+	dist := map[Cell]int{from: 0}
+	queue := []Cell{from}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		for _, s := range sides {
+			next := Cell{cur.Col + s.dc, cur.Row + s.dr}
+			if _, seen := dist[next]; seen || !c.plan.IsStreet(fromCell(next)) {
+				continue
+			}
+			dist[next] = dist[cur] + 1
+			queue = append(queue, next)
+		}
+	}
+	return dist
 }
 
 // routeStreets is a road's way from one lot to the other: out of the
@@ -368,7 +494,7 @@ func (c *City) Pads(cells []StreetCell) []Rect {
 	for _, sc := range cells {
 		for _, s := range sides {
 			lot := Cell{sc.Cell.Col + s.dc, sc.Cell.Row + s.dr}
-			if sc.Mask&s.dir == 0 || c.plan.IsStreet(fromCell(lot)) {
+			if sc.Mask&s.dir == 0 || c.plan.IsStreet(fromCell(lot)) || !c.inLot(lot) {
 				continue
 			}
 			out = append(out, padInto(sc.Cell, s.dc, s.dr))
@@ -398,4 +524,14 @@ func padInto(cell Cell, dc, dr int) Rect {
 		return Rect{Min: Point{X: r.Max.X, Y: mid.Y - half}, Max: Point{X: r.Max.X + PadDepth, Y: mid.Y + half}}
 	}
 	return Rect{Min: Point{X: r.Min.X - PadDepth, Y: mid.Y - half}, Max: Point{X: r.Min.X, Y: mid.Y + half}}
+}
+
+// inLot is whether a cell is inside a district's block.
+func (c *City) inLot(cell Cell) bool {
+	for _, d := range c.Districts {
+		if d.Rect.Contains(cell.Center()) {
+			return true
+		}
+	}
+	return false
 }

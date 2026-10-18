@@ -22,7 +22,8 @@ type Cue struct {
 	For  float64 `json:"for,omitempty" yaml:"for,omitempty"`
 	// Point glides the pointer to a window position over Over seconds;
 	// PointAt glides it to something in the city -- a session by title
-	// or id, "district:<name>", or "plant" -- and keeps it there as the
+	// or id, "district:<name>", "car:<from>-><to>" for the first car on
+	// the road between two districts, or "plant" -- and keeps it there as the
 	// camera moves.
 	Point   []float64 `json:"point,omitempty" yaml:"point,omitempty"`
 	PointAt string    `json:"point_at,omitempty" yaml:"point_at,omitempty"`

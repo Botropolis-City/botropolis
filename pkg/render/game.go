@@ -534,7 +534,8 @@ func (g *Game) Update() error {
 // the second frame after the first snapshot so the fit has settled.
 // resolveTarget is where a scripted pointer aims, or a scripted pan
 // brings to the middle: a session's building
-// by title or id, a district by "district:<name>", or the power plant.
+// by title or id, a district by "district:<name>", a car by
+// "car:<from>-><to>", or the power plant.
 func (g *Game) resolveTarget(target string) (city.Point, bool) {
 	c := g.scene.City()
 	cam := g.scene.Camera()
@@ -546,6 +547,9 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 		line := g.footerBar.WaitingRect
 		g.mu.Unlock()
 		return line.Center(), line.Area() > 0
+	}
+	if pair, ok := strings.CutPrefix(target, "car:"); ok {
+		return g.carTarget(c, cam, pair)
 	}
 	if name, ok := strings.CutPrefix(target, "district:"); ok {
 		if g.scene.CityPlanOpen() {

@@ -138,6 +138,7 @@ type City struct {
 	// plan's own lamps and trees are kept whole so the streets can be
 	// placed again when it turns. Item 108.
 	heading   int
+	driveways map[*District]Driveway
 	planLamps []Cell
 	planTrees []Tree
 }
