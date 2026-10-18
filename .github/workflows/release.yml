@@ -152,16 +152,16 @@ jobs:
           exit $bad
 
   # Wall time for the bar's tasks (item 91), once per release (item 104), on the
-  # same runner kind every time. It reports and never gates: nothing needs this
-  # job, and its failure is not the release's. bench.txt is attached to the
-  # release, and the summary compares it with the previous release's. A dry run
-  # benchmarks and compares too, and attaches nothing.
+  # same runner kind every time. It reports and never gates: it runs beside the
+  # release rather than after it, and its failure is not the release's. The
+  # summary compares it with the previous release's bench.txt, and attach below
+  # adds this one to the release once the release exists. A dry run benchmarks
+  # and compares too, whatever the release job decides, and attaches nothing.
   bench:
-    needs: release
     continue-on-error: true
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -176,17 +176,15 @@ jobs:
         run: |
           set -o pipefail
           make bench | tee bench.txt
-      - name: Attach the figures to the release
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "v${{ needs.release.outputs.version }}" bench.txt --repo "${GITHUB_REPOSITORY}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench
+          path: bench.txt
       - name: The previous release's figures
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          this="v${{ needs.release.outputs.version }}"
+          this="v$(tr -d '[:space:]' < VERSION)"
           prev=$(gh release list --repo "${GITHUB_REPOSITORY}" --exclude-drafts --exclude-pre-releases \
             --limit 20 --json tagName --jq '.[].tagName' | grep -vxF "${this}" | head -n 1 || true)
           if [ -n "${prev}" ] && gh release download "${prev}" --repo "${GITHUB_REPOSITORY}" --pattern bench.txt --dir previous; then
@@ -211,6 +209,23 @@ jobs:
             fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  attach:
+    needs: [release, bench]
+    if: ${{ !inputs.dry_run }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bench
+      - name: Attach the figures to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ needs.release.outputs.version }}" bench.txt --repo "${GITHUB_REPOSITORY}"
 
   # The APT and RPM repositories at pkg.botropolis.city, rebuilt with the
   # release just published. A failure here leaves the release itself intact;
