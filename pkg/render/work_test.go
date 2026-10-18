@@ -146,8 +146,14 @@ func TestBuildingWork(t *testing.T) {
 	t.Run("when the roof is scaffolded", func(t *testing.T) {
 		items := roofItems(lot, roofLift, 1)
 
-		t.Run("it should carry construction items on the deck", func(t *testing.T) {
-			assert.GreaterOrEqual(t, len(items), 2)
+		// Aria, 2026-10-17: the column only; the stack and the pallet meant
+		// nothing.
+		t.Run("it should carry the next storey's column, and nothing else", func(t *testing.T) {
+			var kinds []string
+			for _, it := range items {
+				kinds = append(kinds, it.kind)
+			}
+			assert.Equal(t, []string{"column"}, kinds)
 		})
 
 		t.Run("they should stand inside the footprint", func(t *testing.T) {
@@ -184,6 +190,21 @@ func TestBuildingWork(t *testing.T) {
 		t.Run("it should be at the scaffold, on the roof", func(t *testing.T) {
 			at := hoistAt(lot, roofLift, 1)
 			assert.InDelta(t, front.Y-roofLift, at.Y, 1e-9)
+		})
+	})
+
+	// Aria, 2026-10-17: beside the pole, so it does not cover it.
+	t.Run("when the hoist is drawn", func(t *testing.T) {
+		var front segment
+		for _, s := range roofScaffold(lot, roofLift, 1) {
+			if s.pole && s.corner && s.a.Y > front.a.Y {
+				front = s
+			}
+		}
+
+		t.Run("it should run beside the front corner pole, not over it", func(t *testing.T) {
+			gap := hoistAt(lot, roofLift, 0.5).X - front.a.X
+			assert.Greater(t, max(gap, -gap), front.width)
 		})
 	})
 

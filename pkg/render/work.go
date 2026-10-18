@@ -190,9 +190,8 @@ func workLights(lines []segment) []city.Point {
 	return out
 }
 
-// roofItem is a construction item on a scaffolded roof deck: a pallet
-// the hoist's loads land on, a stack of materials, or a column of the
-// next storey's frame rising.
+// roofItem is a construction item on a scaffolded roof deck: the column
+// of the next storey's frame, rising.
 type roofItem struct {
 	kind string
 	at   city.Point
@@ -206,11 +205,7 @@ func roofItems(lot [4]city.Point, roofLift, up float64) []roofItem {
 		return nil
 	}
 	size := max(4, roofLift*0.1) * up
-	return []roofItem{
-		{kind: "pallet", at: onRoof(lot, roofLift, 0.78, 0.78), size: size},
-		{kind: "materials", at: onRoof(lot, roofLift, 0.3, 0.68), size: size},
-		{kind: "column", at: onRoof(lot, roofLift, 0.5, 0.3), size: size},
-	}
+	return []roofItem{{kind: "column", at: onRoof(lot, roofLift, 0.5, 0.3), size: size}}
 }
 
 // crateSize is how big a load's crate is drawn on a building whose roof
@@ -219,10 +214,11 @@ func crateSize(roofLift float64) float64 { return max(6, roofLift*0.12) }
 
 // hoistAt is where a load is p of the way up the hoist on the outside
 // front corner: at the foot at the start, at the roof's scaffold at the
-// end.
+// end. It runs just beside the corner, so the scaffold's front pole is
+// never covered by it.
 func hoistAt(lot [4]city.Point, roofLift, p float64) city.Point {
 	front, _ := frontOf(lot)
-	return city.Point{X: front.X, Y: front.Y - roofLift*p}
+	return city.Point{X: front.X + max(4, roofLift*0.09), Y: front.Y - roofLift*p}
 }
 
 // drawWork draws a building's scaffold, its hoist and the loads on it.
@@ -290,27 +286,15 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 }
 
 var (
-	colorPallet    = color.NRGBA{0x8a, 0x64, 0x3c, 0xff}
-	colorMaterials = color.NRGBA{0x9a, 0x9c, 0xa4, 0xff}
-	colorSteel     = color.NRGBA{0xc0, 0x4a, 0x30, 0xff}
+	colorSteel = color.NRGBA{0xc0, 0x4a, 0x30, 0xff}
 )
 
-// drawRoofItems draws the construction items on a roof deck: a flat
-// pallet, a stack of two blocks, and a steel column as tall as the
-// scaffold, with a crossbar.
+// drawRoofItems draws the construction items on a roof deck: a steel
+// column as tall as the scaffold, with a crossbar.
 func (g *Game) drawRoofItems(screen *ebiten.Image, items []roofItem, storey float64) {
 	for _, it := range items {
 		x, y, s := float32(it.at.X), float32(it.at.Y), float32(it.size)
 		switch it.kind {
-		case "pallet":
-			vector.FillRect(screen, x-s, y-s*0.3, 2*s, s*0.3, colorPallet, false)
-			vector.StrokeRect(screen, x-s, y-s*0.3, 2*s, s*0.3, 1, colorHoist, false)
-		case "materials":
-			for k := float32(0); k < 2; k++ {
-				top := y - s*0.6*(k+1)
-				vector.FillRect(screen, x-s*0.7, top, s*1.4, s*0.6, colorMaterials, false)
-				vector.StrokeRect(screen, x-s*0.7, top, s*1.4, s*0.6, 1, colorHoist, false)
-			}
 		case "column":
 			h := float32(storey)
 			vector.StrokeLine(screen, x, y, x, y-h, max(2, s*0.35), colorSteel, false)
