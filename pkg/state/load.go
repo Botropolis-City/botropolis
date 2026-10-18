@@ -21,7 +21,10 @@ type Snapshot struct {
 	Power          Power                `json:"power"`
 	Stats          *claude.Stats        `json:"stats,omitempty"`
 	Skipped        []claude.SkippedFile `json:"skipped"`
-	At             time.Time            `json:"at"`
+	// HeftsRead is whether every session's heft has been read whole at
+	// least once, so the user's own scale can be cut from them (item 109).
+	HeftsRead bool      `json:"heftsRead,omitempty"`
+	At        time.Time `json:"at"`
 }
 
 func Load(home string, probes Probes, now time.Time) (Snapshot, error) {

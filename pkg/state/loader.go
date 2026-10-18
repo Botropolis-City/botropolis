@@ -50,6 +50,8 @@ type Loader struct {
 	ledger          Ledger
 	historyKey      fileKey
 	history         map[string][]claude.Prompt
+	whole           *wholeRead
+	stoppedFiles    map[string]stoppedFile
 }
 
 func NewLoader(home string, probes Probes) *Loader {
@@ -166,6 +168,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 		}
 		snapshot.Sessions = sessions
 	}
+	snapshot.HeftsRead = l.applyHefts(snapshot.Sessions, l.stoppedFiles)
 	snapshot.Servers = Servers(snapshot.Sessions, src.MCP)
 	snapshot.Skills = Skills(snapshot.Sessions)
 	snapshot.Roads = Roads(snapshot.Sessions, src.Teams)
@@ -225,6 +228,7 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince 
 	cache := map[string]cachedTranscript{}
 	subCache := map[string]cachedSubagent{}
 	stoppedSubs := map[string][]claude.Subagent{}
+	files := map[string]stoppedFile{}
 	for _, path := range paths {
 		id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		if live[id] {
@@ -256,13 +260,14 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince 
 		// one only ever saw the parked half, and a probe that was still
 		// running came through Records instead. Bug 54.
 		parked = append(parked, entry.transcript)
+		files[entry.transcript.SessionID] = stoppedFile{path: path, key: key}
 		subs, subSkipped := l.stoppedSubagents(path, subCache)
 		skipped = append(skipped, subSkipped...)
 		if len(subs) > 0 {
 			stoppedSubs[entry.transcript.SessionID] = subs
 		}
 	}
-	l.parked, l.parkedSubagents = cache, subCache
+	l.parked, l.parkedSubagents, l.stoppedFiles = cache, subCache, files
 	return parked, stoppedSubs, skipped, nil
 }
 

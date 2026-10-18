@@ -15,10 +15,11 @@ type Snapshotter interface {
 
 type Multi struct {
 	harnesses []Snapshotter
+	heights   *state.Heights
 }
 
 func NewMulti(harnesses ...Snapshotter) *Multi {
-	return &Multi{harnesses: harnesses}
+	return &Multi{harnesses: harnesses, heights: state.NewHeights()}
 }
 
 func (m *Multi) Name() string {
@@ -27,6 +28,7 @@ func (m *Multi) Name() string {
 
 func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 	merged := state.Snapshot{At: now, Power: state.Power{Since: now.Add(-state.PowerWindow), ByModel: map[string]claude.Usage{}}}
+	merged.HeftsRead = len(m.harnesses) > 0
 	for _, h := range m.harnesses {
 		snapshot, err := h.Load(now)
 		if err != nil {
@@ -55,7 +57,9 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		merged.Power.CostKnown = merged.Power.CostKnown || snapshot.Power.CostKnown
 		merged.Power.Fresh += snapshot.Power.Fresh
 		merged.Power.Cached += snapshot.Power.Cached
+		merged.HeftsRead = merged.HeftsRead && snapshot.HeftsRead
 	}
+	m.heights.Apply(merged.Sessions, merged.HeftsRead, now)
 	return merged, nil
 }
 

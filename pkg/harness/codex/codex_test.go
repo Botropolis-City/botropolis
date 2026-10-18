@@ -70,6 +70,18 @@ func TestCodexLoader(t *testing.T) {
 			assert.Equal(t, int64(300), s.Usage.Thinking)
 		})
 
+		t.Run("it should take its heft from its exact token counts", func(t *testing.T) {
+			assert.Equal(t, int64(3000+800+9000/10), s.Heft)
+		})
+
+		t.Run("it should not mark its heft a lower bound", func(t *testing.T) {
+			assert.False(t, s.HeftPartial)
+		})
+
+		t.Run("it should report its hefts read", func(t *testing.T) {
+			assert.True(t, snapshot.HeftsRead)
+		})
+
 		t.Run("it should measure context against the model's window", func(t *testing.T) {
 			assert.Equal(t, int64(272000), s.ContextWindow)
 			assert.InDelta(t, 100.0*7000/272000, s.ContextPercent, 1e-9)

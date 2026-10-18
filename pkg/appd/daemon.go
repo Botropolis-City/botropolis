@@ -84,7 +84,11 @@ func NewProbes() state.Probes {
 }
 
 func newDaemon(cfg *config.Config, probes state.Probes) *daemon.Daemon {
-	d := daemon.NewWith(harnesses(cfg, probes, ledgerPath(cfg)), time.Now)
+	var d *daemon.Daemon
+	// Each pass of the whole read ends in a rescan, so the storeys it
+	// measured reach the map (item 109).
+	rescan := func() { _ = d.Rescan() }
+	d = daemon.NewWith(harnesses(cfg, probes, ledgerPath(cfg), rescan), time.Now)
 	d.SetIndex(find.New(cfg.Home))
 	return d
 }
@@ -112,11 +116,18 @@ func GroupsPath(cfg *config.Config) string {
 // Harnesses loads directly, without a daemon, and keeps no ledger: only
 // the daemon writes it.
 func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
-	return harnesses(cfg, probes, "")
+	return harnesses(cfg, probes, "", nil)
 }
 
-func harnesses(cfg *config.Config, probes state.Probes, ledger string) *harness.Multi {
-	claudeLoader := harness.NewClaude(state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger).WithCloseUp(closeUpPath(ledger)))
+// harnesses reads every session; wholeRead, when not nil, has the Claude
+// loader read stopped transcripts whole in the background for their
+// heft and calls it after each pass. Only the daemon does that.
+func harnesses(cfg *config.Config, probes state.Probes, ledger string, wholeRead func()) *harness.Multi {
+	loader := state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger).WithCloseUp(closeUpPath(ledger))
+	if wholeRead != nil {
+		loader = loader.WithWholeRead(wholeRead)
+	}
+	claudeLoader := harness.NewClaude(loader)
 	harnesses := []harness.Snapshotter{claudeLoader}
 	if info, err := os.Stat(filepath.Join(cfg.CodexHome, "sessions")); err == nil && info.IsDir() {
 		harnesses = append(harnesses, codex.NewLoader(cfg.CodexHome))

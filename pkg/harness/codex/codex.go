@@ -77,7 +77,7 @@ func (l *Loader) WatchDirs() []string {
 }
 
 func (l *Loader) Load(now time.Time) (state.Snapshot, error) {
-	snapshot := state.Snapshot{At: now, Power: state.Power{Since: now.Add(-state.PowerWindow), ByModel: map[string]claude.Usage{}}}
+	snapshot := state.Snapshot{At: now, HeftsRead: true, Power: state.Power{Since: now.Add(-state.PowerWindow), ByModel: map[string]claude.Usage{}}}
 	paths, err := filepath.Glob(filepath.Join(l.home, sessionsDir, "*", "*", "*", rolloutPrefix+"*.jsonl"))
 	if err != nil {
 		return snapshot, err
@@ -120,6 +120,7 @@ func toSession(s session, modTime, now time.Time) state.Session {
 		ID: s.ID, Harness: Name, Title: s.Title, CWD: s.CWD, Branch: s.Branch, Model: s.Model,
 		Usage: s.Usage, ContextTokens: s.ContextTokens, ContextWindow: s.ContextWindow,
 		StartedAt: s.FirstAt, LastActivity: s.LastAt, State: state.Resting,
+		Heft: state.Heft(s.Usage),
 	}
 	if out.Title == "" {
 		out.Title = s.ID

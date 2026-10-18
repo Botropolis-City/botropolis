@@ -167,3 +167,50 @@ func TestMultiKeepsEveryField(t *testing.T) {
 		}
 	})
 }
+
+// Item 109: every harness's sessions are drawn on one scale.
+func TestMultiHeights(t *testing.T) {
+	hefts := func(base int64, n int, harness string) []state.Session {
+		var sessions []state.Session
+		for i := range n {
+			sessions = append(sessions, state.Session{ID: harness + string(rune('a'+i)), Harness: harness, Heft: base * int64(i+1)})
+		}
+		return sessions
+	}
+	claudeSessions, codexSessions := hefts(1_000, 20, "claude"), hefts(1_000_000, 20, "codex")
+	var all []int64
+	for _, s := range append(append([]state.Session{}, claudeSessions...), codexSessions...) {
+		all = append(all, s.Heft)
+	}
+
+	t.Run("when a Codex session and a Claude session share the snapshot", func(t *testing.T) {
+		a := fake{name: "claude", snapshot: state.Snapshot{Sessions: claudeSessions, HeftsRead: true}}
+		b := fake{name: "codex", snapshot: state.Snapshot{Sessions: codexSessions, HeftsRead: true}}
+		snapshot, err := harness.NewMulti(a, b).Load(now)
+		require.NoError(t, err)
+
+		t.Run("it should put both on one scale", func(t *testing.T) {
+			scale := state.NewScale(all, now)
+			var want, got []int
+			for _, s := range snapshot.Sessions {
+				want, got = append(want, scale.Storeys(s.Heft)), append(got, s.Storeys)
+			}
+			assert.Equal(t, want, got)
+		})
+	})
+
+	t.Run("when one harness has not yet read its hefts whole", func(t *testing.T) {
+		a := fake{name: "claude", snapshot: state.Snapshot{Sessions: claudeSessions}}
+		b := fake{name: "codex", snapshot: state.Snapshot{Sessions: codexSessions, HeftsRead: true}}
+		snapshot, err := harness.NewMulti(a, b).Load(now)
+		require.NoError(t, err)
+
+		t.Run("it should not report the hefts read", func(t *testing.T) {
+			assert.False(t, snapshot.HeftsRead)
+		})
+
+		t.Run("it should draw on the starter lines", func(t *testing.T) {
+			assert.Equal(t, state.Scale{Cuts: state.StarterCuts}.Storeys(codexSessions[0].Heft), snapshot.Sessions[20].Storeys)
+		})
+	})
+}

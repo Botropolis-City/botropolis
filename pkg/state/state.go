@@ -80,9 +80,16 @@ type Session struct {
 	CacheReadPerHour   float64      `json:"cacheReadPerHour"`
 	CostUSD            float64      `json:"costUSD"`
 	CostKnown          bool         `json:"costKnown"`
-	Subagents          int          `json:"subagents"`
-	SubagentsInFlight  int          `json:"subagentsInFlight"`
-	Team               string       `json:"team,omitempty"`
+	// Heft is the session's weight over its whole life, subagents
+	// included; HeftPartial marks one read only through the catalogue's
+	// window, so a lower bound. Storeys is its building's height on the
+	// user's own scale. Item 109.
+	Heft              int64  `json:"heft,omitempty"`
+	HeftPartial       bool   `json:"heftPartial,omitempty"`
+	Storeys           int    `json:"storeys,omitempty"`
+	Subagents         int    `json:"subagents"`
+	SubagentsInFlight int    `json:"subagentsInFlight"`
+	Team              string `json:"team,omitempty"`
 	// Group is the id of the group the session belongs to, and
 	// GroupJoined why it joined (item 87).
 	Group       string `json:"group,omitempty"`
