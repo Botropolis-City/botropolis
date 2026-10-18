@@ -8,15 +8,17 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // The building's own work. Item 89.
 //
-// While a session is mid-turn its roof is scaffolded with work lights,
-// in slice 2's construction strokes, and each tool call runs a load up a
-// hoist on the building's outside front corner to the scaffold. When the
-// turn ends the scaffold comes down. At still a load is a flash of the
-// work lights.
+// While a session is mid-turn the storey being built is scaffolded on its
+// roof with work lights, in slice 2's construction strokes, one storey
+// high on the building's own footprint (item 109), and each tool call
+// runs a load up a hoist on the building's outside front corner to it.
+// When the turn ends the scaffold comes down. At still a load is a flash
+// of the work lights.
 
 var (
 	colorWorkLight = color.NRGBA{0xff, 0xd8, 0x60, 0xff}
@@ -46,9 +48,53 @@ func frontOf(lot [4]city.Point) (city.Point, [2]city.Point) {
 	return lot[best], [2]city.Point{lot[(best+3)%4], lot[(best+1)%4]}
 }
 
-// storeyOf is how high the roof scaffold stands: a storey of a building
-// whose roof is roofLift up.
+// storeyOf is how high the roof scaffold stands on a piece the pipeline
+// gives no body: a storey of a building whose roof is roofLift up.
 func storeyOf(roofLift float64) float64 { return roofLift * 0.3 }
+
+// kindPlinth is the plinth the city's own buildings stand on, in kit
+// units, as tools/render-sprites/buildings.py cuts them.
+const kindPlinth = 0.03
+
+// workSite is where a building's work stands on screen: its own
+// footprint, how far up its walls end, and how tall a storey is.
+type workSite struct {
+	lot     [4]city.Point
+	wallTop float64
+	storey  float64
+}
+
+// workFrame is the building's own footprint and wall top for its work,
+// from the body the pipeline wrote into the atlas; a piece without one
+// works on its lot, at the roof its sprite shows.
+func (g *Game) workFrame(cam *city.Camera, b *city.Building) (workSite, bool) {
+	name := buildingPiece(b)
+	if g.kits == nil {
+		return workSite{}, false
+	}
+	atlas := g.kits.pick(cam.Zoom)
+	if atlas == nil {
+		return workSite{}, false
+	}
+	sprite, ok := atlas.Sprite(name, cam.Heading)
+	if !ok {
+		return workSite{}, false
+	}
+	if sprite.Body.W <= 0 {
+		lift := g.kitRoofLift(cam, name)
+		return workSite{lot: lotCorners(cam, b.Rect), wallTop: lift, storey: storeyOf(lift)}, lift > 0
+	}
+	c := b.Rect.Center()
+	c.X += sprite.Body.X * city.CellSize
+	hw, hd := sprite.Body.W*city.CellSize/2, sprite.Body.D*city.CellSize/2
+	var lot [4]city.Point
+	for i, p := range []city.Point{{X: c.X - hw, Y: c.Y - hd}, {X: c.X + hw, Y: c.Y - hd}, {X: c.X + hw, Y: c.Y + hd}, {X: c.X - hw, Y: c.Y + hd}} {
+		lot[i] = cam.WorldToScreen(p)
+	}
+	storey := storeyHeight(cam.Zoom)
+	n := min(max(b.Session.Storeys, 1), 5)
+	return workSite{lot: lot, wallTop: (kindPlinth/kindStorey + float64(n)) * storey, storey: storey}, true
+}
 
 // scaffoldGrid is where the scaffold's poles stand across a roof, as
 // shares of the footprint each way: the edges and the middle, so the
@@ -73,11 +119,11 @@ func onRoof(lot [4]city.Point, roofLift, u, v float64) city.Point {
 // on screen, up of the way raised: a grid of stout poles across the
 // roof, and two levels of planks spanning between them, halfway and at
 // the top.
-func roofScaffold(lot [4]city.Point, roofLift, up float64) []segment {
+func roofScaffold(lot [4]city.Point, roofLift, storey, up float64) []segment {
 	if up <= 0 {
 		return nil
 	}
-	h := storeyOf(roofLift) * up
+	h := storey * up
 	pole := max(2, roofLift*0.035)
 	plank := max(2, roofLift*0.05)
 	first, last := scaffoldGrid[0], scaffoldGrid[len(scaffoldGrid)-1]
@@ -228,13 +274,13 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	if up <= 0 && len(loads) == 0 {
 		return
 	}
-	lot := lotCorners(cam, b.Rect)
-	roofLift := g.kitRoofLift(cam, buildingPiece(b))
-	if roofLift <= 0 {
+	site, ok := g.workFrame(cam, b)
+	if !ok || site.wallTop <= 0 {
 		return
 	}
-	lines := roofScaffold(lot, roofLift, up)
-	g.drawRoofItems(screen, roofItems(lot, roofLift, up), storeyOf(roofLift)*up)
+	lot, roofLift, storey := site.lot, site.wallTop, site.storey
+	lines := roofScaffold(lot, roofLift, storey, up)
+	g.drawRoofItems(screen, roofItems(lot, roofLift, up), storey*up)
 	// Back to front: the far poles, then the boards, each a tan board with
 	// a dark underside, a light top edge and seams, then the near poles
 	// and braces, galvanised tubes with a dark edge and a light core.
@@ -242,7 +288,7 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	// beside is drawn over it in the same silver as the others.
 	if up > 0 {
 		foot, top := hoistAt(lot, roofLift, 0), hoistAt(lot, roofLift, 1)
-		vector.StrokeLine(screen, float32(foot.X), float32(foot.Y), float32(top.X), float32(top.Y-storeyOf(roofLift)), float32(max(1, cam.Zoom)), colorHoist, true)
+		vector.StrokeLine(screen, float32(foot.X), float32(foot.Y), float32(top.X), float32(top.Y-storey), float32(max(1, cam.Zoom)), colorHoist, true)
 	}
 	for _, s := range scaffoldOrder(lines) {
 		if s.plank {
@@ -252,7 +298,7 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		}
 	}
 	if up >= 0.5 {
-		drawLadder(screen, onRoof(lot, roofLift, 0.5, scaffoldGrid[len(scaffoldGrid)-1]), storeyOf(roofLift)*up*0.5, max(2, roofLift*0.05))
+		drawLadder(screen, onRoof(lot, roofLift, 0.5, scaffoldGrid[len(scaffoldGrid)-1]), storey*up*0.5, max(2, roofLift*0.05))
 	}
 	flash := 0.0
 	for _, l := range loads {
@@ -348,5 +394,50 @@ func drawLadder(screen *ebiten.Image, foot city.Point, height, width float64) {
 	for k := 1; k < rungs; k++ {
 		y := y0 + (y1-y0)*float32(k)/float32(rungs)
 		vector.StrokeLine(screen, x0, y, x1, y, 1, colorTubeEdge, true)
+	}
+}
+
+// The one context reading on the map: four amber lights at the corners
+// of a live session's roof once its context is most of the way to a
+// compaction, held steady so they never read as needs-you (item 109).
+const alertPercent = 80
+
+var colorAlert = color.NRGBA{0xff, 0x9d, 0x1c, 0xff}
+
+// compactionAlert is whether a building's roof lights are lit.
+func compactionAlert(b *city.Building) bool {
+	return state.Live(b.Session.State) && b.Session.ContextPercent >= alertPercent
+}
+
+// alertLights is where the lights stand: the corners of a roof wallTop
+// above the footprint lot.
+func alertLights(lot [4]city.Point, wallTop float64) []city.Point {
+	out := make([]city.Point, 0, len(lot))
+	for _, c := range lot {
+		out = append(out, city.Point{X: c.X, Y: c.Y - wallTop})
+	}
+	return out
+}
+
+// alertColor is the lights' colour at a moment, the same at every one.
+func alertColor(float64) color.NRGBA { return colorAlert }
+
+// drawAlert lights a building's roof corners while its session nears a
+// compaction.
+func (g *Game) drawAlert(screen *ebiten.Image, cam *city.Camera, b *city.Building, seconds float64) {
+	if !compactionAlert(b) {
+		return
+	}
+	site, ok := g.workFrame(cam, b)
+	if !ok {
+		return
+	}
+	r := float32(max(1.5, site.storey*0.07))
+	c := alertColor(seconds)
+	glow := c
+	glow.A = 0x55
+	for _, at := range alertLights(site.lot, site.wallTop) {
+		vector.FillCircle(screen, float32(at.X), float32(at.Y), r*2.4, glow, true)
+		vector.FillCircle(screen, float32(at.X), float32(at.Y), r, c, true)
 	}
 }

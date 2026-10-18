@@ -20,7 +20,7 @@ func TestBuildingWork(t *testing.T) {
 		t.Run("when the level is "+level.String(), func(t *testing.T) {
 			t.Run("a mid-turn building's scaffold should stand on its roof, inside its footprint, and rise above it", func(t *testing.T) {
 				var wrong int
-				for _, s := range roofScaffold(lot, roofLift, 1) {
+				for _, s := range roofScaffold(lot, roofLift, storeyOf(roofLift), 1) {
 					if !s.pole {
 						continue
 					}
@@ -42,7 +42,7 @@ func TestBuildingWork(t *testing.T) {
 
 	// Aria, 2026-10-17: "Heavier scaffold".
 	t.Run("when a scaffold is drawn", func(t *testing.T) {
-		lines := roofScaffold(lot, roofLift, 1)
+		lines := roofScaffold(lot, roofLift, storeyOf(roofLift), 1)
 		var planks, thin int
 		for _, s := range lines {
 			if s.pole && s.width < 2 {
@@ -65,7 +65,7 @@ func TestBuildingWork(t *testing.T) {
 	// Aria, 2026-10-17: eight supports, four corners and four middles, and
 	// those at the back drawn behind the wood.
 	t.Run("when a scaffold stands on a roof", func(t *testing.T) {
-		lines := roofScaffold(lot, roofLift, 1)
+		lines := roofScaffold(lot, roofLift, storeyOf(roofLift), 1)
 		var poles, corners int
 		for _, s := range lines {
 			if s.pole {
@@ -93,7 +93,7 @@ func TestBuildingWork(t *testing.T) {
 	})
 
 	t.Run("when a scaffold is drawn in order", func(t *testing.T) {
-		drawn := scaffoldOrder(roofScaffold(lot, roofLift, 1))
+		drawn := scaffoldOrder(roofScaffold(lot, roofLift, storeyOf(roofLift), 1))
 		lastBackPole, firstPlank := -1, len(drawn)
 		for i, s := range drawn {
 			if s.pole && s.back && i > lastBackPole {
@@ -111,7 +111,7 @@ func TestBuildingWork(t *testing.T) {
 
 	// Aria, 2026-10-17: braced like scaffolding, lit at its corners.
 	t.Run("when the scaffold is braced", func(t *testing.T) {
-		lines := roofScaffold(lot, roofLift, 1)
+		lines := roofScaffold(lot, roofLift, storeyOf(roofLift), 1)
 		var braces []segment
 		for _, s := range lines {
 			if s.brace {
@@ -136,7 +136,7 @@ func TestBuildingWork(t *testing.T) {
 	})
 
 	t.Run("when the work lights are placed", func(t *testing.T) {
-		lights := workLights(roofScaffold(lot, roofLift, 1))
+		lights := workLights(roofScaffold(lot, roofLift, storeyOf(roofLift), 1))
 
 		t.Run("they should stand on the corner poles only, but the back one", func(t *testing.T) {
 			assert.Len(t, lights, 3)
@@ -196,7 +196,7 @@ func TestBuildingWork(t *testing.T) {
 	// Aria, 2026-10-17: beside the pole, so it does not cover it.
 	t.Run("when the hoist is drawn", func(t *testing.T) {
 		var front segment
-		for _, s := range roofScaffold(lot, roofLift, 1) {
+		for _, s := range roofScaffold(lot, roofLift, storeyOf(roofLift), 1) {
 			if s.pole && s.corner && s.a.Y > front.a.Y {
 				front = s
 			}
