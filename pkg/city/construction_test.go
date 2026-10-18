@@ -71,6 +71,34 @@ func TestConstruction(t *testing.T) {
 		})
 	}
 
+	// Item 109: a session already working when its building goes up had
+	// its roof scaffold hanging over the empty site at the finished
+	// roof's height.
+	t.Run("when a working session's building is half built", func(t *testing.T) {
+		var clock time.Time
+		s := arriving(t, &clock, city.Lively)
+		clock = docked.Add(city.BuildFor / 2)
+		var b *city.Building
+		for _, x := range s.City().Buildings() {
+			if x.Session.ID == "b" {
+				b = x
+			}
+		}
+		require.NotNil(t, b)
+
+		t.Run("it should put up no roof scaffold until the building stands", func(t *testing.T) {
+			assert.Zero(t, s.Scaffold(b))
+		})
+
+		t.Run("and the build has finished", func(t *testing.T) {
+			clock = docked.Add(city.BuildFor + time.Second)
+
+			t.Run("it should scaffold the roof for the work", func(t *testing.T) {
+				assert.Equal(t, 1.0, s.Scaffold(b))
+			})
+		})
+	})
+
 	t.Run("when the build has finished", func(t *testing.T) {
 		var clock time.Time
 		s := arriving(t, &clock, city.Lively)

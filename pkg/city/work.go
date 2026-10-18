@@ -37,6 +37,11 @@ func (s *Scene) Scaffold(b *Building) float64 {
 	if b == nil || b.Blinds {
 		return 0
 	}
+	// A building still going up has its site's scaffolding; the roof's
+	// waits until it stands (item 109).
+	if s.Rising(b.Session.ID) < 1 {
+		return 0
+	}
 	if b.Session.State == state.Working {
 		return 1
 	}
