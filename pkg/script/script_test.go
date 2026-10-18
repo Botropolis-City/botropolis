@@ -10,13 +10,14 @@ import (
 
 func TestValidate(t *testing.T) {
 	for name, cue := range map[string]Cue{
-		"a key":           {At: 1, Key: "Tab"},
-		"a held arrow":    {At: 1, Hold: "ArrowLeft", For: 0.5},
-		"a point":         {At: 1, Point: []float64{10, 20}},
-		"a target":        {At: 1, PointAt: "plant"},
-		"a pan":           {At: 1, PanTo: "district:kiln", Over: 2},
-		"a click":         {At: 1, Click: true},
-		"a turn of wheel": {At: 1, Wheel: 2, Over: 1},
+		"a key":               {At: 1, Key: "Tab"},
+		"a held arrow":        {At: 1, Hold: "ArrowLeft", For: 0.5},
+		"a point":             {At: 1, Point: []float64{10, 20}},
+		"a target":            {At: 1, PointAt: "plant"},
+		"a pan":               {At: 1, PanTo: "district:kiln", Over: 2},
+		"a click":             {At: 1, Click: true},
+		"a turn of wheel":     {At: 1, Wheel: 2, Over: 1},
+		"a statistics prompt": {At: 1, ShowStatsPrompt: "off"},
 	} {
 		t.Run("when a cue is "+name, func(t *testing.T) {
 			t.Run("it should pass", func(t *testing.T) {
@@ -31,6 +32,7 @@ func TestValidate(t *testing.T) {
 		"a point that is not xy": {At: 1, Point: []float64{10}},
 		"a hold with no length":  {At: 1, Hold: "ArrowLeft"},
 		"before the clip":        {At: -1, Click: true},
+		"a statistics prompt that is neither off nor on": {At: 1, ShowStatsPrompt: "maybe"},
 	} {
 		t.Run("when a cue is "+name, func(t *testing.T) {
 			t.Run("it should refuse it", func(t *testing.T) {

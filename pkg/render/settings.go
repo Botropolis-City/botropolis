@@ -44,6 +44,10 @@ func (g *Game) settingsKeys() bool {
 // applySetting takes a changed row live where it can, then hands it to
 // the app to persist.
 func (g *Game) applySetting(s ui.Setting) {
+	if s.Key == config.KeyStats {
+		g.statsRow(s)
+		return
+	}
 	note := fmt.Sprintf("%s: %s", s.Label, s.Value)
 	switch s.Key {
 	case config.KeyDistrictType:

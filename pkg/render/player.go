@@ -65,6 +65,8 @@ type playFrame struct {
 	wheel          float64
 	// pan moves the camera this far on screen this frame.
 	pan city.Point
+	// statsPrompt is a statistics prompt to show, off or on (item 110).
+	statsPrompt string
 }
 
 func newPlayer(cues []script.Cue, start city.Point) *player {
@@ -86,6 +88,8 @@ func (p *player) step(t float64, resolve func(string) (city.Point, bool)) playFr
 			p.shown = true
 		case c.PanTo != "":
 			p.pans = append(p.pans, panTo{target: c.PanTo, from: c.At, until: c.At + math.Max(c.Over, 1.0/liveTPS)})
+		case c.ShowStatsPrompt != "":
+			f.statsPrompt = c.ShowStatsPrompt
 		case c.Click:
 			f.press = true
 			p.release = c.At + clickHold

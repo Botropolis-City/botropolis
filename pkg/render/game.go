@@ -205,6 +205,7 @@ type Game struct {
 	// signage is which of phase 21 item 38's title treatments is drawn.
 	signage city.Signage
 	apply   func(ui.Setting) error
+	stats   statsHooks
 
 	// pinned is the selection's card as last drawn, for clicks on it.
 	pinned      ui.Card
@@ -431,6 +432,9 @@ func (g *Game) Update() error {
 		if g.play.press {
 			g.clickedAt = float64(g.recorded) / liveTPS
 		}
+		if g.play.statsPrompt != "" {
+			g.playStatsPrompt(g.play.statsPrompt)
+		}
 	}
 	if g.record != "" && g.shotFrames > 0 {
 		// A key every two seconds, then run the clock out.
@@ -535,6 +539,7 @@ func (g *Game) Update() error {
 		}
 	}
 	g.maybeFirstRun()
+	g.maybeStatsPrompt()
 	return g.handleKeys()
 }
 

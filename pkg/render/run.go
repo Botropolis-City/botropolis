@@ -17,6 +17,7 @@ import (
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -114,6 +115,13 @@ type Options struct {
 	// Settings is the in-app settings panel's rows; Apply persists a change.
 	Settings ui.Settings
 	Apply    func(ui.Setting) error
+	// StatsOn is whether statistics are on; StatsOwed is which prompt
+	// the state directory owes, StatsSince when a kept database was last
+	// written, and StatsChoose what answers a prompt. Item 110.
+	StatsOn     bool
+	StatsOwed   func(on bool) stats.Prompt
+	StatsSince  func() (time.Time, bool)
+	StatsChoose func(p stats.Prompt, keep bool) error
 }
 
 func Run(ctx context.Context, opts Options) error {
@@ -206,6 +214,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.readUsage()
 	game.settings = opts.Settings
 	game.apply = opts.Apply
+	game.stats = statsHooks{on: opts.StatsOn, owed: opts.StatsOwed, since: opts.StatsSince, choose: opts.StatsChoose}
 	game.desktopErr = opts.DesktopErr
 	game.useShortcut(opts.GlobalShortcut)
 

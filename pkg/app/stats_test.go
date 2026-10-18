@@ -1,6 +1,7 @@
 package app
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -15,11 +16,27 @@ import (
 func TestPruneForgetter(t *testing.T) {
 	const session = "11111111-0000-0000-0000-000000000000"
 
-	t.Run("when stats are off", func(t *testing.T) {
-		t.Setenv("XDG_STATE_HOME", t.TempDir())
+	t.Run("when stats are off over a database", func(t *testing.T) {
+		state := t.TempDir()
+		t.Setenv("XDG_STATE_HOME", state)
+		s, err := stats.Open(stats.Path())
+		require.NoError(t, err)
+		require.NoError(t, s.Close())
+		require.NoError(t, pruneForgetter(&config.Config{Stats: false})(session))
+		data, _ := os.ReadFile(filepath.Join(state, "botropolis", "stats-pruned"))
 
-		t.Run("it should give prune nothing to forget with", func(t *testing.T) {
-			assert.Nil(t, pruneForgetter(&config.Config{Stats: false}))
+		t.Run("it should note the session for when statistics come back on", func(t *testing.T) {
+			assert.Equal(t, session+"\n", string(data))
+		})
+	})
+
+	t.Run("when stats are off, and nothing was kept", func(t *testing.T) {
+		state := t.TempDir()
+		t.Setenv("XDG_STATE_HOME", state)
+		require.NoError(t, pruneForgetter(&config.Config{Stats: false})(session))
+
+		t.Run("it should write nothing", func(t *testing.T) {
+			assert.NoDirExists(t, filepath.Join(state, "botropolis"))
 		})
 	})
 

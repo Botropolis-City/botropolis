@@ -37,11 +37,15 @@ type Cue struct {
 	// Wheel turns the scroll wheel at the pointer by this many notches,
 	// spread over Over seconds: a smooth zoom toward what it points at.
 	Wheel float64 `json:"wheel,omitempty" yaml:"wheel,omitempty"`
+	// ShowStatsPrompt shows the statistics prompt, off or on, as the
+	// city would show it at open, so a frame can show what a recording
+	// is otherwise never asked. Item 110.
+	ShowStatsPrompt string `json:"show_stats_prompt,omitempty" yaml:"show_stats_prompt,omitempty"`
 }
 
 func (c Cue) verbs() int {
 	n := 0
-	for _, set := range []bool{c.Key != "", c.Hold != "", len(c.Point) > 0, c.PointAt != "", c.PanTo != "", c.Click, c.Wheel != 0} {
+	for _, set := range []bool{c.Key != "", c.Hold != "", len(c.Point) > 0, c.PointAt != "", c.PanTo != "", c.Click, c.Wheel != 0, c.ShowStatsPrompt != ""} {
 		if set {
 			n++
 		}
@@ -56,11 +60,13 @@ func Validate(cues []Cue) error {
 	for i, c := range cues {
 		switch {
 		case c.verbs() != 1:
-			return fmt.Errorf("cue %d at %gs: want exactly one of key, hold, point, point_at, pan_to, click, wheel", i, c.At)
+			return fmt.Errorf("cue %d at %gs: want exactly one of key, hold, point, point_at, pan_to, click, wheel, show_stats_prompt", i, c.At)
 		case len(c.Point) != 0 && len(c.Point) != 2:
 			return fmt.Errorf("cue %d at %gs: point wants [x, y]", i, c.At)
 		case c.Hold != "" && c.For <= 0:
 			return fmt.Errorf("cue %d at %gs: hold wants a duration in for", i, c.At)
+		case c.ShowStatsPrompt != "" && c.ShowStatsPrompt != "off" && c.ShowStatsPrompt != "on":
+			return fmt.Errorf("cue %d at %gs: show_stats_prompt wants off or on", i, c.At)
 		case c.At < 0:
 			return fmt.Errorf("cue %d: at %gs is before the clip starts", i, c.At)
 		}

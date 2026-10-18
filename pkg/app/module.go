@@ -163,11 +163,7 @@ func (s *services) Hooks(cfg *config.Config) cli.HooksRunner {
 }
 
 func (s *services) Sessions(cfg *config.Config) cli.SessionsRunner {
-	sessions := commands.NewSessions(cfg.Home, control.Default(cfg.Terminal))
-	if forget := pruneForgetter(cfg); forget != nil {
-		sessions.WithForget(forget)
-	}
-	return sessions
+	return commands.NewSessions(cfg.Home, control.Default(cfg.Terminal)).WithForget(pruneForgetter(cfg))
 }
 
 func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
@@ -480,6 +476,10 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		UsageRefresh:   usageEvery,
 		Signage:        signage,
 		Settings:       settingsFor(c.config),
+		StatsOn:        c.config.Stats,
+		StatsOwed:      func(on bool) stats.Prompt { return stats.Owed(statedir.Dir(), on) },
+		StatsSince:     func() (time.Time, bool) { return stats.OffSince(statedir.Dir()) },
+		StatsChoose:    statsChoice(c.config.File, statedir.Dir(), time.Now),
 		Apply: func(s ui.Setting) error {
 			if s.Key == config.KeyTerminal {
 				_, value := settingValue(s)
@@ -582,6 +582,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
 		{Key: config.KeyDistrictType, Label: "new districts", Options: withValue(append([]string{}, city.TypingModes...), cfg.DistrictType), Value: cfg.DistrictType},
+		{Key: config.KeyStats, Label: "statistics", Options: []string{"on", "off"}, Value: statsValue(cfg.Stats)},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
 	})
@@ -623,7 +624,7 @@ func saveSetting(file string, s ui.Setting) error {
 // settingValue is the config value a panel row stands for.
 func settingValue(s ui.Setting) (string, any) {
 	switch s.Key {
-	case config.KeyGroupLines:
+	case config.KeyGroupLines, config.KeyStats:
 		return s.Key, s.Value == "on"
 	case config.KeyLabels:
 		return s.Key, s.Value == config.LabelsShown
@@ -667,12 +668,38 @@ func groupSource(cfg *config.Config) func([]state.Session, time.Time) (*group.Gu
 	}
 }
 
+func statsValue(on bool) string {
+	if on {
+		return "on"
+	}
+	return "off"
+}
+
+// statsChoice answers a statistics prompt: the store keeps or deletes
+// what it holds, then the setting is saved to the config file. Item 110.
+func statsChoice(file, dir string, now func() time.Time) func(stats.Prompt, bool) error {
+	return func(p stats.Prompt, keep bool) error {
+		on := p == stats.OnPrompt
+		var err error
+		if on {
+			err = stats.TurnOn(dir, keep, now())
+		} else {
+			err = stats.TurnOff(dir, keep)
+		}
+		if err != nil {
+			return err
+		}
+		return config.Save(file, config.KeyStats, on)
+	}
+}
+
 // pruneForgetter is how prune forgets a removed session's statistics:
-// nothing while they are off, and never by creating a database that is
+// while they are off it notes the session beside data kept for later,
+// without opening the database, and it never creates a database that is
 // not there yet. Item 110.
 func pruneForgetter(cfg *config.Config) func(string) error {
 	if !cfg.Stats {
-		return nil
+		return func(session string) error { return stats.NotePruned(statedir.Dir(), session) }
 	}
 	return func(session string) error {
 		path := stats.Path()

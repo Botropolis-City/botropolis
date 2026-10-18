@@ -23,6 +23,8 @@ func (d stateDir) db() string { return filepath.Join(d.dir, "stats.db") }
 
 func (d stateDir) marker() string { return filepath.Join(d.dir, "stats-off") }
 
+func (d stateDir) notes() string { return filepath.Join(d.dir, "stats-pruned") }
+
 func (d stateDir) withDatabase() stateDir {
 	d.t.Helper()
 	s, err := stats.Open(d.db())

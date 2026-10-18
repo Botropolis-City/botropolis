@@ -146,4 +146,18 @@ func TestPlayer(t *testing.T) {
 			assert.Equal(t, []int{15}, on)
 		})
 	})
+
+	t.Run("when a statistics prompt is cued", func(t *testing.T) {
+		got := frames([]script.Cue{{At: 0.5, ShowStatsPrompt: "on"}}, 1)
+
+		t.Run("it should pass it on that frame alone", func(t *testing.T) {
+			var on []int
+			for i, f := range got {
+				if f.statsPrompt == "on" {
+					on = append(on, i)
+				}
+			}
+			assert.Equal(t, []int{15}, on)
+		})
+	})
 }

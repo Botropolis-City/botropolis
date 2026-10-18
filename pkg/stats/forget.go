@@ -4,6 +4,9 @@ package stats
 // transcripts and the sessions themselves, then any message no remaining
 // session holds and any directory no message uses. Item 110.
 func (s *Store) Forget(sessions ...string) error {
+	if len(sessions) == 0 {
+		return nil
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -11,6 +12,10 @@ import (
 // data kept. While they are off the database is not opened, so the
 // choice is kept beside it instead.
 const offMarker = "stats-off"
+
+// prunedNotes lists the sessions prune removed while statistics were
+// off, for turning them back on to forget.
+const prunedNotes = "stats-pruned"
 
 // Prompt is the question the city owes about the statistics setting.
 type Prompt int
@@ -60,8 +65,16 @@ func TurnOn(dir string, keepOld bool, now time.Time) error {
 	if err != nil {
 		return err
 	}
+	pruned, err := noted(dir)
+	if err != nil {
+		return err
+	}
 	s, err := Open(path)
 	if err != nil {
+		return err
+	}
+	if err := s.Forget(pruned...); err != nil {
+		_ = s.Close()
 		return err
 	}
 	if _, err := s.db.Exec("INSERT INTO gaps (off_at, on_at) VALUES (?, ?)", off.UnixMilli(), now.UnixMilli()); err != nil {
@@ -71,7 +84,55 @@ func TurnOn(dir string, keepOld bool, now time.Time) error {
 	if err := s.Close(); err != nil {
 		return err
 	}
+	if err := removeIfThere(filepath.Join(dir, prunedNotes)); err != nil {
+		return err
+	}
 	return removeIfThere(filepath.Join(dir, offMarker))
+}
+
+// NotePruned records, while statistics are off over a database, a session
+// prune removed, so turning them back on with the data kept forgets it.
+// That holds whether the data was kept at the prompt or the prompt is
+// still owed. With no database there is nothing to forget, and nothing is
+// written. The database itself is not opened: its last write is where
+// the gap starts.
+func NotePruned(dir, session string) error {
+	if !exists(filepath.Join(dir, file)) {
+		return nil
+	}
+	f, err := os.OpenFile(filepath.Join(dir, prunedNotes), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.WriteString(session + "\n"); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+// OffSince is when the kept database was last written, which is where a
+// gap starts, and whether there is one.
+func OffSince(dir string) (time.Time, bool) {
+	at, err := lastWritten(filepath.Join(dir, file))
+	return at, err == nil
+}
+
+func noted(dir string) ([]string, error) {
+	data, err := os.ReadFile(filepath.Join(dir, prunedNotes))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var sessions []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			sessions = append(sessions, line)
+		}
+	}
+	return sessions, nil
 }
 
 func lastWritten(path string) (time.Time, error) {
@@ -87,7 +148,7 @@ func lastWritten(path string) (time.Time, error) {
 }
 
 func removeAll(dir string) error {
-	for _, name := range []string{file, file + "-wal", file + "-shm", offMarker} {
+	for _, name := range []string{file, file + "-wal", file + "-shm", offMarker, prunedNotes} {
 		if err := removeIfThere(filepath.Join(dir, name)); err != nil {
 			return err
 		}
