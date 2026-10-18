@@ -79,7 +79,7 @@ func TestStatsPrompt(t *testing.T) {
 			Title: "Turn statistics off",
 			Lines: []string{
 				"While statistics are off, Botropolis records nothing.",
-				"Messages in any transcript Claude Code deletes in that time are lost to them for good, so turning statistics back on later leaves a gap that may not be accurate.",
+				"Messages in any transcript Claude Code deletes in that time are lost to statistics for good, so turning statistics back on later leaves a gap that may not be accurate.",
 			},
 			Keys: "k  keep what is stored    d  delete it    esc  leave statistics on",
 		}},
@@ -87,7 +87,7 @@ func TestStatsPrompt(t *testing.T) {
 			Title: "Statistics were turned off",
 			Lines: []string{
 				"While statistics are off, Botropolis records nothing.",
-				"Messages in any transcript Claude Code deletes in that time are lost to them for good, so turning statistics back on later leaves a gap that may not be accurate.",
+				"Messages in any transcript Claude Code deletes in that time are lost to statistics for good, so turning statistics back on later leaves a gap that may not be accurate.",
 			},
 			Keys: "k  keep what is stored    d  delete it    esc  ask me next time",
 		}},
