@@ -48,6 +48,9 @@ func movePhrase(m state.Move) string {
 	return string(m) + " move"
 }
 
+// MovePhrase is a move as the card and the plan's legend say it.
+func MovePhrase(m state.Move) string { return movePhrase(m) }
+
 // sentence is what the card leads with, in Claude's own words where
 // there are any: the question it is asking, its recap, a summary
 // generated for it, and failing those the prompt it was last given.

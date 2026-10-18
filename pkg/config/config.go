@@ -163,7 +163,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeySocket, "", "daemon socket (default: "+proto.SocketPath()+")")
 	flags.Int(KeyShutteredDays, DefaultShutteredDays, "how many quiet days before a stopped session is shuttered")
 	flags.Int(KeyOvergrownDays, DefaultOvergrownDays, "how many quiet days before a stopped session is overgrown")
-	flags.String(KeyProjection, DefaultProjection, "how the city is drawn: iso or top")
+	flags.String(KeyProjection, DefaultProjection, "deprecated: the map is isometric, and zooming out past Skyline shows the City Plan")
 	flags.Float64(KeyRenderScale, 0, "chrome and pixel scale (default: follow the display)")
 	flags.Bool(KeyReducedMotion, false, "stop every animation and keep the colours: liveliness still")
 	flags.String(KeyLiveliness, DefaultLiveliness, "how much the city moves: still, calm, steady or lively")

@@ -229,6 +229,9 @@ type Game struct {
 	// footprints, so a tall building or tower is hovered by its body.
 	hits      []spriteHit
 	frameHits []spriteHit
+	// planLayer is where the City Plan is drawn while it cross-fades
+	// with the map (item 106).
+	planLayer *ebiten.Image
 	// streamLaid is the stream as last drawn, so a click lands on the
 	// entry that is there (item 88).
 	streamLaid ui.Stream
@@ -424,6 +427,7 @@ func (g *Game) Update() error {
 
 	g.scene.SetInstant(g.reduced || g.screenshot != "")
 	g.scene.SetReducedMotion(g.reduced)
+	g.scene.SetPlanFade(city.PlanFade(g.liveliness))
 	g.scene.Animate(1.0 / 30)
 	if g.screenshot == "" && !g.driven {
 		g.watchFocus()
@@ -716,12 +720,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		defer g.noteShown()
 	}
 	if cam.Projection == city.Isometric {
-		g.drawIso(screen, c, cam, hover, selected, width, height, seconds)
-		g.districtGhost(screen, cam)
-		if g.carrying != nil {
-			x, y := ebiten.CursorPosition()
-			g.drawCarry(screen, cam, city.Point{X: float64(x), Y: float64(y)})
+		shown := g.scene.PlanShown()
+		if shown < 1 {
+			g.drawIso(screen, c, cam, hover, selected, width, height, seconds)
+			g.districtGhost(screen, cam)
+			if g.carrying != nil {
+				x, y := ebiten.CursorPosition()
+				g.drawCarry(screen, cam, city.Point{X: float64(x), Y: float64(y)})
+			}
 		}
+		g.drawCityPlan(screen, width, height, shown)
 		g.overlay(screen, width, height)
 		return
 	}

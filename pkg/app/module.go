@@ -281,9 +281,9 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		OnError: func(err error) { fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v\n", err) },
 		Since:   func() time.Time { return layout.Seen },
 	}
-	projection, ok := city.ParseProjection(c.config.Projection)
-	if !ok {
-		return fmt.Errorf("unknown projection %q: use iso or top", c.config.Projection)
+	projection, err := projectionFor(c.config.Projection, cmd.ErrOrStderr())
+	if err != nil {
+		return err
 	}
 	detail, ok := city.ParseDetail(c.config.Detail)
 	if !ok {
@@ -469,7 +469,6 @@ func settingsFor(cfg *config.Config) ui.Settings {
 	return ui.NewSettings([]ui.Setting{
 		{Key: config.KeyLiveliness, Label: "liveliness", Options: livelinessNames(), Value: cfg.Liveliness},
 		{Key: config.KeyRenderScale, Label: "render scale", Options: withValue([]string{autoValue, "1", "1.25", "1.5", "2"}, scale), Value: scale},
-		{Key: config.KeyProjection, Label: "projection", Options: []string{"iso", "top"}, Value: cfg.Projection},
 		{Key: config.KeyDetail, Label: "detail", Options: []string{"full", "plain"}, Value: cfg.Detail},
 		{Key: config.KeyShutteredDays, Label: "shuttered days", Options: withValue([]string{"1", "3", "7", "14", "30"}, strconv.Itoa(cfg.ShutteredDays)), Value: strconv.Itoa(cfg.ShutteredDays)},
 		{Key: config.KeyOvergrownDays, Label: "overgrown days", Options: withValue([]string{"7", "14", "30", "60", "90", "180"}, strconv.Itoa(cfg.OvergrownDays)), Value: strconv.Itoa(cfg.OvergrownDays)},

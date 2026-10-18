@@ -57,7 +57,7 @@ func (g *Game) applySetting(s ui.Setting) {
 			return
 		}
 	case config.KeyProjection:
-		if p, ok := city.ParseProjection(s.Value); ok {
+		if p, _, ok := city.UserProjection(s.Value); ok {
 			g.scene.SetProjection(p)
 		}
 	case config.KeyDetail:

@@ -133,19 +133,26 @@ type Scene struct {
 	ladder   state.Thresholds
 	// linesHidden is whether the setting hides the groups' lines.
 	linesHidden bool
-	light       Light
-	now         func() time.Time
-	location    *time.Location
-	scrub       time.Duration
-	topChrome   float64
-	bottom      float64
-	left        float64
-	corner      Rect
-	layout      *Layout
-	camera      *Camera
-	city        *City
-	hover       Hit
-	selected    *Building
+	// planOpen draws the city as its plan (item 106).
+	planOpen bool
+	// planShown is the cross-fade between the map and the plan, and
+	// planFadeFor how long it takes.
+	planShown, planFadeFor float64
+	// lastWheel is when the wheel last turned, for PlanDebounce.
+	lastWheel time.Time
+	light     Light
+	now       func() time.Time
+	location  *time.Location
+	scrub     time.Duration
+	topChrome float64
+	bottom    float64
+	left      float64
+	corner    Rect
+	layout    *Layout
+	camera    *Camera
+	city      *City
+	hover     Hit
+	selected  *Building
 	// detailsFor is the session whose card has its details open, so a
 	// new selection always starts closed; generated is what Generate
 	// brought back, by session.
@@ -665,6 +672,11 @@ func (s *Scene) reselect() *Building {
 const LineHoverPixels = 6.0
 
 func (s *Scene) PointerMove(screen Point) {
+	if s.planOpen {
+		// The map beneath the plan is not under the pointer (item 106).
+		s.hover, s.spriteHover = Hit{}, false
+		return
+	}
 	world := s.camera.ScreenToWorld(screen)
 	s.spriteHover = false
 	s.hover = s.city.At(world)
@@ -727,6 +739,22 @@ func (s *Scene) Wheel(cursor Point, amount float64) {
 	if s.zoomTarget > 0 {
 		target = s.zoomTarget
 	}
+	// One notch out from Skyline opens the City Plan, and one in leaves
+	// it (item 106).
+	plans := s.camera.Projection == Isometric
+	at := s.now()
+	rested := s.lastWheel.IsZero() || at.Sub(s.lastWheel) >= PlanDebounce
+	s.lastWheel = at
+	if plans && s.planOpen {
+		if amount > 0 {
+			s.closePlanAt(cursor)
+		}
+		return
+	}
+	if plans && amount < 0 && rested && target <= s.SkylineZoom()*(1+1e-9) {
+		s.openPlan()
+		return
+	}
 	steps := int(math.Abs(amount) + 0.5)
 	for i := 0; i < steps; i++ {
 		if amount > 0 {
@@ -735,8 +763,13 @@ func (s *Scene) Wheel(cursor Point, amount float64) {
 			target = stepBelow(target)
 		}
 	}
-	// Zooming out stops at the floor (item 89).
-	target = math.Max(target, math.Min(FloorZoom(s.camera.Projection), s.camera.Zoom))
+	// Zooming out stops at the floor (item 89), and on the isometric map
+	// at Skyline, the step before the plan (item 106).
+	floor := FloorZoom(s.camera.Projection)
+	if plans {
+		floor = s.SkylineZoom()
+	}
+	target = math.Max(target, math.Min(floor, s.camera.Zoom))
 	s.zoomTarget, s.zoomAnchor = target, cursor
 	if s.instant {
 		s.Animate(1)
@@ -761,6 +794,7 @@ func (s *Scene) SetReducedMotion(reduced bool) {
 func (s *Scene) Animate(dt float64) {
 	s.applyNight()
 	s.releaseDepot()
+	s.fadePlan(dt)
 	if s.zoomTarget <= 0 || s.zoomTarget == s.camera.Zoom {
 		return
 	}
@@ -845,6 +879,9 @@ func (s *Scene) CenterOn(world Point) {
 }
 
 func (s *Scene) Click(screen Point) Action {
+	if s.planOpen {
+		return Action{}
+	}
 	hit := s.city.At(s.camera.ScreenToWorld(screen))
 	if hit.ground() && s.spriteHover && s.hover.Building != nil {
 		// The pointer is on a building's upper storeys, found by the

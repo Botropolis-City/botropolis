@@ -83,3 +83,18 @@ func (p Projection) Corners(r Rect) [4]Point {
 		p.Apply(Point{X: r.Min.X, Y: r.Max.Y}),
 	}
 }
+
+// UserProjection is the projection a setting or flag asks for, as the map
+// opens it. The top-down projection is no longer offered: asking for it
+// opens the isometric map, with a warning to say so (item 106). The
+// third result is false for a name it does not know.
+func UserProjection(s string) (Projection, string, bool) {
+	p, ok := ParseProjection(s)
+	if !ok {
+		return Isometric, "", false
+	}
+	if p == TopDown {
+		return Isometric, "projection " + s + " is no longer offered; the isometric map opens, and zooming out past Skyline shows the City Plan", true
+	}
+	return p, "", true
+}

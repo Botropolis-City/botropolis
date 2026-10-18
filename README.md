@@ -72,7 +72,7 @@ and a **generate summary** button that asks your own `claude` CLI for one.
 That is the only thing on the map that spends tokens, and only when you press it:
 it runs Haiku with no tools, no MCP servers and no hooks, writes no transcript, and never appears in the city as a session.
 
-Keys: drag to pan, wheel to zoom, `r` to turn, `f` for Skyline, `tab` for the next session that needs you, `enter` to attach it, `i` its summary,
+Keys: drag to pan, wheel to zoom (one notch out past Skyline is the City Plan, a flat map of every district), `r` to turn, `f` for Skyline, `tab` for the next session that needs you, `enter` to attach it, `i` its summary,
 `c` for a new session here, `d d` to demolish, `b` sidebar, `x` breakdown, `t` timeline, `/` or `ctrl+k` find, `s` settings, `n` night/day/live, `[` `]` scrub the clock,
 `h` hide the UI, `p` save a frame, `?` all of them.
 
@@ -138,7 +138,7 @@ The package installs `botropolis.desktop`, so the city is in your launcher under
 Media for the website is filmed from recorded demo sessions rather than anyone's real ones: see [demo/](demo/README.md).
 
 Settings come from flags, then `BOTROPOLIS_HOME`, `BOTROPOLIS_SOCKET`, `BOTROPOLIS_TERMINAL`, `BOTROPOLIS_PARKED_DAYS`, `BOTROPOLIS_CODEX_HOME`,
-then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `shuttered_days`, `overgrown_days`, `codex_home`, `projection`, `render_scale`, `liveliness`, `reduced_motion`, `daily_budget_usd`).
+then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `shuttered_days`, `overgrown_days`, `codex_home`, `render_scale`, `liveliness`, `reduced_motion`, `daily_budget_usd`).
 `s` in the city opens a settings panel for the same keys and writes the file back.
 
 A waybar module, for example:
@@ -184,7 +184,7 @@ it makes it a different program for a different desk, and it was the one that sh
 The city is drawn from [Kenney](https://kenney.nl)'s 3D kits — City Kit Commercial, Roads, Industrial and Suburban, the Nature Kit, the Car Kit, the Space Kit, the Train Kit and the Watercraft Kit, all CC0 —
 pre-rendered once in Blender by `tools/render-sprites` into the atlases under `pkg/assets/kits/` (four headings, two zoom levels),
 the way Factorio ships its sprites: the runtime only ever draws 2D.
-The 16 px Tiny Town, Tiny Factory and Roguelike Modern City packs remain behind `--projection top`.
+The 16 px Tiny Town, Tiny Factory and Roguelike Modern City packs are still bundled, though the top-down view that drew them is no longer offered.
 Thank you, Kenney; see [`pkg/assets/kenney/README.md`](pkg/assets/kenney/README.md) and [`pkg/assets/kits/README.md`](pkg/assets/kits/README.md) for the packs, versions and terms,
 and [support the studio](https://kenney.nl/donate) if the work helps you too.
 

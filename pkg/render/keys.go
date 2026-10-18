@@ -34,6 +34,7 @@ var bindings = []ui.Key{
 	{Key: "c", Action: "new session here"},
 	{Key: "d d", Action: "demolish the selection"},
 	{Key: "f", Action: "Skyline"},
+	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel in to return"},
 	{Key: "0", Action: "reset the view"},
 	{Key: "r", Action: "turn the camera"},
 	{Key: "n", Action: "night, day, auto"},

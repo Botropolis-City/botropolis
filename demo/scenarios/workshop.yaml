@@ -52,10 +52,10 @@ shots:
     title: Where the tokens go
     description: The power plant's breakdown of the last day's tokens and spend.
     keys: [x]
-  - name: flat
-    title: The workshop from above
-    description: The same city in the top-down projection.
-    projection: top
+  - name: plan
+    title: The workshop as a plan
+    description: One notch out past Skyline, the City Plan shows every district as a badge.
+    keys: [minus]
   - name: tour
     title: A tour of the workshop
     description: Point at the busiest building and open its card, read its summary, open the power plant, then the sidebar.

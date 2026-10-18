@@ -35,7 +35,9 @@ First pass is flat coloured shapes with text; sprites (Kenney CC0 city and isome
 
 ## View
 
-The map is isometric by default (Kenney's isometric packs; `--projection top` keeps the 16 px top-down view).
+The map is isometric (Kenney's isometric packs).
+One wheel notch out past Skyline, it becomes the City Plan: a flat map of district badges at their places, the groups' lines and the usage readings in a legend (`pkg/city/cityplan.go`, item 106).
+`--projection top` still parses but opens the isometric map with a warning; the top-down projection survives inside `pkg/city` as the identity, which most of its tests run in.
 Isometric 2:1 is an affine projection, so `pkg/city` keeps rectangles and only the renderer sees diamonds.
 Below a detail zoom the map view draws flat state-coloured blocks, the way Factorio's chart replaces sprites with map colours;
 above it, buildings are stacked from the pack's ground floors, storeys and roofs.
