@@ -70,6 +70,10 @@ func TestConfig(t *testing.T) {
 		t.Run("it should default the codex home under home", func(t *testing.T) {
 			assert.Equal(t, "/home/someone/.codex", cfg.CodexHome)
 		})
+
+		t.Run("it should show the labels", func(t *testing.T) {
+			assert.True(t, cfg.Labels)
+		})
 	})
 
 	t.Run("when the ladder's thresholds are given as flags", func(t *testing.T) {

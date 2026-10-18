@@ -35,6 +35,12 @@ const (
 	KeyDetail       = "detail"
 	KeyUsageRefresh = "usage_refresh"
 	KeyGroupLines   = "group_lines"
+	// KeyLabels shows or hides every label on the map; signs stay.
+	// Item 102.
+	KeyLabels = "labels"
+	// LabelsShown and LabelsHidden are the labels row's two values.
+	LabelsShown  = "shown"
+	LabelsHidden = "hidden"
 	// KeyDistrictType is how a new district's type is chosen: random,
 	// guess, or one type for all. Item 109.
 	KeyDistrictType = "district_type"
@@ -133,9 +139,14 @@ type Config struct {
 	StreamKey string
 	// CityPlanKey opens and closes the City Plan (item 106).
 	CityPlanKey string
-	File        string
+	// LabelsKey turns every label off and on (item 102).
+	LabelsKey string
+	File      string
 	// GroupLines draws each group as a line across its districts (item 87).
 	GroupLines bool
+	// Labels shows the map's labels; signs on posts stay either way
+	// (item 102).
+	Labels bool
 }
 
 func NewViper() *viper.Viper {
@@ -169,6 +180,8 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyStream, DefaultStream)
 	v.SetDefault(KeyCityPlan, DefaultCityPlan)
 	v.SetDefault(KeyGroupLines, true)
+	v.SetDefault(KeyLabels, true)
+	v.SetDefault(KeyLabelsToggle, DefaultLabelsToggle)
 	v.SetDefault(KeyGlobalShortcut, "")
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
@@ -190,6 +203,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyDetail, DefaultDetail, "how much of the city to draw: full or plain (plain drops the scenery)")
 	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
 	flags.Bool(KeyGroupLines, true, "draw each group of sessions as a line across its districts")
+	flags.Bool(KeyLabels, true, "draw the map's labels: group badges, line names, street names and plates; signs on posts stay either way")
 	flags.String(KeyConfig, "", "the config file to read and save (default: "+DefaultFile()+")")
 	_ = v.BindPFlag(KeyConfig, flags.Lookup(KeyConfig))
 	_ = v.BindPFlag(KeyHome, flags.Lookup(KeyHome))
@@ -215,6 +229,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.Int(KeyJournalHours, DefaultJournalHours, "how many hours away before the journal opens by itself")
 	flags.String(KeyStream, DefaultStream, "the key that hides and shows the stream down the right")
 	flags.String(KeyCityPlan, DefaultCityPlan, "the key that opens and closes the City Plan, a flat map of every district")
+	flags.String(KeyLabelsToggle, DefaultLabelsToggle, "the key that turns every label on the map off and on")
 	_ = v.BindPFlag(KeyFind, flags.Lookup(KeyFind))
 	_ = v.BindPFlag(KeyFindCopy, flags.Lookup(KeyFindCopy))
 	_ = v.BindPFlag(KeyFindShow, flags.Lookup(KeyFindShow))
@@ -226,6 +241,8 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyStream, flags.Lookup(KeyStream))
 	_ = v.BindPFlag(KeyCityPlan, flags.Lookup(KeyCityPlan))
 	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
+	_ = v.BindPFlag(KeyLabels, flags.Lookup(KeyLabels))
+	_ = v.BindPFlag(KeyLabelsToggle, flags.Lookup(KeyLabelsToggle))
 }
 
 func New(v *viper.Viper) (*Config, error) {
@@ -269,7 +286,9 @@ func New(v *viper.Viper) (*Config, error) {
 		JournalHours:   v.GetInt(KeyJournalHours),
 		StreamKey:      v.GetString(KeyStream),
 		CityPlanKey:    v.GetString(KeyCityPlan),
+		LabelsKey:      v.GetString(KeyLabelsToggle),
 		GroupLines:     v.GetBool(KeyGroupLines),
+		Labels:         v.GetBool(KeyLabels),
 		GlobalShortcut: v.GetString(KeyGlobalShortcut),
 		File:           v.ConfigFileUsed(),
 	}

@@ -36,6 +36,7 @@ var bindings = []ui.Key{
 	{Key: "f", Action: "Skyline"},
 	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel in to return"},
 	{Key: planBinding, Action: "the City Plan: every district on one screen; click a badge to fly in"},
+	{Key: labelsBinding, Action: "labels off and on"},
 	{Key: "0", Action: "reset the view"},
 	{Key: "r", Action: "turn the camera"},
 	{Key: "n", Action: "night, day, auto"},
@@ -65,6 +66,10 @@ func (g *Game) helpKeys() []ui.Key {
 			keys = append(keys, ui.Key{Key: chords.Plan.String(), Action: k.Action})
 			continue
 		}
+		if k.Key == labelsBinding {
+			keys = append(keys, ui.Key{Key: chords.Labels.String(), Action: k.Action})
+			continue
+		}
 		if k.Key != findBinding {
 			keys = append(keys, k)
 			continue
@@ -84,6 +89,10 @@ const findBinding = "/ or ctrl+k"
 // planBinding is the help's row for the City Plan, which helpKeys spells
 // with the key as configured.
 const planBinding = "m"
+
+// labelsBinding is the help's row for turning the labels off and on,
+// which helpKeys spells with the key as configured (item 102).
+const labelsBinding = "z"
 
 var footerKeys = []ui.Key{
 	{Key: "drag", Action: "pan"},
@@ -356,6 +365,10 @@ func (g *Game) handleKeys() error {
 	}
 	if plan := g.findChords().Plan; g.chordPressed(plan) && g.onlyHeld(plan) {
 		g.scene.ToggleCityPlan()
+		return nil
+	}
+	if labels := g.findChords().Labels; g.chordPressed(labels) && g.onlyHeld(labels) {
+		g.toggleLabels()
 		return nil
 	}
 	if just(ebiten.KeyN) {

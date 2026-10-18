@@ -70,6 +70,8 @@ type Options struct {
 	// HideGroupLines hides the line each group draws across its
 	// districts, which are on unless the settings say otherwise.
 	HideGroupLines bool
+	// HideLabels starts the city with every label off (item 102).
+	HideLabels bool
 	// GroupSource builds what New session guesses a group from, for the
 	// sessions on the map: the history detected once, and the recently
 	// used directories.
@@ -188,6 +190,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.setLiveliness(opts.Liveliness)
 	scene.SetDetail(opts.Detail)
 	scene.SetGroupLines(!opts.HideGroupLines)
+	scene.SetLabels(!opts.HideLabels)
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
 	if opts.Ladder != (state.Thresholds{}) {
 		scene.SetLadder(opts.Ladder)

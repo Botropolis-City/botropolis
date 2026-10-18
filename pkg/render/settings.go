@@ -69,6 +69,8 @@ func (g *Game) applySetting(s ui.Setting) {
 		}
 	case config.KeyGroupLines:
 		g.scene.SetGroupLines(s.Value == "on")
+	case config.KeyLabels:
+		g.scene.SetLabels(s.Value == config.LabelsShown)
 	case config.KeyShutteredDays, config.KeyOvergrownDays:
 		days, _ := strconv.Atoi(s.Value)
 		ladder := g.scene.Ladder()

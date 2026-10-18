@@ -1259,6 +1259,46 @@ func TestLandmarkLabels(t *testing.T) {
 	})
 }
 
+// Item 102: a switch turns every label off, however close the camera.
+func TestLabelsHidden(t *testing.T) {
+	t.Run("when labels are hidden, and the camera is close enough for them", func(t *testing.T) {
+		s := scene(t, session("a", cinders, state.Working))
+		for s.Camera().Zoom < city.LandmarkLabelZoom {
+			s.Wheel(city.Point{X: 400, Y: 300}, 1)
+			s.Animate(10)
+		}
+		require.True(t, s.LabelsVisible() && s.LandmarkLabelsVisible(), "the camera is not close enough: the checks below pass on nothing")
+		require.True(t, s.DistrictLabelVisible(s.City().Districts[0]), "no district's plate shows: the check below passes on nothing")
+		s.SetLabels(false)
+
+		t.Run("it should report labels not visible", func(t *testing.T) {
+			assert.False(t, s.LabelsVisible())
+		})
+
+		t.Run("it should report landmark plates not visible", func(t *testing.T) {
+			assert.False(t, s.LandmarkLabelsVisible())
+		})
+
+		t.Run("it should report no district's plate visible", func(t *testing.T) {
+			var plated []string
+			for _, d := range s.City().Districts {
+				if s.DistrictLabelVisible(d) {
+					plated = append(plated, d.Name)
+				}
+			}
+			assert.Empty(t, plated)
+		})
+
+		t.Run("and they are shown again", func(t *testing.T) {
+			s.SetLabels(true)
+
+			t.Run("it should report labels visible", func(t *testing.T) {
+				assert.True(t, s.LabelsVisible())
+			})
+		})
+	})
+}
+
 func TestVoyages(t *testing.T) {
 	clock := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
 	newScene := func() *city.Scene {

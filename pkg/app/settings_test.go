@@ -219,6 +219,37 @@ func TestLivelinessSetting(t *testing.T) {
 	})
 }
 
+// Item 102: every label can be hidden, from a row as well as from z.
+func TestLabelsSetting(t *testing.T) {
+	t.Run("when the config is the default", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		var row ui.Setting
+		for _, s := range settingsFor(cfg).Items {
+			if s.Key == config.KeyLabels {
+				row = s
+			}
+		}
+
+		t.Run("it should show a labels row reading shown", func(t *testing.T) {
+			assert.Equal(t, [2]string{"labels", "shown"}, [2]string{row.Label, row.Value})
+		})
+
+		t.Run("it should offer shown and hidden", func(t *testing.T) {
+			assert.Equal(t, []string{"shown", "hidden"}, row.Options)
+		})
+	})
+
+	t.Run("when the panel hides them", func(t *testing.T) {
+		key, value := settingValue(ui.Setting{Key: config.KeyLabels, Value: "hidden"})
+
+		t.Run("it should save labels = false", func(t *testing.T) {
+			assert.Equal(t, []any{config.KeyLabels, false}, []any{key, value})
+		})
+	})
+}
+
 // Item 109: how a new district's type is chosen is a row in the panel.
 func TestDistrictTypeSettingsRow(t *testing.T) {
 	t.Run("when the settings panel is open", func(t *testing.T) {

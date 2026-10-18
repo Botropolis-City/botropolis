@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -69,7 +70,7 @@ func (g *Game) queueDistrictPlate(d *city.District) {
 	pad := g.theme.Grid() / 2
 	p := ui.LayoutPlate(g.theme, d.Name, city.Point{X: at.X - pad, Y: at.Y - g.theme.Grid()/4}, ui.Small, g.faces.Measure)
 	g.queueLabel(pendingLabel{
-		mapLabel: mapLabel{Kind: labelSign, Rect: p.Rect, Anchor: p.Rect.Center()},
+		mapLabel: mapLabel{Kind: labelPlate, Rect: p.Rect, Anchor: p.Rect.Center()},
 		draw: func(screen *ebiten.Image, _ city.Rect) {
 			g.plate(screen, p, d.Name, colorText)
 		},
@@ -104,6 +105,24 @@ func (g *Game) drawMapLabels(screen *ebiten.Image) {
 	g.shownLabels = shown
 	g.mu.Unlock()
 	g.mapLabels = g.mapLabels[:0]
+}
+
+// toggleLabels turns every label off or on by flipping the settings
+// row and applying it, so the key and the row save the same way and
+// cannot disagree (item 102).
+func (g *Game) toggleLabels() {
+	value := config.LabelsHidden
+	if !g.scene.Labels() {
+		value = config.LabelsShown
+	}
+	row := ui.Setting{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: value}
+	for i, s := range g.settings.Items {
+		if s.Key == config.KeyLabels {
+			g.settings.Items[i].Value = value
+			row = g.settings.Items[i]
+		}
+	}
+	g.applySetting(row)
 }
 
 // nearestOn is the point of r closest to p.

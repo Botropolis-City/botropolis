@@ -467,6 +467,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		DailyBudget:    c.config.DailyBudget,
 		Detail:         detail,
 		HideGroupLines: !c.config.GroupLines,
+		HideLabels:     !c.config.Labels,
 		GroupSource:    groupSource(c.config),
 		JournalHours:   c.config.JournalHours,
 		LastCloseUp:    func() (state.CloseUp, error) { return state.LoadCloseUp(state.CloseUpPath()) },
@@ -554,6 +555,10 @@ func settingsFor(cfg *config.Config) ui.Settings {
 	if !cfg.GroupLines {
 		lines = "off"
 	}
+	labels := config.LabelsShown
+	if !cfg.Labels {
+		labels = config.LabelsHidden
+	}
 	terminal := cfg.Terminal
 	if terminal == "" {
 		terminal = autoValue
@@ -570,6 +575,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyOvergrownDays, Label: "overgrown days", Options: withValue([]string{"7", "14", "30", "60", "90", "180"}, strconv.Itoa(cfg.OvergrownDays)), Value: strconv.Itoa(cfg.OvergrownDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
+		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
 		{Key: config.KeyDistrictType, Label: "new districts", Options: withValue(append([]string{}, city.TypingModes...), cfg.DistrictType), Value: cfg.DistrictType},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
@@ -614,6 +620,8 @@ func settingValue(s ui.Setting) (string, any) {
 	switch s.Key {
 	case config.KeyGroupLines:
 		return s.Key, s.Value == "on"
+	case config.KeyLabels:
+		return s.Key, s.Value == config.LabelsShown
 	case config.KeyRenderScale:
 		if s.Value == autoValue {
 			return s.Key, 0.0

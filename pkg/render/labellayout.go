@@ -17,12 +17,17 @@ type labelKind int
 
 const (
 	labelSign labelKind = iota
+	// labelPlate is the floating plate that names a district whose sign
+	// is too small to read, or is under the pointer: a label, so z hides
+	// it, placed before every other label and stepping aside only for a
+	// sign.
+	labelPlate
 	labelStation
 	labelBadge
 )
 
 func (k labelKind) String() string {
-	return [...]string{"sign", "station label", "badge"}[k]
+	return [...]string{"sign", "plate", "station label", "badge"}[k]
 }
 
 // mapLabel is a label asking for a place: Rect is where it would stand

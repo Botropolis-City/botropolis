@@ -136,6 +136,9 @@ type Scene struct {
 	ladder   state.Thresholds
 	// linesHidden is whether the setting hides the groups' lines.
 	linesHidden bool
+	// labelsHidden is whether the setting, or its key, hides every label
+	// on the map (item 102).
+	labelsHidden bool
 	// planOpen draws the city as its plan (item 106).
 	planOpen bool
 	// planShown is the cross-fade between the map and the plan, and
@@ -433,7 +436,20 @@ func (s *Scene) fit() {
 
 // LabelsVisible reports whether fixed-size map labels are worth drawing.
 func (s *Scene) LabelsVisible() bool {
-	return s.camera.Zoom >= LabelZoom
+	return !s.labelsHidden && s.camera.Zoom >= LabelZoom
+}
+
+// SetLabels shows or hides every label on the map: badges, line and
+// street names, and plates. Signs on posts and paint on buildings are
+// part of the map and stay (item 102).
+func (s *Scene) SetLabels(on bool) {
+	s.labelsHidden = !on
+}
+
+// Labels is whether the map's labels are switched on, however far out
+// the camera is.
+func (s *Scene) Labels() bool {
+	return !s.labelsHidden
 }
 
 // LandmarkLabelZoom is the zoom from which the plaza's landmarks carry
@@ -445,7 +461,7 @@ const LandmarkLabelZoom = 0.7
 // LandmarkLabelsVisible reports whether the plaza landmarks' plates are
 // drawn without a hover.
 func (s *Scene) LandmarkLabelsVisible() bool {
-	return s.camera.Zoom >= LandmarkLabelZoom
+	return !s.labelsHidden && s.camera.Zoom >= LandmarkLabelZoom
 }
 
 const (
@@ -498,7 +514,7 @@ func (s *Scene) TitlesVisible() bool {
 // which meant the labels you needed in order to find your way were the
 // ones that vanished when nothing was happening.
 func (s *Scene) DistrictLabelVisible(d *District) bool {
-	return d.Rect.Width()*s.camera.Zoom >= DistrictLabelMinWidth
+	return !s.labelsHidden && d.Rect.Width()*s.camera.Zoom >= DistrictLabelMinWidth
 }
 
 // DistrictLabelAt is where the district's name goes on screen: on the
