@@ -24,6 +24,8 @@ type segment struct {
 	a, b  city.Point
 	width float64
 	pole  bool
+	// plank is a walkway round a scaffold (item 89).
+	plank bool
 }
 
 // siteLines is the build's strokes on a lot whose screen corners are

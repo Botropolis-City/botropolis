@@ -20,7 +20,7 @@ func TestBuildingWork(t *testing.T) {
 		t.Run("when the level is "+level.String(), func(t *testing.T) {
 			t.Run("a mid-turn building's scaffold should stand on its roof, inside its footprint, and rise above it", func(t *testing.T) {
 				var wrong int
-				for _, s := range roofScaffold(lot, roofLift, 1, 1) {
+				for _, s := range roofScaffold(lot, roofLift, 1) {
 					if !s.pole {
 						continue
 					}
@@ -39,6 +39,34 @@ func TestBuildingWork(t *testing.T) {
 			})
 		})
 	}
+
+	// Aria, 2026-10-17: "Heavier scaffold".
+	t.Run("when a scaffold is drawn", func(t *testing.T) {
+		lines := roofScaffold(lot, roofLift, 1)
+		var planks, thin int
+		for _, s := range lines {
+			if s.pole && s.width < 2 {
+				thin++
+			}
+			if s.plank {
+				planks++
+			}
+		}
+
+		t.Run("its poles should be at least 2 px thick", func(t *testing.T) {
+			assert.Zero(t, thin)
+		})
+
+		t.Run("it should have two plank levels round it", func(t *testing.T) {
+			assert.Equal(t, 2*len(lot), planks)
+		})
+	})
+
+	t.Run("when a load is drawn at the opening zoom", func(t *testing.T) {
+		t.Run("its crate should be at least 6 px", func(t *testing.T) {
+			assert.GreaterOrEqual(t, crateSize(20), 6.0)
+		})
+	})
 
 	t.Run("when a load starts", func(t *testing.T) {
 		t.Run("it should be at the foot of the outside front corner", func(t *testing.T) {

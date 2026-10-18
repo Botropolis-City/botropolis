@@ -21,6 +21,7 @@ var (
 	colorWorkLight = color.NRGBA{0xff, 0xd8, 0x60, 0xff}
 	colorLoad      = color.NRGBA{0xc8, 0x8a, 0x3c, 0xff}
 	colorHoist     = color.NRGBA{0x3a, 0x34, 0x2c, 0xff}
+	colorPlank     = color.NRGBA{0x9a, 0x74, 0x48, 0xff}
 )
 
 // buildingItem is a building in the depth sort: its sprite, then its
@@ -50,9 +51,9 @@ func frontOf(lot [4]city.Point) (city.Point, [2]city.Point) {
 func storeyOf(roofLift float64) float64 { return roofLift * 0.3 }
 
 // roofScaffold is the scaffold on a roof roofLift above a footprint lot
-// on screen, up of the way raised: a pole at each corner, a little in,
-// and rails round their tops.
-func roofScaffold(lot [4]city.Point, roofLift, up, zoom float64) []segment {
+// on screen, up of the way raised: a stout pole at each corner, a little
+// in, and two levels of planks round them, halfway and at the top.
+func roofScaffold(lot [4]city.Point, roofLift, up float64) []segment {
 	if up <= 0 {
 		return nil
 	}
@@ -68,15 +69,25 @@ func roofScaffold(lot [4]city.Point, roofLift, up, zoom float64) []segment {
 		poles = append(poles, foot)
 		tops = append(tops, city.Point{X: foot.X, Y: foot.Y - h})
 	}
+	pole := max(2, roofLift*0.035)
+	plank := max(2, roofLift*0.05)
 	var out []segment
 	for i := range poles {
-		out = append(out, segment{a: poles[i], b: tops[i], width: zoom, pole: true})
+		out = append(out, segment{a: poles[i], b: tops[i], width: pole, pole: true})
 	}
-	for i := range tops {
-		out = append(out, segment{a: tops[i], b: tops[(i+1)%len(tops)], width: zoom})
+	for _, level := range []float64{0.5, 1} {
+		for i := range poles {
+			j := (i + 1) % len(poles)
+			at := func(k int) city.Point { return city.Point{X: poles[k].X, Y: poles[k].Y - h*level} }
+			out = append(out, segment{a: at(i), b: at(j), width: plank, plank: true})
+		}
 	}
 	return out
 }
+
+// crateSize is how big a load's crate is drawn on a building whose roof
+// is roofLift up: big enough to read at the opening zoom.
+func crateSize(roofLift float64) float64 { return max(6, roofLift*0.12) }
 
 // hoistAt is where a load is p of the way up the hoist on the outside
 // front corner: at the foot at the start, at the roof's scaffold at the
@@ -98,9 +109,13 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	if roofLift <= 0 {
 		return
 	}
-	lines := roofScaffold(lot, roofLift, up, cam.Zoom)
+	lines := roofScaffold(lot, roofLift, up)
 	for _, s := range lines {
-		vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), float32(max(1, s.width)), colorScaffold, true)
+		c := colorScaffold
+		if s.plank {
+			c = colorPlank
+		}
+		vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), float32(max(1, s.width)), c, true)
 	}
 	flash := 0.0
 	for _, l := range loads {
@@ -135,7 +150,7 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 			continue
 		}
 		at := hoistAt(lot, roofLift, l.P)
-		size := max(3, roofLift*0.07)
+		size := crateSize(roofLift)
 		// The last of a burst too close to show one by one stands for
 		// the rest, so it is drawn heavier.
 		if l.Merged {
