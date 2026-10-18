@@ -43,9 +43,16 @@ func planksFor(pane [4]city.Point, seed uint32) [][4]city.Point {
 		return nil
 	}
 	run := tr.Sub(tl)
+	// The frame reaches a share of the pane each side, but never further
+	// than the pane is tall: a ribbon window's frame is a frame, not a
+	// share of the whole face (item 109).
+	side := frameSide
+	if length := math.Hypot(run.X, run.Y); length > 0 {
+		side = min(frameSide, height/length)
+	}
 	above, below := city.Point{Y: -frameAbove * height}, city.Point{Y: frameSill * height}
-	tl, bl = tl.Sub(run.Scale(frameSide)).Add(above), bl.Sub(run.Scale(frameSide)).Add(below)
-	tr, br = tr.Add(run.Scale(frameSide)).Add(above), br.Add(run.Scale(frameSide)).Add(below)
+	tl, bl = tl.Sub(run.Scale(side)).Add(above), bl.Sub(run.Scale(side)).Add(below)
+	tr, br = tr.Add(run.Scale(side)).Add(above), br.Add(run.Scale(side)).Add(below)
 	framed := height * (1 + frameAbove + frameSill)
 	thick := framed * 0.12
 	out := make([][4]city.Point, 0, len(plankRows))
@@ -53,7 +60,7 @@ func planksFor(pane [4]city.Point, seed uint32) [][4]city.Point {
 		tilt := city.Point{Y: (float64((seed>>(4*i))%5) - 2) * 0.02 * (tr.X - tl.X)}
 		left := lerp(tl, bl, row).Add(tilt)
 		right := lerp(tr, br, row).Sub(tilt)
-		reach := right.Sub(left).Scale(0.06)
+		reach := right.Sub(left).Scale(min(0.06, 0.2*height/max(1e-9, math.Hypot(right.X-left.X, right.Y-left.Y))))
 		left, right = left.Sub(reach), right.Add(reach)
 		up := city.Point{Y: -thick}
 		out = append(out, [4]city.Point{left.Add(up), right.Add(up), right.Sub(up), left.Sub(up)})

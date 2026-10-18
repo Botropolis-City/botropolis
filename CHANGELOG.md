@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Each compaction slides a course of the building's own material under it, up to three, stepping in like steps up to its door, the newest lit for a moment; past three, the bottom course carries the count.
   How full a live session's context is stands at the kerb beside its building as a skip: there from half its window, filling as context rises, heaped from 80% and overflowing near the limit, with the exact figures on its card.
   On a compaction a skip truck hooks the full skip and drives off, and as it leaves a cement mixer pulls up and pours the new course under the building; at still the skip just empties and the course is there.
+  A session whose transcript Claude Code has deleted stands as the ruins of its building, abandoned and fallen apart in its district's material, with its lot and its card as before.
 
 - **The city moves to say what changed, as much as you choose.**
   A `liveliness` setting (still, calm, steady or lively; `--liveliness`, and `--reduced_motion` means still) sets how much the city moves; at still every mover stays on the map where it is and changes cross-fade.

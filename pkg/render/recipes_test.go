@@ -115,6 +115,25 @@ func TestBuildingPiece(t *testing.T) {
 		}
 	}
 
+	// Aria, 2026-10-18: a session whose transcript Claude Code deleted is
+	// a ruin, abandoned and fallen apart, not a building of no height.
+	for _, kind := range city.DistrictTypes {
+		t.Run(fmt.Sprintf("when a %s district's session has lost its transcript", kind), func(t *testing.T) {
+			b := &city.Building{Type: kind, Session: state.Session{ConversationGone: true, Storeys: 4}}
+
+			t.Run("it should be that type's ruins", func(t *testing.T) {
+				assert.Equal(t, fmt.Sprintf("botropolis/%s-ruins", kind), buildingPiece(b))
+			})
+
+			t.Run("and it is in the atlas", func(t *testing.T) {
+				atlases, err := assets.LoadKits()
+				require.NoError(t, err)
+				_, ok := atlases[0].Sprite(buildingPiece(b), 0)
+				assert.True(t, ok)
+			})
+		})
+	}
+
 	t.Run("when a session has no storeys yet", func(t *testing.T) {
 		b := &city.Building{Type: city.OfficeDistrict}
 

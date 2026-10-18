@@ -29,6 +29,9 @@ func skipPiece(level int) string {
 // hooked it, then none until the job is done; otherwise the session's
 // own fill.
 func shownSkip(b *city.Building, job city.Job, collecting bool) int {
+	if b.Session.ConversationGone {
+		return 0
+	}
 	if collecting {
 		if job.SkipAtKerb {
 			return job.SkipLevel

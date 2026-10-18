@@ -21,6 +21,15 @@ var (
 		city.IndustrialDistrict:  {"botropolis/industrial-1", "botropolis/industrial-2", "botropolis/industrial-3", "botropolis/industrial-4", "botropolis/industrial-5"},
 	}
 
+	// What stands where a session's transcript has been deleted: its
+	// building abandoned and fallen apart, in its district's material
+	// (Aria, 2026-10-18).
+	kitRuins = map[city.DistrictType]string{
+		city.ResidentialDistrict: "botropolis/residential-ruins",
+		city.ShoppingDistrict:    "botropolis/shopping-ruins",
+		city.OfficeDistrict:      "botropolis/office-ruins",
+		city.IndustrialDistrict:  "botropolis/industrial-ruins",
+	}
 	// The courses under each kind, one per compaction, the top one first
 	// and each below it a step wider (item 109).
 	kindCourses = map[string][maxCourses]string{
@@ -152,6 +161,12 @@ var crates = []string{"city-kit-industrial/shipping-container-a", "city-kit-indu
 func buildingPiece(b *city.Building) string {
 	if b.Packed {
 		return crates[b.Hue%len(crates)]
+	}
+	if b.Session.ConversationGone {
+		if ruins, ok := kitRuins[b.Type]; ok {
+			return ruins
+		}
+		return kitRuins[city.ResidentialDistrict]
 	}
 	column, ok := kinds[b.Type]
 	if !ok {

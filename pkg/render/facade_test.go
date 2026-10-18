@@ -62,6 +62,23 @@ func TestPlanks(t *testing.T) {
 		})
 	}
 
+	// Item 109: the industrial kinds' ribbon windows run a whole face, and
+	// boards reaching a share of that past the frame stood out past the
+	// building's corner.
+	t.Run("when a pane far wider than it is tall is boarded", func(t *testing.T) {
+		pane := [4]city.Point{{X: 100, Y: 200}, {X: 300, Y: 300}, {X: 300, Y: 306}, {X: 100, Y: 206}}
+		right := math.Inf(-1)
+		for _, p := range planksFor(pane, 5) {
+			for _, corner := range p {
+				right = math.Max(right, corner.X)
+			}
+		}
+
+		t.Run("it should reach past its frame by no more than the pane is tall", func(t *testing.T) {
+			assert.LessOrEqual(t, right, 300+2*6.0)
+		})
+	})
+
 	t.Run("when the same pane is boarded twice", func(t *testing.T) {
 		pane := [4]city.Point{{X: 0, Y: 0}, {X: 20, Y: 10}, {X: 20, Y: 40}, {X: 0, Y: 30}}
 

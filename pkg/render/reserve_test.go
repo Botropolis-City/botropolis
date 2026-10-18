@@ -30,11 +30,6 @@ var atlasReserve = map[string]string{
 	"city-kit-roads/traffic-light":     "street furniture the detail setting gives a home to",
 	"city-kit-roads/construction-cone": "street furniture, as above",
 	"city-kit-roads/light-curved":      "street furniture, as above",
-	// Item 109: cut with the courses, drawn once the ruins land.
-	"botropolis/residential-ruins": "a building whose transcript is gone, drawn once the ruins land",
-	"botropolis/shopping-ruins":    "as above",
-	"botropolis/office-ruins":      "as above",
-	"botropolis/industrial-ruins":  "as above",
 }
 
 // sourceLiterals is every string literal in every tracked non-test .go

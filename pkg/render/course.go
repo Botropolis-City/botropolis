@@ -64,7 +64,7 @@ func courseLit(s state.Session, now time.Time) bool {
 // courseLift is how far a building's courses raise it on screen; while a
 // course is being poured the building rises with it.
 func (g *Game) courseLift(cam *city.Camera, b *city.Building) float64 {
-	if b.Packed || b.Vacant {
+	if b.Packed || b.Vacant || b.Session.ConversationGone {
 		return 0
 	}
 	n := float64(courseCount(b.Session.Compactions))
@@ -100,7 +100,7 @@ func (g *Game) footOf(cam *city.Camera, b *city.Building) city.Point {
 // there are more compactions than courses.
 func (g *Game) drawCourses(screen *ebiten.Image, cam *city.Camera, b *city.Building, tint *ebiten.ColorScale) {
 	n := courseCount(b.Session.Compactions)
-	if n == 0 || b.Packed || b.Vacant {
+	if n == 0 || b.Packed || b.Vacant || b.Session.ConversationGone {
 		return
 	}
 	name := buildingPiece(b)
