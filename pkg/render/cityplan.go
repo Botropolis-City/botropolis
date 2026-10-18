@@ -28,7 +28,11 @@ var (
 	colorPlanLot   = color.NRGBA{0xc8, 0xcf, 0xdb, 0x40}
 	colorPlanWater = color.NRGBA{0x1d, 0x2b, 0x3c, 0xff}
 	colorPlanCoast = color.NRGBA{0xc8, 0xcf, 0xdb, 0x90}
+	colorPlanQuiet = color.NRGBA{0xc8, 0xcf, 0xdb, 0x48}
 )
+
+// planDashOn and planDashOff are traffic's dash and the gap after it.
+const planDashOn, planDashOff = 6.0, 5.0
 
 // planLotAlpha is how strongly a lot is tinted by whose move it is.
 const planLotAlpha = 0x22
@@ -72,6 +76,58 @@ func strokeRing(screen *ebiten.Image, points []city.Point, width float32, c colo
 	op := &vector.DrawPathOptions{AntiAlias: true}
 	op.ColorScale.ScaleWithColor(c)
 	vector.StrokePath(screen, ring(points), &vector.StrokeOptions{Width: width, LineJoin: vector.LineJoinRound}, op)
+}
+
+// planDashes cuts a path into dashes of on pixels with off pixels
+// between them, from its first point.
+func planDashes(path []city.Point, on, off float64) [][]city.Point {
+	if len(path) < 2 || on <= 0 {
+		return nil
+	}
+	var out [][]city.Point
+	inking, left := true, on
+	dash := []city.Point{path[0]}
+	for i := 1; i < len(path); i++ {
+		a, b := path[i-1], path[i]
+		seg := math.Hypot(b.X-a.X, b.Y-a.Y)
+		at := 0.0
+		for seg-at > left {
+			at += left
+			p := a.Add(b.Sub(a).Scale(at / seg))
+			if inking {
+				out = append(out, append(dash, p))
+				left = off
+			} else {
+				dash = []city.Point{p}
+				left = on
+			}
+			inking = !inking
+		}
+		left -= seg - at
+		if inking {
+			dash = append(dash, b)
+		}
+	}
+	if inking && len(dash) > 1 {
+		out = append(out, dash)
+	}
+	return out
+}
+
+// drawPlanTraffic is each road between districts in dashed ink: full
+// while travellers work on it, faint while it is quiet.
+func drawPlanTraffic(screen *ebiten.Image, traffic []city.PlanTraffic) {
+	for _, tr := range traffic {
+		c := colorPlanQuiet
+		if tr.Active {
+			c = colorPlanInk
+		}
+		for _, d := range planDashes(tr.Points, planDashOn, planDashOff) {
+			for i := 1; i < len(d); i++ {
+				vector.StrokeLine(screen, float32(d[i-1].X), float32(d[i-1].Y), float32(d[i].X), float32(d[i].Y), 1.5, c, true)
+			}
+		}
+	}
 }
 
 // drawPlanCoast is the water beyond the island, the island's land, and
@@ -159,6 +215,9 @@ func (g *Game) drawCityPlan(screen *ebiten.Image, width, height, alpha float64) 
 	g.drawPlanGrid(target, width, height)
 	for _, b := range plan.Badges {
 		fillRing(target, b.Lot[:], planLotTint(g.theme, b.Tone))
+	}
+	drawPlanTraffic(target, plan.Traffic)
+	for _, b := range plan.Badges {
 		for i := range b.Lot {
 			a, c := b.Lot[i], b.Lot[(i+1)%len(b.Lot)]
 			vector.StrokeLine(target, float32(a.X), float32(a.Y), float32(c.X), float32(c.Y), 1, colorPlanLot, true)

@@ -378,6 +378,14 @@ type PlanLine struct {
 	Moves  []state.Move
 }
 
+// PlanTraffic is a road between two districts on the plan, along its
+// streets; Active is a road with travellers working on it.
+type PlanTraffic struct {
+	Road   *RoadLine
+	Points []Point
+	Active bool
+}
+
 // PlanReading is one usage limit, as the plan's legend reads it.
 type PlanReading struct {
 	Title    string
@@ -389,6 +397,7 @@ type PlanReading struct {
 type CityPlan struct {
 	Badges   []PlanBadge
 	Lines    []PlanLine
+	Traffic  []PlanTraffic
 	Readings []PlanReading
 	// Tones are the moves the badges carry, most urgent first, for the
 	// legend to key.
@@ -718,6 +727,13 @@ func (s *Scene) CityPlan() CityPlan {
 		if tones[m] {
 			plan.Tones = append(plan.Tones, m)
 		}
+	}
+	for _, st := range s.city.Streets {
+		tr := PlanTraffic{Road: st.Road, Active: st.Road != nil && st.Road.Active > 0}
+		for _, p := range st.Path {
+			tr.Points = append(tr.Points, frame.toScreen(p))
+		}
+		plan.Traffic = append(plan.Traffic, tr)
 	}
 	for _, l := range s.Lines() {
 		pl := PlanLine{Group: l.Group}
