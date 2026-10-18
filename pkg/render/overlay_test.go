@@ -37,15 +37,16 @@ func TestOverlayStack(t *testing.T) {
 	}
 
 	t.Run("when nothing is open", func(t *testing.T) {
-		t.Run("and Ctrl+K is pressed", func(t *testing.T) {
-			g := newGame()
-			g.scriptedCtrl = true
-			press(t, g, ebiten.KeyK)
+		for _, sys := range systems {
+			t.Run("and "+sys.mod+"+K is pressed on "+sys.goos, func(t *testing.T) {
+				g := newGame()
+				sys.press(t, g, ebiten.KeyK)
 
-			t.Run("it should open the finder", func(t *testing.T) {
-				assert.True(t, g.finding())
+				t.Run("it should open the finder", func(t *testing.T) {
+					assert.True(t, g.finding())
+				})
 			})
-		})
+		}
 
 		t.Run("and / is pressed", func(t *testing.T) {
 			g := newGame()

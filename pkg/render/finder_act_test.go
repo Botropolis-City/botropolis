@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/state"
 )
@@ -96,36 +97,39 @@ func TestFinderActs(t *testing.T) {
 			})
 		})
 
-		t.Run("and Ctrl+Y is pressed", func(t *testing.T) {
-			g, actor := finderOver(t, 1, live, stopped)
-			pressKey(t, g, ebiten.KeyY, true)
-
-			t.Run("it should copy cd <dir> && claude --resume <id>", func(t *testing.T) {
-				assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "cd /src/kiln && claude --resume stopped"}}, actor.done)
-			})
-
-			t.Run("and Ctrl is not held, as when y is typed", func(t *testing.T) {
+		for _, sys := range systems {
+			t.Run("and "+sys.mod+"+Y is pressed on "+sys.goos, func(t *testing.T) {
 				g, actor := finderOver(t, 1, live, stopped)
-				g.scripted, g.scriptedRune = ebiten.KeyY, 'y'
-				require.NoError(t, g.handleKeys())
-				g.scripted, g.scriptedRune = -1, 0
+				sys.press(t, g, ebiten.KeyY)
 
-				t.Run("it should type it and copy nothing", func(t *testing.T) {
-					f, _ := g.overlays.top().(*finder)
-					require.NotNil(t, f)
-					assert.Equal(t, [2]any{"kilny", 0}, [2]any{f.field.query(), len(actor.done)})
+				t.Run("it should copy cd <dir> && claude --resume <id>", func(t *testing.T) {
+					assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "cd /src/kiln && claude --resume stopped"}}, actor.done)
+				})
+
+				t.Run("and "+sys.mod+" is not held, as when y is typed", func(t *testing.T) {
+					g, actor := finderOver(t, 1, live, stopped)
+					g.chords = sys.chords(t)
+					g.scripted, g.scriptedRune = ebiten.KeyY, 'y'
+					require.NoError(t, g.handleKeys())
+					g.scripted, g.scriptedRune = -1, 0
+
+					t.Run("it should type it and copy nothing", func(t *testing.T) {
+						f, _ := g.overlays.top().(*finder)
+						require.NotNil(t, f)
+						assert.Equal(t, [2]any{"kilny", 0}, [2]any{f.field.query(), len(actor.done)})
+					})
+				})
+
+				t.Run("and the directory has a space in it", func(t *testing.T) {
+					g, actor := finderOver(t, 0, spaced)
+					sys.press(t, g, ebiten.KeyY)
+
+					t.Run("it should quote it", func(t *testing.T) {
+						assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "cd '/src/my kiln' && claude --resume spaced"}}, actor.done)
+					})
 				})
 			})
-
-			t.Run("and the directory has a space in it", func(t *testing.T) {
-				g, actor := finderOver(t, 0, spaced)
-				pressKey(t, g, ebiten.KeyY, true)
-
-				t.Run("it should quote it", func(t *testing.T) {
-					assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "cd '/src/my kiln' && claude --resume spaced"}}, actor.done)
-				})
-			})
-		})
+		}
 
 		t.Run("and Ctrl+M is pressed", func(t *testing.T) {
 			g, _ := finderOver(t, 1, live, stopped)
@@ -175,6 +179,33 @@ func TestFinderActs(t *testing.T) {
 			})
 		})
 	})
+}
+
+// system is one system's finder chords and the modifier its mod chords
+// are held with: Ctrl, or ⌘ on macOS (item 82). The tests take both, so
+// the Mac's chords are tested wherever the tests run (item 104).
+type system struct{ goos, mod string }
+
+var systems = []system{{"linux", "Ctrl"}, {"darwin", "⌘"}}
+
+func (s system) chords(t *testing.T) *config.Chords {
+	t.Helper()
+	chords, err := config.FindChords(config.Config{}, s.goos, KnownKey)
+	require.NoError(t, err)
+	return &chords
+}
+
+// press presses key under the system's chords with its modifier held.
+func (s system) press(t *testing.T, g *Game, key ebiten.Key) {
+	t.Helper()
+	g.chords = s.chords(t)
+	if s.goos != "darwin" {
+		pressKey(t, g, key, true)
+		return
+	}
+	g.scripted, g.scriptedCmd = key, true
+	require.NoError(t, g.handleKeys())
+	g.scripted, g.scriptedCmd = -1, false
 }
 
 // press presses one key for a tick, with Ctrl held when ctrl is set.
