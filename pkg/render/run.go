@@ -209,15 +209,12 @@ func Run(ctx context.Context, opts Options) error {
 	game.desktopErr = opts.DesktopErr
 	game.useShortcut(opts.GlobalShortcut)
 
-	feedCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	if opts.Feed != nil {
-		go opts.Feed(feedCtx, game.Offer, game.AddEvents)
-	}
+	stopFeed := startFeed(ctx, opts.Feed, game.Offer, game.AddEvents)
+	defer stopFeed()
 	// A signal ends the loop, never the process: Run returns, and the
 	// private state directory a caller made is removed (item 114).
 	go func() {
-		<-feedCtx.Done()
+		<-ctx.Done()
 		game.Stop()
 	}()
 
@@ -244,4 +241,25 @@ func Run(ctx context.Context, opts Options) error {
 		fmt.Fprintln(os.Stderr, game.clipReport())
 	}
 	return nil
+}
+
+// startFeed runs feed until ctx ends or stop is called. stop returns
+// only once feed has, because the feed writes the ledger into the state
+// directory, and a caller removes a private one as soon as Run returns
+// (item 114).
+func startFeed(ctx context.Context, feed func(context.Context, func(state.Snapshot), func([]events.Event)), offer func(state.Snapshot), fresh func([]events.Event)) (stop func()) {
+	feedCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	if feed == nil {
+		close(done)
+	} else {
+		go func() {
+			defer close(done)
+			feed(feedCtx, offer, fresh)
+		}()
+	}
+	return func() {
+		cancel()
+		<-done
+	}
 }
