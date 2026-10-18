@@ -389,16 +389,13 @@ func (s *transcriptScan) applyAssistant(rec transcriptLineJSON, mainLine bool) {
 			t.MaxContext = t.ContextTokens
 		}
 	}
-	// Tool calls are counted before the message check below: a message's
-	// blocks arrive on separate lines that share its id, so most tool
-	// calls are on a line whose message was already seen. A tool call
-	// repeated on the next line is counted once (item 89).
+	at, _ := parseTimestamp(rec.Timestamp)
 	for _, block := range rec.Message.Content {
-		if mainLine && block.Type == "tool_use" && block.ID != s.lastTool {
-			s.lastTool = block.ID
-			t.ToolCalls++
-		}
+		s.applyBlock(block, mainLine, at)
 	}
+	// A message's blocks arrive on separate lines that share its id, each
+	// repeating its usage and attributions, so those are read from its
+	// first line only (item 107).
 	if id := rec.Message.ID; id != "" {
 		if s.seenMessages[id] {
 			return
@@ -416,30 +413,6 @@ func (s *transcriptScan) applyAssistant(rec transcriptLineJSON, mainLine bool) {
 			t.Hourly[hour] = t.Hourly[hour].Add(u)
 		}
 	}
-	at, _ := parseTimestamp(rec.Timestamp)
-	for _, block := range rec.Message.Content {
-		if block.Type == "text" && mainLine {
-			s.keepOrder(OrderLines(block.Text, false, at))
-		}
-		if block.Type != "tool_use" {
-			continue
-		}
-		if block.Name == "Bash" && block.Input.Command != "" && mainLine {
-			s.keepOrder(OrderLines(block.Input.Command, true, at))
-		}
-		if block.Name == sendMessageTool && block.Input.To != "" {
-			if t.Messages == nil {
-				t.Messages = map[string]int{}
-			}
-			t.Messages[block.Input.To]++
-		}
-		if path := foreignFile(t.CWD, block); path != "" {
-			if t.Touches == nil {
-				t.Touches = map[string]int{}
-			}
-			t.Touches[path]++
-		}
-	}
 	if rec.MCPServer != "" {
 		if t.MCPCalls == nil {
 			t.MCPCalls = map[string]int{}
@@ -451,6 +424,37 @@ func (s *transcriptScan) applyAssistant(rec transcriptLineJSON, mainLine bool) {
 			t.SkillCalls = map[string]int{}
 		}
 		t.SkillCalls[rec.Skill]++
+	}
+}
+
+// applyBlock reads one content block. A tool call repeated on the next
+// line is read once (item 89).
+func (s *transcriptScan) applyBlock(block contentBlockJSON, mainLine bool, at time.Time) {
+	t := &s.transcript
+	if block.Type == "text" && mainLine {
+		s.keepOrder(OrderLines(block.Text, false, at))
+	}
+	if block.Type != "tool_use" || block.ID == s.lastTool {
+		return
+	}
+	s.lastTool = block.ID
+	if mainLine {
+		t.ToolCalls++
+	}
+	if block.Name == "Bash" && block.Input.Command != "" && mainLine {
+		s.keepOrder(OrderLines(block.Input.Command, true, at))
+	}
+	if block.Name == sendMessageTool && block.Input.To != "" {
+		if t.Messages == nil {
+			t.Messages = map[string]int{}
+		}
+		t.Messages[block.Input.To]++
+	}
+	if path := foreignFile(t.CWD, block); path != "" {
+		if t.Touches == nil {
+			t.Touches = map[string]int{}
+		}
+		t.Touches[path]++
 	}
 }
 
