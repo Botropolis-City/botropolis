@@ -1,0 +1,74 @@
+name: buildings
+description: Buildings that grow with their sessions' work. Each storey is a fifth of your own sessions by how much they have done, each district grows one type of building, and context shows as a skip at the kerb.
+clock: "11:00"
+mcp: [tracker]
+usage: {session: 30, weekly: 40}
+sessions:
+  - ref: tidepool/units-from-tracker
+    state: working
+    arrive: 1s
+    replay: {over: 14s, context: 88%}
+  - ref: tidepool/review-loader-and-docs
+    state: resting
+    ago: 3h
+  - ref: kiln/line-numbers-like-tidepool
+    state: working
+    arrive: 3s
+    replay: {over: 12s, context: 70%}
+  - ref: kiln/empty-log-from-tracker
+    state: resting
+    ago: 26h
+  - ref: lanternfish/list-race
+    state: working
+    context: 96%
+    ago: 1m
+  - ref: lanternfish/status-filter
+    state: resting
+    ago: 5h
+  - ref: quillmark/fix-code-spans
+    state: working
+    arrive: 2s
+    replay: {over: 13s, context: 55%}
+  - ref: quillmark/compare-kiln-packaging
+    state: resting
+    ago: 2d
+shots:
+  - name: residential
+    title: A residential district grows
+    description: Every district here is residential. Sessions arrive and their buildings climb from cottages toward apartment blocks as they work.
+    district_type: residential
+    record: {seconds: 16, fps: 30}
+    timeline: true
+    script:
+      - {at: 0.5, pan_to: "district:tidepool", over: 2}
+      - {at: 2.5, wheel: 2, over: 2}
+  - name: shopping
+    title: A shopping district grows
+    description: Every district here is for shopping. Corner shops become department stores and a shopping centre as their sessions work.
+    district_type: shopping
+    record: {seconds: 16, fps: 30}
+    timeline: true
+    script:
+      - {at: 0.5, pan_to: "district:kiln", over: 2}
+      - {at: 2.5, wheel: 2, over: 2}
+  - name: office
+    title: An office district grows
+    description: Every district here is offices. Glass office houses rise into towers as their sessions work.
+    district_type: office
+    record: {seconds: 16, fps: 30}
+    timeline: true
+    script:
+      - {at: 0.5, pan_to: "district:quillmark", over: 2}
+      - {at: 2.5, wheel: 2, over: 2}
+  - name: industrial
+    title: An industrial district grows
+    description: Every district here is industrial. Workshops become warehouses, distribution centres and a works yard as their sessions work.
+    district_type: industrial
+    record: {seconds: 16, fps: 30}
+    timeline: true
+    script:
+      - {at: 0.5, pan_to: "district:lanternfish", over: 2}
+      - {at: 2.5, wheel: 2, over: 2}
+  - name: types
+    title: Four kinds of district
+    description: Under the default, each district is given a type of its own, and its buildings are that type's kinds, one storey for each fifth of your sessions they have outgrown.

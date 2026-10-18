@@ -37,6 +37,14 @@ func TestCityArgs(t *testing.T) {
 		})
 	})
 
+	// Item 109: a shot can film every district as one type.
+	t.Run("when a still names a district type", func(t *testing.T) {
+		t.Run("it should pass it through", func(t *testing.T) {
+			assert.Equal(t, append(base, "--window", "1920x1080", "--district_type", "office", "--screenshot", "/o/s.png"),
+				cityArgs(Shot{Name: "s", DistrictType: "office"}, "/h", "/o/s.png", ""))
+		})
+	})
+
 	// Item 85: the hero is filmed with the group lines hidden, through
 	// the setting, so it shows the city rather than the wiring.
 	for _, tc := range []struct {
