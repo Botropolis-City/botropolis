@@ -57,8 +57,47 @@ func TestBuildingWork(t *testing.T) {
 			assert.Zero(t, thin)
 		})
 
-		t.Run("it should have two plank levels round it", func(t *testing.T) {
-			assert.Equal(t, 2*len(lot), planks)
+		t.Run("it should have two plank levels spanning the grid", func(t *testing.T) {
+			assert.Equal(t, 2*scaffoldSpans, planks)
+		})
+	})
+
+	// Aria, 2026-10-17: a storey going up, not a rail round the edge.
+	t.Run("when a scaffold fills the roof", func(t *testing.T) {
+		lines := roofScaffold(lot, roofLift, 1)
+		var middle int
+		for _, s := range lines {
+			if s.pole && s.a.X > lot[3].X+15 && s.a.X < lot[1].X-15 && s.a.Y > lot[0].Y-roofLift+8 && s.a.Y < lot[2].Y-roofLift-8 {
+				middle++
+			}
+		}
+
+		t.Run("it should stand poles in the middle of the roof, not only on its edge", func(t *testing.T) {
+			assert.Greater(t, middle, 0)
+		})
+	})
+
+	t.Run("when the roof is scaffolded", func(t *testing.T) {
+		items := roofItems(lot, roofLift, 1)
+
+		t.Run("it should carry construction items on the deck", func(t *testing.T) {
+			assert.GreaterOrEqual(t, len(items), 2)
+		})
+
+		t.Run("they should stand inside the footprint", func(t *testing.T) {
+			var outside int
+			for _, it := range items {
+				if it.at.X < lot[3].X || it.at.X > lot[1].X {
+					outside++
+				}
+			}
+			assert.Zero(t, outside)
+		})
+	})
+
+	t.Run("when the scaffold has come down", func(t *testing.T) {
+		t.Run("the roof items should be gone", func(t *testing.T) {
+			assert.Empty(t, roofItems(lot, roofLift, 0))
 		})
 	})
 
