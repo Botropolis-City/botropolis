@@ -77,6 +77,40 @@ func TestBuildingWork(t *testing.T) {
 		})
 	})
 
+	// Aria, 2026-10-17: braced like scaffolding, lit at its corners.
+	t.Run("when the scaffold is braced", func(t *testing.T) {
+		lines := roofScaffold(lot, roofLift, 1)
+		var braces []segment
+		for _, s := range lines {
+			if s.brace {
+				braces = append(braces, s)
+			}
+		}
+		roofMiddle := (lot[0].Y+lot[2].Y)/2 - roofLift
+
+		t.Run("it should brace each bay of the two faces toward the camera", func(t *testing.T) {
+			assert.Len(t, braces, 2*(len(scaffoldGrid)-1))
+		})
+
+		t.Run("every brace should be on a face toward the camera", func(t *testing.T) {
+			var behind int
+			for _, b := range braces {
+				if (b.a.Y+b.b.Y)/2 < roofMiddle-storeyOf(roofLift) {
+					behind++
+				}
+			}
+			assert.Zero(t, behind)
+		})
+	})
+
+	t.Run("when the work lights are placed", func(t *testing.T) {
+		lights := workLights(roofScaffold(lot, roofLift, 1))
+
+		t.Run("they should stand on the corner poles only, but the back one", func(t *testing.T) {
+			assert.Len(t, lights, 3)
+		})
+	})
+
 	t.Run("when the roof is scaffolded", func(t *testing.T) {
 		items := roofItems(lot, roofLift, 1)
 

@@ -2,6 +2,7 @@ package render
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -21,7 +22,6 @@ var (
 	colorWorkLight = color.NRGBA{0xff, 0xd8, 0x60, 0xff}
 	colorLoad      = color.NRGBA{0xc8, 0x8a, 0x3c, 0xff}
 	colorHoist     = color.NRGBA{0x3a, 0x34, 0x2c, 0xff}
-	colorPlank     = color.NRGBA{0x9a, 0x74, 0x48, 0xff}
 )
 
 // buildingItem is a building in the depth sort: its sprite, then its
@@ -80,11 +80,45 @@ func roofScaffold(lot [4]city.Point, roofLift, up float64) []segment {
 	h := storeyOf(roofLift) * up
 	pole := max(2, roofLift*0.035)
 	plank := max(2, roofLift*0.05)
+	first, last := scaffoldGrid[0], scaffoldGrid[len(scaffoldGrid)-1]
+	edge := func(x float64) bool { return x == first || x == last }
 	var out []segment
 	for _, u := range scaffoldGrid {
 		for _, v := range scaffoldGrid {
 			foot := onRoof(lot, roofLift, u, v)
-			out = append(out, segment{a: foot, b: city.Point{X: foot.X, Y: foot.Y - h}, width: pole, pole: true})
+			out = append(out, segment{a: foot, b: city.Point{X: foot.X, Y: foot.Y - h}, width: pole, pole: true, corner: edge(u) && edge(v)})
+		}
+	}
+	// A diagonal across each bay of the two faces toward the camera,
+	// which is what makes it read as scaffolding rather than a rail.
+	type face struct {
+		at func(t float64) (float64, float64)
+	}
+	faces := []face{
+		{func(t float64) (float64, float64) { return t, first }},
+		{func(t float64) (float64, float64) { return t, last }},
+		{func(t float64) (float64, float64) { return first, t }},
+		{func(t float64) (float64, float64) { return last, t }},
+	}
+	nearness := func(f face) float64 {
+		u, v := f.at(0.5)
+		return onRoof(lot, roofLift, u, v).Y
+	}
+	for pick := 0; pick < 2; pick++ {
+		best := pick
+		for i := pick; i < len(faces); i++ {
+			if nearness(faces[i]) > nearness(faces[best]) {
+				best = i
+			}
+		}
+		faces[pick], faces[best] = faces[best], faces[pick]
+		f := faces[pick]
+		for k := 0; k+1 < len(scaffoldGrid); k++ {
+			u0, v0 := f.at(scaffoldGrid[k])
+			u1, v1 := f.at(scaffoldGrid[k+1])
+			from := onRoof(lot, roofLift, u0, v0)
+			to := onRoof(lot, roofLift, u1, v1)
+			out = append(out, segment{a: from, b: city.Point{X: to.X, Y: to.Y - h}, width: pole * 0.8, brace: true})
 		}
 	}
 	for _, level := range []float64{0.5, 1} {
@@ -98,6 +132,30 @@ func roofScaffold(lot [4]city.Point, roofLift, up float64) []segment {
 					segment{a: lift(onRoof(lot, roofLift, g, a)), b: lift(onRoof(lot, roofLift, g, b)), width: plank, plank: true},
 				)
 			}
+		}
+	}
+	return out
+}
+
+// workLights is where the work lights hang: on the scaffold's corner
+// poles, but not the back one, which the building hides.
+func workLights(lines []segment) []city.Point {
+	var corners []segment
+	for _, s := range lines {
+		if s.pole && s.corner {
+			corners = append(corners, s)
+		}
+	}
+	back := -1
+	for i, s := range corners {
+		if back < 0 || s.a.Y < corners[back].a.Y {
+			back = i
+		}
+	}
+	var out []city.Point
+	for i, s := range corners {
+		if i != back {
+			out = append(out, s.b)
 		}
 	}
 	return out
@@ -151,36 +209,34 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		return
 	}
 	lines := roofScaffold(lot, roofLift, up)
-	for _, s := range lines {
-		c := colorScaffold
-		if s.plank {
-			c = colorPlank
-		}
-		vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), float32(max(1, s.width)), c, true)
-	}
 	g.drawRoofItems(screen, roofItems(lot, roofLift, up), storeyOf(roofLift)*up)
+	// Wood first, under the tubes: each plank a tan board with a dark
+	// underside, a light top edge and seams; then the galvanised tubes,
+	// a dark edge with a light core.
+	for _, s := range lines {
+		if s.plank {
+			drawBoard(screen, s)
+		}
+	}
+	for _, s := range lines {
+		if s.pole || s.brace {
+			drawTube(screen, s)
+		}
+	}
+	if up >= 0.5 {
+		drawLadder(screen, onRoof(lot, roofLift, 0.5, scaffoldGrid[len(scaffoldGrid)-1]), storeyOf(roofLift)*up*0.5, max(2, roofLift*0.05))
+	}
 	flash := 0.0
 	for _, l := range loads {
 		if l.Flash {
 			flash = max(flash, 1-l.P)
 		}
 	}
-	// The work lights stand on every pole but the back one, the highest
-	// on screen, which the building hides.
-	back := -1
-	for i, s := range lines {
-		if s.pole && (back < 0 || s.a.Y < lines[back].a.Y) {
-			back = i
-		}
-	}
-	for i, s := range lines {
-		if !s.pole || i == back {
-			continue
-		}
+	for _, at := range workLights(lines) {
 		c := colorWorkLight
 		c.A = uint8(200 + 55*flash)
-		light := float32(max(1.5, roofLift*0.04) * (1 + flash))
-		vector.FillCircle(screen, float32(s.b.X), float32(s.b.Y), light, c, true)
+		light := float32(max(1.5, roofLift*0.045) * (1 + flash))
+		vector.FillCircle(screen, float32(at.X), float32(at.Y), light, c, true)
 	}
 	if up <= 0 {
 		return
@@ -230,5 +286,53 @@ func (g *Game) drawRoofItems(screen *ebiten.Image, items []roofItem, storey floa
 			vector.StrokeLine(screen, x, y, x, y-h, max(2, s*0.35), colorSteel, false)
 			vector.StrokeLine(screen, x-s*0.6, y-h*0.6, x+s*0.6, y-h*0.6, max(1.5, s*0.2), colorSteel, false)
 		}
+	}
+}
+
+var (
+	colorTubeEdge  = color.NRGBA{0x5c, 0x62, 0x6a, 0xff}
+	colorTube      = color.NRGBA{0xc4, 0xca, 0xd2, 0xff}
+	colorBoard     = color.NRGBA{0xc8, 0x9a, 0x5c, 0xff}
+	colorBoardTop  = color.NRGBA{0xe6, 0xc2, 0x8a, 0xff}
+	colorBoardEdge = color.NRGBA{0x6a, 0x48, 0x24, 0xff}
+)
+
+// drawTube draws a scaffold tube: a dark edge with a lighter core.
+func drawTube(screen *ebiten.Image, s segment) {
+	w := float32(max(1, s.width))
+	vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), w, colorTubeEdge, true)
+	vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), max(0.6, w*0.45), colorTube, true)
+}
+
+// drawBoard draws a deck board: a dark underside, the tan board, a light
+// top edge, and a dark seam every few pixels along it.
+func drawBoard(screen *ebiten.Image, s segment) {
+	w := max(1, s.width)
+	line := func(dy, width float64, c color.NRGBA) {
+		vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y+dy), float32(s.b.X), float32(s.b.Y+dy), float32(width), c, true)
+	}
+	line(w*0.45, w*0.5, colorBoardEdge)
+	line(0, w, colorBoard)
+	line(-w*0.35, w*0.3, colorBoardTop)
+	length := math.Hypot(s.b.X-s.a.X, s.b.Y-s.a.Y)
+	seams := int(length / max(4, w*2.5))
+	for k := 1; k < seams; k++ {
+		t := float64(k) / float64(seams)
+		x, y := s.a.X+(s.b.X-s.a.X)*t, s.a.Y+(s.b.Y-s.a.Y)*t
+		vector.StrokeLine(screen, float32(x), float32(y-w/2), float32(x), float32(y+w/2), 1, colorBoardEdge, true)
+	}
+}
+
+// drawLadder draws a short ladder standing at foot, height tall: two
+// rails and rungs.
+func drawLadder(screen *ebiten.Image, foot city.Point, height, width float64) {
+	x0, x1 := float32(foot.X-width/2), float32(foot.X+width/2)
+	y0, y1 := float32(foot.Y), float32(foot.Y-height)
+	vector.StrokeLine(screen, x0, y0, x0, y1, 1, colorTubeEdge, true)
+	vector.StrokeLine(screen, x1, y0, x1, y1, 1, colorTubeEdge, true)
+	rungs := max(2, int(height/4))
+	for k := 1; k < rungs; k++ {
+		y := y0 + (y1-y0)*float32(k)/float32(rungs)
+		vector.StrokeLine(screen, x0, y, x1, y, 1, colorTubeEdge, true)
 	}
 }
