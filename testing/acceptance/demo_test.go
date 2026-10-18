@@ -14,6 +14,7 @@ import (
 	"botropolis.city/botropolis/pkg/demo"
 	"botropolis.city/botropolis/pkg/render"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // Every scenario must stage from the committed corpus and load as the
@@ -106,7 +107,8 @@ func TestDemoScenarios(t *testing.T) {
 // The corpus guard is run by make lint; this is its second caller, so
 // it survives losing the Makefile line. Opening every file the guard
 // reads puts them in the test cache's key, so a corpus change re-runs
-// this rather than replaying a pass taken against a different tree.
+// this rather than replaying a pass taken against a different tree. The
+// token list is opened even when it is absent, so its arriving re-runs it.
 func TestDemoCorpusIsClean(t *testing.T) {
 	root := filepath.Join("..", "..")
 	require.NoError(t, filepath.WalkDir(filepath.Join(root, "demo"), func(p string, d os.DirEntry, err error) error {
@@ -116,7 +118,8 @@ func TestDemoCorpusIsClean(t *testing.T) {
 		_, err = os.ReadFile(p)
 		return err
 	}))
-	cmd := exec.Command("tools/check-demo-corpus")
+	_, _ = os.ReadFile(filepath.Join(root, ".publishable-tokens"))
+	cmd := exec.Command(helpers.Tool(t, "check-demo-corpus"))
 	cmd.Dir = root
 	out, err := cmd.CombinedOutput()
 

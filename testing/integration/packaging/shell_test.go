@@ -35,6 +35,9 @@ var shells = []shell{
 var shim, _ = filepath.Abs("../../../packaging/botropolis.bash")
 
 func TestShellIntegration(t *testing.T) {
+	// bash reads the shim, which the test cache cannot see; opening it here,
+	// before any skip, puts it in the cache's key (item 117).
+	_, _ = os.ReadFile(shim)
 	if _, err := exec.LookPath("script"); err != nil {
 		t.Skip("script(1) is needed to give the wrapper a terminal")
 	}

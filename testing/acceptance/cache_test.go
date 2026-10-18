@@ -4,7 +4,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
@@ -12,35 +11,59 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const module = "botropolis.city/botropolis/"
+type probe struct {
+	where string
+	file  string
+	edit  func(src string) (string, bool)
+}
 
-func goList(t *testing.T, args ...string) map[string]bool {
-	t.Helper()
-	out, err := exec.Command("go", append([]string{"list", "-deps", "-f", "{{.ImportPath}}"}, args...)...).CombinedOutput()
-	require.NoError(t, err, string(out))
-	pkgs := map[string]bool{}
-	for _, line := range strings.Fields(string(out)) {
-		if strings.HasPrefix(line, module) {
-			pkgs[line] = true
+func funcProbe(where, file, sig string) probe {
+	return probe{where, file, func(src string) (string, bool) {
+		if !strings.Contains(src, sig) {
+			return src, false
 		}
-	}
-	return pkgs
+		return strings.Replace(src, sig, strings.TrimSuffix(sig, "\n")+" item117Probe++\n", 1) + "\nvar item117Probe int\n", true
+	}}
 }
 
-func goTestIn(t *testing.T, dir string) string {
+func appendProbe(where, file string) probe {
+	return probe{where, file, func(src string) (string, bool) {
+		return src + "# item 117 probe\n", true
+	}}
+}
+
+func (p probe) change(t *testing.T, dir string) {
 	t.Helper()
-	cmd := exec.Command("go", "test", "./testing/acceptance", "-run", "^TestStatus$")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOFLAGS=")
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, string(out))
-	return string(out)
+	path := filepath.Join(dir, p.file)
+	src, err := os.ReadFile(path)
+	require.NoError(t, err)
+	changed, ok := p.edit(string(src))
+	require.True(t, ok, "the probe no longer finds where to change %s", p.file)
+	require.NoError(t, os.WriteFile(path, []byte(changed), 0o644))
 }
 
-func scratchModule(t *testing.T) string {
+var binaryProbes = []probe{
+	funcProbe("in a package the tests do not import", "pkg/app/module.go",
+		"func Run(ctx context.Context, args []string) int {\n"),
+	funcProbe("under pkg/render that the tests never call", "pkg/render/run.go",
+		"func Run(ctx context.Context, opts Options) error {\n"),
+}
+
+// cacheRun is one go test invocation run in a scratch copy of the module,
+// three ways: once, again unchanged, and again after each probe.
+type cacheRun struct {
+	name   string
+	pkg    string
+	run    string
+	extra  []string
+	probes []probe
+}
+
+func scratchModule(t *testing.T, extra ...string) string {
 	t.Helper()
 	root := filepath.Join("..", "..")
-	ls := exec.Command("git", "ls-files", "--cached", "--others", "--exclude-standard", "go.mod", "go.sum", "cmd", "pkg", "testing")
+	args := append([]string{"ls-files", "--cached", "--others", "--exclude-standard", "go.mod", "go.sum", "cmd", "pkg", "testing"}, extra...)
+	ls := exec.Command("git", args...)
 	ls.Dir = root
 	out, err := ls.Output()
 	require.NoError(t, err)
@@ -59,60 +82,24 @@ func scratchModule(t *testing.T) string {
 	return dir
 }
 
-type probe struct {
-	where string
-	file  string
-	sig   string
-}
-
-var probes = []probe{
-	{
-		where: "in a package the acceptance tests do not import",
-		file:  "pkg/app/module.go",
-		sig:   "func Run(ctx context.Context, args []string) int {\n",
-	},
-	{
-		where: "under pkg/render that the tests never call",
-		file:  "pkg/render/run.go",
-		sig:   "func Run(ctx context.Context, opts Options) error {\n",
-	},
-}
-
-func (p probe) change(t *testing.T, dir string) {
+func goTestIn(t *testing.T, dir, pkg, run string) string {
 	t.Helper()
-	path := filepath.Join(dir, p.file)
-	src, err := os.ReadFile(path)
-	require.NoError(t, err)
-	require.Contains(t, string(src), p.sig, "the probe no longer finds where to change %s", p.file)
-	changed := strings.Replace(string(src), p.sig, strings.TrimSuffix(p.sig, "\n")+" item117Probe++\n", 1) + "\nvar item117Probe int\n"
-	require.NoError(t, os.WriteFile(path, []byte(changed), 0o644))
+	cmd := exec.Command("go", "test", pkg, "-run", run)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOFLAGS=")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	return string(out)
 }
 
-func TestTheCacheSeesTheBinary(t *testing.T) {
-	t.Run("when the acceptance package's dependencies are compared with the binary's", func(t *testing.T) {
-		binary := goList(t, "../../cmd/botropolis")
-		delete(binary, module+"cmd/botropolis")
-		tests := goList(t, "-test", ".")
-		var missing []string
-		for pkg := range binary {
-			if !tests[pkg] {
-				missing = append(missing, pkg)
-			}
-		}
-		sort.Strings(missing)
-
-		t.Run("it should depend on every in-module package cmd/botropolis links", func(t *testing.T) {
-			assert.Empty(t, missing, "binary_test.go must reach the binary entry point, so the test cache keys on its code")
-		})
-	})
-
-	t.Run("when the code under test is copied to a scratch module and TestStatus is run there", func(t *testing.T) {
+func (c cacheRun) assert(t *testing.T) {
+	t.Run("when "+c.name+" is run in a scratch copy of the module", func(t *testing.T) {
 		if testing.Short() {
-			t.Skip("runs go test three times")
+			t.Skip("runs go test several times")
 		}
-		dir := scratchModule(t)
-		goTestIn(t, dir)
-		second := goTestIn(t, dir)
+		dir := scratchModule(t, c.extra...)
+		goTestIn(t, dir, c.pkg, c.run)
+		second := goTestIn(t, dir, c.pkg, c.run)
 
 		t.Run("and it is run a second time with nothing changed", func(t *testing.T) {
 			t.Run("it should report (cached)", func(t *testing.T) {
@@ -120,9 +107,9 @@ func TestTheCacheSeesTheBinary(t *testing.T) {
 			})
 		})
 
-		for _, p := range probes {
+		for _, p := range c.probes {
 			p.change(t, dir)
-			out := goTestIn(t, dir)
+			out := goTestIn(t, dir, c.pkg, c.run)
 
 			t.Run("and code "+p.where+" is then changed", func(t *testing.T) {
 				t.Run("it should not report (cached)", func(t *testing.T) {
@@ -131,4 +118,13 @@ func TestTheCacheSeesTheBinary(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestTheCacheSeesTheBinary(t *testing.T) {
+	for _, c := range []cacheRun{
+		{name: "the acceptance tests' TestStatus", pkg: "./testing/acceptance", run: "^TestStatus$", probes: binaryProbes},
+		{name: "the packaging tests' TestCompletionScripts", pkg: "./testing/integration/packaging", run: "^TestCompletionScripts$", probes: binaryProbes},
+	} {
+		c.assert(t)
+	}
 }

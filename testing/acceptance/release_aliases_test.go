@@ -8,19 +8,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // The website's install commands link /releases/latest/download/<fixed name>,
 // which only works if every release carries its packages under names that do
 // not change. tools/release-aliases makes those copies in the release workflow;
-// this runs it as the workflow does. The script is read first so it is in the
-// test cache's key: a cached test is a test that did not run.
-const releaseAliases = "../../tools/release-aliases"
-
+// this runs it as the workflow does. helpers.Tool reads the script first so it
+// is in the test cache's key: a cached test is a test that did not run.
 func runAliases(t *testing.T, version string, files ...string) (string, []byte, error) {
 	t.Helper()
-	_, err := os.ReadFile(releaseAliases)
-	require.NoError(t, err)
+	releaseAliases := helpers.Tool(t, "release-aliases")
 	dir := t.TempDir()
 	for _, f := range files {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, f), []byte(f), 0o644))

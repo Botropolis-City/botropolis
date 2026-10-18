@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // The documentation structure is checked by tools/check-docs, which make lint
@@ -54,7 +56,7 @@ func readDocs(t *testing.T) int {
 func TestDocumentationStructure(t *testing.T) {
 	t.Run("when the repository's documentation is checked", func(t *testing.T) {
 		readDocs(t)
-		out, err := exec.Command("../../tools/check-docs").CombinedOutput()
+		out, err := exec.Command(helpers.Tool(t, "check-docs")).CombinedOutput()
 
 		t.Run("and the structure holds", func(t *testing.T) {
 			t.Run("it should report no problems", func(t *testing.T) {
