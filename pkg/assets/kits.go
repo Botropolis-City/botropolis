@@ -27,6 +27,16 @@ type KitSprite struct {
 	// Panes are a building's window panes as the sprite shows them, in
 	// the sprite's own pixels (item 86).
 	Panes []Pane
+	// Body is one of the city's own buildings' footprint without what
+	// stands beside it, in kit units, one to a cell (item 109).
+	Body Body
+}
+
+// Body is a building's footprint in kit units: its width along x, depth
+// along y, and how far along x its centre stands from the piece's.
+// Zero for a piece the pipeline does not model.
+type Body struct {
+	W, D, X float64
 }
 
 // Pane is one window pane: the corners of the parallelogram it covers,
@@ -75,14 +85,15 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 		Tile    float64  `json:"tile"`
 		Pages   []string `json:"pages"`
 		Sprites map[string]map[string]struct {
-			Page  int      `json:"page"`
-			X     int      `json:"x"`
-			Y     int      `json:"y"`
-			W     int      `json:"w"`
-			H     int      `json:"h"`
-			AX    float64  `json:"ax"`
-			AY    float64  `json:"ay"`
-			Panes [][8]int `json:"panes"`
+			Page  int       `json:"page"`
+			X     int       `json:"x"`
+			Y     int       `json:"y"`
+			W     int       `json:"w"`
+			H     int       `json:"h"`
+			AX    float64   `json:"ax"`
+			AY    float64   `json:"ay"`
+			Panes [][8]int  `json:"panes"`
+			Body  []float64 `json:"body"`
 		} `json:"sprites"`
 	}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -111,6 +122,9 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 				Page:   s.Page,
 				Rect:   image.Rect(s.X, s.Y, s.X+s.W, s.Y+s.H),
 				Anchor: image.Pt(int(s.AX+0.5), int(s.AY+0.5)),
+			}
+			if len(s.Body) == 3 {
+				set[i].Body = Body{W: s.Body[0], D: s.Body[1], X: s.Body[2]}
 			}
 			for _, q := range s.Panes {
 				set[i].Panes = append(set[i].Panes, Pane{{q[0], q[1]}, {q[2], q[3]}, {q[4], q[5]}, {q[6], q[7]}})

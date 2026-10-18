@@ -743,6 +743,7 @@ def atlas(args):
                         sprites[key][str(heading)]["panes"] = panes(cut)
                     if kit == "botropolis" and buildings.is_kind(name):
                         sprites[key][str(heading)]["panes"] = panes(cut, warm_glass)
+                        sprites[key][str(heading)]["body"] = list(root["body"])
                     count += 1
                 remove(root)
         stem = f"kits-z{zoom:g}"

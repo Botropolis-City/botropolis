@@ -24,6 +24,9 @@ WINDOW_GLOW = 0.5
 PALETTE = {
     "plinth": "#5d5a55",
     "brick": "#c9876a",
+    "brick-b": "#b9765a",
+    "brick-c": "#d59a7c",
+    "party-wall": "#7d4f3f",
     "brick-trim": "#efd9c7",
     "tile-roof": "#83443a",
     "chimney": "#9a5c48",
@@ -34,6 +37,7 @@ PALETTE = {
     "render-trim": "#f4e6cf",
     "awning-red": "#d9473a",
     "awning-teal": "#2f8f7f",
+    "banner": "#f2e3b8",
     "sign-white": "#f4f1ea",
     "billboard": "#f2c230",
     "display": "#cfe3ee",
@@ -75,6 +79,9 @@ class Model:
         self.root = bpy.data.objects.new(name, None)
         bpy.context.scene.collection.objects.link(self.root)
         self.mats = {}
+        # The building's own body, without what stands beside it: its
+        # width along x, depth along y and centre along x, in kit units.
+        self.body = (0.0, 0.0, 0.0)
 
     def mat(self, key, emission=0.0):
         k = (key, emission)
@@ -179,8 +186,12 @@ def residential(m, n):
     d = w * 0.8
     if n == 3:
         d = w * 0.62
+    m.body = (w, d, 0.0)
     m.box((w + 0.03, d + 0.03, PLINTH), (0, 0, 0), "plinth")
     top = storey_z(n)
+    if n == 3:
+        townhouses(m, w, d, top)
+        return
     m.box((w, d, n * STOREY), (0, 0, PLINTH), "brick")
     for i in range(n):
         m.windows(w, d, storey_z(i) + STOREY * 0.32, max(2, round(w / 0.17)), max(1, round(d / 0.2)), (0.07, 0.13))
@@ -190,10 +201,6 @@ def residential(m, n):
         m.gable(w, d, top, 0.24, "tile-roof", along="x")
         if n == 2:
             m.box((0.07, 0.07, 0.22), (w * 0.28, d * 0.15, top + 0.04), "chimney")
-    elif n == 3:
-        unit = w / 3
-        for k in range(3):
-            m.gable(unit, d, top, 0.2, "tile-roof", along="y", at=(-w / 2 + unit * (k + 0.5), 0), overhang=0.015)
     else:
         m.band(w, d, top, 0.04, "brick-trim")
         if n == 4:
@@ -205,9 +212,77 @@ def residential(m, n):
             m.box((w * 0.5, 0.05, 0.05), (0, d * 0.25, top + 0.03), "hedge")
 
 
+def townhouses(m, w, d, top):
+    """Three narrow houses in a terrace, each its own brick and gable,
+    with the party walls between them showing down both faces."""
+    unit = w / 3
+    depth = 0.012
+    for k, brick in enumerate(("brick", "brick-b", "brick-c")):
+        x = -w / 2 + unit * (k + 0.5)
+        m.box((unit, d, top - PLINTH), (x, 0, PLINTH), brick)
+        m.gable(unit, d, top, 0.22, "tile-roof", along="y", at=(x, 0), overhang=0.008)
+        for i in range(3):
+            z = storey_z(i) + STOREY * 0.32
+            for y in (-d / 2 - depth / 2, d / 2 + depth / 2):
+                m.box((0.07, depth, 0.13), (x, y, z), "window", WINDOW_GLOW)
+        m.box((0.06, depth, STOREY * 0.5), (x + unit * 0.28, -d / 2 - depth / 2, PLINTH), "door")
+    for i in range(3):
+        z = storey_z(i) + STOREY * 0.32
+        for y in (-d * 0.2, d * 0.2):
+            for x in (-w / 2 - depth / 2, w / 2 + depth / 2):
+                m.box((depth, 0.07, 0.13), (x, y, z), "window", WINDOW_GLOW)
+    for k in (1, 2):
+        x = -w / 2 + unit * k
+        for y in (-d / 2 - 0.006, d / 2 + 0.006):
+            m.box((0.016, 0.012, top - PLINTH + 0.02), (x, y, PLINTH), "party-wall")
+
+
+def awnings(m, w, d, z, drop, out, key):
+    """Sloped fabric awnings over a ground floor's windows on all four
+    faces, each with a pale valance along its lower edge."""
+    zb = z - drop
+    for sy in (-1, 1):
+        y0, y1 = sy * d / 2, sy * (d / 2 + out)
+        m.mesh([(-w / 2, y0, z), (w / 2, y0, z), (w / 2, y1, zb), (-w / 2, y1, zb)], [(0, 1, 2, 3)], key)
+        m.box((w, 0.008, 0.03), (0, y1, zb - 0.03), "sign-white")
+    for sx in (-1, 1):
+        x0, x1 = sx * w / 2, sx * (w / 2 + out)
+        m.mesh([(x0, -d / 2, z), (x0, d / 2, z), (x1, d / 2, zb), (x1, -d / 2, zb)], [(0, 1, 2, 3)], key)
+        m.box((0.008, d, 0.03), (x1, 0, zb - 0.03), "sign-white")
+
+
+def sale_sign(m, at, angle, height, z):
+    """A blade sign down a corner, standing out from it, with white
+    squares for its lettering."""
+    blade = m.box((0.1, 0.018, height), (at[0], at[1], z), "awning-red")
+    blade.rotation_euler.z = angle
+    for k in range(4):
+        sq = m.box((0.056, 0.024, height * 0.13), (at[0], at[1], z + height * (0.1 + 0.22 * k)), "sign-white")
+        sq.rotation_euler.z = angle
+
+
+def banner(m, w, d, z, h):
+    """An advertising banner across the upper floor's two front faces: a
+    framed board with a picture and a strapline on it."""
+    for along_x, (cx, cy) in ((True, (0, -d / 2 - 0.016)), (False, (-w / 2 - 0.016, 0))):
+        span = (w if along_x else d) * 0.66
+
+        def board(length, thick, height, zz, key, offset=0.0):
+            size = (length, thick, height) if along_x else (thick, length, height)
+            at = (cx + offset, cy, zz) if along_x else (cx, cy + offset, zz)
+            m.box(size, at, key)
+
+        board(span, 0.014, h, z, "awning-teal")
+        board(span * 0.9, 0.02, h * 0.74, z + h * 0.13, "banner")
+        board(span * 0.3, 0.026, h * 0.5, z + h * 0.25, "awning-red", offset=-span * 0.25)
+        board(span * 0.42, 0.026, h * 0.1, z + h * 0.55, "awning-teal", offset=span * 0.16)
+        board(span * 0.3, 0.026, h * 0.08, z + h * 0.3, "awning-teal", offset=span * 0.1)
+
+
 def shopping(m, n):
     w = footprint(n, 0.5, 0.8)
     d = w * 0.82
+    m.body = (w, d, 0.0)
     m.box((w + 0.03, d + 0.03, PLINTH), (0, 0, 0), "plinth")
     top = storey_z(n)
     m.box((w, d, n * STOREY), (0, 0, PLINTH), "render")
@@ -215,20 +290,19 @@ def shopping(m, n):
     big = n >= 4
     m.box((w + 0.006, d + 0.006, STOREY * (0.62 if big else 0.5)), (0, 0, PLINTH + STOREY * 0.12), "display")
     m.windows(w, d, PLINTH + STOREY * 0.2, max(2, round(w / 0.2)), max(1, round(d / 0.22)), (0.1, 0.12))
-    m.band(w, d, PLINTH + STOREY * 0.8, 0.05, awning, out=0.05)
+    awnings(m, w, d, PLINTH + STOREY * 0.86, STOREY * 0.22, 0.08, awning)
     for i in range(1, n):
         m.windows(w, d, storey_z(i) + STOREY * 0.32, max(2, round(w / 0.17)), max(1, round(d / 0.2)), (0.08, 0.13))
     m.band(w, d, top, 0.04, "render-trim")
     m.box((w - 0.04, d - 0.04, 0.012), (0, 0, top + 0.01), "flat-roof")
     if n == 3:
-        m.box((w * 0.6, 0.014, STOREY * 0.35), (0, -d / 2 - 0.02, storey_z(2) + STOREY * 0.35), "awning-teal")
-        m.box((0.014, d * 0.6, STOREY * 0.35), (-w / 2 - 0.02, 0, storey_z(2) + STOREY * 0.35), "awning-teal")
+        banner(m, w, d, storey_z(2) + STOREY * 0.12, STOREY * 0.62)
     if n >= 4:
         sign_h = (n - 1) * STOREY * 0.9
-        for cx, cy in ((w / 2 + 0.03, -d / 2 - 0.03), (-w / 2 - 0.03, d / 2 + 0.03)):
-            m.box((0.05, 0.05, sign_h), (cx, cy, storey_z(1)), "awning-red")
-            for k in range(n - 1):
-                m.box((0.056, 0.056, 0.05), (cx, cy, storey_z(1) + STOREY * (k + 0.4)), "sign-white")
+        reach = 0.05 / math.sqrt(2)
+        for sx, sy in ((1, -1), (-1, 1), (1, 1), (-1, -1)):
+            at = (sx * (w / 2 + reach), sy * (d / 2 + reach))
+            sale_sign(m, at, math.atan2(sy, sx), sign_h, storey_z(1) + STOREY * 0.05)
     if n == 5:
         for x in (-w * 0.25, w * 0.25):
             m.box((0.02, 0.02, 0.12), (x, 0, top + 0.02), "mast")
@@ -239,6 +313,7 @@ def shopping(m, n):
 def office(m, n):
     w = footprint(n, 0.48, 0.68)
     d = w
+    m.body = (w, d, 0.0)
     m.box((w + 0.03, d + 0.03, PLINTH), (0, 0, 0), "plinth")
     top = storey_z(n)
     m.box((w, d, n * STOREY), (0, 0, PLINTH), "curtain")
@@ -251,7 +326,6 @@ def office(m, n):
     if n == 5:
         m.box((w * 0.7, d * 0.7, 0.1), (0, 0, top + 0.04), "slab")
         m.box((w * 0.45, d * 0.45, 0.08), (0, 0, top + 0.14), "office-roof")
-        m.cylinder(0.012, 0.22, (0, 0, top + 0.22), "mast", vertices=8)
 
 
 def industrial(m, n):
@@ -264,6 +338,7 @@ def industrial(m, n):
         shift = -0.1
     elif n == 3:
         shift = -0.06
+    m.body = (w, d, shift)
     m.box((w + 0.03, d + 0.03, PLINTH), (shift, 0, 0), "plinth")
     top = storey_z(n)
     body = m.box((w, d, n * STOREY), (shift, 0, PLINTH), "cladding")
@@ -281,7 +356,9 @@ def industrial(m, n):
         x = shift - w / 2 + w * (k + 0.5) / max(1, min(n, 3))
         m.box((0.11, 0.012, STOREY * 0.42), (x, -d / 2 - 0.007, PLINTH), "door")
     if n in (1, 2, 5):
-        m.sawtooth(w, d, top, 3 if n < 5 else 4, 0.16, "shed-roof", "skylight", x0=shift)
+        unit = w / 3
+        for k in range(3):
+            m.gable(unit, d, top, 0.16, "shed-roof", along="y", at=(shift - w / 2 + unit * (k + 0.5), 0), overhang=0.004)
     else:
         m.box((w - 0.02, d - 0.02, 0.014), (shift, 0, top), "shed-roof")
         for x, y in ((-w * 0.25, -d * 0.2), (w * 0.2, d * 0.15), (w * 0.05, -d * 0.25)):
@@ -331,4 +408,5 @@ def build(name, at=(0, 0)):
     m = Model(f"botropolis/{name}")
     BUILD[kind](m, int(n))
     m.root.location = Vector((at[0], at[1], 0))
+    m.root["body"] = [round(v, 4) for v in m.body]
     return m.done()
