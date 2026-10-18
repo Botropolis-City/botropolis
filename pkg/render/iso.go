@@ -178,7 +178,7 @@ func (g *Game) isoDistrict(screen *ebiten.Image, cam *city.Camera, d *city.Distr
 	if hovered {
 		fill = colorKitFloorHi
 	}
-	if g.lit.Recedes(d) {
+	if g.lit.FadesDistrict(d) {
 		fill, kerb = recededGround(fill), recededGround(kerb)
 	}
 	g.poly(screen, cam, d.Rect, fill)
@@ -640,13 +640,15 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.blitBase(screen, under)
 	g.overgrowth(screen, cam, false)
 	g.agedLots(screen, cam, c)
-	g.powerLines(screen, c, cam, hover, seconds)
 	// Drones stand in the depth sort on their shadows' ground points,
 	// and their shadows go on the ground first (item 89).
-	shadows, drones := g.flights(screen, c, cam, seconds)
-	for _, at := range shadows {
-		droneShadow(screen, cam, at)
-	}
+	shadows, drones := g.flights(&screen, c, cam, seconds)
+	g.fadeAll(&screen, func() {
+		g.powerLines(screen, c, cam, hover, seconds)
+		for _, at := range shadows {
+			droneShadow(screen, cam, at)
+		}
+	})
 	items := drones
 	var airborne []func()
 	if c.Fountain.Area() > 0 {
@@ -684,6 +686,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 					g.drawSpire(screen, cam, b)
 				}
 			}))
+			items[len(items)-1].kept = g.keeps(d)
 		}
 	}
 	for _, v := range g.scene.Voyages() {
@@ -706,6 +709,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			items = append(items, standingAt(cam, in.At, func() {
 				g.drawInspector(screen, cam, b, in)
 			}))
+			items[len(items)-1].kept = g.keeps(c.DistrictOf(b))
 		}
 	}
 	for _, m := range g.scene.Messages() {
@@ -735,6 +739,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, standingAt(cam, car.at, func() {
 			g.drawCar(screen, cam, car)
 		}))
+		items[len(items)-1].kept = g.keepsRoad(car.road)
 	}
 	if c.Plant.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Plant.Rect, func() {
@@ -824,6 +829,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, standingAt(cam, at, func() {
 			g.districtMonument(screen, cam, d, c.Night)
 		}))
+		items[len(items)-1].kept = g.keeps(d)
 	}
 	for _, t := range c.Trees {
 		if !g.scene.Scenery() {
@@ -861,11 +867,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			items = append(items, footprintAt(cam, city.RectAt(at.X-1, at.Y-1, 2, 2), func() {
 				signed[d] = g.districtSign(screen, cam, d)
 			}))
+			items[len(items)-1].kept = g.keeps(d)
 		}
 	}
+	fade := g.fadeUnkept(&screen, items, airborne)
 	for _, draw := range layered(cam, items, airborne) {
 		draw()
 	}
+	fade.done()
 	if hover.Building != nil && hover.Building != selected {
 		g.polyStroke(screen, cam, hover.Building.Rect, 1.5, colorHighlight)
 	}
@@ -873,7 +882,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		vector.FillRect(screen, 0, 0, float32(width), float32(height), colorNightOverlay, false)
 		g.nightLights(screen, cam, c)
 	}
-	g.groupLines(screen, cam)
+	g.fadeAll(&screen, func() { g.groupLines(screen, cam) })
 	for _, d := range c.Districts {
 		// The sign stands in the district; the plate is for when it is
 		// too small to read, and for the district under the pointer.
@@ -1179,11 +1188,7 @@ func carTurn(d city.Point) int {
 }
 
 func (g *Game) drawCar(screen *ebiten.Image, cam *city.Camera, car car) {
-	var tint *ebiten.ColorScale
-	if g.lit.RecedesGround() && !g.lit.HasRoad(car.road) {
-		tint = dimmed()
-	}
-	r := g.kit(screen, cam, car.model, car.turn, car.at, tint)
+	r := g.kit(screen, cam, car.model, car.turn, car.at, nil)
 	if car.road == nil {
 		return
 	}

@@ -122,3 +122,101 @@ func recededGround(c color.NRGBA) color.NRGBA {
 	c.A = uint8(float64(c.A) * recededAlpha)
 	return c
 }
+
+// A fader draws what a hovered car does not keep onto a layer, and lays
+// the layer over the screen at the highlight's fade before each thing
+// kept at full strength, so the depth order holds. Item 108.
+type fader struct {
+	// target is the image the draw closures draw on; they capture the
+	// variable, so pointing it at the layer redirects them.
+	target      **ebiten.Image
+	real, layer *ebiten.Image
+	dirty       bool
+	flush       func()
+}
+
+// newFader is a fader over a screen, its layer kept on the game and
+// cleared as it is laid down.
+func (g *Game) newFader(screen **ebiten.Image) *fader {
+	real := *screen
+	size := real.Bounds().Size()
+	if g.carFadeLayer == nil || g.carFadeLayer.Bounds().Size() != size {
+		if g.carFadeLayer != nil {
+			g.carFadeLayer.Deallocate()
+		}
+		g.carFadeLayer = ebiten.NewImage(size.X, size.Y)
+	}
+	layer := g.carFadeLayer
+	layer.Clear()
+	return &fader{target: screen, real: real, layer: layer, flush: func() {
+		op := &ebiten.DrawImageOptions{}
+		op.ColorScale.ScaleAlpha(recededAlpha)
+		real.DrawImage(layer, op)
+		layer.Clear()
+	}}
+}
+
+// faded draws onto the layer.
+func (f *fader) faded(draw func()) func() {
+	return func() {
+		*f.target = f.layer
+		draw()
+		*f.target = f.real
+		f.dirty = true
+	}
+}
+
+// kept lays down what is faded so far, then draws on the screen.
+func (f *fader) kept(draw func()) func() {
+	return func() {
+		f.done()
+		draw()
+	}
+}
+
+// fadeUnkept sends everything not kept to a fader's layer while a
+// hovered car fades the city around it, and is nil otherwise.
+func (g *Game) fadeUnkept(screen **ebiten.Image, items []drawable, airborne []func()) *fader {
+	if !g.lit.RecedesGround() {
+		return nil
+	}
+	f := g.newFader(screen)
+	for i := range items {
+		if items[i].kept {
+			items[i].draw = f.kept(items[i].draw)
+		} else {
+			items[i].draw = f.faded(items[i].draw)
+		}
+	}
+	for i := range airborne {
+		airborne[i] = f.faded(airborne[i])
+	}
+	return f
+}
+
+// fadeAll draws something none of which a hovered car keeps, faded while
+// it fades the city around it.
+func (g *Game) fadeAll(screen **ebiten.Image, draw func()) {
+	if !g.lit.RecedesGround() {
+		draw()
+		return
+	}
+	f := g.newFader(screen)
+	f.faded(draw)()
+	f.done()
+}
+
+// done lays down whatever is still on the layer; a nil fader has none.
+func (f *fader) done() {
+	if f != nil && f.dirty {
+		f.flush()
+		f.dirty = false
+	}
+}
+
+// keeps is whether a district, and everything on it, stays at full
+// strength under the highlight.
+func (g *Game) keeps(d *city.District) bool { return !g.lit.FadesDistrict(d) }
+
+// keepsRoad is the same for a road and its cars.
+func (g *Game) keepsRoad(r *city.RoadLine) bool { return !g.lit.FadesRoad(r) }

@@ -207,8 +207,10 @@ func droneAtDepth(cam *city.Camera, shadow city.Point, draw func()) drawable {
 }
 
 // flights is every drone the map draws: the world points their shadows
-// fall on, and the drones themselves for the depth sort.
-func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, seconds float64) (shadows []city.Point, drones []drawable) {
+// fall on, and the drones themselves for the depth sort. The drones draw
+// on whatever screen points at when they are drawn, so a hovered car's
+// fader can send them to its layer (item 108).
+func (g *Game) flights(screen **ebiten.Image, c *city.City, cam *city.Camera, seconds float64) (shadows []city.Point, drones []drawable) {
 	if !g.shows(city.NetworkCranes) {
 		return nil, nil
 	}
@@ -237,9 +239,9 @@ func (g *Game) flights(screen *ebiten.Image, c *city.City, cam *city.Camera, sec
 				for _, d := range []city.Point{{X: -1, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: -1}, {X: 0, Y: 1}} {
 					dark := &ebiten.ColorScale{}
 					dark.Scale(0, 0, 0, float32(fade)*0.9)
-					g.kitAtShrunk(screen, cam, kitDrone, city.Point{X: at.X + d.X, Y: at.Y + d.Y}, shrink, dark)
+					g.kitAtShrunk(*screen, cam, kitDrone, city.Point{X: at.X + d.X, Y: at.Y + d.Y}, shrink, dark)
 				}
-				drone := g.kitAtShrunk(screen, cam, kitDrone, at, shrink, tint)
+				drone := g.kitAtShrunk(*screen, cam, kitDrone, at, shrink, tint)
 				g.noteHit(drone, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Subagent: b})
 			}))
 		}

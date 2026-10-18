@@ -182,6 +182,9 @@ type Game struct {
 	// static is the city under the traffic, composed once and blitted
 	// until the snapshot, the camera, the heading or the view changes.
 	static staticLayer
+	// carFadeLayer is where a hovered car's fader draws what it fades
+	// (item 108).
+	carFadeLayer *ebiten.Image
 
 	settings     ui.Settings
 	settingsOpen bool

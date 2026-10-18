@@ -127,13 +127,16 @@ func (g *Game) shows(n city.Network) bool { return g.scene.View().Shows(n) }
 // highlight is a transient answer to "what is this tied to", so the
 // things that are not the answer get out of the way harder and come
 // straight back when the pointer moves.
+//
+// While a hovered car fades the ground too, the fader fades everything
+// not tied to it at once (item 108), so a sprite is not faded twice.
 func (g *Game) unlit(b *city.Building) bool {
-	return g.lit.Active && !g.lit.HasBuilding(b)
+	return g.lit.Active && !g.lit.RecedesGround() && !g.lit.HasBuilding(b)
 }
 
 // unlitTower is the same question for a tower.
 func (g *Game) unlitTower(t *city.Tower) bool {
-	return g.lit.Active && !g.lit.HasTower(t)
+	return g.lit.Active && !g.lit.RecedesGround() && !g.lit.HasTower(t)
 }
 
 // scenery is the tint for the things a view has nothing to say about.

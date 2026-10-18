@@ -39,7 +39,7 @@ func (g *Game) queueBadge(b *city.Building, foot city.Point) {
 			g.drawBadge(screen, bd.moved(at.Min))
 		},
 		ink:   colorBadgeInk,
-		faded: g.lit.Recedes(g.scene.City().DistrictOf(b)),
+		faded: g.lit.FadesDistrict(g.scene.City().DistrictOf(b)),
 	})
 }
 
@@ -55,7 +55,7 @@ func (g *Game) queueStationLabel(d *city.District, station city.Point, radius fl
 			g.label(screen, city.Point{X: p.Min.X + 3, Y: p.Min.Y + 1}, name, ink)
 		},
 		ink:   casing,
-		faded: g.lit.Recedes(d),
+		faded: g.lit.FadesDistrict(d),
 	})
 }
 
@@ -77,7 +77,7 @@ func (g *Game) queueDistrictPlate(d *city.District) {
 		draw: func(screen *ebiten.Image, at city.Rect) {
 			g.plate(screen, p.Moved(at.Min), d.Name, colorText)
 		},
-		faded: g.lit.Recedes(d),
+		faded: g.lit.FadesDistrict(d),
 	})
 }
 
@@ -119,7 +119,7 @@ func (g *Game) queueRoadTags(c *city.City, cam *city.Camera) {
 // queueRoadTag asks for one road's tag at at, faded unless the road is
 // in the highlight.
 func (g *Game) queueRoadTag(road *city.RoadLine, at city.Point) {
-	g.queueFloorLabel(labelTag, at, road.Label(), colorDim, g.lit.RecedesGround() && !g.lit.HasRoad(road))
+	g.queueFloorLabel(labelTag, at, road.Label(), colorDim, g.lit.FadesRoad(road))
 }
 
 // drawMapLabels lays out every label the frame asked for and draws them

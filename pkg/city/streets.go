@@ -196,6 +196,9 @@ func (c *City) depth(cell Cell) int {
 type Driveway struct {
 	Cell Cell
 	Lot  Point
+	// side and at are where it is on its block, for the layout to keep.
+	side [2]int
+	at   int
 }
 
 // Driveway is a district's driveway, if its block has one: the side
@@ -213,6 +216,13 @@ func (c *City) Driveway(d *District) (Driveway, bool) {
 // avenue cell nearest the middle of that side, an even side's middle
 // rounding toward the camera.
 func (c *City) drivewayOn(d *District, dc, dr int) (Driveway, bool) {
+	return c.drivewayNear(d, dc, dr, -1)
+}
+
+// drivewayNear is a district's driveway on one side of its block, at
+// the avenue cell nearest a place along that side, counted in cells
+// from its west or north end; a negative place is the middle.
+func (c *City) drivewayNear(d *District, dc, dr, at int) (Driveway, bool) {
 	if d == nil {
 		return Driveway{}, false
 	}
@@ -235,9 +245,16 @@ func (c *City) drivewayOn(d *District, dc, dr int) (Driveway, bool) {
 			along = append(along, Cell{col, row})
 		}
 	}
-	mid := float64(len(along)-1) / 2
+	target := float64(len(along)-1) / 2
+	if at >= 0 {
+		target = float64(at)
+	}
+	index := map[Cell]int{}
+	for i, cell := range along {
+		index[cell] = i
+	}
 	sort.SliceStable(along, func(i, j int) bool {
-		di, dj := math.Abs(float64(i)-mid), math.Abs(float64(j)-mid)
+		di, dj := math.Abs(float64(index[along[i]])-target), math.Abs(float64(index[along[j]])-target)
 		if di != dj {
 			return di < dj
 		}
@@ -258,7 +275,7 @@ func (c *City) drivewayOn(d *District, dc, dr int) (Driveway, bool) {
 		default:
 			lot.X = d.Rect.Min.X + DoorInset
 		}
-		return Driveway{Cell: cell, Lot: lot}, true
+		return Driveway{Cell: cell, Lot: lot, side: [2]int{dc, dr}, at: index[cell]}, true
 	}
 	return Driveway{}, false
 }
@@ -272,6 +289,10 @@ const drivewaySlack = 2
 // total length of its roads shortest, the camera-facing side unless
 // another is more than drivewaySlack cells shorter, settling each lot
 // against the others' choices until none moves. Item 108.
+//
+// A lot keeps the driveway it was first given, through new roads, turns
+// of the camera and restarts (Aria, 2026-10-18: "We don't want driveways
+// moving"), so only a lot with roads and no driveway yet is chosen for.
 func (c *City) chooseDriveways() {
 	c.driveways = map[*District]Driveway{}
 	partners := map[*District][]*District{}
@@ -292,6 +313,12 @@ func (c *City) chooseDriveways() {
 	sides := map[*District][]side{}
 	var order []*District
 	for _, d := range c.Districts {
+		if dc, dr, at, kept := c.keptDriveway(d); kept {
+			if dw, ok := c.drivewayNear(d, dc, dr, at); ok {
+				c.driveways[d] = dw
+				continue
+			}
+		}
 		if front, ok := c.drivewayOn(d, fc, fr); ok {
 			c.driveways[d] = front
 		}
@@ -345,6 +372,21 @@ func (c *City) chooseDriveways() {
 			break
 		}
 	}
+	if c.layout != nil {
+		for _, d := range order {
+			if dw, ok := c.driveways[d]; ok {
+				c.layout.keepDriveway(d.Root, dw.side[0], dw.side[1], dw.at)
+			}
+		}
+	}
+}
+
+// keptDriveway is the driveway the layout keeps for a district, if any.
+func (c *City) keptDriveway(d *District) (dc, dr, at int, ok bool) {
+	if c.layout == nil {
+		return 0, 0, 0, false
+	}
+	return c.layout.keptDriveway(d.Root)
 }
 
 // streetDistances is how many steps along the avenues every street cell

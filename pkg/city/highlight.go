@@ -97,12 +97,25 @@ func (s *Scene) tieBuilding(h *Highlight, b *Building) {
 // back too, not only the buildings: pointing at a car. Item 108.
 func (h Highlight) RecedesGround() bool { return h.Active && h.districts != nil }
 
-// Recedes is whether a district's lot steps back under the highlight.
-func (h Highlight) Recedes(d *District) bool { return h.RecedesGround() && !h.districts[d] }
+// FadesDistrict is whether a district, and everything on it or naming
+// it, steps back under the highlight: pointing at a car fades every
+// district but the two it runs between. Item 108.
+func (h Highlight) FadesDistrict(d *District) bool { return h.RecedesGround() && !h.districts[d] }
+
+// FadesRoad is the same question for a road, and whatever names it.
+func (h Highlight) FadesRoad(r *RoadLine) bool { return h.RecedesGround() && !h.roads[r] }
 
 // tieCar lights a car's road, driveway to driveway, and the two
 // districts it runs between, and everything else steps back. Item 108.
+//
+// The car was found in the last frame drawn, which may have been drawn
+// from the city before the latest snapshot, so its road is looked up in
+// this one by the two districts it joins.
 func (s *Scene) tieCar(h *Highlight, road *RoadLine) {
+	road = s.city.sameRoad(road)
+	if road == nil {
+		return
+	}
 	h.Active = true
 	h.roads[road] = true
 	h.districts = map[*District]bool{road.From: true, road.To: true}
@@ -111,4 +124,22 @@ func (s *Scene) tieCar(h *Highlight, road *RoadLine) {
 			h.buildings[b] = true
 		}
 	}
+}
+
+// sameRoad is this city's road between the same two districts as one
+// from any city, or nil.
+func (c *City) sameRoad(r *RoadLine) *RoadLine {
+	if r == nil || r.From == nil || r.To == nil {
+		return nil
+	}
+	for i := range c.Roads {
+		mine := &c.Roads[i]
+		if mine == r {
+			return mine
+		}
+		if mine.From != nil && mine.To != nil && mine.From.Root == r.From.Root && mine.To.Root == r.To.Root {
+			return mine
+		}
+	}
+	return nil
 }

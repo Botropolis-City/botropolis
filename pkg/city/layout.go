@@ -23,6 +23,37 @@ type districtLayout struct {
 	// Type is the district's type, chosen the first time it appeared and
 	// kept, or set by hand (item 109).
 	Type DistrictType `json:"type,omitempty"`
+	// Driveway is the side of its block the district's driveway is on,
+	// and how many cells along that side, chosen when it first had a
+	// road and kept (item 108).
+	Driveway *drivewayMemory `json:"driveway,omitempty"`
+}
+
+type drivewayMemory struct {
+	Side string `json:"side"`
+	At   int    `json:"at"`
+}
+
+var sideNames = map[[2]int]string{{0, -1}: "N", {1, 0}: "E", {0, 1}: "S", {-1, 0}: "W"}
+
+// keptDriveway is the side and place a district's driveway was given,
+// if it has been given one.
+func (l *Layout) keptDriveway(root string) (dc, dr, at int, ok bool) {
+	d, found := l.Districts[root]
+	if !found || d.Driveway == nil {
+		return 0, 0, 0, false
+	}
+	for side, name := range sideNames {
+		if name == d.Driveway.Side {
+			return side[0], side[1], d.Driveway.At, true
+		}
+	}
+	return 0, 0, 0, false
+}
+
+// keepDriveway remembers a district's driveway, for good.
+func (l *Layout) keepDriveway(root string, dc, dr, at int) {
+	l.district(root).Driveway = &drivewayMemory{Side: sideNames[[2]int{dc, dr}], At: at}
 }
 
 // Layout is what the map remembers between runs: each district's block on

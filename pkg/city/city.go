@@ -139,6 +139,8 @@ type City struct {
 	// placed again when it turns. Item 108.
 	heading   int
 	driveways map[*District]Driveway
+	// layout keeps each lot's driveway once it is chosen (item 108).
+	layout    *Layout
 	planLamps []Cell
 	planTrees []Tree
 }
@@ -353,6 +355,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	for _, l := range p.Lamps {
 		city.Lamps = append(city.Lamps, toCell(l))
 	}
+	city.layout = layout
 	city.planLamps = append([]Cell(nil), city.Lamps...)
 	city.planTrees = append([]Tree(nil), city.Trees...)
 	city.Plaza = cellRect(p.Plaza)

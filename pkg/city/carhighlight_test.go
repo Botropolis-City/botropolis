@@ -50,7 +50,7 @@ func TestCarHighlight(t *testing.T) {
 		t.Run("it should keep its two lots and recede every other", func(t *testing.T) {
 			var wrong []string
 			for _, d := range c.Districts {
-				if h.Recedes(d) == ours[d] {
+				if h.FadesDistrict(d) == ours[d] {
 					wrong = append(wrong, d.Name)
 				}
 			}
@@ -62,6 +62,25 @@ func TestCarHighlight(t *testing.T) {
 		})
 	})
 
+	// The car under the pointer was found in the last frame drawn, which
+	// may have been drawn from the city before the latest snapshot.
+	t.Run("when the pointer is on a car found before the latest snapshot", func(t *testing.T) {
+		stale := ab.Road
+		s.SetSnapshot(state.Snapshot{At: now, Sessions: sixDistricts(), Roads: roadsBetween([2]string{"a", "b"}, [2]string{"c", "f"})})
+		fresh := s.City()
+		s.SetHover(city.Hit{Car: &city.CarHit{Road: stale, From: "a", To: "b"}})
+		h := s.Highlight()
+		current, _ := streetOf(fresh, "a", "b")
+
+		t.Run("it should keep the car's two districts at full strength", func(t *testing.T) {
+			assert.Equal(t, [2]bool{false, false}, [2]bool{h.FadesDistrict(districtNamed(fresh, "a")), h.FadesDistrict(districtNamed(fresh, "b"))})
+		})
+
+		t.Run("it should light the car's road as it is now", func(t *testing.T) {
+			assert.False(t, h.FadesRoad(current.Road))
+		})
+	})
+
 	t.Run("when the pointer is on a building", func(t *testing.T) {
 		s.SetHover(city.Hit{Building: c.Buildings()[0]})
 		h := s.Highlight()
@@ -69,7 +88,7 @@ func TestCarHighlight(t *testing.T) {
 		t.Run("it should recede no lot", func(t *testing.T) {
 			var receded []string
 			for _, d := range c.Districts {
-				if h.Recedes(d) {
+				if h.FadesDistrict(d) {
 					receded = append(receded, d.Name)
 				}
 			}
