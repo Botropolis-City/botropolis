@@ -442,9 +442,7 @@ func (g *Game) Update() error {
 	if g.screenshot == "" && !g.driven {
 		g.watchFocus()
 	}
-	cursor := g.pointer()
-	g.scene.PointerMove(cursor)
-	g.hoverSprites(cursor)
+	cursor := g.notePointer()
 
 	if _, wheel := ebiten.Wheel(); wheel != 0 && !g.wheelStream(cursor, wheel) {
 		g.scene.Wheel(cursor, wheel)
@@ -573,8 +571,27 @@ func (g *Game) pointer() city.Point {
 	if g.hoverSet {
 		return g.hover
 	}
-	x, y := ebiten.CursorPosition()
+	x, y := cursorPosition()
 	return city.Point{X: float64(x), Y: float64(y)}
+}
+
+// cursorPosition is the system cursor, swapped out in tests.
+var cursorPosition = ebiten.CursorPosition
+
+// notePointer tells the scene what the pointer is over, and returns
+// where it is. A recording or a screenshot has no mouse: the system
+// cursor sits wherever the display put it, in the middle of the screen
+// under xvfb, so until the script shows a pointer or --hover parks one,
+// it is over nothing (item 115).
+func (g *Game) notePointer() city.Point {
+	cursor := g.pointer()
+	if (g.record != "" || g.screenshot != "") && !g.play.shown && !g.hoverSet {
+		g.scene.PointerAway()
+		return cursor
+	}
+	g.scene.PointerMove(cursor)
+	g.hoverSprites(cursor)
+	return cursor
 }
 
 // keyByName finds an Ebitengine key by its name, case-insensitively:

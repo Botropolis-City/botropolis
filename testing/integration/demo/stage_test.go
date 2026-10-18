@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/demo"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/testing/helpers"
@@ -102,6 +103,68 @@ func TestStagedHomeLoadsAsTheScenarioSays(t *testing.T) {
 				}
 				return true
 			}, 5*time.Second, 50*time.Millisecond)
+		})
+	})
+}
+
+// Item 115. A replayed session's lines are restamped as they are
+// revealed, so the session looks new for the whole replay; the city
+// builds once, from the session first appearing, and finishes.
+func TestReplayedSessionIsBuiltOnce(t *testing.T) {
+	start := time.Now()
+	corpus := t.TempDir()
+	const replayed, resting = "a1000000-0000-4000-8000-000000000001", "d4000000-0000-4000-8000-000000000004"
+	recorded(t, corpus, "tidepool", replayed)
+	recorded(t, corpus, "orchard", resting)
+	arrive := time.Second
+	scenario := demo.Scenario{Name: "test", Sessions: []demo.Placement{
+		{Ref: "orchard/" + resting[:4], State: state.Resting, Ago: demo.Duration(time.Hour)},
+		{Ref: "tidepool/" + replayed[:4], State: state.Working, Arrive: demo.Duration(arrive), Replay: &demo.Replay{Over: demo.Duration(14 * time.Second)}},
+	}}
+	home := t.TempDir()
+	director, err := demo.NewDirector(demo.Corpus{Dir: corpus}, scenario, home, start, demo.Sleepers(home, time.Minute))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = demo.Unstage(home) })
+
+	clock := start
+	scene := city.NewScene(city.NewLayout())
+	scene.SetClock(func() time.Time { return clock }, time.UTC)
+	events := director.Events()
+	built := arrive + city.SailFor + city.BuildFor
+	var id string
+	seenBuilding, buildingAfter := false, true
+	for at := time.Duration(0); at <= built+time.Second; at += 250 * time.Millisecond {
+		clock = start.Add(at)
+		for len(events) > 0 && events[0].At <= at {
+			require.NoError(t, director.Apply(events[0], clock))
+			events = events[1:]
+		}
+		snapshot, err := state.Load(home, probes, clock)
+		require.NoError(t, err)
+		scene.SetSnapshot(snapshot)
+		for _, s := range snapshot.Sessions {
+			if s.State == state.Working {
+				id = s.ID
+			}
+		}
+		if id == "" {
+			continue
+		}
+		_, building := scene.Construction(id)
+		seenBuilding = seenBuilding || building
+		buildingAfter = building
+	}
+	require.NotEmpty(t, events, "the replay should still be revealing lines when the build is due to finish")
+
+	t.Run("when a staged session arrives and replays for longer than a build", func(t *testing.T) {
+		t.Run("it should be seen going up", func(t *testing.T) {
+			assert.True(t, seenBuilding)
+		})
+
+		t.Run("and the city has watched it past SailFor and BuildFor", func(t *testing.T) {
+			t.Run("it should show its building finished, not under construction", func(t *testing.T) {
+				assert.False(t, buildingAfter)
+			})
 		})
 	})
 }

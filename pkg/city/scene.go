@@ -718,6 +718,11 @@ func (s *Scene) PointerMove(screen Point) {
 	}
 }
 
+// PointerAway is a pointer that is over nothing at all.
+func (s *Scene) PointerAway() {
+	s.hover, s.spriteHover = Hit{}, false
+}
+
 // SetHover replaces the hover with what the renderer found under the
 // pointer in screen space — a sprite standing taller than its footprint.
 func (s *Scene) SetHover(hit Hit) {
