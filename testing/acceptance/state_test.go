@@ -45,6 +45,14 @@ func (r stateRun) city(t *testing.T, args ...string) {
 	} else {
 		cmd = exec.Command("xvfb-run", append([]string{"-a", botropolis}, full...)...)
 	}
+	cmd.Env = r.env()
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+}
+
+// env is this run's environment: its own HOME, state and TMPDIR, and no
+// display of the person's own.
+func (r stateRun) env() []string {
 	env := []string{"HOME=" + r.home, "XDG_STATE_HOME=" + r.realState, "TMPDIR=" + r.tmp}
 	for _, kv := range os.Environ() {
 		key, _, _ := strings.Cut(kv, "=")
@@ -54,9 +62,7 @@ func (r stateRun) city(t *testing.T, args ...string) {
 			env = append(env, kv)
 		}
 	}
-	cmd.Env = env
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, string(out))
+	return env
 }
 
 func containsArg(args []string, want string) bool {

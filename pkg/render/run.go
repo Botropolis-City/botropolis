@@ -2,6 +2,7 @@ package render
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -234,6 +235,9 @@ func Run(ctx context.Context, opts Options) error {
 	save(opts.Layout)
 	if err != nil && err != ebiten.Termination {
 		return err
+	}
+	if opts.Record != "" {
+		fmt.Fprintln(os.Stderr, game.clipReport())
 	}
 	return nil
 }

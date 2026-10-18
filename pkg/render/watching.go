@@ -78,6 +78,10 @@ func (g *Game) idle() bool {
 	live := watching(g.capturing() || g.driven)
 	tps := idleTPS
 	switch {
+	case g.record != "":
+		// One update per draw; startTick holds any Ebitengine forces
+		// on top, as it does on a resize. Item 113.
+		tps = ebiten.SyncWithFPS
 	case g.capturing() || g.driven:
 		tps = liveTPS
 	case live && g.scene.Animating():

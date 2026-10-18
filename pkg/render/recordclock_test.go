@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -38,6 +39,72 @@ func TestRecordingClock(t *testing.T) {
 
 		t.Run("it should follow the wall clock", func(t *testing.T) {
 			assert.Equal(t, 60.0, g.clock())
+		})
+	})
+}
+
+// Item 113: the clip counts draws and the city's clock counts updates,
+// so while recording they run one to one. Software GL ran several
+// updates per draw and a fast display drew more than once per update.
+func TestRecordingLockstep(t *testing.T) {
+	t.Run("when recording, and an update has run that no draw has drawn", func(t *testing.T) {
+		g := &Game{record: "/frames", ticks: 7, painted: 6}
+
+		t.Run("it should hold the next update", func(t *testing.T) {
+			assert.False(t, g.startTick())
+		})
+	})
+
+	t.Run("when recording, and the last update has been drawn", func(t *testing.T) {
+		g := &Game{record: "/frames", ticks: 7, painted: 7}
+
+		t.Run("it should run the next update", func(t *testing.T) {
+			assert.True(t, g.startTick())
+		})
+	})
+
+	t.Run("when not recording, and an update has run that no draw has drawn", func(t *testing.T) {
+		g := &Game{ticks: 7, painted: 6}
+
+		t.Run("it should run the next update", func(t *testing.T) {
+			assert.True(t, g.startTick())
+		})
+	})
+
+	t.Run("when recording, and a draw comes with no update since the last one", func(t *testing.T) {
+		g := &Game{record: "/frames", ticks: 7, painted: 7}
+
+		t.Run("it should count nothing toward the clip", func(t *testing.T) {
+			assert.False(t, g.startPaint())
+		})
+	})
+
+	t.Run("when recording at 10 fps, and the ticks for one written frame have run in lockstep", func(t *testing.T) {
+		started := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
+		g := &Game{scene: city.NewScene(city.NewLayout()), record: "/frames", recordEvery: 3, started: started}
+		before := g.now()
+		for drawn := 0; drawn < g.recordEvery; {
+			for range 3 {
+				g.startTick()
+			}
+			if g.startPaint() {
+				drawn++
+			}
+			g.startPaint()
+		}
+
+		t.Run("it should have advanced the clock by exactly 1/10 s", func(t *testing.T) {
+			assert.Equal(t, 100*time.Millisecond, g.now().Sub(before))
+		})
+	})
+
+	t.Run("when recording", func(t *testing.T) {
+		g := &Game{scene: city.NewScene(city.NewLayout()), record: "/frames"}
+		g.idle()
+		t.Cleanup(func() { ebiten.SetTPS(liveTPS) })
+
+		t.Run("it should ask Ebitengine for one update per draw", func(t *testing.T) {
+			assert.Equal(t, ebiten.SyncWithFPS, g.tps)
 		})
 	})
 }

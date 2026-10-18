@@ -120,6 +120,9 @@ type Game struct {
 	recorded     int
 	// recordEvery is how many ticks pass between written frames.
 	recordEvery int
+	// clipFrom and clipTo are the city's ticks at the first and last
+	// draw the clip counted; see clipReport. Item 113.
+	clipFrom, clipTo uint64
 	// frames encodes recorded frames off the loop.
 	frames *frameWriter
 	// snap is a frame the p key asked for, saved on the next draw.
@@ -359,7 +362,9 @@ func (g *Game) SetStatus(status string) {
 }
 
 func (g *Game) Update() error {
-	g.ticks++
+	if !g.startTick() {
+		return nil
+	}
 	frames.tick()
 	g.mu.Lock()
 	pending := g.pending
@@ -644,6 +649,10 @@ func (g *Game) capture(screen *ebiten.Image) {
 			}
 			g.frames.write(path, frame(screen))
 		}
+		if g.recorded == 0 {
+			g.clipFrom = g.ticks
+		}
+		g.clipTo = g.ticks
 		g.recorded++
 		if g.recorded >= g.recordFrames {
 			g.shotDone = true
@@ -703,12 +712,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		time.Sleep(idleSleep)
 		return
 	}
-	if !g.fresh() && !g.capturing() {
+	if !g.startPaint() {
 		// This frame would repaint what is already on the glass. The
 		// screen is not cleared between frames, so leaving it is enough.
 		return
 	}
-	g.painted = g.ticks
 	defer g.capture(screen)
 	defer g.drawPointer(screen)
 	c := g.scene.City()
