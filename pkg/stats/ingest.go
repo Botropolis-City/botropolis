@@ -24,7 +24,7 @@ const (
 // whose modification time went backwards is read again from the start and
 // its rows rebuilt to match it; a file that is gone keeps its rows.
 // Item 110.
-func (s *Store) Ingest(projectsDir string) error {
+func (s *Store) Ingest(projectsDir string, now time.Time) error {
 	mains, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
 	if err != nil {
 		return err
@@ -47,7 +47,52 @@ func (s *Store) Ingest(projectsDir string) error {
 			return err
 		}
 	}
-	return nil
+	return s.markGone(mains, now)
+}
+
+// markGone sets transcript_gone_at on every session whose main transcript
+// is no longer on disk, and clears it on every session whose is.
+func (s *Store) markGone(mains []string, now time.Time) error {
+	present := map[string]bool{}
+	for _, path := range mains {
+		present[path] = true
+	}
+	rows, err := s.db.Query("SELECT path, session_id FROM transcripts WHERE path NOT LIKE ?", "%"+string(filepath.Separator)+"subagents"+string(filepath.Separator)+"%")
+	if err != nil {
+		return err
+	}
+	var gone, back []string
+	for rows.Next() {
+		var path, session string
+		if err := rows.Scan(&path, &session); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if present[path] {
+			back = append(back, session)
+		} else {
+			gone = append(gone, session)
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	for _, session := range gone {
+		if _, err := tx.Exec("UPDATE sessions SET transcript_gone_at = ? WHERE id = ? AND transcript_gone_at IS NULL", now.UnixMilli(), session); err != nil {
+			return err
+		}
+	}
+	for _, session := range back {
+		if _, err := tx.Exec("UPDATE sessions SET transcript_gone_at = NULL WHERE id = ?", session); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 type lineJSON struct {

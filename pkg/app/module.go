@@ -16,6 +16,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/statedir"
+	"botropolis.city/botropolis/pkg/stats"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -162,7 +163,11 @@ func (s *services) Hooks(cfg *config.Config) cli.HooksRunner {
 }
 
 func (s *services) Sessions(cfg *config.Config) cli.SessionsRunner {
-	return commands.NewSessions(cfg.Home, control.Default(cfg.Terminal))
+	sessions := commands.NewSessions(cfg.Home, control.Default(cfg.Terminal))
+	if forget := pruneForgetter(cfg); forget != nil {
+		sessions.WithForget(forget)
+	}
+	return sessions
 }
 
 func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
@@ -659,5 +664,29 @@ func groupSource(cfg *config.Config) func([]state.Session, time.Time) (*group.Gu
 			}
 		}
 		return group.NewGuesser(state.GuessMembers(history, sessions, now), memory), state.RecentDirs(history)
+	}
+}
+
+// pruneForgetter is how prune forgets a removed session's statistics:
+// nothing while they are off, and never by creating a database that is
+// not there yet. Item 110.
+func pruneForgetter(cfg *config.Config) func(string) error {
+	if !cfg.Stats {
+		return nil
+	}
+	return func(session string) error {
+		path := stats.Path()
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		s, err := stats.Open(path)
+		if err != nil {
+			return err
+		}
+		if err := s.Forget(session); err != nil {
+			_ = s.Close()
+			return err
+		}
+		return s.Close()
 	}
 }

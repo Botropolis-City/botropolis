@@ -73,6 +73,11 @@ func (s *Sessions) Prune(ctx context.Context, snapshot state.Snapshot, olderThan
 			if err := s.ctl.Remove(ctx, agent.ID); err != nil {
 				return pruned, err
 			}
+			if s.forget != nil {
+				if err := s.forget(agent.SessionID); err != nil {
+					return pruned, err
+				}
+			}
 		}
 		pruned = append(pruned, Pruned{ID: agent.ID, Title: title, LastSeen: lastSeen})
 	}
@@ -80,8 +85,17 @@ func (s *Sessions) Prune(ctx context.Context, snapshot state.Snapshot, olderThan
 }
 
 type Sessions struct {
-	home string
-	ctl  Controller
+	home   string
+	ctl    Controller
+	forget func(session string) error
+}
+
+// WithForget has prune forget each session it removes from the
+// statistics store, which only a run with statistics on asks for.
+// Item 110.
+func (s *Sessions) WithForget(forget func(session string) error) *Sessions {
+	s.forget = forget
+	return s
 }
 
 func NewSessions(home string, ctl Controller) *Sessions {
