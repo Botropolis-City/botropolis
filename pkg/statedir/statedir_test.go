@@ -1,7 +1,9 @@
 package statedir_test
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -116,9 +118,94 @@ func TestDir(t *testing.T) {
 			assert.NoError(t, err)
 		})
 
-		t.Run("it should make an empty directory", func(t *testing.T) {
+		t.Run("it should hold nothing but its owner", func(t *testing.T) {
 			entries, _ := os.ReadDir(statedir.Dir())
-			assert.Empty(t, entries)
+			var names []string
+			for _, e := range entries {
+				names = append(names, e.Name())
+			}
+			assert.Equal(t, []string{statedir.OwnerFile}, names)
+		})
+	})
+}
+
+// Item 114: a run that dies where no cleanup can run — a crash in the
+// GL driver, an X server gone under it, SIGKILL — leaves its private
+// directory, so the next run that makes one removes those whose owner
+// is gone.
+func TestMakePrivateSweeps(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	stale := func(t *testing.T, owner *string) string {
+		t.Helper()
+		dir, err := os.MkdirTemp("", "botropolis-state-")
+		require.NoError(t, err)
+		if owner != nil {
+			require.NoError(t, os.WriteFile(filepath.Join(dir, statedir.OwnerFile), []byte(*owner), 0o600))
+		}
+		return dir
+	}
+	makeOne := func(t *testing.T) {
+		t.Helper()
+		cleanup, err := statedir.MakePrivate(filepath.Join(t.TempDir(), "no-seed"))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = cleanup() })
+	}
+	deadPid := func(t *testing.T) int {
+		t.Helper()
+		cmd := exec.Command("true")
+		require.NoError(t, cmd.Run())
+		return cmd.Process.Pid
+	}
+	text := func(s string) *string { return &s }
+
+	t.Run("when a private directory's owner is gone", func(t *testing.T) {
+		t.Setenv("TMPDIR", t.TempDir())
+		dir := stale(t, text(fmt.Sprintf("%d 1\n", deadPid(t))))
+		makeOne(t)
+
+		t.Run("it should remove it", func(t *testing.T) {
+			assert.NoDirExists(t, dir)
+		})
+	})
+
+	t.Run("when a private directory's owner is alive", func(t *testing.T) {
+		t.Setenv("TMPDIR", t.TempDir())
+		makeOne(t)
+		first := statedir.Dir()
+		makeOne(t)
+
+		t.Run("it should leave it", func(t *testing.T) {
+			assert.DirExists(t, first)
+		})
+	})
+
+	t.Run("when a private directory's pid now belongs to another process", func(t *testing.T) {
+		t.Setenv("TMPDIR", t.TempDir())
+		dir := stale(t, text(fmt.Sprintf("%d 1\n", os.Getpid())))
+		makeOne(t)
+
+		t.Run("it should remove it", func(t *testing.T) {
+			assert.NoDirExists(t, dir)
+		})
+	})
+
+	t.Run("when a private directory has no owner file", func(t *testing.T) {
+		t.Setenv("TMPDIR", t.TempDir())
+		dir := stale(t, nil)
+		makeOne(t)
+
+		t.Run("it should leave it", func(t *testing.T) {
+			assert.DirExists(t, dir)
+		})
+	})
+
+	t.Run("when a private directory is made", func(t *testing.T) {
+		t.Setenv("TMPDIR", t.TempDir())
+		makeOne(t)
+		owner, _ := os.ReadFile(filepath.Join(statedir.Dir(), statedir.OwnerFile))
+
+		t.Run("it should name this process as its owner", func(t *testing.T) {
+			assert.True(t, strings.HasPrefix(string(owner), fmt.Sprintf("%d ", os.Getpid())), string(owner))
 		})
 	})
 }

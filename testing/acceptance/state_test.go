@@ -331,6 +331,22 @@ func TestFrameRunsKeepTheirOwnState(t *testing.T) {
 		})
 	}
 
+	t.Run("when a city that died left its private state directory", func(t *testing.T) {
+		r := newStateRun(t)
+		gone := exec.Command("true")
+		require.NoError(t, gone.Run())
+		left := filepath.Join(r.tmp, "botropolis-state-left")
+		require.NoError(t, os.MkdirAll(left, 0o700))
+		require.NoError(t, os.WriteFile(filepath.Join(left, "owner"), []byte(strconv.Itoa(gone.Process.Pid)+" 1\n"), 0o600))
+		other := filepath.Join(r.tmp, "other-home")
+		withSession(t, other)
+		r.city(t, "--home", other, "--screenshot", filepath.Join(r.tmp, "shot.png"))
+
+		t.Run("it should be removed by the next run that makes one", func(t *testing.T) {
+			assert.NoDirExists(t, left)
+		})
+	})
+
 	t.Run("when a --home run's home holds a seeded layout", func(t *testing.T) {
 		r := newStateRun(t)
 		other := filepath.Join(r.tmp, "other-home")

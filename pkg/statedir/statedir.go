@@ -5,9 +5,14 @@
 package statedir
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 )
 
 const appDir = "botropolis"
@@ -52,8 +57,13 @@ func IsPrivate() bool {
 // copy of seed's files, if seed exists, and returns what removes it.
 // Copying means a seed in a checkout is never written to.
 func MakePrivate(seed string) (func() error, error) {
-	dir, err := os.MkdirTemp("", "botropolis-state-")
+	sweep()
+	dir, err := os.MkdirTemp("", privatePattern)
 	if err != nil {
+		return func() error { return nil }, err
+	}
+	if err := os.WriteFile(filepath.Join(dir, OwnerFile), []byte(ownerLine(os.Getpid())), 0o600); err != nil {
+		_ = os.RemoveAll(dir)
 		return func() error { return nil }, err
 	}
 	cleanup := func() error {
@@ -88,6 +98,65 @@ func Adopt(dir string) (forget func()) {
 		}
 		mu.Unlock()
 	}
+}
+
+// OwnerFile names the process a private directory belongs to: its pid
+// and, where the system says, when it started, so a pid handed to
+// another process later does not keep the directory alive.
+const OwnerFile = "owner"
+
+const privatePattern = "botropolis-state-"
+
+// sweep removes every private directory whose owner is gone: a run that
+// died where no cleanup could run, in the GL driver, under a vanished X
+// server or to SIGKILL (item 114). A directory with no owner file is
+// left alone, since nothing says whose it is.
+func sweep() {
+	dirs, _ := filepath.Glob(filepath.Join(os.TempDir(), privatePattern+"*"))
+	for _, dir := range dirs {
+		data, err := os.ReadFile(filepath.Join(dir, OwnerFile))
+		if err != nil {
+			continue
+		}
+		var pid int
+		var started string
+		if n, _ := fmt.Sscan(string(data), &pid, &started); n < 1 || pid <= 0 {
+			continue
+		}
+		if !alive(pid, started) {
+			_ = os.RemoveAll(dir)
+		}
+	}
+}
+
+func ownerLine(pid int) string {
+	return fmt.Sprintf("%d %s\n", pid, startTime(pid))
+}
+
+func alive(pid int, started string) bool {
+	if err := syscall.Kill(pid, 0); err != nil && !errors.Is(err, syscall.EPERM) {
+		return false
+	}
+	now := startTime(pid)
+	return now == "-" || started == "" || started == "-" || now == started
+}
+
+// startTime is when pid started, in clock ticks since boot, from
+// /proc; "-" where there is no /proc to ask.
+func startTime(pid int) string {
+	stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return "-"
+	}
+	shut := strings.LastIndexByte(string(stat), ')')
+	if shut < 0 {
+		return "-"
+	}
+	fields := strings.Fields(string(stat[shut+1:]))
+	if len(fields) < 20 {
+		return "-"
+	}
+	return fields[19]
 }
 
 func copyFiles(src, dst string) error {
