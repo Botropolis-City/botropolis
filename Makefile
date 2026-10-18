@@ -148,7 +148,8 @@ test-acceptance ::
 	@go test ./testing/acceptance/...
 
 # Wall time for the bar's tasks, item 91. It reports and never gates: the
-# acceptance tests gate on steps, ticks and work instead.
+# acceptance tests gate on steps, ticks and work instead. CI runs it once per
+# release, not per push, and attaches bench.txt to the release (item 104).
 BENCH_TIME ?= 3x
 BENCH_COUNT ?= 6
 

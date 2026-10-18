@@ -69,65 +69,6 @@ jobs:
           brew install fish bash-completion
           go test -count=1 ./testing/integration/packaging/
 
-  # Wall time for the bar's tasks (item 91), reported and never gating: no job
-  # needs this one, and its failure is not the build's. The table goes to the
-  # run's summary, compared with the last main run's when there is one, and is
-  # kept as an artifact for the next run to compare against.
-  bench:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - name: Build dependencies for Ebitengine
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev \
-            libxinerama-dev libxrandr-dev pkg-config
-      - name: Benchmark
-        run: |
-          set -o pipefail
-          make bench | tee bench.txt
-      - name: The last main run's figures
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          prev=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --branch main --event push \
-            --limit 20 --json databaseId,headSha \
-            --jq "[.[] | select(.headSha != \"$GITHUB_SHA\")][0].databaseId // empty")
-          if [ -n "$prev" ] && gh run download "$prev" --repo "$GITHUB_REPOSITORY" --name bench --dir previous; then
-            echo "compared with run $prev" > previous/source
-          else
-            echo "no earlier main run left a bench artifact, so nothing is compared" > previous.missing
-          fi
-      - name: Summary
-        run: |
-          {
-            echo "## The bar's tasks, wall time"
-            echo
-            echo "Reported, never gating. The acceptance tests gate on steps, ticks and work."
-            echo
-            echo '```'
-            if [ -f previous/bench.txt ]; then
-              cat previous/source
-              go run golang.org/x/perf/cmd/benchstat@v0.0.0-20261009192801-be2c69fb417e previous/bench.txt bench.txt
-            else
-              cat previous.missing
-              grep -E '^Benchmark' bench.txt
-            fi
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bench
-          path: bench.txt
-
   # Everything the release publishes is built here, once per architecture, on a
   # commit that has already passed the gate. The release workflow downloads these
   # artifacts rather than building again, so what ships is what was tested.

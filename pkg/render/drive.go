@@ -362,6 +362,7 @@ func (d *Drive) Tick() error {
 		return err
 	}
 	g.Draw(d.screen)
+	dropDeferred()
 	return nil
 }
 
