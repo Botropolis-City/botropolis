@@ -671,7 +671,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			}, func() {
 				if g.kits != nil && !b.Vacant && !g.scene.Dimmed(b) {
 					g.drawSpire(screen, cam, b)
-					g.drawAlert(screen, cam, b, seconds)
+					g.drawSkip(screen, cam, b, nil)
 				}
 				if detailed && g.kits != nil && !g.viewing() && !b.Vacant && !g.scene.Dimmed(b) {
 					g.drawWork(screen, cam, b)

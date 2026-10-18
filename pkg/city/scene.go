@@ -252,6 +252,11 @@ type Scene struct {
 	// its own stands still. It is not the same as instant, which a
 	// still frame sets so the camera does not have to ease into place.
 	reduced bool
+	// compacted, skips and jobs are each session's compactions and skip
+	// as last seen, and the compaction jobs under way (item 109).
+	compacted map[string]int
+	skips     map[string]int
+	jobs      map[string]compactionJob
 	// view is the info view the city is drawn in, and generation counts
 	// the snapshots taken, so the renderer can tell one city from the next.
 	view       View
@@ -660,6 +665,7 @@ func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())
 	s.noteLoads(snapshot, s.now())
+	s.noteCompactions(snapshot, s.now())
 	s.applyNight()
 	s.selected = s.reselect()
 	s.hover = Hit{}

@@ -30,14 +30,7 @@ var atlasReserve = map[string]string{
 	"city-kit-roads/traffic-light":     "street furniture the detail setting gives a home to",
 	"city-kit-roads/construction-cone": "street furniture, as above",
 	"city-kit-roads/light-curved":      "street furniture, as above",
-	// Item 109: cut with the courses, drawn by the commits that follow.
-	"botropolis/skip-1":            "the skip at the kerb, drawn once the skip lands",
-	"botropolis/skip-2":            "as above",
-	"botropolis/skip-3":            "as above",
-	"botropolis/skip-4":            "as above",
-	"botropolis/skip-truck":        "the truck that collects the skip, as above",
-	"botropolis/skip-truck-loaded": "as above",
-	"botropolis/mixer-truck":       "the mixer that pours a course, as above",
+	// Item 109: cut with the courses, drawn once the ruins land.
 	"botropolis/residential-ruins": "a building whose transcript is gone, drawn once the ruins land",
 	"botropolis/shopping-ruins":    "as above",
 	"botropolis/office-ruins":      "as above",

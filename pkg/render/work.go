@@ -8,7 +8,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
-	"botropolis.city/botropolis/pkg/state"
 )
 
 // The building's own work. Item 89.
@@ -398,50 +397,5 @@ func drawLadder(screen *ebiten.Image, foot city.Point, height, width float64) {
 	for k := 1; k < rungs; k++ {
 		y := y0 + (y1-y0)*float32(k)/float32(rungs)
 		vector.StrokeLine(screen, x0, y, x1, y, 1, colorTubeEdge, true)
-	}
-}
-
-// The one context reading on the map: four amber lights at the corners
-// of a live session's roof once its context is most of the way to a
-// compaction, held steady so they never read as needs-you (item 109).
-const alertPercent = 80
-
-var colorAlert = color.NRGBA{0xff, 0x9d, 0x1c, 0xff}
-
-// compactionAlert is whether a building's roof lights are lit.
-func compactionAlert(b *city.Building) bool {
-	return state.Live(b.Session.State) && b.Session.ContextPercent >= alertPercent
-}
-
-// alertLights is where the lights stand: the corners of a roof wallTop
-// above the footprint lot.
-func alertLights(lot [4]city.Point, wallTop float64) []city.Point {
-	out := make([]city.Point, 0, len(lot))
-	for _, c := range lot {
-		out = append(out, city.Point{X: c.X, Y: c.Y - wallTop})
-	}
-	return out
-}
-
-// alertColor is the lights' colour at a moment, the same at every one.
-func alertColor(float64) color.NRGBA { return colorAlert }
-
-// drawAlert lights a building's roof corners while its session nears a
-// compaction.
-func (g *Game) drawAlert(screen *ebiten.Image, cam *city.Camera, b *city.Building, seconds float64) {
-	if !compactionAlert(b) {
-		return
-	}
-	site, ok := g.workFrame(cam, b)
-	if !ok {
-		return
-	}
-	r := float32(max(1.5, site.storey*0.07))
-	c := alertColor(seconds)
-	glow := c
-	glow.A = 0x55
-	for _, at := range alertLights(site.lot, site.wallTop) {
-		vector.FillCircle(screen, float32(at.X), float32(at.Y), r*2.4, glow, true)
-		vector.FillCircle(screen, float32(at.X), float32(at.Y), r, c, true)
 	}
 }

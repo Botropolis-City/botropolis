@@ -61,12 +61,30 @@ func courseLit(s state.Session, now time.Time) bool {
 	return s.Compactions > 0 && !s.LastCompactionAt.IsZero() && now.Sub(s.LastCompactionAt) < courseGlow
 }
 
-// courseLift is how far a building's courses raise it on screen.
+// courseLift is how far a building's courses raise it on screen; while a
+// course is being poured the building rises with it.
 func (g *Game) courseLift(cam *city.Camera, b *city.Building) float64 {
 	if b.Packed || b.Vacant {
 		return 0
 	}
-	return float64(courseCount(b.Session.Compactions)) * courseHeight(cam.Zoom)
+	n := float64(courseCount(b.Session.Compactions))
+	if pour, ok := g.pouring(b); ok {
+		n += pour - 1
+	}
+	return n * courseHeight(cam.Zoom)
+}
+
+// pouring is how far a building's newest course has been poured, while
+// a compaction job is pouring one that adds to those drawn.
+func (g *Game) pouring(b *city.Building) (float64, bool) {
+	if g.scene == nil || b.Session.Compactions > maxCourses || b.Session.Compactions < 1 {
+		return 0, false
+	}
+	job, ok := g.scene.CompactionJob(b.Session.ID)
+	if !ok || job.Pour >= 1 {
+		return 0, false
+	}
+	return job.Pour, true
 }
 
 // footOf is where a building stands on screen: its lot's centre, raised
@@ -88,12 +106,24 @@ func (g *Game) drawCourses(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	name := buildingPiece(b)
 	ground := cam.WorldToScreen(b.Rect.Center())
 	h := courseHeight(cam.Zoom)
+	pour, pouring := g.pouring(b)
 	var bottom city.Rect
 	for i := range n {
 		at := city.Point{X: ground.X, Y: ground.Y - float64(i)*h}
 		t := tint
 		if i == n-1 && courseLit(b.Session, g.scene.Now()) {
 			t = litCourse(tint)
+		}
+		if i == n-1 && pouring {
+			if pour <= 0 {
+				continue
+			}
+			faded := &ebiten.ColorScale{}
+			if t != nil {
+				*faded = *t
+			}
+			faded.ScaleAlpha(float32(pour))
+			t = faded
 		}
 		r := g.kitAt(screen, cam, coursePiece(name, n-i), 0, at, t)
 		if i == 0 {

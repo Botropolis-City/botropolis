@@ -46,6 +46,13 @@ var (
 		"botropolis/industrial-5":  {"botropolis/industrial-5-course-1", "botropolis/industrial-5-course-2", "botropolis/industrial-5-course-3"},
 	}
 
+	// The skip at the kerb, by how full it is, and the trucks that come
+	// for it and pour the course after (item 109).
+	kitSkips           = [4]string{"botropolis/skip-1", "botropolis/skip-2", "botropolis/skip-3", "botropolis/skip-4"}
+	kitSkipTruck       = "botropolis/skip-truck"
+	kitSkipTruckLoaded = "botropolis/skip-truck-loaded"
+	kitMixer           = "botropolis/mixer-truck"
+
 	kitPlant = "city-kit-industrial/building-a"
 	kitStack = "city-kit-industrial/chimney-medium"
 	// Phase 21 item 38's signage prototypes. Only the gantry carries a
