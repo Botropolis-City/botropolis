@@ -40,10 +40,10 @@ func TestDaemonStart(t *testing.T) {
 	const sid = "08b1d655-276f-495b-a61f-2214af35a97a"
 	const cwd = "/w/cinders"
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
-	t.Setenv("TMPDIR", t.TempDir())
 	sockDir, err := os.MkdirTemp("", "bt")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
+	t.Setenv("TMPDIR", t.TempDir())
 
 	t.Run("when a transcript changes after the first scan and before its directory is watched (item 124)", func(t *testing.T) {
 		home := helpers.NewHome(t).Session(os.Getpid(), sid, cwd, "interactive", "idle")
