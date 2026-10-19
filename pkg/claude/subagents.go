@@ -62,6 +62,30 @@ func ReadSubagent(path string) (Subagent, []SkippedFile, error) {
 	if err != nil {
 		return Subagent{}, nil, err
 	}
+	subagent, skipped := subagentOf(path, transcript)
+	return subagent, skipped, nil
+}
+
+// SubagentReader reads a subagent's transcript as it grows, as
+// TranscriptReader does, and its meta file whole each time. Item 141.
+type SubagentReader struct {
+	transcript *TranscriptReader
+}
+
+func NewSubagentReader(path string) *SubagentReader {
+	return &SubagentReader{transcript: &TranscriptReader{path: path, sidechainIsMain: true}}
+}
+
+func (r *SubagentReader) Read() (Subagent, []SkippedFile, error) {
+	transcript, err := r.transcript.Read()
+	if err != nil {
+		return Subagent{}, nil, err
+	}
+	subagent, skipped := subagentOf(r.transcript.path, transcript)
+	return subagent, skipped, nil
+}
+
+func subagentOf(path string, transcript Transcript) (Subagent, []SkippedFile) {
 	stem := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 	subagent := Subagent{Transcript: transcript, AgentID: strings.TrimPrefix(stem, agentFilePrefix)}
 	var skipped []SkippedFile
@@ -73,7 +97,7 @@ func ReadSubagent(path string) (Subagent, []SkippedFile, error) {
 		subagent.ToolUseID = meta.ToolUseID
 		subagent.SpawnDepth = meta.SpawnDepth
 	}
-	return subagent, skipped, nil
+	return subagent, skipped
 }
 
 func readSubagentMeta(path string) (*subagentMetaJSON, error) {

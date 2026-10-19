@@ -73,3 +73,38 @@ func TestLiveTranscriptGrowth(t *testing.T) {
 		})
 	})
 }
+
+// Item 141, slice 2: the same for a live session's subagents.
+func TestLiveSubagentGrowth(t *testing.T) {
+	const agent = "a2f854e70"
+	t.Run("when a live session's subagent grows by a line", func(t *testing.T) {
+		home := liveHome(t)
+		var lines []string
+		for i := range 2000 {
+			ts := now.Add(-time.Hour + time.Duration(i)*time.Second).Format(time.RFC3339Nano)
+			lines = append(lines,
+				helpers.UserPrompt(sidA, loaderCWD, ts),
+				helpers.AssistantReply(sidA, fmt.Sprintf("msg_sub_%05d", i), ts))
+		}
+		home.Subagent(sidA, loaderCWD, agent, `{"agentType":"Explore","toolUseId":"toolu_01"}`, lines...)
+		loader := state.NewLoader(home.Path, alive)
+		_, err := loader.Load(now)
+		require.NoError(t, err)
+		line := helpers.AssistantReply(sidA, "msg_sub_last", now.Format(time.RFC3339Nano))
+		home.AppendSubagent(sidA, loaderCWD, agent, line)
+		before := measure.Read(measure.BytesRead)
+		snapshot, err := loader.Load(now.Add(time.Second))
+		require.NoError(t, err)
+		read := measure.Read(measure.BytesRead) - before
+		fresh, err := state.NewLoader(home.Path, alive).Load(now.Add(time.Second))
+		require.NoError(t, err)
+
+		t.Run("it should read about the bytes appended", func(t *testing.T) {
+			assert.LessOrEqual(t, read, int64(len(line)+1+8<<10))
+		})
+
+		t.Run("it should build the session a fresh loader builds", func(t *testing.T) {
+			assert.Equal(t, sessionByID(t, fresh, sidA), sessionByID(t, snapshot, sidA))
+		})
+	})
+}

@@ -531,3 +531,100 @@ func TestTranscriptReaderAppendCost(t *testing.T) {
 		})
 	})
 }
+
+// Item 141, slice 2. A live session's subagents are read on from where
+// they stopped too, and a subagent's own lines are its main thread.
+func TestSubagentReader(t *testing.T) {
+	const meta = `{"agentType":"Explore","toolUseId":"toolu_01","spawnDepth":1}`
+	sidechain := func(lines []string) []byte {
+		out := make([]string, len(lines))
+		for i, l := range lines {
+			out[i] = strings.Replace(l, `"type":`, `"isSidechain":true,"type":`, 1)
+		}
+		return joinLines(out, "\n")
+	}
+	corpora := map[string][]byte{"the kitchen sink": sidechain(kitchenSink())}
+	for seed := int64(1); seed <= 2; seed++ {
+		corpora[fmt.Sprintf("random transcript %d", seed)] = sidechain(randomTranscript(seed, 200))
+	}
+	newSubagent := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "agent-a2f854e70.meta.json"), []byte(meta), 0o600))
+		path := filepath.Join(dir, "agent-a2f854e70.jsonl")
+		require.NoError(t, os.WriteFile(path, nil, 0o600))
+		return path
+	}
+	type read struct {
+		subagent claude.Subagent
+		skipped  []claude.SkippedFile
+	}
+	whole := func(t *testing.T, path string) read {
+		t.Helper()
+		sub, skipped, err := claude.ReadSubagent(path)
+		require.NoError(t, err)
+		return read{sub, skipped}
+	}
+	inc := func(t *testing.T, r *claude.SubagentReader) read {
+		t.Helper()
+		sub, skipped, err := r.Read()
+		require.NoError(t, err)
+		return read{sub, skipped}
+	}
+
+	for name, data := range corpora {
+		t.Run("when the subagent's transcript is "+name, func(t *testing.T) {
+			for _, g := range growths {
+				t.Run("and it grows "+g.name, func(t *testing.T) {
+					path := newSubagent(t)
+					reader := claude.NewSubagentReader(path)
+					var step int
+					var want, got read
+					for i, chunk := range g.chunks(data) {
+						appendBytes(t, path, chunk)
+						step, want, got = i, whole(t, path), inc(t, reader)
+						if !assert.ObjectsAreEqual(want, got) {
+							break
+						}
+					}
+
+					t.Run("it should derive after every append what ReadSubagent derives", func(t *testing.T) {
+						assert.Equal(t, want, got, "first differs after append %d", step)
+					})
+				})
+			}
+		})
+	}
+
+	t.Run("when a subagent's transcript is read and then a line is appended", func(t *testing.T) {
+		path := newSubagent(t)
+		appendBytes(t, path, sidechain(randomTranscript(5, 2000)))
+		reader := claude.NewSubagentReader(path)
+		inc(t, reader)
+		appended := sidechain([]string{incLine("prompt", "2026-09-17T09:00:00.000Z")})
+		appendBytes(t, path, appended)
+		before := measure.Read(measure.BytesRead)
+		got := inc(t, reader)
+		bytesRead := measure.Read(measure.BytesRead) - before
+
+		t.Run("it should read only the appended bytes and the head check", func(t *testing.T) {
+			assert.LessOrEqual(t, bytesRead, int64(len(appended)+4096+1))
+		})
+
+		t.Run("it should derive what ReadSubagent derives", func(t *testing.T) {
+			assert.Equal(t, whole(t, path), got)
+		})
+	})
+
+	t.Run("when a subagent's meta file changes between reads", func(t *testing.T) {
+		path := newSubagent(t)
+		appendBytes(t, path, sidechain(kitchenSink()))
+		reader := claude.NewSubagentReader(path)
+		inc(t, reader)
+		require.NoError(t, os.WriteFile(strings.TrimSuffix(path, ".jsonl")+".meta.json", []byte(`{"agentType":"Plan"}`), 0o600))
+
+		t.Run("it should derive what ReadSubagent derives", func(t *testing.T) {
+			assert.Equal(t, whole(t, path), inc(t, reader))
+		})
+	})
+}

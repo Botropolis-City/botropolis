@@ -28,6 +28,9 @@ type cachedSubagent struct {
 	key      fileKey
 	subagent claude.Subagent
 	skipped  []claude.SkippedFile
+	// reader reads a live session's subagent on from where it last
+	// stopped (item 141).
+	reader *claude.SubagentReader
 }
 
 const stoppedWindowBytes = 64 << 10
@@ -352,15 +355,20 @@ func (l *Loader) subagent(path string) (cachedSubagent, error) {
 	if err != nil {
 		return cachedSubagent{}, err
 	}
-	if entry, ok := l.subagents[path]; ok && entry.key == key {
+	entry, ok := l.subagents[path]
+	if ok && entry.key == key {
 		return entry, nil
 	}
+	reader := entry.reader
+	if reader == nil {
+		reader = claude.NewSubagentReader(path)
+	}
 	l.reads++
-	subagent, skipped, err := claude.ReadSubagent(path)
+	subagent, skipped, err := reader.Read()
 	if err != nil {
 		return cachedSubagent{}, err
 	}
-	return cachedSubagent{key: key, subagent: subagent, skipped: skipped}, nil
+	return cachedSubagent{key: key, subagent: subagent, skipped: skipped, reader: reader}, nil
 }
 
 func stat(path string) (fileKey, error) {
