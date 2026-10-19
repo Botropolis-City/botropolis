@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the skip trucks and cement mixer were backwards on roads running the other way.
   Every vehicle, the tugs included, now turns by one rule, and the tugs keep their pointed bow forward.
 
+- **Cars keep to the right.**
+  Every road is two-way, and the traffic, vans and trucks drove down its middle, so two going opposite ways passed through each other.
+  Each now drives in the lane on the right of its travel, round corners, through junctions and over the bridge,
+  and the inspector's car and the site trucks turn back across the road rather than reversing.
+
 - **A long-lived session no longer slows the city down every time it writes.**
   The daemon read a running session's whole conversation again on every change, so a session with a few hundred megabytes of history cost seconds of CPU per write, and the map was late to show what sessions were doing.
   It now reads only what was added since it last looked, for each session and each of its subagents, and reads the file whole only when it was replaced or rewritten.
