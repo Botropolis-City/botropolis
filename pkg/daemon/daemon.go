@@ -130,7 +130,13 @@ type Daemon struct {
 	release     func()
 	settleAfter time.Duration
 	settle      *time.Timer
+	// peer is what this daemon tells every client it is (item 149).
+	peer proto.Peer
 }
+
+// SetPeer replaces the release and protocol the daemon says it is, for
+// tests.
+func (d *Daemon) SetPeer(p proto.Peer) { d.peer = p }
 
 // SettleAfter is how long after the last hook event the daemon returns
 // memory to the OS.
@@ -188,6 +194,7 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		log:         events.NewLog(),
 		release:     debug.FreeOSMemory,
 		settleAfter: SettleAfter,
+		peer:        proto.Self(),
 	}
 }
 

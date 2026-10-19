@@ -57,6 +57,9 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		if merged.Stats == nil {
 			merged.Stats = snapshot.Stats
 		}
+		if merged.Notice == "" {
+			merged.Notice = snapshot.Notice
+		}
 		for model, usage := range snapshot.Power.ByModel {
 			merged.Power.ByModel[model] = merged.Power.ByModel[model].Add(usage)
 		}

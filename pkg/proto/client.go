@@ -16,6 +16,14 @@ const dialTimeout = 500 * time.Millisecond
 type Client struct {
 	conn    net.Conn
 	decoder *json.Decoder
+	// notice is what this client has to say about the daemon it
+	// reached, from its last response (item 149).
+	notice string
+}
+
+func (c *Client) send(r Request) error {
+	r.Peer = Self()
+	return Write(c.conn, r)
 }
 
 func Dial(sock string) (*Client, error) {
@@ -31,7 +39,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) Snapshot() (state.Snapshot, error) {
-	if err := Write(c.conn, Request{Op: OpSnapshot}); err != nil {
+	if err := c.send(Request{Op: OpSnapshot}); err != nil {
 		return state.Snapshot{}, err
 	}
 	update, err := c.readUpdate()
@@ -41,7 +49,7 @@ func (c *Client) Snapshot() (state.Snapshot, error) {
 // Subscribe streams every change; the first update carries the current
 // snapshot and the log since the moment given (all of it when zero).
 func (c *Client) Subscribe(since time.Time) (<-chan Update, error) {
-	if err := Write(c.conn, Request{Op: OpSubscribe, Since: since}); err != nil {
+	if err := c.send(Request{Op: OpSubscribe, Since: since}); err != nil {
 		return nil, err
 	}
 	updates := make(chan Update, 1)
@@ -61,7 +69,7 @@ func (c *Client) Subscribe(since time.Time) (<-chan Update, error) {
 // Events is the daemon's log after a moment (all of it when zero),
 // newest first.
 func (c *Client) Events(since time.Time) ([]events.Event, error) {
-	if err := Write(c.conn, Request{Op: OpEvents, Since: since}); err != nil {
+	if err := c.send(Request{Op: OpEvents, Since: since}); err != nil {
 		return nil, err
 	}
 	response, err := c.readResponse()
@@ -73,7 +81,7 @@ func (c *Client) Events(since time.Time) ([]events.Event, error) {
 
 // Find asks the daemon's index for the sessions a query finds.
 func (c *Client) Find(q find.Query) ([]find.Hit, error) {
-	if err := Write(c.conn, Request{Op: OpFind, Find: &q}); err != nil {
+	if err := c.send(Request{Op: OpFind, Find: &q}); err != nil {
 		return nil, err
 	}
 	response, err := c.readResponse()
@@ -85,7 +93,7 @@ func (c *Client) Find(q find.Query) ([]find.Hit, error) {
 
 // CloseUp records a close-up with the daemon.
 func (c *Client) CloseUp(open, pinned []string) error {
-	if err := Write(c.conn, Request{Op: OpCloseUp, CloseUp: &CloseUp{Open: open, Pinned: pinned}}); err != nil {
+	if err := c.send(Request{Op: OpCloseUp, CloseUp: &CloseUp{Open: open, Pinned: pinned}}); err != nil {
 		return err
 	}
 	_, err := c.readResponse()
@@ -94,7 +102,7 @@ func (c *Client) CloseUp(open, pinned []string) error {
 
 // Pack packs a session up, or unpacks it.
 func (c *Client) Pack(id string, packed bool) error {
-	if err := Write(c.conn, Request{Op: OpPack, Pack: &Pack{SessionID: id, Packed: packed}}); err != nil {
+	if err := c.send(Request{Op: OpPack, Pack: &Pack{SessionID: id, Packed: packed}}); err != nil {
 		return err
 	}
 	_, err := c.readResponse()
@@ -103,7 +111,7 @@ func (c *Client) Pack(id string, packed bool) error {
 
 // Forget has the daemon forget a demolished session (item 144).
 func (c *Client) Forget(id string) error {
-	if err := Write(c.conn, Request{Op: OpForget, Forget: id}); err != nil {
+	if err := c.send(Request{Op: OpForget, Forget: id}); err != nil {
 		return err
 	}
 	_, err := c.readResponse()
@@ -118,7 +126,9 @@ func (c *Client) readUpdate() (Update, error) {
 	if response.Snapshot == nil {
 		return Update{}, errors.New("response carried no snapshot")
 	}
-	return Update{Snapshot: *response.Snapshot, Events: response.Events}, nil
+	update := Update{Snapshot: *response.Snapshot, Events: response.Events}
+	update.Snapshot.Notice = c.notice
+	return update, nil
 }
 
 func (c *Client) readResponse() (Response, error) {
@@ -126,6 +136,12 @@ func (c *Client) readResponse() (Response, error) {
 	if err := c.decoder.Decode(&response); err != nil {
 		return Response{}, err
 	}
+	notice, err := Compare(response.Peer, Self())
+	if err != nil {
+		return Response{}, err
+	}
+	c.notice = notice
+	Report(notice)
 	if response.Error != "" {
 		return Response{}, errors.New(response.Error)
 	}
@@ -138,7 +154,9 @@ func SendEvent(sock string, event json.RawMessage) error {
 		return err
 	}
 	defer func() { _ = client.Close() }()
-	if err := Write(client.conn, Request{Op: OpEvent, Event: event}); err != nil {
+	// A hook never checks the daemon's version: a tool call must not
+	// fail over one (item 149).
+	if err := client.send(Request{Op: OpEvent, Event: event}); err != nil {
 		return err
 	}
 	var response Response

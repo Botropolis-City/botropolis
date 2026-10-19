@@ -11,6 +11,9 @@ import (
 // Summary is the city-wide tally drawn along the top of the window, the
 // way a strategy game keeps its resources in view.
 type Summary struct {
+	// Notice is what the client says about its daemon, such as its being
+	// another release (item 149).
+	Notice     string
 	Working    int
 	NeedsYou   int
 	Waiting    int
@@ -48,7 +51,7 @@ func (s Summary) Live() int {
 }
 
 func (c *City) Summary() Summary {
-	var s Summary
+	s := Summary{Notice: c.Notice}
 	for _, b := range c.Buildings() {
 		if b.Packed {
 			continue

@@ -23,8 +23,12 @@ type Chip struct {
 
 // StripChips is the summary as a row of chips: sessions by state in
 // state.Order with zero counts left out, then tokens and cost, then the rest.
+// A notice about the daemon leads, so a narrow window cannot drop it.
 func StripChips(s city.Summary) []Chip {
 	var chips []Chip
+	if s.Notice != "" {
+		chips = append(chips, Chip{Text: s.Notice, Tone: ToneNeedsYou})
+	}
 	for _, c := range state.Nonzero(s.Counts()) {
 		chips = append(chips, Chip{city.CountLabel(c), StateTone(c.State), c.State})
 	}

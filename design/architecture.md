@@ -19,6 +19,16 @@
 - **`botropolis`** is the client.
   `botropolis status` prints a table; `botropolis` with no arguments opens the city.
 
+**Every request and response carries its end's release and protocol** (item 149).
+An upgrade leaves the old daemon running until it is restarted,
+so a release apart works and is said once: a line on stderr, and a chip leading the map's strip.
+A protocol apart is refused with what to restart, except for hook events, which never fail a tool call.
+`proto.Protocol` rises only when one end would misread the other, never for an added field.
+
+**Every state file carries a version and the oldest version that can read it**, as `stats.db` does (item 116).
+An older file is migrated forward, a newer one this build can read keeps its version when saved,
+and one it cannot read is refused by name and never written over: a reset would lose what the person arranged.
+
 Layout (per the Go conventions in this workspace):
 
 ```

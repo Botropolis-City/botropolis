@@ -43,14 +43,14 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 		switch request.Op {
 		case proto.OpSnapshot:
 			snapshot := d.Snapshot()
-			if err := proto.Write(conn, proto.Response{Snapshot: &snapshot}); err != nil {
+			if err := d.respond(conn, proto.Response{Snapshot: &snapshot}); err != nil {
 				return
 			}
 		case proto.OpSubscribe:
 			d.stream(ctx, conn, request.Since)
 			return
 		case proto.OpEvents:
-			if err := proto.Write(conn, proto.Response{Events: d.Events(request.Since)}); err != nil {
+			if err := d.respond(conn, proto.Response{Events: d.Events(request.Since)}); err != nil {
 				return
 			}
 		case proto.OpFind:
@@ -62,7 +62,7 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			} else {
 				response.Found = found
 			}
-			if err := proto.Write(conn, response); err != nil {
+			if err := d.respond(conn, response); err != nil {
 				return
 			}
 		case proto.OpCloseUp:
@@ -72,7 +72,7 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			} else if err := d.CloseUp(request.CloseUp.Open, request.CloseUp.Pinned); err != nil {
 				response.Error = err.Error()
 			}
-			if err := proto.Write(conn, response); err != nil {
+			if err := d.respond(conn, response); err != nil {
 				return
 			}
 		case proto.OpPack:
@@ -82,7 +82,7 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			} else if err := d.Pack(request.Pack.SessionID, request.Pack.Packed); err != nil {
 				response.Error = err.Error()
 			}
-			if err := proto.Write(conn, response); err != nil {
+			if err := d.respond(conn, response); err != nil {
 				return
 			}
 		case proto.OpForget:
@@ -92,7 +92,7 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			} else if err := d.Forget(request.Forget); err != nil {
 				response.Error = err.Error()
 			}
-			if err := proto.Write(conn, response); err != nil {
+			if err := d.respond(conn, response); err != nil {
 				return
 			}
 		case proto.OpEvent:
@@ -103,21 +103,27 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			} else {
 				d.Apply(event, d.clock())
 			}
-			if err := proto.Write(conn, response); err != nil {
+			if err := d.respond(conn, response); err != nil {
 				return
 			}
 		default:
-			if err := proto.Write(conn, proto.Response{Error: fmt.Sprintf("unknown op %q", request.Op)}); err != nil {
+			if err := d.respond(conn, proto.Response{Error: fmt.Sprintf("unknown op %q", request.Op)}); err != nil {
 				return
 			}
 		}
 	}
 }
 
+// respond writes a response saying which daemon sent it (item 149).
+func (d *Daemon) respond(conn net.Conn, response proto.Response) error {
+	response.Peer = d.peer
+	return proto.Write(conn, response)
+}
+
 func (d *Daemon) stream(ctx context.Context, conn net.Conn, since time.Time) {
 	first, updates, cancel := d.Attach(since, true)
 	defer cancel()
-	if err := proto.Write(conn, proto.Response{Snapshot: &first.Snapshot, Events: first.Events}); err != nil {
+	if err := d.respond(conn, proto.Response{Snapshot: &first.Snapshot, Events: first.Events}); err != nil {
 		return
 	}
 	for {
@@ -128,7 +134,7 @@ func (d *Daemon) stream(ctx context.Context, conn net.Conn, since time.Time) {
 			if !ok {
 				return
 			}
-			if err := proto.Write(conn, proto.Response{Snapshot: &update.Snapshot, Events: update.Events}); err != nil {
+			if err := d.respond(conn, proto.Response{Snapshot: &update.Snapshot, Events: update.Events}); err != nil {
 				return
 			}
 		}

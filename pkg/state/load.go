@@ -29,6 +29,10 @@ type Snapshot struct {
 	// statistics are kept. It never leaves the daemon (item 110).
 	ScaleHefts []int64   `json:"-"`
 	At         time.Time `json:"at"`
+	// Notice is what the client that fetched the snapshot has to say
+	// about the daemon it came from, such as its being another release.
+	// It is set on the client's side and never on the wire (item 149).
+	Notice string `json:"-"`
 }
 
 func Load(home string, probes Probes, now time.Time) (Snapshot, error) {

@@ -36,7 +36,9 @@ const (
 )
 
 type Request struct {
-	Op    string          `json:"op"`
+	Op string `json:"op"`
+	// Peer is the client's release and protocol (item 149).
+	Peer  Peer            `json:"peer,omitzero"`
 	Event json.RawMessage `json:"event,omitempty"`
 	// Since is the moment an events or subscribe request wants the log
 	// from: a subscriber gets the backlog with its first snapshot.
@@ -66,6 +68,9 @@ type Pack struct {
 }
 
 type Response struct {
+	// Peer is the daemon's release and protocol, on every response; a
+	// daemon from before the exchange sends none (item 149).
+	Peer     Peer            `json:"peer,omitzero"`
 	Snapshot *state.Snapshot `json:"snapshot,omitempty"`
 	Events   []events.Event  `json:"events,omitempty"`
 	Found    []find.Hit      `json:"found,omitempty"`
