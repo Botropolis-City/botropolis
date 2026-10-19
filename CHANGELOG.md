@@ -212,6 +212,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The city keeps up with your sessions while the statistics are caught up.**
+  The first start of this version reads every transcript into the statistics store, and on a busy machine that made a session's change of state reach the map seconds late, for as long as the reading ran.
+  Now the reading stops whenever the city looks again, and no longer holds the daemon up while it waits for the CPU, so a session reads as working within a fraction of a second while the statistics catch up behind it.
+
 - **The sidebar scrolls, so every project and session in it can be reached.**
   With more rows than fit, it showed the first screenful and nothing said the rest, or the hidden projects and their *show* buttons, were there.
   Now the wheel over it, and PageUp, PageDown, Home and End while it is open, scroll it by whole rows, with "N more above" and "N more below" saying what is out of view; the arrows still pan the map.
