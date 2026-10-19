@@ -128,6 +128,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The packages declare every licence they ship.**
+  The deb, rpm, Arch package and Homebrew formula now declare `MIT AND OFL-1.1 AND CC0-1.0`, not MIT alone, because the binaries carry the Inter typeface and Kenney's art as well as botropolis's own code.
+  Each package already installed all three licence texts; now its metadata says so too.
+
 - **A road runs from one lot to the other.**
   Every lot has one driveway, paved with a short pad into the lot while one of its roads is in use, and a road between two districts runs from one driveway to the other along the streets, instead of along an avenue beside both lots and into neither.
   A lot's driveway goes on the side of its block that keeps its roads shortest, the side facing the camera unless another is more than two cells shorter, so two lots across one avenue meet across it.
