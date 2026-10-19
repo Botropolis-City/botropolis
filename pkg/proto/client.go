@@ -148,6 +148,26 @@ func (c *Client) readResponse() (Response, error) {
 	return response, nil
 }
 
+// Ask asks the daemon on sock what it is, without comparing it with
+// this build. A daemon that does not know the question still says what
+// it is alongside its refusal, and one from before the exchange says
+// nothing (item 152).
+func Ask(sock string) (Peer, error) {
+	client, err := Dial(sock)
+	if err != nil {
+		return Peer{}, err
+	}
+	defer func() { _ = client.Close() }()
+	if err := client.send(Request{Op: OpPeer}); err != nil {
+		return Peer{}, err
+	}
+	var response Response
+	if err := client.decoder.Decode(&response); err != nil {
+		return Peer{}, err
+	}
+	return response.Peer, nil
+}
+
 func SendEvent(sock string, event json.RawMessage) error {
 	client, err := Dial(sock)
 	if err != nil {

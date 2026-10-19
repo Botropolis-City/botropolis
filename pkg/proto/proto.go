@@ -30,6 +30,9 @@ const (
 	OpCloseUp = "closeup"
 	// OpForget forgets a demolished session from the ledger (item 144).
 	OpForget = "forget"
+	// OpPeer asks the daemon only what it is: its response carries its
+	// release and protocol and nothing else (item 152).
+	OpPeer = "peer"
 
 	socketDir  = "botropolis"
 	socketName = "botropolis.sock"

@@ -106,6 +106,10 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			if err := d.respond(conn, response); err != nil {
 				return
 			}
+		case proto.OpPeer:
+			if err := d.respond(conn, proto.Response{}); err != nil {
+				return
+			}
 		default:
 			if err := d.respond(conn, proto.Response{Error: fmt.Sprintf("unknown op %q", request.Op)}); err != nil {
 				return

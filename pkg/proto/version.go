@@ -32,6 +32,12 @@ func (p Peer) protocol() int {
 	return p.Protocol
 }
 
+// Same is whether two ends are the same release speaking the same
+// protocol (item 152).
+func Same(a, b Peer) bool {
+	return a.Release == b.Release && a.protocol() == b.protocol()
+}
+
 // Compare is what a client makes of the daemon it reached: nothing when
 // they match; a notice, once, when only the release differs, since the
 // daemon an upgrade left running still speaks the same protocol; and a
