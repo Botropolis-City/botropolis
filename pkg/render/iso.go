@@ -716,11 +716,11 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}))
 	}
 	bridge := c.Bridge()
-	items = append(items, bridgeItems(cam, bridge, func(cell city.Cell, abutment bool) func() {
-		if abutment {
-			return func() { g.drawAbutment(screen, cam, bridge) }
+	items = append(items, bridgeItems(cam, bridge, func(p bridgePart) func() {
+		if !p.span() {
+			return func() { g.drawRampSegment(screen, cam, bridge, p) }
 		}
-		return func() { g.drawSpan(screen, cam, bridge, cell) }
+		return func() { g.drawSpan(screen, cam, bridge, p.Cell) }
 	})...)
 	for _, d := range g.scene.Deliveries() {
 		d := d

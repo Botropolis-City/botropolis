@@ -31,15 +31,24 @@ const (
 // coast out over the sea, on the side away from the river.
 //
 // Item 132: the rail stays on the ground and the road goes over it. The
-// landing cell is the abutment, where the road climbs over the cell's
-// outer half; the first span is over the rail, and the deck stays up
-// from there out to Far.
+// landing cell is the abutment; the road climbs from its centre over the
+// ramp's cells to the first span, over the rail (item 146), and the deck
+// stays up from there out to Far.
 type Bridge struct {
 	Land, Far Point
 	Abutment  Cell
+	// Ramp is every cell the road climbs over between the abutment
+	// and the deck.
+	Ramp []Cell
 	// Deck is every cell the raised road stands over, from the one
 	// after the abutment out to Far's.
 	Deck []Cell
+}
+
+// RampRun is how far the road climbs over, from the landing's centre to
+// where the first span starts.
+func (b Bridge) RampRun() float64 {
+	return CellSize/2 + float64(len(b.Ramp))*CellSize
 }
 
 // Bridge is where the bridge stands. It follows from the plan alone, so
@@ -57,16 +66,25 @@ func (c *City) Bridge() Bridge {
 		far.X = reach.Max.X + CellSize
 		step = 1
 	}
+	rail := map[Cell]bool{}
+	for _, p := range c.Rails {
+		rail[CellOf(p)] = true
+	}
 	b := Bridge{Land: at, Far: far, Abutment: land}
 	for col := land.Col + step; col != CellOf(far).Col+step; col += step {
-		b.Deck = append(b.Deck, Cell{Col: col, Row: land.Row})
+		cell := Cell{Col: col, Row: land.Row}
+		if len(b.Deck) == 0 && !rail[cell] {
+			b.Ramp = append(b.Ramp, cell)
+			continue
+		}
+		b.Deck = append(b.Deck, cell)
 	}
 	return b
 }
 
 // Rise is how far up the bridge a point on its road is, from 0 on the
-// ground to 1 on the deck: the road climbs over the abutment's outer
-// half.
+// ground to 1 on the deck: the road climbs from the landing's centre to
+// the first span (item 146).
 func (b Bridge) Rise(p Point) float64 {
 	if b.Land == b.Far || math.Abs(p.Y-b.Land.Y) > CellSize/2 {
 		return 0
@@ -75,7 +93,7 @@ func (b Bridge) Rise(p Point) float64 {
 	if b.Far.X < b.Land.X {
 		out = -out
 	}
-	return min(1, max(0, out/(CellSize/2)))
+	return min(1, max(0, out/b.RampRun()))
 }
 
 // bridgeEast is whether the bridge leaves by the east coast: the side

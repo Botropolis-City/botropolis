@@ -24,21 +24,30 @@ func TestBridgeDrawOrder(t *testing.T) {
 	require.NotEmpty(t, b.Deck, "the bridge has no deck: nothing below can fail")
 	span := b.Deck[0]
 	under := span.Center()
+	dir := 1.0
+	if b.Far.X < b.Land.X {
+		dir = -1
+	}
+	midRamp := city.Point{X: b.Land.X + dir*b.RampRun()/2, Y: b.Land.Y}
 
 	for _, heading := range []int{0, 90, 180, 270} {
 		cam := city.NewCamera()
 		cam.Heading = heading
 		for _, deckFirst := range []bool{false, true} {
 			got := namedOrder(cam, func(rec func(string) func()) []drawable {
-				deck := bridgeItems(cam, b, func(cell city.Cell, abutment bool) func() {
-					if cell == span {
+				deck := bridgeItems(cam, b, func(p bridgePart) func() {
+					switch {
+					case p.Cell == span && p.span():
 						return rec("span")
+					case p.Rect.Contains(midRamp):
+						return rec("ramp")
 					}
 					return func() {}
 				})
 				moving := []drawable{
 					carriageAt(cam, under, rec("train")),
 					deliveryAt(cam, b, under, rec("truck")),
+					deliveryAt(cam, b, midRamp, rec("climbing")),
 				}
 				if deckFirst {
 					return append(deck, moving...)
@@ -46,7 +55,7 @@ func TestBridgeDrawOrder(t *testing.T) {
 				return append(moving, deck...)
 			})
 			at := func(name string) int { return slices.Index(got, name) }
-			require.ElementsMatch(t, []string{"span", "train", "truck"}, got, "precondition: the first span, the train and the truck are each drawn once")
+			require.ElementsMatch(t, []string{"span", "ramp", "train", "truck", "climbing"}, got, "precondition: the first span, the ramp under the climbing truck, the train and both trucks are each drawn once")
 
 			t.Run(fmt.Sprintf("when a train stands under the first span, at heading %d, gathered deck first %v", heading, deckFirst), func(t *testing.T) {
 				t.Run("it should draw the train before the deck", func(t *testing.T) {
@@ -56,6 +65,12 @@ func TestBridgeDrawOrder(t *testing.T) {
 				t.Run("and a truck is on the deck above it", func(t *testing.T) {
 					t.Run("it should draw the truck after the deck", func(t *testing.T) {
 						assert.Greater(t, at("truck"), at("span"), "%v", got)
+					})
+				})
+
+				t.Run("and a truck is halfway up the ramp", func(t *testing.T) {
+					t.Run("it should draw the truck after the ramp beneath it", func(t *testing.T) {
+						assert.Greater(t, at("climbing"), at("ramp"), "%v", got)
 					})
 				})
 			})
@@ -91,3 +106,59 @@ func TestBridgeClearance(t *testing.T) {
 		}
 	})
 }
+
+// Item 146, Aria 2026-10-19: a gentler ramp, longer and lighter, open
+// underneath like a span rather than a solid wedge.
+func TestBridgeRamp(t *testing.T) {
+	k := testKits(t)
+	g := &Game{kits: k}
+	start := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	snap := state.Snapshot{At: start, Sessions: []state.Session{{ID: "a", CWD: "/p/a", State: state.Working, StartedAt: start}}}
+	b := city.Build(snap, city.NewLayout()).Bridge()
+	require.NotEmpty(t, b.Deck, "the bridge has no deck: nothing below can fail")
+	var ramp []bridgePart
+	for _, p := range bridgeParts(b) {
+		if !p.span() {
+			ramp = append(ramp, p)
+		}
+	}
+	require.NotEmpty(t, ramp, "the bridge has no ramp: nothing below can fail")
+
+	t.Run("when the road ramps up to the deck", func(t *testing.T) {
+		for _, atlas := range k.atlases {
+			for _, heading := range []int{0, 90, 180, 270} {
+				cam := city.NewCamera()
+				cam.Projection, cam.Zoom, cam.Heading = city.Isometric, atlas.Zoom, heading
+				t.Run(fmt.Sprintf("at zoom %.0f and heading %d, it should climb no steeper than %.1f rise over run", atlas.Zoom, heading, maxRampSlope), func(t *testing.T) {
+					assert.LessOrEqual(t, liftToWorld(cam, g.deckLift(cam))/b.RampRun(), maxRampSlope)
+				})
+			}
+		}
+
+		t.Run("it should cut the ramp into segments no longer than half a cell, each on its own pier", func(t *testing.T) {
+			var long []bridgePart
+			for _, p := range ramp {
+				if p.Rect.Max.X-p.Rect.Min.X > city.CellSize/2+1e-9 {
+					long = append(long, p)
+				}
+			}
+			assert.Empty(t, long)
+		})
+
+		t.Run("it should rise from the ground to the deck, each segment from where the last left off", func(t *testing.T) {
+			var got, want []float64
+			want = append(want, 0)
+			for i, p := range ramp {
+				got = append(got, p.From)
+				if i > 0 {
+					want = append(want, ramp[i-1].To)
+				}
+			}
+			got = append(got, ramp[len(ramp)-1].To)
+			want = append(want, 1)
+			assert.Equal(t, want, got)
+		})
+	})
+}
+
+const maxRampSlope = 0.8

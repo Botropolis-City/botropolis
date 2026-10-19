@@ -427,7 +427,10 @@ func (p *Plan) place(in Input) {
 		{Min: Cell{Row: belt}, Cols: belt, Rows: lastRoad + 1 - belt},
 		{Min: Cell{Col: eastRoad + 1, Row: belt}, Cols: belt, Rows: lastRoad + 1 - belt},
 	}
-	p.Rails = railLoop(Cell{Col: belt - 1, Row: belt - 1}, Cell{Col: eastRoad + 1, Row: lastRoad + 1})
+	// The west leg stands two cells off its road, as the north leg does
+	// beyond the ridge, so the bridge road ramps up before it crosses
+	// the rail (item 146).
+	p.Rails = railLoop(Cell{Col: westRoad - 2, Row: northRoad - 2}, Cell{Col: eastRoad + 1, Row: lastRoad + 1})
 	onRails := map[Cell]bool{}
 	for _, r := range p.Rails {
 		onRails[r] = true

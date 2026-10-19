@@ -123,12 +123,12 @@ func (c *City) layRoads() {
 	c.Lamps = lamps
 	island := c.Island()
 	// Nothing grows through the bridge: its abutment and the ground
-	// under its deck stay clear (item 132).
+	// under its ramp and deck stay clear (items 132 and 146).
 	bridge := c.Bridge()
 	underBridge := map[Cell]bool{}
 	if len(bridge.Deck) > 0 {
 		underBridge[bridge.Abutment] = true
-		for _, cell := range bridge.Deck {
+		for _, cell := range append(append([]Cell{}, bridge.Ramp...), bridge.Deck...) {
 			underBridge[cell] = true
 		}
 	}

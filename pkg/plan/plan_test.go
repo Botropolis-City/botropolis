@@ -218,9 +218,20 @@ func TestMake(t *testing.T) {
 		// usage boats broke the coincidence and left the loop exactly
 		// where it belongs, so the corner is derived from the river now
 		// rather than from the map's width.
+		// Item 146: the west leg stands two cells off the west ring road,
+		// as the north leg does off the north road, so the bridge road
+		// has room to ramp up before it crosses the rail.
 		cols, rows := p.Bounds.Cols, p.Bounds.Rows
 		east := cols - plan.RiverCols - 2
-		corners := []plan.Cell{{Col: 1, Row: 1}, {Col: east, Row: 1}, {Col: east, Row: rows - 2}, {Col: 1, Row: rows - 2}}
+		corners := []plan.Cell{{Col: 0, Row: 1}, {Col: east, Row: 1}, {Col: east, Row: rows - 2}, {Col: 0, Row: rows - 2}}
+		westRoad, northRoad := cols, rows
+		for _, s := range p.Streets {
+			westRoad, northRoad = min(westRoad, s.Cell.Col), min(northRoad, s.Cell.Row)
+		}
+
+		t.Run("it should stand the west leg as far off the west road as the north leg is off the north road", func(t *testing.T) {
+			assert.Equal(t, northRoad-corners[0].Row, westRoad-corners[0].Col)
+		})
 
 		t.Run("it should start at the north-west corner of the inner belt", func(t *testing.T) {
 			require.NotEmpty(t, p.Rails)
@@ -234,7 +245,7 @@ func TestMake(t *testing.T) {
 		})
 
 		t.Run("it should be one closed loop of adjacent cells", func(t *testing.T) {
-			perimeter := 2*(east-1) + 2*(rows-2-1)
+			perimeter := 2*(east-corners[0].Col) + 2*(rows-2-1)
 			require.Len(t, p.Rails, perimeter)
 			for i := range p.Rails {
 				a, b := p.Rails[i], p.Rails[(i+1)%len(p.Rails)]

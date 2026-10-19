@@ -11,11 +11,11 @@ import (
 )
 
 // The bridge off the island. Item 132: the rail stays on the ground and
-// the road goes over it, as in the real world — the landing cell is the
-// abutment, the road climbs its outer half as a wedge, and the deck
-// stands on piers from there out to sea, high enough that the tallest
-// train piece passes under it. The deck's surface is the roads kit's
-// straight piece; its girders, piers, railings and the abutment are
+// the road goes over it, as in the real world — the road climbs from the
+// landing's centre on a ramp of short open spans (item 146), and the
+// deck stands on piers from there out to sea, high enough that the
+// tallest train piece passes under it. The deck's surface is the roads
+// kit's straight piece; its girders, piers, railings and the ramp are
 // geometry drawn here (design/art-sources.md).
 
 const (
@@ -34,10 +34,14 @@ const (
 )
 
 var (
-	colorPier     = color.NRGBA{0x5a, 0x5e, 0x66, 0xff}
-	colorGirder   = color.NRGBA{0x86, 0x89, 0x90, 0xff}
-	colorAbutment = color.NRGBA{0x9c, 0x98, 0x8e, 0xff}
-	colorRailing  = color.NRGBA{0xd4, 0xd6, 0xda, 0xff}
+	colorPier    = color.NRGBA{0x5a, 0x5e, 0x66, 0xff}
+	colorGirder  = color.NRGBA{0x86, 0x89, 0x90, 0xff}
+	colorRailing = color.NRGBA{0xd4, 0xd6, 0xda, 0xff}
+	// colorRampRoad and colorRampLine are the deck's road piece's top
+	// face and lane line, as the atlas draws them, so the ramp reads as
+	// the same road climbing.
+	colorRampRoad = color.NRGBA{0x76, 0x7d, 0x96, 0xff}
+	colorRampLine = color.NRGBA{0xd0, 0xdc, 0xff, 0xff}
 )
 
 // deckUnderside is how high the bottom of the deck's girder stands over
@@ -69,31 +73,56 @@ const (
 	levelOnDeck
 )
 
-// abutmentRect is the landing cell's outer half, where the road climbs.
-func abutmentRect(b city.Bridge) city.Rect {
-	r := b.Abutment.Rect()
-	if b.Far.X < b.Land.X {
-		r.Max.X = b.Land.X
-	} else {
-		r.Min.X = b.Land.X
-	}
-	return r
+// bridgePart is a piece of the bridge in the depth sort: a ramp
+// segment rising From one share of the deck's height To another, or a
+// span at the deck's height.
+type bridgePart struct {
+	Rect     city.Rect
+	Cell     city.Cell
+	From, To float64
 }
 
-// bridgeItems is the bridge in the depth sort: the abutment's wedge and
-// one span per deck cell, all raised.
-func bridgeItems(cam *city.Camera, b city.Bridge, draw func(cell city.Cell, abutment bool) func()) []drawable {
+func (p bridgePart) span() bool { return p.From == 1 && p.To == 1 }
+
+// bridgeParts is the ramp's segments from the landing outward, then the
+// spans.
+func bridgeParts(b city.Bridge) []bridgePart {
+	var parts []bridgePart
+	run := b.RampRun()
+	half := city.CellSize / 2
+	dir := 1.0
+	if b.Far.X < b.Land.X {
+		dir = -1
+	}
+	for d := 0.0; d < run-1e-9; d += half {
+		x0, x1 := b.Land.X+dir*d, b.Land.X+dir*(d+half)
+		r := city.Rect{Min: city.Point{X: min(x0, x1), Y: b.Abutment.Rect().Min.Y}, Max: city.Point{X: max(x0, x1), Y: b.Abutment.Rect().Max.Y}}
+		parts = append(parts, bridgePart{Rect: r, Cell: city.CellOf(r.Center()), From: d / run, To: (d + half) / run})
+	}
+	for _, cell := range b.Deck {
+		parts = append(parts, bridgePart{Rect: cell.Rect(), Cell: cell, From: 1, To: 1})
+	}
+	return parts
+}
+
+// liftToWorld is a height on screen as a height in the world, so it
+// compares with distances on the ground: the 2:1 view draws a world
+// unit upright as IsoScale·√2·cos 30° map units.
+func liftToWorld(cam *city.Camera, lift float64) float64 {
+	return lift / (cam.Zoom * city.IsoScale * math.Sqrt2 * math.Cos(math.Pi/6))
+}
+
+// bridgeItems is the bridge in the depth sort, every part raised.
+func bridgeItems(cam *city.Camera, b city.Bridge, draw func(p bridgePart) func()) []drawable {
 	if len(b.Deck) == 0 {
 		return nil
 	}
-	items := make([]drawable, 0, len(b.Deck)+1)
-	abutment := footprintAt(cam, abutmentRect(b), draw(b.Abutment, true))
-	abutment.level = levelDeck
-	items = append(items, abutment)
-	for _, cell := range b.Deck {
-		span := footprintAt(cam, cell.Rect(), draw(cell, false))
-		span.level = levelDeck
-		items = append(items, span)
+	parts := bridgeParts(b)
+	items := make([]drawable, 0, len(parts))
+	for _, p := range parts {
+		item := footprintAt(cam, p.Rect, draw(p))
+		item.level = levelDeck
+		items = append(items, item)
 	}
 	return items
 }
@@ -168,34 +197,45 @@ func railing(screen *ebiten.Image, cam *city.Camera, a, b city.Point, liftA, lif
 	}
 }
 
-// drawAbutment is the wedge the road climbs on the landing cell's outer
-// half: its sides, the wall facing the rail, and the ramp on top.
-func (g *Game) drawAbutment(screen *ebiten.Image, cam *city.Camera, b city.Bridge) {
-	r := abutmentRect(b)
+// drawRampSegment is one piece of the ramp (item 146): a sloped deck on
+// a pier at its high end, with girders under the road and railings
+// over it, open underneath like the spans out over the water.
+func (g *Game) drawRampSegment(screen *ebiten.Image, cam *city.Camera, b city.Bridge, p bridgePart) {
+	r := p.Rect
 	top := g.deckLift(cam)
-	inner, outer := r.Min.X, r.Max.X
+	thick := deckThickness * cam.Zoom
+	low, high := r.Min.X, r.Max.X
 	if b.Far.X < b.Land.X {
-		inner, outer = r.Max.X, r.Min.X
+		low, high = r.Max.X, r.Min.X
 	}
-	edge := func(y float64) (in, out city.Point) {
-		return city.Point{X: inner, Y: y}, city.Point{X: outer, Y: y}
+	liftLow, liftHigh := p.From*top, p.To*top
+	under := func(lift float64) float64 { return max(0, lift-thick) }
+	inset := 0.2 * (r.Max.Y - r.Min.Y)
+	pa, pb := city.Point{X: high, Y: r.Min.Y + inset}, city.Point{X: high, Y: r.Max.Y - inset}
+	if under(liftHigh) > 0 {
+		fillScreen(screen, []city.Point{raised(cam, pa, 0), raised(cam, pb, 0), raised(cam, pb, under(liftHigh)), raised(cam, pa, under(liftHigh))}, colorPier)
 	}
-	far, near := r.Min.Y, r.Max.Y
-	if nearer(cam, city.Point{X: outer, Y: r.Min.Y}, city.Point{X: outer, Y: r.Max.Y}) {
-		far, near = near, far
+	edges := sides(cam, r)
+	along := func(e [2]city.Point) (lo, hi city.Point) {
+		if e[0].X == low {
+			return e[0], e[1]
+		}
+		return e[1], e[0]
 	}
-	side := func(y float64) {
-		in, out := edge(y)
-		fillScreen(screen, []city.Point{raised(cam, in, 0), raised(cam, out, 0), raised(cam, out, top)}, colorAbutment)
+	for _, e := range edges {
+		lo, hi := along(e)
+		fillScreen(screen, []city.Point{raised(cam, lo, liftLow), raised(cam, hi, liftHigh), raised(cam, hi, under(liftHigh)), raised(cam, lo, under(liftLow))}, colorGirder)
 	}
-	side(far)
-	fi, fo := edge(far)
-	ni, no := edge(near)
-	fillScreen(screen, []city.Point{raised(cam, fo, 0), raised(cam, no, 0), raised(cam, no, top), raised(cam, fo, top)}, colorAbutment)
-	fillScreen(screen, []city.Point{raised(cam, fi, 0), raised(cam, ni, 0), raised(cam, no, top), raised(cam, fo, top)}, colorStreet)
-	railing(screen, cam, fi, fo, 0, top)
-	side(near)
-	railing(screen, cam, ni, no, 0, top)
+	f, n := edges[0], edges[1]
+	flo, fhi := along(f)
+	nlo, nhi := along(n)
+	fillScreen(screen, []city.Point{raised(cam, flo, liftLow), raised(cam, fhi, liftHigh), raised(cam, nhi, liftHigh), raised(cam, nlo, liftLow)}, colorRampRoad)
+	mid := r.Center().Y
+	strokeScreen(screen, raised(cam, city.Point{X: low, Y: mid}, liftLow), raised(cam, city.Point{X: high, Y: mid}, liftHigh), math.Max(1, cam.Zoom), colorRampLine)
+	for _, e := range edges {
+		lo, hi := along(e)
+		railing(screen, cam, lo, hi, liftLow, liftHigh)
+	}
 }
 
 // drawSpan is one cell of the deck: the pier at its outer edge, the
