@@ -236,6 +236,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   With the sidebar open, Esc opened settings on top of it; with the interface hidden by `h`, Esc opened settings unseen, so the keys that followed went to a panel nobody could see.
   Esc now closes the sidebar, and with the interface hidden it shows it again and does nothing else; settings is still what Esc opens when nothing else is.
 
+- **With the interface hidden, `s`, `t` and `x` show it and open their panel.**
+  They used to open settings, the timeline or the power breakdown behind the hidden interface, where nobody could see them, and the unseen panel took the keys that followed; clicking the power plant did the same.
+  Now any of them brings the interface back with the panel open.
+
 - **The trains are the size of the cars' world, and their wagons no longer pile onto each other.**
   A train was a third as long as it should be beside the cars, and each wagon was drawn two thirds over the one behind it, so a six-wagon train looked like two.
   Trains are now drawn two fifths larger and each runs its own length behind the one in front, on rails set under its body, with trains a wagon and a half apart round the loop.
