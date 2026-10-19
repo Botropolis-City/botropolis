@@ -6,6 +6,7 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 // Measure is how wide and tall a string is at a type size on the display;
@@ -31,7 +32,13 @@ func StripChips(s city.Summary) []Chip {
 		Chip{Text: format.Tokens(s.FreshPerH) + "/h fresh"},
 		Chip{Text: format.Tokens(s.CachedPerH) + "/h cached"},
 		Chip{Text: format.Tokens(s.OutputPerH) + "/h out"},
-		costChip(s),
+	)
+	if s.Priced {
+		chips = append(chips, costChip(s))
+	} else {
+		chips = append(chips, statsChip(s))
+	}
+	chips = append(chips,
 		Chip{Text: "hit " + format.Percent(100*s.HitRatio)},
 	)
 	if s.Subagents > 0 {
@@ -47,21 +54,24 @@ func StripChips(s city.Summary) []Chip {
 	return chips
 }
 
-// costChip is the 24 h cost, measured against the daily budget when
-// there is one: plain under 80 % of it, accent-toned up to it, error
-// beyond.
-func costChip(s city.Summary) Chip {
-	cost := format.USD(s.CostUSD, s.CostKnown)
-	if !s.CostKnown {
-		cost = "$" + format.Unknown
+// statsChip says why there is no cost chip: statistics are off, or
+// paused and why, so its absence reads as a choice and not a fault.
+func statsChip(s city.Summary) Chip {
+	if s.Reason == stats.ReasonOff {
+		return Chip{Text: "statistics off"}
 	}
+	return Chip{Text: stats.PausedLine(s.Reason)}
+}
+
+// costChip is the 24 h cost at list prices, a range while some writes'
+// lifetime is unknown, measured against the daily budget when there is
+// one: plain under 80 % of it, accent-toned up to it, error beyond.
+func costChip(s city.Summary) Chip {
+	cost := stats.Dollars(s.Cost)
 	if s.BudgetUSD <= 0 {
 		return Chip{Text: cost + " 24h"}
 	}
 	chip := Chip{Text: fmt.Sprintf("%s of $%.0f 24h", cost, s.BudgetUSD)}
-	if !s.CostKnown {
-		return chip
-	}
 	switch share := s.BudgetShare(); {
 	case share >= 1:
 		chip.Tone = ToneError

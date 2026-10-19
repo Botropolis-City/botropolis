@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"botropolis.city/botropolis/pkg/city"
-	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 // BreakdownRow is one share: its name and what it spent.
@@ -29,6 +29,11 @@ type BreakdownPanel struct {
 	Windows  []Button
 	Current  city.Window
 	Spark    Sparkline
+	// Counters is the window's counters apart, and Note says what needs
+	// statistics while they cannot be read; its line is kept either way
+	// so the panel does not change size (item 116).
+	Counters Text
+	Note     Text
 	Columns  []BreakdownColumn
 }
 
@@ -47,13 +52,14 @@ func LayoutBreakdown(th Theme, width, height float64, b city.Breakdown, series [
 	titleH = subtitled(titleH, measure)
 	colW := 30 * grid
 	w := pad + 3*colW + 2*grid + pad
-	title := fmt.Sprintf("Power: %s tokens, %s in %s", format.Tokens(float64(b.Tokens)), format.USD(b.CostUSD, b.CostKnown), b.Window)
+	title := "Power: " + stats.Headline(b.Cost, b.Counters.Messages) + " in " + b.Window.String()
+	_, smallH := measure("", Small)
 	rowStep := bodyH + grid/2
 	rows := 0
 	for _, col := range [][]city.Share{b.ByModel, b.ByProject, b.BySession} {
 		rows = max(rows, min(len(col), breakdownRows))
 	}
-	h := pad + titleH + grid + (bodyH + grid) + grid + sparkGrids*grid + 2*grid + bodyH + grid/2 + rowStep*float64(rows) + pad
+	h := pad + titleH + grid + (bodyH + grid) + grid + sparkGrids*grid + grid + 2*(smallH+grid/2) + grid + bodyH + grid/2 + rowStep*float64(rows) + pad
 	p := BreakdownPanel{Rect: city.RectAt((width-w)/2, (height-h)/2, w, h), Current: b.Window}
 	x0, y := p.Rect.Min.X+pad, p.Rect.Min.Y+pad
 	p.Title = Text{Text: title, At: city.Point{X: x0, Y: y}, Size: Title}
@@ -62,7 +68,14 @@ func LayoutBreakdown(th Theme, width, height float64, b city.Breakdown, series [
 	p.Windows = LayoutButtons(th, []string{city.LastHour.String(), city.LastDay.String(), city.LastWeek.String()}, city.Point{X: x0, Y: y}, measure)
 	y += bodyH + grid + grid
 	p.Spark = LayoutSparkline(th, series, city.RectAt(x0, y, w-2*pad, sparkGrids*grid))
-	y += sparkGrids*grid + 2*grid
+	y += sparkGrids*grid + grid
+	p.Counters = Text{Text: stats.CountersLine(b.Counters), At: city.Point{X: x0, Y: y}, Size: Small}
+	y += smallH + grid/2
+	p.Note = Text{At: city.Point{X: x0, Y: y}, Size: Small}
+	if !b.Priced {
+		p.Note.Text = "cost and by model need statistics"
+	}
+	y += smallH + grid/2 + grid
 	heads := []string{"by model", "by project", "by session"}
 	for i, shares := range [][]city.Share{b.ByModel, b.ByProject, b.BySession} {
 		x := x0 + float64(i)*(colW+grid)
@@ -78,7 +91,13 @@ func LayoutBreakdown(th Theme, width, height float64, b city.Breakdown, series [
 					label = t
 				}
 			}
-			value := fmt.Sprintf("%s · %s", format.Tokens(float64(share.Tokens)), format.USD(share.CostUSD, share.CostKnown))
+			value := stats.Dollars(share.Cost)
+			if !b.Priced {
+				value = fmt.Sprintf("%d messages", share.Counters.Messages)
+				if share.Counters.Messages == 1 {
+					value = "1 message"
+				}
+			}
 			vw, _ := measure(value, Small)
 			col.Rows = append(col.Rows, BreakdownRow{
 				Label: Text{Text: clipTo(label, colW-vw-grid, Small, measure), At: city.Point{X: x, Y: ry}, Size: Small},

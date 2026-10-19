@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 // Summary is the city-wide tally drawn along the top of the window, the
@@ -18,13 +19,16 @@ type Summary struct {
 	FreshPerH  float64
 	CachedPerH float64
 	OutputPerH float64
-	CostUSD    float64
-	CostKnown  bool
-	HitRatio   float64
-	Subagents  int
-	PRs        int
-	MCPCalls   int
-	Errors     int
+	// Cost is the last day's at list prices, Priced whether the
+	// statistics store could say, and Reason why not (item 116).
+	Cost      stats.Cost
+	Priced    bool
+	Reason    string
+	HitRatio  float64
+	Subagents int
+	PRs       int
+	MCPCalls  int
+	Errors    int
 	// BudgetUSD is the daily target from config, 0 for none.
 	BudgetUSD float64
 }
@@ -35,7 +39,7 @@ func (s Summary) BudgetShare() float64 {
 	if s.BudgetUSD <= 0 {
 		return 0
 	}
-	return s.CostUSD / s.BudgetUSD
+	return s.Cost.High / s.BudgetUSD
 }
 
 // Live is every session that is not resting.
@@ -70,8 +74,7 @@ func (c *City) Summary() Summary {
 		}
 		s.PRs += len(b.Session.PRs)
 	}
-	s.CostUSD = c.Plant.Power.CostUSD
-	s.CostKnown = c.Plant.Power.CostKnown
+	s.Cost, s.Priced, s.Reason = c.Plant.Day.Cost, c.Plant.Day.Priced, c.Plant.Day.Reason
 	s.HitRatio = c.Plant.Power.HitRatio()
 	s.BudgetUSD = c.Plant.BudgetUSD
 	for _, t := range c.Towers {

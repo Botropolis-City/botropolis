@@ -29,6 +29,8 @@ func (g *Game) drawBreakdown(screen *ebiten.Image, width, height float64) {
 	row := ui.LayoutWindowRow(th, p.Windows[0].Rect.Min, p.Rect.Max.X-3*th.Grid()-p.Windows[0].Rect.Min.X, g.rowState(), g.faces.Measure)
 	g.drawWindowRow(screen, row)
 	g.sparkline(screen, p.Spark)
+	g.run(screen, p.Counters, th.Palette.Dim)
+	g.run(screen, p.Note, th.Palette.Dim)
 	for _, col := range p.Columns {
 		g.run(screen, col.Head, th.Palette.Dim)
 		for _, row := range col.Rows {

@@ -131,6 +131,9 @@ type City struct {
 	// Rails is the freight loop as a closed polyline; Trains run it.
 	Rails  []Point
 	Trains []*Train
+	// ledger is the statistics store the plant, the strip and the
+	// trains read from, nil when statistics are off (item 116).
+	ledger Ledger
 	Lamps  []Cell
 	bounds Rect
 	plan   plan.Plan
@@ -290,12 +293,18 @@ func Build(snapshot state.Snapshot, layout *Layout) *City {
 // session keeps its lot in its own district and climbs the ladder there,
 // so a district stays while it has any session at all (item 86).
 func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds) *City {
-	return build(snapshot, layout, ladder, false)
+	return build(snapshot, layout, ladder, false, nil)
+}
+
+// BuildWithLedger builds the city reading its usage from a statistics
+// store.
+func BuildWithLedger(snapshot state.Snapshot, layout *Layout, ledger Ledger) *City {
+	return build(snapshot, layout, state.DefaultThresholds, false, ledger)
 }
 
 // build builds the city; keepDepot holds the depot open, empty, while a
 // truck is still leaving it with the last crate.
-func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool) *City {
+func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool, ledger Ledger) *City {
 	byRoot := map[string][]state.Session{}
 	packed := map[string][]state.Session{}
 	for _, s := range snapshot.Sessions {
@@ -317,9 +326,10 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		return baseName(roots[i]) < baseName(roots[j])
 	})
 
-	city := &City{Time: snapshot.At}
+	city := &City{Time: snapshot.At, ledger: ledger}
 	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
+		city.Plant.Day = city.Breakdown(LastDay)
 		return city
 	}
 	for _, root := range roots {
@@ -366,7 +376,8 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	city.placeStreets()
 	city.placeCamps(snapshot.Teams)
 	city.placeGroups(snapshot.Groups)
-	city.Trains = trains(city.Breakdown(LastDay))
+	city.Plant.Day = city.Breakdown(LastDay)
+	city.Trains = trains(city.Plant.Day)
 	return city
 }
 

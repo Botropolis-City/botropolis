@@ -7,27 +7,30 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
+func usd(v float64) stats.Cost { return stats.Cost{Low: v, High: v} }
+
+func msgs(n int) stats.Counters { return stats.Counters{Output: int64(100 * n), Messages: n} }
+
 func someBreakdown() city.Breakdown {
 	return city.Breakdown{
-		Window: city.LastDay, Tokens: 350, CostUSD: 0.35, CostKnown: true,
-		ByModel:   []city.Share{{Key: "claude-opus-5", Tokens: 300, CostUSD: 0.3, CostKnown: true}, {Key: "claude-sonnet-5", Tokens: 50, CostUSD: 0.05, CostKnown: true}},
-		ByProject: []city.Share{{Key: "cinders", Tokens: 350, CostUSD: 0.35, CostKnown: true}},
-		BySession: []city.Share{{Key: "a", Tokens: 300, CostUSD: 0.3, CostKnown: true}, {Key: "b", Tokens: 50, CostUSD: 0.05, CostKnown: true}},
+		Window: city.LastDay, Counters: stats.Counters{Input: 10, Write1h: 20, Read: 300, Output: 40, Messages: 4}, Cost: usd(0.35), Priced: true,
+		ByModel:   []city.Share{{Key: "claude-opus-5", Counters: msgs(3), Cost: usd(0.3)}, {Key: "claude-sonnet-5", Counters: msgs(1), Cost: usd(0.05)}},
+		ByProject: []city.Share{{Key: "cinders", Counters: msgs(4), Cost: usd(0.35)}},
+		BySession: []city.Share{{Key: "a", Counters: msgs(3), Cost: usd(0.3)}, {Key: "b", Counters: msgs(1), Cost: usd(0.05)}},
 	}
 }
 
 func unpricedBreakdown() city.Breakdown {
-	b := someBreakdown()
-	b.CostUSD, b.CostKnown = 0, false
-	for _, col := range [][]city.Share{b.ByModel, b.ByProject, b.BySession} {
-		for i := range col {
-			col[i].CostUSD, col[i].CostKnown = 0, false
-		}
+	return city.Breakdown{
+		Window: city.LastDay, Counters: stats.Counters{Output: 40, WriteUnsplit: 20, Messages: 4}, Cost: stats.Cost{Unpriced: 4},
+		Reason:    "statistics are off",
+		ByProject: []city.Share{{Key: "cinders", Counters: msgs(4), Cost: stats.Cost{Unpriced: 4}}},
+		BySession: []city.Share{{Key: "a", Counters: msgs(3), Cost: stats.Cost{Unpriced: 3}}, {Key: "b", Counters: msgs(1), Cost: stats.Cost{Unpriced: 1}}},
 	}
-	return b
 }
 
 func TestLayoutBreakdown(t *testing.T) {
@@ -41,8 +44,24 @@ func TestLayoutBreakdown(t *testing.T) {
 			assert.Equal(t, city.Point{X: 450, Y: 350}, p.Rect.Center())
 		})
 
-		t.Run("it should title it with the window's total", func(t *testing.T) {
-			assert.Equal(t, "Power: 350 tokens, ~$0.35 in 24 h", p.Title.Text)
+		t.Run("it should title it with the window's cost and messages in the one wording", func(t *testing.T) {
+			assert.Equal(t, "Power: "+stats.Headline(usd(0.35), 4)+" in 24 h", p.Title.Text)
+		})
+
+		t.Run("it should give the counters apart", func(t *testing.T) {
+			assert.Equal(t, stats.CountersLine(someBreakdown().Counters), p.Counters.Text)
+		})
+
+		t.Run("it should put the counters under the sparkline", func(t *testing.T) {
+			assert.Greater(t, p.Counters.At.Y, p.Spark.Box.Max.Y)
+		})
+
+		t.Run("it should put the counters above the columns", func(t *testing.T) {
+			assert.Less(t, p.Counters.At.Y, p.Columns[0].Head.At.Y)
+		})
+
+		t.Run("it should leave no note while priced", func(t *testing.T) {
+			assert.Equal(t, "", p.Note.Text)
 		})
 
 		t.Run("it should offer the three windows as buttons with the current one marked", func(t *testing.T) {
@@ -61,21 +80,32 @@ func TestLayoutBreakdown(t *testing.T) {
 			assert.Equal(t, []string{"by model", "by project", "by session"}, []string{p.Columns[0].Head.Text, p.Columns[1].Head.Text, p.Columns[2].Head.Text})
 		})
 
-		t.Run("it should list each share with its tokens and cost", func(t *testing.T) {
+		t.Run("it should list each share with its cost", func(t *testing.T) {
 			require.Len(t, p.Columns[0].Rows, 2)
-			assert.Equal(t, "claude-opus-5", p.Columns[0].Rows[0].Label.Text)
-			assert.Equal(t, "300 · ~$0.30", p.Columns[0].Rows[0].Value.Text)
+			assert.Equal(t, []string{"claude-opus-5", "$0.30"}, []string{p.Columns[0].Rows[0].Label.Text, p.Columns[0].Rows[0].Value.Text})
 		})
 
-		t.Run("and the cost is unknown", func(t *testing.T) {
+		t.Run("and statistics cannot be read", func(t *testing.T) {
 			p := ui.LayoutBreakdown(th, 900, 700, unpricedBreakdown(), series, nil, measure7)
 
-			t.Run("it should title it with a dash for the cost", func(t *testing.T) {
-				assert.Equal(t, "Power: 350 tokens, \u2014 in 24 h", p.Title.Text)
+			t.Run("it should title it with no dollars", func(t *testing.T) {
+				assert.Equal(t, "Power: cost unknown · 4 messages in 24 h", p.Title.Text)
 			})
 
-			t.Run("it should list each share with a dash for the cost", func(t *testing.T) {
-				assert.Equal(t, "300 \u00b7 \u2014", p.Columns[0].Rows[0].Value.Text)
+			t.Run("it should say cost and the split by model need statistics", func(t *testing.T) {
+				assert.Equal(t, "cost and by model need statistics", p.Note.Text)
+			})
+
+			t.Run("it should still head the model column", func(t *testing.T) {
+				assert.Equal(t, "by model", p.Columns[0].Head.Text)
+			})
+
+			t.Run("it should leave the model column empty", func(t *testing.T) {
+				assert.Empty(t, p.Columns[0].Rows)
+			})
+
+			t.Run("it should list each other share with its messages", func(t *testing.T) {
+				assert.Equal(t, "3 messages", p.Columns[2].Rows[0].Value.Text)
 			})
 		})
 

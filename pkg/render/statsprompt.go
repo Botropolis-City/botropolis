@@ -131,7 +131,7 @@ func (g *Game) statsRow(s ui.Setting) {
 			return
 		}
 	}
-	g.stats.on = true
+	g.setStatsOn(true)
 	g.setRow(config.KeyStats, "on")
 	g.SetStatus("statistics: on")
 }
@@ -172,7 +172,7 @@ func (p *statsPrompt) answer(g *Game, keep bool) {
 			return
 		}
 	}
-	g.stats.on = p.kind == stats.OnPrompt
+	g.setStatsOn(p.kind == stats.OnPrompt)
 	g.setRow(config.KeyStats, onOff(g.stats.on))
 	g.SetStatus("statistics: " + onOff(g.stats.on))
 }

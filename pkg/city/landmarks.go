@@ -10,6 +10,7 @@ import (
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/plan"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 const (
@@ -52,6 +53,9 @@ type Plant struct {
 	Rect      Rect
 	Power     state.Power
 	BudgetUSD float64
+	// Day is the last day's breakdown, priced when the statistics store
+	// can be read (item 116).
+	Day Breakdown
 }
 
 type Tower struct {
@@ -318,13 +322,12 @@ func (c *City) Beams() []Beam {
 }
 
 func (p Plant) Card() Card {
-	cost := "cost     " + format.USD(p.Power.CostUSD, p.Power.CostKnown) + " in 24h (pro-rated)"
-	if !p.Power.CostKnown {
-		cost = "cost     " + format.Unknown + " in 24h (no cost-state in any transcript)"
+	lines := []string{stats.Headline(p.Day.Cost, p.Day.Counters.Messages) + " in " + LastDay.String()}
+	if !p.Day.Priced {
+		lines = append(lines, "cost and by model need statistics")
 	}
-	lines := []string{cost}
-	if p.BudgetUSD > 0 && p.Power.CostKnown {
-		lines = append(lines, fmt.Sprintf("budget   $%.0f/day, %s used", p.BudgetUSD, format.Percent(100*p.Power.CostUSD/p.BudgetUSD)))
+	if p.BudgetUSD > 0 && p.Day.Priced {
+		lines = append(lines, fmt.Sprintf("budget   $%.0f/day, %s used", p.BudgetUSD, format.Percent(100*p.Day.Cost.High/p.BudgetUSD)))
 	}
 	lines = append(lines,
 		fmt.Sprintf("fresh    %s tokens", format.Tokens(float64(p.Power.Fresh))),
@@ -332,13 +335,8 @@ func (p Plant) Card() Card {
 		fmt.Sprintf("output   %s tokens", format.Tokens(float64(p.Power.Output))),
 		fmt.Sprintf("hit rate %s of prompt tokens from cache", format.Percent(100*p.Power.HitRatio())),
 	)
-	models := make([]string, 0, len(p.Power.ByModel))
-	for model := range p.Power.ByModel {
-		models = append(models, model)
-	}
-	sort.Strings(models)
-	for _, model := range models {
-		lines = append(lines, fmt.Sprintf("%s  %s out", model, format.Tokens(float64(p.Power.ByModel[model].Output))))
+	for _, m := range p.Day.ByModel {
+		lines = append(lines, m.Key+"  "+stats.Headline(m.Cost, m.Counters.Messages))
 	}
 	return Card{Title: "Power plant", Lines: lines}
 }

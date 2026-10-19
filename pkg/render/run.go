@@ -216,6 +216,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.settings = opts.Settings
 	game.apply = opts.Apply
 	game.stats = statsHooks{on: opts.StatsOn, owed: opts.StatsOwed, since: opts.StatsSince, choose: opts.StatsChoose}
+	game.setStatsOn(opts.StatsOn)
 	game.desktopErr = opts.DesktopErr
 	game.useShortcut(opts.GlobalShortcut)
 

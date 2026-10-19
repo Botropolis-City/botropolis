@@ -77,12 +77,12 @@ func TestPlantBudget(t *testing.T) {
 		s := city.NewScene(city.NewLayout())
 		s.Resize(800, 600)
 		snap := snapshot(session("a", cinders, state.Working))
-		snap.Power.CostUSD, snap.Power.CostKnown = 50, true
+		s.SetLedger(&fakeLedger{window: stored})
 		s.SetSnapshot(snap)
 		s.SetBudget(250)
 
 		t.Run("it should measure the plant against it", func(t *testing.T) {
-			assert.Contains(t, s.City().Plant.Card().Lines, "budget   $250/day, 20% used")
+			assert.Contains(t, s.City().Plant.Card().Lines, "budget   $250/day, 1% used")
 		})
 
 		t.Run("it should hand the budget to the summary", func(t *testing.T) {

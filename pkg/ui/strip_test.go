@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -31,7 +33,7 @@ func findChip(chips []ui.Chip, text string) (ui.Chip, bool) {
 
 func TestStripChips(t *testing.T) {
 	t.Run("when the summary is quiet", func(t *testing.T) {
-		chips := ui.StripChips(city.Summary{Working: 2, Resting: 5, FreshPerH: 1500, CachedPerH: 20000, OutputPerH: 700, CostUSD: 1.5, CostKnown: true, HitRatio: 0.9, MCPCalls: 3})
+		chips := ui.StripChips(city.Summary{Working: 2, Resting: 5, FreshPerH: 1500, CachedPerH: 20000, OutputPerH: 700, Cost: stats.Cost{Low: 1.5, High: 1.5}, Priced: true, HitRatio: 0.9, MCPCalls: 3})
 
 		t.Run("it should give output its own chip", func(t *testing.T) {
 			_, ok := findChip(chips, "700/h out")
@@ -56,7 +58,7 @@ func TestStripChips(t *testing.T) {
 			})
 		}
 
-		for _, plain := range []string{"2k/h fresh", "20k/h cached", "~$1.50 24h", "hit 90%", "3 mcp"} {
+		for _, plain := range []string{"2k/h fresh", "20k/h cached", "$1.50 24h", "hit 90%", "3 mcp"} {
 			t.Run("it should leave "+plain+" without a tone", func(t *testing.T) {
 				chip, ok := findChip(chips, plain)
 				require.True(t, ok, chipTexts(chips))
@@ -77,12 +79,12 @@ func TestStripChips(t *testing.T) {
 			text string
 			tone ui.Tone
 		}{
-			{100, "~$100.00 of $250 24h", ui.ToneNone},
-			{210, "~$210.00 of $250 24h", ui.ToneNeedsYou},
-			{260, "~$260.00 of $250 24h", ui.ToneError},
+			{100, "$100.00 of $250 24h", ui.ToneNone},
+			{210, "$210.00 of $250 24h", ui.ToneNeedsYou},
+			{260, "$260.00 of $250 24h", ui.ToneError},
 		}
 		for _, tc := range cases {
-			chips := ui.StripChips(city.Summary{Working: 1, CostUSD: tc.cost, CostKnown: true, BudgetUSD: 250})
+			chips := ui.StripChips(city.Summary{Working: 1, Cost: stats.Cost{Low: tc.cost, High: tc.cost}, Priced: true, BudgetUSD: 250})
 			chip, ok := findChip(chips, tc.text)
 			require.True(t, ok, chipTexts(chips))
 
@@ -92,26 +94,36 @@ func TestStripChips(t *testing.T) {
 		}
 	})
 
-	t.Run("when the cost is unknown", func(t *testing.T) {
-		cases := []struct {
-			name   string
-			budget float64
-			text   string
-		}{
-			{"with no budget", 0, "$\u2014 24h"},
-			{"with a budget", 250, "$\u2014 of $250 24h"},
-		}
-		for _, tc := range cases {
-			t.Run("and "+tc.name, func(t *testing.T) {
-				chips := ui.StripChips(city.Summary{Working: 1, CostUSD: 0, BudgetUSD: tc.budget})
-				chip, ok := findChip(chips, tc.text)
-				require.True(t, ok, chipTexts(chips))
+	t.Run("when some writes have an unknown lifetime, it should give the cost as a range", func(t *testing.T) {
+		chips := ui.StripChips(city.Summary{Working: 1, Cost: stats.Cost{Low: 5, High: 8}, Priced: true})
+		_, ok := findChip(chips, "$5.00–$8.00 24h")
+		assert.True(t, ok, chipTexts(chips))
+	})
 
-				t.Run("it should show a dash with no tone", func(t *testing.T) {
-					assert.Equal(t, ui.ToneNone, chip.Tone)
-				})
+	reasons := []struct {
+		name, reason, chip string
+	}{
+		{"when statistics are paused", "the store is being upgraded", "statistics paused: the store is being upgraded"},
+		{"when statistics are off", "statistics are off", "statistics off"},
+	}
+	for _, tc := range reasons {
+		t.Run(tc.name, func(t *testing.T) {
+			chips := ui.StripChips(city.Summary{Working: 1, BudgetUSD: 250, Reason: tc.reason})
+
+			t.Run("it should give no cost chip", func(t *testing.T) {
+				assert.NotContains(t, strings.Join(chipTexts(chips), " "), "$")
 			})
-		}
+
+			t.Run("it should say why there is none", func(t *testing.T) {
+				_, ok := findChip(chips, tc.chip)
+				assert.True(t, ok, chipTexts(chips))
+			})
+		})
+	}
+
+	t.Run("when statistics can be read, it should give no statistics chip", func(t *testing.T) {
+		chips := ui.StripChips(city.Summary{Working: 1, Priced: true})
+		assert.NotContains(t, strings.Join(chipTexts(chips), " "), "statistics")
 	})
 
 	t.Run("when every state has sessions", func(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,10 +41,12 @@ func TestSummary(t *testing.T) {
 			assert.InDelta(t, 41_000, s.OutputPerH, 1e-9)
 		})
 
-		t.Run("it should carry the plant's cost and hit ratio", func(t *testing.T) {
-			assert.InDelta(t, 12.5, s.CostUSD, 1e-9)
-			assert.True(t, s.CostKnown)
+		t.Run("it should carry the plant's hit ratio", func(t *testing.T) {
 			assert.InDelta(t, snap.Power.HitRatio(), s.HitRatio, 1e-9)
+		})
+
+		t.Run("it should say statistics are off", func(t *testing.T) {
+			assert.Equal(t, "statistics are off", s.Reason)
 		})
 
 		t.Run("it should sum MCP calls across the towers", func(t *testing.T) {
@@ -54,6 +57,26 @@ func TestSummary(t *testing.T) {
 			assert.Equal(t, 1, s.PRs)
 			assert.Equal(t, 2, s.Subagents)
 			assert.Equal(t, 2, s.Errors)
+		})
+	})
+
+	t.Run("when the store priced the day", func(t *testing.T) {
+		s := city.BuildWithLedger(snapshot(session("a", cinders, state.Working)), city.NewLayout(), &fakeLedger{window: stored}).Summary()
+
+		t.Run("it should carry the day's cost", func(t *testing.T) {
+			assert.Equal(t, stored.Cost, s.Cost)
+		})
+
+		t.Run("it should be priced", func(t *testing.T) {
+			assert.True(t, s.Priced)
+		})
+	})
+
+	t.Run("when the store cannot be read", func(t *testing.T) {
+		s := city.BuildWithLedger(snapshot(session("a", cinders, state.Working)), city.NewLayout(), &fakeLedger{reason: "the store is being upgraded"}).Summary()
+
+		t.Run("it should carry the reason", func(t *testing.T) {
+			assert.Equal(t, "the store is being upgraded", s.Reason)
 		})
 	})
 
@@ -96,8 +119,8 @@ func TestSummary(t *testing.T) {
 	})
 
 	t.Run("when the city is empty", func(t *testing.T) {
-		t.Run("it should be all zero", func(t *testing.T) {
-			assert.Equal(t, city.Summary{}, city.Build(state.Snapshot{}, city.NewLayout()).Summary())
+		t.Run("it should count nothing, and say statistics are off", func(t *testing.T) {
+			assert.Equal(t, city.Summary{Reason: stats.ReasonOff}, city.Build(state.Snapshot{}, city.NewLayout()).Summary())
 		})
 	})
 }

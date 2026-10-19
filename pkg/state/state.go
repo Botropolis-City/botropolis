@@ -165,10 +165,6 @@ type Skill struct {
 type Power struct {
 	Since   time.Time               `json:"since"`
 	ByModel map[string]claude.Usage `json:"byModel"`
-	CostUSD float64                 `json:"costUSD"`
-	// CostKnown is whether any transcript in the window carried a
-	// cost-state record; without one CostUSD is unknown, not zero.
-	CostKnown bool `json:"costKnown"`
 	// Fresh is prompt tokens not read from the cache, input and cache
 	// writes; Cached is cache reads; Output is output. Each is priced
 	// apart, so none is added to another (item 116).
@@ -827,10 +823,9 @@ func recentHours(hourly map[int64]claude.Usage, n int) map[int64]claude.Usage {
 }
 
 // PowerSince sums the tokens spent since a moment from each transcript's
-// hourly buckets. Cost is only known for a whole session (one cost-state
-// record, no timestamp), so the window's cost is the session's cost
-// pro-rated by the window's share of its tokens: an estimate, and shown
-// as one. ByModel stays the lifetime split, for the plant's card.
+// hourly buckets. It carries no cost: cost comes from the statistics
+// store, each message priced under its own model (item 116). ByModel
+// stays the lifetime split.
 func PowerSince(transcripts []claude.Transcript, since time.Time) Power {
 	power := Power{Since: since, ByModel: map[string]claude.Usage{}}
 	sinceHour := since.Unix() / 3600
@@ -844,17 +839,9 @@ func PowerSince(transcripts []claude.Transcript, since time.Time) Power {
 				window = window.Add(u)
 			}
 		}
-		var lifetime claude.Usage
-		var lifetimeUSD float64
 		for model, cost := range t.Cost.Models {
 			power.ByModel[model] = power.ByModel[model].Add(cost.Usage)
-			lifetime = lifetime.Add(cost.Usage)
-			lifetimeUSD += cost.USD
 		}
-		if all := lifetime.Context() + lifetime.Output; all > 0 {
-			power.CostUSD += lifetimeUSD * float64(window.Context()+window.Output) / float64(all)
-		}
-		power.CostKnown = power.CostKnown || t.Cost.Known
 		power.Fresh += window.Input + window.CacheCreate
 		power.Cached += window.CacheRead
 		power.Output += window.Output

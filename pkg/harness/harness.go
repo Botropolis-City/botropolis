@@ -60,8 +60,6 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		for model, usage := range snapshot.Power.ByModel {
 			merged.Power.ByModel[model] = merged.Power.ByModel[model].Add(usage)
 		}
-		merged.Power.CostUSD += snapshot.Power.CostUSD
-		merged.Power.CostKnown = merged.Power.CostKnown || snapshot.Power.CostKnown
 		merged.Power.Fresh += snapshot.Power.Fresh
 		merged.Power.Cached += snapshot.Power.Cached
 		merged.Power.Output += snapshot.Power.Output

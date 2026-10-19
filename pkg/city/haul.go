@@ -145,7 +145,7 @@ func (s *Scene) holdDepot() {
 		return
 	}
 	s.keepDepot = true
-	s.city = build(s.snapshot, s.layout, s.ladder, true)
+	s.city = build(s.snapshot, s.layout, s.ladder, true, s.ledger)
 	s.city.Face(s.camera.Heading)
 }
 
@@ -155,7 +155,7 @@ func (s *Scene) releaseDepot() {
 		return
 	}
 	s.keepDepot = false
-	s.city = build(s.snapshot, s.layout, s.ladder, false)
+	s.city = build(s.snapshot, s.layout, s.ladder, false, s.ledger)
 	s.city.Face(s.camera.Heading)
 	s.generation++
 }

@@ -10,6 +10,7 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -704,32 +705,42 @@ func TestDistanceToSegment(t *testing.T) {
 }
 
 func TestTrains(t *testing.T) {
-	t.Run("when two models spent tokens in the last day", func(t *testing.T) {
-		c := build(t, city.NewLayout(),
-			spender("a", cinders, "claude-opus-5", map[int]int64{1: 300_000_000}),
-			spender("b", cinders, "claude-sonnet-5", map[int]int64{2: 40_000_000}))
+	t.Run("when the store priced two models over the last day", func(t *testing.T) {
+		c := city.BuildWithLedger(snapshot(spender("a", cinders, "claude-opus-5", map[int]int64{1: 300})), city.NewLayout(), &fakeLedger{window: stored})
 		require.Len(t, c.Trains, 2)
 
-		t.Run("it should run one train per model, the biggest first", func(t *testing.T) {
-			assert.Equal(t, "claude-opus-5", c.Trains[0].Model)
-			assert.Equal(t, "claude-sonnet-5", c.Trains[1].Model)
+		t.Run("it should run one train per model, the dearest first", func(t *testing.T) {
+			assert.Equal(t, []string{"claude-opus-5-5", "claude-haiku-4-5"}, []string{c.Trains[0].Model, c.Trains[1].Model})
 		})
 
-		t.Run("it should size the wagon to keep the biggest train to six", func(t *testing.T) {
-			assert.Equal(t, int64(50_000_000), c.Trains[0].Unit)
-			assert.Equal(t, 6, c.Trains[0].Wagons)
+		t.Run("it should size the wagon in dollars to keep the dearest train to six", func(t *testing.T) {
+			assert.Equal(t, 0.5, c.Trains[0].Unit)
+		})
+
+		t.Run("it should give the dearest train a wagon per unit", func(t *testing.T) {
+			assert.Equal(t, 4, c.Trains[0].Wagons)
 		})
 
 		t.Run("it should give the small train a wagon per unit, never none", func(t *testing.T) {
 			assert.Equal(t, 1, c.Trains[1].Wagons)
 		})
 
-		t.Run("it should name the model, the tokens, the unit and the cost on the card", func(t *testing.T) {
-			card := c.Trains[0].Card()
-			assert.Equal(t, "claude-opus-5", card.Title)
-			assert.Contains(t, card.Lines, "tokens   300.0M in 24 h")
-			assert.Contains(t, card.Lines, "wagons   6, one per 50.0M tokens")
-			assert.Contains(t, card.Lines, "cost     ~$300000.00 (pro-rated)")
+		card := c.Trains[0].Card()
+
+		t.Run("it should title the card with the model", func(t *testing.T) {
+			assert.Equal(t, "claude-opus-5-5", card.Title)
+		})
+
+		t.Run("it should give the cost and messages in the one wording", func(t *testing.T) {
+			assert.Contains(t, card.Lines, stats.Headline(cost(2), 3)+" in 24 h")
+		})
+
+		t.Run("it should give the counters apart", func(t *testing.T) {
+			assert.Contains(t, card.Lines, stats.CountersLine(stats.Counters{Output: 30, Messages: 3}))
+		})
+
+		t.Run("it should say what a wagon stands for", func(t *testing.T) {
+			assert.Contains(t, card.Lines, "wagons   4, one per $0.50")
 		})
 
 		t.Run("it should lay the rails as a closed loop", func(t *testing.T) {
@@ -738,27 +749,29 @@ func TestTrains(t *testing.T) {
 		})
 	})
 
-	t.Run("when nothing was spent", func(t *testing.T) {
-		c := build(t, city.NewLayout(), session("a", cinders, state.Working))
+	t.Run("when statistics cannot be read", func(t *testing.T) {
+		c := city.BuildWithLedger(snapshot(spender("a", cinders, "claude-opus-5", map[int]int64{1: 300})), city.NewLayout(), &fakeLedger{reason: "the store is being upgraded"})
 
-		t.Run("it should run no trains", func(t *testing.T) {
+		t.Run("it should run no trains, since nothing says which model spent what", func(t *testing.T) {
 			assert.Empty(t, c.Trains)
 		})
 	})
 
+	t.Run("when statistics are off, it should run no trains", func(t *testing.T) {
+		assert.Empty(t, build(t, city.NewLayout(), spender("a", cinders, "claude-opus-5", map[int]int64{1: 300})).Trains)
+	})
+
 	t.Run("when a wagon unit is chosen", func(t *testing.T) {
 		cases := []struct {
-			max  int64
-			unit int64
-		}{{0, 1000}, {900, 1000}, {6000, 1000}, {6001, 2000}, {300_000_000, 50_000_000}, {12_000_000, 2_000_000}}
+			max, unit float64
+		}{{0, 0.01}, {0.06, 0.01}, {0.061, 0.02}, {2, 0.5}, {300, 50}, {12, 2}}
 		for _, tc := range cases {
-			t.Run(fmt.Sprintf("it should keep %d tokens to six wagons of %d", tc.max, tc.unit), func(t *testing.T) {
-				assert.Equal(t, tc.unit, city.TrainUnit(tc.max))
+			t.Run(fmt.Sprintf("it should keep $%g to six wagons of $%g", tc.max, tc.unit), func(t *testing.T) {
+				assert.InDelta(t, tc.unit, city.TrainUnit(tc.max), 1e-12)
 			})
 		}
 	})
 }
-
 func TestTrees(t *testing.T) {
 	t.Run("when the city plants the plan's trees", func(t *testing.T) {
 		c := build(t, city.NewLayout(), session("a", cinders, state.Working))

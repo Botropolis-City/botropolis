@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -13,8 +14,8 @@ const (
 	LedgerCache = 2 * time.Second
 )
 
-// reasonOff is a nil ledger's reason: statistics are turned off.
-const reasonOff = "statistics are off"
+// ReasonOff is a nil ledger's reason: statistics are turned off.
+const ReasonOff = "statistics are off"
 
 type cachedWindow struct {
 	at     time.Time
@@ -67,7 +68,7 @@ func (l *Ledger) storeLocked(at time.Time) (*Store, bool) {
 // it can.
 func (l *Ledger) Reason() string {
 	if l == nil {
-		return reasonOff
+		return ReasonOff
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -82,6 +83,9 @@ func (l *Ledger) Reason() string {
 
 // Window is the last hours up to at, reused for LedgerCache.
 func (l *Ledger) Window(at time.Time, hours int, root func(string) string) (Window, error) {
+	if l == nil {
+		return Window{}, errors.New(ReasonOff)
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if c, ok := l.cache[hours]; ok && at.Sub(c.at) < LedgerCache && !at.Before(c.at) {

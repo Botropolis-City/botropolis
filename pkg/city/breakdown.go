@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 // Window is how far back a breakdown or a series looks.
@@ -39,51 +40,85 @@ func (w Window) Hours() int {
 }
 
 // Share is one slice of a breakdown: a model, a project or a session
-// and what it spent in the window.
+// and what it used in the window.
 type Share struct {
-	Key     string
-	Tokens  int64
-	CostUSD float64
-	// CostKnown is whether any session in the share carried a cost.
-	CostKnown bool
+	Key      string
+	Counters stats.Counters
+	Cost     stats.Cost
 }
 
-// Breakdown is what the city spent in a window, three ways.
+// Breakdown is what the city used in a window, three ways. Priced is a
+// breakdown read from the statistics store, each message under its own
+// model and priced at list prices; otherwise it is counted from the
+// sessions in memory, which cannot say which model sent what, so it has
+// no cost and no split by model, and Reason says why. Item 116.
 type Breakdown struct {
 	Window    Window
-	Tokens    int64
-	CostUSD   float64
-	CostKnown bool
+	Counters  stats.Counters
+	Cost      stats.Cost
+	Priced    bool
+	Reason    string
 	ByModel   []Share
 	ByProject []Share
 	BySession []Share
+	// Series is the cost of each hour when priced, and messages an
+	// hour when not, oldest first.
+	Series []float64
 }
 
-// tokens is what a usage bucket spent: everything the API had to read
-// or write.
-func tokens(u claude.Usage) int64 {
-	return u.Context() + u.Output
+// Ledger is the statistics store as the city reads it.
+type Ledger interface {
+	Window(at time.Time, hours int, root func(string) string) (stats.Window, error)
+	Reason() string
 }
 
-// windowUsage sums a session's buckets inside the window.
-func windowUsage(s *Building, w Window, at time.Time) int64 {
-	since := at.Add(-time.Duration(w.Hours())*time.Hour).Unix() / 3600
-	var sum int64
-	for hour, u := range s.Session.Hourly {
-		if hour > since {
-			sum += tokens(u)
+func counters(u claude.Usage) stats.Counters {
+	return stats.Counters{Input: u.Input, Output: u.Output, WriteUnsplit: u.CacheCreate, Read: u.CacheRead, Messages: u.Messages}
+}
+
+func sharesOf(slices []stats.Slice, key func(string) string) []Share {
+	out := make([]Share, 0, len(slices))
+	byKey := map[string]int{}
+	for _, sl := range slices {
+		k := key(sl.Key)
+		if i, ok := byKey[k]; ok {
+			out[i].Counters, out[i].Cost = out[i].Counters.Add(sl.Counters), out[i].Cost.Add(sl.Cost)
+			continue
 		}
+		byKey[k] = len(out)
+		out = append(out, Share{Key: k, Counters: sl.Counters, Cost: sl.Cost})
 	}
-	return sum
+	return out
 }
 
-// Breakdown adds the city's spend up over a window by model, project and
-// session; cost is each session's lifetime cost pro-rated by the
-// window's share of its tokens, an estimate shown as one.
+func same(s string) string { return s }
+
+// Breakdown adds the city's usage up over a window: from the store when
+// it can be read, and from the sessions in memory when it cannot.
 func (c *City) Breakdown(w Window) Breakdown {
-	b := Breakdown{Window: w}
-	byModel, byProject, bySession := map[string]*Share{}, map[string]*Share{}, map[string]*Share{}
-	add := func(m map[string]*Share, key string, tok int64, usd float64, known bool) {
+	if c.ledger == nil {
+		return c.memoryBreakdown(w, stats.ReasonOff)
+	}
+	stored, err := c.ledger.Window(c.Time, w.Hours(), ProjectRoot)
+	if err != nil {
+		reason := c.ledger.Reason()
+		if reason == "" {
+			reason = stats.Reason(err)
+		}
+		return c.memoryBreakdown(w, reason)
+	}
+	b := Breakdown{Window: w, Counters: stored.Counters, Cost: stored.Cost, Priced: true,
+		ByModel: sharesOf(stored.ByModel, same), ByProject: sharesOf(stored.ByProject, baseName), BySession: sharesOf(stored.BySession, same)}
+	for _, h := range stored.Hourly {
+		b.Series = append(b.Series, h.High)
+	}
+	return b
+}
+
+func (c *City) memoryBreakdown(w Window, reason string) Breakdown {
+	b := Breakdown{Window: w, Reason: reason}
+	byProject, bySession := map[string]*Share{}, map[string]*Share{}
+	add := func(m map[string]*Share, key string, u stats.Counters) {
 		if key == "" {
 			key = "-"
 		}
@@ -92,29 +127,35 @@ func (c *City) Breakdown(w Window) Breakdown {
 			share = &Share{Key: key}
 			m[key] = share
 		}
-		share.Tokens += tok
-		share.CostUSD += usd
-		share.CostKnown = share.CostKnown || known
+		share.Counters = share.Counters.Add(u)
 	}
+	var buckets []map[int64]claude.Usage
 	for _, bld := range c.Buildings() {
-		tok := windowUsage(bld, w, c.Time)
-		if tok == 0 {
+		u := counters(windowUsage(bld, w, c.Time))
+		buckets = append(buckets, bld.Session.Hourly)
+		if u == (stats.Counters{}) {
 			continue
 		}
-		usd := 0.0
-		if all := tokens(bld.Session.Usage); all > 0 {
-			usd = bld.Session.CostUSD * float64(tok) / float64(all)
-		}
-		known := bld.Session.CostKnown
-		b.Tokens += tok
-		b.CostUSD += usd
-		b.CostKnown = b.CostKnown || known
-		add(byModel, bld.Session.Model, tok, usd, known)
-		add(byProject, filepath.Base(ProjectRoot(bld.Session.CWD)), tok, usd, known)
-		add(bySession, bld.Session.ID, tok, usd, known)
+		b.Counters = b.Counters.Add(u)
+		add(byProject, filepath.Base(ProjectRoot(bld.Session.CWD)), u)
+		add(bySession, bld.Session.ID, u)
 	}
-	b.ByModel, b.ByProject, b.BySession = shares(byModel), shares(byProject), shares(bySession)
+	b.Cost = stats.Cost{Unpriced: b.Counters.Messages}
+	b.ByProject, b.BySession = shares(byProject), shares(bySession)
+	b.Series = series(w, c.Time, buckets...)
 	return b
+}
+
+// windowUsage sums a session's buckets inside the window.
+func windowUsage(s *Building, w Window, at time.Time) claude.Usage {
+	since := at.Add(-time.Duration(w.Hours())*time.Hour).Unix() / 3600
+	var sum claude.Usage
+	for hour, u := range s.Session.Hourly {
+		if hour > since {
+			sum = sum.Add(u)
+		}
+	}
+	return sum
 }
 
 func shares(m map[string]*Share) []Share {
@@ -123,16 +164,17 @@ func shares(m map[string]*Share) []Share {
 		out = append(out, *s)
 	}
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Tokens != out[j].Tokens {
-			return out[i].Tokens > out[j].Tokens
+		if out[i].Counters.Messages != out[j].Counters.Messages {
+			return out[i].Counters.Messages > out[j].Counters.Messages
 		}
 		return out[i].Key < out[j].Key
 	})
 	return out
 }
 
-// series is tokens per hour over a window, oldest first, from a set of
-// bucket maps.
+// series is messages an hour over a window, oldest first, from a set of
+// bucket maps: what memory can say without adding differently priced
+// counters together.
 func series(w Window, at time.Time, buckets ...map[int64]claude.Usage) []float64 {
 	n := w.Hours()
 	last := at.Unix() / 3600
@@ -141,28 +183,25 @@ func series(w Window, at time.Time, buckets ...map[int64]claude.Usage) []float64
 		for hour, u := range m {
 			i := int(hour - (last - int64(n) + 1))
 			if i >= 0 && i < n {
-				out[i] += float64(tokens(u))
+				out[i] += float64(u.Messages)
 			}
 		}
 	}
 	return out
 }
 
-// Series is the city's tokens per hour over a window, oldest first.
+// Series is the city's series over a window, oldest first: cost an
+// hour from the store, messages an hour from memory.
 func (c *City) Series(w Window) []float64 {
-	var buckets []map[int64]claude.Usage
-	for _, b := range c.Buildings() {
-		buckets = append(buckets, b.Session.Hourly)
-	}
-	return series(w, c.Time, buckets...)
+	return c.Breakdown(w).Series
 }
 
-// Series is the session's tokens per hour over a window, oldest first.
+// Series is the session's messages an hour over a window, oldest first.
 func (b *Building) Series(w Window, at time.Time) []float64 {
 	return series(w, at, b.Session.Hourly)
 }
 
-// Series is the district's tokens per hour over a window, oldest first.
+// Series is the district's messages an hour over a window, oldest first.
 func (d *District) Series(w Window, at time.Time) []float64 {
 	var buckets []map[int64]claude.Usage
 	for _, b := range d.Buildings {

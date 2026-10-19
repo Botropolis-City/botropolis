@@ -1,12 +1,14 @@
 package city_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +29,7 @@ func richSnapshot() state.Snapshot {
 			{Name: "datadog-mcp", Type: "http", Configured: true},
 		},
 		Skills: []state.Skill{{Name: "amberPylon:umberEstuary", Calls: 3, Sessions: 2}, {Name: "git-worktrees", Calls: 1, Sessions: 1}},
-		Power: state.Power{Since: now.Add(-24 * time.Hour), CostUSD: 12.5, CostKnown: true, Fresh: 30_000, Cached: 900_000, Output: 20_000,
+		Power: state.Power{Since: now.Add(-24 * time.Hour), Fresh: 30_000, Cached: 900_000, Output: 20_000,
 			ByModel: map[string]claude.Usage{"claude-opus-5[1m]": {Output: 20_000}}},
 		Stats: &claude.Stats{
 			LastComputed:   now.Add(-48 * time.Hour).Format("2006-01-02"),
@@ -188,20 +190,35 @@ func TestLandmarks(t *testing.T) {
 		})
 	})
 
-	t.Run("when the plant's cost is unknown", func(t *testing.T) {
+	t.Run("when statistics cannot be read", func(t *testing.T) {
 		unpriced := c.Plant
-		unpriced.Power.CostUSD, unpriced.Power.CostKnown = 0, false
 		unpriced.BudgetUSD = 50
 		card := unpriced.Card()
 
-		t.Run("it should show a dash and say why", func(t *testing.T) {
-			assert.Contains(t, card.Lines, "cost     \u2014 in 24h (no cost-state in any transcript)")
+		t.Run("it should say cost and the split by model need statistics", func(t *testing.T) {
+			assert.Contains(t, card.Lines, "cost and by model need statistics")
 		})
 
-		t.Run("it should not measure a budget it cannot", func(t *testing.T) {
-			for _, line := range card.Lines {
-				assert.NotContains(t, line, "budget")
-			}
+		t.Run("it should give no dollars", func(t *testing.T) {
+			assert.NotContains(t, strings.Join(card.Lines, "\n"), "$")
+		})
+	})
+
+	t.Run("when the store priced the day", func(t *testing.T) {
+		priced := city.BuildWithLedger(snapshot(session("a", cinders, state.Working)), city.NewLayout(), &fakeLedger{window: stored}).Plant
+		priced.BudgetUSD = 50
+		card := priced.Card()
+
+		t.Run("it should give the cost and messages in the one wording", func(t *testing.T) {
+			assert.Contains(t, card.Lines, stats.Headline(stored.Cost, stored.Counters.Messages)+" in 24 h")
+		})
+
+		t.Run("it should measure the budget against the cost", func(t *testing.T) {
+			assert.Contains(t, card.Lines, "budget   $50/day, 5% used")
+		})
+
+		t.Run("it should give each model's cost", func(t *testing.T) {
+			assert.Contains(t, card.Lines, "claude-opus-5-5  "+stats.Headline(cost(2), 3))
 		})
 	})
 
@@ -209,12 +226,10 @@ func TestLandmarks(t *testing.T) {
 		t.Run("it should describe the plant with cost and tokens", func(t *testing.T) {
 			card := c.Plant.Card()
 			assert.Equal(t, "Power plant", card.Title)
-			assert.Contains(t, card.Lines, "cost     ~$12.50 in 24h (pro-rated)")
 			assert.Contains(t, card.Lines, "fresh    30k tokens")
 			assert.Contains(t, card.Lines, "cached   900k tokens")
 			assert.Contains(t, card.Lines, "output   20k tokens")
 			assert.Contains(t, card.Lines, "hit rate 97% of prompt tokens from cache")
-			assert.Contains(t, card.Lines, "claude-opus-5[1m]  20k out")
 		})
 
 		t.Run("it should describe a tower with its calls", func(t *testing.T) {

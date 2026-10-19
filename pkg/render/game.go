@@ -28,6 +28,7 @@ import (
 	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -72,6 +73,9 @@ type Actor interface {
 }
 
 type Game struct {
+	// ledger is the statistics store as this window reads it, nil
+	// while statistics are off (item 116).
+	ledger *stats.Ledger
 	// stopping is set by a signal: the loop ends at its next update, so
 	// Run returns and whoever started it can clean up (item 114).
 	stopping atomic.Bool

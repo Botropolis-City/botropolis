@@ -128,6 +128,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Usage is counted one way everywhere, and its cost is the list price of each counter.**
+  The power plant, its trains and the resource strip read the statistics store, each message under the model that answered it, and price it at Anthropic's API list prices for that model: input, 5-minute and 1-hour cache writes, cache reads and output each at their own rate, fast mode, US-only inference and long prompts included, and web searches per use.
+  A cost is labelled "at API list prices" with its messages beside it, and the counters are listed apart under it, never added together; cache writes whose lifetime a transcript did not record make the cost a range.
+  The plant used to show "tokens" that added cache reads to output and pro-rated each session's lifetime cost across the window, and it credited a session's whole usage to the model it was using last.
+  Fresh tokens are now input and cache writes, without output, which has a chip of its own, so the hit rate is the share of prompt tokens read from the cache.
+  A train's wagon stands for dollars rather than tokens.
+  While statistics are off, or the store cannot be read, the plant gives no dollars and no split by model, the trains stay in the yard, and the strip says why in a chip of its own.
+  Claude Code 2.1.286's own figure prices Sonnet 5.5's cache reads at the rate before Anthropic's cut of 7 October 2026; Botropolis prices each message at the rate in force when it was sent.
+  Codex sessions no longer add to the plant, whose counters and prices are Claude's.
+
 - **The power plant, the library and city hall face you, with their names on their walls.**
   All three are turned round, so their front doors face the camera's home heading, and the plant's chimney turns with it.
   Each one's name is painted in capitals on a clear stretch of one of the walls you can see, leaning with the wall and turning with the camera, never across a door or a window, and moved to the part of the wall still in view, stacked if it has to be, when another landmark stands in front.

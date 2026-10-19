@@ -5,38 +5,42 @@ import (
 	"hash/fnv"
 	"math"
 
-	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/plan"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 // The train is the ledger: one train per model on the freight loop,
-// with a wagon per unit of tokens spent over the day, so the length of
-// each train is that model's share of the spend. Decided 2026-09-18.
+// with a wagon per unit of cost over the day, so the length of each
+// train is that model's share of the spend. Decided 2026-09-18; a wagon
+// stands for dollars rather than tokens since item 116, because tokens
+// of different models and counters are not priced alike. Trains run only
+// on a priced breakdown, since only the store says which model sent
+// each message.
 
 // MaxWagons is the longest train; the wagon unit grows to keep it.
 const MaxWagons = 6
 
 // Train is one model's spend over the window, on the loop.
 type Train struct {
-	Model     string
-	Tokens    int64
-	Unit      int64
-	Wagons    int
-	CostUSD   float64
-	CostKnown bool
-	Window    Window
+	Model    string
+	Counters stats.Counters
+	Cost     stats.Cost
+	// Unit is the dollars one wagon stands for.
+	Unit   float64
+	Wagons int
+	Window Window
 	// Hue picks the locomotive and wagon colour, one of ContainerHues.
 	Hue int
 }
 
-// TrainUnit is the tokens one wagon stands for: the smallest 1-2-5 step
-// from a thousand that keeps the biggest train to MaxWagons.
-func TrainUnit(maxTokens int64) int64 {
-	steps := []int64{1, 2, 5}
+// TrainUnit is the dollars one wagon stands for: the smallest 1-2-5
+// step from a cent that keeps the dearest train to MaxWagons.
+func TrainUnit(maxUSD float64) float64 {
+	steps := []float64{1, 2, 5}
 	for k := 0; ; k++ {
 		for _, s := range steps {
-			unit := s * int64(math.Pow10(3+k))
-			if maxTokens <= unit*MaxWagons {
+			unit := s * math.Pow10(k-2)
+			if maxUSD <= unit*MaxWagons*(1+1e-9) {
 				return unit
 			}
 		}
@@ -44,22 +48,22 @@ func TrainUnit(maxTokens int64) int64 {
 }
 
 func trains(b Breakdown) []*Train {
-	if len(b.ByModel) == 0 {
+	if !b.Priced || len(b.ByModel) == 0 {
 		return nil
 	}
-	unit := TrainUnit(b.ByModel[0].Tokens)
+	unit := TrainUnit(b.ByModel[0].Cost.High)
 	out := make([]*Train, 0, len(b.ByModel))
 	for _, share := range b.ByModel {
-		if share.Tokens <= 0 {
+		if share.Cost.High <= 0 {
 			continue
 		}
-		wagons := int((share.Tokens + unit - 1) / unit)
+		wagons := int(math.Ceil(share.Cost.High/unit - 1e-9))
 		if wagons < 1 {
 			wagons = 1
 		}
 		out = append(out, &Train{
-			Model: share.Key, Tokens: share.Tokens, Unit: unit, Wagons: wagons,
-			CostUSD: share.CostUSD, CostKnown: share.CostKnown, Window: b.Window, Hue: modelHue(share.Key),
+			Model: share.Key, Counters: share.Counters, Cost: share.Cost, Unit: unit, Wagons: wagons,
+			Window: b.Window, Hue: modelHue(share.Key),
 		})
 	}
 	return out
@@ -73,9 +77,9 @@ func modelHue(model string) int {
 
 func (t *Train) Card() Card {
 	return Card{Title: t.Model, Lines: []string{
-		fmt.Sprintf("tokens   %s in %s", format.Tokens(float64(t.Tokens)), t.Window),
-		fmt.Sprintf("wagons   %d, one per %s tokens", t.Wagons, format.Tokens(float64(t.Unit))),
-		"cost     " + format.USD(t.CostUSD, t.CostKnown) + " (pro-rated)",
+		stats.Headline(t.Cost, t.Counters.Messages) + " in " + t.Window.String(),
+		stats.CountersLine(t.Counters),
+		fmt.Sprintf("wagons   %d, one per $%.2f", t.Wagons, t.Unit),
 	}}
 }
 

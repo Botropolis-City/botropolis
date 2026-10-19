@@ -572,24 +572,6 @@ func TestAggregates(t *testing.T) {
 			assert.Equal(t, int64(50), power.Output)
 		})
 
-		t.Run("it should pro-rate the session's cost by the window's share of tokens", func(t *testing.T) {
-			assert.InDelta(t, 5, power.CostUSD, 1e-9)
-		})
-
-		t.Run("it should know the cost", func(t *testing.T) {
-			assert.True(t, power.CostKnown)
-		})
-
-		t.Run("and no transcript in the window carries cost-state", func(t *testing.T) {
-			unpriced := recent
-			unpriced.Cost = claude.Cost{}
-			power := state.PowerSince([]claude.Transcript{old, unpriced}, now.Add(-state.PowerWindow))
-
-			t.Run("it should not know the cost", func(t *testing.T) {
-				assert.False(t, power.CostKnown)
-			})
-		})
-
 		t.Run("it should leave out sessions older than the window", func(t *testing.T) {
 			_, hasOld := power.ByModel["claude-haiku-4-5-20251001"]
 			assert.False(t, hasOld)

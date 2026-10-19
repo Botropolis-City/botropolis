@@ -125,6 +125,8 @@ const (
 
 type Scene struct {
 	snapshot state.Snapshot
+	// ledger is the statistics store, nil when statistics are off.
+	ledger Ledger
 	// focus is the group the map is focused on, if any (item 87).
 	focus string
 	// dive is the dive's stepped row plus one, 0 before any step, and
@@ -675,12 +677,19 @@ func (s *Scene) SetLadder(t state.Thresholds) {
 	s.SetSnapshot(s.snapshot)
 }
 
+// SetLedger has the city read its usage from a statistics store; nil
+// is statistics turned off (item 116).
+func (s *Scene) SetLedger(l Ledger) {
+	s.ledger = l
+	s.SetSnapshot(s.snapshot)
+}
+
 func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.snapshot = snapshot
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
 	was := s.city.StreetCells
-	s.city = build(snapshot, s.layout, s.ladder, false)
+	s.city = build(snapshot, s.layout, s.ladder, false, s.ledger)
 	s.city.Face(s.camera.Heading)
 	s.noteOvergrowth(was, s.now())
 	s.noteMowing(s.now())

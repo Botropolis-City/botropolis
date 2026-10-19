@@ -30,14 +30,14 @@ func TestMulti(t *testing.T) {
 	a := fake{name: "claude", dirs: []string{"/a"}, snapshot: state.Snapshot{
 		Sessions: []state.Session{{ID: "1", State: state.Working}},
 		Servers:  []state.Server{{Name: "atlassian"}},
-		Power:    state.Power{CostUSD: 1.5, CostKnown: true, Fresh: 10, Cached: 100, ByModel: map[string]claude.Usage{"opus": {Output: 5}}},
+		Power:    state.Power{Fresh: 10, Cached: 100, ByModel: map[string]claude.Usage{"opus": {Output: 5}}},
 		Stats:    &claude.Stats{TotalSessions: 513},
 		Teams:    []claude.Team{{Name: "review", LeadSessionID: "1"}},
 		Groups:   []state.Group{{ID: "g1", Members: []string{"1"}}},
 	}}
 	b := fake{name: "codex", dirs: []string{"/b"}, snapshot: state.Snapshot{
 		Sessions: []state.Session{{ID: "2", State: state.Resting, Harness: "codex"}},
-		Power:    state.Power{CostUSD: 0.5, Fresh: 1, ByModel: map[string]claude.Usage{"opus": {Output: 1}, "gpt": {Output: 7}}},
+		Power:    state.Power{Fresh: 1, ByModel: map[string]claude.Usage{"opus": {Output: 1}, "gpt": {Output: 7}}},
 	}}
 
 	t.Run("when two harnesses are merged", func(t *testing.T) {
@@ -51,13 +51,9 @@ func TestMulti(t *testing.T) {
 		})
 
 		t.Run("it should add the power up across harnesses", func(t *testing.T) {
-			assert.InDelta(t, 2.0, snapshot.Power.CostUSD, 1e-9)
+			assert.Equal(t, int64(11), snapshot.Power.Fresh)
 			assert.Equal(t, int64(6), snapshot.Power.ByModel["opus"].Output)
 			assert.Equal(t, int64(7), snapshot.Power.ByModel["gpt"].Output)
-		})
-
-		t.Run("it should know the cost when either harness does", func(t *testing.T) {
-			assert.True(t, snapshot.Power.CostKnown)
 		})
 
 		t.Run("it should keep the servers", func(t *testing.T) {
@@ -84,15 +80,6 @@ func TestMulti(t *testing.T) {
 
 		t.Run("it should union the watch directories", func(t *testing.T) {
 			assert.Equal(t, []string{"/a", "/b"}, harness.NewMulti(a, b).WatchDirs())
-		})
-	})
-
-	t.Run("when neither harness knows the cost", func(t *testing.T) {
-		snapshot, err := harness.NewMulti(b, b).Load(now)
-		require.NoError(t, err)
-
-		t.Run("it should not know it either", func(t *testing.T) {
-			assert.False(t, snapshot.Power.CostKnown)
 		})
 	})
 
