@@ -184,6 +184,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `z` (`labels_key`) turns every label off and on, as does the settings panel's new `labels` row (shown or hidden); the signs on their posts and the names painted on buildings stay, because they are part of the map, and holding `e` still captions everything.
   Pointing at a car fades every label outside its two districts and its road, with the rest of the city.
 
+- **A city that is not your own leaves nothing behind when it stops.**
+  A `--home`, `--headless`, `--record` or `--script` run works in a temporary state directory, and it was sometimes left behind: always on Ctrl-C, and often under load when the run ended normally.
+  Ctrl-C or SIGTERM now stops the city and removes the directory; a second Ctrl-C while it stops exits at once and says so.
+  A `--headless` run cleans up after itself however its virtual display ends, and the next such run removes any directory left by one that crashed.
+
 - **A recorded clip plays at the city's own speed.**
   With `--record`, the city's clock counted updates while the clip counted drawn frames, and on software GL several updates ran per frame, so clips ran about twice to three times fast and every debounce, ease and transition in them with it.
   A recording now runs exactly one update per drawn frame, so N seconds of clip are N seconds on the city's clock, and it ends by printing how many frames it wrote and how much of the city's clock they span.
