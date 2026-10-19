@@ -12,7 +12,14 @@ import (
 	"botropolis.city/botropolis/pkg/statedir"
 )
 
-const ledgerFile = "sessions.json"
+const (
+	ledgerFile = "sessions.json"
+	// ledgerVersion is the shape this build writes, and
+	// ledgerReadableFrom the oldest version whose builds can read it
+	// (item 149).
+	ledgerVersion      = 2
+	ledgerReadableFrom = 2
+)
 
 // Ledger is every session the city has shown, by id: Botropolis's own
 // record of where each one was and when, so a session keeps its lot
@@ -86,18 +93,56 @@ func LoadLedger(path string) (Ledger, error) {
 	if err != nil {
 		return Ledger{}, err
 	}
-	ledger := Ledger{}
-	if err := json.Unmarshal(data, &ledger); err != nil {
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(data, &probe); err != nil {
 		return Ledger{}, err
 	}
+	ledger := Ledger{}
+	if _, versioned := probe["version"]; !versioned {
+		if err := json.Unmarshal(data, &ledger); err != nil {
+			return Ledger{}, err
+		}
+		return ledger, nil
+	}
+	var file ledgerFileShape
+	if err := json.Unmarshal(data, &file); err != nil {
+		return Ledger{}, err
+	}
+	if file.Version > ledgerVersion && (file.ReadableFrom == 0 || file.ReadableFrom > ledgerVersion) {
+		return Ledger{}, statedir.NewerError{Path: path, Kind: "ledger", Version: file.Version, Ours: ledgerVersion}
+	}
+	for id, e := range file.Sessions {
+		ledger[id] = e
+	}
 	return ledger, nil
+}
+
+// ledgerFileShape is the ledger on disk. Before version 2 the file was
+// the bare map, which LoadLedger still reads (item 149).
+type ledgerFileShape struct {
+	Version      int    `json:"version"`
+	ReadableFrom int    `json:"readableFrom"`
+	Sessions     Ledger `json:"sessions"`
+}
+
+// onDisk is the version a save writes: this build's, or a newer one
+// already there that this build can read, so a save never marks the
+// file older than what a newer build put in it.
+func onDisk(path string) (version, readableFrom int) {
+	var file ledgerFileShape
+	data, err := os.ReadFile(path)
+	if err == nil && json.Unmarshal(data, &file) == nil && file.Version > ledgerVersion && file.ReadableFrom > 0 && file.ReadableFrom <= ledgerVersion {
+		return file.Version, file.ReadableFrom
+	}
+	return ledgerVersion, ledgerReadableFrom
 }
 
 func (l Ledger) Save(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(l, "", "  ")
+	version, readableFrom := onDisk(path)
+	data, err := json.MarshalIndent(ledgerFileShape{Version: version, ReadableFrom: readableFrom, Sessions: l}, "", "  ")
 	if err != nil {
 		return err
 	}

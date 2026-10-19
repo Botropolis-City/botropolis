@@ -14,8 +14,13 @@ import (
 )
 
 const (
-	layoutVersion = 1
-	layoutFile    = "layout.json"
+	// layoutVersion is the shape this build writes, and
+	// layoutReadableFrom the oldest version whose builds can still read
+	// and write a layout at it: a change that only adds fields leaves it
+	// alone, as stats.db's ReadableFrom does (item 149).
+	layoutVersion      = 1
+	layoutReadableFrom = 1
+	layoutFile         = "layout.json"
 )
 
 type districtLayout struct {
@@ -60,9 +65,12 @@ func (l *Layout) keepDriveway(root string, dc, dr, at int) {
 // the plan and each live session's slot in its district, so the map you
 // have learned does not move under you.
 type Layout struct {
-	Version   int                        `json:"version"`
-	Districts map[string]*districtLayout `json:"districts"`
-	Plan      *plan.Memory               `json:"plan,omitempty"`
+	Version int `json:"version"`
+	// ReadableFrom is the oldest layout version whose builds can read
+	// this file; a newer file keeps its own when this build saves it.
+	ReadableFrom int                        `json:"readableFrom"`
+	Districts    map[string]*districtLayout `json:"districts"`
+	Plan         *plan.Memory               `json:"plan,omitempty"`
 	// Hidden and Starred are map-only marks on projects, never written
 	// anywhere near ~/.claude.
 	Hidden  map[string]bool `json:"hidden,omitempty"`
@@ -113,7 +121,7 @@ func (l *Layout) SetDistrictType(root string, t DistrictType) {
 }
 
 func NewLayout() *Layout {
-	return &Layout{Version: layoutVersion, Districts: map[string]*districtLayout{}, Plan: plan.NewMemory()}
+	return &Layout{Version: layoutVersion, ReadableFrom: layoutReadableFrom, Districts: map[string]*districtLayout{}, Plan: plan.NewMemory()}
 }
 
 func (l *Layout) IsHidden(root string) bool  { return l.Hidden[root] }
@@ -169,8 +177,14 @@ func LoadLayout(path string) (*Layout, error) {
 	if err := json.Unmarshal(data, &layout); err != nil {
 		return nil, err
 	}
-	if layout.Version != layoutVersion || layout.Districts == nil {
-		return NewLayout(), nil
+	if layout.Version > layoutVersion && (layout.ReadableFrom == 0 || layout.ReadableFrom > layoutVersion) {
+		return nil, statedir.NewerError{Path: path, Kind: "layout", Version: layout.Version, Ours: layoutVersion}
+	}
+	if layout.Version < layoutVersion {
+		layout.Version, layout.ReadableFrom = layoutVersion, layoutReadableFrom
+	}
+	if layout.Districts == nil {
+		layout.Districts = map[string]*districtLayout{}
 	}
 	for _, d := range layout.Districts {
 		if d.Slots == nil {

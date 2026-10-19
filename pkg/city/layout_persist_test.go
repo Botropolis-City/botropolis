@@ -74,17 +74,6 @@ func TestLayoutPersistence(t *testing.T) {
 		})
 	})
 
-	t.Run("when the layout file is from an older version", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "layout.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"version":0,"districts":{"/p":{"slot":9,"slots":{}}}}`), 0o600))
-		layout, err := city.LoadLayout(path)
-		require.NoError(t, err)
-
-		t.Run("it should start over rather than trust it", func(t *testing.T) {
-			assert.Empty(t, layout.Districts)
-		})
-	})
-
 	t.Run("when the layout file is not valid JSON", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "layout.json")
 		require.NoError(t, os.WriteFile(path, []byte(`{"version":`), 0o600))

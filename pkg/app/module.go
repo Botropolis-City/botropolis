@@ -353,6 +353,9 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	}
 	layoutPath := city.LayoutPath()
 	layout, err := city.LoadLayout(layoutPath)
+	if errors.Is(err, statedir.ErrNewer) {
+		return err
+	}
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v; starting from an empty layout\n", err)
 		layout = city.NewLayout()
