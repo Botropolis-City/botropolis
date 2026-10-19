@@ -14,8 +14,8 @@ import (
 func TestNetworksPerView(t *testing.T) {
 	// Bug 48 changed this. The base view used to draw no network at
 	// all, on the subtractive principle that a view says something by
-	// taking things away. Aria asked for the cars back, and traffic is
-	// the one network that can answer for itself: a car's hover card
+	// taking things away. Aria asked for the cars back, and traffic was
+	// the first network that could answer for itself: a car's hover card
 	// names the two projects and what passes between them, so it is not
 	// the unexplained motion the principle was guarding against.
 	t.Run("when Attention is up", func(t *testing.T) {
@@ -29,9 +29,16 @@ func TestNetworksPerView(t *testing.T) {
 			require.True(t, city.ViewAttention.Shows(city.NetworkCranes))
 		})
 
+		// Item 78: a train answers for itself too — its card names its
+		// model, its tokens, the unit a wagon stands for and the cost —
+		// so the loop runs on the main view whenever Spend would run it.
+		t.Run("it should draw the freight, which explains itself on hover", func(t *testing.T) {
+			require.True(t, city.ViewAttention.Shows(city.NetworkFreight))
+		})
+
 		t.Run("it should draw no other network, so the view stays quiet", func(t *testing.T) {
 			for _, n := range city.Networks {
-				if n == city.NetworkTraffic || n == city.NetworkCranes {
+				if n == city.NetworkTraffic || n == city.NetworkCranes || n == city.NetworkFreight {
 					continue
 				}
 				require.False(t, city.ViewAttention.Shows(n), n.String())

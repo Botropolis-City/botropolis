@@ -49,11 +49,11 @@ func (n Network) String() string {
 }
 
 // shown is which networks each view draws. A view not in the map draws
-// none, which is the answer for Attention and for every view that counts
-// something the networks do not carry.
+// none, which is the answer for every view that counts something the
+// networks do not carry.
 var shown = map[View][]Network{
-	// The base view draws traffic and nothing else. Bug 48: Aria asked
-	// for cars on the main view, and the reason it is safe to break the
+	// The base view draws only the movers that explain themselves.
+	// Bug 48: Aria asked for cars on the main view, and the reason it is safe to break the
 	// subtractive rule here is that a car already answers for itself —
 	// its hover card names the two projects and the messages, files and
 	// sessions passing between them, which is what section 10's item 5
@@ -62,7 +62,11 @@ var shown = map[View][]Network{
 	//
 	// A drone answers for itself the same way, so the drones show
 	// wherever the cars do (item 89).
-	ViewAttention: {NetworkTraffic, NetworkCranes},
+	//
+	// So does a train: its card names its model, its tokens, the unit a
+	// wagon stands for and the cost, so the loop runs here whenever Spend
+	// would run it, and an idle day's loop stays empty (item 78).
+	ViewAttention: {NetworkTraffic, NetworkCranes, NetworkFreight},
 	ViewSpend:     {NetworkWires, NetworkFreight},
 	ViewServers:   {NetworkBeams},
 	ViewTraffic:   {NetworkTraffic, NetworkCranes},

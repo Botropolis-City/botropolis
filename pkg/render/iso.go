@@ -1323,7 +1323,7 @@ func towerTint(t *city.Tower, viewing, unlit bool) *ebiten.ColorScale {
 
 // trafficCars and freight are the two mover networks behind their views:
 // the cars are what Traffic is about and the train is what Spend is,
-// and Attention pays for neither. Gating here rather than at each draw
+// and Attention runs both, because each explains itself on hover. Gating here rather than at each draw
 // keeps the cost out of the sorted list as well as off the screen —
 // nothing is placed, so nothing is depth-sorted.
 func (g *Game) trafficCars(c *city.City, seconds float64) []car {
