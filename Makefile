@@ -21,6 +21,9 @@ GO_MOD ?= go.mod
 GO_TOOLCHAIN := $(shell awk '$$1 == "toolchain" { print $$2 }' ${GO_MOD})
 export GOTOOLCHAIN := ${GO_TOOLCHAIN}
 GOLANGCI_LINT := go tool -modfile=tools/lint/go.mod golangci-lint
+# Item 133: empty for make lint. The format probe passes
+# --allow-parallel-runners, so another session's lint lock cannot fail it.
+GOLANGCI_LINT_FLAGS ?=
 GOLANGCI_LINT_PIN := $(shell awk '$$1 == "github.com/golangci/golangci-lint/v2" { print $$2 }' tools/lint/go.mod)
 
 MODULE := botropolis.city/botropolis
@@ -192,7 +195,7 @@ bench ::
 lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check asset-sources-check
 	$(LOG) "Linting"
 	@go vet ./...
-	@${GOLANGCI_LINT} run ./...
+	@${GOLANGCI_LINT} run ${GOLANGCI_LINT_FLAGS} ./...
 
 go-version-check ::
 	$(LOG) "Checking Go is the toolchain go.mod pins"
