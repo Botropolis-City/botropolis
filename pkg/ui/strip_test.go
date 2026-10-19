@@ -31,7 +31,12 @@ func findChip(chips []ui.Chip, text string) (ui.Chip, bool) {
 
 func TestStripChips(t *testing.T) {
 	t.Run("when the summary is quiet", func(t *testing.T) {
-		chips := ui.StripChips(city.Summary{Working: 2, Resting: 5, FreshPerH: 1500, CachedPerH: 20000, CostUSD: 1.5, CostKnown: true, HitRatio: 0.9, MCPCalls: 3})
+		chips := ui.StripChips(city.Summary{Working: 2, Resting: 5, FreshPerH: 1500, CachedPerH: 20000, OutputPerH: 700, CostUSD: 1.5, CostKnown: true, HitRatio: 0.9, MCPCalls: 3})
+
+		t.Run("it should give output its own chip", func(t *testing.T) {
+			_, ok := findChip(chips, "700/h out")
+			assert.True(t, ok)
+		})
 
 		t.Run("it should lead with the working chip", func(t *testing.T) {
 			assert.Equal(t, "2 working", chips[0].Text)

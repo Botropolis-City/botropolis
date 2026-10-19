@@ -27,7 +27,7 @@ func session(id, cwd string, s state.State) state.Session {
 	return state.Session{
 		ID: id, CWD: cwd, State: s, Title: "Fix the CI queue", Branch: "main",
 		Model: "claude-opus-5[1m]", ContextPercent: 25, ContextTokens: 250_000, ContextWindow: 1_000_000,
-		FreshTokensPerHour: 152_000, CacheReadPerHour: 8_900_000,
+		FreshTokensPerHour: 152_000, CacheReadPerHour: 8_900_000, OutputPerHour: 41_000,
 		Usage:     claude.Usage{Input: 1000, Output: 600, CacheRead: 2000, Messages: 3},
 		Subagents: 4, SubagentsInFlight: 1, StartedAt: now.Add(-5*time.Hour - 6*time.Minute), LastActivity: now.Add(-6 * time.Minute),
 		Hooked: true,

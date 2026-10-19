@@ -17,6 +17,7 @@ type Summary struct {
 	Resting    int
 	FreshPerH  float64
 	CachedPerH float64
+	OutputPerH float64
 	CostUSD    float64
 	CostKnown  bool
 	HitRatio   float64
@@ -63,6 +64,7 @@ func (c *City) Summary() Summary {
 		if state.Live(b.Session.State) {
 			s.FreshPerH += b.Session.FreshTokensPerHour
 			s.CachedPerH += b.Session.CacheReadPerHour
+			s.OutputPerH += b.Session.OutputPerHour
 			s.Subagents += b.Session.SubagentsInFlight
 			s.Errors += b.Session.APIErrors
 		}

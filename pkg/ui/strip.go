@@ -30,6 +30,7 @@ func StripChips(s city.Summary) []Chip {
 	chips = append(chips,
 		Chip{Text: format.Tokens(s.FreshPerH) + "/h fresh"},
 		Chip{Text: format.Tokens(s.CachedPerH) + "/h cached"},
+		Chip{Text: format.Tokens(s.OutputPerH) + "/h out"},
 		costChip(s),
 		Chip{Text: "hit " + format.Percent(100*s.HitRatio)},
 	)

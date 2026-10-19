@@ -329,6 +329,7 @@ func (p Plant) Card() Card {
 	lines = append(lines,
 		fmt.Sprintf("fresh    %s tokens", format.Tokens(float64(p.Power.Fresh))),
 		fmt.Sprintf("cached   %s tokens", format.Tokens(float64(p.Power.Cached))),
+		fmt.Sprintf("output   %s tokens", format.Tokens(float64(p.Power.Output))),
 		fmt.Sprintf("hit rate %s of prompt tokens from cache", format.Percent(100*p.Power.HitRatio())),
 	)
 	models := make([]string, 0, len(p.Power.ByModel))

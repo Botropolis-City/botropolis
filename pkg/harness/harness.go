@@ -64,6 +64,7 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		merged.Power.CostKnown = merged.Power.CostKnown || snapshot.Power.CostKnown
 		merged.Power.Fresh += snapshot.Power.Fresh
 		merged.Power.Cached += snapshot.Power.Cached
+		merged.Power.Output += snapshot.Power.Output
 		merged.HeftsRead = merged.HeftsRead && snapshot.HeftsRead
 	}
 	m.heights.ApplyOn(merged.Sessions, sample, merged.HeftsRead, now)

@@ -17,7 +17,7 @@ func richSnapshot() state.Snapshot {
 	a.PRs = []claude.PR{{Number: 1181, URL: "https://github.com/mCedar/mullet/pull/1181"}}
 	a.APIErrors = 2
 	b := session("b", botropolis, state.Unattended)
-	b.FreshTokensPerHour, b.CacheReadPerHour = 0, 0
+	b.FreshTokensPerHour, b.CacheReadPerHour, b.OutputPerHour = 0, 0, 0
 	c := session("c", cinders, state.Resting)
 	return state.Snapshot{
 		At:       now,
@@ -27,7 +27,7 @@ func richSnapshot() state.Snapshot {
 			{Name: "datadog-mcp", Type: "http", Configured: true},
 		},
 		Skills: []state.Skill{{Name: "amberPylon:umberEstuary", Calls: 3, Sessions: 2}, {Name: "git-worktrees", Calls: 1, Sessions: 1}},
-		Power: state.Power{Since: now.Add(-24 * time.Hour), CostUSD: 12.5, CostKnown: true, Fresh: 30_000, Cached: 900_000,
+		Power: state.Power{Since: now.Add(-24 * time.Hour), CostUSD: 12.5, CostKnown: true, Fresh: 30_000, Cached: 900_000, Output: 20_000,
 			ByModel: map[string]claude.Usage{"claude-opus-5[1m]": {Output: 20_000}}},
 		Stats: &claude.Stats{
 			LastComputed:   now.Add(-48 * time.Hour).Format("2006-01-02"),
@@ -212,6 +212,7 @@ func TestLandmarks(t *testing.T) {
 			assert.Contains(t, card.Lines, "cost     ~$12.50 in 24h (pro-rated)")
 			assert.Contains(t, card.Lines, "fresh    30k tokens")
 			assert.Contains(t, card.Lines, "cached   900k tokens")
+			assert.Contains(t, card.Lines, "output   20k tokens")
 			assert.Contains(t, card.Lines, "hit rate 97% of prompt tokens from cache")
 			assert.Contains(t, card.Lines, "claude-opus-5[1m]  20k out")
 		})

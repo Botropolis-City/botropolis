@@ -42,8 +42,12 @@ func TestLoadingManyRollouts(t *testing.T) {
 			assert.Equal(t, ids, got)
 		})
 
-		t.Run("it should count every rollout's power once", func(t *testing.T) {
-			assert.Equal(t, int64(800*count), first.Power.ByModel["gpt-5-codex"].Output)
+		t.Run("it should count every rollout's usage once", func(t *testing.T) {
+			var output int64
+			for _, s := range first.Sessions {
+				output += s.Usage.Output
+			}
+			assert.Equal(t, int64(800*count), output)
 		})
 
 		t.Run("and it is loaded again with nothing changed", func(t *testing.T) {

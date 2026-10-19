@@ -92,8 +92,8 @@ func TestCodexLoader(t *testing.T) {
 			assert.False(t, s.Alive)
 		})
 
-		t.Run("it should count its power", func(t *testing.T) {
-			assert.Equal(t, int64(800), snapshot.Power.ByModel["gpt-5-codex"].Output)
+		t.Run("it should leave the plant's power to Claude", func(t *testing.T) {
+			assert.Empty(t, snapshot.Power.ByModel)
 		})
 	})
 

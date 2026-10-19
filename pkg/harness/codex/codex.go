@@ -100,11 +100,6 @@ func (l *Loader) Load(now time.Time) (state.Snapshot, error) {
 			continue
 		}
 		snapshot.Sessions = append(snapshot.Sessions, toSession(e.session, info.ModTime(), now))
-		if !e.session.LastAt.Before(snapshot.Power.Since) && e.session.Model != "" {
-			snapshot.Power.ByModel[e.session.Model] = snapshot.Power.ByModel[e.session.Model].Add(e.session.Usage)
-			snapshot.Power.Fresh += e.session.Usage.Input + e.session.Usage.Output
-			snapshot.Power.Cached += e.session.Usage.CacheRead
-		}
 	}
 	l.cache = cache
 	return snapshot, nil

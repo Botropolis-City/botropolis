@@ -36,6 +36,10 @@ func TestSummary(t *testing.T) {
 			assert.InDelta(t, 152_000, s.FreshPerH, 1e-9)
 		})
 
+		t.Run("it should sum output rates apart from fresh ones", func(t *testing.T) {
+			assert.InDelta(t, 41_000, s.OutputPerH, 1e-9)
+		})
+
 		t.Run("it should carry the plant's cost and hit ratio", func(t *testing.T) {
 			assert.InDelta(t, 12.5, s.CostUSD, 1e-9)
 			assert.True(t, s.CostKnown)

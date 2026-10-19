@@ -103,8 +103,12 @@ func TestBuild(t *testing.T) {
 			assert.InDelta(t, 3600.0, session.TokensPerHour, 1e-9)
 		})
 
-		t.Run("it should rate fresh tokens separately from cache reads", func(t *testing.T) {
-			assert.InDelta(t, 2600.0, session.FreshTokensPerHour, 1e-9)
+		t.Run("it should rate fresh tokens, input and cache writes, apart from cache reads and output", func(t *testing.T) {
+			assert.InDelta(t, 2000.0, session.FreshTokensPerHour, 1e-9)
+		})
+
+		t.Run("it should rate output on its own", func(t *testing.T) {
+			assert.InDelta(t, 600.0, session.OutputPerHour, 1e-9)
 		})
 
 		t.Run("it should rate cache reads separately from fresh tokens", func(t *testing.T) {
@@ -556,9 +560,16 @@ func TestAggregates(t *testing.T) {
 		}
 		power := state.PowerSince([]claude.Transcript{old, recent}, now.Add(-state.PowerWindow))
 
-		t.Run("it should count only the tokens spent inside the window", func(t *testing.T) {
-			assert.Equal(t, int64(50+50+50), power.Fresh)
+		t.Run("it should count only the fresh tokens, input and cache writes, spent inside the window", func(t *testing.T) {
+			assert.Equal(t, int64(50+50), power.Fresh)
+		})
+
+		t.Run("it should count only the cache reads inside the window", func(t *testing.T) {
 			assert.Equal(t, int64(350), power.Cached)
+		})
+
+		t.Run("it should count the output inside the window on its own", func(t *testing.T) {
+			assert.Equal(t, int64(50), power.Output)
 		})
 
 		t.Run("it should pro-rate the session's cost by the window's share of tokens", func(t *testing.T) {

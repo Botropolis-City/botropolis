@@ -78,8 +78,11 @@ type Session struct {
 	TokensPerHour      float64      `json:"tokensPerHour"`
 	FreshTokensPerHour float64      `json:"freshTokensPerHour"`
 	CacheReadPerHour   float64      `json:"cacheReadPerHour"`
-	CostUSD            float64      `json:"costUSD"`
-	CostKnown          bool         `json:"costKnown"`
+	// OutputPerHour is output tokens an hour, kept apart from fresh
+	// tokens because output is priced apart (item 116).
+	OutputPerHour float64 `json:"outputPerHour"`
+	CostUSD       float64 `json:"costUSD"`
+	CostKnown     bool    `json:"costKnown"`
 	// Heft is the session's weight over its whole life, subagents
 	// included; HeftPartial marks one read only through the catalogue's
 	// window, so a lower bound. Storeys is its building's height on the
@@ -165,9 +168,13 @@ type Power struct {
 	CostUSD float64                 `json:"costUSD"`
 	// CostKnown is whether any transcript in the window carried a
 	// cost-state record; without one CostUSD is unknown, not zero.
-	CostKnown bool  `json:"costKnown"`
-	Fresh     int64 `json:"fresh"`
-	Cached    int64 `json:"cached"`
+	CostKnown bool `json:"costKnown"`
+	// Fresh is prompt tokens not read from the cache, input and cache
+	// writes; Cached is cache reads; Output is output. Each is priced
+	// apart, so none is added to another (item 116).
+	Fresh  int64 `json:"fresh"`
+	Cached int64 `json:"cached"`
+	Output int64 `json:"output"`
 }
 
 const PowerWindow = 24 * time.Hour
@@ -392,9 +399,10 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 	}
 	if hasTranscript {
 		hours := rateSpan(t.FirstAt, t.LastAt).Hours()
-		s.FreshTokensPerHour = float64(s.Usage.Input+s.Usage.Output+s.Usage.CacheCreate) / hours
+		s.FreshTokensPerHour = float64(s.Usage.Input+s.Usage.CacheCreate) / hours
 		s.CacheReadPerHour = float64(s.Usage.CacheRead) / hours
-		s.TokensPerHour = s.FreshTokensPerHour + s.CacheReadPerHour
+		s.OutputPerHour = float64(s.Usage.Output) / hours
+		s.TokensPerHour = s.FreshTokensPerHour + s.CacheReadPerHour + s.OutputPerHour
 	}
 	conversation := hasTranscript && (t.Tail.Prompts > 0 || !t.Tail.LastAssistantAt.IsZero())
 	s.State = derive(r, s.Turn, conversation, isAlive, isAttached)
@@ -847,8 +855,9 @@ func PowerSince(transcripts []claude.Transcript, since time.Time) Power {
 			power.CostUSD += lifetimeUSD * float64(window.Context()+window.Output) / float64(all)
 		}
 		power.CostKnown = power.CostKnown || t.Cost.Known
-		power.Fresh += window.Input + window.Output + window.CacheCreate
+		power.Fresh += window.Input + window.CacheCreate
 		power.Cached += window.CacheRead
+		power.Output += window.Output
 	}
 	return power
 }
