@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
+
 ## [0.2.3] - 2026-10-19
 
 ### Changed

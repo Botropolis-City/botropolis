@@ -65,6 +65,7 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		merged.Power.Output += snapshot.Power.Output
 		merged.HeftsRead = merged.HeftsRead && snapshot.HeftsRead
 	}
+	m.keepLedger(&merged, now)
 	m.heights.ApplyOn(merged.Sessions, sample, merged.HeftsRead, now)
 	return merged, nil
 }
@@ -87,6 +88,35 @@ func NewClaude(loader *state.Loader) Claude {
 
 func (Claude) Name() string {
 	return "claude"
+}
+
+// LedgerKeeper is the harness that keeps the ledger, and runs its pass
+// over every other harness's sessions too (item 97).
+type LedgerKeeper interface {
+	KeepLedger(sessions []state.Session, now time.Time) ([]state.Session, []claude.SkippedFile)
+}
+
+// keepLedger hands every session the ledger keeper did not load to it,
+// so a pack, an unpack or a demolish holds whichever harness showed it.
+func (m *Multi) keepLedger(merged *state.Snapshot, now time.Time) {
+	for _, h := range m.harnesses {
+		keeper, ok := h.(LedgerKeeper)
+		if !ok {
+			continue
+		}
+		var own, others []state.Session
+		for _, s := range merged.Sessions {
+			if s.Harness == h.Name() {
+				own = append(own, s)
+			} else {
+				others = append(others, s)
+			}
+		}
+		kept, skipped := keeper.KeepLedger(others, now)
+		merged.Skipped = append(merged.Skipped, skipped...)
+		merged.Sessions = append(own, kept...)
+		return
+	}
 }
 
 // Packer is a harness that can pack a session up or unpack it (item 86).

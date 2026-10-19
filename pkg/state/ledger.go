@@ -38,6 +38,16 @@ type LedgerEntry struct {
 	// DemolishedAt is when you demolished the session: claude rm keeps
 	// its transcript, so the ledger keeps it off the map (item 145).
 	DemolishedAt time.Time `json:"demolishedAt,omitempty"`
+	// Harness is the harness that showed the session, empty for Claude's,
+	// so ledgers written before it read the same (item 97).
+	Harness string `json:"harness,omitempty"`
+}
+
+func ledgerHarness(name string) string {
+	if name == "claude" {
+		return ""
+	}
+	return name
 }
 
 // Demolished is whether you demolished the session.
@@ -77,8 +87,8 @@ func (l Ledger) Record(s Session) bool {
 		return false
 	}
 	was, ok := l[s.ID]
-	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt, DemolishedAt: was.DemolishedAt}
-	if ok && was.CWD == entry.CWD && was.StartedAt.Equal(entry.StartedAt) && was.LastActivity.Equal(entry.LastActivity) {
+	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt, DemolishedAt: was.DemolishedAt, Harness: ledgerHarness(s.Harness)}
+	if ok && was.CWD == entry.CWD && was.StartedAt.Equal(entry.StartedAt) && was.LastActivity.Equal(entry.LastActivity) && was.Harness == entry.Harness {
 		return false
 	}
 	l[s.ID] = entry

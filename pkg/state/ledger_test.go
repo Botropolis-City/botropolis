@@ -36,6 +36,17 @@ func TestLedger(t *testing.T) {
 				assert.False(t, ledger.Record(seen))
 			})
 		})
+
+		t.Run("and the ledger is saved", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "sessions.json")
+			require.NoError(t, ledger.Save(path))
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+
+			t.Run("it should write no harness for a Claude session, as ledgers before item 97 did", func(t *testing.T) {
+				assert.NotContains(t, string(data), "harness")
+			})
+		})
 	})
 
 	t.Run("when an empty session is seen", func(t *testing.T) {

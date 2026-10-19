@@ -382,33 +382,20 @@ func stat(path string) (fileKey, error) {
 // keepLedger records every session shown and adds back each one the
 // ledger knows that nothing else brought: its transcript is gone. A
 // session you demolished stays off, whatever transcript remains, until
-// it does something after the demolish (item 145).
+// it does something after the demolish (item 145). An entry another
+// harness recorded is never brought back as Claude's (item 97).
 func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time) ([]Session, error) {
 	if err := l.loadLedger(); err != nil {
 		return sessions, err
 	}
-	changed := false
 	shown := map[string]bool{}
-	kept := sessions[:0]
 	for _, s := range sessions {
 		shown[s.ID] = true
-		if e := l.ledger[s.ID]; e.Demolished() {
-			if !s.LastActivity.After(e.DemolishedAt) {
-				continue
-			}
-			e.DemolishedAt = time.Time{}
-			l.ledger[s.ID] = e
-			changed = true
-		}
-		if l.ledger.Record(s) {
-			changed = true
-		}
-		kept = append(kept, s)
 	}
-	sessions = kept
+	sessions, changed := l.recordShown(sessions)
 	var missing []string
 	for id, e := range l.ledger {
-		if !shown[id] && !e.Demolished() {
+		if !shown[id] && !e.Demolished() && e.Harness == "" {
 			missing = append(missing, id)
 		}
 	}
@@ -422,6 +409,59 @@ func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time)
 			sessions = append(sessions, goneSession(id, l.ledger[id], history[id]))
 		}
 	}
+	if l.markPacks(sessions, now) || changed {
+		return sessions, l.ledger.Save(l.ledgerPath)
+	}
+	return sessions, nil
+}
+
+// KeepLedger is the ledger's pass over another harness's sessions: each
+// is recorded under its harness, and packed up, unpacked or kept off the
+// map as a Claude session is. The Claude loader keeps the one ledger, so
+// two loaders never write it (item 97).
+func (l *Loader) KeepLedger(sessions []Session, now time.Time) ([]Session, []claude.SkippedFile) {
+	if l.ledgerPath == "" {
+		return sessions, nil
+	}
+	defer l.gate.hold()()
+	if err := l.loadLedger(); err != nil {
+		return sessions, []claude.SkippedFile{{Path: l.ledgerPath, Err: err}}
+	}
+	sessions, changed := l.recordShown(sessions)
+	if l.markPacks(sessions, now) || changed {
+		if err := l.ledger.Save(l.ledgerPath); err != nil {
+			return sessions, []claude.SkippedFile{{Path: l.ledgerPath, Err: err}}
+		}
+	}
+	return sessions, nil
+}
+
+// recordShown records each session shown, and drops each you demolished
+// that has done nothing since.
+func (l *Loader) recordShown(sessions []Session) ([]Session, bool) {
+	changed := false
+	kept := sessions[:0]
+	for _, s := range sessions {
+		if e := l.ledger[s.ID]; e.Demolished() {
+			if !s.LastActivity.After(e.DemolishedAt) {
+				continue
+			}
+			e.DemolishedAt = time.Time{}
+			l.ledger[s.ID] = e
+			changed = true
+		}
+		if l.ledger.Record(s) {
+			changed = true
+		}
+		kept = append(kept, s)
+	}
+	return kept, changed
+}
+
+// markPacks packs up and unpacks what has merged or moved on, and marks
+// each session packed as the ledger has it.
+func (l *Loader) markPacks(sessions []Session, now time.Time) bool {
+	changed := false
 	for i := range sessions {
 		s := &sessions[i]
 		if l.packOnMerge(*s, now) {
@@ -436,10 +476,7 @@ func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time)
 			s.PackedAt = e.PackedAt
 		}
 	}
-	if changed {
-		return sessions, l.ledger.Save(l.ledgerPath)
-	}
-	return sessions, nil
+	return changed
 }
 
 // packOnMerge packs up a stopped session whose pull request has merged,
