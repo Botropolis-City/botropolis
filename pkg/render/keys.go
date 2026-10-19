@@ -137,6 +137,7 @@ func panFor(down func(ebiten.Key) bool, step float64) city.Point {
 
 // handleKeys answers the keyboard for one tick.
 func (g *Game) handleKeys() error {
+	defer g.showOpenPanels()
 	just := g.just
 	g.answerRequests()
 	g.reserveDive()
@@ -419,6 +420,15 @@ func (g *Game) handleKeys() error {
 		g.scene.Wheel(centre, -1)
 	}
 	return nil
+}
+
+// showOpenPanels shows the interface when a panel is open behind it: a
+// panel's key, or a click on the plant, says "show me this", and a panel
+// nobody can see would take the keys that follow. Item 142.
+func (g *Game) showOpenPanels() {
+	if g.hidden && (g.settingsOpen || g.timeline || g.breakdown) {
+		g.hidden = false
+	}
 }
 
 func (g *Game) leave() error {
