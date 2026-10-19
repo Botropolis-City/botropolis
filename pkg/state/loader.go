@@ -19,6 +19,9 @@ type fileKey struct {
 type cachedTranscript struct {
 	key        fileKey
 	transcript claude.Transcript
+	// reader reads a live transcript on from where it last stopped
+	// (item 141).
+	reader *claude.TranscriptReader
 }
 
 type cachedSubagent struct {
@@ -327,16 +330,21 @@ func (l *Loader) transcript(path string) (cachedTranscript, error) {
 	if err != nil {
 		return cachedTranscript{}, err
 	}
-	if entry, ok := l.transcripts[path]; ok && entry.key == key {
+	entry, ok := l.transcripts[path]
+	if ok && entry.key == key {
 		return entry, nil
 	}
+	reader := entry.reader
+	if reader == nil {
+		reader = claude.NewTranscriptReader(path)
+	}
 	l.reads++
-	transcript, err := claude.ReadTranscript(path)
+	transcript, err := reader.Read()
 	if err != nil {
 		return cachedTranscript{}, err
 	}
 	transcript.Project = filepath.Base(filepath.Dir(path))
-	return cachedTranscript{key: key, transcript: transcript}, nil
+	return cachedTranscript{key: key, transcript: transcript, reader: reader}, nil
 }
 
 func (l *Loader) subagent(path string) (cachedSubagent, error) {

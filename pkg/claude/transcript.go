@@ -10,10 +10,11 @@ import (
 	"botropolis.city/botropolis/pkg/measure"
 )
 
-const (
-	maxTranscriptLine = 64 << 20
-	sendMessageTool   = "SendMessage"
-)
+const sendMessageTool = "SendMessage"
+
+// maxTranscriptLine is the longest line a scan reads; a longer one stops
+// it there. A variable so a test can lower it.
+var maxTranscriptLine = 64 << 20
 
 type Usage struct {
 	Input       int64 `json:"input"`

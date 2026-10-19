@@ -70,19 +70,32 @@ func scanLines(scan *transcriptScan, r io.Reader) {
 	scanner := bufio.NewScanner(countedReader{r})
 	scanner.Buffer(nil, maxTranscriptLine)
 	for scanner.Scan() {
-		// A torn write can leave a run of NUL bytes ahead of a record; the
-		// record behind them is still good.
-		line := bytes.TrimLeft(scanner.Bytes(), "\x00")
-		if len(line) == 0 {
-			continue
-		}
-		var rec transcriptLineJSON
-		if err := json.Unmarshal(line, &rec); err != nil {
-			scan.transcript.Malformed++
-			continue
-		}
-		scan.apply(rec)
+		scan.line(scanner.Bytes())
 	}
+}
+
+// line reads one line into the scan.
+func (s *transcriptScan) line(raw []byte) {
+	rec, present, ok := decodeLine(raw)
+	switch {
+	case !present:
+	case !ok:
+		s.transcript.Malformed++
+	default:
+		s.apply(rec)
+	}
+}
+
+// decodeLine is the record on a line, whether the line holds anything,
+// and whether that parsed. A torn write can leave a run of NUL bytes
+// ahead of a record; the record behind them is still good.
+func decodeLine(raw []byte) (rec transcriptLineJSON, present, ok bool) {
+	line := bytes.TrimLeft(raw, "\x00")
+	if len(line) == 0 {
+		return rec, false, false
+	}
+	err := json.Unmarshal(line, &rec)
+	return rec, true, err == nil
 }
 
 func (s *transcriptScan) finish() Transcript {
