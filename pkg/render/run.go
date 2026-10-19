@@ -15,6 +15,7 @@ import (
 	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/hotkey"
 	"botropolis.city/botropolis/pkg/script"
+	"botropolis.city/botropolis/pkg/sighold"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/stats"
@@ -238,10 +239,15 @@ func Run(ctx context.Context, opts Options) error {
 	// A frame that repeats the one before it is skipped rather than
 	// redrawn, which needs the last frame left on the glass.
 	ebiten.SetScreenClearedEveryFrame(false)
+	// Ebitengine runs its loop on this thread, the main one, and opens
+	// the input devices from it: a signal arriving during an open ended
+	// the city (item 128).
+	release := sighold.Hold()
 	err = ebiten.RunGameWithOptions(game, &ebiten.RunGameOptions{
 		X11ClassName:    x11Class,
 		X11InstanceName: x11Instance,
 	})
+	release()
 	save(opts.Layout)
 	if err != nil && err != ebiten.Termination {
 		return err

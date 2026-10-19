@@ -196,6 +196,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Where no number of columns fits, it is one column that scrolls by whole rows with the wheel and the up and down arrows, saying how many more are above and below.
   It keeps clear of the strip and the footer, and the wheel no longer zooms the map behind the reference.
 
+- **A signal arriving as the city starts no longer ends it.**
+  On Linux the city opens every input device as it starts, and a signal arriving while another program held one of them ended it with "gamepad: Open failed: interrupted system call".
+  The thread that runs the city's window no longer takes asynchronous signals, which go to the city's other threads instead.
+
 - **Headless cities started at the same moment no longer lose their display.**
   `--headless` used `xvfb-run -a`, which looks for a free display and then takes it, so cities started together could take the same one, and one of them died with "X connection broken"; eight started at once lost about half.
   It now starts Xvfb itself, which reports the display it took, behind a cookie only that city holds.

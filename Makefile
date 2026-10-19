@@ -147,6 +147,13 @@ test-acceptance ::
 	$(LOG) "Running acceptance tests"
 	@go test ./testing/acceptance/...
 
+# Item 128: 40 city starts while the input devices are busy and the main
+# thread is signalled, each of which must exit 0. Needs an openable
+# /dev/input/event*, and says so when there is none.
+soak-gamepad ::
+	$(LOG) "Soaking the city's start under signals"
+	@BOTROPOLIS_SOAK=1 go test -count=1 -timeout 20m -run TestStartUnderSignals ./testing/acceptance/
+
 # Item 125: 120 screenshot runs at load, each of which must exit 0. Minutes
 # long, so not part of test-acceptance.
 soak-teardown ::

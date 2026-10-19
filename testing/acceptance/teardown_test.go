@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -21,7 +22,9 @@ const teardownRuns = 120
 
 // screenshotRun opens a --home city that takes one screenshot and exits,
 // each on a display of its own (item 126), and returns how it exited.
-func screenshotRun(root string) string {
+// during, when not nil, starts with the city's process and is stopped
+// once the city has exited.
+func screenshotRun(root string, during func(*os.Process) (stop func())) string {
 	r := stateRun{home: filepath.Join(root, "home"), realState: filepath.Join(root, "state"), tmp: filepath.Join(root, "tmp")}
 	other, xdir := filepath.Join(root, "other"), filepath.Join(root, "x")
 	for _, dir := range []string{r.home, r.realState, r.tmp, other, xdir} {
@@ -37,13 +40,22 @@ func screenshotRun(root string) string {
 	cmd := exec.Command(botropolis, "city", "--socket", filepath.Join(r.tmp, "none.sock"),
 		"--home", other, "--screenshot", filepath.Join(r.tmp, "shot.png"))
 	cmd.Env = append(r.env(), x.Env()...)
-	out, err := cmd.CombinedOutput()
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := cmd.Start(); err != nil {
+		return err.Error()
+	}
+	if during != nil {
+		stop := during(cmd.Process)
+		defer stop()
+	}
+	err = cmd.Wait()
 	var exit *exec.ExitError
 	switch {
 	case err == nil:
 		return ""
 	case errors.As(err, &exit):
-		return fmt.Sprintf("%s: %s", exit.ProcessState, lastLine(out))
+		return fmt.Sprintf("%s: %s", exit.ProcessState, lastLine(out.Bytes()))
 	default:
 		return err.Error()
 	}
@@ -75,7 +87,7 @@ func TestTeardownSoak(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				defer func() { <-slots }()
-				if failed := screenshotRun(filepath.Join(root, fmt.Sprint(i))); failed != "" {
+				if failed := screenshotRun(filepath.Join(root, fmt.Sprint(i)), nil); failed != "" {
 					mu.Lock()
 					failures = append(failures, fmt.Sprintf("run %d: %s", i, failed))
 					mu.Unlock()
