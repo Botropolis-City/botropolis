@@ -272,6 +272,7 @@ docs/screenshots/r754-item-147-engine-200k.png
 docs/screenshots/r754-item-147-engine-1m.png
 docs/screenshots/r754-item-147-engine-over-1m.png
 docs/screenshots/r754-item-147-engine-unknown.png
+docs/screenshots/r760-item-149-daemon-notice.png
 LIST
 )
 while read -r img; do
