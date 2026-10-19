@@ -477,6 +477,18 @@ func TestLayoutRanges(t *testing.T) {
 			}
 			assert.Equal(t, []string{"cost a day at API list prices", "no data: before the store's first message"}, legend(lay(d, sel, ui.Chooser{})))
 		})
+
+		t.Run("and no bucket is before the data, it should not name the hatch", func(t *testing.T) {
+			d := someRangeData()
+			d.Buckets = d.Buckets[20:]
+			for i := range d.Buckets {
+				d.Buckets[i].Incomplete = false
+				if d.Buckets[i].Cost.Unpriced > 0 {
+					d.Buckets[i].Cost, d.Buckets[i].Counters = priced(1, 1)
+				}
+			}
+			assert.Equal(t, []string{"cost a day at API list prices"}, legend(lay(d, sel, ui.Chooser{})))
+		})
 	})
 
 	t.Run("when the model mix is laid", func(t *testing.T) {
@@ -488,16 +500,16 @@ func TestLayoutRanges(t *testing.T) {
 			assert.InDelta(t, p.Chart.Width()/2, p.Mix[0].Rect.Width(), 1)
 		})
 
-		t.Run("and a share is hovered, it should give its headline", func(t *testing.T) {
+		t.Run("and a share is hovered, it should name it with its headline", func(t *testing.T) {
 			c, n := priced(3, 10)
 			h, _ := p.HitMix(p.Mix[1].Rect.Center())
-			assert.Equal(t, ui.Headline(c, n.Messages), h)
+			assert.Equal(t, "sonnet-5 fast: "+ui.Headline(c, n.Messages), h)
 		})
 
 		t.Run("and the folded share is hovered, it should give their headline together", func(t *testing.T) {
 			c, n := priced(0.1, 10)
 			h, _ := p.HitMix(p.Mix[3].Rect.Center())
-			assert.Equal(t, ui.Headline(c, n.Messages), h)
+			assert.Equal(t, "other: "+ui.Headline(c, n.Messages), h)
 		})
 
 		t.Run("and nothing is hovered, it should give nothing", func(t *testing.T) {

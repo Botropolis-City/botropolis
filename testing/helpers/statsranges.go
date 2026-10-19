@@ -95,6 +95,9 @@ func rangeLine(session, id string, at time.Time, cwd string, m rangeModel, rng *
 		"cache_creation_input_tokens": write5m + write1h, "cache_read_input_tokens": rng.Intn(300_000) + 1_000,
 		"cache_creation": map[string]any{"ephemeral_5m_input_tokens": write5m, "ephemeral_1h_input_tokens": write1h},
 	}
+	if rng.Intn(15) == 0 {
+		delete(usage, "cache_creation")
+	}
 	if m.speed != "" {
 		usage["speed"] = m.speed
 	}

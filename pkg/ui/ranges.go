@@ -636,9 +636,10 @@ func (p *RangesPanel) layLegend(th Theme, d RangeData, y float64, measure Measur
 	grid := th.Grid()
 	_, smallH := measure("", Small)
 	var first, last stats.Date
-	gap, unknown := false, false
+	gap, unknown, noData := false, false, false
 	for _, b := range d.Buckets {
 		if b.NoData {
+			noData = true
 			continue
 		}
 		if b.Incomplete {
@@ -656,10 +657,15 @@ func (p *RangesPanel) layLegend(th Theme, d RangeData, y float64, measure Measur
 		label string
 	}{
 		{BarCost, "cost a day at API list prices"},
-		{BarNoData, "no data: before the store's first message"},
 	}
 	if d.Unit == stats.Months {
 		entries[0].label = "cost a month at API list prices"
+	}
+	if noData {
+		entries = append(entries, struct {
+			kind  BarKind
+			label string
+		}{BarNoData, "no data: before the store's first message"})
 	}
 	if gap {
 		off := dayLabel(first, d.Today.Year)
@@ -732,7 +738,7 @@ func (p *RangesPanel) layMix(mix []stats.Share) {
 		p.Mix = append(p.Mix, MixSegment{
 			Rect:     city.RectAt(x, p.MixBar.Min.Y, sw, p.MixBar.Height()),
 			Name:     pt.name + " " + percent(share),
-			Headline: Headline(pt.cost, pt.messages),
+			Headline: pt.name + ": " + Headline(pt.cost, pt.messages),
 		})
 		x += sw
 	}
