@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A long-lived session no longer slows the city down every time it writes.**
+  The daemon read a running session's whole conversation again on every change, so a session with a few hundred megabytes of history cost seconds of CPU per write, and the map was late to show what sessions were doing.
+  It now reads only what was added since it last looked, for each session and each of its subagents, and reads the file whole only when it was replaced or rewritten.
+
 ## [0.2.2] - 2026-10-19
 
 ### Fixed
