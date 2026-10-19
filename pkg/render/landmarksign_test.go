@@ -14,7 +14,9 @@ import (
 
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // Item 99: the landmarks' names are painted on their walls, and the
@@ -97,7 +99,7 @@ func TestLandmarkLettering(t *testing.T) {
 					cam := isoCamera(heading, zoom)
 					view, ok := g.landmarkView(cam, lot, l.kit)
 					require.True(t, ok, "precondition: the landmark is drawn")
-					sign, ok := g.landmarkLettering(cam, lot, l.kit, l.name)
+					sign, ok := g.landmarkLettering(cam, []landmarkPlot{{lot: lot, kit: l.kit, name: l.name}}, 0)
 					require.True(t, ok, "precondition: there is a wall to letter")
 
 					t.Run("it should lie inside a wall face the camera sees", func(t *testing.T) {
@@ -254,4 +256,55 @@ func TestLandmarkPlate(t *testing.T) {
 			assert.LessOrEqual(t, math.Hypot(d.X, d.Y), g.theme.Grid())
 		})
 	})
+}
+
+// plazaWithHall is a city whose plaza holds all three landmarks.
+func plazaWithHall(t *testing.T) *city.City {
+	t.Helper()
+	scene := city.NewScene(city.NewLayout())
+	scene.Resize(1600, 1000)
+	scene.SetSnapshot(state.Snapshot{Stats: &claude.Stats{}, Sessions: []state.Session{
+		{ID: "a", CWD: "/p/a", State: state.Working},
+		{ID: "b", CWD: "/p/b", State: state.Waiting},
+	}})
+	c := scene.City()
+	require.Greater(t, c.Hall.Rect.Area(), 0.0, "precondition: city hall stands")
+	return c
+}
+
+func TestLandmarkLetteringAvoidsNearerLandmarks(t *testing.T) {
+	g := landmarkLabelGame(t)
+	plots := cityLandmarks(plazaWithHall(t))
+	require.Len(t, plots, 3, "precondition: all three landmarks stand")
+
+	for i, p := range plots {
+		for _, heading := range []int{0, 90, 180, 270} {
+			for _, zoom := range []float64{1, 2} {
+				t.Run(fmt.Sprintf("when the %s's name is lettered with the camera facing %d at zoom %g", p.name, heading, zoom), func(t *testing.T) {
+					cam := isoCamera(heading, zoom)
+					candidates := g.letterCandidates(cam, plots, i)
+					require.NotEmpty(t, candidates, "precondition: some band can hold the name")
+					least := math.Inf(1)
+					for _, c := range candidates {
+						least = math.Min(least, c.covered)
+					}
+					chosen, ok := g.landmarkLettering(cam, plots, i)
+					require.True(t, ok)
+
+					t.Run("it should letter where no nearer landmark covers it, or where the least does", func(t *testing.T) {
+						assert.Equal(t, least, g.letteringCovered(cam, plots, i, chosen))
+					})
+
+					t.Run("it should stay at least as tall as the smallest sign the city paints", func(t *testing.T) {
+						shortest := math.Inf(1)
+						for _, s := range chosen.Signs {
+							_, h := g.measure(s.Text)
+							shortest = math.Min(shortest, s.Scale*h)
+						}
+						assert.GreaterOrEqual(t, shortest, ui.MinSignPx)
+					})
+				})
+			}
+		}
+	}
 }

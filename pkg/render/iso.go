@@ -741,7 +741,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if c.Plant.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Plant.Rect, func() {
 			g.isoLandmark(screen, cam, c.Plant.Rect, kitPlant, g.scenery(), city.Hit{Landmark: city.LandmarkPlant})
-			g.letterLandmark(screen, cam, c.Plant.Rect, kitPlant, "power plant")
+			g.letterLandmark(screen, cam, c, kitPlant)
 		}))
 		// The chimney shares the building's depth and is appended after
 		// it. The sort is stable, so the slab is laid down first and the
@@ -849,13 +849,13 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if c.Library.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Library.Rect, func() {
 			g.isoLandmark(screen, cam, c.Library.Rect, kitLibrary, g.scenery(), city.Hit{Landmark: city.LandmarkLibrary})
-			g.letterLandmark(screen, cam, c.Library.Rect, kitLibrary, "library")
+			g.letterLandmark(screen, cam, c, kitLibrary)
 		}))
 	}
 	if c.Hall.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Hall.Rect, func() {
 			g.isoLandmark(screen, cam, c.Hall.Rect, kitHall, g.scenery(), city.Hit{Landmark: city.LandmarkHall})
-			g.letterLandmark(screen, cam, c.Hall.Rect, kitHall, "city hall")
+			g.letterLandmark(screen, cam, c, kitHall)
 		}))
 	}
 	// Each district's board stands in the world, ordered with the
