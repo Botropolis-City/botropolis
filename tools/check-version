@@ -38,13 +38,15 @@ if [ ! -f VERSION ]; then
 fi
 
 version="$(tr -d '[:space:]' < VERSION)"
-if ! printf '%s' "${version}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+if ! grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' <<< "${version}"; then
     note "VERSION: ${version} is not a semver"
 fi
 
 # The newest heading that is not [Unreleased]. Keep a Changelog puts the latest
 # release first, so the first match is the one this tree claims to be.
-changelog="$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+[^]]*\]' CHANGELOG.md | head -1 | tr -d '#[] ')"
+# No match is grep exit 1, which under set -e would end the script before
+# it could say so (item 135).
+changelog="$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+[^]]*\]' CHANGELOG.md | tr -d '#[] ')" || true
 if [ -z "${changelog}" ]; then
     note "CHANGELOG.md: no released version heading found"
 elif [ "${changelog}" != "${version}" ]; then

@@ -37,7 +37,8 @@ for slug in "${kits[@]}"; do
 		continue
 	fi
 	page="https://kenney.nl/assets/$slug"
-	url="$(curl -sSL "$page" | grep -oE "https://kenney\.nl/media/pages/assets/$slug/[^'\"]+\.zip" | head -1)"
+	html="$(curl -sSL "$page")"
+	url="$(grep -oE "https://kenney\.nl/media/pages/assets/$slug/[^'\"]+\.zip" <<<"$html" | sed -n 1p)" || true
 	if [[ -z "$url" ]]; then
 		echo "$slug: no download link on $page" >&2
 		exit 1

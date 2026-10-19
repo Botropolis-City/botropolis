@@ -59,7 +59,7 @@ check_licences() {
         return
     fi
     for l in "${required_licences[@]}"; do
-        if ! tr ' ' '\n' <<<"$expr" | grep -qxF -- "$l"; then
+        if ! grep -qxF -- "$l" <<<"${expr// /$'\n'}"; then
             echo "  ${where} does not declare ${l}"
             licence_fail=1
         fi
@@ -67,7 +67,7 @@ check_licences() {
 }
 
 nfpm_field() {
-    sed -n 's/^license:[[:space:]]*//p' "$1" | head -1
+    sed -n '/^license:/{s/^license:[[:space:]]*//p;q;}' "$1"
 }
 
 # license "MIT" or license all_of: ["MIT", ...]; any_of is a choice, so it is

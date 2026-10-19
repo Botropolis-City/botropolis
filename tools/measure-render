@@ -217,7 +217,7 @@ fi
 # driver stack cannot be read as a growth in the city again.
 if [[ -r "/proc/${city}/smaps" ]]; then
 	awk '/^[0-9a-f]+-[0-9a-f]+ /{path=$6} /^Rss:/{k[path]+=$2} END{for (p in k) if (k[p] > 4096) printf "# %8.1f MB  %s\n", k[p]/1024, (p == "" ? "[anonymous]" : p)}' \
-		"/proc/${city}/smaps" | sort -rn -k2 | head -8 >&2
+		"/proc/${city}/smaps" | sort -rn -k2 | awk 'NR <= 8' >&2
 fi
 drawn=$((frames_after - frames_before))
 per_frame=$(awk '/^FRAME /{ms=$4} END{printf "%.2f", ms+0}' "${frames_log}")
