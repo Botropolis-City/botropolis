@@ -21,8 +21,9 @@ It was that the output was the same either way, so there was nothing to look at.
 - A bound taken from the working tree printed `1-66, none missing` after two files were deleted.
 - `except: pass` printed a healthy summary when the independent source was unreachable.
 - `go test` printed `ok (cached)` while the script it calls failed on the same tree, because the cache keyed on files the test binary opened and the subprocess's reads were invisible to it.
+- `go test` printed `ok (cached)` for the acceptance tests after the binary they drive had changed, because the test binary did not link that binary's code; a blank import then passed the probe meant to catch it, only because the probe added a line and shifted every later line number (item 117).
 
-Six greens, none of them lying about anything it actually asserted, and not one distinguishable from a green that meant what it appeared to mean.
+Seven greens, none of them lying about anything it actually asserted, and not one distinguishable from a green that meant what it appeared to mean.
 
 **So the test of a verification is not "did I check it twice" but "would the second check print something different if it were the one that was wrong".**
 If it would not, there is one route wearing two coats.
