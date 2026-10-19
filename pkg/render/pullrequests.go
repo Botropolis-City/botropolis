@@ -22,38 +22,9 @@ const (
 	kitInspector = "car-kit/suv"
 	// kitVan carries one message between sessions, and nothing else.
 	kitVan = "car-kit/van"
-	// bridgeStraight is the deck the bridge is laid with, east-west.
-	bridgeStraight = "city-kit-roads/road-straight"
 )
 
-var (
-	colorRibbon = color.NRGBA{0xd8, 0x3a, 0x3a, 0xff}
-	colorPier   = color.NRGBA{0x5a, 0x5e, 0x66, 0xff}
-)
-
-// bridge lays the bridge's deck from the coast street out over the sea,
-// one cell at a time, on piers. It is scenery: it is always there.
-func (g *Game) bridge(screen *ebiten.Image, c *city.City, cam *city.Camera) {
-	b := c.Bridge()
-	if b.Land == b.Far {
-		return
-	}
-	step := city.CellSize
-	if b.Far.X < b.Land.X {
-		step = -step
-	}
-	for x := b.Land.X + step; (step > 0 && x <= b.Far.X) || (step < 0 && x >= b.Far.X); x += step {
-		at := city.Point{X: x, Y: b.Land.Y}
-		foot := cam.WorldToScreen(at)
-		pier := 3 * cam.Zoom
-		vector.FillRect(screen, float32(foot.X-pier/2), float32(foot.Y), float32(pier), float32(6*cam.Zoom), colorPier, false)
-		if g.kits == nil {
-			g.rect(screen, cam, city.CellOf(at).Rect(), g.flat(colorStreet))
-			continue
-		}
-		g.kitGround(screen, cam, bridgeStraight, 0, at, nil)
-	}
-}
+var colorRibbon = color.NRGBA{0xd8, 0x3a, 0x3a, 0xff}
 
 // drawInspector draws an inspector's car at the kerb.
 func (g *Game) drawInspector(screen *ebiten.Image, cam *city.Camera, b *city.Building, in city.Inspector) {
@@ -72,7 +43,7 @@ func (g *Game) drawInspector(screen *ebiten.Image, cam *city.Camera, b *city.Bui
 
 // drawDelivery draws a truck with its crate, fading out on the far side
 // of the bridge, or where it stands at still.
-func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, d city.Delivery) {
+func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, bridge city.Bridge, d city.Delivery) {
 	now := g.scene.Clock()
 	p := d.Progress(now)
 	fade := 1.0
@@ -87,8 +58,10 @@ func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, d city.Deliv
 	at := d.At(now)
 	ahead := d.At(now.Add(100 * 1e6))
 	turn := carTurn(ahead.Sub(at))
-	r := g.kit(screen, cam, kitDelivery, turn, at, tint)
-	g.kitScaled(screen, cam, crates[d.PR.Number%len(crates)], turn, at, 0.3, tint)
+	// On the bridge it rides at the deck's height (item 132).
+	lift := bridge.Rise(at) * g.deckLift(cam)
+	r := g.kitLifted(screen, cam, kitDelivery, turn, at, lift, tint)
+	g.kitScaledLifted(screen, cam, crates[d.PR.Number%len(crates)], turn, at, 0.3, lift, tint)
 	g.noteHit(r, city.Hit{Delivery: &d})
 }
 

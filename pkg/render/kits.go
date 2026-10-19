@@ -176,6 +176,12 @@ func (g *Game) kitFootprintTurned(cam *city.Camera, name string, turn int) float
 // everywhere else in this family: the atlas is indexed at heading-turn,
 // so a turned piece keeps facing the same way as the camera goes round.
 func (g *Game) kitScaled(screen *ebiten.Image, cam *city.Camera, name string, turn int, at city.Point, shrink float64, tint *ebiten.ColorScale) city.Rect {
+	return g.kitScaledLifted(screen, cam, name, turn, at, shrink, 0, tint)
+}
+
+// kitScaledLifted is kitScaled lift screen pixels above the ground: the
+// crate on a truck crossing the bridge (item 132).
+func (g *Game) kitScaledLifted(screen *ebiten.Image, cam *city.Camera, name string, turn int, at city.Point, shrink, lift float64, tint *ebiten.ColorScale) city.Rect {
 	if g.kits == nil || shrink <= 0 {
 		return city.Rect{}
 	}
@@ -189,6 +195,7 @@ func (g *Game) kitScaled(screen *ebiten.Image, cam *city.Camera, name string, tu
 	}
 	scale := cam.Zoom / atlas.Zoom * shrink
 	foot := cam.WorldToScreen(at)
+	foot.Y -= lift
 	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
 	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
 	g.drawSprite(screen, img, origin, scale, tint)
@@ -255,6 +262,12 @@ func (g *Game) kitSized(screen *ebiten.Image, cam *city.Camera, name string, tur
 // side by side overlap by their anti-aliased rims instead of letting the
 // grass show through as a seam.
 func (g *Game) kitGround(screen *ebiten.Image, cam *city.Camera, name string, turn int, at city.Point, tint *ebiten.ColorScale) {
+	g.kitGroundLifted(screen, cam, name, turn, at, 0, tint)
+}
+
+// kitGroundLifted is kitGround lift screen pixels above the ground: the
+// road on the bridge's deck (item 132).
+func (g *Game) kitGroundLifted(screen *ebiten.Image, cam *city.Camera, name string, turn int, at city.Point, lift float64, tint *ebiten.ColorScale) {
 	if g.kits == nil {
 		return
 	}
@@ -268,6 +281,7 @@ func (g *Game) kitGround(screen *ebiten.Image, cam *city.Camera, name string, tu
 	}
 	scale := cam.Zoom / atlas.Zoom * groundBleed
 	foot := cam.WorldToScreen(at)
+	foot.Y -= lift
 	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
 	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
 	g.drawSprite(screen, img, origin, scale, tint)

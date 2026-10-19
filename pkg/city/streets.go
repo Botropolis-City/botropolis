@@ -122,10 +122,21 @@ func (c *City) layRoads() {
 	}
 	c.Lamps = lamps
 	island := c.Island()
+	// Nothing grows through the bridge: its abutment and the ground
+	// under its deck stay clear (item 132).
+	bridge := c.Bridge()
+	underBridge := map[Cell]bool{}
+	if len(bridge.Deck) > 0 {
+		underBridge[bridge.Abutment] = true
+		for _, cell := range bridge.Deck {
+			underBridge[cell] = true
+		}
+	}
 	trees := c.Trees[:0]
 	for _, t := range c.Trees {
 		g, _ := island.At(t.At)
 		switch {
+		case underBridge[CellOf(t.At)]:
 		case t.Kind == plan.ParkTree && g == GroundRiver:
 			// The river's banks wander past its band; no tree stands in it.
 		case t.Kind == plan.StreetTree && !besideRoad(t.Cell, road):

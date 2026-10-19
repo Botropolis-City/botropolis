@@ -24,6 +24,9 @@ type drawable struct {
 	// kept is whether it stays at full strength while a hovered car
 	// fades everything not tied to it (item 108).
 	kept bool
+	// level is how far off the ground it stands: the bridge's deck and
+	// what drives on it (item 132).
+	level int
 }
 
 // footprint is a drawable standing on a world rectangle.
@@ -78,7 +81,17 @@ func order(cam *city.Camera, items []drawable) []drawable {
 			if items[i].right <= items[j].left || items[j].right <= items[i].left {
 				continue
 			}
+			// Item 132: of two things on one patch of ground, the one
+			// standing higher draws after — a train under the deck, a
+			// truck on it.
 			switch {
+			case items[i].level != items[j].level && overlapsTurned(items[i].turned, items[j].turned):
+				lo, hi := i, j
+				if items[j].level < items[i].level {
+					lo, hi = j, i
+				}
+				after[lo] = append(after[lo], int32(hi))
+				indegree[hi]++
 			case city.BehindTurned(items[i].turned, items[j].turned):
 				after[i] = append(after[i], int32(j))
 				indegree[j]++
@@ -114,6 +127,12 @@ func order(cam *city.Camera, items []drawable) []drawable {
 		}
 	}
 	return out
+}
+
+// overlapsTurned is whether two footprints share ground, not merely an
+// edge.
+func overlapsTurned(a, b city.Rect) bool {
+	return a.Min.X < b.Max.X && b.Min.X < a.Max.X && a.Min.Y < b.Max.Y && b.Min.Y < a.Max.Y
 }
 
 // readyQueue pops the lowest index first, so a drawable only moves when

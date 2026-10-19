@@ -715,10 +715,17 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.drawMessage(screen, cam, m)
 		}))
 	}
+	bridge := c.Bridge()
+	items = append(items, bridgeItems(cam, bridge, func(cell city.Cell, abutment bool) func() {
+		if abutment {
+			return func() { g.drawAbutment(screen, cam, bridge) }
+		}
+		return func() { g.drawSpan(screen, cam, bridge, cell) }
+	})...)
 	for _, d := range g.scene.Deliveries() {
 		d := d
-		items = append(items, standingAt(cam, d.At(g.scene.Clock()), func() {
-			g.drawDelivery(screen, cam, d)
+		items = append(items, deliveryAt(cam, bridge, d.At(g.scene.Clock()), func() {
+			g.drawDelivery(screen, cam, bridge, d)
 		}))
 	}
 	for _, r := range g.scene.Ribbons() {
@@ -727,7 +734,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	for _, k := range g.freight(c, seconds) {
 		k := k
-		items = append(items, standingAt(cam, k.at, func() {
+		items = append(items, carriageAt(cam, k.at, func() {
 			g.drawCarriage(screen, cam, k)
 		}))
 	}
@@ -1008,7 +1015,6 @@ func (g *Game) streets(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		name, turn := roadPiece(sc.Mask)
 		g.kitGround(screen, cam, name, turn, sc.Cell.Center(), groundTint(lit, sc.Cell))
 	}
-	g.fadeAll(&screen, func() { g.bridge(screen, c, cam) })
 	g.streetSigns(screen, c, cam, hover, labels)
 }
 

@@ -29,8 +29,17 @@ const (
 
 // Bridge is the one way off the island by road: from a street at the
 // coast out over the sea, on the side away from the river.
+//
+// Item 132: the rail stays on the ground and the road goes over it. The
+// landing cell is the abutment, where the road climbs over the cell's
+// outer half; the first span is over the rail, and the deck stays up
+// from there out to Far.
 type Bridge struct {
 	Land, Far Point
+	Abutment  Cell
+	// Deck is every cell the raised road stands over, from the one
+	// after the abutment out to Far's.
+	Deck []Cell
 }
 
 // Bridge is where the bridge stands. It follows from the plan alone, so
@@ -43,10 +52,30 @@ func (c *City) Bridge() Bridge {
 	at := land.Center()
 	reach := c.Island().Reach()
 	far := Point{X: reach.Min.X - CellSize, Y: at.Y}
+	step := -1
 	if c.bridgeEast() {
 		far.X = reach.Max.X + CellSize
+		step = 1
 	}
-	return Bridge{Land: at, Far: far}
+	b := Bridge{Land: at, Far: far, Abutment: land}
+	for col := land.Col + step; col != CellOf(far).Col+step; col += step {
+		b.Deck = append(b.Deck, Cell{Col: col, Row: land.Row})
+	}
+	return b
+}
+
+// Rise is how far up the bridge a point on its road is, from 0 on the
+// ground to 1 on the deck: the road climbs over the abutment's outer
+// half.
+func (b Bridge) Rise(p Point) float64 {
+	if b.Land == b.Far || math.Abs(p.Y-b.Land.Y) > CellSize/2 {
+		return 0
+	}
+	out := p.X - b.Land.X
+	if b.Far.X < b.Land.X {
+		out = -out
+	}
+	return min(1, max(0, out/(CellSize/2)))
 }
 
 // bridgeEast is whether the bridge leaves by the east coast: the side
