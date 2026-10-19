@@ -211,6 +211,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   When the selection changes, from the map, `tab` or the finder, the list scrolls just far enough to show its row.
   The sidebar also ends above the footer's needs-you line instead of running under it.
 
+- **Esc closes the sidebar and brings back the hidden interface before it opens settings.**
+  With the sidebar open, Esc opened settings on top of it; with the interface hidden by `h`, Esc opened settings unseen, so the keys that followed went to a panel nobody could see.
+  Esc now closes the sidebar, and with the interface hidden it shows it again and does nothing else; settings is still what Esc opens when nothing else is.
+
 - **The trains are the size of the cars' world, and their wagons no longer pile onto each other.**
   A train was a third as long as it should be beside the cars, and each wagon was drawn two thirds over the one behind it, so a six-wagon train looked like two.
   Trains are now drawn two fifths larger and each runs its own length behind the one in front, on rails set under its body, with trains a wagon and a half apart round the loop.
