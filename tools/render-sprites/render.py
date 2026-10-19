@@ -153,11 +153,16 @@ SCALE = {"car-kit": 0.12, "train-kit": 0.35, "watercraft-kit": 0.25}
 # length rather than by a constant that can drift from the scale.
 VEHICLES = {"car-kit", "train-kit"}
 
-# Which end of y a kit models its vehicles' fronts at: the Train Kit's
-# engines face -y, as the bullet's nose and the steam engines' chimneys
-# show on the options sheet (item 147). The atlas records where that end
-# lands in each sprite, so the map can be held to running them nose first.
-FRONT = {"train-kit": -1}
+# Every vehicle is modelled nose toward -y: the Train Kit's engines, as
+# the bullet's nose and the steam engines' chimneys show (item 147), the
+# Car Kit's cars by their headlights, the Watercraft Kit's hulls as Aria
+# read the cargo ship's bow, and our own site trucks, built to match
+# (item 151). The atlas records where that end lands in each sprite, so
+# the map can be held to running every one nose first by one rule.
+def has_nose(kit, name):
+    return (kit in VEHICLES
+            or (kit == "watercraft-kit" and name.startswith("boat-tug-"))
+            or (kit == "botropolis" and name in buildings.VEHICLES))
 
 # The Nature Kit's geometry, on this city's terms. Its trees are the
 # variety the two Suburban ones cannot give, but they are modelled a
@@ -776,9 +781,8 @@ def atlas(args):
                         sprites[key][str(heading)]["body"] = list(root["body"])
                     if kit in VEHICLES:
                         sprites[key][str(heading)]["foot"] = [round(hi.x - lo.x, 4), round(hi.y - lo.y, 4)]
-                    if kit in FRONT:
-                        end = lo.y if FRONT[kit] < 0 else hi.y
-                        ndc = world_to_camera_view(bpy.context.scene, bpy.context.scene.camera, Vector(((lo.x + hi.x) / 2, end, ground.z)))
+                    if has_nose(kit, name):
+                        ndc = world_to_camera_view(bpy.context.scene, bpy.context.scene.camera, Vector(((lo.x + hi.x) / 2, lo.y, ground.z)))
                         sprites[key][str(heading)]["nose"] = [round(float(ndc.x * px - ax), 2), round(float((1 - ndc.y) * px - ay), 2)]
                     count += 1
                 remove(root)

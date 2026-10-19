@@ -150,11 +150,18 @@ func TestEngineRunsNoseFirst(t *testing.T) {
 		c.Trains = []*city.Train{train}
 		engine := kitEngines[class]
 		seen := map[int]bool{}
+		checked := 0
 		for step := 0.0; step < loop/trainSpeed; step += city.Tile / trainSpeed {
 			head := (&Game{}).carriages(c, step)[0]
 			ahead, _ := pointAlong(c.Rails, math.Mod(head.along+city.Tile*0.1, loop))
+			behind, _ := pointAlong(c.Rails, math.Mod(head.along-city.Tile*0.1+loop, loop))
+			if turning(behind, head.at, ahead) {
+				continue
+			}
+			checked++
 			for _, heading := range []int{0, 90, 180, 270} {
 				cam := city.NewCamera()
+				cam.Projection = city.Isometric
 				cam.Heading = heading
 				sprite, ok := atlas.Sprite(head.model, cam.Heading-head.turn)
 				require.True(t, ok, "%s is not in the atlas", head.model)
@@ -164,6 +171,8 @@ func TestEngineRunsNoseFirst(t *testing.T) {
 				}
 			}
 		}
+
+		require.Greater(t, checked, 4, "the loop has to be checked off its corners")
 
 		t.Run(fmt.Sprintf("when %s runs round the loop, it should point its nose the way it travels at every turn and heading", engine), func(t *testing.T) {
 			assert.Empty(t, seen, "heading*1000+turn where the nose trails")

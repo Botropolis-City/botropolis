@@ -8,25 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCarTurn(t *testing.T) {
-	cases := map[string]struct {
-		d    city.Point
-		want int
-	}{
-		"along +y": {city.Point{Y: 1}, 0},
-		"along -y": {city.Point{Y: -1}, 180},
-		"along +x": {city.Point{X: 1}, 270},
-		"along -x": {city.Point{X: -1}, 90},
-	}
-	for name, c := range cases {
-		t.Run("when a car drives "+name, func(t *testing.T) {
-			t.Run("it should turn the kit's car to face that way", func(t *testing.T) {
-				assert.Equal(t, c.want, carTurn(c.d))
-			})
-		})
-	}
-}
-
 func TestPointAlong(t *testing.T) {
 	path := []city.Point{{X: 0, Y: 0}, {X: 10, Y: 0}, {X: 10, Y: 10}}
 

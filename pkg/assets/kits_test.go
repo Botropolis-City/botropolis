@@ -163,3 +163,32 @@ func TestVehicleScale(t *testing.T) {
 		})
 	})
 }
+
+// Item 151: the pipeline records where every vehicle's nose lands in its
+// sprite, at every zoom and heading, so the map can be held to running
+// each one nose first.
+func TestVehicleNose(t *testing.T) {
+	atlases, err := assets.LoadKits()
+	require.NoError(t, err)
+	require.NotEmpty(t, atlases)
+	vehicles := []string{
+		"car-kit/sedan", "car-kit/taxi", "car-kit/hatchback-sports", "car-kit/van",
+		"car-kit/delivery", "car-kit/suv", "car-kit/truck",
+		"botropolis/skip-truck", "botropolis/skip-truck-loaded", "botropolis/mixer-truck",
+		"watercraft-kit/boat-tug-a", "watercraft-kit/boat-tug-b",
+	}
+	for _, name := range vehicles {
+		t.Run(fmt.Sprintf("when the atlases are loaded, it should record a nose for %s at every zoom and heading", name), func(t *testing.T) {
+			var missing []string
+			for _, a := range atlases {
+				for _, heading := range assets.Headings {
+					s, ok := a.Sprite(name, heading)
+					if !ok || s.Nose == (assets.Point{}) {
+						missing = append(missing, fmt.Sprintf("zoom %g heading %d", a.Zoom, heading))
+					}
+				}
+			}
+			assert.Empty(t, missing)
+		})
+	}
+}

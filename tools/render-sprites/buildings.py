@@ -423,8 +423,9 @@ def names():
 
 # The site's own vehicles and the skip that shows how full a session's
 # context is (item 109): four fills, a hook-lift truck empty and loaded,
-# and a cement mixer. Vehicles are modelled nose along +y, as the Car
-# Kit's are, so the map turns them the same way.
+# and a cement mixer. They are built nose along +y and turned to face -y,
+# as every kit's vehicles are, so the map turns them all by one rule
+# (item 151).
 SKIP_FILLS = 4
 VEHICLES = ["skip-truck", "skip-truck-loaded", "mixer-truck"]
 
@@ -582,6 +583,8 @@ def site(name, at=(0, 0)):
     else:
         skip_truck(m, name.endswith("loaded"))
     m.root.location = Vector((at[0], at[1], 0))
+    if name in VEHICLES:
+        m.root.rotation_euler.z = math.pi
     return m.done()
 
 

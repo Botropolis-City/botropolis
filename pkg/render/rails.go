@@ -146,23 +146,27 @@ func (g *Game) carriages(c *city.City, seconds float64) []carriage {
 		for w, model := range models {
 			d := math.Mod(head-backs[w]+length*4, length)
 			at, dir := pointAlong(c.Rails, d)
-			out = append(out, carriage{at: at, model: model, turn: trainTurn(dir), train: t, head: w == 0, along: d, loop: length})
+			out = append(out, carriage{at: at, model: model, turn: vehicleTurn(dir), train: t, head: w == 0, along: d, loop: length})
 		}
 	}
 	return out
 }
 
-// trainTurn is the turn that runs a train piece nose first along d.
-// carTurn turns a piece the wrong way along x: the engines Aria picked
-// show it, where today's diesels looked alike from either end, and
-// TestEngineRunsNoseFirst holds it against the nose the atlas records
-// (item 147).
-func trainTurn(d city.Point) int {
-	switch turn := carTurn(d); turn {
-	case 90, 270:
-		return 360 - turn
+// vehicleTurn is the turn that runs any vehicle nose first along d: an
+// engine or wagon, a car or truck, a tug. Every one is modelled nose
+// along the kits' -y, which the map draws unturned heading +y.
+// TestEngineRunsNoseFirst and TestVehicleRunsNoseFirst hold it against
+// the nose the atlas records (items 147, 151).
+func vehicleTurn(d city.Point) int {
+	switch {
+	case math.Abs(d.Y) >= math.Abs(d.X) && d.Y >= 0:
+		return 0
+	case math.Abs(d.Y) >= math.Abs(d.X):
+		return 180
+	case d.X >= 0:
+		return 90
 	default:
-		return turn
+		return 270
 	}
 }
 

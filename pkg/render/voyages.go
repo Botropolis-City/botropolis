@@ -15,6 +15,6 @@ func (g *Game) drawVoyage(screen *ebiten.Image, cam *city.Camera, v *city.Voyage
 		model = kitTugOut
 	}
 	dir := city.Point{X: v.To.X - v.From.X, Y: v.To.Y - v.From.Y}
-	r := g.kit(screen, cam, model, carTurn(dir), at, nil)
+	r := g.kit(screen, cam, model, vehicleTurn(dir), at, nil)
 	g.noteHit(r, city.Hit{Voyage: v})
 }

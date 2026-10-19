@@ -132,11 +132,11 @@ func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		if t.Loaded {
 			piece = kitSkipTruckLoaded
 		}
-		g.kit(screen, cam, piece, carTurn(dir), at, tint)
+		g.kit(screen, cam, piece, vehicleTurn(dir), at, tint)
 	}
 	if t := job.Mixer; t.Present {
 		in, out := g.jobPaths(c, b, pour)
 		at, dir := alongJob(in, out, t.Along)
-		g.kit(screen, cam, kitMixer, carTurn(dir), at, tint)
+		g.kit(screen, cam, kitMixer, vehicleTurn(dir), at, tint)
 	}
 }

@@ -1106,7 +1106,7 @@ func (g *Game) cars(c *city.City, seconds float64) []car {
 			if !forward {
 				dir = city.Point{X: -dir.X, Y: -dir.Y}
 			}
-			out = append(out, car{at: at, model: kitCars[(i*len(kitCars)/2+k)%len(kitCars)], turn: carTurn(dir), road: street.Road})
+			out = append(out, car{at: at, model: kitCars[(i*len(kitCars)/2+k)%len(kitCars)], turn: vehicleTurn(dir), road: street.Road})
 		}
 	}
 	return out
@@ -1179,21 +1179,6 @@ func (g *Game) celebrate(screen *ebiten.Image, top city.Point, width float64, p 
 		a := float64(i) * math.Pi / 3
 		rise := width * (0.2 + 0.9*p)
 		vector.FillCircle(screen, float32(top.X+math.Cos(a)*width*0.35*(0.5+p)), float32(top.Y-rise*math.Abs(math.Sin(a+1))), float32(2.5*(1-p)+1), ring, true)
-	}
-}
-
-// carTurn is a kit car's turn for the way it drives: the kit's cars are
-// modelled nose along +y, so that is turn 0.
-func carTurn(d city.Point) int {
-	switch {
-	case math.Abs(d.Y) >= math.Abs(d.X) && d.Y >= 0:
-		return 0
-	case math.Abs(d.Y) >= math.Abs(d.X):
-		return 180
-	case d.X >= 0:
-		return 270
-	default:
-		return 90
 	}
 }
 
@@ -1541,7 +1526,7 @@ const kitTruck = "car-kit/truck"
 // drawHaul draws a truck carrying a packed-up session's crate between its
 // lot and the depot, facing the way it drives (item 86).
 func (g *Game) drawHaul(screen *ebiten.Image, cam *city.Camera, h city.Haul) {
-	turn := carTurn(h.To.Sub(h.From))
+	turn := vehicleTurn(h.To.Sub(h.From))
 	at := h.At(g.scene.Clock())
 	g.kit(screen, cam, kitTruck, turn, at, nil)
 	g.kitScaled(screen, cam, crates[h.Hue%len(crates)], turn, at, 0.4, nil)
