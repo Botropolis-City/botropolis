@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -218,7 +219,22 @@ func (g *Game) choose(c ui.WindowChoice) {
 
 func (g *Game) rowState() ui.RowState {
 	store, reason := g.rangeState()
-	return ui.RowState{Current: g.windowChoice(), Store: store, Reason: reason, Custom: g.rangeSel.CustomLabel()}
+	return ui.RowState{Current: g.windowChoice(), Store: store, Reason: reason, Off: g.statsOff(), Custom: g.rangeSel.CustomLabel()}
+}
+
+// statsOff reports whether the person turned statistics off, which the
+// row says as a choice rather than a pause.
+func (g *Game) statsOff() bool { return !g.stats.on }
+
+// openStatsSetting closes the plant's panel and opens settings on the
+// statistics row.
+func (g *Game) openStatsSetting() {
+	g.breakdown, g.settingsOpen = false, true
+	for i, s := range g.settings.Items {
+		if s.Key == config.KeyStats {
+			g.settings.Cursor = i
+		}
+	}
 }
 
 func (g *Game) drawWindowRow(screen *ebiten.Image, row ui.WindowRow) {

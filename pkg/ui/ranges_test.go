@@ -310,6 +310,18 @@ func TestLayoutWindowRow(t *testing.T) {
 		})
 	})
 
+	t.Run("when statistics are turned off", func(t *testing.T) {
+		row := lay(ui.RowState{Store: ui.StorePaused, Off: true, Reason: "statistics are off"})
+
+		t.Run("it should lay only the three short windows", func(t *testing.T) {
+			assert.Empty(t, row.Long)
+		})
+
+		t.Run("it should say they are off as a choice, and how to turn them on", func(t *testing.T) {
+			assert.Equal(t, "statistics are off · s opens settings to turn them on", row.Paused.Text)
+		})
+	})
+
 	t.Run("when the store is still opening", func(t *testing.T) {
 		row := lay(ui.RowState{Store: ui.StoreOpening})
 

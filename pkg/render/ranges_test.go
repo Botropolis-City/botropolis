@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -611,6 +612,53 @@ func TestRangeClicks(t *testing.T) {
 
 		t.Run("it should close it", func(t *testing.T) {
 			assert.False(t, g.breakdown)
+		})
+	})
+}
+
+func TestStatisticsOffRow(t *testing.T) {
+	statsItems := []ui.Setting{{Key: "theme"}, {Key: config.KeyStats}, {Key: "liveliness"}}
+
+	t.Run("when statistics are off", func(t *testing.T) {
+		off := func(t *testing.T) *Game {
+			g := rangesGame(t, nil, "statistics are off")
+			g.settings = ui.NewSettings(statsItems)
+			return g
+		}
+
+		t.Run("it should mark the row off, not paused", func(t *testing.T) {
+			assert.True(t, off(t).rowState().Off)
+		})
+
+		t.Run("and s is pressed on the plant panel", func(t *testing.T) {
+			g := off(t)
+			pressRange(t, g, ebiten.KeyS, false)
+
+			t.Run("it should open settings", func(t *testing.T) {
+				assert.True(t, g.settingsOpen)
+			})
+
+			t.Run("it should close the panel", func(t *testing.T) {
+				assert.False(t, g.breakdown)
+			})
+
+			t.Run("it should select the statistics row", func(t *testing.T) {
+				assert.Equal(t, 1, g.settings.Cursor)
+			})
+		})
+	})
+
+	t.Run("when statistics are on but the store cannot be read", func(t *testing.T) {
+		g := rangesGame(t, nil, "the store is being upgraded")
+		g.stats.on = true
+
+		t.Run("it should mark the row paused, not off", func(t *testing.T) {
+			assert.False(t, g.rowState().Off)
+		})
+
+		t.Run("and s is pressed on the plant panel, it should leave settings closed", func(t *testing.T) {
+			pressRange(t, g, ebiten.KeyS, false)
+			assert.False(t, g.settingsOpen)
 		})
 	})
 }

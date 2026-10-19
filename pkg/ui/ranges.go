@@ -242,13 +242,19 @@ const (
 )
 
 // RowState is what the row shows: the current button, the store's
-// state and why it is paused, and the custom button's label.
+// state and why it is paused, whether statistics were turned off, and
+// the custom button's label.
 type RowState struct {
 	Current WindowChoice
 	Store   StoreState
 	Reason  string
+	Off     bool
 	Custom  string
 }
+
+// statsOffLine is the row's words when statistics were turned off: a
+// choice, with the way back, rather than a fault.
+const statsOffLine = "statistics are off · s opens settings to turn them on"
 
 // WindowRow is the plant's row: the short windows, a hairline, then
 // the long ranges or why they are not offered.
@@ -282,7 +288,11 @@ func LayoutWindowRow(th Theme, at city.Point, width float64, s RowState, measure
 		row.Long = LayoutButtons(th, append(names, custom), city.Point{X: x, Y: at.Y}, measure)
 	case StorePaused:
 		_, smallH := measure("", Small)
-		line := clipTo(PausedLine(s.Reason), at.X+width-x, Small, measure)
+		line := PausedLine(s.Reason)
+		if s.Off {
+			line = statsOffLine
+		}
+		line = clipTo(line, at.X+width-x, Small, measure)
 		row.Paused = Text{Text: line, At: city.Point{X: x, Y: at.Y + (lineH+grid-smallH)/2}, Size: Small}
 	}
 	return row

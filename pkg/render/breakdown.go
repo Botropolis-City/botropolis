@@ -92,6 +92,9 @@ func (g *Game) breakdownKeys() bool {
 		g.choose(ui.WindowChoice{Window: g.window}.Prev(g.rangeReadable()))
 	case just(ebiten.KeyP):
 		g.snap = screenshotPath(timeNow())
+	case just(ebiten.KeyS) && g.statsOff():
+		g.openStatsSetting()
+		return false
 	}
 	return true
 }
