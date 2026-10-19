@@ -614,3 +614,17 @@ func TestRangeClicks(t *testing.T) {
 		})
 	})
 }
+
+func TestLedgerOpen(t *testing.T) {
+	t.Run("when statistics are off", func(t *testing.T) {
+		_, ok, reason := ledgerOpen(nil, time.Now)()
+
+		t.Run("it should give no store", func(t *testing.T) {
+			assert.False(t, ok)
+		})
+
+		t.Run("it should say why", func(t *testing.T) {
+			assert.Equal(t, "statistics are off", reason)
+		})
+	})
+}
