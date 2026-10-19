@@ -189,6 +189,11 @@ func TestScriptsAreInTheCacheKey(t *testing.T) {
 			probes: []probe{appendProbe("in tools/check-demo-corpus", "tools/check-demo-corpus")},
 		},
 		{
+			name: "the acceptance tests' TestAssetSources", pkg: "./testing/acceptance", run: "^TestAssetSources$",
+			extra:  []string{"tools"},
+			probes: []probe{appendProbe("in tools/check-asset-sources", "tools/check-asset-sources")},
+		},
+		{
 			name: "the packaging tests' TestShellIntegration", pkg: "./testing/integration/packaging", run: "^TestShellIntegration$",
 			extra:  []string{"packaging"},
 			probes: []probe{appendProbe("in the shim packaging/botropolis.bash", "packaging/botropolis.bash")},

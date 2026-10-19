@@ -39,6 +39,10 @@ Go keys the test cache on files the test binary itself opens, and `check-docs` r
 Deleting `design/` or `rules/` is caught because the index links into them.
 Tidying an index down to prose would remove a check without appearing to.
 
+## Art
+
+**No picture, texture or mesh comes from an image model** — only from a human artist, an openly licensed pack, or geometry built by hand in code (Aria, 2026-10-18, item 123); read [`design/art-sources.md`](design/art-sources.md) before touching any image, and `make lint` runs `tools/check-asset-sources`, which fails on any image under `pkg/assets/` without a traceable source.
+
 ## Releasing
 
 **The version is one line in `VERSION`, and everything reads it** — the Makefile's ldflags, `packaging/nfpm.yaml`, and the release workflow.

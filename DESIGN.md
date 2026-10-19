@@ -41,6 +41,7 @@ Everything else is redesigned around how the sessions on this machine are actual
 | [chrome.md](design/chrome.md) | strip, footer, cards, panels |
 | [info-views.md](design/info-views.md) | the nine views, their legends and what each says |
 | [sprite-pipeline.md](design/sprite-pipeline.md) | Blender, the kits, the packer, the atlases |
+| [art-sources.md](design/art-sources.md) | where every picture comes from, and that no image model makes any |
 | [milestones.md](design/milestones.md) | what shipped, in order |
 | [parity-and-ship.md](design/parity-and-ship.md) | bot-crossing parity, what went beyond it, what shipping means |
 | [what-it-costs.md](design/what-it-costs.md) | measured cost — CPU, memory, binary, package |

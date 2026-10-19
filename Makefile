@@ -176,7 +176,7 @@ bench ::
 	$(LOG) "Benchmarking the bar's tasks"
 	@go test ./testing/acceptance -run '^$$' -bench . -benchtime ${BENCH_TIME} -count ${BENCH_COUNT}
 
-lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check
+lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check asset-sources-check
 	$(LOG) "Linting"
 	@go vet ./...
 	@${GOLANGCI_LINT} run ./...
@@ -204,6 +204,12 @@ darwin-check ::
 docs-check ::
 	$(LOG) "Checking the documentation structure"
 	@tools/check-docs
+
+# Every image under pkg/assets needs a traceable source: a licence file beside
+# it, or an atlas page a manifest names (item 123, design/art-sources.md).
+asset-sources-check ::
+	$(LOG) "Checking every image under pkg/assets has a source"
+	@tools/check-asset-sources
 
 version-check ::
 	$(LOG) "Checking every file that names a version agrees"
