@@ -453,7 +453,7 @@ func (g *Game) isoLandmark(screen *ebiten.Image, cam *city.Camera, r city.Rect, 
 		g.poly(screen, cam, r, colorPlant)
 		return
 	}
-	g.noteHit(g.kit(screen, cam, name, 0, r.Center(), tint), hit)
+	g.noteHit(g.kit(screen, cam, name, landmarkTurn, r.Center(), tint), hit)
 }
 
 // noteHit remembers a drawn sprite for the pointer; drawIso gathers
@@ -741,14 +741,15 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if c.Plant.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Plant.Rect, func() {
 			g.isoLandmark(screen, cam, c.Plant.Rect, kitPlant, g.scenery(), city.Hit{Landmark: city.LandmarkPlant})
+			g.letterLandmark(screen, cam, c.Plant.Rect, kitPlant, "power plant")
 		}))
 		// The chimney shares the building's depth and is appended after
 		// it. The sort is stable, so the slab is laid down first and the
 		// chimney over it, foot on the roof plane instead of the
 		// pavement. Order here is load-bearing: swap these two appends
 		// and the slab paints over the chimney's base. Bug 39.
-		perch := plantStackPerch(c.Plant.Rect, g.kitFootprint(cam, kitPlant))
-		roof := g.kitRoofLift(cam, kitPlant)
+		perch := landmarkPerch(c.Plant.Rect, g.kitFootprintTurned(cam, kitPlant, landmarkTurn))
+		roof := g.kitRoofLiftTurned(cam, kitPlant, landmarkTurn)
 		items = append(items, footprintAt(cam, c.Plant.Rect, func() {
 			// The fittings go on after the stack and over its cut
 			// edge: the flashing's near rim is what makes the join a
@@ -848,11 +849,13 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if c.Library.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Library.Rect, func() {
 			g.isoLandmark(screen, cam, c.Library.Rect, kitLibrary, g.scenery(), city.Hit{Landmark: city.LandmarkLibrary})
+			g.letterLandmark(screen, cam, c.Library.Rect, kitLibrary, "library")
 		}))
 	}
 	if c.Hall.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Hall.Rect, func() {
 			g.isoLandmark(screen, cam, c.Hall.Rect, kitHall, g.scenery(), city.Hit{Landmark: city.LandmarkHall})
+			g.letterLandmark(screen, cam, c.Hall.Rect, kitHall, "city hall")
 		}))
 	}
 	// Each district's board stands in the world, ordered with the
@@ -899,17 +902,17 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 }
 
-// queueLandmarkLabels asks for the plant's, the library's and city
-// hall's labels, laid out with the map's others (items 99 and 102).
+// queueLandmarkLabels asks for the hovered landmark's plate. Each
+// landmark's name is painted on its wall, so the plate is for the one
+// under the pointer only (item 99; Aria, 2026-10-19).
 func (g *Game) queueLandmarkLabels(cam *city.Camera, c *city.City, hover city.Hit) {
-	plates := g.scene.LandmarkLabelsVisible()
-	if c.Plant.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkPlant) {
+	if c.Plant.Rect.Area() > 0 && hover.Landmark == city.LandmarkPlant {
 		g.queueLandmarkLabel(cam, c.Plant.Rect, kitPlant, "power plant")
 	}
-	if c.Library.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkLibrary) {
+	if c.Library.Rect.Area() > 0 && hover.Landmark == city.LandmarkLibrary {
 		g.queueLandmarkLabel(cam, c.Library.Rect, kitLibrary, "library")
 	}
-	if c.Hall.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkHall) {
+	if c.Hall.Rect.Area() > 0 && hover.Landmark == city.LandmarkHall {
 		g.queueLandmarkLabel(cam, c.Hall.Rect, kitHall, "city hall")
 	}
 }
@@ -1284,7 +1287,7 @@ func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City)
 	}
 	if c.Plant.Rect.Area() > 0 {
 		foot := cam.WorldToScreen(c.Plant.Rect.Center())
-		size := g.kitSize(cam, kitPlant)
+		size := g.kitSizeTurned(cam, kitPlant, landmarkTurn)
 		glow(screen, city.Point{X: foot.X, Y: foot.Y - float64(size.Y)*0.6}, lit(float64(size.X)*0.22, minPlantGlow), boost(colorPlantGlow, cam.Zoom))
 	}
 }

@@ -51,7 +51,7 @@ func TestLandmarkLabelStandsOnItsLandmark(t *testing.T) {
 					sprite := g.landmarkSprite(cam, lot, l.kit)
 					require.Greater(t, sprite.Area(), 0.0, "precondition: the sprite is drawn")
 					foot := cam.WorldToScreen(lot.Center())
-					roof := city.Point{X: foot.X, Y: foot.Y - g.kitRoofLift(cam, l.kit)}
+					roof := city.Point{X: foot.X, Y: foot.Y - g.kitRoofLiftTurned(cam, l.kit, landmarkTurn)}
 					label := g.landmarkLabel(g.landmarkRoof(cam, lot, l.kit), l.name)
 
 					t.Run("it should anchor within the drawn sprite", func(t *testing.T) {
@@ -70,8 +70,8 @@ func TestLandmarkLabelStandsOnItsLandmark(t *testing.T) {
 	for _, heading := range []int{0, 90, 180, 270} {
 		t.Run(fmt.Sprintf("when the power plant's label is placed and the camera faces %d", heading), func(t *testing.T) {
 			cam := isoCamera(heading, 1)
-			perch := plantStackPerch(lot, g.kitFootprint(cam, kitPlant))
-			_, _, _, _, chimney, ok := g.kitThroughPlace(cam, kitStack, perch, g.kitRoofLift(cam, kitPlant))
+			perch := landmarkPerch(lot, g.kitFootprintTurned(cam, kitPlant, landmarkTurn))
+			_, _, _, _, chimney, ok := g.kitThroughPlace(cam, kitStack, perch, g.kitRoofLiftTurned(cam, kitPlant, landmarkTurn))
 			require.True(t, ok, "precondition: the chimney is placed")
 			label := g.landmarkLabel(g.landmarkRoof(cam, lot, kitPlant), "power plant")
 
@@ -84,7 +84,7 @@ func TestLandmarkLabelStandsOnItsLandmark(t *testing.T) {
 	t.Run("when the label is placed a sprite's height above the foot, as item 99 found it", func(t *testing.T) {
 		cam := isoCamera(0, 1)
 		foot := cam.WorldToScreen(lot.Center())
-		old := city.Point{X: foot.X, Y: foot.Y - float64(g.kitSize(cam, kitLibrary).Y)}
+		old := city.Point{X: foot.X, Y: foot.Y - float64(g.kitSizeTurned(cam, kitLibrary, landmarkTurn).Y)}
 
 		t.Run("it should miss the drawn sprite", func(t *testing.T) {
 			assert.False(t, g.landmarkSprite(cam, lot, kitLibrary).Contains(old))

@@ -151,9 +151,9 @@ func (g *Game) kitThroughPlace(cam *city.Camera, name string, at city.Point, cut
 	return atlas.pages[sprite.Page], src, origin, scale, rect, true
 }
 
-// kitFootprint is a piece's footprint in world units, for standing
-// something on it.
-func (g *Game) kitFootprint(cam *city.Camera, name string) float64 {
+// kitFootprintTurned is a piece's footprint in world units, for standing
+// something on it, as a piece turned in the world by turn degrees shows it.
+func (g *Game) kitFootprintTurned(cam *city.Camera, name string, turn int) float64 {
 	if g.kits == nil {
 		return 0
 	}
@@ -161,7 +161,7 @@ func (g *Game) kitFootprint(cam *city.Camera, name string) float64 {
 	if atlas == nil {
 		return 0
 	}
-	sprite, ok := atlas.Sprite(name, cam.Heading)
+	sprite, ok := atlas.Sprite(name, cam.Heading-turn)
 	if !ok {
 		return 0
 	}
@@ -331,6 +331,11 @@ func (g *Game) kitAt(screen *ebiten.Image, cam *city.Camera, name string, turn i
 // kitRoofLift is how high above its ground point a piece's roof plane
 // lands on screen, for standing something on top of it.
 func (g *Game) kitRoofLift(cam *city.Camera, name string) float64 {
+	return g.kitRoofLiftTurned(cam, name, 0)
+}
+
+// kitRoofLiftTurned is kitRoofLift for a piece turned in the world.
+func (g *Game) kitRoofLiftTurned(cam *city.Camera, name string, turn int) float64 {
 	if g.kits == nil {
 		return 0
 	}
@@ -338,7 +343,7 @@ func (g *Game) kitRoofLift(cam *city.Camera, name string) float64 {
 	if atlas == nil {
 		return 0
 	}
-	sprite, ok := atlas.Sprite(name, cam.Heading)
+	sprite, ok := atlas.Sprite(name, cam.Heading-turn)
 	if !ok {
 		return 0
 	}
@@ -347,11 +352,16 @@ func (g *Game) kitRoofLift(cam *city.Camera, name string) float64 {
 
 // kitSize is a piece's screen size at the camera's zoom without drawing it.
 func (g *Game) kitSize(cam *city.Camera, name string) image.Point {
+	return g.kitSizeTurned(cam, name, 0)
+}
+
+// kitSizeTurned is kitSize for a piece turned in the world.
+func (g *Game) kitSizeTurned(cam *city.Camera, name string, turn int) image.Point {
 	if g.kits == nil {
 		return image.Point{}
 	}
 	atlas := g.kits.pick(cam.Zoom)
-	sprite, ok := atlas.Sprite(name, cam.Heading)
+	sprite, ok := atlas.Sprite(name, cam.Heading-turn)
 	if !ok {
 		return image.Point{}
 	}

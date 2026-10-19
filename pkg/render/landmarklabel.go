@@ -10,13 +10,13 @@ import (
 // standing on its plot's centre as isoLandmark stands it; the plant's
 // includes the chimney rising out of its roof.
 func (g *Game) landmarkSprite(cam *city.Camera, r city.Rect, name string) city.Rect {
-	_, _, _, rect, ok := g.kitPlace(cam, name, 0, r.Center(), 0)
+	_, _, _, rect, ok := g.kitPlace(cam, name, landmarkTurn, r.Center(), 0)
 	if !ok {
 		return city.Rect{}
 	}
 	if name == kitPlant {
-		perch := plantStackPerch(r, g.kitFootprint(cam, kitPlant))
-		if _, _, _, _, stack, ok := g.kitThroughPlace(cam, kitStack, perch, g.kitRoofLift(cam, kitPlant)); ok {
+		perch := landmarkPerch(r, g.kitFootprintTurned(cam, kitPlant, landmarkTurn))
+		if _, _, _, _, stack, ok := g.kitThroughPlace(cam, kitStack, perch, g.kitRoofLiftTurned(cam, kitPlant, landmarkTurn)); ok {
 			rect = rect.Union(stack)
 		}
 	}
@@ -53,5 +53,5 @@ func (g *Game) queueLandmarkLabel(cam *city.Camera, r city.Rect, name, s string)
 // centre, where the chimney's flashing meets the plant's roof too.
 func (g *Game) landmarkRoof(cam *city.Camera, r city.Rect, name string) city.Point {
 	foot := cam.WorldToScreen(r.Center())
-	return city.Point{X: foot.X, Y: foot.Y - g.kitRoofLift(cam, name)}
+	return city.Point{X: foot.X, Y: foot.Y - g.kitRoofLiftTurned(cam, name, landmarkTurn)}
 }

@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Draw the landmarks' measured walls back over their atlas sprites.
+
+Usage: tools/landmark-walls [--atlas DIR] [--table FILE] --out DIR [--help]
+
+The plant's, the library's and city hall's names are painted on their
+walls (item 99), and pkg/render/landmarkwalls.json says where: for each
+piece and atlas heading, the near ground corner, the walls' ends and
+height, the doors and windows on each wall, the main entrance's wall,
+and the clear band the name is painted across. All of it is measured by
+eye, because the atlas records window panes for two of the three and
+doors for none.
+
+This draws that table over each sprite at four times its size, from the
+lowest-zoom atlas: walls in yellow, openings in red, panes from the
+atlas in magenta, and the sign band in cyan. When
+TestLandmarkWallsAreMeasuredFromTheArtInTheAtlas fails, the sprites have
+changed: run this, correct the table until the drawing fits the art
+again, and record the new hash the test reports.
+"""
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from PIL import Image, ImageDraw
+
+SCALE = 4
+
+
+def point(e, w, h, side, u, v):
+    nx, ny = e["near"][0] * w, e["near"][1] * h
+    wall = e["wall"] * h
+    if side == "left":
+        start = e["left"] * w
+        x = start + u * (nx - start)
+        ground = ny - (nx - x) / 2
+    else:
+        end = e["right"] * w
+        x = nx + u * (end - nx)
+        ground = ny - (x - nx) / 2
+    return (x * SCALE, (ground - v * wall) * SCALE)
+
+
+def quad(e, w, h, side, box):
+    u0, u1, v0, v1 = box
+    return [point(e, w, h, side, u0, v1), point(e, w, h, side, u1, v1),
+            point(e, w, h, side, u1, v0), point(e, w, h, side, u0, v0)]
+
+
+def main():
+    root = Path(__file__).resolve().parent.parent
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--atlas", default=root / "pkg/assets/kits", type=Path)
+    parser.add_argument("--table", default=root / "pkg/render/landmarkwalls.json", type=Path)
+    parser.add_argument("--out", required=True, type=Path)
+    args = parser.parse_args()
+
+    manifest = json.loads((args.atlas / "kits-z1.json").read_text())
+    sprites = manifest.get("sprites", manifest)
+    table = json.loads(args.table.read_text())
+    args.out.mkdir(parents=True, exist_ok=True)
+    pages = {}
+    for kit, walls in table.items():
+        for heading, e in walls["headings"].items():
+            s = sprites[kit][heading]
+            if s["page"] not in pages:
+                pages[s["page"]] = Image.open(args.atlas / f"kits-z1-{s['page']}.png").convert("RGBA")
+            sprite = pages[s["page"]].crop((s["x"], s["y"], s["x"] + s["w"], s["y"] + s["h"]))
+            w, h = sprite.size
+            big = Image.new("RGBA", (w * SCALE, h * SCALE), (90, 120, 90, 255))
+            big.alpha_composite(sprite.resize((w * SCALE, h * SCALE), Image.NEAREST))
+            draw = ImageDraw.Draw(big)
+            for side in ("left", "right"):
+                draw.polygon(quad(e, w, h, side, (0, 1, 0, 1)), outline=(255, 255, 0, 255))
+                for box in e["openings"].get(side, []):
+                    draw.polygon(quad(e, w, h, side, box), outline=(255, 0, 0, 255))
+            for pane in s.get("panes", []):
+                draw.polygon([(pane[i] * SCALE, pane[i + 1] * SCALE) for i in range(0, 8, 2)], outline=(255, 0, 255, 255))
+            sign = e["sign"]
+            draw.polygon(quad(e, w, h, sign["side"], sign["band"]), outline=(0, 255, 255, 255))
+            out = args.out / f"{kit.split('/')[-1]}-{heading}.png"
+            big.save(out)
+            print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

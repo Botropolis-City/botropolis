@@ -128,6 +128,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The power plant, the library and city hall face you, with their names on their walls.**
+  All three are turned round, so their front doors face the camera's home heading, and the plant's chimney turns with it.
+  Each one's name is painted in capitals on a clear stretch of one of the walls you can see, leaning with the wall and turning with the camera, never across a door or a window.
+  Their floating labels are gone: a landmark's plate shows only while the pointer is on it.
+
 - **The packages declare every licence they ship.**
   The deb, rpm, Arch package and Homebrew formula now declare `MIT AND OFL-1.1 AND CC0-1.0`, not MIT alone, because the binaries carry the Inter typeface and Kenney's art as well as botropolis's own code.
   Each package already installed all three licence texts; now its metadata says so too.
