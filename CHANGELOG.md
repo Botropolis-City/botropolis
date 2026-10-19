@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A daemon out of sync with Botropolis stops it until they match.**
+  After an upgrade the old daemon keeps running until it is restarted, and running the two out of sync could go wrong in ways nobody tested.
+  The map no longer loads beside one: it shows both versions with **Exit** and **Restart Daemon**, which restarts the daemon the way it was started — its systemd user unit, its Homebrew service, or the process you started by hand — and opens the city once it answers.
+  When the daemon is the newer one, the button is **Restart Botropolis**, which runs the map again from the upgraded build.
+  `status`, `events`, `find`, `bar`, `notify` and `tui` refuse with one line naming both versions and how to restart the daemon, and `botropolis doctor` fails its daemon check the same way.
+  Claude Code's hooks are never refused, so a tool call is never blocked.
+
 - **A train's engine shows its model's context window.**
   Each window size has its own engine: a diesel up to 200k tokens, a bullet train up to 1M, a double-decker over 1M, and a steam engine when the window is unknown.
   The wagons still count the model's spend.
