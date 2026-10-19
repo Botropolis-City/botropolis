@@ -7,8 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
@@ -84,23 +86,15 @@ func (l *Loader) Load(now time.Time) (state.Snapshot, error) {
 		return snapshot, err
 	}
 	sort.Strings(paths)
+	read := l.read(paths)
 	cache := map[string]entry{}
-	for _, path := range paths {
-		info, err := os.Stat(path)
-		if err != nil {
-			snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: path, Err: err})
+	for i, path := range paths {
+		r := read[i]
+		if r.err != nil {
+			snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: path, Err: r.err})
 			continue
 		}
-		k := key{size: info.Size(), modTime: info.ModTime()}
-		e, ok := l.cache[path]
-		if !ok || e.key != k {
-			s, err := readRollout(path)
-			if err != nil {
-				snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: path, Err: err})
-				continue
-			}
-			e = entry{key: k, session: s}
-		}
+		e, info := r.entry, r.info
 		cache[path] = e
 		if e.session.ID == "" {
 			continue
@@ -114,6 +108,52 @@ func (l *Loader) Load(now time.Time) (state.Snapshot, error) {
 	}
 	l.cache = cache
 	return snapshot, nil
+}
+
+type result struct {
+	entry entry
+	info  os.FileInfo
+	err   error
+}
+
+// read stats every rollout and decodes, in parallel, those whose size or
+// modification time the cache does not hold: each is independent of the
+// others (item 93).
+func (l *Loader) read(paths []string) []result {
+	out := make([]result, len(paths))
+	next := make(chan int)
+	var wg sync.WaitGroup
+	for range min(runtime.GOMAXPROCS(0), len(paths)) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range next {
+				out[i] = l.readOne(paths[i])
+			}
+		}()
+	}
+	for i := range paths {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
+	return out
+}
+
+func (l *Loader) readOne(path string) result {
+	info, err := os.Stat(path)
+	if err != nil {
+		return result{err: err}
+	}
+	k := key{size: info.Size(), modTime: info.ModTime()}
+	if e, ok := l.cache[path]; ok && e.key == k {
+		return result{entry: e, info: info}
+	}
+	s, err := readRollout(path)
+	if err != nil {
+		return result{err: err}
+	}
+	return result{entry: entry{key: k, session: s}, info: info}
 }
 
 func toSession(s session, modTime, now time.Time) state.Session {
