@@ -16,12 +16,6 @@ import (
 	"botropolis.city/botropolis/pkg/ui"
 )
 
-// Kenney's isometric building pack stacks: a 132 px ground floor with a
-// plinth, 99 px upper storeys and a 99 px roof on top. These are the sprite
-// names and the pixel offsets that make the pieces meet at zoom 1.
-
-var ()
-
 // poly fills a world rectangle as its projected outline.
 func (g *Game) poly(screen *ebiten.Image, cam *city.Camera, r city.Rect, c color.NRGBA) {
 	var path vector.Path
