@@ -239,6 +239,8 @@ docs/screenshots/r670-item-127-key-list-clear-of-stream.png
 docs/screenshots/r674-item-78-train-hovered.png
 docs/botropolis.gif
 packaging/botropolis.svg
+docs/screenshots/r676-item-99-landmark-labels.png
+docs/screenshots/r676-item-99-landmark-labels-close.png
 LIST
 )
 while read -r img; do
