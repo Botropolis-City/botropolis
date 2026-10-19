@@ -36,6 +36,10 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 		if err := decoder.Decode(&request); err != nil {
 			return
 		}
+		// A hook holds up a session's tool call until it is answered.
+		if request.Op != proto.OpEvent && !d.waitLoaded(ctx) {
+			return
+		}
 		switch request.Op {
 		case proto.OpSnapshot:
 			snapshot := d.Snapshot()

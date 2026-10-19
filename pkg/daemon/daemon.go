@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"errors"
 	"runtime/debug"
 	"sync"
@@ -86,6 +87,10 @@ type Daemon struct {
 	scanMu    sync.Mutex
 	watching  chan struct{}
 	watchOnce sync.Once
+	// loaded, when not nil, is closed by the first scan to finish; until
+	// then every request but a hook event waits for it (item 143).
+	loaded   chan struct{}
+	loadOnce sync.Once
 
 	mu       sync.Mutex
 	base     state.Snapshot
@@ -198,7 +203,30 @@ func (d *Daemon) Rescan() error {
 	view := d.view()
 	d.mu.Unlock()
 	d.notify(view)
+	if d.loaded != nil {
+		d.loadOnce.Do(func() { close(d.loaded) })
+	}
 	return nil
+}
+
+// HoldUntilLoaded has every request but a hook event wait for the first
+// scan, so the daemon can serve before it has read the home and no
+// client sees a city that is not there yet. Call it before Serve.
+// Item 143.
+func (d *Daemon) HoldUntilLoaded() {
+	d.loaded = make(chan struct{})
+}
+
+func (d *Daemon) waitLoaded(ctx context.Context) bool {
+	if d.loaded == nil {
+		return true
+	}
+	select {
+	case <-d.loaded:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
 
 func (d *Daemon) Snapshot() state.Snapshot {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The daemon starts however large your Claude Code folder is.**
+  0.2.0 read the whole folder twice before it counted as started, and on a large one on a busy machine it gave up after 10 seconds with `context deadline exceeded`.
+  It now starts as soon as its socket is open and reads the folder after: the city and `botropolis status` wait for the first read and never see a half-read city, and Claude Code's hooks are answered at once, so no session waits on it.
+
 ## [0.2.0] - 2026-10-19
 
 ### Added

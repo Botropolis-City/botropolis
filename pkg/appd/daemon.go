@@ -182,34 +182,30 @@ func runDaemon(lc fx.Lifecycle, shutdowner fx.Shutdowner, d *daemon.Daemon, list
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	lc.Append(fx.Hook{
-		OnStart: func(start context.Context) error {
-			if err := d.Rescan(); err != nil {
-				return err
-			}
-			errs := make(chan error, 2)
-			go func() { errs <- d.Watch(ctx) }()
-			// What changed between the first scan and the watch raised no
-			// event, so it is read again once the watch is up (item 124).
-			if err := d.WaitWatching(start); err != nil {
-				cancel()
-				return err
-			}
-			if err := d.Rescan(); err != nil {
-				cancel()
-				return err
-			}
-			fmt.Fprintf(out, "botropolisd: serving %s for %s\n", cfg.Socket, cfg.Home)
+		// Starting only begins serving: reading the home takes as long as
+		// the home is large, so it happens after Start, while requests wait
+		// for it (item 143).
+		OnStart: func(context.Context) error {
+			d.HoldUntilLoaded()
+			errs := make(chan error, 3)
 			go func() { errs <- d.Serve(ctx, listener) }()
+			go func() { errs <- load(ctx, d, errs) }()
 			go func() {
 				defer close(done)
-				select {
-				case <-ctx.Done():
-				case err := <-errs:
-					if err != nil {
-						_ = shutdowner.Shutdown(fx.ExitCode(1))
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case err := <-errs:
+						if err != nil {
+							fmt.Fprintf(out, "botropolisd: %v\n", err)
+							_ = shutdowner.Shutdown(fx.ExitCode(1))
+							return
+						}
 					}
 				}
 			}()
+			fmt.Fprintf(out, "botropolisd: serving %s for %s\n", cfg.Socket, cfg.Home)
 			return nil
 		},
 		OnStop: func(context.Context) error {
@@ -220,6 +216,20 @@ func runDaemon(lc fx.Lifecycle, shutdowner fx.Shutdowner, d *daemon.Daemon, list
 			return nil
 		},
 	})
+}
+
+// load reads the home, watches it, and reads it again once the watch is
+// up: what changed between the first scan and the watch raised no event
+// (item 124).
+func load(ctx context.Context, d *daemon.Daemon, errs chan<- error) error {
+	if err := d.Rescan(); err != nil {
+		return err
+	}
+	go func() { errs <- d.Watch(ctx) }()
+	if err := d.WaitWatching(ctx); err != nil {
+		return nil
+	}
+	return d.Rescan()
 }
 
 // closeUpPath keeps the close-up beside the ledger, and nowhere when
