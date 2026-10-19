@@ -103,7 +103,7 @@ func TestStripChips(t *testing.T) {
 	reasons := []struct {
 		name, reason, chip string
 	}{
-		{"when statistics are paused", "the store is being upgraded", "statistics paused: the store is being upgraded"},
+		{"when statistics are paused, briefly, leaving the reason to the plant", "the store is being upgraded", "statistics paused"},
 		{"when statistics are off", "statistics are off", "statistics off"},
 	}
 	for _, tc := range reasons {

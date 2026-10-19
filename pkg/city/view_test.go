@@ -10,6 +10,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -70,10 +71,9 @@ func TestViewScale(t *testing.T) {
 func TestTint(t *testing.T) {
 	t.Run("when one session has spent twice what another has", func(t *testing.T) {
 		rich := session("rich", cinders, state.Working)
-		rich.CostUSD, rich.CostKnown = 8, true
 		poor := session("poor", botropolis, state.Working)
-		poor.CostUSD, poor.CostKnown = 4, true
 		s := viewed(t, city.ViewSpend, rich, poor)
+		s.SetLedger(&fakeLedger{sessions: map[string]stats.Cost{"rich": cost(8), "poor": cost(4)}})
 
 		t.Run("it should sit at the top of the ramp", func(t *testing.T) {
 			assert.InDelta(t, 1.0, s.Tint(buildingOf(t, s, "rich")).Value, 1e-9)
@@ -86,8 +86,8 @@ func TestTint(t *testing.T) {
 
 	t.Run("when a session's cost is not known", func(t *testing.T) {
 		unknown := session("unknown", cinders, state.Working)
-		unknown.CostUSD, unknown.CostKnown = 0, false
 		s := viewed(t, city.ViewSpend, unknown)
+		s.SetLedger(&fakeLedger{sessions: map[string]stats.Cost{}})
 
 		t.Run("it should be left out of the colouring rather than painted as nothing", func(t *testing.T) {
 			assert.False(t, s.Tint(buildingOf(t, s, "unknown")).Known)
@@ -163,8 +163,8 @@ func TestTint(t *testing.T) {
 func TestLegend(t *testing.T) {
 	t.Run("when a ramp view is on", func(t *testing.T) {
 		rich := session("rich", cinders, state.Working)
-		rich.CostUSD, rich.CostKnown = 12.5, true
 		s := viewed(t, city.ViewSpend, rich)
+		s.SetLedger(&fakeLedger{sessions: map[string]stats.Cost{"rich": cost(12.5)}})
 
 		t.Run("it should say what the far end is worth", func(t *testing.T) {
 			assert.Equal(t, "$12.50", s.Legend().High)

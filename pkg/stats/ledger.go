@@ -35,6 +35,9 @@ type Ledger struct {
 	err   error
 	tried time.Time
 	cache map[int]cachedWindow
+	// sessions is every session's cost as last read, at sessionsAt.
+	sessions   map[string]Cost
+	sessionsAt time.Time
 }
 
 // NewLedger is a ledger over the store at path, opened when first asked.

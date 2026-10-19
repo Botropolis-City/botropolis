@@ -194,7 +194,8 @@ func (s *Scene) raw(v View, b *Building) (float64, bool) {
 	sess := b.Session
 	switch v {
 	case ViewSpend:
-		return sess.CostUSD, sess.CostKnown
+		usd, known, _ := b.spend()
+		return usd, known
 	case ViewPressure:
 		return sess.ContextPercent, sess.ContextWindow > 0
 	case ViewStaleness:

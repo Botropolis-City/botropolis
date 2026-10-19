@@ -14,6 +14,7 @@ import (
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/plan"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 // World units are pixels at zoom 1; every size is a whole number of 16 px
@@ -31,15 +32,19 @@ const (
 
 type Building struct {
 	Session state.Session
-	slot    int
-	Rect    Rect
-	Fill    float64
-	Cranes  int
-	Flags   int
-	Merged  int
-	Smoke   int
-	Lit     bool
-	Pulse   bool
+	// Cost is the session's cost from the statistics store, and Priced
+	// whether the store had one (item 116).
+	Cost   stats.Cost
+	Priced bool
+	slot   int
+	Rect   Rect
+	Fill   float64
+	Cranes int
+	Flags  int
+	Merged int
+	Smoke  int
+	Lit    bool
+	Pulse  bool
 	// Rung is how far the session has gone quiet, and Blinds, BoardedUp
 	// and Overgrown are what that rung draws (item 86).
 	Rung      state.Rung
@@ -378,6 +383,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	city.placeGroups(snapshot.Groups)
 	city.Plant.Day = city.Breakdown(LastDay)
 	city.Trains = trains(city.Plant.Day)
+	city.priceSessions()
 	return city
 }
 

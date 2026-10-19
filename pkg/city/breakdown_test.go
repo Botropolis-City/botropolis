@@ -32,9 +32,17 @@ func spender(id, cwd, model string, hours map[int]int64) state.Session {
 // fakeLedger answers every window with the same store figures, or
 // refuses with a reason.
 type fakeLedger struct {
-	window stats.Window
-	reason string
-	asked  []int
+	window   stats.Window
+	sessions map[string]stats.Cost
+	reason   string
+	asked    []int
+}
+
+func (l *fakeLedger) SessionCosts(at time.Time) (map[string]stats.Cost, error) {
+	if l.reason != "" {
+		return nil, errors.New(l.reason)
+	}
+	return l.sessions, nil
 }
 
 func (l *fakeLedger) Window(at time.Time, hours int, root func(string) string) (stats.Window, error) {

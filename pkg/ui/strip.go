@@ -54,13 +54,14 @@ func StripChips(s city.Summary) []Chip {
 	return chips
 }
 
-// statsChip says why there is no cost chip: statistics are off, or
-// paused and why, so its absence reads as a choice and not a fault.
+// statsChip says why there is no cost chip, briefly, so its absence
+// reads as a choice and not a fault: statistics are off, or paused, with
+// the reason in the plant's panel.
 func statsChip(s city.Summary) Chip {
 	if s.Reason == stats.ReasonOff {
 		return Chip{Text: "statistics off"}
 	}
-	return Chip{Text: stats.PausedLine(s.Reason)}
+	return Chip{Text: "statistics paused"}
 }
 
 // costChip is the 24 h cost at list prices, a range while some writes'

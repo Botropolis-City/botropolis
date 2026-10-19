@@ -73,7 +73,7 @@ func sentence(s state.Session, generated string) string {
 func (b *Building) numbers(v View, now time.Time) []Number {
 	s := b.Session
 	context := Number{Label: "context", Value: format.Percent(s.ContextPercent)}
-	spent := Number{Label: "spent", Value: format.USD(s.CostUSD, s.CostKnown)}
+	spent := Number{Label: "spent", Value: b.Spent()}
 	idle := Number{Label: "idle", Value: format.Age(now.Sub(s.LastActivity))}
 	fresh := Number{Label: "fresh/h", Value: format.Tokens(s.FreshTokensPerHour)}
 	switch v {

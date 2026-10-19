@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/stats"
 )
 
@@ -69,7 +71,46 @@ type Breakdown struct {
 // Ledger is the statistics store as the city reads it.
 type Ledger interface {
 	Window(at time.Time, hours int, root func(string) string) (stats.Window, error)
+	SessionCosts(at time.Time) (map[string]stats.Cost, error)
 	Reason() string
+}
+
+// priceSessions gives each building its session's cost from the store;
+// one it has no row for, or any while statistics are off, is unpriced.
+func (c *City) priceSessions() {
+	if c.ledger == nil {
+		return
+	}
+	costs, err := c.ledger.SessionCosts(c.Time)
+	if err != nil {
+		return
+	}
+	for _, b := range c.Buildings() {
+		b.Cost, b.Priced = costs[b.Session.ID]
+	}
+}
+
+// isClaude is whether a session is Claude's, whose cost the store knows;
+// another harness's sessions keep their own figures.
+func isClaude(s state.Session) bool { return s.Harness == "" || s.Harness == "claude" }
+
+// spend is what a building spent, whether it is known, and how to say it:
+// the store's cost for a Claude session, its own figure for another
+// harness's (item 116).
+func (b *Building) spend() (float64, bool, string) {
+	if !isClaude(b.Session) {
+		return b.Session.CostUSD, b.Session.CostKnown, format.USD(b.Session.CostUSD, b.Session.CostKnown)
+	}
+	if !b.Priced {
+		return 0, false, format.Unknown
+	}
+	return b.Cost.High, true, stats.Dollars(b.Cost)
+}
+
+// Spent is what the building's card says it spent.
+func (b *Building) Spent() string {
+	_, _, text := b.spend()
+	return text
 }
 
 func counters(u claude.Usage) stats.Counters {

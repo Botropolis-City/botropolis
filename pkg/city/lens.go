@@ -211,8 +211,9 @@ func (s *Scene) aggregate(l Lens) string {
 	case LensCost:
 		total, known := 0.0, false
 		for _, b := range buildings {
-			total += b.Session.CostUSD
-			known = known || b.Session.CostKnown
+			usd, ok, _ := b.spend()
+			total += usd
+			known = known || ok
 		}
 		if !known {
 			return "spend not known yet"
