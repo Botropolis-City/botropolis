@@ -28,6 +28,8 @@ const (
 	OpPack = "pack"
 	// OpCloseUp records that you closed up (item 86).
 	OpCloseUp = "closeup"
+	// OpForget forgets a demolished session from the ledger (item 144).
+	OpForget = "forget"
 
 	socketDir  = "botropolis"
 	socketName = "botropolis.sock"
@@ -45,6 +47,8 @@ type Request struct {
 	Pack *Pack `json:"pack,omitempty"`
 	// CloseUp is a close-up's open and pinned sessions.
 	CloseUp *CloseUp `json:"closeUp,omitempty"`
+	// Forget is the session a forget request names.
+	Forget string `json:"forget,omitempty"`
 }
 
 // CloseUp is a request to record a close-up: the sessions open, and the

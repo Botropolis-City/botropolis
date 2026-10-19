@@ -366,12 +366,8 @@ func stat(path string) (fileKey, error) {
 // keepLedger records every session shown and adds back each one the
 // ledger knows that nothing else brought: its transcript is gone.
 func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time) ([]Session, error) {
-	if l.ledger == nil {
-		ledger, err := LoadLedger(l.ledgerPath)
-		if err != nil {
-			return sessions, err
-		}
-		l.ledger = ledger
+	if err := l.loadLedger(); err != nil {
+		return sessions, err
 	}
 	changed := false
 	shown := map[string]bool{}
@@ -479,12 +475,8 @@ func (l *Loader) Pack(id string, packed bool, at time.Time) error {
 	if l.ledgerPath == "" {
 		return ErrNoLedger
 	}
-	if l.ledger == nil {
-		ledger, err := LoadLedger(l.ledgerPath)
-		if err != nil {
-			return err
-		}
-		l.ledger = ledger
+	if err := l.loadLedger(); err != nil {
+		return err
 	}
 	if packed {
 		l.ledger.Pack(id, at)

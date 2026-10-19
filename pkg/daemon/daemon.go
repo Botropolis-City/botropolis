@@ -65,6 +65,28 @@ func (d *Daemon) Pack(id string, packed bool) error {
 	return d.Rescan()
 }
 
+// Forgetter is a loader that can forget a demolished session.
+type Forgetter interface {
+	Forget(id string) error
+}
+
+// Forget drops a demolished session from the ledger and rescans, so
+// every client stops showing it at once (item 144). A loader that keeps
+// no ledger has nothing to forget.
+func (d *Daemon) Forget(id string) error {
+	f, ok := d.loader.(Forgetter)
+	if !ok {
+		return nil
+	}
+	d.scanMu.Lock()
+	err := f.Forget(id)
+	d.scanMu.Unlock()
+	if err != nil {
+		return err
+	}
+	return d.Rescan()
+}
+
 type overlay struct {
 	at      time.Time
 	state   state.State

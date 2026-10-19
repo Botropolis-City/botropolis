@@ -108,6 +108,23 @@ func (m *Multi) Pack(id string, packed bool, at time.Time) error {
 	return err
 }
 
+// Forgetter is a harness that can forget a demolished session (item 144).
+type Forgetter interface {
+	Forget(id string) error
+}
+
+// Forget asks every harness that can forget a demolished session to.
+func (m *Multi) Forget(id string) error {
+	for _, h := range m.harnesses {
+		if f, ok := h.(Forgetter); ok {
+			if err := f.Forget(id); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // CloseUpper is a harness that can record a close-up (item 86).
 type CloseUpper interface {
 	CloseUp(open, pinned []string, at time.Time) error

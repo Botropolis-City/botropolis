@@ -164,7 +164,7 @@ func (s *services) Hooks(cfg *config.Config) cli.HooksRunner {
 }
 
 func (s *services) Sessions(cfg *config.Config) cli.SessionsRunner {
-	return commands.NewSessions(cfg.Home, control.Default(cfg.Terminal)).WithForget(pruneForgetter(cfg))
+	return commands.NewSessions(cfg.Home, control.Default(cfg.Terminal)).WithForget(pruneForgetter(cfg)).WithDemolished(demolisher(cfg))
 }
 
 func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
@@ -214,7 +214,7 @@ type tuiRunner struct {
 
 func (r *tuiRunner) Run(ctx context.Context) error {
 	feed := commands.Feed{Socket: r.config.Socket, Source: r.services.source(r.config), Poll: 2 * time.Second, Retry: 5 * time.Second}
-	sessions := commands.NewSessions(r.config.Home, control.Default(r.config.Terminal))
+	sessions := commands.NewSessions(r.config.Home, control.Default(r.config.Terminal)).WithDemolished(demolisher(r.config))
 	return tui.Run(ctx, feed.Run, sessions)
 }
 
@@ -358,7 +358,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		layout = city.NewLayout()
 	}
 	layout.SetTyping(typingFor(c.config.DistrictType, cmd.ErrOrStderr()))
-	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config), socket: c.config.Socket}
+	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config), socket: c.config.Socket, demolished: demolisher(c.config)}
 	actor.terminal.Store(c.config.Terminal)
 	feed := commands.Feed{
 		Socket:  c.config.Socket,
@@ -523,6 +523,9 @@ type liveActor struct {
 	groups   string
 	socket   string
 	terminal atomic.Value
+	// demolished has the ledger forget a session the map demolished
+	// (item 144).
+	demolished func(string) error
 }
 
 // closeUp asks the daemon at the actor's socket to record a close-up
@@ -549,7 +552,7 @@ func (a *liveActor) pack(id string, packed bool) error {
 
 func (a *liveActor) Do(action city.Action) error {
 	terminal, _ := a.terminal.Load().(string)
-	sessions := commands.NewSessions(a.home, control.Default(terminal))
+	sessions := commands.NewSessions(a.home, control.Default(terminal)).WithDemolished(a.demolished)
 	return commands.Actor{Sessions: sessions, GroupStore: a.groups, Pack: a.pack, CloseUp: a.closeUp}.Do(action)
 }
 
@@ -698,6 +701,25 @@ func statsChoice(file, dir string, now func() time.Time) func(stats.Prompt, bool
 			return err
 		}
 		return config.Save(file, config.KeyStats, on)
+	}
+}
+
+// demolisher has the daemon forget a demolished session from the ledger,
+// or with no daemon to ask, notes it beside the ledger for the daemon's
+// next start, since only the daemon writes the ledger. A home the run was
+// pointed at keeps no ledger, so there is nothing to forget. Item 144.
+func demolisher(cfg *config.Config) func(string) error {
+	if cfg.HomeSet && !statedir.IsPrivate() {
+		return func(string) error { return nil }
+	}
+	ledger, socket := state.LedgerPath(), cfg.Socket
+	return func(session string) error {
+		client, err := proto.Dial(socket)
+		if err != nil {
+			return state.NoteForgotten(ledger, session)
+		}
+		defer func() { _ = client.Close() }()
+		return client.Forget(session)
 	}
 }
 

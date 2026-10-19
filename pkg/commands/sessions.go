@@ -78,6 +78,11 @@ func (s *Sessions) Prune(ctx context.Context, snapshot state.Snapshot, olderThan
 					return pruned, err
 				}
 			}
+			if s.demolished != nil {
+				if err := s.demolished(agent.SessionID); err != nil {
+					return pruned, err
+				}
+			}
 		}
 		pruned = append(pruned, Pruned{ID: agent.ID, Title: title, LastSeen: lastSeen})
 	}
@@ -85,9 +90,18 @@ func (s *Sessions) Prune(ctx context.Context, snapshot state.Snapshot, olderThan
 }
 
 type Sessions struct {
-	home   string
-	ctl    Controller
-	forget func(session string) error
+	home       string
+	ctl        Controller
+	forget     func(session string) error
+	demolished func(session string) error
+}
+
+// WithDemolished is told the session id of every session a remove or a
+// prune demolishes, once the remove has succeeded, so the ledger forgets
+// it. Item 144.
+func (s *Sessions) WithDemolished(demolished func(session string) error) *Sessions {
+	s.demolished = demolished
+	return s
 }
 
 // WithForget has prune forget each session it removes from the
@@ -127,7 +141,39 @@ func (s *Sessions) Copy(ctx context.Context, text string) error {
 }
 
 func (s *Sessions) Remove(ctx context.Context, id string) error {
-	return s.ctl.Remove(ctx, id)
+	if s.demolished == nil {
+		return s.ctl.Remove(ctx, id)
+	}
+	session, err := s.sessionOf(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.ctl.Remove(ctx, id); err != nil {
+		return err
+	}
+	if session == "" {
+		return nil
+	}
+	return s.demolished(session)
+}
+
+// sessionOf is the session id a remove names: itself when it is one,
+// else the job's, looked up before the job is gone, since a resumed job's
+// id need not start its session's. "" when no job has it.
+func (s *Sessions) sessionOf(ctx context.Context, id string) (string, error) {
+	if len(id) > 8 && id[8] == '-' {
+		return id, nil
+	}
+	agents, err := s.ctl.Agents(ctx, true)
+	if err != nil {
+		return "", err
+	}
+	for _, agent := range agents {
+		if agent.ID == id {
+			return agent.SessionID, nil
+		}
+	}
+	return "", nil
 }
 
 func (s *Sessions) Resume(ctx context.Context, dir, sessionID string) (string, error) {

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   0.2.0 read the whole folder twice before it counted as started, and on a large one on a busy machine it gave up after 10 seconds with `context deadline exceeded`.
   It now starts as soon as its socket is open and reads the folder after: the city and `botropolis status` wait for the first read and never see a half-read city, and Claude Code's hooks are answered at once, so no session waits on it.
 
+- **A session you demolish leaves the map for good.**
+  `d d` on the map, the TUI's demolish, `botropolis rm` and `botropolis prune` now have the daemon forget the session, so it no longer comes back as ruins once its transcript is gone; with no daemon running, the daemon forgets it when it next starts.
+  A session whose transcript Claude Code cleaned up on its own still keeps its lot, and a removed session's statistics are kept or pruned as before.
+
 ## [0.2.0] - 2026-10-19
 
 ### Added

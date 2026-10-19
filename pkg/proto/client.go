@@ -101,6 +101,15 @@ func (c *Client) Pack(id string, packed bool) error {
 	return err
 }
 
+// Forget has the daemon forget a demolished session (item 144).
+func (c *Client) Forget(id string) error {
+	if err := Write(c.conn, Request{Op: OpForget, Forget: id}); err != nil {
+		return err
+	}
+	_, err := c.readResponse()
+	return err
+}
+
 func (c *Client) readUpdate() (Update, error) {
 	response, err := c.readResponse()
 	if err != nil {

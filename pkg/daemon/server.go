@@ -85,6 +85,16 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			if err := proto.Write(conn, response); err != nil {
 				return
 			}
+		case proto.OpForget:
+			response := proto.Response{}
+			if request.Forget == "" {
+				response.Error = "forget names no session"
+			} else if err := d.Forget(request.Forget); err != nil {
+				response.Error = err.Error()
+			}
+			if err := proto.Write(conn, response); err != nil {
+				return
+			}
 		case proto.OpEvent:
 			response := proto.Response{}
 			event, err := claude.ParseHookEvent(request.Event)
