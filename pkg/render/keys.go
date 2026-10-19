@@ -233,6 +233,13 @@ func (g *Game) handleKeys() error {
 	// because the card is the one surface the mouse opens — the list of
 	// things Escape closes has to be the list of things that are open,
 	// whatever opened them.
+	// Hidden is the top rung: h hides the card, the sidebar and the view
+	// key with everything else, so any other rung would be a change
+	// nobody can see. Item 137.
+	if just(ebiten.KeyEscape) && g.hidden {
+		g.hidden = false
+		return nil
+	}
 	if g.diveKeys() {
 		return nil
 	}
@@ -256,6 +263,10 @@ func (g *Game) handleKeys() error {
 	if just(ebiten.KeyEscape) && g.scene.View() != city.ViewAttention {
 		// Escape is back before it is quit: leave the lens first.
 		g.selectLens(city.LensAttention)
+		return nil
+	}
+	if just(ebiten.KeyEscape) && g.sidebar {
+		g.sidebar = false
 		return nil
 	}
 	if just(ebiten.KeyEscape) {
