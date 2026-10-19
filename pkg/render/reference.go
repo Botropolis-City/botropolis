@@ -15,7 +15,7 @@ import (
 // credit thanks the people whose work the city is drawn with, in the
 // words the website and the README use, at the foot of the reference's
 // index. Item 122.
-const credit ="Roads, trees, vehicles, trains, boats and landmarks by Kenney (kenney.nl), CC0 — thank you. " +
+const credit = "Roads, trees, vehicles, trains, boats and landmarks by Kenney (kenney.nl), CC0 — thank you. " +
 	"Session buildings, the drone, the fountain and the building sites are modelled for Botropolis. " +
 	"Set in Inter by The Inter Project Authors (SIL OFL 1.1)."
 

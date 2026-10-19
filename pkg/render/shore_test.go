@@ -15,9 +15,9 @@ import (
 // has to share that palette, or the plan reads as a rectangle on it.
 func TestShorePaletteFollowsTheProjection(t *testing.T) {
 	for _, tc := range []struct {
-		scenario      string
-		flat, night   bool
-		land, river   color.NRGBA
+		scenario    string
+		flat, night bool
+		land, river color.NRGBA
 	}{
 		{"by day in the isometric view", false, false, colorKitGrass, colorKitWater},
 		{"by day in the top-down view", true, false, colorGround, colorWater},
