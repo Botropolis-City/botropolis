@@ -2,7 +2,6 @@ package render
 
 import (
 	"image/color"
-	"path/filepath"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -101,7 +100,7 @@ func (g *Game) carTarget(c *city.City, cam *city.Camera, pair string) (city.Poin
 	}
 	for _, car := range g.cars(c, g.motion.ambient) {
 		r := car.road
-		if r != nil && r.From != nil && r.To != nil && filepath.Base(r.From.Root) == from && filepath.Base(r.To.Root) == to {
+		if r != nil && r.From != nil && r.To != nil && r.From.Name == from && r.To.Name == to {
 			return cam.WorldToScreen(car.at), true
 		}
 	}

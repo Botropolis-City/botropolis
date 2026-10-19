@@ -42,7 +42,7 @@ func TestLayoutSidebar(t *testing.T) {
 	th := ui.NewTheme(1)
 
 	t.Run("when the sidebar is laid out", func(t *testing.T) {
-		sb := ui.LayoutSidebar(th, 32, 568, someProjects(), []string{"/p/old"}, "d", 0, false, measure7)
+		sb := ui.LayoutSidebar(th, 32, 568, someProjects(), []city.ProjectRow{{Root: "/p/old", Name: "p/old"}}, "d", 0, false, measure7)
 
 		t.Run("it should run from the strip to the footer down the left", func(t *testing.T) {
 			assert.Equal(t, city.RectAt(0, 32, 288, 536), sb.Rect)
@@ -84,6 +84,10 @@ func TestLayoutSidebar(t *testing.T) {
 			assert.Equal(t, "/p/old", last.Root)
 		})
 
+		t.Run("it should label a hidden project with its district name", func(t *testing.T) {
+			assert.Equal(t, "p/old", sb.Rows[len(sb.Rows)-1].Label.Text)
+		})
+
 		t.Run("it should find a row under a point", func(t *testing.T) {
 			row, ok := sb.Hit(sb.Rows[2].Rect.Center())
 			require.True(t, ok)
@@ -106,7 +110,7 @@ func TestLayoutSidebar(t *testing.T) {
 
 	t.Run("when there are more rows than fit", func(t *testing.T) {
 		projects := manyProjects(10)
-		hidden := []string{"/p/old", "/p/older"}
+		hidden := []city.ProjectRow{{Root: "/p/old", Name: "old"}, {Root: "/p/older", Name: "older"}}
 		total := len(projects)*3 + 1 + len(hidden)
 		lay := func(skip int, selected string, reveal bool) ui.Sidebar {
 			return ui.LayoutSidebar(th, 32, 332, projects, hidden, selected, skip, reveal, measure7)

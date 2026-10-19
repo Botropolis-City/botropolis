@@ -24,7 +24,7 @@ func (b *Building) face(now time.Time, v View, generated string) Card {
 	move, _ := state.GroupMove([]state.Session{s})
 	card := Card{
 		Title:    title,
-		Kind:     kind + baseName(ProjectRoot(s.CWD)),
+		Kind:     kind + b.Where,
 		Move:     movePhrase(move),
 		Sentence: sentence(s, generated),
 		Numbers:  b.numbers(v, now),

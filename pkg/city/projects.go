@@ -1,7 +1,6 @@
 package city
 
 import (
-	"path/filepath"
 	"sort"
 
 	"botropolis.city/botropolis/pkg/state"
@@ -27,7 +26,7 @@ func (c *City) Projects(layout *Layout) []ProjectRow {
 		root := ProjectRoot(b.Session.CWD)
 		row, ok := byRoot[root]
 		if !ok {
-			row = &ProjectRow{Root: root, Name: filepath.Base(root), Starred: layout != nil && layout.IsStarred(root)}
+			row = &ProjectRow{Root: root, Name: c.DistrictName(root), Starred: layout != nil && layout.IsStarred(root)}
 			byRoot[root] = row
 			roots = append(roots, root)
 		}
@@ -62,5 +61,16 @@ func (c *City) Projects(layout *Layout) []ProjectRow {
 		}
 		return rows[i].Name < rows[j].Name
 	})
+	return rows
+}
+
+// HiddenProjects lists the hidden projects by root, each named as the
+// map would name it (item 139).
+func (c *City) HiddenProjects(layout *Layout) []ProjectRow {
+	roots := layout.HiddenRoots()
+	rows := make([]ProjectRow, 0, len(roots))
+	for _, root := range roots {
+		rows = append(rows, ProjectRow{Root: root, Name: c.DistrictName(root)})
+	}
 	return rows
 }

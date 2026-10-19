@@ -1,7 +1,6 @@
 package city
 
 import (
-	"path/filepath"
 	"time"
 
 	"botropolis.city/botropolis/pkg/state"
@@ -129,7 +128,7 @@ func (s *Scene) noteVoyages(snapshot state.Snapshot, now time.Time) {
 				continue
 			}
 			root := ProjectRoot(sess.CWD)
-			s.voyages = append(s.voyages, &Voyage{SessionID: id, Title: titleOrID(sess), Project: filepath.Base(root),
+			s.voyages = append(s.voyages, &Voyage{SessionID: id, Title: titleOrID(sess), Project: s.city.DistrictName(root),
 				Root: root, Kind: Arrival, Hue: projectHue(root), StartedAt: now})
 		}
 		for id, was := range s.known {
@@ -148,7 +147,7 @@ func (s *Scene) noteVoyages(snapshot state.Snapshot, now time.Time) {
 				continue
 			}
 			root := ProjectRoot(was.CWD)
-			s.voyages = append(s.voyages, &Voyage{SessionID: id, Title: titleOrID(was), Project: filepath.Base(root),
+			s.voyages = append(s.voyages, &Voyage{SessionID: id, Title: titleOrID(was), Project: s.city.DistrictName(root),
 				Root: root, Kind: Departure, Hue: projectHue(root), StartedAt: now})
 		}
 	}

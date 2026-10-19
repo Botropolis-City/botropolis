@@ -1,7 +1,6 @@
 package city
 
 import (
-	"path/filepath"
 	"strings"
 )
 
@@ -33,7 +32,7 @@ func (f Filter) Matches(b *Building) bool {
 		return f.found[b.Session.ID]
 	}
 	s := b.Session
-	hay := strings.ToLower(strings.Join([]string{s.Title, s.ID, filepath.Base(ProjectRoot(s.CWD)), s.Branch, string(s.State), s.Model}, " "))
+	hay := strings.ToLower(strings.Join([]string{s.Title, s.ID, b.Where, s.Branch, string(s.State), s.Model}, " "))
 	for _, w := range f.words {
 		if !strings.Contains(hay, w) {
 			return false

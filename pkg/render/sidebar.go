@@ -38,7 +38,7 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	skip, reveal := g.sidebarSkip, selected != g.sidebarFollowed
 	g.sidebarFollowed = selected
 	g.mu.Unlock()
-	sb := ui.LayoutSidebar(th, top, foot, c.Projects(g.scene.Layout()), g.scene.Layout().HiddenRoots(), selected, skip, reveal, g.faces.Measure)
+	sb := ui.LayoutSidebar(th, top, foot, c.Projects(g.scene.Layout()), c.HiddenProjects(g.scene.Layout()), selected, skip, reveal, g.faces.Measure)
 	for _, mark := range []ui.Text{sb.Above, sb.Below} {
 		if mark.Text != "" {
 			g.run(screen, mark, th.Palette.Dim)

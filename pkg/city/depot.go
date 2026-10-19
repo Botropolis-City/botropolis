@@ -34,7 +34,7 @@ type DepotRow struct {
 // how many rows and columns the plan must give it. With nothing in it
 // there is no depot, unless keep holds one open, empty, for a truck
 // still leaving it.
-func buildDepot(byRoot map[string][]state.Session, widest float64, now time.Time, keep bool) *District {
+func buildDepot(byRoot map[string][]state.Session, names map[string]string, widest float64, now time.Time, keep bool) *District {
 	roots := make([]string, 0, len(byRoot))
 	longest := 0
 	for root, sessions := range byRoot {
@@ -50,7 +50,7 @@ func buildDepot(byRoot map[string][]state.Session, widest float64, now time.Time
 	if len(roots) == 0 {
 		return &District{Name: DepotName, Depot: true, size: Point{X: width, Y: 2*DistrictPadding + CrateSize}, at: now}
 	}
-	sort.Slice(roots, func(i, j int) bool { return baseName(roots[i]) < baseName(roots[j]) })
+	sort.Slice(roots, func(i, j int) bool { return names[roots[i]] < names[roots[j]] })
 	d := &District{Name: DepotName, Depot: true}
 	pitch := CrateSize + CrateGap
 	right := width - DistrictPadding
@@ -63,7 +63,7 @@ func buildDepot(byRoot map[string][]state.Session, widest float64, now time.Time
 			}
 			return sessions[i].ID < sessions[j].ID
 		})
-		row := DepotRow{Root: root, Name: baseName(root), Hue: projectHue(root)}
+		row := DepotRow{Root: root, Name: names[root], Hue: projectHue(root)}
 		x := DistrictPadding
 		for i, s := range sessions {
 			if x+CrateSize > right {
@@ -71,6 +71,7 @@ func buildDepot(byRoot map[string][]state.Session, widest float64, now time.Time
 			}
 			b := newBuilding(s, i, Point{X: x, Y: y}, CrateSize, state.RungPacked)
 			b.Hue = row.Hue
+			b.Where = row.Name
 			if row.Rect.Area() == 0 {
 				row.Rect = b.Rect
 			} else {

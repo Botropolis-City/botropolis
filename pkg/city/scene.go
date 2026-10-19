@@ -3,7 +3,6 @@ package city
 import (
 	"fmt"
 	"math"
-	"path/filepath"
 	"slices"
 	"time"
 
@@ -1054,7 +1053,7 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 	}
 	b := s.selected
 	root := ProjectRoot(b.Session.CWD)
-	name := filepath.Base(root)
+	name := b.Where
 	switch kind {
 	case ActionAttach, ActionResume:
 		return s.Activate(), ""

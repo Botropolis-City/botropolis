@@ -34,6 +34,11 @@ const notRecorded = "not recorded"
 // never kept.
 func BuildJournal(snapshot state.Snapshot, pinned []string, reply func(id string) string) []JournalEntry {
 	byID := map[string]state.Session{}
+	roots := make([]string, 0, len(snapshot.Sessions))
+	for _, s := range snapshot.Sessions {
+		roots = append(roots, ProjectRoot(s.CWD))
+	}
+	names := DistrictNames(roots)
 	for _, s := range snapshot.Sessions {
 		if s.State == state.Empty || s.Packed {
 			continue
@@ -51,7 +56,7 @@ func BuildJournal(snapshot state.Snapshot, pinned []string, reply func(id string
 			}
 		}
 		if len(members) > 0 {
-			entries = append(entries, journalEntry(g.Name, members, pinned, reply))
+			entries = append(entries, journalEntry(g.Name, members, names, pinned, reply))
 		}
 	}
 	for _, s := range snapshot.Sessions {
@@ -60,7 +65,7 @@ func BuildJournal(snapshot state.Snapshot, pinned []string, reply func(id string
 			if title == "" {
 				title = state.ShortID(s.ID)
 			}
-			entries = append(entries, journalEntry(title, []state.Session{s}, pinned, reply))
+			entries = append(entries, journalEntry(title, []state.Session{s}, names, pinned, reply))
 		}
 	}
 	slices.SortStableFunc(entries, func(a, b JournalEntry) int {
@@ -75,7 +80,7 @@ func BuildJournal(snapshot state.Snapshot, pinned []string, reply func(id string
 	return entries
 }
 
-func journalEntry(title string, members []state.Session, pinned []string, reply func(string) string) JournalEntry {
+func journalEntry(title string, members []state.Session, names map[string]string, pinned []string, reply func(string) string) JournalEntry {
 	slices.SortStableFunc(members, func(a, b state.Session) int { return b.LastActivity.Compare(a.LastActivity) })
 	latest := members[0]
 	e := JournalEntry{Title: title, Fly: latest.ID, Touched: latest.LastActivity}
@@ -83,7 +88,7 @@ func journalEntry(title string, members []state.Session, pinned []string, reply 
 	for _, s := range members {
 		e.Sessions = append(e.Sessions, s.ID)
 		e.Pinned = e.Pinned || slices.Contains(pinned, s.ID)
-		where[baseName(ProjectRoot(s.CWD))] = true
+		where[names[ProjectRoot(s.CWD)]] = true
 	}
 	for w := range where {
 		e.Where = append(e.Where, w)

@@ -611,14 +611,14 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 	if name, ok := strings.CutPrefix(target, "district:"); ok {
 		if g.scene.CityPlanOpen() {
 			for _, b := range g.scene.CityPlan().Badges {
-				if filepath.Base(b.District.Root) == name {
+				if b.District.Name == name {
 					return b.At, true
 				}
 			}
 			return city.Point{}, false
 		}
 		for _, d := range c.Districts {
-			if filepath.Base(d.Root) == name {
+			if d.Name == name {
 				return cam.WorldToScreen(d.Rect.Center()), true
 			}
 		}

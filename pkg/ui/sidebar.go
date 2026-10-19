@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -52,7 +51,7 @@ func SidebarWidth(th Theme) float64 {
 // not fit scroll by whole rows: skip is how many are scrolled past, and
 // the layout keeps it in range and marks how many are above and below.
 // With reveal, it scrolls just far enough to show the selected session.
-func LayoutSidebar(th Theme, top, bottom float64, projects []city.ProjectRow, hidden []string, selectedID string, skip int, reveal bool, measure Measure) Sidebar {
+func LayoutSidebar(th Theme, top, bottom float64, projects []city.ProjectRow, hidden []city.ProjectRow, selectedID string, skip int, reveal bool, measure Measure) Sidebar {
 	grid := th.Grid()
 	sb := Sidebar{Rect: city.RectAt(0, top, SidebarWidth(th), bottom-top)}
 	_, bodyH := measure("", Body)
@@ -132,7 +131,7 @@ func LayoutSidebar(th Theme, top, bottom float64, projects []city.ProjectRow, hi
 }
 
 // sidebarRows lays every row out from y zero, to be moved into place.
-func sidebarRows(th Theme, width float64, projects []city.ProjectRow, hidden []string, selectedID string, measure Measure) []SidebarRow {
+func sidebarRows(th Theme, width float64, projects []city.ProjectRow, hidden []city.ProjectRow, selectedID string, measure Measure) []SidebarRow {
 	grid := th.Grid()
 	_, bodyH := measure("", Body)
 	_, smallH := measure("", Small)
@@ -176,11 +175,11 @@ func sidebarRows(th Theme, width float64, projects []city.ProjectRow, hidden []s
 	}
 	if len(hidden) > 0 {
 		add(SidebarRow{Kind: RowHeader, Label: Text{Text: "hidden", At: city.Point{X: 2 * grid, Y: grid}, Size: Small}}, rowH+grid/2)
-		for _, root := range hidden {
+		for _, h := range hidden {
 			row := SidebarRow{
 				Kind:   RowHidden,
-				Root:   root,
-				Label:  Text{Text: filepath.Base(root), At: city.Point{X: 4 * grid, Y: grid / 2}, Size: Body},
+				Root:   h.Root,
+				Label:  Text{Text: h.Name, At: city.Point{X: 4 * grid, Y: grid / 2}, Size: Body},
 				Detail: Text{Text: "show", At: city.Point{X: width - 2*grid - 4*7, Y: grid/2 + (bodyH-smallH)/2}, Size: Small},
 			}
 			if w, _ := measure("show", Small); w > 0 {

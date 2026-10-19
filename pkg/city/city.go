@@ -65,6 +65,8 @@ type Building struct {
 	Hue    int
 	// Type is its district's type; empty is residential (item 109).
 	Type DistrictType
+	// Where is its district's name, told apart from any twin (item 139).
+	Where string
 }
 
 // ContainerHues names the container colours a project's cargo comes in,
@@ -117,6 +119,8 @@ type City struct {
 	// snapshot's groups they are drawn from (item 87).
 	Lines  []Line
 	groups []*state.Group
+	// names is every known root's district name (item 139).
+	names map[string]string
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.
@@ -312,8 +316,13 @@ func BuildWithLedger(snapshot state.Snapshot, layout *Layout, ledger Ledger) *Ci
 func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool, ledger Ledger) *City {
 	byRoot := map[string][]state.Session{}
 	packed := map[string][]state.Session{}
+	known := layout.HiddenRoots()
 	for _, s := range snapshot.Sessions {
 		root := ProjectRoot(s.CWD)
+		if root == "" {
+			continue
+		}
+		known = append(known, root)
 		if layout.IsHidden(root) {
 			continue
 		}
@@ -327,22 +336,23 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	for root := range byRoot {
 		roots = append(roots, root)
 	}
+	names := DistrictNames(known)
 	sort.Slice(roots, func(i, j int) bool {
-		return baseName(roots[i]) < baseName(roots[j])
+		return names[roots[i]] < names[roots[j]]
 	})
 
-	city := &City{Time: snapshot.At, ledger: ledger}
+	city := &City{Time: snapshot.At, ledger: ledger, names: names}
 	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
 		city.Plant.Day = city.Breakdown(LastDay)
 		return city
 	}
 	for _, root := range roots {
-		city.Districts = append(city.Districts, buildDistrict(root, byRoot[root], layout, snapshot.At, ladder))
+		city.Districts = append(city.Districts, buildDistrict(root, names[root], byRoot[root], layout, snapshot.At, ladder))
 	}
 	in := planInput(city.Districts, len(snapshot.Servers))
 	p := plan.Make(in, layout.memory())
-	depot := buildDepot(packed, float64(p.SpanCols())*CellSize, snapshot.At, keepDepot)
+	depot := buildDepot(packed, names, float64(p.SpanCols())*CellSize, snapshot.At, keepDepot)
 	if depot != nil {
 		in.DepotRows = cellsNeeded(depot.size.Y)
 		in.DepotCols = cellsNeeded(depot.size.X)
@@ -387,12 +397,17 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	return city
 }
 
-func baseName(root string) string {
-	return filepath.Base(root)
+// DistrictName is a root's name on the map, told apart from any other
+// root the city knows that shares its base name (item 139).
+func (c *City) DistrictName(root string) string {
+	if name, ok := c.names[root]; ok {
+		return name
+	}
+	return DistrictNames([]string{root})[root]
 }
 
-func buildDistrict(root string, sessions []state.Session, layout *Layout, now time.Time, ladder state.Thresholds) *District {
-	district := &District{Name: baseName(root), Root: root, Type: layout.DistrictType(root)}
+func buildDistrict(root, name string, sessions []state.Session, layout *Layout, now time.Time, ladder state.Thresholds) *District {
+	district := &District{Name: name, Root: root, Type: layout.DistrictType(root)}
 	sort.Slice(sessions, func(i, j int) bool {
 		if !sessions[i].StartedAt.Equal(sessions[j].StartedAt) {
 			return sessions[i].StartedAt.Before(sessions[j].StartedAt)
@@ -412,6 +427,7 @@ func buildDistrict(root string, sessions []state.Session, layout *Layout, now ti
 		at := Point{X: DistrictPadding + float64(column)*(BuildingSize+BuildingGap), Y: DistrictPadding + float64(row)*(BuildingSize+BuildingGap)}
 		b := newBuilding(s, slots[s.ID], at, BuildingSize, s.Rung(now, ladder))
 		b.Type = district.Type
+		b.Where = name
 		district.Buildings = append(district.Buildings, b)
 	}
 	district.Rung = freshest(district.Buildings)
