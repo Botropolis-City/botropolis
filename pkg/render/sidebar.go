@@ -22,12 +22,19 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	foot := bottom
 	g.pinned = ui.Card{}
 	g.pinnedKinds = nil
+	g.cardOver = ui.Card{}
 	if card, _, ok := g.scene.SelectedCard(); ok {
-		laid := ui.LayoutCard(th, card, city.RectAt(0, top, width, bottom-top), g.faces.Measure)
-		laid = laid.MoveTo(city.Point{X: th.Grid(), Y: bottom - th.Grid() - laid.Rect.Height()})
-		foot = laid.Rect.Min.Y - th.Grid()
-		g.card(screen, laid)
-		g.pinned = laid
+		window := float64(screen.Bounds().Dx())
+		panel := city.RectAt(0, top, width, bottom-top)
+		room := city.RectAt(width, top, window-width, bottom-top)
+		dock := ui.DockCard(th, card, panel, room, g.sidebarCovers(window, float64(screen.Bounds().Dy())), g.faces.Measure)
+		foot = dock.Foot
+		if dock.Beside {
+			g.cardOver = dock.Card
+		} else {
+			g.card(screen, dock.Card)
+		}
+		g.pinned = dock.Card
 		g.pinnedKinds = g.scene.Actions()
 	}
 	selected := ""
@@ -65,6 +72,16 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	g.sidebarLayout = sb
 	g.sidebarSkip = sb.Skip
 	g.mu.Unlock()
+}
+
+// sidebarCovers is what a card standing beside the sidebar keeps clear
+// of: the lens panel, the stream and the minimap, where they are drawn.
+func (g *Game) sidebarCovers(width, height float64) []city.Rect {
+	covers := []city.Rect{g.streamLaid.Rect, g.minimapBox}
+	if g.lensPanelShown() {
+		covers = append(covers, ui.LayoutLensPanel(g.theme, g.scene.LensPanel(), g.lensArea(width, height, g.faces.Measure), g.faces.Measure).Rect)
+	}
+	return covers
 }
 
 // wheelSidebar scrolls the sidebar by whole rows when the wheel turns

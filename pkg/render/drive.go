@@ -101,6 +101,11 @@ type Shown struct {
 	SidebarScrolled, SidebarMax int
 	SidebarSessions             []string
 	Camera                      city.Point
+	// SidebarRows is how many rows the sidebar drew, CardRect where the
+	// selection's card was drawn, and LensRect where the lens panel was,
+	// each empty when it was not (item 140).
+	SidebarRows        int
+	CardRect, LensRect city.Rect
 	// StripBottom is where the strip along the top ends, and FooterTop
 	// where the footer begins, needs-you line and all.
 	StripBottom, FooterTop float64
@@ -549,6 +554,7 @@ func (g *Game) noteShown() {
 		sb := g.sidebarLayout
 		g.mu.Unlock()
 		s.SidebarRect, s.SidebarScrolled, s.SidebarMax = sb.Rect, sb.Skip, sb.Max
+		s.SidebarRows = len(sb.Rows)
 		for _, r := range sb.Rows {
 			if r.Kind == ui.RowSession {
 				s.SidebarSessions = append(s.SidebarSessions, r.ID)
@@ -568,6 +574,14 @@ func (g *Game) noteShown() {
 	g.mu.Unlock()
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID
+	}
+	if !g.hidden {
+		s.CardRect = g.pinned.Rect
+		for _, o := range g.overlays {
+			if p, ok := o.(*lensPanel); ok {
+				s.LensRect = p.laid.Rect
+			}
+		}
 	}
 	g.mu.Lock()
 	if !g.hidden {

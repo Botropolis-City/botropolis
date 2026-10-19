@@ -61,6 +61,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	hint := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
 	g.pinnedKinds = nil
+	g.cardOver = ui.Card{}
 	if g.sidebar {
 		g.drawSidebar(screen, top, min(height-bottom, footer.Rect.Min.Y))
 		g.scene.SetLeftChrome(ui.SidebarWidth(th))

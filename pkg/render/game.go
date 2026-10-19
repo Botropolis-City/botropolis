@@ -222,6 +222,9 @@ type Game struct {
 
 	sidebar       bool
 	sidebarLayout ui.Sidebar
+	// cardOver is the selection's card when it stands beside the
+	// sidebar, drawn over the lens panel rather than under it (item 140).
+	cardOver ui.Card
 	// sidebarSkip is how many of the sidebar's rows are scrolled past,
 	// sidebarWheel the part of a wheel notch not yet spent, and
 	// sidebarFollowed the selection whose row was last brought into view
@@ -898,6 +901,12 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	g.drawExplain(screen, width, height)
 	g.chrome(screen, width, height)
 	g.drawOverlays(screen, width, height, true)
+	if g.cardOver.Rect.Area() > 0 {
+		backing := g.theme.Palette.Panel
+		backing.A = 0xff
+		g.roundRect(screen, g.cardOver.Rect, g.theme.Radius(), backing)
+		g.card(screen, g.cardOver)
+	}
 	if g.viewKey {
 		g.drawViewKey(screen, width, height)
 	}

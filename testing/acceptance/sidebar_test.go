@@ -1,12 +1,14 @@
 package acceptance_test
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/render"
 )
 
@@ -14,7 +16,13 @@ import (
 // a short window, and returns the drive with it drawn.
 func openSidebar(t *testing.T) *render.Drive {
 	t.Helper()
-	d, err := render.NewDrive(render.DriveOptions{Home: stageDemo(t, "metropolis"), Width: 1024, Height: 900})
+	return openSidebarAt(t, 900)
+}
+
+// openSidebarAt is openSidebar in a window of a given height.
+func openSidebarAt(t *testing.T, height int) *render.Drive {
+	t.Helper()
+	d, err := render.NewDrive(render.DriveOptions{Home: stageDemo(t, "metropolis"), Width: 1024, Height: height})
 	require.NoError(t, err)
 	require.NoError(t, d.Press("b"))
 	_, err = d.Until(func(s render.Shown) bool { return s.SidebarRect.Area() > 0 }, settleTicks)
@@ -141,4 +149,64 @@ func TestSidebarScrolls(t *testing.T) {
 			})
 		})
 	})
+}
+
+// Item 140: the selection's card leaves the sidebar room for its rows.
+func TestSidebarCard(t *testing.T) {
+	for _, height := range []int{600, 900} {
+		t.Run(fmt.Sprintf("when the sidebar is open in a window %d tall and a session is selected", height), func(t *testing.T) {
+			d := openSidebarAt(t, height)
+			require.NoError(t, d.Press("Tab"))
+			require.NoError(t, d.Run(3))
+			s := d.Shown()
+			require.NotEmpty(t, s.Selected)
+			screen := city.Rect{Max: city.Point{X: 1024, Y: s.FooterTop}}
+
+			t.Run("it should show at least four rows", func(t *testing.T) {
+				assert.GreaterOrEqual(t, s.SidebarRows, 4)
+			})
+
+			t.Run("it should show the selected session's row", func(t *testing.T) {
+				assert.Contains(t, s.SidebarSessions, s.Selected)
+			})
+
+			t.Run("it should keep the card whole on screen, above the footer", func(t *testing.T) {
+				assert.True(t, s.CardRect.Area() > 0 && s.CardRect.Min.X >= screen.Min.X && s.CardRect.Min.Y >= screen.Min.Y && s.CardRect.Max.X <= screen.Max.X && s.CardRect.Max.Y <= screen.Max.Y)
+			})
+
+			t.Run("it should keep the card clear of the list", func(t *testing.T) {
+				assert.False(t, s.CardRect.Overlaps(s.SidebarRect))
+			})
+
+			t.Run("it should keep the card clear of the lens panel and the stream", func(t *testing.T) {
+				assert.False(t, s.CardRect.Overlaps(s.LensRect) || s.CardRect.Overlaps(s.StreamRect))
+			})
+
+			if height == 900 {
+				t.Run("it should keep the card docked under the list", func(t *testing.T) {
+					assert.True(t, s.CardRect.Min.Y >= s.SidebarRect.Max.Y && s.CardRect.Min.X < s.SidebarRect.Max.X)
+				})
+			}
+
+			if height == 600 {
+				t.Run("and i opens the selection's details", func(t *testing.T) {
+					require.NoError(t, d.Press("i"))
+					require.NoError(t, d.Run(3))
+					opened := d.Shown()
+
+					t.Run("it should show the full card, taller than the compact one", func(t *testing.T) {
+						assert.Greater(t, opened.CardRect.Height(), s.CardRect.Height())
+					})
+
+					t.Run("it should keep the card between the strip and the footer", func(t *testing.T) {
+						assert.True(t, opened.CardRect.Min.Y >= opened.StripBottom && opened.CardRect.Max.Y <= opened.FooterTop)
+					})
+
+					t.Run("it should still keep the card clear of the list", func(t *testing.T) {
+						assert.False(t, opened.CardRect.Overlaps(opened.SidebarRect))
+					})
+				})
+			}
+		})
+	}
 }
