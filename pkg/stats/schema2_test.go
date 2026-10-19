@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 const schemaV1 = `
@@ -52,7 +54,7 @@ func newV1(t *testing.T) *v1 {
 	f := &fixture{t: t, projects: filepath.Join(t.TempDir(), "projects")}
 	transcript := f.transcript(sessionA,
 		prompt(sessionA, lib, firstAt),
-		reply{session: sessionA, id: "msg_1", at: replyAt, cwd: lib, usage: usage{Input: 1, Output: 2, CacheCreate: writes1h, CacheRead: 4, Creation: &split{OneHour: writes1h}, Geo: "us"}}.line(),
+		reply{session: sessionA, id: "msg_1", at: replyAt, cwd: lib, usage: usage{Input: 1, Output: 2, CacheCreate: writes1h, CacheRead: 4, Creation: &split{OneHour: writes1h}, Geo: "us", Tools: &tools{WebSearch: 2, WebFetch: 3}, Tier: "standard"}}.line(),
 	)
 	info, err := os.Stat(transcript)
 	require.NoError(t, err)
@@ -109,12 +111,16 @@ func TestMigrateFromVersion1(t *testing.T) {
 	v := newV1(t)
 	v.open()
 
-	t.Run("it should bring it to version 2", func(t *testing.T) {
-		assert.Equal(t, 2, v.count("PRAGMA user_version"))
+	t.Run("it should bring it to version 3", func(t *testing.T) {
+		assert.Equal(t, 3, v.count("PRAGMA user_version"))
 	})
 
-	t.Run("it should add the split and geography columns to messages", func(t *testing.T) {
-		assert.Equal(t, []string{"cache_create_5m", "cache_create_1h", "geo"}, columns(t, v.store.DB(), "messages")[10:])
+	t.Run("it should add the split, geography, server tool and tier columns to messages", func(t *testing.T) {
+		assert.Equal(t, []string{"cache_create_5m", "cache_create_1h", "geo", "web_search_requests", "web_fetch_requests", "service_tier"}, columns(t, v.store.DB(), "messages")[10:])
+	})
+
+	t.Run("it should record this version as the last to write it", func(t *testing.T) {
+		assert.Equal(t, stats.Version, metaValue(t, v.store.DB(), "written_by"))
 	})
 
 	t.Run("it should keep its messages", func(t *testing.T) {
@@ -147,6 +153,18 @@ func TestBackfill(t *testing.T) {
 
 		t.Run("it should fill its geography", func(t *testing.T) {
 			assert.Equal(t, "us", v.text("SELECT geo FROM messages WHERE id = 'msg_1'").String)
+		})
+
+		t.Run("it should fill its web searches", func(t *testing.T) {
+			assert.Equal(t, int64(2), v.number("SELECT web_search_requests FROM messages WHERE id = 'msg_1'"))
+		})
+
+		t.Run("it should fill its web fetches", func(t *testing.T) {
+			assert.Equal(t, int64(3), v.number("SELECT web_fetch_requests FROM messages WHERE id = 'msg_1'"))
+		})
+
+		t.Run("it should fill its service tier", func(t *testing.T) {
+			assert.Equal(t, "standard", v.text("SELECT service_tier FROM messages WHERE id = 'msg_1'").String)
 		})
 	})
 
@@ -191,6 +209,18 @@ func TestIngestSplit(t *testing.T) {
 			usage{Geo: "global"}, "geo", "global", false},
 		{"when a message records no inference geography, it should leave it unrecorded",
 			usage{}, "geo", nil, true},
+		{"when a message records its web searches, it should store them",
+			usage{Tools: &tools{WebSearch: 2}}, "web_search_requests", int64(2), false},
+		{"when a message records no server tool use, it should leave its web searches unrecorded",
+			usage{}, "web_search_requests", nil, true},
+		{"when a message records its web fetches, it should store them",
+			usage{Tools: &tools{WebFetch: 3}}, "web_fetch_requests", int64(3), false},
+		{"when a message records no server tool use, it should leave its web fetches unrecorded",
+			usage{}, "web_fetch_requests", nil, true},
+		{"when a message records its service tier, it should store it",
+			usage{Tier: "priority"}, "service_tier", "priority", false},
+		{"when a message records no service tier, it should leave it unrecorded",
+			usage{}, "service_tier", nil, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -206,4 +236,25 @@ func TestIngestSplit(t *testing.T) {
 			assert.Equal(t, c.want, got)
 		})
 	}
+}
+
+func TestMigrateFromVersion2(t *testing.T) {
+	v := newV1(t)
+	db, err := sql.Open("sqlite", v.path)
+	require.NoError(t, err)
+	_, err = db.Exec(`ALTER TABLE messages ADD COLUMN cache_create_5m INTEGER;
+ALTER TABLE messages ADD COLUMN cache_create_1h INTEGER;
+ALTER TABLE messages ADD COLUMN geo TEXT;
+PRAGMA user_version = 2;`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+	v.open()
+
+	t.Run("it should bring it to version 3", func(t *testing.T) {
+		assert.Equal(t, 3, v.count("PRAGMA user_version"))
+	})
+
+	t.Run("it should set every transcript to be read again from the start", func(t *testing.T) {
+		assert.Equal(t, 0, v.count("SELECT count(*) FROM transcripts WHERE read_to <> 0"))
+	})
 }

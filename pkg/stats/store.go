@@ -19,7 +19,12 @@ import (
 const (
 	file = "stats.db"
 	// Version is the schema this build writes, kept in PRAGMA user_version.
-	Version = 2
+	Version = 3
+	// ReadableFrom is the oldest schema version whose builds can still
+	// read and write a database at Version correctly, kept in meta. A
+	// step that only adds nullable columns leaves it alone; a step that
+	// changes what a column means raises it to Version.
+	ReadableFrom = 1
 )
 
 const schema = `
@@ -47,7 +52,10 @@ CREATE TABLE IF NOT EXISTS messages (
   cache_read   INTEGER NOT NULL,
   cache_create_5m INTEGER,
   cache_create_1h INTEGER,
-  geo             TEXT
+  geo             TEXT,
+  web_search_requests INTEGER,
+  web_fetch_requests  INTEGER,
+  service_tier        TEXT
 );
 
 CREATE TABLE IF NOT EXISTS message_sessions (
@@ -72,6 +80,11 @@ CREATE TABLE IF NOT EXISTS gaps (
   off_at INTEGER NOT NULL,
   on_at  INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value INTEGER NOT NULL
+);
 `
 
 // steps brings a database from the version before each key to that
@@ -85,6 +98,14 @@ var steps = map[int]string{
 	2: `ALTER TABLE messages ADD COLUMN cache_create_5m INTEGER;
 ALTER TABLE messages ADD COLUMN cache_create_1h INTEGER;
 ALTER TABLE messages ADD COLUMN geo TEXT;
+UPDATE transcripts SET read_to = 0;`,
+	// 3 keeps the server tool counts and the service tier, NULL where a
+	// line carries none, and reads every transcript again to fill them
+	// (item 116).
+	3: `ALTER TABLE messages ADD COLUMN web_search_requests INTEGER;
+ALTER TABLE messages ADD COLUMN web_fetch_requests INTEGER;
+ALTER TABLE messages ADD COLUMN service_tier TEXT;
+CREATE TABLE meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL);
 UPDATE transcripts SET read_to = 0;`,
 }
 
@@ -126,36 +147,59 @@ func Open(path string) (*Store, error) {
 }
 
 func (s *Store) migrate(path string) error {
-	var version int
-	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
-		return err
-	}
-	if version > Version {
-		return fmt.Errorf("%s is schema version %d, newer than this build's %d: update Botropolis", path, version, Version)
-	}
-	if version == Version {
-		return nil
-	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if version == 0 {
+	var version int
+	if err := tx.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	switch {
+	case version == 0:
 		if _, err := tx.Exec(schema); err != nil {
 			return err
 		}
-	} else {
+	case version < Version:
 		for v := version + 1; v <= Version; v++ {
 			if _, err := tx.Exec(steps[v]); err != nil {
 				return fmt.Errorf("%s: bringing the schema to version %d: %w", path, v, err)
 			}
 		}
+	case version > Version:
+		var from int
+		if err := tx.QueryRow("SELECT value FROM meta WHERE key = 'readable_from'").Scan(&from); err != nil || from > Version {
+			return fmt.Errorf("%s is schema version %d, which this build's version %d cannot read: update Botropolis", path, version, Version)
+		}
 	}
-	if _, err := tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", Version)); err != nil {
+	if version <= Version {
+		if _, err := tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", Version)); err != nil {
+			return err
+		}
+		if err := setMeta(tx, "readable_from", ReadableFrom); err != nil {
+			return err
+		}
+	}
+	if version == Version {
+		var by int
+		if err := tx.QueryRow("SELECT value FROM meta WHERE key = 'written_by'").Scan(&by); err != nil || by < Version {
+			// An older build wrote since this one last did, without the
+			// columns it does not know: read everything again to fill them.
+			if _, err := tx.Exec("UPDATE transcripts SET read_to = 0"); err != nil {
+				return err
+			}
+		}
+	}
+	if err := setMeta(tx, "written_by", Version); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+func setMeta(tx *sql.Tx, key string, value int) error {
+	_, err := tx.Exec("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", key, value)
+	return err
 }
 
 // DB is the database itself, for the packages that read and write it.

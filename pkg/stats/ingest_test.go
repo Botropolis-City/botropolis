@@ -23,6 +23,13 @@ type usage struct {
 	Speed       string `json:"speed,omitempty"`
 	Creation    *split `json:"cache_creation,omitempty"`
 	Geo         string `json:"inference_geo,omitempty"`
+	Tools       *tools `json:"server_tool_use,omitempty"`
+	Tier        string `json:"service_tier,omitempty"`
+}
+
+type tools struct {
+	WebSearch int64 `json:"web_search_requests"`
+	WebFetch  int64 `json:"web_fetch_requests"`
 }
 
 type split struct {

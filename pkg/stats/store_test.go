@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,6 +42,13 @@ func open(t *testing.T, path string) *stats.Store {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 	return s
+}
+
+func metaValue(t *testing.T, db *sql.DB, key string) int {
+	t.Helper()
+	var v int
+	require.NoError(t, db.QueryRow("SELECT value FROM meta WHERE key = ?", key).Scan(&v))
+	return v
 }
 
 func columns(t *testing.T, db *sql.DB, table string) []string {
@@ -83,10 +91,18 @@ func TestOpen(t *testing.T) {
 			assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 		})
 
-		t.Run("it should set the schema version to 2", func(t *testing.T) {
+		t.Run("it should set the schema version to 3", func(t *testing.T) {
 			var version int
 			require.NoError(t, db.QueryRow("PRAGMA user_version").Scan(&version))
-			assert.Equal(t, 2, version)
+			assert.Equal(t, 3, version)
+		})
+
+		t.Run("it should record the oldest version that can read and write it", func(t *testing.T) {
+			assert.Equal(t, stats.ReadableFrom, metaValue(t, db, "readable_from"))
+		})
+
+		t.Run("it should record this version as the last to write it", func(t *testing.T) {
+			assert.Equal(t, stats.Version, metaValue(t, db, "written_by"))
 		})
 
 		t.Run("it should use write-ahead logging", func(t *testing.T) {
@@ -101,10 +117,11 @@ func TestOpen(t *testing.T) {
 		}{
 			{"dirs", []string{"id", "path"}},
 			{"sessions", []string{"id", "started_at", "transcript_gone_at"}},
-			{"messages", []string{"id", "at", "model", "speed", "dir_id", "thread", "input", "output", "cache_create", "cache_read", "cache_create_5m", "cache_create_1h", "geo"}},
+			{"messages", []string{"id", "at", "model", "speed", "dir_id", "thread", "input", "output", "cache_create", "cache_read", "cache_create_5m", "cache_create_1h", "geo", "web_search_requests", "web_fetch_requests", "service_tier"}},
 			{"message_sessions", []string{"message_id", "session_id"}},
 			{"transcripts", []string{"path", "session_id", "size", "mtime", "read_to"}},
 			{"gaps", []string{"off_at", "on_at"}},
+			{"meta", []string{"key", "value"}},
 		} {
 			t.Run("it should give "+table.name+" exactly its columns, in order", func(t *testing.T) {
 				assert.Equal(t, table.columns, columns(t, db, table.name))
@@ -145,19 +162,108 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("when the database is from a newer version", func(t *testing.T) {
+		newer := func(t *testing.T, readableFrom string) (*stats.Store, error) {
+			t.Helper()
+			path := filepath.Join(t.TempDir(), "stats.db")
+			first, err := stats.Open(path)
+			require.NoError(t, err)
+			_, err = first.DB().Exec(fmt.Sprintf("PRAGMA user_version = %d", stats.Version+1))
+			require.NoError(t, err)
+			if readableFrom == "" {
+				_, err = first.DB().Exec("DELETE FROM meta WHERE key = 'readable_from'")
+			} else {
+				_, err = first.DB().Exec("UPDATE meta SET value = " + readableFrom + " WHERE key = 'readable_from'")
+			}
+			require.NoError(t, err)
+			_, err = first.DB().Exec(fmt.Sprintf("UPDATE meta SET value = %d WHERE key = 'written_by'", stats.Version+1))
+			require.NoError(t, err)
+			require.NoError(t, first.Close())
+			s, err := stats.Open(path)
+			if s != nil {
+				t.Cleanup(func() { _ = s.Close() })
+			}
+			return s, err
+		}
+
+		t.Run("and it says this version can still read and write it", func(t *testing.T) {
+			s, err := newer(t, fmt.Sprint(stats.Version))
+
+			t.Run("it should open it", func(t *testing.T) {
+				assert.NoError(t, err)
+			})
+
+			t.Run("it should leave its version alone", func(t *testing.T) {
+				var version int
+				require.NoError(t, s.DB().QueryRow("PRAGMA user_version").Scan(&version))
+				assert.Equal(t, stats.Version+1, version)
+			})
+
+			t.Run("it should record this version as the last to write it", func(t *testing.T) {
+				assert.Equal(t, stats.Version, metaValue(t, s.DB(), "written_by"))
+			})
+		})
+
+		t.Run("and it says this version cannot", func(t *testing.T) {
+			_, err := newer(t, fmt.Sprint(stats.Version+1))
+
+			t.Run("it should refuse to open it", func(t *testing.T) {
+				assert.ErrorContains(t, err, "update Botropolis")
+			})
+		})
+
+		t.Run("and it does not say", func(t *testing.T) {
+			_, err := newer(t, "")
+
+			t.Run("it should refuse to open it", func(t *testing.T) {
+				assert.ErrorContains(t, err, "update Botropolis")
+			})
+		})
+	})
+
+	t.Run("when an older version wrote to it since this one last did", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "stats.db")
 		first, err := stats.Open(path)
 		require.NoError(t, err)
-		_, err = first.DB().Exec("PRAGMA user_version = 3")
-		require.NoError(t, err)
-		require.NoError(t, first.Close())
-		newer, err := stats.Open(path)
-		if newer != nil {
-			t.Cleanup(func() { _ = newer.Close() })
+		for _, stmt := range []string{
+			"INSERT INTO sessions (id) VALUES ('s')",
+			"INSERT INTO transcripts VALUES ('/p/s.jsonl', 's', 10, 1, 10)",
+			fmt.Sprintf("UPDATE meta SET value = %d WHERE key = 'written_by'", stats.Version-1),
+		} {
+			_, err = first.DB().Exec(stmt)
+			require.NoError(t, err)
 		}
+		require.NoError(t, first.Close())
+		again := open(t, path)
 
-		t.Run("it should refuse to open it", func(t *testing.T) {
-			assert.Error(t, err)
+		t.Run("it should set every transcript to be read again from the start", func(t *testing.T) {
+			var readTo int64
+			require.NoError(t, again.DB().QueryRow("SELECT read_to FROM transcripts").Scan(&readTo))
+			assert.Equal(t, int64(0), readTo)
+		})
+
+		t.Run("it should record this version as the last to write it", func(t *testing.T) {
+			assert.Equal(t, stats.Version, metaValue(t, again.DB(), "written_by"))
+		})
+	})
+
+	t.Run("when this version wrote it last", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "stats.db")
+		first, err := stats.Open(path)
+		require.NoError(t, err)
+		for _, stmt := range []string{
+			"INSERT INTO sessions (id) VALUES ('s')",
+			"INSERT INTO transcripts VALUES ('/p/s.jsonl', 's', 10, 1, 10)",
+		} {
+			_, err = first.DB().Exec(stmt)
+			require.NoError(t, err)
+		}
+		require.NoError(t, first.Close())
+		again := open(t, path)
+
+		t.Run("it should leave every transcript where it was read to", func(t *testing.T) {
+			var readTo int64
+			require.NoError(t, again.DB().QueryRow("SELECT read_to FROM transcripts").Scan(&readTo))
+			assert.Equal(t, int64(10), readTo)
 		})
 	})
 

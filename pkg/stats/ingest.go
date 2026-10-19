@@ -109,7 +109,12 @@ type lineJSON struct {
 			CacheRead   int64  `json:"cache_read_input_tokens"`
 			Speed       string `json:"speed"`
 			Geo         string `json:"inference_geo"`
-			Creation    *struct {
+			Tier        string `json:"service_tier"`
+			Tools       *struct {
+				WebSearch *int64 `json:"web_search_requests"`
+				WebFetch  *int64 `json:"web_fetch_requests"`
+			} `json:"server_tool_use"`
+			Creation *struct {
 				FiveMinutes int64 `json:"ephemeral_5m_input_tokens"`
 				OneHour     int64 `json:"ephemeral_1h_input_tokens"`
 			} `json:"cache_creation"`
@@ -118,12 +123,15 @@ type lineJSON struct {
 }
 
 type message struct {
-	id, model, speed, geo, dir            string
+	id, model, speed, geo, tier, dir      string
 	at                                    int64
 	input, output, cacheCreate, cacheRead int64
 	// split is the cache writes by lifetime, 5 m then 1 h; nil when the
 	// line wrote to the cache without saying which.
 	split *[2]int64
+	// webSearches and webFetches are nil when the line did not count
+	// them.
+	webSearches, webFetches *int64
 }
 
 type read struct {
@@ -265,8 +273,11 @@ func messageOf(line lineJSON, at int64, timed bool, cwd string) (message, bool) 
 		return message{}, false
 	}
 	m := message{
-		id: line.Message.ID, model: line.Message.Model, speed: u.Speed, geo: u.Geo, dir: cwd, at: at,
+		id: line.Message.ID, model: line.Message.Model, speed: u.Speed, geo: u.Geo, tier: u.Tier, dir: cwd, at: at,
 		input: u.Input, output: u.Output, cacheCreate: u.CacheCreate, cacheRead: u.CacheRead,
+	}
+	if u.Tools != nil {
+		m.webSearches, m.webFetches = u.Tools.WebSearch, u.Tools.WebFetch
 	}
 	switch {
 	case u.Creation != nil:
@@ -316,13 +327,14 @@ func upsertMessage(tx *sql.Tx, session, thread string, m message) error {
 	if m.split != nil {
 		fiveMinutes, oneHour = m.split[0], m.split[1]
 	}
-	if _, err := tx.Exec(`INSERT INTO messages (id, at, model, speed, dir_id, thread, input, output, cache_create, cache_read, cache_create_5m, cache_create_1h, geo)
-		VALUES (?, ?, ?, ?, (SELECT id FROM dirs WHERE path = ?), ?, ?, ?, ?, ?, ?, ?, ?)
+	if _, err := tx.Exec(`INSERT INTO messages (id, at, model, speed, dir_id, thread, input, output, cache_create, cache_read, cache_create_5m, cache_create_1h, geo, web_search_requests, web_fetch_requests, service_tier)
+		VALUES (?, ?, ?, ?, (SELECT id FROM dirs WHERE path = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET at = excluded.at, model = excluded.model, speed = excluded.speed,
 			dir_id = excluded.dir_id, thread = excluded.thread, input = excluded.input, output = excluded.output,
 			cache_create = excluded.cache_create, cache_read = excluded.cache_read,
-			cache_create_5m = excluded.cache_create_5m, cache_create_1h = excluded.cache_create_1h, geo = excluded.geo`,
-		m.id, m.at, m.model, orNull(m.speed), m.dir, thread, m.input, m.output, m.cacheCreate, m.cacheRead, fiveMinutes, oneHour, orNull(m.geo)); err != nil {
+			cache_create_5m = excluded.cache_create_5m, cache_create_1h = excluded.cache_create_1h, geo = excluded.geo,
+			web_search_requests = excluded.web_search_requests, web_fetch_requests = excluded.web_fetch_requests, service_tier = excluded.service_tier`,
+		m.id, m.at, m.model, orNull(m.speed), m.dir, thread, m.input, m.output, m.cacheCreate, m.cacheRead, fiveMinutes, oneHour, orNull(m.geo), m.webSearches, m.webFetches, orNull(m.tier)); err != nil {
 		return err
 	}
 	_, err := tx.Exec("INSERT INTO message_sessions (message_id, session_id) VALUES (?, ?) ON CONFLICT DO NOTHING", m.id, session)
