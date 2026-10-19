@@ -98,17 +98,6 @@ func (g *Game) jobPaths(c *city.City, b *city.Building, stop city.Point) (in, ou
 	return in, out
 }
 
-// alongJob is where a truck Along of its job is, and which way it
-// faces: from 0 at the street to 1 at its stop on the way in, and on to
-// 2 at the street on the way out.
-func alongJob(in, out []city.Point, along float64) (city.Point, city.Point) {
-	path, share := in, along
-	if along > 1 {
-		path, share = out, along-1
-	}
-	return pointAlong(path, min(1, max(0, share))*pathLength(path))
-}
-
 // drawSkip draws the skip at a building's kerb and the trucks of any
 // compaction job there.
 func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building, tint *ebiten.ColorScale) {
@@ -127,7 +116,7 @@ func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	c := g.scene.City()
 	if t := job.SkipTruck; t.Present {
 		in, out := g.jobPaths(c, b, skip)
-		at, dir := alongJob(in, out, t.Along)
+		at, dir := jobPlace(in, out, t.Along)
 		piece := kitSkipTruck
 		if t.Loaded {
 			piece = kitSkipTruckLoaded
@@ -136,7 +125,7 @@ func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	}
 	if t := job.Mixer; t.Present {
 		in, out := g.jobPaths(c, b, pour)
-		at, dir := alongJob(in, out, t.Along)
+		at, dir := jobPlace(in, out, t.Along)
 		g.kit(screen, cam, kitMixer, vehicleTurn(dir), at, tint)
 	}
 }

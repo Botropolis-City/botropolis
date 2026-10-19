@@ -164,11 +164,17 @@ func (c *City) toBridge(b *Building) []Point {
 	return append(path, bridge.Land, bridge.Far)
 }
 
+// InspectorRun is how far the inspector's car drives in along +x to
+// park.
+const InspectorRun = 3 * Tile
+
 // Inspector is the inspector's car outside a building: how far it is
 // into its parking space, whether it is leaving, where it is, and its
 // opacity, which only a cross-fade lowers.
 type Inspector struct {
-	At      Point
+	At Point
+	// Park is where it stands once parked at the kerb.
+	Park    Point
 	Parked  float64
 	Leaving bool
 	Fade    float64
@@ -377,7 +383,8 @@ func (s *Scene) Inspector(id string) (Inspector, bool) {
 		route := d.Route(b)
 		kerb = route[len(route)-1]
 	}
-	out.At = Point{X: kerb.X - Tile*0.6 - (1-out.Parked)*3*Tile, Y: kerb.Y}
+	out.Park = Point{X: kerb.X - Tile*0.6, Y: kerb.Y}
+	out.At = Point{X: out.Park.X - (1-out.Parked)*InspectorRun, Y: kerb.Y}
 	return out, true
 }
 

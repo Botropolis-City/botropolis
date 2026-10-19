@@ -143,7 +143,8 @@ func TestInspectorRunsNoseFirst(t *testing.T) {
 		t.Run("when the inspector's car is "+name, func(t *testing.T) {
 			var trailing []int
 			for _, heading := range noseHeadings {
-				if trails(t, atlas, kitInspector, inspectorTurn(c.in), heading, city.Point{}, c.move) {
+				_, dir := inspectorPlace(c.in)
+				if trails(t, atlas, kitInspector, vehicleTurn(dir), heading, city.Point{}, c.move) {
 					trailing = append(trailing, heading)
 				}
 			}

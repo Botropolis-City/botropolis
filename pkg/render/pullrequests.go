@@ -33,7 +33,8 @@ func (g *Game) drawInspector(screen *ebiten.Image, cam *city.Camera, b *city.Bui
 		tint = &ebiten.ColorScale{}
 		tint.ScaleAlpha(float32(in.Fade))
 	}
-	r := g.kitScaled(screen, cam, kitInspector, inspectorTurn(in), in.At, 0.8, tint)
+	at, dir := inspectorPlace(in)
+	r := g.kitScaled(screen, cam, kitInspector, vehicleTurn(dir), at, 0.8, tint)
 	g.noteHit(r, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Inspector: b})
 }
 
@@ -51,9 +52,8 @@ func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, bridge city.
 	}
 	tint := &ebiten.ColorScale{}
 	tint.ScaleAlpha(float32(fade))
-	at := d.At(now)
-	ahead := d.At(now.Add(100 * 1e6))
-	turn := vehicleTurn(ahead.Sub(at))
+	at, dir := deliveryPlace(d, now)
+	turn := vehicleTurn(dir)
 	// On the bridge it rides at the deck's height (item 132).
 	lift := bridge.Rise(at) * g.deckLift(cam)
 	r := g.kitLifted(screen, cam, kitDelivery, turn, at, lift, tint)
@@ -70,8 +70,8 @@ func (g *Game) drawMessage(screen *ebiten.Image, cam *city.Camera, m city.Messag
 		tint = &ebiten.ColorScale{}
 		tint.ScaleAlpha(float32(m.Progress(now)))
 	}
-	at := m.At(now)
-	turn := vehicleTurn(m.At(now.Add(100 * 1e6)).Sub(at))
+	at, dir := messagePlace(m, now)
+	turn := vehicleTurn(dir)
 	model, shrink := kitVan, 0.9
 	if m.Train {
 		model = kitWagons[0]
@@ -129,13 +129,4 @@ func sparks(at city.Point, over city.Rect, p float64) []city.Point {
 		out = append(out, city.Point{X: at.X + r*math.Cos(a), Y: at.Y + r*math.Sin(a)})
 	}
 	return out
-}
-
-// inspectorTurn is the inspector's car's turn: it drives in along +x to
-// park at the kerb and leaves the way it came (item 151).
-func inspectorTurn(in city.Inspector) int {
-	if in.Leaving {
-		return vehicleTurn(city.Point{X: -1})
-	}
-	return vehicleTurn(city.Point{X: 1})
 }

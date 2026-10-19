@@ -695,7 +695,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if !g.reduced {
 		for _, h := range g.scene.Hauls() {
 			h := h
-			items = append(items, standingAt(cam, h.At(g.scene.Clock()), func() {
+			at, _ := haulPlace(h, g.scene.Clock())
+			items = append(items, standingAt(cam, at, func() {
 				g.drawHaul(screen, cam, h)
 			}))
 		}
@@ -703,7 +704,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	for _, b := range c.Buildings() {
 		if in, ok := g.scene.Inspector(b.Session.ID); ok && !b.Vacant && !g.scene.Dimmed(b) {
 			b := b
-			items = append(items, standingAt(cam, in.At, func() {
+			at, _ := inspectorPlace(in)
+			items = append(items, standingAt(cam, at, func() {
 				g.drawInspector(screen, cam, b, in)
 			}))
 			items[len(items)-1].kept = g.keeps(c.DistrictOf(b))
@@ -711,7 +713,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	for _, m := range g.scene.Messages() {
 		m := m
-		items = append(items, standingAt(cam, m.At(g.scene.Clock()), func() {
+		at, _ := messagePlace(m, g.scene.Clock())
+		items = append(items, standingAt(cam, at, func() {
 			g.drawMessage(screen, cam, m)
 		}))
 	}
@@ -724,7 +727,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	})...)
 	for _, d := range g.scene.Deliveries() {
 		d := d
-		items = append(items, deliveryAt(cam, bridge, d.At(g.scene.Clock()), func() {
+		at, _ := deliveryPlace(d, g.scene.Clock())
+		items = append(items, deliveryAt(cam, bridge, at, func() {
 			g.drawDelivery(screen, cam, bridge, d)
 		}))
 	}
@@ -1095,17 +1099,10 @@ func (g *Game) cars(c *city.City, seconds float64) []car {
 		// nobody is: the road stays, the cars do not. Item 85.
 		count := street.Road.Active
 		for k := 0; k < count; k++ {
-			// Cars go there and back along the path.
+			// Cars go there and back along the path, each way in the
+			// lane on its right (item 153).
 			phase := math.Mod(seconds*carSpeed/(2*length)+float64(k)/float64(count)+float64(i)*0.37, 1)
-			t := phase * 2
-			forward := t <= 1
-			if !forward {
-				t = 2 - t
-			}
-			at, dir := pointAlong(street.Path, t*length)
-			if !forward {
-				dir = city.Point{X: -dir.X, Y: -dir.Y}
-			}
+			at, dir := carPlace(street.Path, phase)
 			out = append(out, car{at: at, model: kitCars[(i*len(kitCars)/2+k)%len(kitCars)], turn: vehicleTurn(dir), road: street.Road})
 		}
 	}
@@ -1526,8 +1523,8 @@ const kitTruck = "car-kit/truck"
 // drawHaul draws a truck carrying a packed-up session's crate between its
 // lot and the depot, facing the way it drives (item 86).
 func (g *Game) drawHaul(screen *ebiten.Image, cam *city.Camera, h city.Haul) {
-	turn := vehicleTurn(h.To.Sub(h.From))
-	at := h.At(g.scene.Clock())
+	at, dir := haulPlace(h, g.scene.Clock())
+	turn := vehicleTurn(dir)
 	g.kit(screen, cam, kitTruck, turn, at, nil)
 	g.kitScaled(screen, cam, crates[h.Hue%len(crates)], turn, at, 0.4, nil)
 }
