@@ -200,6 +200,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Trains are now drawn two fifths larger and each runs its own length behind the one in front, on rails set under its body, with trains a wagon and a half apart round the loop.
   A message's carriage along a group's line keeps its old size, so it does not cover the badges it passes.
 
+- **The bridge off the island goes over the railway, and plainly stands on piers out over the water.**
+  The road to the bridge crossed the freight loop on the level, so a train and the merge truck could share a spot with nothing to say which passed over the other, and where it left the island it looked like a road running into the sea.
+  The road now climbs a ramp at the end of its avenue onto a raised deck, with railings, girders and piers, which crosses over the railway and stays up out to sea.
+  Trains pass underneath and the truck drives over the top, and the deck is high enough to clear the tallest wagon.
+
 - **`botropolis-demo stage` works on macOS again, and a headless run there clears up after a dead one.**
   Both tell a process from a later one given the same pid by when it started, which they read only where the system has `/proc`.
   On macOS, staging refused every stand-in, and a private state directory whose pid had been handed on was kept for good.
