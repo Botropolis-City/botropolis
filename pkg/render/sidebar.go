@@ -86,28 +86,28 @@ func (g *Game) wheelSidebar(cursor city.Point, notches float64) bool {
 }
 
 // pageSidebar answers PageUp, PageDown, Home and End while the sidebar
-// is open; the arrows stay with the map.
+// is open; the arrows stay with the map. The next layout keeps the
+// scroll in range, so a key pressed before the panel is first drawn
+// still counts.
 func (g *Game) pageSidebar() bool {
 	if !g.sidebar || g.hidden {
 		return false
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	page := g.sidebarLayout.Page
-	skip := g.sidebarSkip
+	page := max(g.sidebarLayout.Page, 1)
 	switch {
 	case g.just(ebiten.KeyPageDown):
-		skip += page
+		g.sidebarSkip += page
 	case g.just(ebiten.KeyPageUp):
-		skip -= page
+		g.sidebarSkip = max(g.sidebarSkip-page, 0)
 	case g.just(ebiten.KeyHome):
-		skip = 0
+		g.sidebarSkip = 0
 	case g.just(ebiten.KeyEnd):
-		skip = g.sidebarLayout.Max
+		g.sidebarSkip = math.MaxInt32
 	default:
 		return false
 	}
-	g.sidebarSkip = min(max(skip, 0), g.sidebarLayout.Max)
 	return true
 }
 

@@ -53,6 +53,11 @@ func TestSidebarScrolls(t *testing.T) {
 			})
 		})
 
+		t.Run("it should keep the sidebar clear of the footer", func(t *testing.T) {
+			s := openSidebar(t).Shown()
+			assert.LessOrEqual(t, s.SidebarRect.Max.Y, s.FooterTop)
+		})
+
 		t.Run("and end is pressed", func(t *testing.T) {
 			d := openSidebar(t)
 			require.NoError(t, d.Press("End"))
