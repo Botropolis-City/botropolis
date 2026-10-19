@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -31,6 +32,13 @@ func (b *built) Run() int {
 	}
 	botropolis = filepath.Join(dir, "botropolis")
 	build := exec.Command("go", "build", "-o", botropolis, "../../cmd/botropolis")
+	// tools/acceptance-targets maps each test to the packages it runs (item
+	// 117). go test -cover points GOCOVERDIR at a directory of its own, so the
+	// binary's coverage is sent to the one the tool names instead.
+	if cover := os.Getenv("BOTROPOLIS_ACCEPTANCE_COVER"); cover != "" {
+		build.Args = slices.Insert(build.Args, 2, "-cover", "-coverpkg=botropolis.city/botropolis/pkg/...,botropolis.city/botropolis/cmd/...")
+		_ = os.Setenv("GOCOVERDIR", cover)
+	}
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {
 		panic(err)

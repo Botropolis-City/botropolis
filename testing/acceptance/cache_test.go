@@ -62,7 +62,7 @@ type cacheRun struct {
 func scratchModule(t *testing.T, extra ...string) string {
 	t.Helper()
 	root := filepath.Join("..", "..")
-	args := append([]string{"ls-files", "--cached", "--others", "--exclude-standard", "go.mod", "go.sum", "cmd", "pkg", "testing"}, extra...)
+	args := append([]string{"ls-files", "--cached", "--others", "--exclude-standard", "go.mod", "go.sum", "cmd", "pkg", "testing", "tools/acceptance-targets"}, extra...)
 	ls := exec.Command("git", args...)
 	ls.Dir = root
 	out, err := ls.Output()

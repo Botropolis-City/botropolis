@@ -28,3 +28,6 @@ tools/__pycache__/
 .pkgrepo/
 .pkgrepo-in/
 .brewtap/
+
+# The acceptance tests' coverage map, per working tree (item 117)
+/.cache/

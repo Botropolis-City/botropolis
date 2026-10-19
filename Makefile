@@ -137,7 +137,7 @@ test :: test-unit test-integration test-acceptance
 
 test-unit ::
 	$(LOG) "Running unit tests"
-	@go test ./cmd/... ./pkg/...
+	@go test ./cmd/... ./pkg/... ./tools/acceptance-targets/...
 
 test-integration ::
 	$(LOG) "Running integration tests"
@@ -146,6 +146,19 @@ test-integration ::
 test-acceptance ::
 	$(LOG) "Running acceptance tests"
 	@go test ./testing/acceptance/...
+
+# Targeted acceptance runs, item 117. test-acceptance-map runs each test on its
+# own under coverage and records the packages it executed in .cache/; a run of
+# test-acceptance-changed then runs only the tests a change since the map can
+# reach, and falls back to a full run that refreshes the map, saying why, when
+# the map cannot say.
+test-acceptance-map ::
+	$(LOG) "Mapping the acceptance tests to the packages they run"
+	@go run ./tools/acceptance-targets map
+
+test-acceptance-changed ::
+	$(LOG) "Running the acceptance tests a change can reach"
+	@go run ./tools/acceptance-targets changed
 
 # Wall time for the bar's tasks, item 91. It reports and never gates: the
 # acceptance tests gate on steps, ticks and work instead. CI runs it once per
