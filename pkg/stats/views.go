@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"botropolis.city/botropolis/pkg/claude"
 )
 
 // Unrecorded is the speed of a message whose line carried none.
@@ -37,7 +35,8 @@ type Filter struct {
 // while statistics were off.
 type Bucket struct {
 	Start, Last Date
-	Usage       claude.Usage
+	Counters    Counters
+	Cost        Cost
 	NoData      bool
 	Incomplete  bool
 }
@@ -45,7 +44,8 @@ type Bucket struct {
 // Share is one model at one speed's part of a range.
 type Share struct {
 	Model, Speed string
-	Usage        claude.Usage
+	Counters     Counters
+	Cost         Cost
 }
 
 // Coverage is how far back a view's data goes and what that means for
@@ -160,11 +160,9 @@ func touches(gaps []gap, sp span) bool {
 	return false
 }
 
-const sums = "coalesce(sum(m.input), 0), coalesce(sum(m.output), 0), coalesce(sum(m.cache_create), 0), coalesce(sum(m.cache_read), 0), count(m.id)"
-
-// Series is the range's usage, day by day or month by month, in loc's
-// local days: each message counted once, by its id, from the raw
-// counters.
+// Series is the range's counters and cost, day by day or month by
+// month, in loc's local days: each message counted once, by its id,
+// and priced by the row in force when it was sent.
 func (s *Store) Series(r Range, f Filter, unit Unit, loc *time.Location) ([]Bucket, error) {
 	where, err := s.dirs(f)
 	if err != nil {
@@ -183,29 +181,46 @@ func (s *Store) Series(r Range, f Filter, unit Unit, loc *time.Location) ([]Buck
 		return nil, nil
 	}
 	values := make([]string, len(sps))
+	buckets := make([]Bucket, len(sps))
 	for i, sp := range sps {
 		values[i] = fmt.Sprintf("(%d, %d, %d)", i, sp.lo, sp.hi)
+		buckets[i] = Bucket{Start: sp.first, Last: sp.last,
+			NoData: !has || sp.last.Before(earliest), Incomplete: touches(gaps, sp)}
 	}
-	rows, err := s.db.Query(`WITH edges (i, lo, hi) AS (VALUES ` + strings.Join(values, ", ") + `)
-		SELECT e.i, ` + sums + ` FROM edges e
-		LEFT JOIN messages m ON m.at >= e.lo AND m.at < e.hi` + where + `
-		GROUP BY e.i ORDER BY e.i`)
+	groups, err := s.pricedBy(Prices, "WITH edges (i, lo, hi) AS (VALUES "+strings.Join(values, ", ")+") ", "e.i",
+		"edges e JOIN messages m ON m.at >= e.lo AND m.at < e.hi", where)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-	buckets := make([]Bucket, len(sps))
-	for rows.Next() {
-		var i int
-		var u claude.Usage
-		if err := rows.Scan(&i, &u.Input, &u.Output, &u.CacheCreate, &u.CacheRead, &u.Messages); err != nil {
+	for _, g := range groups {
+		i, err := strconv.Atoi(g.key)
+		if err != nil {
 			return nil, err
 		}
-		sp := sps[i]
-		buckets[i] = Bucket{Start: sp.first, Last: sp.last, Usage: u,
-			NoData: !has || sp.last.Before(earliest), Incomplete: touches(gaps, sp)}
+		buckets[i].Counters = buckets[i].Counters.Add(g.priced.Counters)
+		buckets[i].Cost = buckets[i].Cost.Add(Prices.Price(g.priced))
 	}
-	return buckets, rows.Err()
+	return buckets, nil
+}
+
+// Totals is the range's counters and cost in all.
+func (s *Store) Totals(r Range, f Filter, loc *time.Location) (Counters, Cost, error) {
+	where, err := s.dirs(f)
+	if err != nil {
+		return Counters{}, Cost{}, err
+	}
+	sp := spanOf(r.First, r.Last, loc)
+	groups, err := s.pricedBy(Prices, "", "", "messages m", " AND m.at >= ? AND m.at < ?"+where, sp.lo, sp.hi)
+	if err != nil {
+		return Counters{}, Cost{}, err
+	}
+	var counters Counters
+	var cost Cost
+	for _, g := range groups {
+		counters = counters.Add(g.priced.Counters)
+		cost = cost.Add(Prices.Price(g.priced))
+	}
+	return counters, cost, nil
 }
 
 // Coverage says how far back the filter's data goes, whether the range
@@ -228,31 +243,46 @@ func (s *Store) Coverage(r Range, f Filter, loc *time.Location) (Coverage, error
 		TouchesGap:       touches(gaps, spanOf(r.First, r.Last, loc))}, nil
 }
 
-// ModelMix is the range's usage split by model and speed, in that
-// order.
+// ModelMix is the range's counters and cost by model and speed, the
+// dearest first.
 func (s *Store) ModelMix(r Range, f Filter, loc *time.Location) ([]Share, error) {
 	where, err := s.dirs(f)
 	if err != nil {
 		return nil, err
 	}
 	sp := spanOf(r.First, r.Last, loc)
-	rows, err := s.db.Query(`SELECT m.model, coalesce(m.speed, ''), `+sums+` FROM messages m
-		WHERE m.at >= ? AND m.at < ?`+where+`
-		GROUP BY 1, 2 ORDER BY 1, 2`, sp.lo, sp.hi)
+	groups, err := s.pricedBy(Prices, "", "", "messages m", " AND m.at >= ? AND m.at < ?"+where, sp.lo, sp.hi)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-	var shares []Share
-	for rows.Next() {
-		var sh Share
-		u := &sh.Usage
-		if err := rows.Scan(&sh.Model, &sh.Speed, &u.Input, &u.Output, &u.CacheCreate, &u.CacheRead, &u.Messages); err != nil {
-			return nil, err
+	byKey := map[[2]string]*Share{}
+	var shares []*Share
+	for _, g := range groups {
+		k := [2]string{g.priced.Model, g.priced.Speed}
+		sh, ok := byKey[k]
+		if !ok {
+			sh = &Share{Model: k[0], Speed: k[1]}
+			byKey[k] = sh
+			shares = append(shares, sh)
 		}
-		shares = append(shares, sh)
+		sh.Counters = sh.Counters.Add(g.priced.Counters)
+		sh.Cost = sh.Cost.Add(Prices.Price(g.priced))
 	}
-	return shares, rows.Err()
+	sort.Slice(shares, func(i, j int) bool {
+		a, b := shares[i], shares[j]
+		if a.Cost.High != b.Cost.High {
+			return a.Cost.High > b.Cost.High
+		}
+		if a.Model != b.Model {
+			return a.Model < b.Model
+		}
+		return a.Speed < b.Speed
+	})
+	out := make([]Share, len(shares))
+	for i, sh := range shares {
+		out[i] = *sh
+	}
+	return out, nil
 }
 
 // Districts is every district the store holds messages for, by root,

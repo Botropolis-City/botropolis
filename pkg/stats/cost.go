@@ -46,13 +46,13 @@ type keyed struct {
 
 // pricedBy runs a query whose columns are a key, then pricedSelect, and
 // gives each group with its key.
-func (s *Store) pricedBy(rates Rates, key, from, where string, args ...any) ([]keyed, error) {
+func (s *Store) pricedBy(rates Rates, with, key, from, where string, args ...any) ([]keyed, error) {
 	cols, starts := pricedSelect(rates)
 	group := " GROUP BY 1, 2, 3, 4, 5, 6, 7"
 	if key == "" {
 		key = "''"
 	}
-	rows, err := s.db.Query("SELECT "+key+", "+cols+" FROM "+from+" WHERE 1"+where+group, args...)
+	rows, err := s.db.Query(with+"SELECT "+key+", "+cols+" FROM "+from+" WHERE 1"+where+group, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (s *Store) pricedBy(rates Rates, key, from, where string, args ...any) ([]k
 // all and by model: every message it holds, its subagents' and a fork's
 // copies included. Item 116.
 func (s *Store) SessionCost(session string, rates Rates) (Cost, map[string]Cost, error) {
-	groups, err := s.pricedBy(rates, "m.model", "messages m JOIN message_sessions ms ON ms.message_id = m.id", " AND ms.session_id = ?", session)
+	groups, err := s.pricedBy(rates, "", "m.model", "messages m JOIN message_sessions ms ON ms.message_id = m.id", " AND ms.session_id = ?", session)
 	if err != nil {
 		return Cost{}, nil, err
 	}

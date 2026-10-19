@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
-	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/stats"
 )
 
@@ -84,7 +83,7 @@ func TestSeries(t *testing.T) {
 		f.seed(msg("msg_1", "2026-10-11T02:30:00.000Z", lib, usage{Output: 5}))
 
 		t.Run("it should count on its local day", func(t *testing.T) {
-			assert.Equal(t, 1, f.day(date(2026, 10, 10), everywhere).Usage.Messages)
+			assert.Equal(t, 1, f.day(date(2026, 10, 10), everywhere).Counters.Messages)
 		})
 	})
 
@@ -101,7 +100,7 @@ func TestSeries(t *testing.T) {
 			f.seed(msg("msg_0", "2026-01-01T12:00:00.000Z", lib, usage{}), msg("msg_1", c.at, lib, usage{Output: 5}))
 
 			t.Run("it should count a message at 23:30 local on that day", func(t *testing.T) {
-				assert.Equal(t, 1, f.day(c.day, everywhere).Usage.Messages)
+				assert.Equal(t, 1, f.day(c.day, everywhere).Counters.Messages)
 			})
 		})
 	}
@@ -117,7 +116,7 @@ func TestSeries(t *testing.T) {
 			b := f.day(date(2026, 10, 7), everywhere)
 
 			t.Run("it should be zero", func(t *testing.T) {
-				assert.Equal(t, 0, b.Usage.Messages)
+				assert.Equal(t, 0, b.Counters.Messages)
 			})
 
 			t.Run("it should not be no data", func(t *testing.T) {
@@ -146,7 +145,7 @@ func TestSeries(t *testing.T) {
 		)
 
 		t.Run("it should sum the four counters and the messages", func(t *testing.T) {
-			assert.Equal(t, claudeUsage(11, 22, 33, 44, 2), f.day(date(2026, 10, 5), everywhere).Usage)
+			assert.Equal(t, stats.Counters{Input: 11, Output: 22, WriteUnsplit: 33, Read: 44, Messages: 2}, f.day(date(2026, 10, 5), everywhere).Counters)
 		})
 	})
 
@@ -157,7 +156,7 @@ func TestSeries(t *testing.T) {
 		f.ingest()
 
 		t.Run("it should count it once", func(t *testing.T) {
-			assert.Equal(t, int64(5), f.day(date(2026, 10, 5), everywhere).Usage.Output)
+			assert.Equal(t, int64(5), f.day(date(2026, 10, 5), everywhere).Counters.Output)
 		})
 	})
 
@@ -175,7 +174,7 @@ func TestSeries(t *testing.T) {
 		})
 
 		t.Run("it should sum each local month", func(t *testing.T) {
-			assert.Equal(t, [2]int64{3, 4}, [2]int64{buckets[0].Usage.Output, buckets[1].Usage.Output})
+			assert.Equal(t, [2]int64{3, 4}, [2]int64{buckets[0].Counters.Output, buckets[1].Counters.Output})
 		})
 	})
 
@@ -208,13 +207,13 @@ func TestFilter(t *testing.T) {
 
 	t.Run("when no districts are chosen", func(t *testing.T) {
 		t.Run("it should count every district", func(t *testing.T) {
-			assert.Equal(t, int64(10), f.day(date(2026, 10, 5), everywhere).Usage.Output)
+			assert.Equal(t, int64(10), f.day(date(2026, 10, 5), everywhere).Counters.Output)
 		})
 	})
 
 	t.Run("when one district is chosen", func(t *testing.T) {
 		t.Run("it should count only its messages", func(t *testing.T) {
-			assert.Equal(t, int64(2), f.day(date(2026, 10, 5), only(lib)).Usage.Output)
+			assert.Equal(t, int64(2), f.day(date(2026, 10, 5), only(lib)).Counters.Output)
 		})
 
 		t.Run("it should take its earliest from its own first message", func(t *testing.T) {
@@ -227,7 +226,7 @@ func TestFilter(t *testing.T) {
 		w.seed(msg("msg_1", "2026-10-05T15:00:00.000Z", libWorktree, usage{Output: 4}))
 
 		t.Run("it should count under that district", func(t *testing.T) {
-			assert.Equal(t, int64(4), w.day(date(2026, 10, 5), only(lib)).Usage.Output)
+			assert.Equal(t, int64(4), w.day(date(2026, 10, 5), only(lib)).Counters.Output)
 		})
 	})
 }
@@ -241,11 +240,16 @@ func TestModelMix(t *testing.T) {
 			modelMsg("msg_3", "2026-10-06T15:00:00.000Z", "claude-sonnet-5", usage{Output: 4, Speed: "standard"}),
 		)
 
-		t.Run("it should split the usage by model", func(t *testing.T) {
-			assert.Equal(t, []stats.Share{
-				{Model: "claude-opus-5", Speed: "standard", Usage: claudeUsage(0, 1, 0, 0, 1)},
-				{Model: "claude-sonnet-5", Speed: "standard", Usage: claudeUsage(0, 6, 0, 0, 2)},
-			}, f.mix(stats.MonthToDate(today)))
+		t.Run("it should split the counters by model", func(t *testing.T) {
+			outputs := map[string]int64{}
+			for _, s := range f.mix(stats.MonthToDate(today)) {
+				outputs[s.Model] = s.Counters.Output
+			}
+			assert.Equal(t, map[string]int64{"claude-opus-5": 1, "claude-sonnet-5": 6}, outputs)
+		})
+
+		t.Run("it should order the models by cost, dearest first", func(t *testing.T) {
+			assert.Equal(t, []string{"claude-sonnet-5", "claude-opus-5"}, models(f.mix(stats.MonthToDate(today))))
 		})
 	})
 
@@ -376,6 +380,58 @@ func models(shares []stats.Share) []string {
 	return out
 }
 
-func claudeUsage(input, output, cacheCreate, cacheRead int64, messages int) claude.Usage {
-	return claude.Usage{Input: input, Output: output, CacheCreate: cacheCreate, CacheRead: cacheRead, Messages: messages}
+func TestTotals(t *testing.T) {
+	t.Run("when a range is totalled", func(t *testing.T) {
+		f := newFixture(t)
+		f.seed(
+			modelMsg("msg_1", "2026-10-05T14:00:00.000Z", "claude-opus-5-5", usage{Input: 1, Output: 2, CacheCreate: 3, CacheRead: 4, Creation: &split{FiveMinutes: 3}}),
+			modelMsg("msg_2", "2026-10-06T14:00:00.000Z", "claude-opus-5-5", usage{Input: 10, Output: 20, CacheCreate: 30, CacheRead: 40, Creation: &split{OneHour: 30}}),
+		)
+		counters, cost := f.totals(stats.MonthToDate(today))
+
+		t.Run("it should sum the five counters apart", func(t *testing.T) {
+			assert.Equal(t, stats.Counters{Input: 11, Output: 22, Write5m: 3, Write1h: 30, Read: 44, Messages: 2}, counters)
+		})
+
+		t.Run("it should cost the sum of its messages' costs", func(t *testing.T) {
+			want := stats.Prices.Price(stats.Priced{Model: "claude-opus-5-5", At: someday, Counters: counters})
+			assert.InDelta(t, want.Low, cost.Low, 1e-12)
+		})
+	})
+
+	t.Run("when one message's model has no price", func(t *testing.T) {
+		f := newFixture(t)
+		f.seed(
+			modelMsg("msg_1", "2026-10-05T14:00:00.000Z", "claude-opus-5-5", usage{Output: million}),
+			modelMsg("msg_2", "2026-10-06T14:00:00.000Z", "claude-opus-9-9", usage{Output: million}),
+		)
+		_, cost := f.totals(stats.MonthToDate(today))
+
+		t.Run("it should count it as unpriced", func(t *testing.T) {
+			assert.Equal(t, 1, cost.Unpriced)
+		})
+
+		t.Run("it should keep the others' cost", func(t *testing.T) {
+			assert.InDelta(t, 20, cost.Low, 1e-9)
+		})
+	})
+
+	t.Run("when a day is costed", func(t *testing.T) {
+		f := newFixture(t)
+		f.seed(
+			modelMsg("msg_1", "2026-10-05T14:00:00.000Z", "claude-opus-5-5", usage{Output: million}),
+			modelMsg("msg_2", "2026-10-05T15:00:00.000Z", "claude-sonnet-5-5", usage{Output: million}),
+		)
+
+		t.Run("it should carry every one of its messages' costs", func(t *testing.T) {
+			assert.InDelta(t, 30, f.day(date(2026, 10, 5), everywhere).Cost.Low, 1e-9)
+		})
+	})
+}
+
+func (f *fixture) totals(r stats.Range) (stats.Counters, stats.Cost) {
+	f.t.Helper()
+	counters, cost, err := f.store.Totals(r, everywhere, ny)
+	require.NoError(f.t, err)
+	return counters, cost
 }
