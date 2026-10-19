@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"math"
+	"sort"
+	"strings"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -26,11 +28,11 @@ type Help struct {
 // HelpRow is one key: its chip, and its action wrapped to the column,
 // on a band that takes a click.
 type HelpRow struct {
-	Key   Key
-	Band  city.Rect
-	Chip  city.Rect
-	KeyAt city.Point
-	Label []Text
+	Key      Key
+	Band     city.Rect
+	Chip     city.Rect
+	KeyLines []Text
+	Label    []Text
 }
 
 // Hit finds the key under a screen point. A row's target is its whole
@@ -53,7 +55,12 @@ func (h Help) Moved(by city.Point) Help {
 	h.Title, h.Above, h.Below = h.Title.moved(by), h.Above.moved(by), h.Below.moved(by)
 	rows := make([]HelpRow, len(h.Rows))
 	for i, r := range h.Rows {
-		r.Band, r.Chip, r.KeyAt = shift(r.Band), shift(r.Chip), r.KeyAt.Add(by)
+		r.Band, r.Chip = shift(r.Band), shift(r.Chip)
+		keyLines := make([]Text, len(r.KeyLines))
+		for j, l := range r.KeyLines {
+			keyLines[j] = l.moved(by)
+		}
+		r.KeyLines = keyLines
 		label := make([]Text, len(r.Label))
 		for j, l := range r.Label {
 			label[j] = l.moved(by)
@@ -68,14 +75,17 @@ func (h Help) Moved(by city.Point) Help {
 // helpMetrics is what every arrangement of the list shares.
 type helpMetrics struct {
 	grid, pad, gap, lineH, titleH, chipW, chipH, labelW, titleW float64
-	measure                                                     Measure
+	// chipCap is the widest a chip's key runs before it wraps.
+	chipCap float64
+	measure Measure
 }
 
 // helpRow is a row measured for one label width, before it is placed.
 type helpRow struct {
-	key   Key
-	lines []string
-	h     float64
+	key      Key
+	keyLines []string
+	lines    []string
+	h        float64
 }
 
 func (m helpMetrics) rows(keys []Key, labelW float64) []helpRow {
@@ -85,9 +95,52 @@ func (m helpMetrics) rows(keys []Key, labelW float64) []helpRow {
 		if len(lines) == 0 {
 			lines = []string{""}
 		}
-		out[i] = helpRow{key: k, lines: lines, h: m.chipH + float64(len(lines)-1)*m.lineH}
+		keyLines := m.keyLines(k)
+		out[i] = helpRow{key: k, keyLines: keyLines, lines: lines, h: m.chipH + float64(max(len(lines), len(keyLines))-1)*m.lineH}
 	}
 	return out
+}
+
+// keyLines is a key wrapped to the chip's cap.
+func (m helpMetrics) keyLines(k Key) []string {
+	lines := wrapAt(k.Key, m.chipCap, math.MaxInt, Small, m.measure)
+	if len(lines) == 0 {
+		return []string{""}
+	}
+	return lines
+}
+
+// widest is the widest of some lines.
+func (m helpMetrics) widest(lines []string) float64 {
+	var w float64
+	for _, l := range lines {
+		if lw, _ := m.measure(l, Small); lw > w {
+			w = lw
+		}
+	}
+	return w
+}
+
+// chipCap is the widest a chip may run before it wraps: half again the
+// 95th percentile of the keys, so one much longer than the rest wraps
+// rather than pushing its whole column's labels across, but never
+// narrower than the longest word.
+func chipCap(keys []Key, measure Measure) float64 {
+	if len(keys) == 0 {
+		return 0
+	}
+	widths := make([]float64, len(keys))
+	var word float64
+	for i, k := range keys {
+		widths[i], _ = measure(k.Key, Small)
+		for _, f := range strings.Fields(k.Key) {
+			if w, _ := measure(f, Small); w > word {
+				word = w
+			}
+		}
+	}
+	sort.Float64s(widths)
+	return max(1.5*widths[int(0.95*float64(len(widths)-1))], word)
 }
 
 // columnWidth is the widest a column's chip and label come to.
@@ -145,10 +198,9 @@ func LayoutHelp(th Theme, width, height float64, title string, keys []Key, measu
 	_, m.lineH = measure("", Small)
 	m.titleW, m.titleH = measure(title, Title)
 	m.chipH = m.lineH + grid
+	m.chipCap = chipCap(keys, measure)
 	for _, k := range keys {
-		if w, _ := measure(k.Key, Small); w+grid > m.chipW {
-			m.chipW = w + grid
-		}
+		m.chipW = max(m.chipW, m.widest(m.keyLines(k))+grid)
 		if w, _ := measure(k.Action, Small); w > m.labelW {
 			m.labelW = w
 		}
@@ -202,9 +254,7 @@ func (m helpMetrics) balanced(rows []helpRow, n int, room float64) ([][]helpRow,
 func (m helpMetrics) chipsOf(rows []helpRow) helpMetrics {
 	m.chipW = 0
 	for _, r := range rows {
-		if w, _ := m.measure(r.key.Key, Small); w+m.grid > m.chipW {
-			m.chipW = w + m.grid
-		}
+		m.chipW = max(m.chipW, m.widest(r.keyLines)+m.grid)
 	}
 	return m
 }
@@ -300,16 +350,73 @@ func (m helpMetrics) scrolled(width, height float64, title string, rows []helpRo
 }
 
 func (m helpMetrics) place(r helpRow, x, y, colW float64) HelpRow {
-	kw, _ := m.measure(r.key.Key, Small)
-	chip := city.RectAt(x, y, kw+m.grid, m.chipH)
+	chip := city.RectAt(x, y, m.widest(r.keyLines)+m.grid, m.chipH+float64(len(r.keyLines)-1)*m.lineH)
 	row := HelpRow{
-		Key:   r.key,
-		Chip:  chip,
-		Band:  city.RectAt(x, y, colW, r.h),
-		KeyAt: city.Point{X: x + m.grid/2, Y: y + m.grid/2},
+		Key:  r.key,
+		Chip: chip,
+		Band: city.RectAt(x, y, colW, r.h),
+	}
+	for i, l := range r.keyLines {
+		row.KeyLines = append(row.KeyLines, Text{Text: l, At: city.Point{X: x + m.grid/2, Y: y + m.grid/2 + float64(i)*m.lineH}, Size: Small})
 	}
 	for i, l := range r.lines {
 		row.Label = append(row.Label, Text{Text: l, At: city.Point{X: x + m.chipW + m.grid, Y: y + m.grid/2 + float64(i)*m.lineH}, Size: Small})
 	}
 	return row
+}
+
+// LayoutHelpIn lays the key list out in a room, clear of the panels that
+// cover parts of it, such as the stream's corner. It works round them as
+// the City Plan does rather than giving up the band beside them: it
+// tries the whole room, then the parts left of, right of, above and
+// below each cover, largest first, and takes the first that overlaps no
+// cover and shows every key; failing that, the clear one that shows the
+// most rows. Item 127.
+func LayoutHelpIn(th Theme, room city.Rect, covers []city.Rect, title string, keys []Key, measure Measure, skip int) Help {
+	in := func(r city.Rect) Help {
+		return LayoutHelp(th, r.Width(), r.Height(), title, keys, measure, skip).Moved(r.Min)
+	}
+	clear := func(h Help) bool {
+		for _, c := range covers {
+			if h.Rect.Overlaps(c) {
+				return false
+			}
+		}
+		return true
+	}
+	first := in(room)
+	if clear(first) && first.Max == 0 {
+		return first
+	}
+	var parts []city.Rect
+	for _, c := range covers {
+		if !c.Overlaps(room) {
+			continue
+		}
+		for _, p := range []city.Rect{
+			{Min: room.Min, Max: city.Point{X: c.Min.X, Y: room.Max.Y}},
+			{Min: city.Point{X: c.Max.X, Y: room.Min.Y}, Max: room.Max},
+			{Min: room.Min, Max: city.Point{X: room.Max.X, Y: c.Min.Y}},
+			{Min: city.Point{X: room.Min.X, Y: c.Max.Y}, Max: room.Max},
+		} {
+			if p.Width() > 0 && p.Height() > 0 {
+				parts = append(parts, p)
+			}
+		}
+	}
+	sort.SliceStable(parts, func(i, j int) bool { return parts[i].Area() > parts[j].Area() })
+	best, found := first, clear(first)
+	for _, p := range parts {
+		h := in(p)
+		if !clear(h) {
+			continue
+		}
+		if h.Max == 0 {
+			return h
+		}
+		if !found || len(h.Rows) > len(best.Rows) {
+			best, found = h, true
+		}
+	}
+	return best
 }

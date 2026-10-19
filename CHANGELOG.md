@@ -194,7 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The reference's keys entry had grown to about forty rows and ran off the top and bottom of most windows, so some keys could not be read at all.
   It now takes as few columns as fit, read down and then across, and wraps a long action rather than running past the panel's edge.
   Where no number of columns fits, it is one column that scrolls by whole rows with the wheel and the up and down arrows, saying how many more are above and below.
-  It keeps clear of the strip and the footer, and the wheel no longer zooms the map behind the reference.
+  It keeps clear of the strip, the footer, the stream and the minimap, working round them rather than shrinking, and a key much longer than the rest wraps in its chip so its column's actions stay close to their keys.
+  The wheel no longer zooms the map behind the reference.
 
 - **A signal arriving as the city starts no longer ends it.**
   On Linux the city opens every input device as it starts, and a signal arriving while another program held one of them ended it with "gamepad: Open failed: interrupted system call".

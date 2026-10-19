@@ -104,11 +104,18 @@ func (r *reference) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.mu.Lock()
 		skip := r.skip
 		top, foot := 0.0, height
+		var covers []city.Rect
 		if !g.hidden && g.footerBar.Rect.Area() > 0 {
 			top, foot = g.scene.TopChrome(), min(g.footerBar.Rect.Min.Y, height)
+			for _, c := range []city.Rect{g.streamLaid.Rect, g.minimapBox} {
+				if c.Area() > 0 {
+					covers = append(covers, c)
+				}
+			}
 		}
 		g.mu.Unlock()
-		h := ui.LayoutHelp(th, width, foot-top, "Keys", g.helpKeys(), g.faces.Measure, skip).Moved(city.Point{Y: top})
+		room := city.Rect{Min: city.Point{Y: top}, Max: city.Point{X: width, Y: foot}}
+		h := ui.LayoutHelpIn(th, room, covers, "Keys", g.helpKeys(), g.faces.Measure, skip)
 		g.mu.Lock()
 		r.keyList = h
 		r.skip = h.Skip
@@ -117,7 +124,9 @@ func (r *reference) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.run(screen, h.Title, th.Palette.Text)
 		for _, k := range h.Rows {
 			g.roundRect(screen, k.Chip, th.Radius()/2, th.Palette.Hairline)
-			g.text(screen, k.KeyAt, k.Key.Key, ui.Small, th.Palette.Text)
+			for _, l := range k.KeyLines {
+				g.run(screen, l, th.Palette.Text)
+			}
 			for _, l := range k.Label {
 				g.run(screen, l, th.Palette.Dim)
 			}

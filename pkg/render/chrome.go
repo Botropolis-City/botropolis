@@ -44,12 +44,17 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	bottom := footer.KeyRow.Height() + legend.Rect.Height()
 	g.scene.SetBottomChrome(bottom)
 	streamFoot := max(bottom, height-footer.Rect.Min.Y)
+	minimapBox := city.Rect{}
 	if box, ok := ui.LayoutMinimap(th, width, height, bottom); ok && g.minimapAllowed() {
 		if g.streamShown() {
 			box = ui.MinimapBesideStream(th, box, ui.StreamArea(th, ui.StreamCorner, width, height, top, streamFoot), ui.StreamCorner)
 		}
 		g.minimap(screen, box)
+		minimapBox = box
 	}
+	g.mu.Lock()
+	g.minimapBox = minimapBox
+	g.mu.Unlock()
 	pointer := g.pointer()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
 	bounds.Max.X = g.drawStream(screen, width, height, top, streamFoot)

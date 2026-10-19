@@ -261,7 +261,10 @@ type Game struct {
 	streamSkip  int
 	streamSeen  int
 	streamWheel float64
-	streamDrag  bool
+	// minimapBox is where the minimap was drawn, empty when it was not:
+	// a cover the key list lays itself out around (item 127).
+	minimapBox city.Rect
+	streamDrag bool
 	// captions are explain mode's, or a first sighting's, as last drawn;
 	// scriptedHeld is the keys a script holds down (item 88).
 	captions     []ui.Caption

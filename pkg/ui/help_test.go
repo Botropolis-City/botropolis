@@ -114,6 +114,18 @@ func TestLayoutHelp(t *testing.T) {
 					}
 				})
 
+				t.Run("it should keep every chip line inside its chip", func(t *testing.T) {
+					for _, h := range laid {
+						for _, r := range h.Rows {
+							for _, l := range r.KeyLines {
+								w, lh := measure7(l.Text, l.Size)
+								line := city.RectAt(l.At.X, l.At.Y, w, lh)
+								assert.Equal(t, r.Chip, r.Chip.Union(line), "skip %d: %q", h.Skip, l.Text)
+							}
+						}
+					}
+				})
+
 				t.Run("it should keep every label line inside the panel's width", func(t *testing.T) {
 					for _, h := range laid {
 						for _, r := range h.Rows {
@@ -246,6 +258,104 @@ func TestLayoutHelp(t *testing.T) {
 	})
 }
 
+func TestHelpChips(t *testing.T) {
+	th := ui.NewTheme(1)
+
+	t.Run("when one key is much longer than the rest", func(t *testing.T) {
+		h := ui.LayoutHelp(th, 1600, 1000, "Keys", everyKey, measure7, 0)
+		rows := map[string]ui.HelpRow{}
+		for _, r := range h.Rows {
+			rows[r.Key.Key] = r
+		}
+		long := rows["wheel out past Skyline"]
+
+		t.Run("it should wrap that chip onto more than one line", func(t *testing.T) {
+			assert.Greater(t, len(long.KeyLines), 1)
+		})
+
+		t.Run("it should keep the other chips on one line", func(t *testing.T) {
+			for _, r := range h.Rows {
+				if r.Key.Key != long.Key.Key {
+					assert.Len(t, r.KeyLines, 1, "%q", r.Key.Key)
+				}
+			}
+		})
+
+		t.Run("it should start its column's labels no further right than the next-widest chip and the wrapped one allow", func(t *testing.T) {
+			var next float64
+			for _, r := range h.Rows {
+				if r.Band.Min.X == long.Band.Min.X && r.Key.Key != long.Key.Key {
+					next = max(next, r.Chip.Width())
+				}
+			}
+			assert.Equal(t, long.Band.Min.X+max(next, long.Chip.Width())+8, long.Label[0].At.X)
+		})
+
+		t.Run("it should make that chip narrower than the key in one line", func(t *testing.T) {
+			w, _ := measure7(long.Key.Key, ui.Small)
+			assert.Less(t, long.Chip.Width(), w+8)
+		})
+	})
+}
+
+func TestLayoutHelpIn(t *testing.T) {
+	th := ui.NewTheme(1)
+
+	t.Run("when nothing covers the room", func(t *testing.T) {
+		room := city.RectAt(0, 32, 1600, 900)
+		h := ui.LayoutHelpIn(th, room, nil, "Keys", everyKey, measure7, 0)
+
+		t.Run("it should lay out as LayoutHelp does, moved to the room", func(t *testing.T) {
+			assert.Equal(t, ui.LayoutHelp(th, 1600, 900, "Keys", everyKey, measure7, 0).Moved(room.Min), h)
+		})
+	})
+
+	for _, size := range []city.Point{{X: 700, Y: 600}, {X: 800, Y: 600}, {X: 1024, Y: 768}, {X: 1280, Y: 800}, {X: 1600, Y: 1000}, {X: 1920, Y: 1080}, {X: 2560, Y: 1440}} {
+		t.Run(fmt.Sprintf("when a %vx%v window has a cover in its top-right corner", size.X, size.Y), func(t *testing.T) {
+			room := city.Rect{Min: city.Point{Y: 32}, Max: city.Point{X: size.X, Y: size.Y - 56}}
+			cover := city.Rect{Min: city.Point{X: size.X - 320, Y: 32}, Max: city.Point{X: size.X, Y: 224}}
+			covers := []city.Rect{cover}
+			first := ui.LayoutHelpIn(th, room, covers, "Keys", everyKey, measure7, 0)
+			var laid []ui.Help
+			for skip := 0; skip <= first.Max; skip++ {
+				laid = append(laid, ui.LayoutHelpIn(th, room, covers, "Keys", everyKey, measure7, skip))
+			}
+
+			t.Run("it should not overlap the cover", func(t *testing.T) {
+				for _, h := range laid {
+					assert.False(t, h.Rect.Overlaps(cover), "skip %d: %v", h.Skip, h.Rect)
+				}
+			})
+
+			t.Run("it should keep the panel inside the room", func(t *testing.T) {
+				for _, h := range laid {
+					assert.Equal(t, room, room.Union(h.Rect), "skip %d: %v", h.Skip, h.Rect)
+				}
+			})
+
+			t.Run("it should reach every key at some scroll", func(t *testing.T) {
+				seen := map[ui.Key]bool{}
+				for _, h := range laid {
+					for _, r := range h.Rows {
+						seen[r.Key] = true
+					}
+				}
+				assert.Len(t, seen, len(everyKey))
+			})
+		})
+	}
+
+	t.Run("when the cover leaves room beside it for every key", func(t *testing.T) {
+		room := city.RectAt(0, 32, 1600, 912)
+		cover := city.Rect{Min: city.Point{X: 1280, Y: 32}, Max: city.Point{X: 1600, Y: 224}}
+		h := ui.LayoutHelpIn(th, room, []city.Rect{cover}, "Keys", everyKey, measure7, 0)
+
+		t.Run("it should not scroll", func(t *testing.T) {
+			assert.Equal(t, 0, h.Max)
+		})
+	})
+}
+
 func TestHelpMoved(t *testing.T) {
 	th := ui.NewTheme(1)
 	by := city.Point{X: 0, Y: 32}
@@ -270,8 +380,8 @@ func TestHelpMoved(t *testing.T) {
 			var want, got []city.Point
 			for i, r := range h.Rows {
 				m := moved.Rows[i]
-				want = append(want, r.Band.Min.Add(by), r.Chip.Min.Add(by), r.KeyAt.Add(by), r.Label[len(r.Label)-1].At.Add(by))
-				got = append(got, m.Band.Min, m.Chip.Min, m.KeyAt, m.Label[len(m.Label)-1].At)
+				want = append(want, r.Band.Min.Add(by), r.Chip.Min.Add(by), r.KeyLines[len(r.KeyLines)-1].At.Add(by), r.Label[len(r.Label)-1].At.Add(by))
+				got = append(got, m.Band.Min, m.Chip.Min, m.KeyLines[len(m.KeyLines)-1].At, m.Label[len(m.Label)-1].At)
 			}
 			assert.Equal(t, want, got)
 		})

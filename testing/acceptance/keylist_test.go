@@ -39,6 +39,11 @@ func TestKeyList(t *testing.T) {
 				assert.Equal(t, window, window.Union(d.Shown().KeyListRect))
 			})
 
+			t.Run("it should keep the list clear of the stream", func(t *testing.T) {
+				s := d.Shown()
+				assert.False(t, s.KeyListRect.Overlaps(s.StreamRect), "list %v, stream %v", s.KeyListRect, s.StreamRect)
+			})
+
 			t.Run("it should keep the list clear of the strip and the footer", func(t *testing.T) {
 				s := d.Shown()
 				room := city.Rect{Min: city.Point{Y: s.StripBottom}, Max: city.Point{X: window.Max.X, Y: s.FooterTop}}
