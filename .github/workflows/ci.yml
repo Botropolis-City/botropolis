@@ -43,7 +43,12 @@ jobs:
       # under CI, because it is the whole proof the X11 part works.
       - name: An X server and i3 for the global shortcut test
         run: sudo apt-get install -y xvfb i3-wm
+      # The Makefile's 40m is for loaded local machines (item 131). Here the
+      # suite takes about four and a half minutes, so a hang fails at go
+      # test's own default instead.
       - run: make test lint
+        env:
+          ACCEPTANCE_TIMEOUT: 10m
 
   # Nothing in the working arrangement runs macOS (item 80), so this is the
   # only place the darwin code runs: the netstat attached probe, open, pbcopy

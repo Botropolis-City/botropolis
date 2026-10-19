@@ -143,9 +143,15 @@ test-integration ::
 	$(LOG) "Running integration tests"
 	@go test ./testing/helpers/... ./testing/integration/...
 
+# Item 131: go test's default ten-minute timeout panics the acceptance suite
+# when several item sessions test at once; at a load average of about 63 it
+# took twelve minutes. CI sets its own, tighter value, since a CI run takes
+# about four and a half and a hang should fail it quickly.
+ACCEPTANCE_TIMEOUT ?= 40m
+
 test-acceptance ::
 	$(LOG) "Running acceptance tests"
-	@go test ./testing/acceptance/...
+	@go test -timeout ${ACCEPTANCE_TIMEOUT} ./testing/acceptance/...
 
 # Item 128: 40 city starts while the input devices are busy and the main
 # thread is signalled, each of which must exit 0. Needs an openable
@@ -171,7 +177,7 @@ test-acceptance-map ::
 
 test-acceptance-changed ::
 	$(LOG) "Running the acceptance tests a change can reach"
-	@go run ./tools/acceptance-targets changed
+	@GOFLAGS="${GOFLAGS} -timeout=${ACCEPTANCE_TIMEOUT}" go run ./tools/acceptance-targets changed
 
 # Wall time for the bar's tasks, item 91. It reports and never gates: the
 # acceptance tests gate on steps, ticks and work instead. CI runs it once per
