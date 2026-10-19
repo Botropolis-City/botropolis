@@ -109,7 +109,7 @@ func (w *wholeRead) start(pending []stoppedFile) bool {
 
 func (w *wholeRead) pass(todo []stoppedFile) {
 	runtime.LockOSThread()
-	lowerPriority()
+	backgroundPriority()
 	for _, f := range todo {
 		heft, ok := readHeft(f.path)
 		w.reads.Add(1)

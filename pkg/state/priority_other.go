@@ -2,4 +2,4 @@
 
 package state
 
-func lowerPriority() {}
+func backgroundPriority() {}

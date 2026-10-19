@@ -82,7 +82,7 @@ func (h *storedHefts) start(projectsDir string, now time.Time) {
 
 func (h *storedHefts) pass(projectsDir string, now time.Time) {
 	runtime.LockOSThread()
-	lowerPriority()
+	backgroundPriority()
 	changed := false
 	if err := h.src.Ingest(projectsDir, now); err == nil {
 		if hefts, err := h.src.Hefts(); err == nil {
