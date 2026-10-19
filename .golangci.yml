@@ -7,3 +7,7 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+
+formatters:
+  enable:
+    - gofmt
