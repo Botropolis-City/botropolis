@@ -222,6 +222,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   When the selection changes, from the map, `tab` or the finder, the list scrolls just far enough to show its row.
   The sidebar also ends above the footer's needs-you line instead of running under it.
 
+- **In a short window the selection's card leaves the sidebar room for its rows.**
+  The card docked at the sidebar's foot could take the whole panel, leaving the list no rows at all.
+  The list now always keeps four rows, with the selection among them.
+  When the whole card does not fit under it, the card stands beside the sidebar;
+  where that would cover the lens panel or the stream, the card shows its title and buttons only, and `i` still brings back the full card.
+
 - **Esc closes the sidebar and brings back the hidden interface before it opens settings.**
   With the sidebar open, Esc opened settings on top of it; with the interface hidden by `h`, Esc opened settings unseen, so the keys that followed went to a panel nobody could see.
   Esc now closes the sidebar, and with the interface hidden it shows it again and does nothing else; settings is still what Esc opens when nothing else is.
