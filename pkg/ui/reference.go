@@ -164,6 +164,16 @@ func (p ReferencePanel) moved(at city.Point, w, h float64) ReferencePanel {
 	return p
 }
 
+// TermRect is where a term's button is, by the entry's ID.
+func (p ReferencePanel) TermRect(id string) (city.Rect, bool) {
+	for i, t := range p.termIDs {
+		if t == id {
+			return p.Terms[i].Rect, true
+		}
+	}
+	return city.Rect{}, false
+}
+
 // Hit is the term a click lands on.
 func (p ReferencePanel) Hit(at city.Point) (string, bool) {
 	for i, b := range p.Terms {

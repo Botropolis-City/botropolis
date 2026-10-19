@@ -1,6 +1,8 @@
 package render
 
 import (
+	"math"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
@@ -23,6 +25,10 @@ type reference struct {
 	ref     *ui.Reference
 	laid    ui.ReferencePanel
 	keyList ui.Help
+	// skip is how many of the key list's rows are scrolled past, and
+	// notch the part of a wheel notch not yet scrolled (item 127).
+	skip  int
+	notch float64
 }
 
 func (g *Game) referenceOpen() *reference {
@@ -43,7 +49,31 @@ func (r *reference) keys(g *Game) bool {
 		return false
 	case g.just(ebiten.KeyBackspace):
 		r.ref.Back()
+	case g.just(ebiten.KeyArrowDown):
+		r.scroll(g, 1)
+	case g.just(ebiten.KeyArrowUp):
+		r.scroll(g, -1)
 	}
+	return true
+}
+
+// scroll moves the key list by rows; the layout keeps it in range.
+func (r *reference) scroll(g *Game, rows int) {
+	if r.ref.Current().ID != ui.KeysEntry {
+		return
+	}
+	g.mu.Lock()
+	r.skip = min(max(r.skip+rows, 0), r.keyList.Max)
+	g.mu.Unlock()
+}
+
+// wheel scrolls the key list by whole rows, and takes the wheel whatever
+// entry is open, so the map behind the reference does not zoom.
+func (r *reference) wheel(g *Game, _ city.Point, notches float64) bool {
+	r.notch += notches
+	whole := math.Trunc(r.notch)
+	r.notch -= whole
+	r.scroll(g, -int(whole))
 	return true
 }
 
@@ -71,18 +101,34 @@ func (r *reference) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
 	if r.ref.Current().ID == ui.KeysEntry {
-		h := ui.LayoutHelp(th, width, height, "Keys", g.helpKeys(), g.faces.Measure)
+		g.mu.Lock()
+		skip := r.skip
+		top, foot := 0.0, height
+		if !g.hidden && g.footerBar.Rect.Area() > 0 {
+			top, foot = g.scene.TopChrome(), min(g.footerBar.Rect.Min.Y, height)
+		}
+		g.mu.Unlock()
+		h := ui.LayoutHelp(th, width, foot-top, "Keys", g.helpKeys(), g.faces.Measure, skip).Moved(city.Point{Y: top})
 		g.mu.Lock()
 		r.keyList = h
+		r.skip = h.Skip
 		g.mu.Unlock()
 		g.roundPanel(screen, h.Rect)
 		g.run(screen, h.Title, th.Palette.Text)
-		g.keyRow(screen, h.Rows, ui.Small)
+		for _, k := range h.Rows {
+			g.roundRect(screen, k.Chip, th.Radius()/2, th.Palette.Hairline)
+			g.text(screen, k.KeyAt, k.Key.Key, ui.Small, th.Palette.Text)
+			for _, l := range k.Label {
+				g.run(screen, l, th.Palette.Dim)
+			}
+		}
+		g.run(screen, h.Above, th.Palette.Dim)
+		g.run(screen, h.Below, th.Palette.Dim)
 		return
 	}
 	p := ui.LayoutReference(th, width, height, r.ref, g.faces.Measure)
 	g.mu.Lock()
-	r.laid = p
+	r.laid, r.skip = p, 0
 	g.mu.Unlock()
 	g.roundPanel(screen, p.Rect)
 	g.run(screen, p.Title, th.Palette.Text)

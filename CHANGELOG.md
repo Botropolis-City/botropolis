@@ -190,6 +190,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The daemon read the sessions and then began watching for changes, so one that changed in between was shown as it had been until it next changed.
   It now reads them again once it is watching, before it serves the city.
 
+- **The key list fits the window, or scrolls.**
+  The reference's keys entry had grown to about forty rows and ran off the top and bottom of most windows, so some keys could not be read at all.
+  It now takes as few columns as fit, read down and then across, and wraps a long action rather than running past the panel's edge.
+  Where no number of columns fits, it is one column that scrolls by whole rows with the wheel and the up and down arrows, saying how many more are above and below.
+  It keeps clear of the strip and the footer, and the wheel no longer zooms the map behind the reference.
+
 - **Headless cities started at the same moment no longer lose their display.**
   `--headless` used `xvfb-run -a`, which looks for a free display and then takes it, so cities started together could take the same one, and one of them died with "X connection broken"; eight started at once lost about half.
   It now starts Xvfb itself, which reports the display it took, behind a cookie only that city holds.

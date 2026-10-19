@@ -476,10 +476,10 @@ func (g *Game) Update() error {
 	}
 	cursor := g.notePointer()
 
-	if _, wheel := ebiten.Wheel(); wheel != 0 && !g.wheelStream(cursor, wheel) {
+	if _, wheel := ebiten.Wheel(); wheel != 0 && !g.overlayWheel(cursor, wheel) && !g.wheelStream(cursor, wheel) {
 		g.scene.Wheel(cursor, wheel)
 	}
-	if g.play.wheel != 0 && !g.wheelStream(cursor, g.play.wheel) {
+	if g.play.wheel != 0 && !g.overlayWheel(cursor, g.play.wheel) && !g.wheelStream(cursor, g.play.wheel) {
 		g.scene.Wheel(cursor, g.play.wheel)
 	}
 	if g.streamDrag {
@@ -566,6 +566,16 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 		line := g.footerBar.WaitingRect
 		g.mu.Unlock()
 		return line.Center(), line.Area() > 0
+	}
+	if id, ok := strings.CutPrefix(target, "term:"); ok {
+		r := g.referenceOpen()
+		if r == nil {
+			return city.Point{}, false
+		}
+		g.mu.Lock()
+		at, ok := r.laid.TermRect(id)
+		g.mu.Unlock()
+		return at.Center(), ok
 	}
 	if pair, ok := strings.CutPrefix(target, "car:"); ok {
 		return g.carTarget(c, cam, pair)

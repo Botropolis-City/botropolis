@@ -88,6 +88,14 @@ type Shown struct {
 	StreamRect     city.Rect
 	StreamScrolled int
 	Zoom           float64
+	// KeyListRect is where the reference's key list was drawn, empty
+	// when it was not, KeyListScrolled how many of its rows are scrolled
+	// past, and KeyListMax the most they can be (item 127).
+	KeyListRect                 city.Rect
+	KeyListScrolled, KeyListMax int
+	// StripBottom is where the strip along the top ends, and FooterTop
+	// where the footer begins, needs-you line and all.
+	StripBottom, FooterTop float64
 	// Found is the finder's results, by session id, best first, while it
 	// is open.
 	Found []string
@@ -553,6 +561,15 @@ func (g *Game) noteShown() {
 			}
 		}
 		slices.Sort(s.Lit)
+	}
+	s.StripBottom = g.scene.TopChrome()
+	g.mu.Lock()
+	s.FooterTop = g.footerBar.Rect.Min.Y
+	g.mu.Unlock()
+	if r := g.referenceOpen(); r != nil && r.ref.Current().ID == ui.KeysEntry {
+		g.mu.Lock()
+		s.KeyListRect, s.KeyListScrolled, s.KeyListMax = r.keyList.Rect, r.keyList.Skip, r.keyList.Max
+		g.mu.Unlock()
 	}
 	if j, ok := g.overlays.top().(*journal); ok {
 		s.Journal = slices.Clone(j.entries[:j.drawn])

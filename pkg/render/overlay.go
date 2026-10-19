@@ -35,6 +35,20 @@ type overlay interface {
 
 type overlays []overlay
 
+// wheeler is an overlay that answers the scroll wheel, and reports
+// whether it took it; the wheel goes to the map when it does not. Item
+// 127.
+type wheeler interface {
+	wheel(g *Game, at city.Point, notches float64) bool
+}
+
+// overlayWheel gives the wheel to the top of the stack, when that takes
+// it.
+func (g *Game) overlayWheel(at city.Point, notches float64) bool {
+	w, ok := g.overlays.top().(wheeler)
+	return ok && w.wheel(g, at, notches)
+}
+
 // ambient is an overlay that never takes the keyboard, and takes a
 // click only on itself: the lens panel (item 88).
 type ambient interface {
