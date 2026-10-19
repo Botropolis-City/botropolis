@@ -87,6 +87,10 @@ func TestCodexLoader(t *testing.T) {
 			assert.InDelta(t, 100.0*7000/272000, s.ContextPercent, 1e-9)
 		})
 
+		t.Run("it should say the window is known, because the rollout reports it", func(t *testing.T) {
+			assert.True(t, s.ContextKnown)
+		})
+
 		t.Run("it should be parked because the file is stale", func(t *testing.T) {
 			assert.Equal(t, state.Resting, s.State)
 			assert.False(t, s.Alive)

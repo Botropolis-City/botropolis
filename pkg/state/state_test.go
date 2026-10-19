@@ -781,6 +781,10 @@ func TestContextWindowInference(t *testing.T) {
 			assert.Equal(t, int64(1_000_000), s.ContextWindow)
 			assert.InDelta(t, 92.5, s.ContextPercent, 1e-9)
 		})
+
+		t.Run("it should say the window is known", func(t *testing.T) {
+			assert.True(t, s.ContextKnown)
+		})
 	})
 
 	t.Run("when a session on an unknown model has stayed small", func(t *testing.T) {
@@ -789,6 +793,10 @@ func TestContextWindowInference(t *testing.T) {
 		t.Run("it should not guess a percentage", func(t *testing.T) {
 			assert.Zero(t, s.ContextPercent)
 		})
+
+		t.Run("it should say the window is unknown", func(t *testing.T) {
+			assert.False(t, s.ContextKnown)
+		})
 	})
 
 	t.Run("when a session on a known family has stayed small", func(t *testing.T) {
@@ -796,6 +804,10 @@ func TestContextWindowInference(t *testing.T) {
 
 		t.Run("it should measure against the default window", func(t *testing.T) {
 			assert.InDelta(t, 75, s.ContextPercent, 1e-9)
+		})
+
+		t.Run("it should say the window is known", func(t *testing.T) {
+			assert.True(t, s.ContextKnown)
 		})
 	})
 

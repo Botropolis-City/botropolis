@@ -155,7 +155,8 @@ func toSession(s session, modTime, now time.Time) state.Session {
 	out := state.Session{
 		ID: s.ID, Harness: Name, Title: s.Title, CWD: s.CWD, Branch: s.Branch, Model: s.Model,
 		Usage: s.Usage, ContextTokens: s.ContextTokens, ContextWindow: s.ContextWindow,
-		StartedAt: s.FirstAt, LastActivity: s.LastAt, State: state.Resting,
+		ContextKnown: s.ContextWindow > 0,
+		StartedAt:    s.FirstAt, LastActivity: s.LastAt, State: state.Resting,
 		Heft: state.Heft(s.Usage),
 	}
 	if out.Title == "" {

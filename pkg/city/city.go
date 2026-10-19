@@ -397,7 +397,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	city.placeCamps(snapshot.Teams)
 	city.placeGroups(snapshot.Groups)
 	city.Plant.Day = city.Breakdown(LastDay)
-	city.Trains = trains(city.Plant.Day)
+	city.Trains = trains(city.Plant.Day, snapshot.Sessions, snapshot.At)
 	city.priceSessions()
 	return city
 }

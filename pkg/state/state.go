@@ -70,9 +70,12 @@ type Session struct {
 	// SubagentDirs is where each subagent in flight works, in the same
 	// order: the file it touched most outside its own directory, or that
 	// directory. Item 89.
-	SubagentDirs       []string     `json:"subagentDirs,omitempty"`
-	ContextTokens      int64        `json:"contextTokens"`
-	ContextWindow      int64        `json:"contextWindow"`
+	SubagentDirs  []string `json:"subagentDirs,omitempty"`
+	ContextTokens int64    `json:"contextTokens"`
+	ContextWindow int64    `json:"contextWindow"`
+	// ContextKnown is whether the window was read or proved rather than
+	// assumed: an unknown model is measured against nothing (item 147).
+	ContextKnown       bool         `json:"contextKnown,omitempty"`
 	ContextPercent     float64      `json:"contextPercent"`
 	Usage              claude.Usage `json:"usage"`
 	TokensPerHour      float64      `json:"tokensPerHour"`
@@ -360,7 +363,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 		s.Turn = t.Tail.Turn
 		s.ContextTokens = t.ContextTokens
 		window, known := contextWindow(s.Model, t.Cost.Models, max(t.MaxContext, t.ContextTokens))
-		s.ContextWindow = window
+		s.ContextWindow, s.ContextKnown = window, known
 		if known {
 			s.ContextPercent = 100 * float64(t.ContextTokens) / float64(window)
 		}
@@ -450,7 +453,7 @@ func parkedSession(t claude.Transcript) Session {
 	attribute(&s, t)
 	s.ContextTokens = t.ContextTokens
 	window, known := contextWindow(s.Model, t.Cost.Models, max(t.MaxContext, t.ContextTokens))
-	s.ContextWindow = window
+	s.ContextWindow, s.ContextKnown = window, known
 	if known {
 		s.ContextPercent = 100 * float64(t.ContextTokens) / float64(window)
 	}
@@ -893,6 +896,12 @@ func busy(r claude.SessionRecord, isAttached bool) State {
 		return Unattended
 	}
 	return Working
+}
+
+// ModelWindow is the window the model table gives a model by its name
+// alone, and whether the table knows it (item 147).
+func ModelWindow(model string) (int64, bool) {
+	return contextWindow(model, nil, 0)
 }
 
 func ContextWindow(model string, costModels map[string]claude.ModelCost) int64 {

@@ -704,6 +704,132 @@ func TestDistanceToSegment(t *testing.T) {
 	})
 }
 
+// Item 147: a train's engine says its model's context window, read from
+// the sessions that ran on it in the period, then from the model table,
+// and never guessed.
+func TestTrainWindow(t *testing.T) {
+	const opus = "claude-opus-5-5"
+	on := func(id, model string, window int64, known bool, last time.Time) state.Session {
+		s := session(id, cinders, state.Working)
+		s.Model, s.ContextWindow, s.ContextKnown, s.LastActivity = model, window, known, last
+		return s
+	}
+	recent := now.Add(-time.Hour)
+	train := func(t *testing.T, ledger stats.Window, model string, sessions ...state.Session) *city.Train {
+		t.Helper()
+		c := city.BuildWithLedger(snapshot(sessions...), city.NewLayout(), &fakeLedger{window: ledger})
+		for _, tr := range c.Trains {
+			if tr.Model == model {
+				return tr
+			}
+		}
+		require.FailNow(t, "no train for "+model)
+		return nil
+	}
+
+	t.Run("when a model's sessions in the period know their window", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			windows []int64
+			want    city.EngineClass
+		}{
+			{"and every one is 200k, it should class the train up to 200k", []int64{200_000, 200_000}, city.UpTo200k},
+			{"and one of them runs 1M, it should class the train up to 1M, the largest winning", []int64{200_000, 1_000_000}, city.UpTo1M},
+			{"and one reports over 1M, it should class the train over 1M", []int64{1_000_000, 2_000_000}, city.Over1M},
+		}
+		for _, c := range cases {
+			sessions := make([]state.Session, len(c.windows))
+			for i, w := range c.windows {
+				sessions[i] = on(fmt.Sprintf("s%d", i), opus+"[1m]", w, true, recent)
+			}
+			got := train(t, stored, opus, sessions...)
+			t.Run(c.name, func(t *testing.T) {
+				assert.Equal(t, c.want, got.Engine())
+			})
+		}
+
+		t.Run("it should say the window came from its sessions", func(t *testing.T) {
+			assert.Equal(t, city.FromSessions, train(t, stored, opus, on("s", opus, 1_000_000, true, recent)).WindowFrom)
+		})
+
+		t.Run("and a larger one was last active before the period, it should not count it", func(t *testing.T) {
+			got := train(t, stored, opus, on("s", opus, 200_000, true, recent), on("old", opus, 1_000_000, true, now.Add(-48*time.Hour)))
+			assert.Equal(t, city.UpTo200k, got.Engine())
+		})
+
+		t.Run("and one on another model is larger, it should not count it", func(t *testing.T) {
+			got := train(t, stored, opus, on("s", opus, 200_000, true, recent), on("h", "claude-haiku-4-5", 1_000_000, true, recent))
+			assert.Equal(t, city.UpTo200k, got.Engine())
+		})
+
+		t.Run("and a larger one does not know its window, it should not count it", func(t *testing.T) {
+			got := train(t, stored, opus, on("s", opus, 200_000, true, recent), on("u", opus, 1_000_000, false, recent))
+			assert.Equal(t, city.UpTo200k, got.Engine())
+		})
+	})
+
+	t.Run("when no session knows the model's window", func(t *testing.T) {
+		t.Run("and the model table names it", func(t *testing.T) {
+			got := train(t, stored, opus, on("u", opus, 200_000, false, recent))
+
+			t.Run("it should take the table's window", func(t *testing.T) {
+				assert.Equal(t, int64(200_000), got.WindowTokens)
+			})
+
+			t.Run("it should say the window came from the model table", func(t *testing.T) {
+				assert.Equal(t, city.FromModelTable, got.WindowFrom)
+			})
+		})
+
+		t.Run("and nothing names it", func(t *testing.T) {
+			unknown := stored
+			unknown.ByModel = []stats.Slice{{Key: "glm-5", Counters: stats.Counters{Output: 30, Messages: 3}, Cost: cost(2)}}
+			got := train(t, unknown, "glm-5", on("u", "glm-5", 200_000, false, recent))
+
+			t.Run("it should be unknown", func(t *testing.T) {
+				assert.Equal(t, city.WindowUnknown, got.WindowFrom)
+			})
+
+			t.Run("it should take the default engine", func(t *testing.T) {
+				assert.Equal(t, city.DefaultEngine, got.Engine())
+			})
+
+			t.Run("it should say on its card that the window is unknown", func(t *testing.T) {
+				assert.Contains(t, got.Card().Lines, "window   unknown")
+			})
+		})
+	})
+
+	t.Run("when the train's card is built", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			session state.Session
+			want    string
+		}{
+			{"and its sessions know the window, it should name it and say so", on("s", opus+"[1m]", 1_000_000, true, recent), "window   1.0M tokens, from its sessions"},
+			{"and only the table names it, it should name it and say so", on("u", opus, 200_000, false, recent), "window   200k tokens, from the model table"},
+		}
+		for _, c := range cases {
+			card := train(t, stored, opus, c.session).Card()
+			t.Run(c.name, func(t *testing.T) {
+				assert.Contains(t, card.Lines, c.want)
+			})
+		}
+
+		t.Run("it should name the window right after the spend", func(t *testing.T) {
+			lines := train(t, stored, opus, on("s", opus, 1_000_000, true, recent)).Card().Lines
+			require.GreaterOrEqual(t, len(lines), 2)
+			assert.Equal(t, "window   1.0M tokens, from its sessions", lines[1])
+		})
+	})
+
+	t.Run("it should leave the wagon count unchanged by the window", func(t *testing.T) {
+		small := train(t, stored, opus, on("s", opus, 200_000, true, recent))
+		large := train(t, stored, opus, on("s", opus, 2_000_000, true, recent))
+		assert.Equal(t, small.Wagons, large.Wagons)
+	})
+}
+
 func TestTrains(t *testing.T) {
 	t.Run("when the store priced two models over the last day", func(t *testing.T) {
 		c := city.BuildWithLedger(snapshot(spender("a", cinders, "claude-opus-5", map[int]int64{1: 300})), city.NewLayout(), &fakeLedger{window: stored})
