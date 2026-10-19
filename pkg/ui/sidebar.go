@@ -33,8 +33,11 @@ type SidebarRow struct {
 
 // Sidebar is the project list down the left edge.
 type Sidebar struct {
-	Rect city.Rect
-	Rows []SidebarRow
+	Rect         city.Rect
+	Rows         []SidebarRow
+	Skip, Max    int
+	Page         int
+	Above, Below Text
 }
 
 const sidebarGrids = 36
@@ -45,23 +48,99 @@ func SidebarWidth(th Theme) float64 {
 }
 
 // LayoutSidebar lists projects with their sessions, then the hidden
-// projects, down a panel between the strip and the footer; rows that
-// would run past the bottom are dropped.
-func LayoutSidebar(th Theme, top, bottom float64, projects []city.ProjectRow, hidden []string, selectedID string, measure Measure) Sidebar {
+// projects, down a panel between the strip and the footer. Rows that do
+// not fit scroll by whole rows: skip is how many are scrolled past, and
+// the layout keeps it in range and marks how many are above and below.
+// With reveal, it scrolls just far enough to show the selected session.
+func LayoutSidebar(th Theme, top, bottom float64, projects []city.ProjectRow, hidden []string, selectedID string, skip int, reveal bool, measure Measure) Sidebar {
 	grid := th.Grid()
 	sb := Sidebar{Rect: city.RectAt(0, top, SidebarWidth(th), bottom-top)}
 	_, bodyH := measure("", Body)
 	_, smallH := measure("", Small)
 	rowH := bodyH + grid
-	y := top + grid
-	add := func(row SidebarRow, h float64) bool {
-		if y+h > bottom-grid {
-			return false
+	rows := sidebarRows(th, sb.Rect.Width(), projects, hidden, selectedID, measure)
+
+	room := bottom - top - 2*grid
+	markH := rowH
+	fits := func(first int, h float64) int {
+		used, n := 0.0, 0
+		for _, r := range rows[first:] {
+			if used+r.Rect.Height() > h {
+				break
+			}
+			used += r.Rect.Height()
+			n++
 		}
-		row.Rect = city.RectAt(0, y, sb.Rect.Width(), h)
-		sb.Rows = append(sb.Rows, row)
-		y += h
-		return true
+		return n
+	}
+	shown := func(skip int) int {
+		h := room
+		if skip > 0 {
+			h -= markH
+		}
+		n := fits(skip, h)
+		if skip+n < len(rows) {
+			n = fits(skip, h-markH)
+		}
+		return n
+	}
+	sb.Max = 0
+	for s := range rows {
+		h := room
+		if s > 0 {
+			h -= markH
+		}
+		if fits(s, h) == len(rows)-s {
+			sb.Max = s
+			break
+		}
+	}
+	skip = min(max(skip, 0), sb.Max)
+	if reveal {
+		for i, r := range rows {
+			if !r.Selected {
+				continue
+			}
+			if i < skip {
+				skip = i
+			}
+			for skip < sb.Max && i >= skip+shown(skip) {
+				skip++
+			}
+		}
+	}
+	sb.Skip = skip
+	sb.Page = max(fits(skip, room-2*markH), 1)
+
+	y := top + grid
+	markAt := func(y float64) city.Point {
+		return city.Point{X: 2 * grid, Y: y + grid/2 + (bodyH-smallH)/2}
+	}
+	if skip > 0 {
+		sb.Above = Text{Text: fmt.Sprintf("%d more above", skip), At: markAt(y), Size: Small}
+		y += markH
+	}
+	n := shown(skip)
+	for _, r := range rows[skip : skip+n] {
+		sb.Rows = append(sb.Rows, r.moved(y))
+		y += r.Rect.Height()
+	}
+	if rest := len(rows) - skip - n; rest > 0 {
+		sb.Below = Text{Text: fmt.Sprintf("%d more below", rest), At: markAt(bottom - grid - markH), Size: Small}
+	}
+	return sb
+}
+
+// sidebarRows lays every row out from y zero, to be moved into place.
+func sidebarRows(th Theme, width float64, projects []city.ProjectRow, hidden []string, selectedID string, measure Measure) []SidebarRow {
+	grid := th.Grid()
+	_, bodyH := measure("", Body)
+	_, smallH := measure("", Small)
+	rowH := bodyH + grid
+	var rows []SidebarRow
+	add := func(row SidebarRow, h float64) {
+		row.Rect = city.RectAt(0, 0, width, h)
+		rows = append(rows, row)
 	}
 	for _, p := range projects {
 		label := p.Name
@@ -73,55 +152,56 @@ func LayoutSidebar(th Theme, top, bottom float64, projects []city.ProjectRow, hi
 			detail = fmt.Sprintf("%d need you · %d live", p.NeedsYou, p.Live)
 		}
 		dw, _ := measure(detail, Small)
-		row := SidebarRow{
+		add(SidebarRow{
 			Kind:   RowProject,
 			Root:   p.Root,
-			Label:  Text{Text: label, At: city.Point{X: 2 * grid, Y: y + grid/2}, Size: Body},
-			Detail: Text{Text: detail, At: city.Point{X: sb.Rect.Width() - 2*grid - dw, Y: y + grid/2 + (bodyH-smallH)/2}, Size: Small},
-		}
-		if !add(row, rowH) {
-			return sb
-		}
+			Label:  Text{Text: label, At: city.Point{X: 2 * grid, Y: grid / 2}, Size: Body},
+			Detail: Text{Text: detail, At: city.Point{X: width - 2*grid - dw, Y: grid/2 + (bodyH-smallH)/2}, Size: Small},
+		}, rowH)
 		for _, b := range p.Sessions {
 			title := b.Session.Title
 			if title == "" {
 				title = state.ShortID(b.Session.ID)
 			}
-			tone := StateTone(b.Session.State)
-			row := SidebarRow{
+			add(SidebarRow{
 				Kind:     RowSession,
 				Root:     p.Root,
 				ID:       b.Session.ID,
-				Tone:     tone,
-				Dot:      city.RectAt(4*grid, y+(rowH-grid)/2, grid, grid),
-				Label:    Text{Text: clipTo(title, sb.Rect.Width()-8*grid, Small, measure), At: city.Point{X: 6 * grid, Y: y + grid/2 + (bodyH-smallH)/2}, Size: Small},
+				Tone:     StateTone(b.Session.State),
+				Dot:      city.RectAt(4*grid, (rowH-grid)/2, grid, grid),
+				Label:    Text{Text: clipTo(title, width-8*grid, Small, measure), At: city.Point{X: 6 * grid, Y: grid/2 + (bodyH-smallH)/2}, Size: Small},
 				Selected: b.Session.ID == selectedID,
-			}
-			if !add(row, rowH) {
-				return sb
-			}
+			}, rowH)
 		}
 	}
 	if len(hidden) > 0 {
-		if !add(SidebarRow{Kind: RowHeader, Label: Text{Text: "hidden", At: city.Point{X: 2 * grid, Y: y + grid}, Size: Small}}, rowH+grid/2) {
-			return sb
-		}
+		add(SidebarRow{Kind: RowHeader, Label: Text{Text: "hidden", At: city.Point{X: 2 * grid, Y: grid}, Size: Small}}, rowH+grid/2)
 		for _, root := range hidden {
 			row := SidebarRow{
 				Kind:   RowHidden,
 				Root:   root,
-				Label:  Text{Text: filepath.Base(root), At: city.Point{X: 4 * grid, Y: y + grid/2}, Size: Body},
-				Detail: Text{Text: "show", At: city.Point{X: sb.Rect.Width() - 2*grid - 4*7, Y: y + grid/2 + (bodyH-smallH)/2}, Size: Small},
+				Label:  Text{Text: filepath.Base(root), At: city.Point{X: 4 * grid, Y: grid / 2}, Size: Body},
+				Detail: Text{Text: "show", At: city.Point{X: width - 2*grid - 4*7, Y: grid/2 + (bodyH-smallH)/2}, Size: Small},
 			}
 			if w, _ := measure("show", Small); w > 0 {
-				row.Detail.At.X = sb.Rect.Width() - 2*grid - w
+				row.Detail.At.X = width - 2*grid - w
 			}
-			if !add(row, rowH) {
-				return sb
-			}
+			add(row, rowH)
 		}
 	}
-	return sb
+	return rows
+}
+
+// moved is the row with its top at y.
+func (r SidebarRow) moved(y float64) SidebarRow {
+	dy := y - r.Rect.Min.Y
+	r.Rect = city.RectAt(r.Rect.Min.X, y, r.Rect.Width(), r.Rect.Height())
+	r.Label.At.Y += dy
+	r.Detail.At.Y += dy
+	if r.Dot.Area() > 0 {
+		r.Dot = city.RectAt(r.Dot.Min.X, r.Dot.Min.Y+dy, r.Dot.Width(), r.Dot.Height())
+	}
+	return r
 }
 
 // Hit is the row under a point, if any.

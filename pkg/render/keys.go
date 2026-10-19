@@ -47,6 +47,7 @@ var bindings = []ui.Key{
 	{Key: "shift+n", Action: "New session, in any directory (also on the board)"},
 	{Key: "t", Action: "timeline; enter jumps to the session"},
 	{Key: "b", Action: "sidebar"},
+	{Key: "pgup pgdn home end", Action: "scroll the sidebar"},
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
 	{Key: "shift+p", Action: "pack the selected session up, or unpack a crate"},
@@ -315,6 +316,12 @@ func (g *Game) handleKeys() error {
 	}
 	if just(ebiten.KeyB) {
 		g.sidebar = !g.sidebar
+		g.mu.Lock()
+		g.sidebarFollowed = ""
+		g.mu.Unlock()
+	}
+	if g.pageSidebar() {
+		return nil
 	}
 	// Shift+P packs the selected session up, or unpacks a crate (item
 	// 86); P alone saves a frame.

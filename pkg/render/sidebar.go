@@ -1,6 +1,8 @@
 package render
 
 import (
+	"math"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
@@ -32,7 +34,16 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	if b := g.scene.Selected(); b != nil {
 		selected = b.Session.ID
 	}
-	sb := ui.LayoutSidebar(th, top, foot, c.Projects(g.scene.Layout()), g.scene.Layout().HiddenRoots(), selected, g.faces.Measure)
+	g.mu.Lock()
+	skip, reveal := g.sidebarSkip, selected != g.sidebarFollowed
+	g.sidebarFollowed = selected
+	g.mu.Unlock()
+	sb := ui.LayoutSidebar(th, top, foot, c.Projects(g.scene.Layout()), g.scene.Layout().HiddenRoots(), selected, skip, reveal, g.faces.Measure)
+	for _, mark := range []ui.Text{sb.Above, sb.Below} {
+		if mark.Text != "" {
+			g.run(screen, mark, th.Palette.Dim)
+		}
+	}
 	for _, row := range sb.Rows {
 		if row.Selected {
 			g.roundRect(screen, row.Rect.Inset(th.Grid()/2), th.Radius()/2, th.Palette.Hairline)
@@ -52,7 +63,52 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	}
 	g.mu.Lock()
 	g.sidebarLayout = sb
+	g.sidebarSkip = sb.Skip
 	g.mu.Unlock()
+}
+
+// wheelSidebar scrolls the sidebar by whole rows when the wheel turns
+// over it, so the map behind it does not zoom.
+func (g *Game) wheelSidebar(cursor city.Point, notches float64) bool {
+	if !g.sidebar || g.hidden {
+		return false
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.sidebarLayout.Rect.Contains(cursor) {
+		return false
+	}
+	g.sidebarWheel += notches
+	whole := math.Trunc(g.sidebarWheel)
+	g.sidebarWheel -= whole
+	g.sidebarSkip = min(max(g.sidebarSkip-int(whole), 0), g.sidebarLayout.Max)
+	return true
+}
+
+// pageSidebar answers PageUp, PageDown, Home and End while the sidebar
+// is open; the arrows stay with the map.
+func (g *Game) pageSidebar() bool {
+	if !g.sidebar || g.hidden {
+		return false
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	page := g.sidebarLayout.Page
+	skip := g.sidebarSkip
+	switch {
+	case g.just(ebiten.KeyPageDown):
+		skip += page
+	case g.just(ebiten.KeyPageUp):
+		skip -= page
+	case g.just(ebiten.KeyHome):
+		skip = 0
+	case g.just(ebiten.KeyEnd):
+		skip = g.sidebarLayout.Max
+	default:
+		return false
+	}
+	g.sidebarSkip = min(max(skip, 0), g.sidebarLayout.Max)
+	return true
 }
 
 // clickSidebar answers a click on the sidebar: a session row selects

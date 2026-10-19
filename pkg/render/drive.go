@@ -93,6 +93,14 @@ type Shown struct {
 	// past, and KeyListMax the most they can be (item 127).
 	KeyListRect                 city.Rect
 	KeyListScrolled, KeyListMax int
+	// SidebarRect is where the sidebar was drawn, empty when it was not,
+	// SidebarScrolled how many of its rows are scrolled past, SidebarMax
+	// the most they can be, and SidebarSessions the sessions whose rows
+	// it drew (item 136). Camera is the camera's offset.
+	SidebarRect                 city.Rect
+	SidebarScrolled, SidebarMax int
+	SidebarSessions             []string
+	Camera                      city.Point
 	// StripBottom is where the strip along the top ends, and FooterTop
 	// where the footer begins, needs-you line and all.
 	StripBottom, FooterTop float64
@@ -535,6 +543,18 @@ func (g *Game) noteShown() {
 	s.StreamRect, s.StreamScrolled = g.streamLaid.Rect, g.streamLaid.Skip
 	g.mu.Unlock()
 	s.Zoom = g.scene.Camera().Zoom
+	s.Camera = g.scene.Camera().Offset
+	if g.sidebar && !g.hidden {
+		g.mu.Lock()
+		sb := g.sidebarLayout
+		g.mu.Unlock()
+		s.SidebarRect, s.SidebarScrolled, s.SidebarMax = sb.Rect, sb.Skip, sb.Max
+		for _, r := range sb.Rows {
+			if r.Kind == ui.RowSession {
+				s.SidebarSessions = append(s.SidebarSessions, r.ID)
+			}
+		}
+	}
 	if step, ok := g.scene.TriageStep(); ok && g.triage() != nil {
 		s.Triage = step.Building.Session.ID
 	}

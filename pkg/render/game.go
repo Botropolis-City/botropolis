@@ -222,6 +222,13 @@ type Game struct {
 
 	sidebar       bool
 	sidebarLayout ui.Sidebar
+	// sidebarSkip is how many of the sidebar's rows are scrolled past,
+	// sidebarWheel the part of a wheel notch not yet spent, and
+	// sidebarFollowed the selection whose row was last brought into view
+	// (item 136).
+	sidebarSkip     int
+	sidebarWheel    float64
+	sidebarFollowed string
 
 	breakdown       bool
 	window          city.Window
@@ -497,10 +504,10 @@ func (g *Game) Update() error {
 	}
 	cursor := g.notePointer()
 
-	if _, wheel := ebiten.Wheel(); wheel != 0 && !g.overlayWheel(cursor, wheel) && !g.wheelStream(cursor, wheel) {
+	if _, wheel := ebiten.Wheel(); wheel != 0 && !g.overlayWheel(cursor, wheel) && !g.wheelStream(cursor, wheel) && !g.wheelSidebar(cursor, wheel) {
 		g.scene.Wheel(cursor, wheel)
 	}
-	if g.play.wheel != 0 && !g.overlayWheel(cursor, g.play.wheel) && !g.wheelStream(cursor, g.play.wheel) {
+	if g.play.wheel != 0 && !g.overlayWheel(cursor, g.play.wheel) && !g.wheelStream(cursor, g.play.wheel) && !g.wheelSidebar(cursor, g.play.wheel) {
 		g.scene.Wheel(cursor, g.play.wheel)
 	}
 	if g.streamDrag {
