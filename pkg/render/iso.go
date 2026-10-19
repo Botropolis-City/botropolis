@@ -1259,6 +1259,10 @@ func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City)
 		if !b.Lit || b.Blinds {
 			continue
 		}
+		on := g.scene.Lights(b.Session.ID)
+		if on <= 0 {
+			continue
+		}
 		foot := g.footOf(cam, b)
 		size := g.kitSize(cam, buildingPiece(b))
 		w, h := float64(size.X), float64(size.Y)
@@ -1268,9 +1272,9 @@ func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City)
 			y := foot.Y - h*0.15 - (h*0.7)*(float64(i)+0.5)/float64(storeys)
 			side := windowGlow(w*0.16, minWindowGlow, storey)
 			core := windowGlow(w*0.1, minWindowGlow*0.6, storey)
-			glow(screen, city.Point{X: foot.X - w*0.2, Y: y}, side, boost(colorWindowGlow, cam.Zoom))
-			glow(screen, city.Point{X: foot.X + w*0.2, Y: y}, side, boost(colorWindowGlow, cam.Zoom))
-			glow(screen, city.Point{X: foot.X, Y: y}, core, boost(colorWindowCore, cam.Zoom))
+			glow(screen, city.Point{X: foot.X - w*0.2, Y: y}, side, dimLight(boost(colorWindowGlow, cam.Zoom), on))
+			glow(screen, city.Point{X: foot.X + w*0.2, Y: y}, side, dimLight(boost(colorWindowGlow, cam.Zoom), on))
+			glow(screen, city.Point{X: foot.X, Y: y}, core, dimLight(boost(colorWindowCore, cam.Zoom), on))
 		}
 	}
 	if c.Plant.Rect.Area() > 0 {
@@ -1278,6 +1282,12 @@ func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City)
 		size := g.kitSizeTurned(cam, kitPlant, landmarkTurn)
 		glow(screen, city.Point{X: foot.X, Y: foot.Y - float64(size.Y)*0.6}, lit(float64(size.X)*0.22, minPlantGlow), boost(colorPlantGlow, cam.Zoom))
 	}
+}
+
+// dimLight scales a light's alpha by how far its building's lights are on.
+func dimLight(c color.NRGBA, k float64) color.NRGBA {
+	c.A = uint8(math.Round(float64(c.A) * min(1, max(0, k))))
+	return c
 }
 
 // glow is a soft additive disc: light, not paint.

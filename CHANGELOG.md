@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
 
+- **A new building's windows light up once it stands, not before.**
+  At night, a session still arriving by tug lit every window of its finished building over its empty lot, as rows of floating discs, and a building going up glowed above its own rising roof.
+  Its lights now come on at the end of its build, and fade in with it under reduced motion.
+
 ## [0.2.3] - 2026-10-19
 
 ### Changed

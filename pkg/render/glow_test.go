@@ -1,6 +1,7 @@
 package render
 
 import (
+	"image/color"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,5 +49,29 @@ func TestWindowGlowFitsItsStorey(t *testing.T) {
 		t.Run("it should still draw something rather than nothing", func(t *testing.T) {
 			assert.Greater(t, windowGlow(5, 2.5, 0), 0.0)
 		})
+	})
+}
+
+// Item 74: a building that has not arrived, or is still going up, lit
+// every window of its finished height over an empty lot.
+func TestDimLight(t *testing.T) {
+	light := color.NRGBA{0xff, 0xc8, 0x70, 0x40}
+
+	t.Run("when a light is dimmed by its building's lights", func(t *testing.T) {
+		for _, c := range []struct {
+			lights string
+			k      float64
+			want   uint8
+		}{
+			{"fully on", 1, 0x40},
+			{"half on", 0.5, 0x20},
+			{"off", 0, 0},
+		} {
+			t.Run("and the lights are "+c.lights, func(t *testing.T) {
+				t.Run("it should scale its alpha to them", func(t *testing.T) {
+					assert.Equal(t, c.want, dimLight(light, c.k).A)
+				})
+			})
+		}
 	})
 }

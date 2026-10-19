@@ -37,6 +37,44 @@ func TestConstruction(t *testing.T) {
 		t.Run("it should not have begun building", func(t *testing.T) {
 			assert.Equal(t, [2]any{city.Site{}, false}, [2]any{site, building})
 		})
+
+		// Item 74: the night glow lit every storey over the empty lot.
+		t.Run("it should have its lights off", func(t *testing.T) {
+			assert.Zero(t, s.Lights("b"))
+		})
+	})
+
+	// Item 74: the windows glowed at the finished height while the
+	// floors were still rising.
+	for _, c := range []struct {
+		moment string
+		p      float64
+		want   float64
+	}{
+		{"just docked", 0, 0},
+		{"half built", 0.5, 0},
+		{"topped out", 0.75, 0},
+		{"scaffolding down", 0.88, 0},
+		{"part way through the lights coming on", 0.94, 0.5},
+	} {
+		t.Run("when the build is "+c.moment, func(t *testing.T) {
+			var clock time.Time
+			s := arriving(t, &clock, city.Lively)
+			clock = docked.Add(time.Duration(c.p * float64(city.BuildFor)))
+
+			t.Run("it should have its lights at their place", func(t *testing.T) {
+				assert.InDelta(t, c.want, s.Lights("b"), 1e-6)
+			})
+		})
+	}
+
+	t.Run("when a session has been standing all along", func(t *testing.T) {
+		var clock time.Time
+		s := arriving(t, &clock, city.Lively)
+
+		t.Run("it should have its lights fully on", func(t *testing.T) {
+			assert.InDelta(t, 1, s.Lights("a"), 1e-9)
+		})
 	})
 
 	for _, c := range []struct {
@@ -112,6 +150,10 @@ func TestConstruction(t *testing.T) {
 		t.Run("it should have every floor up", func(t *testing.T) {
 			assert.InDelta(t, 1, s.Rising("b"), 1e-9)
 		})
+
+		t.Run("it should have its lights fully on", func(t *testing.T) {
+			assert.InDelta(t, 1, s.Lights("b"), 1e-9)
+		})
 	})
 
 	t.Run("BuildFor", func(t *testing.T) {
@@ -154,6 +196,14 @@ func TestConstruction(t *testing.T) {
 
 		t.Run("it should cross-fade the building in over the short fade", func(t *testing.T) {
 			assert.InDelta(t, 0.5, drawn[2].Opacity, 1e-9)
+		})
+
+		t.Run("and the building is half faded in", func(t *testing.T) {
+			clock = docked.Add(city.BuildFadeFor / 2)
+
+			t.Run("it should have its lights half on", func(t *testing.T) {
+				assert.InDelta(t, 0.5, s.Lights("b"), 1e-9)
+			})
 		})
 	})
 

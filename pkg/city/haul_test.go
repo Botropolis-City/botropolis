@@ -48,6 +48,11 @@ func TestHauls(t *testing.T) {
 			assert.True(t, s.Hauling("b"))
 		})
 
+		// Item 74: a building on a truck is not on its lot to light.
+		t.Run("it should have its lights off", func(t *testing.T) {
+			assert.Zero(t, s.Lights("b"))
+		})
+
 		t.Run("and the clock is advanced by half of PackFor", func(t *testing.T) {
 			mid := hauls[0].At(now.Add(city.PackFor / 2))
 
@@ -89,10 +94,21 @@ func TestHauls(t *testing.T) {
 
 	t.Run("when reduced motion is on", func(t *testing.T) {
 		s, _, _ := haul(t, lot, crate, true)
-		at = now.Add(500 * time.Millisecond)
 
-		t.Run("it should be a cross-fade done in under half a second", func(t *testing.T) {
-			assert.Empty(t, s.Hauls())
+		t.Run("and the cross-fade is half way", func(t *testing.T) {
+			at = now.Add(city.PackFadeFor / 2)
+
+			t.Run("it should have its lights half on", func(t *testing.T) {
+				assert.InDelta(t, 0.5, s.Lights("b"), 1e-9)
+			})
+		})
+
+		t.Run("and half a second has passed", func(t *testing.T) {
+			at = now.Add(500 * time.Millisecond)
+
+			t.Run("it should be a cross-fade done in under half a second", func(t *testing.T) {
+				assert.Empty(t, s.Hauls())
+			})
 		})
 	})
 }

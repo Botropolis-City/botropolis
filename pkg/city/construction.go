@@ -90,3 +90,19 @@ func (s *Scene) finishBuilds(now time.Time) {
 		}
 	}
 }
+
+// Lights is how far a session's windows are lit, from 0 to 1: off while
+// its tug sails and while it rides a truck, coming on at the end of its
+// build, and fading in with it under reduced motion. Item 74.
+func (s *Scene) Lights(id string) float64 {
+	if s.Hauling(id) {
+		if s.reduced {
+			return s.HaulProgress(id)
+		}
+		return 0
+	}
+	if site, ok := s.Construction(id); ok {
+		return site.Lights * site.Opacity
+	}
+	return s.Rising(id)
+}
