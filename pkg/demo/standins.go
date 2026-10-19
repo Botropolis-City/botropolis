@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -31,19 +32,26 @@ func Sleepers(dir string, hold time.Duration) Spawner {
 		}
 		pid := cmd.Process.Pid
 		go func() { _ = cmd.Wait() }()
+		started, ok := startTime(os.DirFS("/proc"), pid)
+		if !ok {
+			return 0, fmt.Errorf("stand-in %d has no start time", pid)
+		}
 		f, err := os.OpenFile(filepath.Join(dir, standIns), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 		if err != nil {
 			return 0, err
 		}
 		defer func() { _ = f.Close() }()
-		_, err = fmt.Fprintln(f, pid)
+		_, err = fmt.Fprintln(f, pid, started)
 		return pid, err
 	}
 }
 
-// Unstage ends a staged home's stand-ins. A pid is only signalled while
-// it is still a sleep: one that outlived its hold may have been handed
-// to an unrelated process since.
+// Unstage ends a staged home's stand-ins. Each is listed with the time
+// it started, and a pid is only signalled while the process holding it
+// started then: one that outlived its hold may have been handed to an
+// unrelated process since. The start time is set at fork, so it is there
+// the moment Start returns; the process's name is not, and a stand-in
+// can still carry its parent's name when Unstage reads it (item 124).
 func Unstage(dir string) error {
 	return unstage(dir, os.DirFS("/proc"), syscall.Kill)
 }
@@ -59,8 +67,12 @@ func unstage(dir string, proc fs.FS, kill func(int, syscall.Signal) error) error
 	defer func() { _ = f.Close() }()
 	scan := bufio.NewScanner(f)
 	for scan.Scan() {
-		pid, err := strconv.Atoi(scan.Text())
-		if err != nil || !isSleep(proc, pid) {
+		var pid int
+		var listed uint64
+		if n, _ := fmt.Sscan(scan.Text(), &pid, &listed); n != 2 {
+			continue
+		}
+		if started, ok := startTime(proc, pid); !ok || started != listed {
 			continue
 		}
 		_ = kill(pid, syscall.SIGTERM)
@@ -71,14 +83,22 @@ func unstage(dir string, proc fs.FS, kill func(int, syscall.Signal) error) error
 	return os.Remove(filepath.Join(dir, standIns))
 }
 
-// isSleep reads the process's name, not its command line: exec.Cmd.Start
-// returns before the kernel has laid out the new program's arguments, so
-// a stand-in just spawned can have an empty command line while its name
-// is already sleep (item 104).
-func isSleep(proc fs.FS, pid int) bool {
-	comm, err := fs.ReadFile(proc, strconv.Itoa(pid)+"/comm")
+// startTime is field 22 of the process's stat, in clock ticks since
+// boot. Fields are counted from after the name, which can hold spaces
+// and parentheses.
+func startTime(proc fs.FS, pid int) (uint64, bool) {
+	stat, err := fs.ReadFile(proc, strconv.Itoa(pid)+"/stat")
 	if err != nil {
-		return false
+		return 0, false
 	}
-	return string(bytes.TrimSpace(comm)) == "sleep"
+	shut := bytes.LastIndexByte(stat, ')')
+	if shut < 0 {
+		return 0, false
+	}
+	fields := strings.Fields(string(stat[shut+1:]))
+	if len(fields) < 20 {
+		return 0, false
+	}
+	started, err := strconv.ParseUint(fields[19], 10, 64)
+	return started, err == nil
 }

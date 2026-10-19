@@ -90,6 +90,10 @@ func TestStagedHomeLoadsAsTheScenarioSays(t *testing.T) {
 	t.Run("when the home is unstaged", func(t *testing.T) {
 		require.NoError(t, demo.Unstage(home))
 
+		// Unstage has signalled every stand-in; what is left is each one's
+		// reaper collecting it, and a zombie still answers kill(pid, 0).
+		// That is scheduler latency, so the deadline is one a working
+		// suite cannot reach, however loaded (item 124).
 		t.Run("it should leave no session alive", func(t *testing.T) {
 			assert.Eventually(t, func() bool {
 				after, err := state.Load(home, probes, now)
@@ -102,7 +106,7 @@ func TestStagedHomeLoadsAsTheScenarioSays(t *testing.T) {
 					}
 				}
 				return true
-			}, 5*time.Second, 50*time.Millisecond)
+			}, 30*time.Second, 50*time.Millisecond)
 		})
 	})
 }
