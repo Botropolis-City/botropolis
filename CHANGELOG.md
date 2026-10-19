@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The power plant shows your usage over months, not only hours.**
+  Beside 1 h, 24 h and 7 d, its panel offers month to date, last month, the last 30 days, 3 months and 12 months, year to date and a custom range, read from the statistics store; ← and → step through them all.
+  Each range draws a bar a day or a month, the split by model and speed, the split by district, and this month against last, with `s` stopping last month on the same day of the month.
+  `d` chooses which districts count, all by default.
+  The panel says how far back the data goes, draws days before it differently from days with nothing, and marks a stretch when statistics were off as possibly incomplete, on a range and on the comparison.
+  While statistics are off it offers only the short windows and says so, and `s` opens settings on the statistics row.
+
 - **The reference thanks the people whose work the city is drawn with.**
   The page `?` opens on ends with a credit in small print: the roads, trees, vehicles, trains, boats and landmarks are Kenney's (kenney.nl), under CC0,
   and the type is Inter, by The Inter Project Authors, under the SIL Open Font License 1.1.
