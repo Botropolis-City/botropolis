@@ -181,8 +181,9 @@ This machine runs CLI-only, several sessions at once, with context as the scarce
 None of that makes bot-crossing wrong;
 it makes it a different program for a different desk, and it was the one that showed the idea works.
 
-The city is drawn from [Kenney](https://kenney.nl)'s 3D kits — City Kit Commercial, Roads, Industrial and Suburban, the Nature Kit, the Car Kit, the Space Kit, the Train Kit and the Watercraft Kit, all CC0 —
-pre-rendered once in Blender by `tools/render-sprites` into the atlases under `pkg/assets/kits/` (four headings, two zoom levels),
+The roads, trees, cars, trains, boats and landmarks are [Kenney](https://kenney.nl)'s, from eight of the studio's 3D kits — City Kit Commercial, City Kit Roads, City Kit Industrial, City Kit Suburban, the Nature Kit, the Car Kit, the Train Kit and the Watercraft Kit, all CC0.
+Every session's building, the drone, the plaza's fountain, and the skips, trucks and ruins of a building site are modelled here, in `tools/render-sprites/buildings.py` and `render.py`, in the kits' palette.
+Both are pre-rendered once in Blender by `tools/render-sprites` into the atlases under `pkg/assets/kits/` (four headings, two zoom levels),
 the way Factorio ships its sprites: the runtime only ever draws 2D.
 The 16 px Tiny Town, Tiny Factory and Roguelike Modern City packs are still bundled, though the top-down view that drew them is no longer offered.
 Thank you, Kenney; see [`pkg/assets/kenney/README.md`](pkg/assets/kenney/README.md) and [`pkg/assets/kits/README.md`](pkg/assets/kits/README.md) for the packs, versions and terms,
