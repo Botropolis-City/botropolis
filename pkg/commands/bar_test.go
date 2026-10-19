@@ -98,11 +98,12 @@ func TestBar(t *testing.T) {
 
 	t.Run("when watching a feed", func(t *testing.T) {
 		var out bytes.Buffer
-		feed := func(_ context.Context, offer func(state.Snapshot)) {
+		feed := func(_ context.Context, offer func(state.Snapshot)) error {
 			offer(snapshot)
 			offer(state.Snapshot{})
+			return nil
 		}
-		commands.NewBar(&fakeSource{}, feed).Watch(context.Background(), &out, commands.BarText)
+		_ = commands.NewBar(&fakeSource{}, feed).Watch(context.Background(), &out, commands.BarText)
 
 		t.Run("it should print a line per snapshot", func(t *testing.T) {
 			assert.Equal(t, "● 2 needs-you · 1 working — Fix the CI queue\nno sessions\n", out.String())

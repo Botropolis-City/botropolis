@@ -86,14 +86,15 @@ func (f *fakeBar) Once(out io.Writer, format commands.BarFormat, direct bool) er
 	return nil
 }
 
-func (f *fakeBar) Watch(_ context.Context, out io.Writer, format commands.BarFormat) {
+func (f *fakeBar) Watch(_ context.Context, out io.Writer, format commands.BarFormat) error {
 	f.calls = append(f.calls, fmt.Sprintf("watch %s", format))
 	_, _ = io.WriteString(out, "LINE\nLINE\n")
+	return nil
 }
 
 type fakeNotify struct{ runs int }
 
-func (f *fakeNotify) Run(context.Context) { f.runs++ }
+func (f *fakeNotify) Run(context.Context) error { f.runs++; return nil }
 
 type fakeDoctor struct{ runs int }
 

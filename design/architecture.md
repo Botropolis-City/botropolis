@@ -21,8 +21,13 @@
 
 **Every request and response carries its end's release and protocol** (item 149).
 An upgrade leaves the old daemon running until it is restarted,
-so a release apart works and is said once: a line on stderr, and a chip leading the map's strip.
-A protocol apart is refused with what to restart, except for hook events, which never fail a tool call.
+and running the two out of sync could go wrong in ways nobody tested,
+so any difference is refused (item 152), except for hook events, which never fail a tool call.
+A command says so on one line, naming both and how to restart the daemon.
+The map draws no city: a dialog names both, with **Exit** and **Restart Daemon**,
+or **Restart Botropolis** when the daemon is the newer one, which runs the map again from its path on disk.
+`pkg/daemonctl` restarts the daemon the way it was started, acting only on the process the socket names as its peer:
+its systemd user unit, its Homebrew launchd job, or that one process stopped and this build's `botropolisd` started with its arguments.
 `proto.Protocol` rises only when one end would misread the other, never for an added field.
 
 **Every state file carries a version and the oldest version that can read it**, as `stats.db` does (item 116).

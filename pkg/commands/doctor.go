@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"text/tabwriter"
 
 	"botropolis.city/botropolis/pkg/control"
+	"botropolis.city/botropolis/pkg/proto"
 )
 
 // Check is one thing the doctor looked at.
@@ -36,13 +38,23 @@ type Doctor struct {
 	Desktop     control.Desktop
 	Getenv      func(string) string
 	OnPath      func(string) bool
-	Dial        func(sock string) error
+	// Dial reaches the daemon and asks what it is.
+	Dial func(sock string) error
+	// RestartHint says what to do about a daemon out of sync (item 152).
+	RestartHint func(*proto.Mismatch) string
 }
 
 // Run returns every check, in the order a first run needs them.
 func (d Doctor) Run() []Check {
 	var checks []Check
-	if err := d.Dial(d.Socket); err != nil {
+	var mismatch *proto.Mismatch
+	if err := d.Dial(d.Socket); errors.As(err, &mismatch) {
+		hint := ""
+		if d.RestartHint != nil {
+			hint = d.RestartHint(mismatch)
+		}
+		checks = append(checks, Check{"daemon", CheckFail, mismatch.Error(), hint})
+	} else if err != nil {
 		checks = append(checks, Check{"daemon", CheckWarn, "not reachable at " + d.Socket, d.daemonStart() + "; without it every client scans ~/.claude itself"})
 	} else {
 		checks = append(checks, Check{"daemon", CheckOK, "answering at " + d.Socket, ""})

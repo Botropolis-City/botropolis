@@ -14,6 +14,7 @@ import (
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/hotkey"
+	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/sighold"
 	"botropolis.city/botropolis/pkg/single"
@@ -34,8 +35,12 @@ type Options struct {
 	LayoutPath string
 	Actor      Actor
 	// Feed delivers snapshots and, before each, the events logged since
-	// the last delivery.
-	Feed func(ctx context.Context, offer func(state.Snapshot), events func([]events.Event))
+	// the last delivery, and says when its daemon is out of sync, which
+	// stops the map until a snapshot from one in sync (item 152).
+	Feed func(ctx context.Context, offer func(state.Snapshot), events func([]events.Event), outOfSync func(*proto.Mismatch))
+	// RestartDaemon restarts the daemon the dialog found out of sync,
+	// and returns once one of this build's answers (item 152).
+	RestartDaemon func(context.Context) error
 	// Home is the directory holding .claude that the feed reads; the
 	// usage boats and Summary read from it too.
 	Home       string
@@ -220,7 +225,14 @@ func Run(ctx context.Context, opts Options) error {
 	game.desktopErr = opts.DesktopErr
 	game.useShortcut(opts.GlobalShortcut)
 
-	stopFeed := startFeed(ctx, opts.Feed, game.Offer, game.AddEvents)
+	game.restartDaemon = opts.RestartDaemon
+	var feed func(context.Context, func(state.Snapshot), func([]events.Event))
+	if opts.Feed != nil {
+		feed = func(ctx context.Context, offer func(state.Snapshot), fresh func([]events.Event)) {
+			opts.Feed(ctx, offer, fresh, game.OutOfSync)
+		}
+	}
+	stopFeed := startFeed(ctx, feed, game.Offer, game.AddEvents)
 	defer stopFeed()
 	// A signal ends the loop, never the process: Run returns, and the
 	// private state directory a caller made is removed (item 114).

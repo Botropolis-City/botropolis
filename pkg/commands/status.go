@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -112,6 +113,11 @@ func (d DaemonOrDirect) Snapshot(direct bool) (state.Snapshot, error) {
 		snapshot, err := fromDaemon(d.Socket)
 		if err == nil {
 			return snapshot, nil
+		}
+		// A daemon out of sync is refused, never scanned around (item 152).
+		var mismatch *proto.Mismatch
+		if errors.As(err, &mismatch) {
+			return state.Snapshot{}, err
 		}
 		if d.Notice != nil {
 			fmt.Fprintf(d.Notice, "botropolis: botropolisd not reachable at %s (%v); scanning %s directly\n", d.Socket, err, d.Home)

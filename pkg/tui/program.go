@@ -36,11 +36,31 @@ var (
 	styleFooter = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 )
 
-func Run(ctx context.Context, feed func(ctx context.Context, offer func(state.Snapshot)), controller Controller) error {
+// Run shows the sessions until the person quits, or until the feed
+// refuses, such as on meeting a daemon out of sync (item 152), whose
+// refusal it returns.
+func Run(ctx context.Context, feed func(ctx context.Context, offer func(state.Snapshot)) error, controller Controller) error {
 	updates := make(chan state.Snapshot, 1)
-	feedCtx, cancel := context.WithCancel(ctx)
+	runCtx, stop := context.WithCancelCause(ctx)
+	defer stop(nil)
+	feedCtx, cancel := context.WithCancel(runCtx)
 	defer cancel()
-	go feed(feedCtx, func(s state.Snapshot) {
+	go func() {
+		if err := feed(feedCtx, offerLatest(updates)); err != nil {
+			stop(err)
+		}
+	}()
+	p := &program{model: New(), controller: controller, updates: updates, clock: time.Now}
+	_, err := tea.NewProgram(p, tea.WithContext(runCtx), tea.WithAltScreen()).Run()
+	if cause := context.Cause(runCtx); cause != nil && ctx.Err() == nil {
+		return cause
+	}
+	return err
+}
+
+// offerLatest keeps only the newest snapshot waiting.
+func offerLatest(updates chan state.Snapshot) func(state.Snapshot) {
+	return func(s state.Snapshot) {
 		select {
 		case updates <- s:
 		default:
@@ -50,10 +70,7 @@ func Run(ctx context.Context, feed func(ctx context.Context, offer func(state.Sn
 			}
 			updates <- s
 		}
-	})
-	p := &program{model: New(), controller: controller, updates: updates, clock: time.Now}
-	_, err := tea.NewProgram(p, tea.WithContext(ctx), tea.WithAltScreen()).Run()
-	return err
+	}
 }
 
 func (p *program) Init() tea.Cmd {

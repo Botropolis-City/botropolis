@@ -30,6 +30,7 @@ import (
 	"botropolis.city/botropolis/pkg/commands"
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/control"
+	"botropolis.city/botropolis/pkg/daemonctl"
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/hotkey"
@@ -97,10 +98,52 @@ func Run(ctx context.Context, args []string) int {
 	}
 	root.SetArgs(args)
 	if err := root.ExecuteContext(ctx); err != nil {
-		_, _ = os.Stderr.WriteString("botropolis: " + err.Error() + "\n")
+		if errors.Is(err, render.ErrRestart) {
+			return restart()
+		}
+		_, _ = os.Stderr.WriteString(errorLine(err, nativeHint) + "\n")
 		return exitCode(err)
 	}
 	return 0
+}
+
+// errorLine is what a failed command prints: for a daemon out of sync,
+// both versions and what to do about it, on one line (item 152).
+func errorLine(err error, hint func(*proto.Mismatch) string) string {
+	var mismatch *proto.Mismatch
+	if errors.As(err, &mismatch) {
+		return "botropolis: " + mismatch.Error() + ": " + hint(mismatch)
+	}
+	return "botropolis: " + err.Error()
+}
+
+func nativeHint(m *proto.Mismatch) string {
+	return daemonctl.Hint(context.Background(), daemonctl.Native(), m)
+}
+
+// restart runs the map again, with its own arguments and environment,
+// from its path on disk (item 152). It returns only when it cannot.
+func restart() int {
+	path, err := restartPath(os.Args[0], exec.LookPath, os.Executable)
+	if err == nil {
+		err = syscall.Exec(path, os.Args, os.Environ())
+	}
+	_, _ = os.Stderr.WriteString("botropolis: restarting: " + err.Error() + "\n")
+	return 1
+}
+
+// restartPath is where the map runs again from: the path it was started
+// by, looked up on the PATH when it was started by name, which after an
+// upgrade is the new build. This executable's own path is the last
+// resort, since on macOS it names the old version's directory.
+func restartPath(args0 string, look func(string) (string, error), executable func() (string, error)) (string, error) {
+	if strings.ContainsRune(args0, os.PathSeparator) {
+		return args0, nil
+	}
+	if path, err := look(args0); err == nil {
+		return path, nil
+	}
+	return executable()
 }
 
 const ExitUntrusted = 3
@@ -177,12 +220,12 @@ func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
 func (s *services) Bar(cfg *config.Config) cli.BarRunner {
 	source := s.source(cfg)
 	feed := commands.Feed{Socket: cfg.Socket, Source: source, Poll: 2 * time.Second, Retry: 5 * time.Second}
-	return commands.NewBar(source, feed.Run)
+	return commands.NewBar(source, feed.RunRefusing)
 }
 
 func (s *services) Notify(cfg *config.Config) cli.NotifyRunner {
 	feed := commands.Feed{Socket: cfg.Socket, Source: s.source(cfg), Poll: 2 * time.Second, Retry: 5 * time.Second}
-	n := commands.NewNotify(feed.Run, commands.NotifierFor(runtime.GOOS))
+	n := commands.NewNotify(feed.RunRefusing, commands.NotifierFor(runtime.GOOS))
 	n.OnError = func(err error) { fmt.Fprintf(os.Stderr, "botropolis notify: %v\n", err) }
 	return n
 }
@@ -194,12 +237,18 @@ func (s *services) Doctor(cfg *config.Config) cli.DoctorRunner {
 		Getenv:  os.Getenv,
 		OnPath:  func(name string) bool { _, err := exec.LookPath(name); return err == nil },
 		Dial: func(sock string) error {
-			client, err := proto.Dial(sock)
+			peer, err := proto.Ask(sock)
 			if err != nil {
 				return err
 			}
-			return client.Close()
+			if err := proto.Compare(peer, proto.Self()); err != nil {
+				mismatch := err.(*proto.Mismatch)
+				mismatch.Socket = sock
+				return mismatch
+			}
+			return nil
 		},
+		RestartHint: nativeHint,
 	}
 }
 
@@ -215,7 +264,7 @@ type tuiRunner struct {
 func (r *tuiRunner) Run(ctx context.Context) error {
 	feed := commands.Feed{Socket: r.config.Socket, Source: r.services.source(r.config), Poll: 2 * time.Second, Retry: 5 * time.Second}
 	sessions := commands.NewSessions(r.config.Home, control.Default(r.config.Terminal)).WithDemolished(demolisher(r.config))
-	return tui.Run(ctx, feed.Run, sessions)
+	return tui.Run(ctx, feed.RunRefusing, sessions)
 }
 
 func (s *services) City(cfg *config.Config) cli.CityRunner {
@@ -456,9 +505,13 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		Layout:         layout,
 		LayoutPath:     layoutPath,
 		Actor:          actor,
-		Feed: func(ctx context.Context, offer func(state.Snapshot), fresh func([]events.Event)) {
+		Feed: func(ctx context.Context, offer func(state.Snapshot), fresh func([]events.Event), outOfSync func(*proto.Mismatch)) {
 			feed.Events = fresh
+			feed.Mismatch = outOfSync
 			feed.Run(ctx, offer)
+		},
+		RestartDaemon: func(ctx context.Context) error {
+			return daemonctl.Restart(ctx, daemonctl.Native(), c.config.Socket, proto.Self())
 		},
 		Home:           c.config.Home,
 		FindChords:     &chords,

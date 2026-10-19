@@ -26,35 +26,72 @@ type Feed struct {
 	OnError func(error)
 	Since   func() time.Time
 	Events  func([]events.Event)
+	// Mismatch hears of a daemon of another release or protocol. The
+	// feed then offers nothing, and never scans around it, until a
+	// daemon of this build's answers (item 152).
+	Mismatch func(*proto.Mismatch)
 }
+
+// MismatchRetry is how often a feed asks again of a daemon out of sync,
+// so a restarted one is seen soon after it answers.
+const MismatchRetry = time.Second
 
 func (f Feed) Run(ctx context.Context, offer func(state.Snapshot)) {
 	for ctx.Err() == nil {
-		if f.subscribe(ctx, offer) {
-			continue
+		delivered, mismatch := f.subscribe(ctx, offer)
+		switch {
+		case mismatch != nil:
+			if f.Mismatch != nil {
+				f.Mismatch(mismatch)
+			}
+			select {
+			case <-ctx.Done():
+			case <-time.After(min(f.Retry, MismatchRetry)):
+			}
+		case delivered:
+		default:
+			f.poll(ctx, offer)
 		}
-		f.poll(ctx, offer)
 	}
 }
 
-func (f Feed) subscribe(ctx context.Context, offer func(state.Snapshot)) bool {
+// RunRefusing runs the feed until its context ends, or until it meets a
+// daemon out of sync, which it returns: a command refuses rather than
+// waits (item 152).
+func (f Feed) RunRefusing(ctx context.Context, offer func(state.Snapshot)) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	f.Mismatch = func(m *proto.Mismatch) { cancel(m) }
+	f.Run(ctx, offer)
+	var mismatch *proto.Mismatch
+	if cause := context.Cause(ctx); errors.As(cause, &mismatch) {
+		return mismatch
+	}
+	return nil
+}
+
+func (f Feed) subscribe(ctx context.Context, offer func(state.Snapshot)) (bool, *proto.Mismatch) {
 	client, err := proto.Dial(f.Socket)
 	if err != nil {
-		return false
+		return false, nil
 	}
 	defer func() { _ = client.Close() }()
 	updates, err := client.Subscribe(f.since())
+	var mismatch *proto.Mismatch
+	if errors.As(err, &mismatch) {
+		return false, mismatch
+	}
 	if err != nil {
-		return false
+		return false, nil
 	}
 	delivered := false
 	for {
 		select {
 		case <-ctx.Done():
-			return true
+			return true, nil
 		case update, ok := <-updates:
 			if !ok {
-				return delivered
+				return delivered, nil
 			}
 			delivered = true
 			f.deliver(update.Events)

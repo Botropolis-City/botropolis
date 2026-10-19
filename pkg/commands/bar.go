@@ -29,10 +29,10 @@ type BarLine struct {
 
 type Bar struct {
 	source SnapshotSource
-	feed   func(ctx context.Context, offer func(state.Snapshot))
+	feed   func(ctx context.Context, offer func(state.Snapshot)) error
 }
 
-func NewBar(source SnapshotSource, feed func(ctx context.Context, offer func(state.Snapshot))) *Bar {
+func NewBar(source SnapshotSource, feed func(ctx context.Context, offer func(state.Snapshot)) error) *Bar {
 	return &Bar{source: source, feed: feed}
 }
 
@@ -44,11 +44,11 @@ func (b *Bar) Once(out io.Writer, format BarFormat, direct bool) error {
 	return writeBar(out, format, Summarize(snapshot))
 }
 
-func (b *Bar) Watch(ctx context.Context, out io.Writer, format BarFormat) {
+func (b *Bar) Watch(ctx context.Context, out io.Writer, format BarFormat) error {
 	if b.feed == nil {
-		return
+		return nil
 	}
-	b.feed(ctx, func(snapshot state.Snapshot) {
+	return b.feed(ctx, func(snapshot state.Snapshot) {
 		_ = writeBar(out, format, Summarize(snapshot))
 	})
 }

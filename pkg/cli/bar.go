@@ -13,7 +13,7 @@ import (
 
 type BarRunner interface {
 	Once(out io.Writer, format commands.BarFormat, direct bool) error
-	Watch(ctx context.Context, out io.Writer, format commands.BarFormat)
+	Watch(ctx context.Context, out io.Writer, format commands.BarFormat) error
 }
 
 type BarServices interface {
@@ -37,8 +37,7 @@ func NewBarCLI(load Loader, services BarServices) *cobra.Command {
 			watch, _ := cmd.Flags().GetBool("watch")
 			bar := services.Bar(cfg)
 			if watch {
-				bar.Watch(cmd.Context(), cmd.OutOrStdout(), commands.BarFormat(format))
-				return nil
+				return bar.Watch(cmd.Context(), cmd.OutOrStdout(), commands.BarFormat(format))
 			}
 			return bar.Once(cmd.OutOrStdout(), commands.BarFormat(format), cfg.HomeSet && !cfg.SocketSet)
 		},

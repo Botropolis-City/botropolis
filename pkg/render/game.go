@@ -26,6 +26,7 @@ import (
 	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/group"
+	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/stats"
@@ -315,6 +316,16 @@ type Game struct {
 	readerRect  city.Rect
 	search      func(find.Query) ([]find.Hit, error)
 	dispatch    func(func())
+	// sync is the dialog that stands in for the map while its daemon is
+	// out of sync; pendingSync and the restart's outcome arrive from
+	// other goroutines under mu, and restartDaemon restarts the daemon
+	// (item 152).
+	sync            *syncDialog
+	pendingSync     *proto.Mismatch
+	syncChanged     bool
+	restartErr      error
+	restartFinished bool
+	restartDaemon   func(context.Context) error
 	// findAtOnce searches without waiting for typing to pause, for
 	// scripted frames.
 	findAtOnce bool
@@ -397,6 +408,8 @@ func (g *Game) Offer(snapshot state.Snapshot) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.pending = &snapshot
+	// The feed offers only what a daemon of this build sent (item 152).
+	g.pendingSync, g.syncChanged = nil, true
 }
 
 // AddEvents queues a batch from the feed for the game loop; an empty
@@ -442,6 +455,7 @@ func (g *Game) Update() error {
 	fresh, batches := g.pendingEvents, g.pendingBatches
 	g.pendingEvents, g.pendingBatches = nil, 0
 	g.mu.Unlock()
+	g.takeSync()
 	for _, done := range g.takeGenerated() {
 		g.scene.SetGenerated(done.id, done.generated)
 	}
@@ -501,6 +515,9 @@ func (g *Game) Update() error {
 			return g.shotErr
 		}
 		return ebiten.Termination
+	}
+	if g.sync != nil {
+		return g.syncInput(g.pointer(), inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press)
 	}
 
 	g.scene.SetInstant(g.reduced || g.screenshot != "")
@@ -828,6 +845,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	defer g.capture(screen)
 	defer g.drawPointer(screen)
+	if !g.cityShown() {
+		bounds := screen.Bounds()
+		g.drawSync(screen, float64(bounds.Dx()), float64(bounds.Dy()))
+		return
+	}
 	c := g.scene.City()
 	cam := g.scene.Camera()
 	hover := g.scene.Hover()

@@ -132,8 +132,6 @@ type City struct {
 	RiverCells  []RiverCell
 	Night       bool
 	Time        time.Time
-	// Notice is what the client said about its daemon (item 149).
-	Notice string
 
 	// From the plan: the plaza and its fountain, every park block and
 	// belt strip, the trees and lamps, and the map's edge.
@@ -348,7 +346,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		return names[roots[i]] < names[roots[j]]
 	})
 
-	city := &City{Time: snapshot.At, Notice: snapshot.Notice, ledger: ledger, names: names, folderless: folderless}
+	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless}
 	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
 		city.Plant.Day = city.Breakdown(LastDay)

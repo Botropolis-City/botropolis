@@ -37,19 +37,19 @@ func NotifierFor(goos string) CommandNotifier {
 }
 
 type Notify struct {
-	feed     func(ctx context.Context, offer func(state.Snapshot))
+	feed     func(ctx context.Context, offer func(state.Snapshot)) error
 	notifier Notifier
 	seen     map[string]state.State
 	primed   bool
 	OnError  func(error)
 }
 
-func NewNotify(feed func(ctx context.Context, offer func(state.Snapshot)), notifier Notifier) *Notify {
+func NewNotify(feed func(ctx context.Context, offer func(state.Snapshot)) error, notifier Notifier) *Notify {
 	return &Notify{feed: feed, notifier: notifier, seen: map[string]state.State{}}
 }
 
-func (n *Notify) Run(ctx context.Context) {
-	n.feed(ctx, n.Offer)
+func (n *Notify) Run(ctx context.Context) error {
+	return n.feed(ctx, n.Offer)
 }
 
 func (n *Notify) Offer(snapshot state.Snapshot) {

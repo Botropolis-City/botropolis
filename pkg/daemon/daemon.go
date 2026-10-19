@@ -5,6 +5,7 @@ import (
 	"errors"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
@@ -131,12 +132,12 @@ type Daemon struct {
 	settleAfter time.Duration
 	settle      *time.Timer
 	// peer is what this daemon tells every client it is (item 149).
-	peer proto.Peer
+	peer atomic.Pointer[proto.Peer]
 }
 
 // SetPeer replaces the release and protocol the daemon says it is, for
 // tests.
-func (d *Daemon) SetPeer(p proto.Peer) { d.peer = p }
+func (d *Daemon) SetPeer(p proto.Peer) { d.peer.Store(&p) }
 
 // SettleAfter is how long after the last hook event the daemon returns
 // memory to the OS.
@@ -184,7 +185,7 @@ func (d *Daemon) Find(q find.Query) ([]find.Hit, error) {
 }
 
 func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
-	return &Daemon{
+	d := &Daemon{
 		loader:      loader,
 		clock:       clock,
 		watching:    make(chan struct{}),
@@ -194,8 +195,9 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		log:         events.NewLog(),
 		release:     debug.FreeOSMemory,
 		settleAfter: SettleAfter,
-		peer:        proto.Self(),
 	}
+	d.SetPeer(proto.Self())
+	return d
 }
 
 // SetRelease replaces how and how soon memory is returned after a burst

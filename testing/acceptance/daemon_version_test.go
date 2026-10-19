@@ -2,19 +2,23 @@ package acceptance_test
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
+	"image"
+	_ "image/png"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // oldDaemon answers every request on a socket as a daemon of another
@@ -52,26 +56,83 @@ func oldDaemon(t *testing.T, peer proto.Peer) string {
 	return sock
 }
 
-// Item 149: after an upgrade the old daemon keeps running until it is
-// restarted; a command says so once, on stderr, and works.
+// Item 152: a daemon of another release stops every command, which says
+// so on one line, rather than being worked around.
 func TestDaemonOfAnotherRelease(t *testing.T) {
-	t.Run("when status --json reaches a daemon of another release", func(t *testing.T) {
+	sock := oldDaemon(t, proto.Peer{Release: "0.0.1", Protocol: proto.Protocol})
+
+	for _, args := range [][]string{
+		{"status", "--json"},
+		{"events"},
+		{"find", "ci"},
+		{"bar", "--watch"},
+		{"notify"},
+	} {
+		t.Run("when "+strings.Join(args, " ")+" reaches a daemon of another release", func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, botropolis, append(args, "--socket", sock)...)
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			err := cmd.Run()
+
+			t.Run("it should refuse rather than run on", func(t *testing.T) {
+				assert.NoError(t, ctx.Err())
+			})
+
+			t.Run("it should fail", func(t *testing.T) {
+				assert.Error(t, err)
+			})
+
+			t.Run("it should say so on one line, with what to do", func(t *testing.T) {
+				assert.Regexp(t, `^botropolis: daemon is 0\.0\.1, this is dev: \S.*\n$`, stderr.String())
+			})
+
+			t.Run("it should print nothing else", func(t *testing.T) {
+				assert.Empty(t, stdout.String())
+			})
+		})
+	}
+}
+
+// Item 152: the map against a daemon of another release draws the
+// dialog and no city.
+func TestCityAgainstAnotherRelease(t *testing.T) {
+	helpers.NeedXvfb(t)
+
+	t.Run("when the city opens against a daemon of another release", func(t *testing.T) {
 		sock := oldDaemon(t, proto.Peer{Release: "0.0.1", Protocol: proto.Protocol})
-		var stdout, stderr bytes.Buffer
-		cmd := exec.Command(botropolis, "status", "--json", "--socket", sock)
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		err := cmd.Run()
+		r := newStateRun(t)
+		withSession(t, r.home)
+		shot := filepath.Join(r.tmp, "shot.png")
+		out, err := r.command(t, true, "--headless", "--screenshot", shot, "--socket", sock).CombinedOutput()
 
-		t.Run("it should succeed", func(t *testing.T) {
-			assert.NoError(t, err, stderr.String())
+		t.Run("it should exit cleanly", func(t *testing.T) {
+			assert.NoError(t, err, string(out))
 		})
 
-		t.Run("it should say so on stderr once", func(t *testing.T) {
-			assert.Equal(t, 1, strings.Count(stderr.String(), "botropolis: daemon is 0.0.1, this is dev: restart it to update\n"), stderr.String())
-		})
-
-		t.Run("it should keep stdout parseable", func(t *testing.T) {
-			assert.True(t, json.Valid(stdout.Bytes()), stdout.String())
+		t.Run("it should draw nothing but the dialog's backdrop around it", func(t *testing.T) {
+			f, err := os.Open(shot)
+			require.NoError(t, err)
+			defer func() { _ = f.Close() }()
+			img, _, err := image.Decode(f)
+			require.NoError(t, err)
+			b := img.Bounds()
+			backdrop := img.At(b.Min.X+2, b.Min.Y+2)
+			var differing []image.Point
+			for i := 0; i <= 10; i++ {
+				for _, p := range []image.Point{
+					{b.Min.X + 2 + i*(b.Dx()-5)/10, b.Min.Y + 2},
+					{b.Min.X + 2 + i*(b.Dx()-5)/10, b.Max.Y - 3},
+					{b.Min.X + 2, b.Min.Y + 2 + i*(b.Dy()-5)/10},
+					{b.Max.X - 3, b.Min.Y + 2 + i*(b.Dy()-5)/10},
+				} {
+					if img.At(p.X, p.Y) != backdrop {
+						differing = append(differing, p)
+					}
+				}
+			}
+			assert.Empty(t, differing)
 		})
 	})
 }

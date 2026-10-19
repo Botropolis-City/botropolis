@@ -9,7 +9,7 @@ import (
 )
 
 type NotifyRunner interface {
-	Run(ctx context.Context)
+	Run(ctx context.Context) error
 }
 
 type NotifyServices interface {
@@ -26,8 +26,7 @@ func NewNotifyCLI(load Loader, services NotifyServices) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			services.Notify(cfg).Run(cmd.Context())
-			return nil
+			return services.Notify(cfg).Run(cmd.Context())
 		},
 	}
 }

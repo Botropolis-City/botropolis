@@ -107,11 +107,12 @@ func TestNotify(t *testing.T) {
 
 	t.Run("when run on a feed", func(t *testing.T) {
 		notifier := &fakeNotifier{}
-		feed := func(_ context.Context, offer func(state.Snapshot)) {
+		feed := func(_ context.Context, offer func(state.Snapshot)) error {
 			offer(snap(state.Working))
 			offer(snap(state.NeedsYou))
+			return nil
 		}
-		commands.NewNotify(feed, notifier).Run(context.Background())
+		_ = commands.NewNotify(feed, notifier).Run(context.Background())
 
 		t.Run("it should watch every snapshot the feed delivers", func(t *testing.T) {
 			assert.Len(t, notifier.sent, 1)

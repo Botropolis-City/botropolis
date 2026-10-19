@@ -16,9 +16,9 @@ const dialTimeout = 500 * time.Millisecond
 type Client struct {
 	conn    net.Conn
 	decoder *json.Decoder
-	// notice is what this client has to say about the daemon it
-	// reached, from its last response (item 149).
-	notice string
+	// sock is where this client reached its daemon, which a mismatch
+	// names (item 152).
+	sock string
 }
 
 func (c *Client) send(r Request) error {
@@ -31,7 +31,7 @@ func Dial(sock string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{conn: conn, decoder: json.NewDecoder(conn)}, nil
+	return &Client{conn: conn, decoder: json.NewDecoder(conn), sock: sock}, nil
 }
 
 func (c *Client) Close() error {
@@ -48,11 +48,18 @@ func (c *Client) Snapshot() (state.Snapshot, error) {
 
 // Subscribe streams every change; the first update carries the current
 // snapshot and the log since the moment given (all of it when zero).
+// The first is read before it returns, so a daemon out of sync is
+// refused here rather than ending the stream unexplained (item 152).
 func (c *Client) Subscribe(since time.Time) (<-chan Update, error) {
 	if err := c.send(Request{Op: OpSubscribe, Since: since}); err != nil {
 		return nil, err
 	}
+	first, err := c.readUpdate()
+	if err != nil {
+		return nil, err
+	}
 	updates := make(chan Update, 1)
+	updates <- first
 	go func() {
 		defer close(updates)
 		for {
@@ -126,9 +133,7 @@ func (c *Client) readUpdate() (Update, error) {
 	if response.Snapshot == nil {
 		return Update{}, errors.New("response carried no snapshot")
 	}
-	update := Update{Snapshot: *response.Snapshot, Events: response.Events}
-	update.Snapshot.Notice = c.notice
-	return update, nil
+	return Update{Snapshot: *response.Snapshot, Events: response.Events}, nil
 }
 
 func (c *Client) readResponse() (Response, error) {
@@ -136,12 +141,11 @@ func (c *Client) readResponse() (Response, error) {
 	if err := c.decoder.Decode(&response); err != nil {
 		return Response{}, err
 	}
-	notice, err := Compare(response.Peer, Self())
-	if err != nil {
-		return Response{}, err
+	if err := Compare(response.Peer, Self()); err != nil {
+		mismatch := err.(*Mismatch)
+		mismatch.Socket = c.sock
+		return Response{}, mismatch
 	}
-	c.notice = notice
-	Report(notice)
 	if response.Error != "" {
 		return Response{}, errors.New(response.Error)
 	}

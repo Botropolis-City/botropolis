@@ -313,3 +313,32 @@ func TestRestart(t *testing.T) {
 		})
 	})
 }
+
+// Item 152: what a command tells a person to do about a daemon out of
+// sync with it.
+func TestHint(t *testing.T) {
+	older := &proto.Mismatch{Daemon: proto.Peer{Release: "0.2.2", Protocol: 1}, Ours: ours, Socket: sock}
+	newer := &proto.Mismatch{Daemon: proto.Peer{Release: "0.2.4", Protocol: 1}, Ours: ours, Socket: sock}
+	for _, c := range []struct {
+		scenario string
+		mismatch *proto.Mismatch
+		setup    func(f *fakeSystem)
+		hint     string
+	}{
+		{"when the user unit runs an older daemon", older, func(f *fakeSystem) {
+			f.cgroup = "0::/user.slice/user@1000.service/app.slice/botropolisd.service\n"
+		}, `restart it with "systemctl --user restart botropolisd"`},
+		{"when an older daemon was started by hand", older, func(*fakeSystem) {}, "stop botropolisd (pid 4242) and start it again"},
+		{"when the older daemon cannot be identified", older, func(f *fakeSystem) { f.pidErr = errors.New("no") }, "restart botropolisd"},
+		{"when the daemon is newer than this", newer, func(*fakeSystem) {}, "this botropolis is older than its daemon: run the installed one"},
+	} {
+		t.Run(c.scenario, func(t *testing.T) {
+			f := newFake()
+			c.setup(f)
+
+			t.Run("it should say what to do", func(t *testing.T) {
+				assert.Equal(t, c.hint, daemonctl.Hint(context.Background(), f.system("linux"), c.mismatch))
+			})
+		})
+	}
+}

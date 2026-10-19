@@ -117,6 +117,23 @@ func Plan(ctx context.Context, sys System, sock string) (Method, error) {
 	return method, nil
 }
 
+// Hint is what to tell a person about a daemon out of sync with this
+// build: how to restart the daemon, or, when the daemon is ahead, that
+// this is what is out of date.
+func Hint(ctx context.Context, sys System, m *proto.Mismatch) string {
+	if m.Newer() {
+		return "this botropolis is older than its daemon: run the installed one"
+	}
+	method, err := Plan(ctx, sys, m.Socket)
+	switch {
+	case err != nil:
+		return "restart botropolisd"
+	case method.Kind == ByHand:
+		return method.Describe()
+	}
+	return fmt.Sprintf("restart it with %q", method.Describe())
+}
+
 // Restart restarts the daemon answering on sock the way it was started,
 // and returns once one answers at want's release and protocol.
 func Restart(ctx context.Context, sys System, sock string, want proto.Peer) error {

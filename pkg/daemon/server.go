@@ -120,7 +120,7 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 
 // respond writes a response saying which daemon sent it (item 149).
 func (d *Daemon) respond(conn net.Conn, response proto.Response) error {
-	response.Peer = d.peer
+	response.Peer = *d.peer.Load()
 	return proto.Write(conn, response)
 }
 

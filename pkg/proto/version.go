@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"botropolis.city/botropolis/pkg/version"
 )
@@ -38,31 +37,43 @@ func Same(a, b Peer) bool {
 	return a.Release == b.Release && a.protocol() == b.protocol()
 }
 
+// Mismatch is a daemon of another release or protocol than this build,
+// which every client refuses but a hook's: running the two out of sync
+// could go wrong in ways nobody tested (item 152). Socket is where the
+// daemon answered, so whatever restarts it knows which one.
+type Mismatch struct {
+	Daemon Peer
+	Ours   Peer
+	Socket string
+}
+
+func (m *Mismatch) Error() string {
+	switch m.Daemon.Release {
+	case "":
+		return fmt.Sprintf("daemon is older than %s", m.Ours.Release)
+	case m.Ours.Release:
+		return fmt.Sprintf("daemon is %s (protocol %d), this is %s (protocol %d)", m.Daemon.Release, m.Daemon.protocol(), m.Ours.Release, m.Ours.protocol())
+	}
+	return fmt.Sprintf("daemon is %s, this is %s", m.Daemon.Release, m.Ours.Release)
+}
+
+// Newer is whether the daemon is ahead of this build, so that this is
+// what needs restarting rather than the daemon.
+func (m *Mismatch) Newer() bool {
+	if m.Daemon.protocol() != m.Ours.protocol() {
+		return m.Daemon.protocol() > m.Ours.protocol()
+	}
+	return release(m.Daemon, m.Ours) > 0
+}
+
 // Compare is what a client makes of the daemon it reached: nothing when
-// they match; a notice, once, when only the release differs, since the
-// daemon an upgrade left running still speaks the same protocol; and a
-// refusal when the protocol differs.
-func Compare(daemon, ours Peer) (string, error) {
-	if daemon.protocol() != ours.protocol() {
-		switch {
-		case daemon.Release == "":
-			return "", fmt.Errorf("restart the daemon: it is older than %s", ours.Release)
-		case daemon.protocol() > ours.protocol():
-			return "", fmt.Errorf("this is %s and the daemon is %s: restart this", ours.Release, daemon.Release)
-		default:
-			return "", fmt.Errorf("restart the daemon: it is %s, this is %s", daemon.Release, ours.Release)
-		}
+// they are the same release speaking the same protocol, and a Mismatch
+// otherwise.
+func Compare(daemon, ours Peer) error {
+	if Same(daemon, ours) {
+		return nil
 	}
-	switch {
-	case daemon.Release == ours.Release:
-		return "", nil
-	case daemon.Release == "":
-		return fmt.Sprintf("daemon is older than %s: restart it to update", ours.Release), nil
-	case release(daemon, ours) > 0:
-		return fmt.Sprintf("daemon is %s, this is %s: restart this to update", daemon.Release, ours.Release), nil
-	default:
-		return fmt.Sprintf("daemon is %s, this is %s: restart it to update", daemon.Release, ours.Release), nil
-	}
+	return &Mismatch{Daemon: daemon, Ours: ours}
 }
 
 // release orders two releases, and is 0 when either is not a release
@@ -99,38 +110,4 @@ func parts(r string) ([3]int, bool) {
 		out[i] = n
 	}
 	return out, true
-}
-
-var (
-	noticeMu sync.Mutex
-	listener func(string)
-	heard    = map[string]bool{}
-)
-
-// OnNotice sets what hears a version notice, once per notice for this
-// process, and returns what puts back the one before.
-func OnNotice(f func(string)) func() {
-	noticeMu.Lock()
-	defer noticeMu.Unlock()
-	was, wasHeard := listener, heard
-	listener, heard = f, map[string]bool{}
-	return func() {
-		noticeMu.Lock()
-		defer noticeMu.Unlock()
-		listener, heard = was, wasHeard
-	}
-}
-
-// Report passes a notice on, unless it has been heard already.
-func Report(notice string) {
-	noticeMu.Lock()
-	f := listener
-	fresh := notice != "" && !heard[notice]
-	if fresh {
-		heard[notice] = true
-	}
-	noticeMu.Unlock()
-	if fresh && f != nil {
-		f(notice)
-	}
 }
