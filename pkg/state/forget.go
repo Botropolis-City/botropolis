@@ -4,16 +4,21 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 )
 
-// Forget drops a session you demolished and reports whether the ledger
-// changed. A session Claude Code cleaned up on its own is never
-// forgotten: it keeps its lot (items 86 and 144).
-func (l Ledger) Forget(id string) bool {
-	if _, ok := l[id]; !ok {
+// Forget marks a session you demolished, recorded or not, and reports
+// whether the ledger changed. It stays as a tombstone, since claude rm
+// keeps the transcript that would otherwise bring the session back. A
+// session Claude Code cleaned up on its own is never marked: it keeps its
+// lot (items 86, 144 and 145).
+func (l Ledger) Forget(id string, at time.Time) bool {
+	e := l[id]
+	if e.Demolished() {
 		return false
 	}
-	delete(l, id)
+	e.DemolishedAt = at
+	l[id] = e
 	return true
 }
 
@@ -35,14 +40,14 @@ func NoteForgotten(ledgerPath, id string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := f.WriteString(id + "\n"); err != nil {
+	if _, err := f.WriteString(id + "\t" + time.Now().UTC().Format(time.RFC3339Nano) + "\n"); err != nil {
 		_ = f.Close()
 		return err
 	}
 	return f.Close()
 }
 
-// Forget drops a demolished session from the ledger and saves it. A
+// Forget marks a demolished session in the ledger and saves it. A
 // loader that keeps no ledger has nothing to forget.
 func (l *Loader) Forget(id string) error {
 	if l.ledgerPath == "" {
@@ -51,7 +56,7 @@ func (l *Loader) Forget(id string) error {
 	if err := l.loadLedger(); err != nil {
 		return err
 	}
-	if !l.ledger.Forget(id) {
+	if !l.ledger.Forget(id, time.Now().UTC()) {
 		return nil
 	}
 	return l.ledger.Save(l.ledgerPath)
@@ -77,8 +82,9 @@ func (l *Loader) loadLedger() error {
 		return err
 	}
 	changed := false
-	for _, id := range strings.Split(string(data), "\n") {
-		if id = strings.TrimSpace(id); id != "" && ledger.Forget(id) {
+	for _, line := range strings.Split(string(data), "\n") {
+		id, at := noted(line)
+		if id != "" && ledger.Forget(id, at) {
 			changed = true
 		}
 	}
@@ -89,4 +95,15 @@ func (l *Loader) loadLedger() error {
 	}
 	l.ledger = ledger
 	return os.Remove(notes)
+}
+
+// noted reads one noted demolish: the session and when it was noted,
+// or now for a note that has no time.
+func noted(line string) (string, time.Time) {
+	id, stamp, _ := strings.Cut(strings.TrimSpace(line), "\t")
+	at, err := time.Parse(time.RFC3339Nano, stamp)
+	if err != nil {
+		at = time.Now().UTC()
+	}
+	return strings.TrimSpace(id), at
 }

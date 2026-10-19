@@ -5,7 +5,7 @@ package city
 var actionText = map[ActionKind]string{
 	ActionAttach:       "Opens this session's terminal.",
 	ActionResume:       "Starts this resting session again and opens its terminal.",
-	ActionDemolish:     "Deletes this session. Its conversation is gone for good.",
+	ActionDemolish:     "Deletes this session and its worktree, and takes it off the map. Its conversation stays in Claude Code's files.",
 	ActionStop:         "Stops this session. Its conversation is kept, and you can resume it.",
 	ActionPack:         "Takes this session off the map and keeps it in the depot. Unpack brings it back.",
 	ActionUnpack:       "Brings this session back to its old lot.",

@@ -28,6 +28,14 @@ type LedgerEntry struct {
 	// when you last unpacked it (item 86, slice 3).
 	PackedAt   time.Time `json:"packedAt,omitempty"`
 	UnpackedAt time.Time `json:"unpackedAt,omitempty"`
+	// DemolishedAt is when you demolished the session: claude rm keeps
+	// its transcript, so the ledger keeps it off the map (item 145).
+	DemolishedAt time.Time `json:"demolishedAt,omitempty"`
+}
+
+// Demolished is whether you demolished the session.
+func (e LedgerEntry) Demolished() bool {
+	return !e.DemolishedAt.IsZero()
 }
 
 // Packed is whether the session is packed up: packed, and not unpacked
@@ -62,7 +70,7 @@ func (l Ledger) Record(s Session) bool {
 		return false
 	}
 	was, ok := l[s.ID]
-	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt}
+	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt, DemolishedAt: was.DemolishedAt}
 	if ok && was.CWD == entry.CWD && was.StartedAt.Equal(entry.StartedAt) && was.LastActivity.Equal(entry.LastActivity) {
 		return false
 	}

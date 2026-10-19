@@ -364,22 +364,35 @@ func stat(path string) (fileKey, error) {
 }
 
 // keepLedger records every session shown and adds back each one the
-// ledger knows that nothing else brought: its transcript is gone.
+// ledger knows that nothing else brought: its transcript is gone. A
+// session you demolished stays off, whatever transcript remains, until
+// it does something after the demolish (item 145).
 func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time) ([]Session, error) {
 	if err := l.loadLedger(); err != nil {
 		return sessions, err
 	}
 	changed := false
 	shown := map[string]bool{}
+	kept := sessions[:0]
 	for _, s := range sessions {
 		shown[s.ID] = true
+		if e := l.ledger[s.ID]; e.Demolished() {
+			if !s.LastActivity.After(e.DemolishedAt) {
+				continue
+			}
+			e.DemolishedAt = time.Time{}
+			l.ledger[s.ID] = e
+			changed = true
+		}
 		if l.ledger.Record(s) {
 			changed = true
 		}
+		kept = append(kept, s)
 	}
+	sessions = kept
 	var missing []string
-	for id := range l.ledger {
-		if !shown[id] {
+	for id, e := range l.ledger {
+		if !shown[id] && !e.Demolished() {
 			missing = append(missing, id)
 		}
 	}

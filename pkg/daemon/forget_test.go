@@ -50,6 +50,32 @@ func TestServeForget(t *testing.T) {
 		})
 	})
 
+	t.Run("when a client asks the daemon to forget a session whose transcript remains", func(t *testing.T) {
+		ledger := filepath.Join(t.TempDir(), "sessions.json")
+		home := idleHome(t, "interactive")
+		home.RemoveSession(pid)
+		d := daemon.New(home.Path, probes, func() time.Time { return now }, daemon.WithLedger(ledger))
+		require.NoError(t, d.Rescan())
+		require.True(t, shown(d, sid))
+		client, err := proto.Dial(serve(t, d))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = client.Close() })
+		require.NoError(t, client.Forget(sid))
+
+		t.Run("it should drop it from the next snapshot", func(t *testing.T) {
+			assert.False(t, shown(d, sid))
+		})
+
+		t.Run("and the daemon restarts on the same ledger", func(t *testing.T) {
+			restarted := daemon.New(home.Path, probes, func() time.Time { return now }, daemon.WithLedger(ledger))
+			require.NoError(t, restarted.Rescan())
+
+			t.Run("it should not be in its first snapshot", func(t *testing.T) {
+				assert.False(t, shown(restarted, sid))
+			})
+		})
+	})
+
 	t.Run("when a session was demolished while no daemon ran", func(t *testing.T) {
 		ledger := filepath.Join(t.TempDir(), "sessions.json")
 		require.NoError(t, state.Ledger{gone: {CWD: cwd, StartedAt: t0, LastActivity: t0}}.Save(ledger))

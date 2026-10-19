@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A session you demolish stays off the map even when its conversation is still on disk.**
+  `claude rm` deletes the background session and its worktree but keeps the conversation in Claude Code's files, and 0.2.1 rebuilt a resting session from it.
+  The daemon now remembers what you demolished, across restarts, and leaves it off the map and out of `botropolis status`; if you resume the conversation yourself, it comes back.
+  The demolish card now says what happens: the session and its worktree go, and the conversation stays in Claude Code's files.
+
 ## [0.2.1] - 2026-10-19
 
 ### Fixed
