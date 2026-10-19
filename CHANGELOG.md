@@ -124,6 +124,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A road runs from one lot to the other.**
+  Every lot has one driveway, paved with a short pad into the lot while one of its roads is in use, and a road between two districts runs from one driveway to the other along the streets, instead of along an avenue beside both lots and into neither.
+  A lot's driveway goes on the side of its block that keeps its roads shortest, the side facing the camera unless another is more than two cells shorter, so two lots across one avenue meet across it.
+  It is chosen when the lot first has a road and kept from then on: new roads, turning the map and restarting leave it where it is.
+  Cars, message vans, the merge truck and the compaction's skip truck and mixer all come and go by the driveway, and a road that reaches the bridge joins it with a junction.
+  Pointing at a car lights its road, driveway to driveway, and its two districts, with their group-line stations, and fades everything else, labels included; the road's tag stands clear of the car.
 - **Trees are scenery, and look it.**
   The woods between districts grow in natural clusters with open ground between them instead of one tree to a cell, they are drawn quieter than buildings and everything else you can hover, and the ground under them no longer shows a card.
 - **The city stands on an island.**
