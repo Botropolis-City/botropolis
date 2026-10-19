@@ -248,7 +248,10 @@ LIST
 while read -r img; do
     [ -n "${img}" ] || continue
     case "${img}" in pkg/assets/*) continue;; esac   # Kenney art and the atlases, CC0
-    if ! printf '%s\n' "${reviewed}" | grep -qxF "${img}"; then
+    # A here-string, not `printf | grep -q`: grep exits on its first match, the
+    # printf still writing dies of SIGPIPE, and pipefail failed an image that
+    # was on the list (item 135).
+    if ! grep -qxF -- "${img}" <<< "${reviewed}"; then
         note "${img} is not on the reviewed list — look at it, then add it"
     fi
 done < <(git ls-files | grep -iE '\.(png|jpe?g|gif|webp|svg|mp4|webm)$')
