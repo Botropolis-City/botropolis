@@ -882,7 +882,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		vector.FillRect(screen, 0, 0, float32(width), float32(height), colorNightOverlay, false)
 		g.nightLights(screen, cam, c)
 	}
-	g.fadeAll(&screen, func() { g.groupLines(screen, cam) })
+	g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
+	g.groupLines(screen, cam, true)
 	for _, d := range c.Districts {
 		// The sign stands in the district; the plate is for when it is
 		// too small to read, and for the district under the pointer.
@@ -1189,6 +1190,8 @@ func carTurn(d city.Point) int {
 
 func (g *Game) drawCar(screen *ebiten.Image, cam *city.Camera, car car) {
 	r := g.kit(screen, cam, car.model, car.turn, car.at, nil)
+	// A road's tag steps off the car rather than covering it (item 108).
+	g.queueLabel(pendingLabel{mapLabel: mapLabel{Kind: labelCar, Rect: r, Anchor: r.Center()}})
 	if car.road == nil {
 		return
 	}

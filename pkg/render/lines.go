@@ -49,7 +49,10 @@ func stationTone(th ui.Theme, st city.Station) color.NRGBA {
 	return th.Color(ui.MoveTone(st.Move))
 }
 
-func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
+// groupLines draws the groups' lines and their stations. With lit set
+// it draws only the stations a hovered car keeps lit, to go over the
+// faded rest, which a call without it draws (item 108).
+func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
 	lines := g.scene.Lines()
 	focus := g.scene.FocusedGroup()
 	width := math.Max(2, 3*cam.Zoom)
@@ -63,6 +66,14 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 		points := make([]city.Point, len(l.Stations))
 		for i, st := range l.Stations {
 			points[i] = cam.WorldToScreen(st.At)
+		}
+		if lit {
+			for i, st := range l.Stations {
+				if g.stationLit(st.District) {
+					g.station(screen, l, i, points[i], radius, ink, casing, stationTone(g.theme, st))
+				}
+			}
+			continue
 		}
 		var office city.Point
 		if l.Office != nil && len(points) > 0 {
@@ -81,16 +92,14 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 			vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), ink, true)
 		}
 		for i, st := range l.Stations {
-			p := points[i]
+			if g.stationLit(st.District) {
+				continue
+			}
 			tone := stationTone(g.theme, st)
 			if focus != "" && l.Group.ID != focus {
 				tone.A = lineFaded
 			}
-			vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius+1.5), casing, true)
-			vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius), ink, true)
-			vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius*0.6), tone, true)
-			g.noteHit(city.RectAt(p.X-radius, p.Y-radius, radius*2, radius*2),
-				city.Hit{Station: &city.StationHit{Line: l, Index: i}})
+			g.station(screen, l, i, points[i], radius, ink, casing, tone)
 		}
 		if l.Office != nil && len(points) > 0 {
 			box := officeBox(office, radius)
@@ -108,4 +117,13 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera) {
 			g.queueStationLabel(l.Stations[0].District, points[0], radius, l.Group.Short, ink, casing)
 		}
 	}
+}
+
+// station draws one station of a line and notes it under the pointer.
+func (g *Game) station(screen *ebiten.Image, l *city.Line, i int, p city.Point, radius float64, ink, casing, tone color.NRGBA) {
+	vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius+1.5), casing, true)
+	vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius), ink, true)
+	vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius*0.6), tone, true)
+	g.noteHit(city.RectAt(p.X-radius, p.Y-radius, radius*2, radius*2),
+		city.Hit{Station: &city.StationHit{Line: l, Index: i}})
 }

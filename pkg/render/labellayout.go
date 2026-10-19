@@ -29,10 +29,13 @@ const (
 	labelBadge
 	// labelTag is a road's traffic tag, the least of them.
 	labelTag
+	// labelCar is a car on the street: not a label but a thing a road's
+	// tag steps off, never drawn and never moved (item 108).
+	labelCar
 )
 
 func (k labelKind) String() string {
-	return [...]string{"sign", "plate", "caption", "station label", "badge", "tag"}[k]
+	return [...]string{"sign", "plate", "caption", "station label", "badge", "tag", "car"}[k]
 }
 
 // mapLabel is a label asking for a place: Rect is where it would stand
@@ -75,17 +78,32 @@ func layoutLabels(labels []mapLabel, gap float64) []laidLabel {
 		return la.Anchor.Y > lb.Anchor.Y
 	})
 	out := make([]laidLabel, len(labels))
-	var taken []city.Rect
-	free := func(r city.Rect) bool {
+	var taken, cars []city.Rect
+	for _, l := range labels {
+		if l.Kind == labelCar {
+			cars = append(cars, l.Rect)
+		}
+	}
+	free := func(kind labelKind, r city.Rect) bool {
 		for _, t := range taken {
 			if r.Overlaps(t) {
 				return false
+			}
+		}
+		if kind == labelTag {
+			for _, c := range cars {
+				if r.Overlaps(c) {
+					return false
+				}
 			}
 		}
 		return true
 	}
 	for _, i := range order {
 		l := labels[i]
+		if l.Kind == labelCar {
+			continue
+		}
 		if l.Kind == labelSign {
 			out[i] = laidLabel{At: l.Rect, Shown: true}
 			taken = append(taken, l.Rect)
@@ -94,7 +112,7 @@ func layoutLabels(labels []mapLabel, gap float64) []laidLabel {
 		dx, dy := l.Rect.Width()+gap, l.Rect.Height()+gap
 		for s, step := range labelSteps {
 			at := city.RectAt(l.Rect.Min.X+step[0]*dx, l.Rect.Min.Y+step[1]*dy, l.Rect.Width(), l.Rect.Height())
-			if free(at) {
+			if free(l.Kind, at) {
 				out[i] = laidLabel{At: at, Shown: true, Leader: s >= labelNearSteps}
 				taken = append(taken, at)
 				break

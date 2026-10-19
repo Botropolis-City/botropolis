@@ -220,3 +220,10 @@ func (g *Game) keeps(d *city.District) bool { return !g.lit.FadesDistrict(d) }
 
 // keepsRoad is the same for a road and its cars.
 func (g *Game) keepsRoad(r *city.RoadLine) bool { return !g.lit.FadesRoad(r) }
+
+// stationLit is whether a group-line station on a district is drawn
+// apart from its line, at full strength over the faded line: one on a
+// hovered car's districts (Aria, 2026-10-18).
+func (g *Game) stationLit(d *city.District) bool {
+	return g.lit.RecedesGround() && g.keeps(d)
+}

@@ -85,6 +85,16 @@ func TestKeepsUnderACar(t *testing.T) {
 		t.Run("it should keep the car", func(t *testing.T) {
 			assert.True(t, g.keepsRoad(c.Streets[0].Road))
 		})
+
+		// Aria, 2026-10-18: the group-line stations on the car's two
+		// districts are part of them; the lines still fade.
+		t.Run("it should draw the stations on the car's districts lit", func(t *testing.T) {
+			assert.Equal(t, [2]bool{true, true}, [2]bool{g.stationLit(district("a")), g.stationLit(district("b"))})
+		})
+
+		t.Run("it should fade a station on another district", func(t *testing.T) {
+			assert.False(t, g.stationLit(district("c")))
+		})
 	})
 
 	t.Run("when the pointer is on nothing", func(t *testing.T) {
@@ -93,6 +103,10 @@ func TestKeepsUnderACar(t *testing.T) {
 
 		t.Run("it should keep everything", func(t *testing.T) {
 			assert.True(t, g.keeps(district("c")))
+		})
+
+		t.Run("it should draw every station with its line", func(t *testing.T) {
+			assert.False(t, g.stationLit(district("a")))
 		})
 	})
 }
