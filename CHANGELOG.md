@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A train's engine shows its model's context window.**
+  Each window size has its own engine: a diesel up to 200k tokens, a bullet train up to 1M, a double-decker over 1M, and a steam engine when the window is unknown.
+  The wagons still count the model's spend.
+  Hovering a train shows its window and where it was read: from the model's sessions, from the model table, or unknown.
+
 ### Fixed
+
+- **Trains run nose first.**
+  On stretches of track running one way across the map they were drawn backwards; the old diesels looked the same from either end, so it never showed.
 
 - **A long-lived session no longer slows the city down every time it writes.**
   The daemon read a running session's whole conversation again on every change, so a session with a few hundred megabytes of history cost seconds of CPU per write, and the map was late to show what sessions were doing.
