@@ -576,6 +576,7 @@ func LayoutRanges(th Theme, width, height float64, d RangeData, sel RangeSelecti
 
 	if ch.Open {
 		p.layChooser(th, d.All, sel.Only, ch.Focus, filterY+smallH+grid, measure)
+		p.NoData = Text{}
 	}
 	return p
 }

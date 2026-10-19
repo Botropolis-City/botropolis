@@ -593,6 +593,10 @@ func TestLayoutRanges(t *testing.T) {
 			assert.Equal(t, []string{"[✓] kiln", "[ ] lanternfish", "[ ] tidepool"}, chooserLabels(cp))
 		})
 
+		t.Run("it should not lay the no-data label under it", func(t *testing.T) {
+			assert.Empty(t, cp.NoData.Text)
+		})
+
 		t.Run("it should mark the focused row", func(t *testing.T) {
 			assert.Equal(t, []bool{false, false, true}, []bool{cp.Chooser[0].Focused, cp.Chooser[1].Focused, cp.Chooser[2].Focused})
 		})
