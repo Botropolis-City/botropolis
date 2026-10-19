@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -49,35 +50,36 @@ func TestLandmarkLabelStandsOnItsLandmark(t *testing.T) {
 				t.Run(fmt.Sprintf("when the %s's label is placed and the camera faces %d at zoom %g", l.name, heading, zoom), func(t *testing.T) {
 					sprite := g.landmarkSprite(cam, lot, l.kit)
 					require.Greater(t, sprite.Area(), 0.0, "precondition: the sprite is drawn")
-					label := g.landmarkLabel(sprite, l.name)
+					foot := cam.WorldToScreen(lot.Center())
+					roof := city.Point{X: foot.X, Y: foot.Y - g.kitRoofLift(cam, l.kit)}
+					label := g.landmarkLabel(g.landmarkRoof(cam, lot, l.kit), l.name)
 
 					t.Run("it should anchor within the drawn sprite", func(t *testing.T) {
 						assert.True(t, sprite.Contains(label.Anchor), "anchor %v, sprite %v", label.Anchor, sprite)
 					})
 
-					t.Run("it should centre its plate over the sprite", func(t *testing.T) {
-						assert.InDelta(t, sprite.Center().X, label.Rect.Center().X, 1)
-					})
-
-					t.Run("it should rest its plate's bottom within a grid of the sprite's top, without covering it", func(t *testing.T) {
-						assert.InDelta(t, sprite.Min.Y-g.theme.Grid()/2, label.Rect.Max.Y, g.theme.Grid()/2)
+					t.Run("it should rest its plate on the roof", func(t *testing.T) {
+						d := label.Rect.Center().Sub(roof)
+						assert.LessOrEqual(t, math.Hypot(d.X, d.Y), g.theme.Grid(), "plate %v, roof %v", label.Rect, roof)
 					})
 				})
 			}
 		}
 	}
 
-	t.Run("when the power plant's label is placed", func(t *testing.T) {
-		cam := isoCamera(0, 1)
-		perch := plantStackPerch(lot, g.kitFootprint(cam, kitPlant))
-		_, _, _, _, chimney, ok := g.kitThroughPlace(cam, kitStack, perch, g.kitRoofLift(cam, kitPlant))
-		require.True(t, ok, "precondition: the chimney is placed")
-		label := g.landmarkLabel(g.landmarkSprite(cam, lot, kitPlant), "power plant")
+	for _, heading := range []int{0, 90, 180, 270} {
+		t.Run(fmt.Sprintf("when the power plant's label is placed and the camera faces %d", heading), func(t *testing.T) {
+			cam := isoCamera(heading, 1)
+			perch := plantStackPerch(lot, g.kitFootprint(cam, kitPlant))
+			_, _, _, _, chimney, ok := g.kitThroughPlace(cam, kitStack, perch, g.kitRoofLift(cam, kitPlant))
+			require.True(t, ok, "precondition: the chimney is placed")
+			label := g.landmarkLabel(g.landmarkRoof(cam, lot, kitPlant), "power plant")
 
-		t.Run("it should clear the top of the chimney", func(t *testing.T) {
-			assert.LessOrEqual(t, label.Rect.Max.Y, chimney.Min.Y)
+			t.Run("it should sit below the chimney's top", func(t *testing.T) {
+				assert.Greater(t, label.Rect.Min.Y, chimney.Min.Y)
+			})
 		})
-	})
+	}
 
 	t.Run("when the label is placed a sprite's height above the foot, as item 99 found it", func(t *testing.T) {
 		cam := isoCamera(0, 1)
@@ -90,7 +92,7 @@ func TestLandmarkLabelStandsOnItsLandmark(t *testing.T) {
 	})
 
 	t.Run("when the label is laid out with the map's other labels", func(t *testing.T) {
-		label := g.landmarkLabel(city.RectAt(100, 100, 80, 80), "library")
+		label := g.landmarkLabel(city.Point{X: 140, Y: 130}, "library")
 
 		t.Run("it should be a landmark label, giving way to signs and badges", func(t *testing.T) {
 			assert.Equal(t, labelLandmark, label.Kind)
