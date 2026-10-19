@@ -205,6 +205,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The sidebar scrolls, so every project and session in it can be reached.**
+  With more rows than fit, it showed the first screenful and nothing said the rest, or the hidden projects and their *show* buttons, were there.
+  Now the wheel over it, and PageUp, PageDown, Home and End while it is open, scroll it by whole rows, with "N more above" and "N more below" saying what is out of view; the arrows still pan the map.
+  When the selection changes, from the map, `tab` or the finder, the list scrolls just far enough to show its row.
+  The sidebar also ends above the footer's needs-you line instead of running under it.
+
 - **The trains are the size of the cars' world, and their wagons no longer pile onto each other.**
   A train was a third as long as it should be beside the cars, and each wagon was drawn two thirds over the one behind it, so a six-wagon train looked like two.
   Trains are now drawn two fifths larger and each runs its own length behind the one in front, on rails set under its body, with trains a wagon and a half apart round the loop.
