@@ -71,7 +71,7 @@ func TestCorpusCostMatchesClaudeCode(t *testing.T) {
 	store, err := stats.Open(filepath.Join(t.TempDir(), "stats.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
-	require.NoError(t, store.Ingest(corpus, time.Now()))
+	require.NoError(t, store.Ingest(corpus, time.Now(), nil))
 
 	for session, want := range sessions {
 		total, byModel, err := store.SessionCost(session, asClaudeCodePriced)

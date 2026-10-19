@@ -19,7 +19,7 @@ type priorityStats struct {
 	priority chan int
 }
 
-func (p *priorityStats) Ingest(string, time.Time) error {
+func (p *priorityStats) Ingest(string, time.Time, func()) error {
 	prio, _ := syscall.Getpriority(syscall.PRIO_PROCESS, syscall.Gettid())
 	p.priority <- prio
 	return nil

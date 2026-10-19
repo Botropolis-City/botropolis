@@ -122,7 +122,7 @@ func (f *fixture) subagent(session, agent string, lines ...string) string {
 
 func (f *fixture) ingest() {
 	f.t.Helper()
-	require.NoError(f.t, f.store.Ingest(f.projects, f.now))
+	require.NoError(f.t, f.store.Ingest(f.projects, f.now, nil))
 }
 
 func (f *fixture) count(query string, args ...any) int {

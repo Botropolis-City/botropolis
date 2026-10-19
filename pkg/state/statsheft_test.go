@@ -23,7 +23,7 @@ type fakeStats struct {
 	ingests   int
 }
 
-func (f *fakeStats) Ingest(string, time.Time) error {
+func (f *fakeStats) Ingest(string, time.Time, func()) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.ingests++

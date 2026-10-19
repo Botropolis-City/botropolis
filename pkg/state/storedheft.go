@@ -11,8 +11,9 @@ import (
 
 // StatsSource is the statistics store as the loader needs it: brought up
 // to date from the transcripts, and every stored session's counters.
+// Ingest calls yield often, and yield waits while a load runs.
 type StatsSource interface {
-	Ingest(projectsDir string, now time.Time) error
+	Ingest(projectsDir string, now time.Time, yield func()) error
 	Hefts() (map[string]claude.Usage, error)
 }
 
@@ -22,6 +23,7 @@ type StatsSource interface {
 // Sessions whose transcripts are gone keep their hefts. Item 110.
 type storedHefts struct {
 	src     StatsSource
+	yield   func()
 	done    func()
 	mu      sync.Mutex
 	hefts   map[string]claude.Usage
@@ -38,7 +40,7 @@ func (l *Loader) WithStats(src StatsSource, done func()) *Loader {
 	if err != nil {
 		hefts = nil
 	}
-	l.stored = &storedHefts{src: src, done: done, hefts: hefts, read: len(hefts) > 0}
+	l.stored = &storedHefts{src: src, yield: l.gate.yield, done: done, hefts: hefts, read: len(hefts) > 0}
 	return l
 }
 
@@ -84,7 +86,7 @@ func (h *storedHefts) pass(projectsDir string, now time.Time) {
 	runtime.LockOSThread()
 	backgroundPriority()
 	changed := false
-	if err := h.src.Ingest(projectsDir, now); err == nil {
+	if err := h.src.Ingest(projectsDir, now, h.yield); err == nil {
 		if hefts, err := h.src.Hefts(); err == nil {
 			h.mu.Lock()
 			changed = !h.read || !maps.Equal(hefts, h.hefts)

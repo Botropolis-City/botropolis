@@ -71,7 +71,7 @@ func StatsRanges(t testing.TB, home string, now time.Time) string {
 	store, err := stats.Open(path)
 	require.NoError(t, err)
 	defer func() { _ = store.Close() }()
-	require.NoError(t, store.Ingest(projects, now))
+	require.NoError(t, store.Ingest(projects, now, nil))
 	_, err = store.DB().Exec("INSERT INTO gaps (off_at, on_at) VALUES (?, ?)", StatsRangesGap[0].UnixMilli(), StatsRangesGap[1].UnixMilli())
 	require.NoError(t, err)
 	return path

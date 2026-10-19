@@ -53,6 +53,7 @@ type Loader struct {
 	whole           *wholeRead
 	stored          *storedHefts
 	stoppedFiles    map[string]stoppedFile
+	gate            loadGate
 }
 
 func NewLoader(home string, probes Probes) *Loader {
@@ -84,6 +85,7 @@ func (l *Loader) WatchDirs() []string {
 }
 
 func (l *Loader) Load(now time.Time) (Snapshot, error) {
+	defer l.gate.hold()()
 	claudeDir := filepath.Join(l.home, ".claude")
 	projectsDir := filepath.Join(claudeDir, "projects")
 	snapshot := Snapshot{At: now}

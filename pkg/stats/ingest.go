@@ -19,12 +19,16 @@ const (
 	synthetic   = "<synthetic>"
 )
 
+// YieldEvery is how many bytes of a transcript ingest reads between
+// yields.
+const YieldEvery = 1 << 20
+
 // Ingest reads every main and subagent transcript under projectsDir into
 // the store, each from where the last read stopped. A file that shrank or
 // whose modification time went backwards is read again from the start and
 // its rows rebuilt to match it; a file that is gone keeps its rows.
 // Item 110.
-func (s *Store) Ingest(projectsDir string, now time.Time) error {
+func (s *Store) Ingest(projectsDir string, now time.Time, yield func()) error {
 	mains, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
 	if err != nil {
 		return err
@@ -35,15 +39,20 @@ func (s *Store) Ingest(projectsDir string, now time.Time) error {
 	}
 	sort.Strings(mains)
 	sort.Strings(agents)
+	if yield == nil {
+		yield = func() {}
+	}
 	for _, path := range mains {
-		if err := s.ingestFile(path, strings.TrimSuffix(filepath.Base(path), ".jsonl"), mainThread); err != nil {
+		yield()
+		if err := s.ingestFile(path, strings.TrimSuffix(filepath.Base(path), ".jsonl"), mainThread, yield); err != nil {
 			return err
 		}
 	}
 	for _, path := range agents {
 		session := filepath.Base(filepath.Dir(filepath.Dir(path)))
 		thread := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), agentPrefix), ".jsonl")
-		if err := s.ingestFile(path, session, thread); err != nil {
+		yield()
+		if err := s.ingestFile(path, session, thread, yield); err != nil {
 			return err
 		}
 	}
@@ -144,7 +153,7 @@ type transcriptRow struct {
 	size, mtime, readTo int64
 }
 
-func (s *Store) ingestFile(path, session, thread string) error {
+func (s *Store) ingestFile(path, session, thread string, yield func()) error {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -171,7 +180,7 @@ func (s *Store) ingestFile(path, session, thread string) error {
 			return err
 		}
 	}
-	r, err := readFrom(path, from, fallback)
+	r, err := readFrom(path, from, fallback, yield)
 	if err != nil {
 		return err
 	}
@@ -222,7 +231,7 @@ func (s *Store) lastDir(session, thread string) (string, error) {
 	return dir, err
 }
 
-func readFrom(path string, from int64, cwd string) (read, error) {
+func readFrom(path string, from int64, cwd string, yield func()) (read, error) {
 	r := read{to: from}
 	f, err := os.Open(path)
 	if err != nil {
@@ -234,8 +243,11 @@ func readFrom(path string, from int64, cwd string) (read, error) {
 	}
 	byID := map[string]int{}
 	reader := bufio.NewReader(f)
+	var buf []byte
+	sinceYield := 0
 	for {
-		raw, err := reader.ReadBytes('\n')
+		raw, kept, err := nextLine(reader, buf)
+		buf = kept
 		if err == io.EOF {
 			return r, nil
 		}
@@ -243,6 +255,10 @@ func readFrom(path string, from int64, cwd string) (read, error) {
 			return r, err
 		}
 		r.to += int64(len(raw))
+		if sinceYield += len(raw); sinceYield >= YieldEvery {
+			yield()
+			sinceYield = 0
+		}
 		var line lineJSON
 		if json.Unmarshal(raw, &line) != nil {
 			continue
@@ -264,6 +280,28 @@ func readFrom(path string, from int64, cwd string) (read, error) {
 		}
 		byID[m.id] = len(r.messages)
 		r.messages = append(r.messages, m)
+	}
+}
+
+// nextLine is the next whole line, read without a fresh allocation: it
+// points into the reader's buffer, or into buf when the line is longer,
+// and is good until the next call. kept is buf to pass back in.
+func nextLine(reader *bufio.Reader, buf []byte) (line, kept []byte, err error) {
+	buf = buf[:0]
+	for {
+		chunk, err := reader.ReadSlice('\n')
+		if err == bufio.ErrBufferFull {
+			buf = append(buf, chunk...)
+			continue
+		}
+		if err != nil {
+			return nil, buf, err
+		}
+		if len(buf) == 0 {
+			return chunk, buf, nil
+		}
+		buf = append(buf, chunk...)
+		return buf, buf, nil
 	}
 }
 

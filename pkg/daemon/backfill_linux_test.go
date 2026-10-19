@@ -42,7 +42,7 @@ type slowIngest struct {
 	sink    atomic.Pointer[[]byte]
 }
 
-func (s *slowIngest) Ingest(string, time.Time) error {
+func (s *slowIngest) Ingest(string, time.Time, func()) error {
 	if s.once.CompareAndSwap(false, true) {
 		close(s.started)
 	}
