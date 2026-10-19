@@ -327,10 +327,10 @@ func TestHint(t *testing.T) {
 	}{
 		{"when the user unit runs an older daemon", older, func(f *fakeSystem) {
 			f.cgroup = "0::/user.slice/user@1000.service/app.slice/botropolisd.service\n"
-		}, `restart it with "systemctl --user restart botropolisd"`},
+		}, `restart the daemon with "systemctl --user restart botropolisd"`},
 		{"when an older daemon was started by hand", older, func(*fakeSystem) {}, "stop botropolisd (pid 4242) and start it again"},
 		{"when the older daemon cannot be identified", older, func(f *fakeSystem) { f.pidErr = errors.New("no") }, "restart botropolisd"},
-		{"when the daemon is newer than this", newer, func(*fakeSystem) {}, "this botropolis is older than its daemon: run the installed one"},
+		{"when the daemon is newer than this", newer, func(*fakeSystem) {}, "restart the city to run the installed one"},
 	} {
 		t.Run(c.scenario, func(t *testing.T) {
 			f := newFake()

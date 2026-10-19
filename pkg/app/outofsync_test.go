@@ -14,7 +14,7 @@ import (
 // Item 152: a command refused by a daemon out of sync says so on one
 // line, with what to do about it.
 func TestErrorLine(t *testing.T) {
-	hint := func(*proto.Mismatch) string { return `restart it with "systemctl --user restart botropolisd"` }
+	hint := func(*proto.Mismatch) string { return `restart the daemon with "systemctl --user restart botropolisd"` }
 	mismatch := &proto.Mismatch{Daemon: proto.Peer{Release: "0.2.2", Protocol: 1}, Ours: proto.Peer{Release: "0.2.3", Protocol: 1}}
 
 	for _, c := range []struct {
@@ -23,9 +23,9 @@ func TestErrorLine(t *testing.T) {
 		line     string
 	}{
 		{"when the daemon is out of sync", mismatch,
-			`botropolis: daemon is 0.2.2, this is 0.2.3: restart it with "systemctl --user restart botropolisd"`},
+			`botropolis: the Botropolis city and its daemon must be running the same version (daemon 0.2.2, city 0.2.3): restart the daemon with "systemctl --user restart botropolisd"`},
 		{"when the mismatch is wrapped", fmt.Errorf("find: %w", mismatch),
-			`botropolis: daemon is 0.2.2, this is 0.2.3: restart it with "systemctl --user restart botropolisd"`},
+			`botropolis: the Botropolis city and its daemon must be running the same version (daemon 0.2.2, city 0.2.3): restart the daemon with "systemctl --user restart botropolisd"`},
 		{"when it is any other error", errors.New("no such session"), "botropolis: no such session"},
 	} {
 		t.Run(c.scenario, func(t *testing.T) {
@@ -36,7 +36,7 @@ func TestErrorLine(t *testing.T) {
 	}
 }
 
-// Item 152: Restart Botropolis runs the map again from its path on disk,
+// Item 152: Restart City runs the city again from its path on disk,
 // which after an upgrade is the new build, with its own arguments.
 func TestRestartPath(t *testing.T) {
 	look := func(name string) (string, error) {

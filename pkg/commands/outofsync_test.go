@@ -57,7 +57,7 @@ func TestFeedOutOfSync(t *testing.T) {
 		}
 
 		t.Run("it should report the mismatch", func(t *testing.T) {
-			assert.EqualError(t, first, "daemon is 0.0.1, this is dev")
+			assert.EqualError(t, first, "the Botropolis city and its daemon must be running the same version (daemon 0.0.1, city dev)")
 		})
 
 		t.Run("it should offer no snapshot", func(t *testing.T) {
@@ -135,7 +135,9 @@ func TestDoctorOutOfSync(t *testing.T) {
 	t.Run("when the daemon is another release", func(t *testing.T) {
 		mismatch := &proto.Mismatch{Daemon: olderDaemon, Ours: proto.Peer{Release: "0.2.3", Protocol: proto.Protocol}, Socket: "/run/none.sock"}
 		d := doctorFor(t, true, map[string]string{"DISPLAY": ":0"}, []string{"claude"}, mismatch)
-		d.RestartHint = func(m *proto.Mismatch) string { return `restart it with "systemctl --user restart botropolisd"` }
+		d.RestartHint = func(m *proto.Mismatch) string {
+			return `restart the daemon with "systemctl --user restart botropolisd"`
+		}
 		c := checkNamed(d.Run(), "daemon")
 
 		t.Run("it should fail the daemon check", func(t *testing.T) {
@@ -143,11 +145,11 @@ func TestDoctorOutOfSync(t *testing.T) {
 		})
 
 		t.Run("it should name both releases", func(t *testing.T) {
-			assert.Equal(t, "daemon is 0.0.1, this is 0.2.3", c.Detail)
+			assert.Equal(t, "the Botropolis city and its daemon must be running the same version (daemon 0.0.1, city 0.2.3)", c.Detail)
 		})
 
 		t.Run("it should say how to restart it", func(t *testing.T) {
-			assert.Equal(t, `restart it with "systemctl --user restart botropolisd"`, c.Hint)
+			assert.Equal(t, `restart the daemon with "systemctl --user restart botropolisd"`, c.Hint)
 		})
 	})
 

@@ -85,7 +85,7 @@ func TestDaemonOfAnotherRelease(t *testing.T) {
 			})
 
 			t.Run("it should say so on one line, with what to do", func(t *testing.T) {
-				assert.Regexp(t, `^botropolis: daemon is 0\.0\.1, this is dev: \S.*\n$`, stderr.String())
+				assert.Regexp(t, `^botropolis: the Botropolis city and its daemon must be running the same version \(daemon 0\.0\.1, city dev\): \S.*\n$`, stderr.String())
 			})
 
 			t.Run("it should print nothing else", func(t *testing.T) {

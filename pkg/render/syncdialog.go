@@ -3,7 +3,6 @@ package render
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -12,21 +11,20 @@ import (
 	"botropolis.city/botropolis/pkg/ui"
 )
 
-// ErrRestart ends the map so that it can be run again from its path on
+// ErrRestart ends the city so that it can be run again from its path on
 // disk, which after an upgrade is the new build (item 152).
-var ErrRestart = errors.New("restart botropolis")
+var ErrRestart = errors.New("restart the city")
 
 const (
-	exitLabel           = "Exit"
-	restartDaemonLabel  = "Restart Daemon"
-	restartBotropolisLb = "Restart Botropolis"
+	exitLabel          = "Exit"
+	restartDaemonLabel = "Restart Daemon"
+	restartCityLabel   = "Restart City"
 )
 
-// syncDialog stands in for the whole map while its daemon is another
-// release or protocol: running the two out of sync could go wrong in
-// ways nobody tested, so nothing of the city is drawn and nothing but
-// the dialog answers. It offers to exit, or to restart whichever end is
-// behind. Item 152.
+// syncDialog stands in for the whole city while its daemon is another
+// release or protocol: the two must be running the same version, so
+// nothing of the city is drawn and nothing but the dialog answers. It
+// offers to exit, or to restart whichever end is behind. Item 152.
 type syncDialog struct {
 	mismatch   *proto.Mismatch
 	restarting bool
@@ -34,27 +32,27 @@ type syncDialog struct {
 }
 
 type syncWording struct {
-	Title   string
-	Lines   []string
-	Status  string
-	Buttons []string
+	Title string
+	Lines []string
+	// Versions are the rows under the text: a label and a version.
+	Versions [][2]string
+	Status   string
+	Buttons  []string
 }
 
 func (d *syncDialog) wording() syncWording {
 	m := d.mismatch
-	versions := fmt.Sprintf("The daemon is %s and this is %s.", m.Daemon.Release, m.Ours.Release)
-	switch m.Daemon.Release {
-	case "":
-		versions = fmt.Sprintf("The daemon is older than %s, which this is.", m.Ours.Release)
-	case m.Ours.Release:
-		versions = fmt.Sprintf("The daemon speaks protocol %d and this speaks %d.", m.Daemon.Protocol, m.Ours.Protocol)
-	}
-	why := "Running them out of sync could go wrong in ways nobody tested, so the city waits until they match."
-	w := syncWording{Title: "Botropolis is out of sync with its daemon", Lines: []string{versions + " " + why}}
-	restart := restartDaemonLabel
+	restart, which := restartDaemonLabel, "the daemon"
 	if m.Newer() {
-		restart = restartBotropolisLb
-		w.Lines = append(w.Lines, "The daemon is the newer one, so this is what needs restarting.")
+		restart, which = restartCityLabel, "the city"
+	}
+	w := syncWording{
+		Title: "Botropolis is out of sync with its daemon",
+		Lines: []string{"The Botropolis city and its daemon must be running the same version. Please restart " + which + " to continue."},
+		Versions: [][2]string{
+			{"Botropolis daemon version", m.DaemonVersion()},
+			{"Botropolis city version", m.CityVersion()},
+		},
 	}
 	switch {
 	case d.restarting:
@@ -156,14 +154,30 @@ func (g *Game) syncRestart() error {
 	return nil
 }
 
+// syncTone is how a line of the dialog is coloured.
+type syncTone int
+
+const (
+	toneBody syncTone = iota
+	toneLabel
+	toneStatus
+)
+
+type syncText struct {
+	ui.Text
+	tone syncTone
+}
+
 type syncLayout struct {
 	panel   city.Rect
 	title   city.Point
-	lines   []ui.Text
-	status  ui.Text
+	texts   []syncText
 	buttons []ui.Button
 }
 
+// layoutSync lays the dialog out: the title, the text, the two version
+// rows with their versions aligned in a column, a status when there is
+// one, and the buttons at the right.
 func (g *Game) layoutSync(width, height float64) syncLayout {
 	th := g.theme
 	grid := th.Grid()
@@ -172,39 +186,48 @@ func (g *Game) layoutSync(width, height float64) syncLayout {
 	_, body := g.faces.Measure("", ui.Body)
 	panelWidth := min(width-grid*8, grid*90)
 	inner := panelWidth - grid*4
-	var wrapped [][]string
-	rows := 0
+	var text []string
 	for _, l := range w.Lines {
-		lines := g.wrapWords(l, inner, ui.Body)
-		wrapped = append(wrapped, lines)
-		rows += len(lines)
+		text = append(text, g.wrapWords(l, inner, ui.Body)...)
 	}
 	var status []string
 	if w.Status != "" {
 		status = g.wrapWords(w.Status, inner, ui.Body)
 	}
-	buttonRow := body + grid
-	panelHeight := grid*4 + title + grid + float64(rows)*body + float64(len(wrapped))*grid/2 +
-		float64(len(status))*body + grid + buttonRow
+	labelWidth := 0.0
+	for _, row := range w.Versions {
+		lw, _ := g.faces.Measure(row[0], ui.Body)
+		labelWidth = max(labelWidth, lw)
+	}
+	statusGap := 0.0
+	if len(status) > 0 {
+		statusGap = grid
+	}
+	panelHeight := grid*4 + title + grid + float64(len(text))*body + grid +
+		float64(len(w.Versions))*body + statusGap + float64(len(status))*body + grid*2 + body + grid
 	panel := city.RectAt((width-panelWidth)/2, (height-panelHeight)/2, panelWidth, panelHeight)
 	x, y := panel.Min.X+grid*2, panel.Min.Y+grid*2
 	l := syncLayout{panel: panel, title: city.Point{X: x, Y: y}}
-	y += title + grid
-	for _, para := range wrapped {
-		for _, line := range para {
-			l.lines = append(l.lines, ui.Text{Text: line, At: city.Point{X: x, Y: y}, Size: ui.Body})
-			y += body
-		}
-		y += grid / 2
+	add := func(s string, at float64, tone syncTone) {
+		l.texts = append(l.texts, syncText{ui.Text{Text: s, At: city.Point{X: at, Y: y}, Size: ui.Body}, tone})
 	}
-	for _, line := range status {
-		l.lines = append(l.lines, ui.Text{Text: line, At: city.Point{X: x, Y: y}, Size: ui.Body})
+	y += title + grid
+	for _, line := range text {
+		add(line, x, toneBody)
 		y += body
 	}
-	if len(status) > 0 {
-		l.status = l.lines[len(l.lines)-len(status)]
-	}
 	y += grid
+	for _, row := range w.Versions {
+		add(row[0], x, toneLabel)
+		add(row[1], x+labelWidth+grid*3, toneBody)
+		y += body
+	}
+	y += statusGap
+	for _, line := range status {
+		add(line, x, toneStatus)
+		y += body
+	}
+	y += grid * 2
 	row := ui.LayoutButtons(th, w.Buttons, city.Point{X: x, Y: y}, g.faces.Measure)
 	if n := len(row); n > 0 {
 		shift := panel.Max.X - grid*2 - row[n-1].Rect.Max.X
@@ -229,23 +252,17 @@ func (g *Game) drawSync(screen *ebiten.Image, width, height float64) {
 	l := g.layoutSync(width, height)
 	g.roundRect(screen, l.panel, th.Radius(), th.Palette.Panel)
 	g.text(screen, l.title, g.sync.wording().Title, ui.Title, th.Palette.Text)
-	statusFrom := len(l.lines)
-	if l.status.Text != "" {
-		for i, t := range l.lines {
-			if t == l.status {
-				statusFrom = i
-			}
-		}
-	}
-	for i, t := range l.lines {
+	for _, t := range l.texts {
 		c := th.Palette.Text
-		if i >= statusFrom {
+		switch {
+		case t.tone == toneLabel:
+			c = th.Palette.Dim
+		case t.tone == toneStatus && g.sync.restarting:
+			c = th.Palette.Dim
+		case t.tone == toneStatus:
 			c = th.Palette.NeedsYou
-			if g.sync.restarting {
-				c = th.Palette.Dim
-			}
 		}
-		g.text(screen, t.At, t.Text, t.Size, c)
+		g.text(screen, t.At, t.Text.Text, t.Size, c)
 	}
 	for i, b := range l.buttons {
 		fill, ink := th.Palette.Hairline, th.Palette.Text

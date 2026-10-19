@@ -60,7 +60,7 @@ func TestSyncDialog(t *testing.T) {
 		return errors.New("no button " + label)
 	}
 
-	t.Run("when the daemon is older than the map", func(t *testing.T) {
+	t.Run("when the daemon is older than the city", func(t *testing.T) {
 		h := newHarness(older)
 		w := h.g.sync.wording()
 
@@ -68,8 +68,12 @@ func TestSyncDialog(t *testing.T) {
 			assert.Equal(t, "Botropolis is out of sync with its daemon", w.Title)
 		})
 
-		t.Run("it should name both versions", func(t *testing.T) {
-			assert.Contains(t, w.Lines[0], "The daemon is 0.2.2 and this is 0.2.3.")
+		t.Run("it should say to restart the daemon", func(t *testing.T) {
+			assert.Equal(t, []string{"The Botropolis city and its daemon must be running the same version. Please restart the daemon to continue."}, w.Lines)
+		})
+
+		t.Run("it should list both versions", func(t *testing.T) {
+			assert.Equal(t, [][2]string{{"Botropolis daemon version", "0.2.2"}, {"Botropolis city version", "0.2.3"}}, w.Versions)
 		})
 
 		t.Run("it should offer Exit and Restart Daemon", func(t *testing.T) {
@@ -163,18 +167,26 @@ func TestSyncDialog(t *testing.T) {
 		})
 	})
 
-	t.Run("when the daemon is newer than the map", func(t *testing.T) {
+	t.Run("when the daemon is newer than the city", func(t *testing.T) {
 		h := newHarness(newer)
 
-		t.Run("it should offer Exit and Restart Botropolis", func(t *testing.T) {
-			assert.Equal(t, []string{"Exit", "Restart Botropolis"}, h.g.sync.wording().Buttons)
+		t.Run("it should say to restart the city", func(t *testing.T) {
+			assert.Equal(t, []string{"The Botropolis city and its daemon must be running the same version. Please restart the city to continue."}, h.g.sync.wording().Lines)
 		})
 
-		t.Run("and Restart Botropolis is clicked", func(t *testing.T) {
+		t.Run("it should list both versions", func(t *testing.T) {
+			assert.Equal(t, [][2]string{{"Botropolis daemon version", "0.2.4"}, {"Botropolis city version", "0.2.3"}}, h.g.sync.wording().Versions)
+		})
+
+		t.Run("it should offer Exit and Restart City", func(t *testing.T) {
+			assert.Equal(t, []string{"Exit", "Restart City"}, h.g.sync.wording().Buttons)
+		})
+
+		t.Run("and Restart City is clicked", func(t *testing.T) {
 			h := newHarness(newer)
 
 			t.Run("it should end the game to restart it", func(t *testing.T) {
-				assert.ErrorIs(t, click(h.g, "Restart Botropolis"), ErrRestart)
+				assert.ErrorIs(t, click(h.g, "Restart City"), ErrRestart)
 			})
 
 			t.Run("it should not touch the daemon", func(t *testing.T) {

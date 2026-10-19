@@ -36,8 +36,8 @@ func TestServeVersions(t *testing.T) {
 		peer     proto.Peer
 		refusal  string
 	}{
-		{"when the daemon is another release of the same protocol", proto.Peer{Release: "0.0.1", Protocol: proto.Protocol}, "daemon is 0.0.1, this is dev"},
-		{"when the daemon speaks another protocol", proto.Peer{Release: "9.0.0", Protocol: proto.Protocol + 1}, "daemon is 9.0.0, this is dev"},
+		{"when the daemon is another release of the same protocol", proto.Peer{Release: "0.0.1", Protocol: proto.Protocol}, "the Botropolis city and its daemon must be running the same version (daemon 0.0.1, city dev)"},
+		{"when the daemon speaks another protocol", proto.Peer{Release: "9.0.0", Protocol: proto.Protocol + 1}, "the Botropolis city and its daemon must be running the same version (daemon 9.0.0, city dev)"},
 	} {
 		t.Run(c.scenario, func(t *testing.T) {
 			d := newDaemon(t, idleHome(t, "interactive"))

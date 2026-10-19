@@ -122,7 +122,7 @@ func Plan(ctx context.Context, sys System, sock string) (Method, error) {
 // this is what is out of date.
 func Hint(ctx context.Context, sys System, m *proto.Mismatch) string {
 	if m.Newer() {
-		return "this botropolis is older than its daemon: run the installed one"
+		return "restart the city to run the installed one"
 	}
 	method, err := Plan(ctx, sys, m.Socket)
 	switch {
@@ -131,7 +131,7 @@ func Hint(ctx context.Context, sys System, m *proto.Mismatch) string {
 	case method.Kind == ByHand:
 		return method.Describe()
 	}
-	return fmt.Sprintf("restart it with %q", method.Describe())
+	return fmt.Sprintf("restart the daemon with %q", method.Describe())
 }
 
 // Restart restarts the daemon answering on sock the way it was started,

@@ -121,7 +121,7 @@ func nativeHint(m *proto.Mismatch) string {
 	return daemonctl.Hint(context.Background(), daemonctl.Native(), m)
 }
 
-// restart runs the map again, with its own arguments and environment,
+// restart runs the city again, with its own arguments and environment,
 // from its path on disk (item 152). It returns only when it cannot.
 func restart() int {
 	path, err := restartPath(os.Args[0], exec.LookPath, os.Executable)

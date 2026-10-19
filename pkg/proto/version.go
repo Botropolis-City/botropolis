@@ -38,8 +38,8 @@ func Same(a, b Peer) bool {
 }
 
 // Mismatch is a daemon of another release or protocol than this build,
-// which every client refuses but a hook's: running the two out of sync
-// could go wrong in ways nobody tested (item 152). Socket is where the
+// which every client refuses but a hook's: the two must be the same
+// version (item 152). Socket is where the
 // daemon answered, so whatever restarts it knows which one.
 type Mismatch struct {
 	Daemon Peer
@@ -48,13 +48,26 @@ type Mismatch struct {
 }
 
 func (m *Mismatch) Error() string {
+	return fmt.Sprintf("the Botropolis city and its daemon must be running the same version (daemon %s, city %s)", m.DaemonVersion(), m.CityVersion())
+}
+
+// DaemonVersion is the daemon's version as a person reads it.
+func (m *Mismatch) DaemonVersion() string {
 	switch m.Daemon.Release {
 	case "":
-		return fmt.Sprintf("daemon is older than %s", m.Ours.Release)
+		return "older than " + m.Ours.Release
 	case m.Ours.Release:
-		return fmt.Sprintf("daemon is %s (protocol %d), this is %s (protocol %d)", m.Daemon.Release, m.Daemon.protocol(), m.Ours.Release, m.Ours.protocol())
+		return fmt.Sprintf("%s protocol %d", m.Daemon.Release, m.Daemon.protocol())
 	}
-	return fmt.Sprintf("daemon is %s, this is %s", m.Daemon.Release, m.Ours.Release)
+	return m.Daemon.Release
+}
+
+// CityVersion is this build's version as a person reads it.
+func (m *Mismatch) CityVersion() string {
+	if m.Daemon.Release == m.Ours.Release {
+		return fmt.Sprintf("%s protocol %d", m.Ours.Release, m.Ours.protocol())
+	}
+	return m.Ours.Release
 }
 
 // Newer is whether the daemon is ahead of this build, so that this is
