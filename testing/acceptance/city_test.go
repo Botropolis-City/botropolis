@@ -70,9 +70,7 @@ func isGround(c color.NRGBA) bool {
 }
 
 func TestCityScreenshot(t *testing.T) {
-	if _, err := exec.LookPath("xvfb-run"); err != nil {
-		t.Skip("no xvfb-run to open the city on a virtual display")
-	}
+	helpers.NeedXvfb(t)
 	home := helpers.LiveFixtureHome(t, "synthetic")
 
 	t.Run("when the city is shot at 1x and 2x", func(t *testing.T) {

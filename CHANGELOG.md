@@ -182,6 +182,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Headless cities started at the same moment no longer lose their display.**
+  `--headless` used `xvfb-run -a`, which looks for a free display and then takes it, so cities started together could take the same one, and one of them died with "X connection broken"; eight started at once lost about half.
+  It now starts Xvfb itself, which reports the display it took, behind a cookie only that city holds.
+  `--headless` needs Xvfb rather than `xvfb-run`: `xorg-server-xvfb` on Arch, `xvfb` on Debian and Ubuntu, `xorg-x11-server-Xvfb` on Fedora.
+
 - **Labels on the map no longer cover one another, and `z` turns them all off.**
   Group badges, a line's station label, district signs and the plates that stand in for them, a first sighting's caption and a road's traffic tag are laid out together each frame: a district sign never moves, and any other label that would cover one steps down or aside, further out on a short leader if it must, and is left off where there is no room.
   Labels are drawn over the world, so a building or a sign no longer hides a badge.

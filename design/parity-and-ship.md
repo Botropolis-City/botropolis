@@ -42,8 +42,10 @@ A team is a camp: its lead's building tied to its members' with dashed lines, fr
 Roadmap phase 12, 2026-09-18.
 `botropolis doctor` checks the daemon, the hooks, a terminal, the `claude` CLI, the harness homes and the display, with the command to run for anything short of ok;
 a Wayland session is noted as XWayland, which is how Ebitengine (GLFW/X11) runs there today.
-`--headless` re-runs the city under `xvfb-run` on a 1100×760 virtual display with the desktop's displays hidden from it, so screenshots, `--keys` and `--record` never open a window;
-the acceptance test shoots that way and skips only when there is no `xvfb-run`.
+`--headless` re-runs the city on a 1100×760 virtual display with the desktop's displays hidden from it, so screenshots, `--keys` and `--record` never open a window;
+the acceptance test shoots that way and skips only when there is no Xvfb.
+It started under `xvfb-run -a`, which looks for a free display and then takes it, so cities started together took the same one and lost their X server;
+`pkg/xvfb` now starts Xvfb with `-displayfd`, so the server reports the display it took, and a test guards that nothing calls `xvfb-run` again (item 126).
 `--record dir --seconds n` writes ten frames a second and presses `--keys` two seconds apart; `make gif` turns twenty-four seconds of that into `docs/botropolis.gif` through ffmpeg.
 The README leads with the latest screenshot, the GIF, the four commands of a first run and the shell helper.
 Releasing is manual and publishes what CI already built.

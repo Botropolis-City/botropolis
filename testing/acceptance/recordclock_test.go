@@ -1,7 +1,6 @@
 package acceptance_test
 
 import (
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -10,24 +9,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // Item 113: under software GL Ebitengine ran several updates per drawn
 // frame, so the city's clock, which counts updates, ran about three
 // times ahead of the clip, which counts frames.
 func TestRecordedClipKeepsTheScenesTime(t *testing.T) {
-	if _, err := exec.LookPath("xvfb-run"); err != nil {
-		t.Skip("no xvfb-run to open the city on a virtual display")
-	}
+	helpers.NeedXvfb(t)
 
 	t.Run("when a 3-second clip is recorded at 10 fps", func(t *testing.T) {
 		r := newStateRun(t)
 		withSession(t, r.home)
 		frames := filepath.Join(r.tmp, "frames")
-		cmd := exec.Command("xvfb-run", "-a", botropolis, "city", "--socket", filepath.Join(r.tmp, "none.sock"),
-			"--record", frames, "--seconds", "3", "--fps", "10")
-		cmd.Env = r.env()
-		out, err := cmd.CombinedOutput()
+		out, err := r.command(t, false, "--record", frames, "--seconds", "3", "--fps", "10").CombinedOutput()
 		require.NoError(t, err, string(out))
 		written, _ := filepath.Glob(filepath.Join(frames, "frame-*.png"))
 		report := regexp.MustCompile(`recorded (\d+) frames: ([0-9.]+) s of the city's clock`).FindStringSubmatch(string(out))

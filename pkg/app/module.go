@@ -39,6 +39,7 @@ import (
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/tui"
 	"botropolis.city/botropolis/pkg/ui"
+	"botropolis.city/botropolis/pkg/xvfb"
 )
 
 type cliParams struct {
@@ -226,13 +227,13 @@ type cityRunner struct {
 	config   *config.Config
 }
 
-// xvfbScreen is the virtual display for a window of the given size, or
+// screenSize is the virtual display for a window of the given size, or
 // of the default size when none was asked for.
-func xvfbScreen(width, height int) string {
+func screenSize(width, height int) [2]int {
 	if width <= 0 || height <= 0 {
 		width, height = render.DefaultWidth, render.DefaultHeight
 	}
-	return fmt.Sprintf("-screen 0 %dx%dx24", width, height)
+	return [2]int{width, height}
 }
 
 // headlessEnv marks the re-executed child so it does not re-exec again.
@@ -243,36 +244,42 @@ const headlessEnv = "BOTROPOLIS_HEADLESS_CHILD"
 // child honours it only alongside headlessEnv (item 114).
 const privateStateEnv = "BOTROPOLIS_INTERNAL_PRIVATE_STATE"
 
-// runHeadless re-runs this same command under xvfb-run, on a virtual X
-// display of the window's size, with the desktop's displays hidden from
-// it, so no window opens. The child works in stateDir, which this
-// process made and removes.
+// runHeadless re-runs this same command on a virtual X display of the
+// window's size, with the desktop's displays hidden from it, so no
+// window opens. The display is the one Xvfb reports taking, so cities
+// started together never share one (item 126). The child works in
+// stateDir, which this process made and removes, and the display's
+// cookie is kept there too.
 //
-// The child runs in a process group of its own, so a terminal's Ctrl-C
-// reaches only this process and not Xvfb, which would take the city's
-// display away mid-cleanup. On a signal this process kills that group,
-// and only that group, waits until none of it can still write, and
-// returns, so stateDir is removed after the city is gone (item 114).
+// Xvfb and the city run in a process group of their own, so a
+// terminal's Ctrl-C reaches only this process and not Xvfb, which would
+// take the city's display away mid-cleanup. On a signal this process
+// kills that group, and only that group, waits until none of it can
+// still write, and returns, so stateDir is removed after the city is
+// gone (item 114).
 func runHeadless(cmd *cobra.Command, stateDir string) error {
-	xvfb, err := exec.LookPath("xvfb-run")
-	if err != nil {
-		return fmt.Errorf("--headless needs xvfb-run (package xorg-server-xvfb on Arch, xvfb on Debian): %w", err)
-	}
 	width, height, err := cli.Window(cmd)
 	if err != nil {
 		return err
 	}
-	args := append([]string{"-a", "-s", xvfbScreen(width, height), os.Args[0]}, os.Args[1:]...)
-	child := exec.Command(xvfb, args...)
+	size := screenSize(width, height)
+	server, err := xvfb.Start(stateDir, size[0], size[1])
+	if err != nil {
+		return fmt.Errorf("--headless: %w", err)
+	}
+	defer func() { _ = server.Close() }()
+	child := exec.Command(os.Args[0], os.Args[1:]...)
 	child.Stdout, child.Stderr, child.Stdin = cmd.OutOrStdout(), cmd.ErrOrStderr(), os.Stdin
-	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: server.Pid()}
 	var env []string
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "DISPLAY=") && !strings.HasPrefix(kv, "WAYLAND_DISPLAY=") && !strings.HasPrefix(kv, privateStateEnv+"=") {
+		switch key, _, _ := strings.Cut(kv, "="); key {
+		case "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", privateStateEnv:
+		default:
 			env = append(env, kv)
 		}
 	}
-	child.Env = append(env, headlessEnv+"=1", privateStateEnv+"="+stateDir)
+	child.Env = append(append(env, server.Env()...), headlessEnv+"=1", privateStateEnv+"="+stateDir)
 	if err := child.Start(); err != nil {
 		return err
 	}
@@ -283,9 +290,10 @@ func runHeadless(cmd *cobra.Command, stateDir string) error {
 	case <-done:
 		return waited
 	case <-cmd.Context().Done():
-		group := child.Process.Pid
+		group := server.Pid()
 		_ = syscall.Kill(-group, syscall.SIGKILL)
 		<-done
+		_ = server.Close()
 		waitGroupGone(group, 5*time.Second)
 		return nil
 	}

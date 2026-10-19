@@ -109,12 +109,12 @@ func Record(cmd *cobra.Command) (string, float64) {
 }
 
 // HeadlessFlag names the flag that runs the city on a virtual X display
-// (xvfb-run) so no window opens: for screenshots, recordings and tests
+// (Xvfb) so no window opens: for screenshots, recordings and tests
 // while someone is using the desktop.
 const HeadlessFlag = "headless"
 
 func AddHeadlessFlag(flags *pflag.FlagSet) {
-	flags.Bool(HeadlessFlag, false, "run on a virtual display (xvfb-run) so no window opens")
+	flags.Bool(HeadlessFlag, false, "run on a virtual display (Xvfb) so no window opens")
 }
 
 // Headless reports whether --headless was asked for.

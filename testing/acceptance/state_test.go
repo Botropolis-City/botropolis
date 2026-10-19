@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/render"
 	"botropolis.city/botropolis/testing/helpers"
 )
 
@@ -40,17 +41,21 @@ func withSession(t *testing.T, home string) {
 	h.Transcript(id, "/w/lib", helpers.UserPrompt(id, "/w/lib", "2026-10-18T08:00:00.000Z"), helpers.AssistantReply(id, "msg_1111", "2026-10-18T08:00:00.000Z"))
 }
 
+// command is the city in this run's environment: headless, it brings
+// its own display; otherwise it gets a private one for this test.
+func (r stateRun) command(t *testing.T, headless bool, args ...string) *exec.Cmd {
+	t.Helper()
+	cmd := exec.Command(botropolis, append([]string{"city", "--socket", filepath.Join(r.tmp, "none.sock")}, args...)...)
+	cmd.Env = r.env()
+	if !headless {
+		cmd.Env = append(cmd.Env, helpers.Display(t, render.DefaultWidth, render.DefaultHeight).Env()...)
+	}
+	return cmd
+}
+
 func (r stateRun) city(t *testing.T, args ...string) {
 	t.Helper()
-	full := append([]string{"city", "--socket", filepath.Join(r.tmp, "none.sock")}, args...)
-	var cmd *exec.Cmd
-	if containsArg(args, "--headless") {
-		cmd = exec.Command(botropolis, full...)
-	} else {
-		cmd = exec.Command("xvfb-run", append([]string{"-a", botropolis}, full...)...)
-	}
-	cmd.Env = r.env()
-	out, err := cmd.CombinedOutput()
+	out, err := r.command(t, containsArg(args, "--headless"), args...).CombinedOutput()
 	require.NoError(t, err, string(out))
 }
 
@@ -82,14 +87,10 @@ type interrupted struct {
 // the signal; and returns what was left once it exited.
 func (r stateRun) interrupt(t *testing.T, how interruption, args ...string) interrupted {
 	t.Helper()
-	full := append([]string{"city", "--socket", filepath.Join(r.tmp, "none.sock")}, args...)
-	var cmd *exec.Cmd
 	if how.headless {
-		cmd = exec.Command(botropolis, append(full, "--headless")...)
-	} else {
-		cmd = exec.Command("xvfb-run", append([]string{"-a", botropolis}, full...)...)
+		args = append(args, "--headless")
 	}
-	cmd.Env = r.env()
+	cmd := r.command(t, how.headless, args...)
 	var out strings.Builder
 	cmd.Stdout, cmd.Stderr = &out, &out
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -114,8 +115,10 @@ func (r stateRun) interrupt(t *testing.T, how interruption, args ...string) inte
 	city := 0
 	for city == 0 {
 		matches, _ := filepath.Glob(filepath.Join(r.tmp, "botropolis-state-*"))
-		if len(matches) > 0 {
+		if len(matches) > 0 && how.headless {
 			city = descendant(cmd.Process.Pid, "botropolis")
+		} else if len(matches) > 0 {
+			city = cmd.Process.Pid
 		}
 		select {
 		case err := <-exited:
@@ -216,7 +219,7 @@ func (r stateRun) env() []string {
 	for _, kv := range os.Environ() {
 		key, _, _ := strings.Cut(kv, "=")
 		switch key {
-		case "HOME", "XDG_STATE_HOME", "TMPDIR", "DISPLAY", "WAYLAND_DISPLAY":
+		case "HOME", "XDG_STATE_HOME", "TMPDIR", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY":
 		default:
 			env = append(env, kv)
 		}
@@ -247,9 +250,7 @@ func names(dir string) []string {
 // Item 111: a run that is not the person's own city never touches their
 // state.
 func TestFrameRunsKeepTheirOwnState(t *testing.T) {
-	if _, err := exec.LookPath("xvfb-run"); err != nil {
-		t.Skip("no xvfb-run to open the city on a virtual display")
-	}
+	helpers.NeedXvfb(t)
 
 	t.Run("when the city runs with only --screenshot", func(t *testing.T) {
 		r := newStateRun(t)
