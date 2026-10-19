@@ -153,7 +153,7 @@ func Run(ctx context.Context, opts Options) error {
 	if loadErr != nil {
 		return loadErr
 	}
-	kitSprites, err := loadKits()
+	kitSprites, err := loadKitsLazily()
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The map uses far less memory starting up and once running.**
+  The city's art used to be held twice over while it loaded, and its pages were packed into larger textures than they need.
+  It now loads a page at a time once the window is open, each page on a texture of its own size: on a software renderer the start-up peak fell from about 1.3 GB to under 0.5 GB, and what the city keeps from about 0.9 GB to 0.5 GB.
+  The window shows its background for a moment longer before the city appears.
+
 - **Trains run nose first.**
   On stretches of track running one way across the map they were drawn backwards; the old diesels looked the same from either end, so it never showed.
 

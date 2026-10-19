@@ -23,30 +23,83 @@ type kits struct {
 	atlases []kitAtlas
 }
 
+// loadKits puts every page up at once, for a drive and the tests, which
+// have no loop to wait for.
 func loadKits() (*kits, error) {
-	loaded, err := assets.LoadKits()
+	k, err := loadKitsLazily()
+	if err != nil {
+		return nil, err
+	}
+	for {
+		up, err := k.uploadNext()
+		if err != nil {
+			return nil, err
+		}
+		if !up {
+			return k, nil
+		}
+	}
+}
+
+// loadKitsLazily reads the atlases' manifests and puts no page up: the
+// window puts them up a page an update, from inside the loop (item 70).
+// Ebitengine copies anything uploaded before the loop starts and holds
+// the copy until the first frame, so pages put up beforehand are all
+// alive twice at once however they are decoded.
+func loadKitsLazily() (*kits, error) {
+	loaded, err := assets.LoadKitManifests()
 	if err != nil {
 		return nil, err
 	}
 	k := &kits{}
 	for _, a := range loaded {
-		ka := kitAtlas{KitAtlas: a}
 		// The kit's amber accent on the stack and the tanks becomes the
-		// plant's tone before the pages go up: amber is needs-you.
+		// plant's tone as each page is decoded: amber is needs-you.
 		a.RetintAmber([]string{kitStack, kitTower}, ui.DefaultPalette.Plant)
-		for _, page := range a.Pages {
-			ka.pages = append(ka.pages, ebiten.NewImageFromImage(page))
-		}
-		// The pixels live on the GPU now; the decoded pages are only weight.
-		ka.Pages = nil
-		k.atlases = append(k.atlases, ka)
+		k.atlases = append(k.atlases, kitAtlas{KitAtlas: a})
 	}
-	// Nine 2048-pixel pages decode to about 150 MB on the way to the
-	// card, and that is the peak a small machine would feel. Nothing
-	// else the city does allocates on that scale, so without a nudge the
-	// collector has no reason to run and the peak is what it keeps.
-	debug.FreeOSMemory()
 	return k, nil
+}
+
+// ready reports whether every page is up.
+func (k *kits) ready() bool {
+	for _, a := range k.atlases {
+		if len(a.pages) < a.PageCount() {
+			return false
+		}
+	}
+	return true
+}
+
+// uploadNext decodes the next page, puts it up and drops the decoded
+// copy, reporting whether there was a page left to put up.
+func (k *kits) uploadNext() (bool, error) {
+	for i := range k.atlases {
+		a := &k.atlases[i]
+		if len(a.pages) == a.PageCount() {
+			continue
+		}
+		page, err := a.DecodePage(len(a.pages))
+		if err != nil {
+			return false, err
+		}
+		a.pages = append(a.pages, ebiten.NewImageFromImageWithOptions(page, pageOptions()))
+		if k.ready() {
+			// Nothing else the city does allocates on this scale, so
+			// without a nudge the collector has no reason to run and the
+			// last page's garbage is what it keeps.
+			debug.FreeOSMemory()
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+// pageOptions makes each page its own texture. Managed, a 2048-pixel
+// page is padded to 2050 and packed into shared 4096-pixel textures that
+// grow by copying, which held about twice the atlas (item 70).
+func pageOptions() *ebiten.NewImageFromImageOptions {
+	return &ebiten.NewImageFromImageOptions{Unmanaged: true}
 }
 
 // pick is the atlas for a camera zoom: the largest cut at or below it,

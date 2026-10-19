@@ -427,6 +427,11 @@ func (g *Game) Update() error {
 		}
 		return ebiten.Termination
 	}
+	if g.kits != nil && !g.kits.ready() {
+		// The city's clock starts once the art is up (item 70).
+		_, err := g.kits.uploadNext()
+		return err
+	}
 	if !g.startTick() {
 		return nil
 	}
@@ -810,6 +815,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// rate down: Draw is called once per display refresh, and an
 		// unmapped window has no refresh to wait for.
 		time.Sleep(idleSleep)
+		return
+	}
+	if g.kits != nil && !g.kits.ready() {
+		screen.Fill(colorVoid)
 		return
 	}
 	if !g.startPaint() {
