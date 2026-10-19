@@ -130,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The power plant, the library and city hall face you, with their names on their walls.**
   All three are turned round, so their front doors face the camera's home heading, and the plant's chimney turns with it.
-  Each one's name is painted in capitals on a clear stretch of one of the walls you can see, leaning with the wall and turning with the camera, never across a door or a window.
+  Each one's name is painted in capitals on a clear stretch of one of the walls you can see, leaning with the wall and turning with the camera, never across a door or a window, and moved to the part of the wall still in view, stacked if it has to be, when another landmark stands in front.
   Their floating labels are gone: a landmark's plate shows only while the pointer is on it.
 
 - **The packages declare every licence they ship.**
