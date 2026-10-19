@@ -174,6 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Coming back.** Opening the map after a gap (journal_hours, 8 by default) opens a journal of where you were: one entry per group and per session in no group, pinned ones first, then most recently touched, each with what it was doing last time and what is next, from Claude's recaps or your last prompt and its reply, read then and never kept.
   Above it, a strip of what finished, failed and needed you since you left, and any usage window that reset; beside it, *Restore the desk* (or R) reopens in the background the sessions that were open when you left. Enter goes to an entry, Esc to the map, and Shift+W (journal_key) brings it back.
 - **Codex rollouts are read through a 64 KB head and tail**, as Claude's transcripts already were, so a long Codex history loads in a time bounded by the number of rollouts rather than their size.
+  They are read in parallel, and only the lines the map uses are decoded, so a daemon starting on thousands of them is up in well under a second rather than several.
 - **`status --json` marks usage it read only part of.**
   A session whose transcript was read through the window carries `usage.partial: true`, so its counts are not taken for totals.
 - **A card's buttons light up under the pointer**, as the footer's needs-you line does.
