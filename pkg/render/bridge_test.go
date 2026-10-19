@@ -76,6 +76,66 @@ func TestBridgeDrawOrder(t *testing.T) {
 			})
 		}
 	}
+
+	// Item 150: a wagon on the rail a cell off the first span, on the far
+	// side or the near side, against every part of the bridge it is
+	// wholly behind or wholly in front of.
+	parts := bridgeParts(b)
+	partName := func(p bridgePart) string { return fmt.Sprintf("part %v from %.0f", p.Cell, p.Rect.Min.X) }
+	for _, heading := range []int{0, 90, 180, 270} {
+		cam := city.NewCamera()
+		cam.Heading = heading
+		north := city.Point{X: under.X, Y: under.Y - city.CellSize}
+		south := city.Point{X: under.X, Y: under.Y + city.CellSize}
+		behind, ahead := north, south
+		if nearer(cam, north, south) {
+			behind, ahead = south, north
+		}
+		for _, side := range []struct {
+			name string
+			at   city.Point
+			// before is whether a part the wagon is wholly behind
+			// (true) or wholly in front of (false) is the one checked.
+			before bool
+		}{{"behind", behind, true}, {"in front of", ahead, false}} {
+			wagon := city.Rect{Min: city.Point{X: side.at.X - city.Tile/2, Y: side.at.Y - city.Tile/2}, Max: city.Point{X: side.at.X + city.Tile/2, Y: side.at.Y + city.Tile/2}}
+			tw := cam.TurnRect(wagon)
+			for _, deckFirst := range []bool{false, true} {
+				got := namedOrder(cam, func(rec func(string) func()) []drawable {
+					deck := bridgeItems(cam, b, func(p bridgePart) func() { return rec(partName(p)) })
+					moving := []drawable{carriageAt(cam, side.at, rec("wagon"))}
+					if deckFirst {
+						return append(deck, moving...)
+					}
+					return append(moving, deck...)
+				})
+				at := func(name string) int { return slices.Index(got, name) }
+				spanChecked := false
+				for _, p := range parts {
+					tp := cam.TurnRect(p.Rect)
+					wagonBehind := city.BehindTurned(tw, tp) && !city.BehindTurned(tp, tw)
+					wagonAhead := city.BehindTurned(tp, tw) && !city.BehindTurned(tw, tp)
+					if (side.before && !wagonBehind) || (!side.before && !wagonAhead) {
+						continue
+					}
+					spanChecked = spanChecked || (p.span() && p.Cell == span)
+					p := p
+					t.Run(fmt.Sprintf("when a wagon stands on the cell just %s the first span, at heading %d, gathered deck first %v, against the %s", side.name, heading, deckFirst, partName(p)), func(t *testing.T) {
+						if side.before {
+							t.Run("it should draw the wagon before it", func(t *testing.T) {
+								assert.Less(t, at("wagon"), at(partName(p)), "%v", got)
+							})
+						} else {
+							t.Run("it should draw the wagon after it", func(t *testing.T) {
+								assert.Greater(t, at("wagon"), at(partName(p)), "%v", got)
+							})
+						}
+					})
+				}
+				require.True(t, spanChecked, "precondition: the wagon %s the first span at heading %d is wholly on that side of it", side.name, heading)
+			}
+		}
+	}
 }
 
 // Item 132, after item 134 rescaled the train: the deck's clearance is
