@@ -250,6 +250,8 @@ docs/screenshots/r692-item-99-lettered-h270.png
 docs/screenshots/r685-item-134-train-before.png
 docs/screenshots/r696-item-134-train-after.png
 docs/screenshots/r696-item-134-message-carriage-options.png
+docs/screenshots/r701-item-99-unhidden-h0.png
+docs/screenshots/r701-item-99-unhidden-h90.png
 LIST
 )
 while read -r img; do
