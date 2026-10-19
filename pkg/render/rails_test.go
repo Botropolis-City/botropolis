@@ -88,3 +88,85 @@ func TestMessageCarriage(t *testing.T) {
 		})
 	})
 }
+
+// Item 147: a train's engine says its model's context window, one engine
+// per class as Aria picked them on 2026-10-19, and the wagons still count
+// the spend.
+func TestEngineByWindow(t *testing.T) {
+	start := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	snap := state.Snapshot{At: start, Sessions: []state.Session{{ID: "a", CWD: "/p/a", State: state.Working, StartedAt: start}}}
+	run := func(train *city.Train) []carriage {
+		c := city.Build(snap, city.NewLayout())
+		c.Trains = []*city.Train{train}
+		return (&Game{}).carriages(c, 0)
+	}
+	cases := []struct {
+		name   string
+		tokens int64
+		from   city.WindowSource
+		engine string
+	}{
+		{"up to 200k", 200_000, city.FromSessions, "train-kit/train-diesel-c"},
+		{"up to 1M", 1_000_000, city.FromSessions, "train-kit/train-electric-bullet-a"},
+		{"over 1M", 2_000_000, city.FromModelTable, "train-kit/train-electric-double-a"},
+		{"unknown", 0, city.WindowUnknown, "train-kit/train-locomotive-a"},
+	}
+	for _, c := range cases {
+		t.Run("when the model's window is "+c.name, func(t *testing.T) {
+			cars := run(&city.Train{Model: "m", Wagons: 3, WindowTokens: c.tokens, WindowFrom: c.from})
+			require.NotEmpty(t, cars)
+
+			t.Run("it should run behind "+c.engine, func(t *testing.T) {
+				assert.Equal(t, c.engine, cars[0].model)
+			})
+
+			t.Run("it should carry its three wagons behind the engine", func(t *testing.T) {
+				assert.Len(t, cars, 4)
+			})
+		})
+	}
+}
+
+// Item 147: every engine runs nose first, all the way round the loop and
+// whichever side the city is seen from. The pipeline records where each
+// train piece's front points in its sprite; the map picks the sprite from
+// the direction of travel, so the two have to agree.
+func TestEngineRunsNoseFirst(t *testing.T) {
+	atlases, err := assets.LoadKits()
+	require.NoError(t, err)
+	require.NotEmpty(t, atlases)
+	atlas := atlases[len(atlases)-1]
+	start := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	c := city.Build(state.Snapshot{At: start, Sessions: []state.Session{{ID: "a", CWD: "/p/a", State: state.Working, StartedAt: start}}}, city.NewLayout())
+	loop := pathLength(c.Rails)
+	require.Positive(t, loop)
+	cases := map[city.EngineClass]*city.Train{
+		city.UpTo200k:      {Model: "m", Wagons: 1, WindowTokens: 200_000, WindowFrom: city.FromSessions},
+		city.UpTo1M:        {Model: "m", Wagons: 1, WindowTokens: 1_000_000, WindowFrom: city.FromSessions},
+		city.Over1M:        {Model: "m", Wagons: 1, WindowTokens: 2_000_000, WindowFrom: city.FromSessions},
+		city.DefaultEngine: {Model: "m", Wagons: 1},
+	}
+	for class, train := range cases {
+		c.Trains = []*city.Train{train}
+		engine := kitEngines[class]
+		seen := map[int]bool{}
+		for step := 0.0; step < loop/trainSpeed; step += city.Tile / trainSpeed {
+			head := (&Game{}).carriages(c, step)[0]
+			ahead, _ := pointAlong(c.Rails, math.Mod(head.along+city.Tile*0.1, loop))
+			for _, heading := range []int{0, 90, 180, 270} {
+				cam := city.NewCamera()
+				cam.Heading = heading
+				sprite, ok := atlas.Sprite(head.model, cam.Heading-head.turn)
+				require.True(t, ok, "%s is not in the atlas", head.model)
+				from, to := cam.WorldToScreen(head.at), cam.WorldToScreen(ahead)
+				if sprite.Nose.X*(to.X-from.X)+sprite.Nose.Y*(to.Y-from.Y) <= 0 {
+					seen[heading*1000+head.turn] = true
+				}
+			}
+		}
+
+		t.Run(fmt.Sprintf("when %s runs round the loop, it should point its nose the way it travels at every turn and heading", engine), func(t *testing.T) {
+			assert.Empty(t, seen, "heading*1000+turn where the nose trails")
+		})
+	}
+}

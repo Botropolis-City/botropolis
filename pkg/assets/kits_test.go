@@ -154,7 +154,8 @@ func TestVehicleScale(t *testing.T) {
 
 		t.Run("and the piece is any locomotive", func(t *testing.T) {
 			wagon := foot(t, wagons[0])
-			for _, name := range []string{"train-kit/train-diesel-a", "train-kit/train-diesel-b", "train-kit/train-diesel-c"} {
+			// Item 147: the engines Aria picked, one per window class.
+			for _, name := range []string{"train-kit/train-diesel-c", "train-kit/train-electric-bullet-a", "train-kit/train-electric-double-a", "train-kit/train-locomotive-a"} {
 				t.Run(fmt.Sprintf("it should make %s at least as wide as a wagon, less 20%%", name), func(t *testing.T) {
 					assert.GreaterOrEqual(t, foot(t, name).Width, 0.8*wagon.Width)
 				})

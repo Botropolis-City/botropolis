@@ -104,9 +104,16 @@ var (
 	// The plaza's edge.
 	kitBushes  = []string{"nature-kit/plant_bush", "nature-kit/plant_bushLarge"}
 	kitPlanter = "city-kit-suburban/planter"
-	// The ledger's trains: a locomotive and container wagons in one of
-	// three liveries, matched to city.ContainerHues.
-	kitLocos = []string{"train-kit/train-diesel-a", "train-kit/train-diesel-b", "train-kit/train-diesel-c"}
+	// The ledger's trains: an engine for the model's context window, as
+	// Aria picked them (item 147), and container wagons in one of three
+	// liveries, matched to city.ContainerHues.
+	kitEngines = map[city.EngineClass]string{
+		city.UpTo200k:      "train-kit/train-diesel-c",
+		city.UpTo1M:        "train-kit/train-electric-bullet-a",
+		city.Over1M:        "train-kit/train-electric-double-a",
+		city.DefaultEngine: "train-kit/train-locomotive-a",
+	}
+	kitLocos = []string{kitEngines[city.UpTo200k], kitEngines[city.UpTo1M], kitEngines[city.Over1M], kitEngines[city.DefaultEngine]}
 	// The tugs on the river: one brings a session in, the other takes
 	// one away.
 	// The refresh courier. Item 56: it must not be mistaken for a tug,

@@ -33,6 +33,16 @@ type KitSprite struct {
 	Body Body
 	// Foot is the piece's footprint as modelled, in cells (item 134).
 	Foot Foot
+	// Nose is which way a train piece's front points in the sprite: the
+	// screen vector, in its own pixels, from its ground origin to the
+	// middle of its front end on the ground. Zero for any other piece
+	// (item 147).
+	Nose Point
+}
+
+// Point is a screen vector in a sprite's own pixels.
+type Point struct {
+	X, Y float64
 }
 
 // Foot is a kit piece's footprint in cells, after the pipeline's per-kit
@@ -106,6 +116,7 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 			Panes [][8]int  `json:"panes"`
 			Body  []float64 `json:"body"`
 			Foot  []float64 `json:"foot"`
+			Nose  []float64 `json:"nose"`
 		} `json:"sprites"`
 	}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -143,6 +154,9 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 			}
 			if len(s.Body) == 4 {
 				set[i].Body.Roof = s.Body[3]
+			}
+			if len(s.Nose) == 2 {
+				set[i].Nose = Point{X: s.Nose[0], Y: s.Nose[1]}
 			}
 			for _, q := range s.Panes {
 				set[i].Panes = append(set[i].Panes, Pane{{q[0], q[1]}, {q[2], q[3]}, {q[4], q[5]}, {q[6], q[7]}})

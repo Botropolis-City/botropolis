@@ -130,7 +130,7 @@ func (g *Game) carriages(c *city.City, seconds float64) []carriage {
 	offset, front := 0.0, 0.0
 	for i, t := range c.Trains {
 		models := make([]string, t.Wagons+1)
-		models[0] = kitLocos[t.Hue%len(kitLocos)]
+		models[0] = kitEngines[t.Engine()]
 		for w := 1; w <= t.Wagons; w++ {
 			models[w] = kitWagons[t.Hue%len(kitWagons)]
 		}
@@ -146,10 +146,24 @@ func (g *Game) carriages(c *city.City, seconds float64) []carriage {
 		for w, model := range models {
 			d := math.Mod(head-backs[w]+length*4, length)
 			at, dir := pointAlong(c.Rails, d)
-			out = append(out, carriage{at: at, model: model, turn: carTurn(dir), train: t, head: w == 0, along: d, loop: length})
+			out = append(out, carriage{at: at, model: model, turn: trainTurn(dir), train: t, head: w == 0, along: d, loop: length})
 		}
 	}
 	return out
+}
+
+// trainTurn is the turn that runs a train piece nose first along d.
+// carTurn turns a piece the wrong way along x: the engines Aria picked
+// show it, where today's diesels looked alike from either end, and
+// TestEngineRunsNoseFirst holds it against the nose the atlas records
+// (item 147).
+func trainTurn(d city.Point) int {
+	switch turn := carTurn(d); turn {
+	case 90, 270:
+		return 360 - turn
+	default:
+		return turn
+	}
 }
 
 func (g *Game) drawCarriage(screen *ebiten.Image, cam *city.Camera, k carriage) {

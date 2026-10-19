@@ -11,7 +11,7 @@
 | Cranes on the roof | subagents and workflows in flight | count, names, tokens |
 | Power plant at the centre | the API | tokens today by model, cache hit ratio |
 | Power lines to a building (poles, sagging wires, sparks) | token flow, and that the daemon has the session's hook events: no wire means it has seen none and is reading files | tokens/min; cache-read vs. fresh drawn differently |
-| Freight loop round the city, a train per model | the ledger: that model's spend over the last day, a wagon per unit (the unit grows to keep the longest train to six) | model, spend, the context window and where it was read, the wagon unit |
+| Freight loop round the city, a train per model | the ledger: that model's spend over the last day, a wagon per unit (the unit grows to keep the longest train to six); the engine is the model's context-window class, up to 200k, up to 1M, over 1M or unknown (item 147) | model, spend, the context window and where it was read, the wagon unit |
 | A tug on the river | a session arriving (from the north, docking beside its district before its building rises) or leaving (downriver, once it is gone from the map) | the session, its project, its container colour |
 | Radio towers at the edge | MCP servers | sessions attached, calls today |
 | Beam tower → building | a session using that server | calls this session |
