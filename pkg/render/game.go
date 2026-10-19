@@ -223,6 +223,17 @@ type Game struct {
 	window          city.Window
 	breakdownLayout ui.BreakdownPanel
 
+	// The plant's long ranges (item 116, part F): whether one is shown,
+	// which, with its districts and comparison, the district chooser, the
+	// reader that fetches them off the frame, and the layouts last drawn.
+	rangeOn      bool
+	rangeSel     ui.RangeSelection
+	rangeChooser ui.Chooser
+	ranges       *rangeSource
+	rangeClock   func() time.Time
+	rangesLayout ui.RangesPanel
+	rowLayout    ui.WindowRow
+
 	// timeline is the event list on t; away is the list shown when the
 	// window comes back into focus, or nil for the whole log.
 	timeline       bool
