@@ -75,7 +75,12 @@ type Game struct {
 	// stopping is set by a signal: the loop ends at its next update, so
 	// Run returns and whoever started it can clean up (item 114).
 	stopping atomic.Bool
-	scene    *city.Scene
+	// holdGL pins the GL libraries once the context exists, at the first
+	// update, so Ebitengine's teardown cannot unmap them under Mesa's
+	// threads; nil means glhold.Hold (item 125).
+	holdGL func()
+	glHeld sync.Once
+	scene  *city.Scene
 	// home is the directory holding .claude, the one the city is drawn
 	// from; see Options.Home.
 	home string
@@ -383,6 +388,7 @@ func (g *Game) SetStatus(status string) {
 func (g *Game) Stop() { g.stopping.Store(true) }
 
 func (g *Game) Update() error {
+	g.glHeld.Do(g.holdTheGL)
 	if g.stopping.Load() {
 		if g.frames != nil {
 			_ = g.frames.close()

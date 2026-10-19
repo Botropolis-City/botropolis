@@ -147,6 +147,12 @@ test-acceptance ::
 	$(LOG) "Running acceptance tests"
 	@go test ./testing/acceptance/...
 
+# Item 125: 120 screenshot runs at load, each of which must exit 0. Minutes
+# long, so not part of test-acceptance.
+soak-teardown ::
+	$(LOG) "Soaking the city's teardown"
+	@BOTROPOLIS_SOAK=1 go test -count=1 -timeout 40m -run TestTeardownSoak ./testing/acceptance/
+
 # Targeted acceptance runs, item 117. test-acceptance-map runs each test on its
 # own under coverage and records the packages it executed in .cache/; a run of
 # test-acceptance-changed then runs only the tests a change since the map can
