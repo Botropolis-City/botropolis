@@ -62,11 +62,12 @@ func (failing) Load(time.Time) (state.Snapshot, error) {
 func TestDaemonStart(t *testing.T) {
 	const sid = "08b1d655-276f-495b-a61f-2214af35a97a"
 	const cwd = "/w/cinders"
+	short := os.TempDir()
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("TMPDIR", t.TempDir())
 
 	newSocket := func(t *testing.T) string {
-		dir, err := os.MkdirTemp("", "bt")
+		dir, err := os.MkdirTemp(short, "bt")
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = os.RemoveAll(dir) })
 		return filepath.Join(dir, "botropolis.sock")
