@@ -55,6 +55,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point
 	if img == nil {
 		return
 	}
+	g.drawing.world()
 	// A view drains the colour out of everything it has nothing to say
 	// about, and draining colour is a mixing of channels that a scale
 	// cannot do — so those sprites go through a colour matrix instead.
@@ -619,9 +620,11 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	detailed := g.scene.Detailed()
 	labels := g.labelsVisible()
 	defer frames.start()()
+	g.drawing.reset()
 	defer func() {
 		g.mu.Lock()
 		g.hits = append(g.hits[:0], g.frameHits...)
+		g.drawnOrder.copyFrom(&g.drawing)
 		g.mu.Unlock()
 	}()
 	// The city under the traffic, composed once and blitted; then its

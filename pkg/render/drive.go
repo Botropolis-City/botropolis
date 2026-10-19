@@ -112,6 +112,12 @@ type Shown struct {
 	// Labels is every badge, station label and district sign the frame
 	// drew, where it drew it (item 102).
 	Labels []ShownLabel
+	// WorldDrawn is whether the map drew any world sprite, TagsDrawn
+	// how many road tags it drew, and TagsUnderWorld how many of those
+	// it drew before a world sprite, where the sprite could cover them
+	// (item 75).
+	WorldDrawn                bool
+	TagsDrawn, TagsUnderWorld int
 }
 
 // ShownLabel is one drawn label: its kind, "sign", "plate", "caption",
@@ -538,6 +544,7 @@ func (g *Game) noteShown() {
 	s.Settled = !g.scene.Easing()
 	g.mu.Lock()
 	s.Labels = slices.Clone(g.shownLabels)
+	s.WorldDrawn, s.TagsDrawn, s.TagsUnderWorld = g.drawnOrder.lastWorld > 0, len(g.drawnOrder.tags), g.drawnOrder.tagsUnderWorld()
 	g.mu.Unlock()
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID

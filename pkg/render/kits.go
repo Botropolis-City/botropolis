@@ -302,6 +302,7 @@ func (g *Game) kitRising(screen *ebiten.Image, cam *city.Camera, name string, fo
 		op.ColorScale = *tint
 	}
 	op.Filter = ebiten.FilterLinear
+	g.drawing.world()
 	screen.DrawImage(img, op)
 	h := float64(sprite.Rect.Dy()) * scale * rise
 	return city.RectAt(foot.X-float64(sprite.Anchor.X)*scale, foot.Y-float64(sprite.Anchor.Y)*scale*rise, float64(sprite.Rect.Dx())*scale, h)

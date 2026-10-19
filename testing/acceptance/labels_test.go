@@ -95,3 +95,18 @@ func TestLabelsHotkey(t *testing.T) {
 		})
 	})
 }
+
+// Item 75: a road's tag is drawn over the city, so a tower beside the
+// road cannot cover it. The order is counted where each world sprite
+// and each tag is issued.
+func TestRoadTagsDrawOverTheCity(t *testing.T) {
+	t.Run("when the workshop demo is drawn", func(t *testing.T) {
+		shown := fitted(t, "workshop").Shown()
+		require.Positive(t, shown.TagsDrawn, "no road tags drawn: the check below passes on nothing")
+		require.True(t, shown.WorldDrawn, "no world sprites drawn: the check below passes on nothing")
+
+		t.Run("it should draw every road tag after the last world sprite", func(t *testing.T) {
+			assert.Zero(t, shown.TagsUnderWorld)
+		})
+	})
+}

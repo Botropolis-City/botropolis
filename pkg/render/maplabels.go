@@ -148,6 +148,9 @@ func (g *Game) drawMapLabels(screen *ebiten.Image) {
 			vector.StrokeLine(dst, float32(l.Anchor.X), float32(l.Anchor.Y), float32(end.X), float32(end.Y), float32(g.theme.Px(1)), l.ink, true)
 		}
 		if l.draw != nil {
+			if l.Kind == labelTag {
+				g.drawing.tag()
+			}
 			l.draw(dst, at.At)
 		}
 	}

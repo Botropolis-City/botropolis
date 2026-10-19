@@ -349,6 +349,9 @@ type Game struct {
 	// 102).
 	mapLabels   []pendingLabel
 	shownLabels []ShownLabel
+	// drawing counts what this frame's map issues, as it is issued, and
+	// drawnOrder is the last frame's count (item 75).
+	drawing, drawnOrder drawOrder
 	// sightingsQueued is whether this frame's first sightings were laid
 	// out with the map's labels, so drawExplain leaves them be.
 	sightingsQueued bool
