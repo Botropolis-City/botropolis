@@ -9,18 +9,93 @@ set -euo pipefail
 
 usage() {
     cat <<'USAGE'
-check-packages — assert the deb, rpm and Arch package carry the same files
+check-packages — assert every package declares every licence it ships, and
+that the deb, rpm and Arch package carry the same files
 
-Usage: tools/check-packages [dist-dir]
+Usage: tools/check-packages [--licences] [--root DIR] [dist-dir]
+
+  --licences  check only the licence fields in packaging/, not built packages
+  --root DIR  the tree whose packaging/ is checked (default: this repository)
+
+The binaries embed Inter (OFL-1.1) and Kenney's atlases (CC0-1.0) beside
+botropolis's own MIT code, so nfpm.yaml, the Homebrew formula and the built
+rpm and Arch package must each declare all three (item 121).
 
 Needs dpkg-deb, rpm and tar. Skips any format whose tool is absent, and says
 which it skipped rather than passing silently.
 USAGE
 }
 
-[ "${1:-}" = "--help" ] && { usage; exit 0; }
+required_licences=(MIT OFL-1.1 CC0-1.0)
 
-dist="${1:-dist}"
+root="$(cd "$(dirname "$0")/.." && pwd)"
+licences_only=0
+dist=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --help) usage; exit 0 ;;
+        --licences) licences_only=1 ;;
+        --root) root="${2:?--root needs a directory}"; shift ;;
+        *) dist="$1" ;;
+    esac
+    shift
+done
+dist="${dist:-dist}"
+
+licence_fail=0
+
+# check_licences <where> <expression>: the expression must be a conjunction
+# (an OR would offer a choice among them) naming every required licence.
+check_licences() {
+    local where="$1" expr="$2" l
+    if [ -z "$expr" ]; then
+        echo "  ${where} declares no licence; it needs ${required_licences[*]}"
+        licence_fail=1
+        return
+    fi
+    if grep -qwE 'OR|WITH' <<<"$expr" || grep -q '[()]' <<<"$expr"; then
+        echo "  ${where} declares \"${expr}\", which is not all of ${required_licences[*]}"
+        licence_fail=1
+        return
+    fi
+    for l in "${required_licences[@]}"; do
+        if ! tr ' ' '\n' <<<"$expr" | grep -qxF -- "$l"; then
+            echo "  ${where} does not declare ${l}"
+            licence_fail=1
+        fi
+    done
+}
+
+nfpm_field() {
+    sed -n 's/^license:[[:space:]]*//p' "$1" | head -1
+}
+
+# license "MIT" or license all_of: ["MIT", ...]; any_of is a choice, so it is
+# passed through with an OR for check_licences to refuse.
+brew_field() {
+    local line
+    line="$(grep -m1 -E '^[[:space:]]*license[[:space:]]' "$1" || true)"
+    [ -n "$line" ] || return 0
+    local join=AND
+    grep -q 'any_of' <<<"$line" && join=OR
+    grep -oE '"[^"]+"' <<<"$line" | tr -d '"' | paste -sd ' ' | sed "s/ / ${join} /g"
+}
+
+for f in "packaging/nfpm.yaml" "packaging/brew/botropolis.rb.in"; do
+    if [ ! -f "${root}/${f}" ]; then
+        echo "  ${f} is missing under ${root}"
+        licence_fail=1
+    fi
+done
+[ -f "${root}/packaging/nfpm.yaml" ] && check_licences "packaging/nfpm.yaml" "$(nfpm_field "${root}/packaging/nfpm.yaml")"
+[ -f "${root}/packaging/brew/botropolis.rb.in" ] && check_licences "packaging/brew/botropolis.rb.in" "$(brew_field "${root}/packaging/brew/botropolis.rb.in")"
+
+if [ "$licences_only" -eq 1 ]; then
+    [ "$licence_fail" -eq 0 ] || exit 1
+    echo "  nfpm and Homebrew declare ${required_licences[*]}"
+    exit 0
+fi
+
 [ -d "$dist" ] || { echo "  no ${dist}/ — run make package first"; exit 1; }
 
 work="$(mktemp -d)"
@@ -39,6 +114,7 @@ fi
 rpmf="$(ls "${dist}"/*.rpm 2>/dev/null | head -1 || true)"
 if [ -n "$rpmf" ] && command -v rpm >/dev/null; then
     rpm -qlp "$rpmf" 2>/dev/null | sed 's|^/||' | sort > "${work}/rpm"
+    check_licences "$(basename "$rpmf")" "$(rpm -qp --qf '%{LICENSE}' "$rpmf" 2>/dev/null)"
     checked=$((checked + 1))
 else
     skipped="${skipped} rpm"
@@ -47,6 +123,7 @@ fi
 arch="$(ls "${dist}"/*.pkg.tar.zst 2>/dev/null | head -1 || true)"
 if [ -n "$arch" ]; then
     tar -tf "$arch" | grep -v '^\.' | grep -v '/$' | sort > "${work}/arch"
+    check_licences "$(basename "$arch")" "$(tar -xOf "$arch" .PKGINFO | sed -n 's/^license = //p' | paste -sd ' ' | sed 's/ \{1,\}/ /g')"
     checked=$((checked + 1))
 else
     skipped="${skipped} arch"
@@ -69,5 +146,6 @@ for f in "${work}"/deb "${work}"/rpm "${work}"/arch; do
     fi
 done
 
-[ "$fail" -eq 0 ] || exit 1
+[ "$fail" -eq 0 ] && [ "$licence_fail" -eq 0 ] || exit 1
+echo "  nfpm, Homebrew and the built rpm and Arch package declare ${required_licences[*]}"
 echo "  ${checked} packages carry the same $(wc -l < "$first") files${skipped:+ (skipped:${skipped})}"
