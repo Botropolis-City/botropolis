@@ -23,18 +23,31 @@ const (
 // RetintAmber turns every amber pixel of the named sprites, at every
 // heading, to the target's hue, keeping each pixel's saturation and
 // lightness so the shading survives.
+// A page decoded after this call is retinted as it is decoded.
 func (a *KitAtlas) RetintAmber(names []string, target color.NRGBA) {
-	hue, _, _ := hsl(target)
-	for _, name := range names {
+	r := retint{names: names, target: target}
+	a.retints = append(a.retints, r)
+	for i := range a.Pages {
+		a.retintPage(i, a.mutablePage(i), r)
+	}
+}
+
+type retint struct {
+	names  []string
+	target color.NRGBA
+}
+
+func (a *KitAtlas) retintPage(i int, page *image.NRGBA, r retint) {
+	hue, _, _ := hsl(r.target)
+	for _, name := range r.names {
 		set, ok := a.sprites[name]
 		if !ok {
 			continue
 		}
 		for _, s := range set {
-			if s.Page < 0 || s.Page >= len(a.Pages) {
+			if s.Page != i {
 				continue
 			}
-			page := a.mutablePage(s.Page)
 			for y := s.Rect.Min.Y; y < s.Rect.Max.Y; y++ {
 				for x := s.Rect.Min.X; x < s.Rect.Max.X; x++ {
 					c := page.NRGBAAt(x, y)
@@ -50,13 +63,18 @@ func (a *KitAtlas) RetintAmber(names []string, target color.NRGBA) {
 }
 
 func (a *KitAtlas) mutablePage(i int) *image.NRGBA {
-	if p, ok := a.Pages[i].(*image.NRGBA); ok {
+	p := toNRGBA(a.Pages[i])
+	a.Pages[i] = p
+	return p
+}
+
+func toNRGBA(img image.Image) *image.NRGBA {
+	if p, ok := img.(*image.NRGBA); ok {
 		return p
 	}
-	b := a.Pages[i].Bounds()
+	b := img.Bounds()
 	p := image.NewNRGBA(b)
-	draw.Draw(p, b, a.Pages[i], b.Min, draw.Src)
-	a.Pages[i] = p
+	draw.Draw(p, b, img, b.Min, draw.Src)
 	return p
 }
 

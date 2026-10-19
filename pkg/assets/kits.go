@@ -71,11 +71,59 @@ type KitAtlas struct {
 	Tile    float64
 	Pages   []image.Image
 	sprites map[string][4]KitSprite
+	files   []string
+	retints []retint
 }
 
 // LoadKits reads every atlas cut by tools/render-sprites, lowest zoom
-// first.
+// first, with every page decoded.
 func LoadKits() ([]KitAtlas, error) {
+	atlases, err := LoadKitManifests()
+	if err != nil {
+		return nil, err
+	}
+	for i := range atlases {
+		for p := range atlases[i].PageCount() {
+			page, err := atlases[i].DecodePage(p)
+			if err != nil {
+				return nil, err
+			}
+			atlases[i].Pages = append(atlases[i].Pages, page)
+		}
+	}
+	return atlases, nil
+}
+
+// PageCount is how many pages the atlas cuts, decoded or not.
+func (a *KitAtlas) PageCount() int {
+	return len(a.files)
+}
+
+// DecodePage decodes one page, with every retint asked for so far, and
+// keeps nothing of it: a caller that uploads pages one at a time holds
+// one decoded page at a time (item 70).
+func (a *KitAtlas) DecodePage(i int) (*image.NRGBA, error) {
+	if i < 0 || i >= len(a.files) {
+		return nil, fmt.Errorf("page %d of %d", i, len(a.files))
+	}
+	raw, err := kitFiles.ReadFile("kits/" + a.files[i])
+	if err != nil {
+		return nil, err
+	}
+	img, err := png.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", a.files[i], err)
+	}
+	page := toNRGBA(img)
+	for _, r := range a.retints {
+		a.retintPage(i, page, r)
+	}
+	return page, nil
+}
+
+// LoadKitManifests reads every atlas's manifest, lowest zoom first, and
+// decodes no page.
+func LoadKitManifests() ([]KitAtlas, error) {
 	entries, err := kitFiles.ReadDir("kits")
 	if err != nil {
 		return nil, err
@@ -122,18 +170,7 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return KitAtlas{}, err
 	}
-	atlas := KitAtlas{Zoom: m.Zoom, Tile: m.Tile, sprites: map[string][4]KitSprite{}}
-	for _, page := range m.Pages {
-		raw, err := kitFiles.ReadFile("kits/" + page)
-		if err != nil {
-			return KitAtlas{}, err
-		}
-		img, err := png.Decode(bytes.NewReader(raw))
-		if err != nil {
-			return KitAtlas{}, fmt.Errorf("%s: %w", page, err)
-		}
-		atlas.Pages = append(atlas.Pages, img)
-	}
+	atlas := KitAtlas{Zoom: m.Zoom, Tile: m.Tile, sprites: map[string][4]KitSprite{}, files: m.Pages}
 	for name, headings := range m.Sprites {
 		var set [4]KitSprite
 		for i, heading := range Headings {
