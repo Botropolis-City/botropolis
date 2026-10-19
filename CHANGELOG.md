@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The reference thanks the people whose work the city is drawn with.**
+  The page `?` opens on ends with a credit in small print: the roads, trees, vehicles, trains, boats and landmarks are Kenney's (kenney.nl), under CC0,
+  and the type is Inter, by The Inter Project Authors, under the SIL Open Font License 1.1.
+
 - **The City Plan: every district on one screen.**
   Zooming out stops at Skyline; one more notch, once the wheel has rested, turns the city into a flat plan.
   Each district is a badge at its place on the map, with its name, whose move it is and its counts of sessions, of those needing you and of subagents in flight; the groups' lines run between them, and a legend reads the usage limits.
