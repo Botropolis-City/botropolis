@@ -10,9 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
+
+	"botropolis.city/botropolis/pkg/proc"
 )
 
 const appDir = "botropolis"
@@ -141,22 +142,14 @@ func alive(pid int, started string) bool {
 	return now == "-" || started == "" || started == "-" || now == started
 }
 
-// startTime is when pid started, in clock ticks since boot, from
-// /proc; "-" where there is no /proc to ask.
+// startTime is when pid started, as proc reads it; "-" where the
+// system cannot say.
 func startTime(pid int) string {
-	stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
-	if err != nil {
+	started, ok := proc.StartTime(pid)
+	if !ok {
 		return "-"
 	}
-	shut := strings.LastIndexByte(string(stat), ')')
-	if shut < 0 {
-		return "-"
-	}
-	fields := strings.Fields(string(stat[shut+1:]))
-	if len(fields) < 20 {
-		return "-"
-	}
-	return fields[19]
+	return strconv.FormatUint(started, 10)
 }
 
 func copyFiles(src, dst string) error {

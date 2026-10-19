@@ -2,17 +2,16 @@ package demo
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
+
+	"botropolis.city/botropolis/pkg/proc"
 )
 
 // standIns is where a staged home lists the processes its live records
@@ -32,7 +31,7 @@ func Sleepers(dir string, hold time.Duration) Spawner {
 		}
 		pid := cmd.Process.Pid
 		go func() { _ = cmd.Wait() }()
-		started, ok := startTime(os.DirFS("/proc"), pid)
+		started, ok := proc.StartTime(pid)
 		if !ok {
 			return 0, fmt.Errorf("stand-in %d has no start time", pid)
 		}
@@ -53,10 +52,10 @@ func Sleepers(dir string, hold time.Duration) Spawner {
 // the moment Start returns; the process's name is not, and a stand-in
 // can still carry its parent's name when Unstage reads it (item 124).
 func Unstage(dir string) error {
-	return unstage(dir, os.DirFS("/proc"), syscall.Kill)
+	return unstage(dir, proc.StartTime, syscall.Kill)
 }
 
-func unstage(dir string, proc fs.FS, kill func(int, syscall.Signal) error) error {
+func unstage(dir string, startTime func(int) (uint64, bool), kill func(int, syscall.Signal) error) error {
 	f, err := os.Open(filepath.Join(dir, standIns))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -72,7 +71,7 @@ func unstage(dir string, proc fs.FS, kill func(int, syscall.Signal) error) error
 		if n, _ := fmt.Sscan(scan.Text(), &pid, &listed); n != 2 {
 			continue
 		}
-		if started, ok := startTime(proc, pid); !ok || started != listed {
+		if started, ok := startTime(pid); !ok || started != listed {
 			continue
 		}
 		_ = kill(pid, syscall.SIGTERM)
@@ -81,24 +80,4 @@ func unstage(dir string, proc fs.FS, kill func(int, syscall.Signal) error) error
 		return err
 	}
 	return os.Remove(filepath.Join(dir, standIns))
-}
-
-// startTime is field 22 of the process's stat, in clock ticks since
-// boot. Fields are counted from after the name, which can hold spaces
-// and parentheses.
-func startTime(proc fs.FS, pid int) (uint64, bool) {
-	stat, err := fs.ReadFile(proc, strconv.Itoa(pid)+"/stat")
-	if err != nil {
-		return 0, false
-	}
-	shut := bytes.LastIndexByte(stat, ')')
-	if shut < 0 {
-		return 0, false
-	}
-	fields := strings.Fields(string(stat[shut+1:]))
-	if len(fields) < 20 {
-		return 0, false
-	}
-	started, err := strconv.ParseUint(fields[19], 10, 64)
-	return started, err == nil
 }

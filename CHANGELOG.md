@@ -186,6 +186,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`botropolis-demo stage` works on macOS again, and a headless run there clears up after a dead one.**
+  Both tell a process from a later one given the same pid by when it started, which they read only where the system has `/proc`.
+  On macOS, staging refused every stand-in, and a private state directory whose pid had been handed on was kept for good.
+  They now ask macOS's kernel for the same fact.
+
 - **A session that changes while the daemon starts is no longer missed.**
   The daemon read the sessions and then began watching for changes, so one that changed in between was shown as it had been until it next changed.
   It now reads them again once it is watching, before it serves the city.
