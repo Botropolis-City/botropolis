@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-19
+
 ### Changed
 
 - **The Botropolis city and its daemon must be running the same version.**
@@ -22,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Hovering a train shows its window and where it was read: from the model's sessions, from the model table, or unknown.
 
 ### Fixed
+
+- **Your district layout is never thrown away when it cannot be read.**
+  A layout file written by a newer Botropolis is refused by name, with a message to update, and left as it is, rather than replaced by an empty layout;
+  a layout or session ledger from an older version is carried forward.
 
 - **The map uses far less memory starting up and once running.**
   The city's art used to be held twice over while it loaded, and its pages were packed into larger textures than they need.
@@ -539,7 +545,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/Botropolis-City/botropolis/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Botropolis-City/botropolis/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Botropolis-City/botropolis/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Botropolis-City/botropolis/compare/v0.1.7...v0.2.0
