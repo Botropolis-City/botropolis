@@ -97,8 +97,10 @@ The arrangement and the cap on cross-checking are in `../CLAUDE.md`.
 
 - **`log.showSignature=true` is set repo-locally**, so `git log --oneline | wc -l` counts double and `git log --format=%s` returns the signature ahead of the subject.
   Pass `--no-show-signature` in anything scripted; `git rev-list --count` and `git rev-parse` are unaffected, which is why `pkgver()` has never broken.
-- **Repo-local identity and signing**: `Aria Vesta <dev@ariavesta.com>`, SSH signing with `~/.ssh/id_ariavesta_sign_ed25519`.
-  Any new repo for this project needs the same four `git config` lines before its first commit, or the global `commit.gpgsign` signs with the work key.
+- **Identity and signing depend on the machine**: every commit is `Aria Vesta <dev@ariavesta.com>`, signed with Aria's own key.
+  On her own machine that is the global git config, GPG key `C39F068679829540`, with nothing set per repository.
+  On a machine whose global identity is someone else's, set the repo-local identity and signing before the first commit (there it was SSH, `~/.ssh/id_ariavesta_sign_ed25519`), or the global `commit.gpgsign` signs with that machine's key.
+  Either way, `git verify-commit HEAD` names `dev@ariavesta.com`.
 - **The atlas is embedded from `pkg/assets/kits`**, not `pkg/render`, which is the package that draws it.
 - **Anything counting sprite usage must exclude `_test.go` and must match string literals rather than file text.**
   A corpus containing the test always agrees with the test, and a doc comment naming a piece is not a caller. See `rules/a-green-test-is-not-a-guard.md`.
