@@ -267,6 +267,7 @@ docs/screenshots/r750-item-146-ramp-h90.png
 docs/screenshots/r750-item-146-ramp-h180.png
 docs/screenshots/r750-item-146-ramp-h270.png
 docs/screenshots/r748-item-147-engine-options.png
+docs/screenshots/r749-item-147-engine-options-both-sides.png
 LIST
 )
 while read -r img; do

@@ -199,6 +199,7 @@ def parse_args():
     p.add_argument("--out", required=True, help="PNG to write (scene, kinds, trains) or directory for the atlases (atlas)")
     p.add_argument("--heading", type=int, default=0, help="the heading to show the kinds from (kinds)")
     p.add_argument("--zooms", default="1,2", help="zoom levels to cut atlases for (atlas)")
+    p.add_argument("--both-sides", action="store_true", help="show each engine turned 180 degrees too (trains)")
     p.add_argument("--only", default="", help="render only pieces whose name contains this (atlas, for trying things)")
     p.add_argument("--kits", default=KITS, help="where the Kenney kits are (tools/kits)")
     p.add_argument("--width", type=int, default=1600)
@@ -865,7 +866,8 @@ def trains(args):
     """Every engine the Train Kit offers, each coupled to the loop's
     wagon as the map couples them, at the map's scale and heading, with
     the car and the wagon alone along the top as the ruler. Item 147:
-    the sheet the engines are picked from."""
+    the sheet the engines are picked from. With --both-sides each is
+    shown again turned 180 degrees, its nose towards the viewer."""
     out = os.path.abspath(args.out)
     tmp = out + ".render.png"
     reset()
@@ -880,7 +882,7 @@ def trains(args):
     heading = (args.heading + 180) % 360
     gap = 0.05
 
-    def cut(parts):
+    def cut(parts, heading):
         roots = []
         y = 0.0
         for i, (kit, name) in enumerate(parts):
@@ -906,24 +908,29 @@ def trains(args):
 
     ruler = [("sedan", [("car-kit", "sedan")]), ("van", [("car-kit", "van")]), ("wagon", [("train-kit", wagon)])]
     engines = [(n[len("train-"):], [("train-kit", n), ("train-kit", wagon)]) for n in kit_engines(args.kits)]
-    cuts = [(name, cut(parts)) for name, parts in ruler + engines]
+    sides = [heading, (heading + 180) % 360] if args.both_sides else [heading]
+    cuts = [(name, [cut(parts, h) for h in sides]) for name, parts in ruler + engines]
     print("ENGINES", len(engines))
-    cols = 5
-    cell_w = max(c.shape[1] for _, (c, _, _) in cuts) + 40
-    above = max(ay for _, (_, _, ay) in cuts)
-    below = max(c.shape[0] - ay for _, (c, _, ay) in cuts)
+    cols = 3 if args.both_sides else 5
+    flat = [v for _, views in cuts for v in views]
+    side_w = max(c.shape[1] for c, _, _ in flat) + 20
+    cell_w = side_w * len(sides) + 40
+    above = max(ay for _, _, ay in flat)
+    below = max(c.shape[0] - ay for c, _, ay in flat)
     text = 40
     cell_h = int(above + below) + 24 + text
     rows = 1 + (len(engines) + cols - 1) // cols
     sheet = np.zeros((rows * cell_h, cols * cell_w, 4), dtype=np.uint8)
     sheet[:, :] = (17, 22, 28, 255)
-    places = [(0, i + 1) for i in range(len(ruler))] + [(1 + i // cols, i % cols) for i in range(len(engines))]
-    for (name, (img, ax, ay)), (r, c) in zip(cuts, places):
-        x = int(c * cell_w + cell_w / 2 - ax)
-        y = int(r * cell_h + 12 + above - ay)
-        region = sheet[y:y + img.shape[0], x:x + img.shape[1]]
-        alpha = img[:, :, 3:4].astype(np.float32) / 255
-        region[:, :, :3] = (img[:, :, :3] * alpha + region[:, :, :3] * (1 - alpha)).astype(np.uint8)
+    first = (cols - len(ruler)) // 2
+    places = [(0, first + i) for i in range(len(ruler))] + [(1 + i // cols, i % cols) for i in range(len(engines))]
+    for (name, views), (r, c) in zip(cuts, places):
+        for k, (img, ax, ay) in enumerate(views):
+            x = int(c * cell_w + 20 + side_w * k + side_w / 2 - ax)
+            y = int(r * cell_h + 12 + above - ay)
+            region = sheet[y:y + img.shape[0], x:x + img.shape[1]]
+            alpha = img[:, :, 3:4].astype(np.float32) / 255
+            region[:, :, :3] = (img[:, :, :3] * alpha + region[:, :, :3] * (1 - alpha)).astype(np.uint8)
         label(sheet, name + (" (today)" if name in ("diesel-a", "diesel-b", "diesel-c") else ""), c * cell_w + cell_w / 2, r * cell_h + cell_h - text)
     h, w = sheet.shape[:2]
     img = bpy.data.images.new("trains", w, h, alpha=True)
