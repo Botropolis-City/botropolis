@@ -103,11 +103,12 @@ func (g *Game) drawMessage(screen *ebiten.Image, cam *city.Camera, m city.Messag
 	}
 	at := m.At(now)
 	turn := carTurn(m.At(now.Add(100 * 1e6)).Sub(at))
-	model := kitVan
+	model, shrink := kitVan, 0.9
 	if m.Train {
 		model = kitWagons[0]
+		shrink = messageShrink(model)
 	}
-	r := g.kitScaled(screen, cam, model, turn, at, 0.9, tint)
+	r := g.kitScaled(screen, cam, model, turn, at, shrink, tint)
 	g.noteHit(r, city.Hit{Message: &m})
 }
 

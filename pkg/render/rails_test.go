@@ -71,3 +71,20 @@ func TestTrainOnTheLoop(t *testing.T) {
 		})
 	})
 }
+
+// Item 134: a message's carriage on a group's line keeps the size it had
+// before the train grew, 0.9 of a wagon cut at 0.25, because it rides
+// over lots, badges and station dots, and a loop wagon's size would
+// cover them (the manager, for Aria, 2026-10-19).
+func TestMessageCarriage(t *testing.T) {
+	feet, err := assets.Footprints()
+	require.NoError(t, err)
+	model := kitWagons[0]
+	require.Positive(t, feet[model].Length, "no wagon footprint: the check below passes on nothing")
+
+	t.Run("when a message rides a group's line", func(t *testing.T) {
+		t.Run("it should draw its carriage 0.61 cells long, the size it was before the train grew", func(t *testing.T) {
+			assert.InDelta(t, 2.7*0.25*0.9, feet[model].Length*messageShrink(model), 0.01)
+		})
+	})
+}

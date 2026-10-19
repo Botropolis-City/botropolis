@@ -38,6 +38,21 @@ func pieceLength(model string) float64 {
 	return vehicleFeet()[model].Length * city.CellSize
 }
 
+// messageCarriage is how long a message's carriage on a group's line is,
+// in cells: the size it had before the train grew, kept because it rides
+// over lots, badges and station dots (item 134).
+const messageCarriage = 0.6075
+
+// messageShrink scales a piece to messageCarriage, whatever scale the
+// pipeline cut it at.
+func messageShrink(model string) float64 {
+	length := vehicleFeet()[model].Length
+	if length <= 0 {
+		return 0.9
+	}
+	return messageCarriage / length
+}
+
 // railGauge sets the rails under the wagon's body, a little over half
 // its width apart, the way a real train sits on its track.
 func railGauge() float64 {
