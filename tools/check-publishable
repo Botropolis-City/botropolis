@@ -241,6 +241,8 @@ docs/botropolis.gif
 packaging/botropolis.svg
 docs/screenshots/r676-item-99-landmark-labels.png
 docs/screenshots/r676-item-99-landmark-labels-close.png
+docs/screenshots/r684-item-99-labels-on-roofs.png
+docs/screenshots/r684-item-99-labels-on-roofs-close.png
 LIST
 )
 while read -r img; do
