@@ -64,7 +64,7 @@ var stored = stats.Window{
 		{Key: "claude-opus-5-5", Counters: stats.Counters{Output: 30, Messages: 3}, Cost: cost(2)},
 		{Key: "claude-haiku-4-5", Counters: stats.Counters{Output: 10, Messages: 1}, Cost: cost(0.5)},
 	},
-	ByProject: []stats.Slice{{Key: "/w/cinders", Cost: cost(2.5)}},
+	ByProject: []stats.Slice{{Key: cinders, Cost: cost(2.5)}},
 	BySession: []stats.Slice{{Key: "a", Cost: cost(2.5)}},
 	Hourly:    []stats.Cost{cost(1), cost(1.5)},
 }

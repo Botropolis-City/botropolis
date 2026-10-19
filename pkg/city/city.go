@@ -121,6 +121,9 @@ type City struct {
 	groups []*state.Group
 	// names is every known root's district name (item 139).
 	names map[string]string
+	// folderless is the sessions with no known folder: on no district,
+	// still counted in the statistics (item 139).
+	folderless []state.Session
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.
@@ -317,9 +320,11 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	byRoot := map[string][]state.Session{}
 	packed := map[string][]state.Session{}
 	known := layout.HiddenRoots()
+	var folderless []state.Session
 	for _, s := range snapshot.Sessions {
 		root := ProjectRoot(s.CWD)
 		if root == "" {
+			folderless = append(folderless, s)
 			continue
 		}
 		known = append(known, root)
@@ -341,7 +346,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		return names[roots[i]] < names[roots[j]]
 	})
 
-	city := &City{Time: snapshot.At, ledger: ledger, names: names}
+	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless}
 	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
 		city.Plant.Day = city.Breakdown(LastDay)

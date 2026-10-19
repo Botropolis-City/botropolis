@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 // FolderUnknown names the sessions whose record carries no folder,
@@ -49,6 +51,17 @@ func endsElsewhere(split map[string][]string, root string, tail []string) bool {
 	return false
 }
 
-func baseName(root string) string {
-	return filepath.Base(root)
+// storeNames names the store's project roots alongside every root the
+// city knows, so a root only the store remembers is still told apart
+// from its twin on the map.
+func (c *City) storeNames(slices []stats.Slice) func(string) string {
+	roots := make([]string, 0, len(c.names)+len(slices))
+	for root := range c.names {
+		roots = append(roots, root)
+	}
+	for _, sl := range slices {
+		roots = append(roots, sl.Key)
+	}
+	names := DistrictNames(roots)
+	return func(root string) string { return names[root] }
 }

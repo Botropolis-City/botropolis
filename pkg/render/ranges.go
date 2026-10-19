@@ -3,7 +3,6 @@ package render
 import (
 	"fmt"
 	"image/color"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -70,8 +69,9 @@ func loadRanges(q rangeQueries, sel ui.RangeSelection, today stats.Date, loc *ti
 	if counted == nil {
 		counted = d.All
 	}
+	named := city.DistrictNames(append(append([]string(nil), d.All...), counted...))
 	for _, root := range counted {
-		fig := ui.DistrictFigure{Root: root, Name: filepath.Base(root)}
+		fig := ui.DistrictFigure{Root: root, Name: named[root]}
 		if fig.Counters, fig.Cost, err = q.Totals(days, stats.Filter{Root: city.ProjectRoot, Only: []string{root}}, loc); err != nil {
 			return d, err
 		}

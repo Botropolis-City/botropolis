@@ -8,6 +8,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/stats"
 )
 
 func TestDistrictNames(t *testing.T) {
@@ -130,6 +131,51 @@ func TestBuildNamesDistricts(t *testing.T) {
 			t.Run("it should name the hidden one apart too", func(t *testing.T) {
 				assert.Equal(t, "botropolis-city/botropolis", c.DistrictName(twin))
 			})
+		})
+	})
+}
+
+func TestBreakdownNamesDistricts(t *testing.T) {
+	twin := "/home/avesta/workspaces/github/botropolis-city/botropolis"
+	sessions := []state.Session{
+		spender("a", botropolis, "claude-opus-5", map[int]int64{0: 100}),
+		spender("x", "", "claude-opus-5", map[int]int64{0: 50}),
+	}
+
+	t.Run("when the store splits by an empty root and two roots with one base name", func(t *testing.T) {
+		window := stats.Window{ByProject: []stats.Slice{
+			{Key: botropolis, Cost: cost(1)},
+			{Key: twin, Cost: cost(2)},
+			{Key: "", Cost: cost(3)},
+		}}
+		c := city.BuildWithLedger(snapshot(sessions...), city.NewLayout(), &fakeLedger{window: window})
+		b := c.Breakdown(city.LastDay)
+
+		t.Run("it should keep each a share of its own", func(t *testing.T) {
+			assert.Len(t, b.ByProject, 3)
+		})
+
+		for i, want := range []string{"auroq/botropolis", "botropolis-city/botropolis", city.FolderUnknown} {
+			t.Run("it should name share "+want, func(t *testing.T) {
+				assert.Equal(t, want, b.ByProject[i].Key)
+			})
+		}
+	})
+
+	t.Run("when the store cannot be read and a session has no folder", func(t *testing.T) {
+		c := city.BuildWithLedger(snapshot(sessions...), city.NewLayout(), &fakeLedger{reason: "off"})
+		b := c.Breakdown(city.LastDay)
+
+		t.Run("it should still count it in the total", func(t *testing.T) {
+			assert.Equal(t, int64(150), b.Counters.Output)
+		})
+
+		t.Run("it should list it as "+city.FolderUnknown, func(t *testing.T) {
+			var keys []string
+			for _, s := range b.ByProject {
+				keys = append(keys, s.Key)
+			}
+			assert.Contains(t, keys, city.FolderUnknown)
 		})
 	})
 }

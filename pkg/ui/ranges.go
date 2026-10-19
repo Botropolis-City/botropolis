@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -490,9 +489,10 @@ func LayoutRanges(th Theme, width, height float64, d RangeData, sel RangeSelecti
 
 	filter := fmt.Sprintf("districts: all %d  (d to choose)", len(d.All))
 	if sel.Only != nil {
+		named := city.DistrictNames(append(append([]string(nil), d.All...), sel.Only...))
 		names := make([]string, len(sel.Only))
 		for i, r := range sel.Only {
-			names[i] = filepath.Base(r)
+			names[i] = named[r]
 		}
 		filter = "districts: " + strings.Join(names, ", ") + "  (d to choose)"
 	}
@@ -764,9 +764,10 @@ func (p *RangesPanel) layChooser(th Theme, all, only []string, focus int, y floa
 	}
 	step := smallH + grid/2
 	limit := p.Rect.Max.Y - grid
+	named := city.DistrictNames(all)
 	w := 0.0
 	for _, r := range all {
-		lw, _ := measure("[✓] "+filepath.Base(r), Small)
+		lw, _ := measure("[✓] "+named[r], Small)
 		w = max(w, lw)
 	}
 	x := p.Chart.Min.X
@@ -781,7 +782,7 @@ func (p *RangesPanel) layChooser(th Theme, all, only []string, focus int, y floa
 		}
 		p.Chooser = append(p.Chooser, ChooserRow{
 			Rect: city.RectAt(x, ry, w+2*grid, step), Root: r, Focused: i == focus,
-			Label: Text{Text: check + " " + filepath.Base(r), At: city.Point{X: x + grid, Y: ry + grid/4}, Size: Small},
+			Label: Text{Text: check + " " + named[r], At: city.Point{X: x + grid, Y: ry + grid/4}, Size: Small},
 		})
 		ry += step
 	}

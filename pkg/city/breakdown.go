@@ -1,7 +1,6 @@
 package city
 
 import (
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -149,7 +148,7 @@ func (c *City) Breakdown(w Window) Breakdown {
 		return c.memoryBreakdown(w, reason)
 	}
 	b := Breakdown{Window: w, Counters: stored.Counters, Cost: stored.Cost, Priced: true,
-		ByModel: sharesOf(stored.ByModel, same), ByProject: sharesOf(stored.ByProject, baseName), BySession: sharesOf(stored.BySession, same)}
+		ByModel: sharesOf(stored.ByModel, same), ByProject: sharesOf(stored.ByProject, c.storeNames(stored.ByProject)), BySession: sharesOf(stored.BySession, same)}
 	for _, h := range stored.Hourly {
 		b.Series = append(b.Series, h.High)
 	}
@@ -178,8 +177,18 @@ func (c *City) memoryBreakdown(w Window, reason string) Breakdown {
 			continue
 		}
 		b.Counters = b.Counters.Add(u)
-		add(byProject, filepath.Base(ProjectRoot(bld.Session.CWD)), u)
+		add(byProject, bld.Where, u)
 		add(bySession, bld.Session.ID, u)
+	}
+	for _, s := range c.folderless {
+		u := counters(windowUsage(&Building{Session: s}, w, c.Time))
+		buckets = append(buckets, s.Hourly)
+		if u == (stats.Counters{}) {
+			continue
+		}
+		b.Counters = b.Counters.Add(u)
+		add(byProject, FolderUnknown, u)
+		add(bySession, s.ID, u)
 	}
 	b.Cost = stats.Cost{Unpriced: b.Counters.Messages}
 	b.ByProject, b.BySession = shares(byProject), shares(bySession)

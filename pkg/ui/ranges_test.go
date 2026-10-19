@@ -394,6 +394,26 @@ func TestLayoutRanges(t *testing.T) {
 			assert.Equal(t, "districts: kiln, tidepool  (d to choose)", lay(someRangeData(), s, ui.Chooser{}).Filter.Text)
 		})
 
+		t.Run("and two chosen districts share a base name", func(t *testing.T) {
+			d := someRangeData()
+			d.All = []string{"/a/kiln", "/b/kiln", "/w/tidepool", ""}
+			s := sel
+			s.Only = []string{"/a/kiln", "/b/kiln", ""}
+			p := lay(d, s, ui.Chooser{Open: true})
+
+			t.Run("it should name each apart, and the empty root plainly", func(t *testing.T) {
+				assert.Equal(t, "districts: a/kiln, b/kiln, folder unknown  (d to choose)", p.Filter.Text)
+			})
+
+			t.Run("it should label each chooser row apart", func(t *testing.T) {
+				var labels []string
+				for _, row := range p.Chooser {
+					labels = append(labels, row.Label.Text)
+				}
+				assert.Equal(t, []string{"[✓] a/kiln", "[✓] b/kiln", "[ ] tidepool", "[✓] folder unknown"}, labels)
+			})
+		})
+
 		t.Run("and the data begins inside the range, it should say so", func(t *testing.T) {
 			assert.Equal(t, "data since 31 Jul: this range starts 19 Jul, before it", p.Since.Text)
 		})
