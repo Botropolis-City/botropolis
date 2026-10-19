@@ -25,6 +25,9 @@ type RefEntry struct {
 	Is    string
 	Lines []string
 	Terms []string
+	// Credit is the small print at the entry's foot: the index's thanks
+	// to the people whose work the city is drawn with. Item 122.
+	Credit string
 }
 
 // Reference is the entries and where the reader has been.
@@ -34,10 +37,10 @@ type Reference struct {
 }
 
 // NewReference builds the entries, the key list among them, and opens
-// on the index.
-func NewReference(keys []Key) *Reference {
+// on the index, which carries the credit.
+func NewReference(keys []Key, credit string) *Reference {
 	r := &Reference{entries: map[string]RefEntry{}}
-	index := RefEntry{ID: IndexEntry, Title: "Reference", Is: "everything on the map, and every key"}
+	index := RefEntry{ID: IndexEntry, Title: "Reference", Is: "everything on the map, and every key", Credit: credit}
 	for _, k := range city.Kinds {
 		e := RefEntry{ID: k.Name(), Title: k.Name(), Is: k.Is(), Lines: []string{k.About()}}
 		for _, rel := range k.Related() {
@@ -91,6 +94,7 @@ type ReferencePanel struct {
 	Terms    []Button
 	termIDs  []string
 	Hint     Text
+	Credit   []Text
 }
 
 // LayoutReference centres the open entry in the window.
@@ -131,7 +135,15 @@ func LayoutReference(th Theme, width, height float64, r *Reference, measure Meas
 		hint += "; backspace goes back"
 	}
 	p.Hint = Text{Text: strings.TrimSpace(hint), At: city.Point{X: pad, Y: y}, Size: Small}
-	y += smallH + pad
+	y += smallH
+	if credit := wrapAt(e.Credit, inner, len(e.Credit), Small, measure); len(credit) > 0 {
+		y += grid
+		for _, l := range credit {
+			p.Credit = append(p.Credit, Text{Text: l, At: city.Point{X: pad, Y: y}, Size: Small})
+			y += smallH
+		}
+	}
+	y += pad
 	h := min(y, height-4*grid)
 	at := city.Point{X: (width - w) / 2, Y: (height - h) / 2}
 	return p.moved(at, w, h)
@@ -142,6 +154,9 @@ func (p ReferencePanel) moved(at city.Point, w, h float64) ReferencePanel {
 	p.Title, p.Subtitle, p.Hint = p.Title.moved(at), p.Subtitle.moved(at), p.Hint.moved(at)
 	for i := range p.Lines {
 		p.Lines[i] = p.Lines[i].moved(at)
+	}
+	for i := range p.Credit {
+		p.Credit[i] = p.Credit[i].moved(at)
 	}
 	for i, b := range p.Terms {
 		p.Terms[i] = Button{Rect: city.Rect{Min: b.Rect.Min.Add(at), Max: b.Rect.Max.Add(at)}, Label: b.Label.moved(at)}

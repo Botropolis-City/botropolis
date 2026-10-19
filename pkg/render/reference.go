@@ -12,6 +12,13 @@ import (
 // overlay stack: an entry per kind of thing on the map, whose terms
 // open their own entries. Its Keys entry is the key list, whose rows
 // still press their key when clicked.
+// credit thanks the people whose work the city is drawn with, in the
+// words the website and the README use, at the foot of the reference's
+// index. Item 122.
+const credit ="Roads, trees, vehicles, trains, boats and landmarks by Kenney (kenney.nl), CC0 — thank you. " +
+	"Session buildings, the drone, the fountain and the building sites are modelled for Botropolis. " +
+	"Set in Inter by The Inter Project Authors (SIL OFL 1.1)."
+
 type reference struct {
 	ref     *ui.Reference
 	laid    ui.ReferencePanel
@@ -27,7 +34,7 @@ func (g *Game) openReference() {
 	if g.referenceOpen() != nil {
 		return
 	}
-	g.overlays.push(&reference{ref: ui.NewReference(g.helpKeys())})
+	g.overlays.push(&reference{ref: ui.NewReference(g.helpKeys(), credit)})
 }
 
 func (r *reference) keys(g *Game) bool {
@@ -88,4 +95,7 @@ func (r *reference) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.run(screen, b.Label, th.Palette.Accent)
 	}
 	g.run(screen, p.Hint, th.Palette.Dim)
+	for _, l := range p.Credit {
+		g.run(screen, l, th.Palette.Dim)
+	}
 }
