@@ -195,6 +195,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The trains are the size of the cars' world, and their wagons no longer pile onto each other.**
+  A train was a third as long as it should be beside the cars, and each wagon was drawn two thirds over the one behind it, so a six-wagon train looked like two.
+  Trains are now drawn two fifths larger and each runs its own length behind the one in front, on rails set under its body, with trains a wagon and a half apart round the loop.
+  A message's carriage along a group's line keeps its old size, so it does not cover the badges it passes.
+
 - **`botropolis-demo stage` works on macOS again, and a headless run there clears up after a dead one.**
   Both tell a process from a later one given the same pid by when it started, which they read only where the system has `/proc`.
   On macOS, staging refused every stand-in, and a private state directory whose pid had been handed on was kept for good.
