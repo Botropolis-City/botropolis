@@ -35,8 +35,10 @@ func TestRecordedClipKeepsTheScenesTime(t *testing.T) {
 			assert.Len(t, written, 30)
 		})
 
-		t.Run("it should advance the scene's clock by 3 s, within one tick", func(t *testing.T) {
-			assert.InDelta(t, 3.0, seconds, 1.0/30, strings.TrimSpace(report[0]))
+		// Item 118: exactly, whatever the load, because the clip counts
+		// draws and the city's clock counts the same draws.
+		t.Run("it should report exactly its frames over its rate as the city's clock", func(t *testing.T) {
+			assert.Equal(t, float64(len(written))/10, seconds, strings.TrimSpace(report[0]))
 		})
 	})
 }
