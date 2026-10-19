@@ -134,10 +134,21 @@ PIECES = {
 }
 
 # Kits that are not modelled at one unit per cell are scaled on import:
-# the Car Kit is in metres, a sedan 2.5 long, and a car on the map is a
-# third of a cell; the Train Kit's wagons are 2.7 long and the Watercraft
-# Kit's tug 3.5, and a wagon or a barge on the map is two thirds of a cell.
-SCALE = {"car-kit": 0.12, "train-kit": 0.25, "watercraft-kit": 0.25}
+# the Car Kit is in metres, a sedan 2.55 long, and a car on the map is a
+# third of a cell; the Watercraft Kit's tug is 3.5, and a barge on the map
+# is two thirds of a cell.
+#
+# The Train Kit is scaled against the cars (item 134). Its wagon is 1.0 by
+# 2.7 and the sedan 1.5 by 2.55, so no one scale gives a wagon both a real
+# wagon's width beside a car (about 1.7 times) and its length (about 3.3
+# times): 0.35 is about a tenth off each, and 0.40 makes the body wider
+# than a real wagon. pkg/assets/kits_test.go holds the ratios.
+SCALE = {"car-kit": 0.12, "train-kit": 0.35, "watercraft-kit": 0.25}
+
+# Kits whose pieces are vehicles, modelled facing along y: the atlas
+# records their footprint, so the map spaces a train by its wagons' own
+# length rather than by a constant that can drift from the scale.
+VEHICLES = {"car-kit", "train-kit"}
 
 # The Nature Kit's geometry, on this city's terms. Its trees are the
 # variety the two Suburban ones cannot give, but they are modelled a
@@ -736,6 +747,7 @@ def atlas(args):
                 # One ground point per piece, projected once per heading:
                 # the camera turns, the piece does not.
                 ground = ground_point(root)
+                lo, hi = bounds(root)
                 for heading in (0, 90, 180, 270):
                     px, (ax, ay) = frame_piece(root, heading, zoom, ground)
                     rgba = render_pixels(tmp)
@@ -752,6 +764,8 @@ def atlas(args):
                         sprites[key][str(heading)]["body"] = list(root["body"]) + [root["roof"]]
                     if kit == "botropolis" and buildings.is_course(name):
                         sprites[key][str(heading)]["body"] = list(root["body"])
+                    if kit in VEHICLES:
+                        sprites[key][str(heading)]["foot"] = [round(hi.x - lo.x, 4), round(hi.y - lo.y, 4)]
                     count += 1
                 remove(root)
         stem = f"kits-z{zoom:g}"

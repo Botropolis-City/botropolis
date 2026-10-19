@@ -3,23 +3,46 @@ package render
 import (
 	"image/color"
 	"math"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
+	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
 )
 
 // The freight loop is the ledger: track drawn on the ground the way the
 // wires are drawn in the air, and the kit's trains on it, one per model,
 // as long as that model's spend.
+//
+// A train is spaced by its own pieces' lengths, read from the atlas
+// (item 134). The constants this replaced were in tiles while the
+// pieces are in cells, three tiles each, so every wagon stood two thirds
+// over the one behind it and nothing measured could say so.
 const (
-	railGauge   = city.Tile * 0.22
 	sleeperStep = city.Tile * 0.5
 	trainSpeed  = 36.0 // world units per second
-	wagonGap    = city.Tile * 0.72
-	trainGap    = city.Tile * 2.5
+	coupling    = city.Tile * 0.15
+	// trainGap is the clear track between two trains, in wagons.
+	trainGap = 1.5
 )
+
+var vehicleFeet = sync.OnceValue(func() map[string]assets.Foot {
+	feet, _ := assets.Footprints()
+	return feet
+})
+
+// pieceLength is how long a piece is on the loop, in world units.
+func pieceLength(model string) float64 {
+	return vehicleFeet()[model].Length * city.CellSize
+}
+
+// railGauge sets the rails under the wagon's body, a little over half
+// its width apart, the way a real train sits on its track.
+func railGauge() float64 {
+	return 0.55 * vehicleFeet()[kitWagons[0]].Width * city.CellSize
+}
 
 var (
 	colorRail    = color.NRGBA{0x8c, 0x90, 0x98, 0xff}
@@ -49,7 +72,7 @@ func (g *Game) isoRails(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 			continue
 		}
 		ux, uy := dx/length, dy/length
-		nx, ny := -uy*railGauge/2, ux*railGauge/2
+		nx, ny := -uy*railGauge()/2, ux*railGauge()/2
 		for d := sleeperStep / 2; d < length; d += sleeperStep {
 			p := city.Point{X: a.X + ux*d, Y: a.Y + uy*d}
 			seg(&sleepers, city.Point{X: p.X + nx*1.6, Y: p.Y + ny*1.6}, city.Point{X: p.X - nx*1.6, Y: p.Y - ny*1.6})
@@ -73,29 +96,43 @@ type carriage struct {
 	turn  int
 	train *city.Train
 	head  bool
+	// along is how far round the loop it stands, and loop the loop's
+	// length, so a test can measure the spacing the way the train runs.
+	along, loop float64
 }
 
-// carriages places every train: heads spaced round the loop, wagons
-// trailing each by wagonGap, all moving at trainSpeed.
+// carriages places every train: heads spaced round the loop, each piece
+// trailing the one in front by half of each one's length and a coupling,
+// all moving at trainSpeed. Each train runs ahead of the one before it,
+// trainGap wagons clear of it.
 func (g *Game) carriages(c *city.City, seconds float64) []carriage {
 	length := pathLength(c.Rails)
 	if length <= 0 || len(c.Trains) == 0 {
 		return nil
 	}
+	clear := trainGap * pieceLength(kitWagons[0])
 	var out []carriage
-	offset := 0.0
-	for _, t := range c.Trains {
-		head := math.Mod(seconds*trainSpeed+offset, length)
-		for w := 0; w <= t.Wagons; w++ {
-			d := math.Mod(head-float64(w)*wagonGap+length*4, length)
-			at, dir := pointAlong(c.Rails, d)
-			model := kitWagons[t.Hue%len(kitWagons)]
-			if w == 0 {
-				model = kitLocos[t.Hue%len(kitLocos)]
-			}
-			out = append(out, carriage{at: at, model: model, turn: carTurn(dir), train: t, head: w == 0})
+	offset, front := 0.0, 0.0
+	for i, t := range c.Trains {
+		models := make([]string, t.Wagons+1)
+		models[0] = kitLocos[t.Hue%len(kitLocos)]
+		for w := 1; w <= t.Wagons; w++ {
+			models[w] = kitWagons[t.Hue%len(kitWagons)]
 		}
-		offset += float64(t.Wagons+1)*wagonGap + trainGap
+		backs := make([]float64, len(models))
+		for w := 1; w < len(models); w++ {
+			backs[w] = backs[w-1] + (pieceLength(models[w-1])+pieceLength(models[w]))/2 + coupling
+		}
+		if i > 0 {
+			offset += front + clear + backs[len(backs)-1] + pieceLength(models[len(models)-1])/2
+		}
+		front = pieceLength(models[0]) / 2
+		head := math.Mod(seconds*trainSpeed+offset, length)
+		for w, model := range models {
+			d := math.Mod(head-backs[w]+length*4, length)
+			at, dir := pointAlong(c.Rails, d)
+			out = append(out, carriage{at: at, model: model, turn: carTurn(dir), train: t, head: w == 0, along: d, loop: length})
+		}
 	}
 	return out
 }

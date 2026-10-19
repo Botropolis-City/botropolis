@@ -115,3 +115,50 @@ func TestLoadKits(t *testing.T) {
 		}
 	})
 }
+
+// Item 134: the train stands beside the cars at the cars' own scale. Real
+// container wagons are about 3.0 m wide and 15 m long beside a 1.8 m by
+// 4.6 m sedan; the kit's pieces are chunky, so the bands are wide, but
+// they are wide around the real ratios rather than around whatever the
+// pipeline's scale happens to be.
+func TestVehicleScale(t *testing.T) {
+	atlases, err := assets.LoadKits()
+	require.NoError(t, err)
+	require.NotEmpty(t, atlases)
+	foot := func(t *testing.T, name string) assets.Foot {
+		t.Helper()
+		s, ok := atlases[len(atlases)-1].Sprite(name, 0)
+		require.True(t, ok, "%s is not in the atlas", name)
+		require.Positive(t, s.Foot.Width, "%s has no footprint", name)
+		require.Positive(t, s.Foot.Length, "%s has no footprint", name)
+		return s.Foot
+	}
+
+	t.Run("when a kit piece's footprint is read from the atlas", func(t *testing.T) {
+		sedan := foot(t, "car-kit/sedan")
+		wagons := []string{"train-kit/train-carriage-container-red", "train-kit/train-carriage-container-blue", "train-kit/train-carriage-container-green"}
+
+		t.Run("and the piece is a train wagon beside the sedan", func(t *testing.T) {
+			for _, name := range wagons {
+				wagon := foot(t, name)
+
+				t.Run(fmt.Sprintf("it should make %s 1.6 to 2.1 times the sedan's width", name), func(t *testing.T) {
+					assert.InDelta(t, 1.85, wagon.Width/sedan.Width, 0.25)
+				})
+
+				t.Run(fmt.Sprintf("it should make %s 2.8 to 3.6 times the sedan's length", name), func(t *testing.T) {
+					assert.InDelta(t, 3.2, wagon.Length/sedan.Length, 0.4)
+				})
+			}
+		})
+
+		t.Run("and the piece is any locomotive", func(t *testing.T) {
+			wagon := foot(t, wagons[0])
+			for _, name := range []string{"train-kit/train-diesel-a", "train-kit/train-diesel-b", "train-kit/train-diesel-c"} {
+				t.Run(fmt.Sprintf("it should make %s at least as wide as a wagon, less 20%%", name), func(t *testing.T) {
+					assert.GreaterOrEqual(t, foot(t, name).Width, 0.8*wagon.Width)
+				})
+			}
+		})
+	})
+}

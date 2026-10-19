@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/png"
 	"sort"
+	"strings"
 )
 
 //go:embed kits/*.png kits/*.json kits/*/License.txt
@@ -30,6 +31,15 @@ type KitSprite struct {
 	// Body is one of the city's own buildings' footprint without what
 	// stands beside it, in kit units, one to a cell (item 109).
 	Body Body
+	// Foot is the piece's footprint as modelled, in cells (item 134).
+	Foot Foot
+}
+
+// Foot is a kit piece's footprint in cells, after the pipeline's per-kit
+// scale: its width across its own heading and its length along it, the
+// way a vehicle is modelled. Zero for a piece cut before it was recorded.
+type Foot struct {
+	Width, Length float64
 }
 
 // Body is a building's footprint in kit units: its width along x, depth
@@ -95,6 +105,7 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 			AY    float64   `json:"ay"`
 			Panes [][8]int  `json:"panes"`
 			Body  []float64 `json:"body"`
+			Foot  []float64 `json:"foot"`
 		} `json:"sprites"`
 	}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -127,6 +138,9 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 			if len(s.Body) >= 3 {
 				set[i].Body = Body{W: s.Body[0], D: s.Body[1], X: s.Body[2]}
 			}
+			if len(s.Foot) == 2 {
+				set[i].Foot = Foot{Width: s.Foot[0], Length: s.Foot[1]}
+			}
 			if len(s.Body) == 4 {
 				set[i].Body.Roof = s.Body[3]
 			}
@@ -137,6 +151,42 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 		atlas.sprites[name] = set
 	}
 	return atlas, nil
+}
+
+// Footprints is every vehicle's footprint, by piece, read from the
+// manifest alone: it decodes no page, so the map can space a train by
+// its wagons without loading an atlas (item 134). The footprint is the
+// model's, so every cut records the same one; the first is read.
+func Footprints() (map[string]Foot, error) {
+	entries, err := kitFiles.ReadDir("kits")
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		data, err := kitFiles.ReadFile("kits/" + e.Name())
+		if err != nil {
+			return nil, err
+		}
+		var m struct {
+			Sprites map[string]map[string]struct {
+				Foot []float64 `json:"foot"`
+			} `json:"sprites"`
+		}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, fmt.Errorf("%s: %w", e.Name(), err)
+		}
+		feet := map[string]Foot{}
+		for name, headings := range m.Sprites {
+			if f := headings["0"].Foot; len(f) == 2 {
+				feet[name] = Foot{Width: f[0], Length: f[1]}
+			}
+		}
+		return feet, nil
+	}
+	return nil, fmt.Errorf("no atlas manifest under kits/")
 }
 
 // Sprite is a piece ("city-kit-commercial/building-a") at a heading in
