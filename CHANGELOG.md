@@ -186,6 +186,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A session that changes while the daemon starts is no longer missed.**
+  The daemon read the sessions and then began watching for changes, so one that changed in between was shown as it had been until it next changed.
+  It now reads them again once it is watching, before it serves the city.
+
 - **Headless cities started at the same moment no longer lose their display.**
   `--headless` used `xvfb-run -a`, which looks for a free display and then takes it, so cities started together could take the same one, and one of them died with "X connection broken"; eight started at once lost about half.
   It now starts Xvfb itself, which reports the display it took, behind a cookie only that city holds.

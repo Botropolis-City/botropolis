@@ -113,18 +113,37 @@ func TestRun(t *testing.T) {
 		})
 
 		t.Run("and a transcript changes on disk", func(t *testing.T) {
+			client, err := proto.Dial(sock)
+			require.NoError(t, err)
+			defer func() { _ = client.Close() }()
+			updates, err := client.Subscribe(time.Time{})
+			require.NoError(t, err)
 			home.AppendTranscript(sid, cwd, helpers.UserPrompt(sid, cwd, "2026-09-16T19:51:00.000Z"))
+			// The daemon's update is the signal; the deadline only turns a
+			// hang into a failure, and is one a working suite cannot reach
+			// (item 124).
+			backstop := time.After(30 * time.Second)
+			var turn string
+		read:
+			for {
+				select {
+				case update, ok := <-updates:
+					if !ok {
+						break read
+					}
+					if len(update.Snapshot.Sessions) == 1 {
+						turn = string(update.Snapshot.Sessions[0].Turn)
+					}
+					if turn == "working" {
+						break read
+					}
+				case <-backstop:
+					break read
+				}
+			}
 
 			t.Run("it should pick it up", func(t *testing.T) {
-				assert.Eventually(t, func() bool {
-					client, err := proto.Dial(sock)
-					if err != nil {
-						return false
-					}
-					defer func() { _ = client.Close() }()
-					snapshot, err := client.Snapshot()
-					return err == nil && len(snapshot.Sessions) == 1 && snapshot.Sessions[0].Turn == "working"
-				}, 3*time.Second, 20*time.Millisecond)
+				assert.Equal(t, "working", turn)
 			})
 		})
 	})

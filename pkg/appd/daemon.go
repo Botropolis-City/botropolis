@@ -182,13 +182,23 @@ func runDaemon(lc fx.Lifecycle, shutdowner fx.Shutdowner, d *daemon.Daemon, list
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	lc.Append(fx.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(start context.Context) error {
 			if err := d.Rescan(); err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "botropolisd: serving %s for %s\n", cfg.Socket, cfg.Home)
 			errs := make(chan error, 2)
 			go func() { errs <- d.Watch(ctx) }()
+			// What changed between the first scan and the watch raised no
+			// event, so it is read again once the watch is up (item 124).
+			if err := d.WaitWatching(start); err != nil {
+				cancel()
+				return err
+			}
+			if err := d.Rescan(); err != nil {
+				cancel()
+				return err
+			}
+			fmt.Fprintf(out, "botropolisd: serving %s for %s\n", cfg.Socket, cfg.Home)
 			go func() { errs <- d.Serve(ctx, listener) }()
 			go func() {
 				defer close(done)
