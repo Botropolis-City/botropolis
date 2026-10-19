@@ -189,7 +189,7 @@ The 16 px Tiny Town, Tiny Factory and Roguelike Modern City packs are still bund
 Thank you, Kenney; see [`pkg/assets/kenney/README.md`](pkg/assets/kenney/README.md) and [`pkg/assets/kits/README.md`](pkg/assets/kits/README.md) for the packs, versions and terms,
 and [support the studio](https://kenney.nl/donate) if the work helps you too.
 
-The chrome is set in [Inter](https://rsms.me/inter/) by Rasmus Andersson, embedded from `pkg/assets/fonts` under the SIL Open Font License 1.1
+The chrome is set in [Inter](https://rsms.me/inter/) by The Inter Project Authors, embedded from `pkg/assets/fonts` under the SIL Open Font License 1.1
 (the licence text ships beside the face).
 
 ## Not doing

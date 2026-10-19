@@ -75,8 +75,8 @@ func TestReadmeCredits(t *testing.T) {
 			assert.Contains(t, thanks, "`tools/render-sprites/buildings.py`")
 		})
 
-		t.Run("it should thank Inter under the SIL Open Font License", func(t *testing.T) {
-			assert.Regexp(t, `\[Inter\]\(https://rsms\.me/inter/\).*SIL Open Font License`, thanks)
+		t.Run("it should thank Inter's licence holder under the SIL Open Font License", func(t *testing.T) {
+			assert.Regexp(t, `\[Inter\]\(https://rsms\.me/inter/\) by The Inter Project Authors.*SIL Open Font License`, thanks)
 		})
 	})
 }
