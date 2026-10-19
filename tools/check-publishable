@@ -262,6 +262,7 @@ docs/screenshots/r707-item-132-bridge-h0.png
 docs/screenshots/r707-item-132-bridge-h90.png
 docs/screenshots/r707-item-132-bridge-h180.png
 docs/screenshots/r707-item-132-bridge-h270.png
+docs/screenshots/r748-item-147-engine-options.png
 LIST
 )
 while read -r img; do

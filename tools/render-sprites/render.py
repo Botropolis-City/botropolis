@@ -3,6 +3,7 @@
     blender -b --python tools/render-sprites/render.py -- scene --out out.png
     blender -b --python tools/render-sprites/render.py -- atlas --out pkg/assets/kits
     blender -b --python tools/render-sprites/render.py -- kinds --out kinds.png
+    blender -b --python tools/render-sprites/render.py -- trains --out trains.png
     blender -b --python tools/render-sprites/render.py -- --help
 
 The `scene` mode composes one district from Kenney's City Kits — Commercial
@@ -34,6 +35,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import buildings  # noqa: E402
 
 KITS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "kits")
+REPO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 
 # The map's 2:1 diamond: the camera looks down from 30 degrees above the
 # ground (sin 30 = 1/2 is the foreshortening that makes a square's
@@ -193,8 +195,8 @@ CONCRETE = (0.45, 0.45, 0.47, 1)
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     p = argparse.ArgumentParser(prog="render.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("mode", choices=["scene", "atlas", "kinds"], help="what to render")
-    p.add_argument("--out", required=True, help="PNG to write (scene, kinds) or directory for the atlases (atlas)")
+    p.add_argument("mode", choices=["scene", "atlas", "kinds", "trains"], help="what to render")
+    p.add_argument("--out", required=True, help="PNG to write (scene, kinds, trains) or directory for the atlases (atlas)")
     p.add_argument("--heading", type=int, default=0, help="the heading to show the kinds from (kinds)")
     p.add_argument("--zooms", default="1,2", help="zoom levels to cut atlases for (atlas)")
     p.add_argument("--only", default="", help="render only pieces whose name contains this (atlas, for trying things)")
@@ -840,8 +842,105 @@ def kinds(args):
     print("WROTE", out)
 
 
+def kit_engines(kits):
+    """Every engine the Train Kit offers, read from the kit itself rather
+    than listed, so a sheet of them cannot leave one out: every train-
+    piece that is not a carriage or the connector."""
+    folder = os.path.dirname(model_path(kits, "train-kit", "train-diesel-a"))
+    names = [f[:-4] for f in os.listdir(folder) if f.endswith(".glb")]
+    return sorted(n for n in names if n.startswith("train-") and "carriage" not in n and n != "train-connector")
+
+
+def label(sheet, text, centre_x, top, size=22):
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.truetype(os.path.join(REPO, "pkg", "assets", "fonts", "inter", "InterVariable.ttf"), size)
+    img = Image.fromarray(sheet)
+    draw = ImageDraw.Draw(img)
+    w = draw.textlength(text, font=font)
+    draw.text((centre_x - w / 2, top), text, font=font, fill=(214, 218, 224, 255))
+    sheet[:] = np.asarray(img)
+
+
+def trains(args):
+    """Every engine the Train Kit offers, each coupled to the loop's
+    wagon as the map couples them, at the map's scale and heading, with
+    the car and the wagon alone along the top as the ruler. Item 147:
+    the sheet the engines are picked from."""
+    out = os.path.abspath(args.out)
+    tmp = out + ".render.png"
+    reset()
+    settings()
+    bpy.context.scene.render.film_transparent = True
+    light()
+    camera((0, 0, 0), 4, 64, 64)
+    zoom = 2.0
+    wagon = "train-carriage-container-red"
+    # The kit models a train facing -y, so the wagon couples on at +y,
+    # and the sheet is seen from the far side, nose first.
+    heading = (args.heading + 180) % 360
+    gap = 0.05
+
+    def cut(parts):
+        roots = []
+        y = 0.0
+        for i, (kit, name) in enumerate(parts):
+            root = piece(args.kits, kit, name, (0, 0))
+            lo, hi = bounds(root)
+            if i == 0:
+                y = hi.y
+            else:
+                root.location.y = y + gap + (root.location.y - lo.y)
+                bpy.context.view_layer.update()
+                lo, hi = bounds(root)
+                y = hi.y
+            roots.append(root)
+        group = bpy.data.objects.new("group", None)
+        bpy.context.scene.collection.objects.link(group)
+        for r in roots:
+            r.parent = group
+        ground = ground_point(group)
+        _, (ax, ay) = frame_piece(group, heading, zoom, ground)
+        img, (x0, y0) = crop(render_pixels(tmp))
+        remove(group)
+        return img, ax - x0, ay - y0
+
+    ruler = [("sedan", [("car-kit", "sedan")]), ("van", [("car-kit", "van")]), ("wagon", [("train-kit", wagon)])]
+    engines = [(n[len("train-"):], [("train-kit", n), ("train-kit", wagon)]) for n in kit_engines(args.kits)]
+    cuts = [(name, cut(parts)) for name, parts in ruler + engines]
+    print("ENGINES", len(engines))
+    cols = 5
+    cell_w = max(c.shape[1] for _, (c, _, _) in cuts) + 40
+    above = max(ay for _, (_, _, ay) in cuts)
+    below = max(c.shape[0] - ay for _, (c, _, ay) in cuts)
+    text = 40
+    cell_h = int(above + below) + 24 + text
+    rows = 1 + (len(engines) + cols - 1) // cols
+    sheet = np.zeros((rows * cell_h, cols * cell_w, 4), dtype=np.uint8)
+    sheet[:, :] = (17, 22, 28, 255)
+    places = [(0, i + 1) for i in range(len(ruler))] + [(1 + i // cols, i % cols) for i in range(len(engines))]
+    for (name, (img, ax, ay)), (r, c) in zip(cuts, places):
+        x = int(c * cell_w + cell_w / 2 - ax)
+        y = int(r * cell_h + 12 + above - ay)
+        region = sheet[y:y + img.shape[0], x:x + img.shape[1]]
+        alpha = img[:, :, 3:4].astype(np.float32) / 255
+        region[:, :, :3] = (img[:, :, :3] * alpha + region[:, :, :3] * (1 - alpha)).astype(np.uint8)
+        label(sheet, name + (" (today)" if name in ("diesel-a", "diesel-b", "diesel-c") else ""), c * cell_w + cell_w / 2, r * cell_h + cell_h - text)
+    h, w = sheet.shape[:2]
+    img = bpy.data.images.new("trains", w, h, alpha=True)
+    img.pixels.foreach_set((sheet[::-1].astype(np.float32) / 255).ravel())
+    img.filepath_raw = out
+    img.file_format = "PNG"
+    img.save()
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    print("WROTE", out)
+
+
 def main():
     args = parse_args()
+    if args.mode == "trains":
+        trains(args)
+        return
     if args.mode == "atlas":
         atlas(args)
         return
