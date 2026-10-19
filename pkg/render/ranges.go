@@ -184,7 +184,7 @@ func (g *Game) rangeToday() stats.Date { return stats.DateOf(g.rangeNow().In(tim
 // statistics ledger.
 func (g *Game) rangeSource() *rangeSource {
 	if g.ranges == nil {
-		g.ranges = newRangeSource(func() (rangeQueries, bool, string) { return nil, false, "" }, g.rangeNow, time.Local)
+		g.ranges = newRangeSource(func() (rangeQueries, bool, string) { return ledgerOpen(g.ledger, g.rangeNow)() }, g.rangeNow, time.Local)
 		g.rangeSel.SameDay = true
 	}
 	return g.ranges
