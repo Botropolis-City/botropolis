@@ -252,6 +252,10 @@ docs/screenshots/r696-item-134-train-after.png
 docs/screenshots/r696-item-134-message-carriage-options.png
 docs/screenshots/r701-item-99-unhidden-h0.png
 docs/screenshots/r701-item-99-unhidden-h90.png
+docs/screenshots/r707-item-132-bridge-h0.png
+docs/screenshots/r707-item-132-bridge-h90.png
+docs/screenshots/r707-item-132-bridge-h180.png
+docs/screenshots/r707-item-132-bridge-h270.png
 LIST
 )
 while read -r img; do
