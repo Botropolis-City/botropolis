@@ -150,6 +150,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The road stays while any session that made the connection is on the map, and grows over when the last one goes.
   Lamps and street trees stand only along roads.
 - **A car is one session working across a connection**, so the number of cars on a road is the number of sessions working across it right now, and a road that nobody is working on has no cars.
+- **The trains run on the main map, as the cars do.**
+  The token trains round the loop are no longer drawn only by the Cost view: they run on the map the city opens in too, and pointing at one shows its model, its tokens, what a wagon stands for and the cost.
+  A day with no token spend still has no trains.
 - **A stopped session stays on its own lot, and the storage yard is gone.**
   A session whose process has stopped is *resting*; after `shuttered_days` (7) quiet it is *shuttered*, and after `overgrown_days` (30) it is *overgrown*.
   Its card names the rung and says how long it has been quiet, and a district stays on the map while it has any session at all.
