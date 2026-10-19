@@ -10,7 +10,7 @@
 FROM debian:trixie-slim AS renderer
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      xvfb xauth \
+      xvfb \
       libgl1 libegl1 libgl1-mesa-dri \
       libx11-6 libxcursor1 libxi6 libxinerama1 libxrandr2 \
       ffmpeg tzdata \
