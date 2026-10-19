@@ -887,25 +887,34 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	g.queueRoadTags(c, cam)
 	g.queueSightings(width, height)
+	if labels {
+		g.queueLandmarkLabels(cam, c, hover)
+	}
 	g.drawMapLabels(screen)
 	if labels {
-		g.isoLandmarkLabels(screen, cam, c, hover)
+		g.towerPlate(screen, cam, c, hover)
 	}
 }
 
-func (g *Game) isoLandmarkLabels(screen *ebiten.Image, cam *city.Camera, c *city.City, hover city.Hit) {
-	above := func(r city.Rect, s string, name string) {
-		foot := cam.WorldToScreen(r.Center())
-		size := g.kitSize(cam, name)
-		wText, h := g.measure(s)
-		g.floorLabel(screen, city.Point{X: foot.X - wText/2, Y: foot.Y - float64(size.Y) - h - g.theme.Px(4)}, s, colorDim)
-	}
+// queueLandmarkLabels asks for the plant's, the library's and city
+// hall's labels, laid out with the map's others (items 99 and 102).
+func (g *Game) queueLandmarkLabels(cam *city.Camera, c *city.City, hover city.Hit) {
 	plates := g.scene.LandmarkLabelsVisible()
 	if c.Plant.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkPlant) {
-		above(c.Plant.Rect, "power plant", kitPlant)
+		g.queueLandmarkLabel(cam, c.Plant.Rect, kitPlant, "power plant")
 	}
-	// A tower's name is signage on the tower itself; the plate is for
-	// the hovered one only, so the ridge never piles up with text.
+	if c.Library.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkLibrary) {
+		g.queueLandmarkLabel(cam, c.Library.Rect, kitLibrary, "library")
+	}
+	if c.Hall.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkHall) {
+		g.queueLandmarkLabel(cam, c.Hall.Rect, kitHall, "city hall")
+	}
+}
+
+// towerPlate names the hovered tower. A tower's name is signage on the
+// tower itself; the plate is for the hovered one only, so the ridge
+// never piles up with text.
+func (g *Game) towerPlate(screen *ebiten.Image, cam *city.Camera, c *city.City, hover city.Hit) {
 	for _, t := range c.Towers {
 		if hover.Tower != t {
 			continue
@@ -914,12 +923,6 @@ func (g *Game) isoLandmarkLabels(screen *ebiten.Image, cam *city.Camera, c *city
 		name := t.Server.Name
 		wText, h := g.measure(name)
 		g.floorLabel(screen, city.Point{X: top.X - w/2 - wText - g.theme.Px(8), Y: top.Y + w/4 - h/2}, name, colorDim)
-	}
-	if c.Library.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkLibrary) {
-		above(c.Library.Rect, "library", kitLibrary)
-	}
-	if c.Hall.Rect.Area() > 0 && (plates || hover.Landmark == city.LandmarkHall) {
-		above(c.Hall.Rect, "city hall", kitHall)
 	}
 }
 

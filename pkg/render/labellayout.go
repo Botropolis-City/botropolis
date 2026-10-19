@@ -27,6 +27,10 @@ const (
 	labelCaption
 	labelStation
 	labelBadge
+	// labelLandmark names the power plant, the library or city hall,
+	// over the top of its sprite, stepping aside for signs and badges
+	// (item 99).
+	labelLandmark
 	// labelTag is a road's traffic tag, the least of them.
 	labelTag
 	// labelCar is a car on the street: not a label but a thing a road's
@@ -35,7 +39,7 @@ const (
 )
 
 func (k labelKind) String() string {
-	return [...]string{"sign", "plate", "caption", "station label", "badge", "tag", "car"}[k]
+	return [...]string{"sign", "plate", "caption", "station label", "badge", "landmark", "tag", "car"}[k]
 }
 
 // mapLabel is a label asking for a place: Rect is where it would stand

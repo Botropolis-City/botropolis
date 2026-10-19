@@ -86,24 +86,35 @@ func (g *Game) kit(screen *ebiten.Image, cam *city.Camera, name string, turn int
 // point it is placed at, for a roof feature — see plantStackPerch. A
 // lift of zero is a piece on the ground, which is what kit is.
 func (g *Game) kitLifted(screen *ebiten.Image, cam *city.Camera, name string, turn int, at city.Point, lift float64, tint *ebiten.ColorScale) city.Rect {
-	if g.kits == nil {
+	img, origin, scale, rect, ok := g.kitPlace(cam, name, turn, at, lift)
+	if !ok {
 		return city.Rect{}
+	}
+	g.drawSprite(screen, img, origin, scale, tint)
+	return rect
+}
+
+// kitPlace works out where kitLifted would draw a piece, without
+// drawing it: the one expression both the drawing and anything placed
+// on the drawn sprite read, such as a landmark's label (item 99).
+func (g *Game) kitPlace(cam *city.Camera, name string, turn int, at city.Point, lift float64) (img *ebiten.Image, origin city.Point, scale float64, rect city.Rect, ok bool) {
+	if g.kits == nil {
+		return nil, city.Point{}, 0, city.Rect{}, false
 	}
 	atlas := g.kits.pick(cam.Zoom)
 	if atlas == nil {
-		return city.Rect{}
+		return nil, city.Point{}, 0, city.Rect{}, false
 	}
-	sprite, ok := atlas.Sprite(name, cam.Heading-turn)
-	if !ok || sprite.Page >= len(atlas.pages) {
-		return city.Rect{}
+	sprite, found := atlas.Sprite(name, cam.Heading-turn)
+	if !found || sprite.Page >= len(atlas.pages) {
+		return nil, city.Point{}, 0, city.Rect{}, false
 	}
-	scale := cam.Zoom / atlas.Zoom
+	scale = cam.Zoom / atlas.Zoom
 	foot := cam.WorldToScreen(at)
 	foot.Y -= lift
-	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
-	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
-	g.drawSprite(screen, img, origin, scale, tint)
-	return city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale)
+	origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
+	img = atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	return img, origin, scale, city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale), true
 }
 
 // kitThroughPlace works out where a piece standing on a world point
