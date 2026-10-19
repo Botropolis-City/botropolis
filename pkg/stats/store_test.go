@@ -83,10 +83,10 @@ func TestOpen(t *testing.T) {
 			assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 		})
 
-		t.Run("it should set the schema version to 1", func(t *testing.T) {
+		t.Run("it should set the schema version to 2", func(t *testing.T) {
 			var version int
 			require.NoError(t, db.QueryRow("PRAGMA user_version").Scan(&version))
-			assert.Equal(t, 1, version)
+			assert.Equal(t, 2, version)
 		})
 
 		t.Run("it should use write-ahead logging", func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestOpen(t *testing.T) {
 		}{
 			{"dirs", []string{"id", "path"}},
 			{"sessions", []string{"id", "started_at", "transcript_gone_at"}},
-			{"messages", []string{"id", "at", "model", "speed", "dir_id", "thread", "input", "output", "cache_create", "cache_read"}},
+			{"messages", []string{"id", "at", "model", "speed", "dir_id", "thread", "input", "output", "cache_create", "cache_read", "cache_create_5m", "cache_create_1h", "geo"}},
 			{"message_sessions", []string{"message_id", "session_id"}},
 			{"transcripts", []string{"path", "session_id", "size", "mtime", "read_to"}},
 			{"gaps", []string{"off_at", "on_at"}},
@@ -126,7 +126,7 @@ func TestOpen(t *testing.T) {
 		})
 	})
 
-	t.Run("when the database already exists at version 1", func(t *testing.T) {
+	t.Run("when the database already exists at this version", func(t *testing.T) {
 		t.Run("and it holds rows", func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "stats.db")
 			first, err := stats.Open(path)
@@ -148,7 +148,7 @@ func TestOpen(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "stats.db")
 		first, err := stats.Open(path)
 		require.NoError(t, err)
-		_, err = first.DB().Exec("PRAGMA user_version = 2")
+		_, err = first.DB().Exec("PRAGMA user_version = 3")
 		require.NoError(t, err)
 		require.NoError(t, first.Close())
 		newer, err := stats.Open(path)

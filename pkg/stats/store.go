@@ -19,7 +19,7 @@ import (
 const (
 	file = "stats.db"
 	// Version is the schema this build writes, kept in PRAGMA user_version.
-	Version = 1
+	Version = 2
 )
 
 const schema = `
@@ -44,7 +44,10 @@ CREATE TABLE IF NOT EXISTS messages (
   input        INTEGER NOT NULL,
   output       INTEGER NOT NULL,
   cache_create INTEGER NOT NULL,
-  cache_read   INTEGER NOT NULL
+  cache_read   INTEGER NOT NULL,
+  cache_create_5m INTEGER,
+  cache_create_1h INTEGER,
+  geo             TEXT
 );
 
 CREATE TABLE IF NOT EXISTS message_sessions (
@@ -70,6 +73,20 @@ CREATE TABLE IF NOT EXISTS gaps (
   on_at  INTEGER NOT NULL
 );
 `
+
+// steps brings a database from the version before each key to that
+// version. A new database is made at Version by schema directly.
+var steps = map[int]string{
+	// 2 keeps cache writes split by lifetime, and the inference
+	// geography, which are priced differently (item 116). Existing
+	// messages keep an unknown split, and every transcript is read
+	// again from the start, so the next ingest fills in whatever is
+	// still on disk.
+	2: `ALTER TABLE messages ADD COLUMN cache_create_5m INTEGER;
+ALTER TABLE messages ADD COLUMN cache_create_1h INTEGER;
+ALTER TABLE messages ADD COLUMN geo TEXT;
+UPDATE transcripts SET read_to = 0;`,
+}
 
 // Store is an open statistics database.
 type Store struct {
@@ -124,8 +141,16 @@ func (s *Store) migrate(path string) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, err := tx.Exec(schema); err != nil {
-		return err
+	if version == 0 {
+		if _, err := tx.Exec(schema); err != nil {
+			return err
+		}
+	} else {
+		for v := version + 1; v <= Version; v++ {
+			if _, err := tx.Exec(steps[v]); err != nil {
+				return fmt.Errorf("%s: bringing the schema to version %d: %w", path, v, err)
+			}
+		}
 	}
 	if _, err := tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", Version)); err != nil {
 		return err

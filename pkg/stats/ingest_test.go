@@ -21,6 +21,13 @@ type usage struct {
 	CacheCreate int64  `json:"cache_creation_input_tokens"`
 	CacheRead   int64  `json:"cache_read_input_tokens"`
 	Speed       string `json:"speed,omitempty"`
+	Creation    *split `json:"cache_creation,omitempty"`
+	Geo         string `json:"inference_geo,omitempty"`
+}
+
+type split struct {
+	FiveMinutes int64 `json:"ephemeral_5m_input_tokens"`
+	OneHour     int64 `json:"ephemeral_1h_input_tokens"`
 }
 
 type reply struct {
