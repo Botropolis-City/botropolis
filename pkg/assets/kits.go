@@ -38,6 +38,15 @@ type KitSprite struct {
 	// middle of its front end on the ground. Zero for any other piece
 	// (item 147).
 	Nose Point
+	// Ends is how wide a vehicle is across its nose end and across its
+	// tail end, in kit units, so a hull's bow can be held to its pointed
+	// end. Zero for any other piece (item 151).
+	Ends Ends
+}
+
+// Ends is a vehicle's width across each end of its length.
+type Ends struct {
+	Nose, Tail float64
 }
 
 // Point is a screen vector in a sprite's own pixels.
@@ -165,6 +174,7 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 			Body  []float64 `json:"body"`
 			Foot  []float64 `json:"foot"`
 			Nose  []float64 `json:"nose"`
+			Ends  []float64 `json:"ends"`
 		} `json:"sprites"`
 	}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -194,6 +204,9 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 			}
 			if len(s.Nose) == 2 {
 				set[i].Nose = Point{X: s.Nose[0], Y: s.Nose[1]}
+			}
+			if len(s.Ends) == 2 {
+				set[i].Ends = Ends{Nose: s.Ends[0], Tail: s.Ends[1]}
 			}
 			for _, q := range s.Panes {
 				set[i].Panes = append(set[i].Panes, Pane{{q[0], q[1]}, {q[2], q[3]}, {q[4], q[5]}, {q[6], q[7]}})

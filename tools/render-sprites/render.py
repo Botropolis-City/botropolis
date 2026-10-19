@@ -527,6 +527,24 @@ def remove(root):
                 block.remove(datum)
 
 
+def ends(root, lo, hi):
+    """A vehicle's width across its nose end (-y) and its tail end (+y):
+    the spread in x of every vertex within a tenth of its length of each
+    end. A hull's bow is its pointed end, so the nose end of a boat has
+    to be the narrower (item 151)."""
+    band = 0.1 * (hi.y - lo.y)
+    near = {lo.y: [], hi.y: []}
+    for o in root.children_recursive:
+        if o.type != "MESH":
+            continue
+        for v in o.data.vertices:
+            w = o.matrix_world @ v.co
+            for end, xs in near.items():
+                if abs(w.y - end) <= band:
+                    xs.append(w.x)
+    return [round(max(xs) - min(xs), 4) if xs else 0.0 for xs in (near[lo.y], near[hi.y])]
+
+
 def bounds(root):
     lo = Vector((1e9, 1e9, 1e9))
     hi = Vector((-1e9, -1e9, -1e9))
@@ -763,6 +781,7 @@ def atlas(args):
                 # the camera turns, the piece does not.
                 ground = ground_point(root)
                 lo, hi = bounds(root)
+                widths = ends(root, lo, hi) if has_nose(kit, name) else None
                 for heading in (0, 90, 180, 270):
                     px, (ax, ay) = frame_piece(root, heading, zoom, ground)
                     rgba = render_pixels(tmp)
@@ -784,6 +803,7 @@ def atlas(args):
                     if has_nose(kit, name):
                         ndc = world_to_camera_view(bpy.context.scene, bpy.context.scene.camera, Vector(((lo.x + hi.x) / 2, lo.y, ground.z)))
                         sprites[key][str(heading)]["nose"] = [round(float(ndc.x * px - ax), 2), round(float((1 - ndc.y) * px - ay), 2)]
+                        sprites[key][str(heading)]["ends"] = widths
                     count += 1
                 remove(root)
         stem = f"kits-z{zoom:g}"

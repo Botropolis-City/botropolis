@@ -192,3 +192,25 @@ func TestVehicleNose(t *testing.T) {
 		})
 	}
 }
+
+// Item 151: a hull's bow is its pointed end (Aria, 2026-10-19), so each
+// tug's nose has to be at the end of its hull that is narrower across.
+func TestTugBowIsPointed(t *testing.T) {
+	atlases, err := assets.LoadKits()
+	require.NoError(t, err)
+	require.NotEmpty(t, atlases)
+	for _, name := range []string{"watercraft-kit/boat-tug-a", "watercraft-kit/boat-tug-b"} {
+		t.Run(fmt.Sprintf("when %s is cut, it should put its nose at the narrower end of its hull", name), func(t *testing.T) {
+			var blunt []string
+			for _, a := range atlases {
+				for _, heading := range assets.Headings {
+					s, ok := a.Sprite(name, heading)
+					if !ok || s.Ends.Nose <= 0 || s.Ends.Nose >= s.Ends.Tail {
+						blunt = append(blunt, fmt.Sprintf("zoom %g heading %d: %+v", a.Zoom, heading, s.Ends))
+					}
+				}
+			}
+			assert.Empty(t, blunt)
+		})
+	}
+}
