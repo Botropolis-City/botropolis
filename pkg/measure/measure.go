@@ -20,10 +20,13 @@ const (
 	// ConversationsRead is the turns of a session read back to show
 	// them: the reading pane and the journal.
 	ConversationsRead
+	// RolloutLinesDecoded is the lines of Codex rollouts decoded as
+	// JSON at load (item 93).
+	RolloutLinesDecoded
 	counters
 )
 
-var names = [counters]string{"transcripts opened", "bytes read", "index rebuilds", "session scans", "conversations read"}
+var names = [counters]string{"transcripts opened", "bytes read", "index rebuilds", "session scans", "conversations read", "rollout lines decoded"}
 
 func (c Counter) String() string { return names[c] }
 

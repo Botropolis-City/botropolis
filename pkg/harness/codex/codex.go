@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/measure"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -248,16 +249,66 @@ func (s *session) scan(r io.Reader) error {
 	return scanner.Err()
 }
 
+// Codex writes every line as {"timestamp":T,"type":X,"payload":{"type":Y,
+// so a line of that shape gives its timestamp and what it records without
+// being decoded, and only the records apply uses are decoded (item 93).
+// A line of any other shape is decoded whole.
+var used = map[[2]string]bool{
+	{"session_meta", ""}: true, {"turn_context", ""}: true,
+	{"response_item", "message"}: true, {"response_item", "function_call"}: true,
+	{"event_msg", tokenCountEvent}: true, {"event_msg", "task_complete"}: true, {"event_msg", "turn_complete"}: true,
+}
+
+func quoted(raw []byte, after string) (string, []byte, bool) {
+	if !bytes.HasPrefix(raw, []byte(after)) {
+		return "", nil, false
+	}
+	raw = raw[len(after):]
+	end := bytes.IndexByte(raw, '"')
+	if end < 0 || bytes.IndexByte(raw[:end], '\\') >= 0 {
+		return "", nil, false
+	}
+	return string(raw[:end]), raw[end+1:], true
+}
+
+// skippable reads a compact line's header and reports its timestamp when
+// apply would take nothing else from it.
+func skippable(raw []byte) (time.Time, bool) {
+	stamp, rest, ok := quoted(raw, `{"timestamp":"`)
+	if !ok {
+		return time.Time{}, false
+	}
+	kind, rest, ok := quoted(rest, `,"type":"`)
+	if !ok || used[[2]string{kind, ""}] {
+		return time.Time{}, false
+	}
+	sub, _, ok := quoted(rest, `,"payload":{"type":"`)
+	if !ok || used[[2]string{kind, sub}] {
+		return time.Time{}, false
+	}
+	ts, err := time.Parse(time.RFC3339Nano, stamp)
+	return ts, err == nil
+}
+
+func (s *session) stamp(ts time.Time) {
+	if s.FirstAt.IsZero() {
+		s.FirstAt = ts
+	}
+	s.LastAt = ts
+}
+
 func (s *session) apply(raw []byte) {
+	if ts, ok := skippable(raw); ok {
+		s.stamp(ts)
+		return
+	}
+	measure.Count(measure.RolloutLinesDecoded)
 	var l line
 	if err := json.Unmarshal(raw, &l); err != nil {
 		return
 	}
 	if ts, err := time.Parse(time.RFC3339Nano, l.Timestamp); err == nil {
-		if s.FirstAt.IsZero() {
-			s.FirstAt = ts
-		}
-		s.LastAt = ts
+		s.stamp(ts)
 	}
 	switch l.Type {
 	case "session_meta":
