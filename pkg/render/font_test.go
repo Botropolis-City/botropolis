@@ -54,6 +54,12 @@ func TestFaces(t *testing.T) {
 			assert.Equal(t, narrow, wide)
 		})
 
+		t.Run("it should set bold code in a monospace face", func(t *testing.T) {
+			narrow, _ := f.Styled("iiii", ui.Body, ui.SpanCodeStrong)
+			wide, _ := f.Styled("mmmm", ui.Body, ui.SpanCodeStrong)
+			assert.Equal(t, narrow, wide)
+		})
+
 		t.Run("it should give every style the plain line's height", func(t *testing.T) {
 			var heights []float64
 			for _, style := range []ui.SpanStyle{ui.SpanStrong, ui.SpanEmphasis, ui.SpanCode} {
@@ -66,11 +72,11 @@ func TestFaces(t *testing.T) {
 		t.Run("it should sit every style on the plain face's baseline", func(t *testing.T) {
 			base := f.Face(ui.Body).Metrics().HAscent
 			var baselines []float64
-			for _, style := range []ui.SpanStyle{ui.SpanPlain, ui.SpanStrong, ui.SpanCode} {
+			for _, style := range []ui.SpanStyle{ui.SpanPlain, ui.SpanStrong, ui.SpanCode, ui.SpanCodeStrong} {
 				face, drop := f.Styling(ui.Body, style)
 				baselines = append(baselines, drop+face.Metrics().HAscent)
 			}
-			assert.Equal(t, []float64{base, base, base}, baselines)
+			assert.Equal(t, []float64{base, base, base, base}, baselines)
 		})
 	})
 

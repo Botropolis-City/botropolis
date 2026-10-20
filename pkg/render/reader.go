@@ -249,6 +249,9 @@ func (r *reader) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.roundRect(screen, p.Rect, p.Radius, fill)
 	g.text(screen, p.Title.At, p.Title.Text, p.Title.Size, th.Palette.Text)
 	g.text(screen, p.Subtitle.At, p.Subtitle.Text, p.Subtitle.Size, th.Palette.Dim)
+	for _, tint := range p.Tints {
+		g.roundRect(screen, tint, th.Radius()/2, p.TintColor)
+	}
 	for _, lines := range [][]ui.ReaderLine{p.Lead, p.Lines} {
 		for _, l := range lines {
 			if l.Kind == ui.LineRule {

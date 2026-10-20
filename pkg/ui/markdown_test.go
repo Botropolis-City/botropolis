@@ -166,6 +166,10 @@ func TestParseMarkdown(t *testing.T) {
 			assert.Equal(t, ui.MdTable, b.Kind)
 		})
 
+		t.Run("it should say its first line is its header", func(t *testing.T) {
+			assert.Equal(t, 1, b.Header)
+		})
+
 		t.Run("it should leave no pipes or dash rows", func(t *testing.T) {
 			assert.False(t, strings.ContainsAny(strings.Join(b.Lines, ""), "|-"), "%q", b.Lines)
 		})

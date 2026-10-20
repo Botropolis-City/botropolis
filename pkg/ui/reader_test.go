@@ -2,12 +2,14 @@ package ui_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -322,6 +324,115 @@ func TestLayoutReader(t *testing.T) {
 				assert.Equal(t, bodyH, lines[1].At.Y-lines[0].At.Y)
 			})
 		})
+	})
+
+	t.Run("when a reply holds code", func(t *testing.T) {
+		reply := func(text string) ui.ReaderPanel {
+			return layout(1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromClaude, Text: text}}})
+		}
+		_, lh := measure7("", ui.Body)
+		within := func(r city.Rect, top, bottom float64) bool { return r.Min.Y >= top && r.Max.Y <= bottom }
+
+		for _, c := range []struct{ name, text string }{
+			{"and it is a code block", "above\n\n```\none\ntwo\n```\n\nbelow"},
+			{"and it is a table", "above\n\n| a | b |\n|---|---|\n| one | two |\n\nbelow"},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				p := reply(c.text)
+				lines := of(p, ui.LineClaude)
+				require.Len(t, lines, 4)
+				require.Len(t, p.Tints, 1)
+				tint := p.Tints[0]
+
+				t.Run("it should tint from above its first row to below its last", func(t *testing.T) {
+					assert.True(t, tint.Min.Y < lines[1].At.Y && tint.Max.Y > lines[2].At.Y+lh, "tint %v, rows at %v and %v", tint, lines[1].At.Y, lines[2].At.Y)
+				})
+
+				t.Run("it should leave the prose above and below untinted", func(t *testing.T) {
+					assert.True(t, within(tint, lines[0].At.Y+lh, lines[3].At.Y), "tint %v, prose ends %v, resumes %v", tint, lines[0].At.Y+lh, lines[3].At.Y)
+				})
+
+				t.Run("it should tint across the pane's text width, inside the pane", func(t *testing.T) {
+					assert.True(t, tint.Min.X < lines[1].At.X && tint.Max.X >= p.Rect.Max.X-p.Pad && tint.Min.X > p.Rect.Min.X && tint.Max.X < p.Rect.Max.X, "tint %v, pane %v", tint, p.Rect)
+				})
+			})
+		}
+
+		t.Run("and it is a table with a header row", func(t *testing.T) {
+			lines := of(reply("| a | b |\n|---|---|\n| one | two |"), ui.LineClaude)
+			require.Len(t, lines, 2)
+
+			t.Run("it should set its header row in bold code", func(t *testing.T) {
+				var styles []ui.SpanStyle
+				for _, r := range lines[0].Runs {
+					styles = append(styles, r.Style)
+				}
+				assert.Equal(t, []ui.SpanStyle{ui.SpanCodeStrong}, styles)
+			})
+		})
+
+		t.Run("and it is an inline span", func(t *testing.T) {
+			p := reply("a `bb` c")
+			lines := of(p, ui.LineClaude)
+			require.Len(t, lines, 1)
+			require.Len(t, p.Tints, 1)
+			l, tint := lines[0], p.Tints[0]
+			var code, after ui.Run
+			for _, r := range l.Runs {
+				switch r.Text {
+				case "bb":
+					code = r
+				case " c":
+					after = r
+				}
+			}
+
+			t.Run("it should tint the span, a little either side", func(t *testing.T) {
+				assert.True(t, tint.Min.X < l.At.X+code.X && tint.Max.X > l.At.X+code.X+14, "tint %v, span at %v", tint, l.At.X+code.X)
+			})
+
+			t.Run("it should leave the words beside it untinted", func(t *testing.T) {
+				assert.True(t, tint.Min.X > l.At.X+7 && tint.Max.X < l.At.X+after.X+7, "tint %v", tint)
+			})
+
+			t.Run("it should keep to its line's rows", func(t *testing.T) {
+				assert.True(t, within(tint, l.At.Y, l.At.Y+lh), "tint %v, line at %v", tint, l.At.Y)
+			})
+		})
+
+		t.Run("and an inline span wraps onto the next line", func(t *testing.T) {
+			p := reply("see `" + strings.TrimSpace(strings.Repeat("kiln ", 60)) + "` here")
+			lines := of(p, ui.LineClaude)
+			require.True(t, len(lines) > 1, "%d lines", len(lines))
+
+			t.Run("it should tint each piece on its own row", func(t *testing.T) {
+				var rows []bool
+				for i, tint := range p.Tints {
+					rows = append(rows, i < len(lines) && within(tint, lines[i].At.Y, lines[i].At.Y+lh))
+				}
+				assert.Equal(t, [2]any{len(lines), true}, [2]any{len(p.Tints), !slices.Contains(rows, false)}, "tints %v", p.Tints)
+			})
+		})
+
+		t.Run("it should take its tint from the pane's palette", func(t *testing.T) {
+			assert.Equal(t, th.Palette.Hairline, reply("`x`").TintColor)
+		})
+	})
+
+	t.Run("when nothing is code", func(t *testing.T) {
+		for _, c := range []struct {
+			name string
+			turn ui.ReaderTurn
+		}{
+			{"and it is Claude's prose", ui.ReaderTurn{From: ui.FromClaude, Text: "plain **words**"}},
+			{"and it is your prompt with backticks", ui.ReaderTurn{From: ui.FromYou, Text: "run `make kiln`"}},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				t.Run("it should tint nothing", func(t *testing.T) {
+					assert.Empty(t, layout(1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{c.turn}}).Tints)
+				})
+			})
+		}
 	})
 
 	t.Run("when each style is measured in its own face", func(t *testing.T) {

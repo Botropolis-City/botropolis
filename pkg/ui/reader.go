@@ -78,6 +78,9 @@ type ReaderLine struct {
 	// Gap is the space left above the line: a half-line between a
 	// reply's blocks.
 	Gap float64
+	// CodeBlock says the line is a row of a code block or a table, which
+	// is tinted as a block.
+	CodeBlock bool
 	// Indent is how far right of the pane's text the line starts: a list
 	// item's depth, a quote's, and a wrapped item's hang past its bullet.
 	Indent float64
@@ -111,6 +114,10 @@ type ReaderPanel struct {
 	Shown    int
 	// Copies are the kept prompts' copy buttons, when the transcript is gone.
 	Copies []ReaderCopy
+	// Tints are the faint grounds behind code, a block's across the
+	// pane and a span's behind just it, filled in TintColor. Item 182.
+	Tints     []city.Rect
+	TintColor color.NRGBA
 }
 
 // readerGrids is the pane's width when the window has room for it.
@@ -262,6 +269,8 @@ func LayoutReaderStyled(th Theme, width, height float64, in ReaderInput, measure
 			}
 		}
 	}
+	p.TintColor = pal.Hairline
+	p.Tints = codeTints(p.Lines, p.Rect.Max.X-pad, grid, measure)
 	if in.Gone {
 		right := p.Rect.Max.X - pad
 		seen := map[int]bool{}

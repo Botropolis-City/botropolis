@@ -7,6 +7,7 @@ import "strings"
 type Run struct {
 	Span
 	X float64
+	W float64
 }
 
 // replyLines lays out a reply read as Markdown: prose wrapped by word
@@ -28,18 +29,20 @@ func replyLines(th Theme, blocks []MdBlock, width float64, styled StyleMeasure) 
 	}
 	var lines []ReaderLine
 	gap := 0.0
+	codeBlock := false
 	line := func(spans []Span, indent float64, kind LineKind) {
 		var runs []Run
 		x := 0.0
 		for _, s := range spans {
-			runs = append(runs, Run{Span: s, X: x})
 			w, _ := styled(s.Text, Body, s.Style)
+			runs = append(runs, Run{Span: s, X: x, W: w})
 			x += w
 		}
-		lines = append(lines, ReaderLine{Text: spanText(spans), Runs: runs, Size: Body, Kind: kind, Color: pal.Text, Indent: indent, Gap: gap})
+		lines = append(lines, ReaderLine{Text: spanText(spans), Runs: runs, Size: Body, Kind: kind, Color: pal.Text, Indent: indent, Gap: gap, CodeBlock: codeBlock})
 		gap = 0
 	}
 	code := func(s string, size Size) (float64, float64) { return styled(s, size, SpanCode) }
+	codeStrong := func(s string, size Size) (float64, float64) { return styled(s, size, SpanCodeStrong) }
 	for i, b := range blocks {
 		if i > 0 && (b.Kind != MdItem || blocks[i-1].Kind != MdItem) {
 			gap = bodyH / 2
@@ -50,14 +53,20 @@ func replyLines(th Theme, blocks []MdBlock, width float64, styled StyleMeasure) 
 		case MdRule:
 			line(nil, indent, LineRule)
 		case MdCode, MdTable:
-			for _, l := range b.Lines {
-				l = clipTo(l, room, Body, code)
+			codeBlock = true
+			for j, l := range b.Lines {
+				style, measure := SpanCode, code
+				if j < b.Header {
+					style, measure = SpanCodeStrong, codeStrong
+				}
+				l = clipTo(l, room, Body, measure)
 				var spans []Span
 				if l != "" {
-					spans = []Span{{Text: l, Style: SpanCode}}
+					spans = []Span{{Text: l, Style: style}}
 				}
 				line(spans, indent, LineClaude)
 			}
+			codeBlock = false
 		case MdItem:
 			marker := []Span{{Text: b.Marker + " "}}
 			hang := widthOf(marker)

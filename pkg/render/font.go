@@ -16,8 +16,9 @@ type faces struct {
 	by     map[ui.Size]*text.GoTextFace
 	// strong and code are a reply's bold, from Inter's own weight axis,
 	// and its code, in Go Mono. Item 182.
-	strong map[ui.Size]*text.GoTextFace
-	code   map[ui.Size]*text.GoTextFace
+	strong     map[ui.Size]*text.GoTextFace
+	code       map[ui.Size]*text.GoTextFace
+	codeStrong map[ui.Size]*text.GoTextFace
 }
 
 // strongWeight is bold on Inter's wght axis.
@@ -40,7 +41,12 @@ func newFaces(th ui.Theme) (*faces, error) {
 	if err != nil {
 		return nil, err
 	}
-	f := &faces{source: source, by: map[ui.Size]*text.GoTextFace{}, strong: map[ui.Size]*text.GoTextFace{}, code: map[ui.Size]*text.GoTextFace{}}
+	monoBold, err := text.NewGoTextFaceSource(bytes.NewReader(fonts.GoMonoBold()))
+	if err != nil {
+		return nil, err
+	}
+	f := &faces{source: source, by: map[ui.Size]*text.GoTextFace{}, strong: map[ui.Size]*text.GoTextFace{},
+		code: map[ui.Size]*text.GoTextFace{}, codeStrong: map[ui.Size]*text.GoTextFace{}}
 	for _, size := range []ui.Size{ui.Small, ui.Body, ui.Title, ui.Display} {
 		face := &text.GoTextFace{Source: source, Size: th.Pt(size)}
 		face.SetFeature(text.MustParseTag("tnum"), 1)
@@ -50,6 +56,7 @@ func newFaces(th ui.Theme) (*faces, error) {
 		strong.SetVariation(text.MustParseTag("wght"), strongWeight)
 		f.strong[size] = strong
 		f.code[size] = &text.GoTextFace{Source: mono, Size: th.Pt(size) * codeScale}
+		f.codeStrong[size] = &text.GoTextFace{Source: monoBold, Size: th.Pt(size) * codeScale}
 	}
 	return f, nil
 }
@@ -64,6 +71,8 @@ func (f *faces) Styling(size ui.Size, style ui.SpanStyle) (*text.GoTextFace, flo
 		face = f.strong[size]
 	case ui.SpanCode:
 		face = f.code[size]
+	case ui.SpanCodeStrong:
+		face = f.codeStrong[size]
 	}
 	return face, f.by[size].Metrics().HAscent - face.Metrics().HAscent
 }

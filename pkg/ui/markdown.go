@@ -19,6 +19,7 @@ const (
 	SpanStrong
 	SpanEmphasis
 	SpanCode
+	SpanCodeStrong
 )
 
 // Span is a run of text in one style.
@@ -51,6 +52,8 @@ type MdBlock struct {
 	Depth  int
 	Quote  int
 	Level  int
+	// Header is how many of a table's lines are its header.
+	Header int
 }
 
 // Text is the block's words without their markup.
@@ -131,7 +134,11 @@ func (r *mdReader) block(n ast.Node) {
 		}
 		r.depth--
 	case *east.Table:
-		r.add(MdBlock{Kind: MdTable, Lines: r.table(n)})
+		header := 0
+		if _, ok := n.FirstChild().(*east.TableHeader); ok {
+			header = 1
+		}
+		r.add(MdBlock{Kind: MdTable, Lines: r.table(n), Header: header})
 	default:
 		r.blocks(n)
 	}

@@ -8,6 +8,7 @@ import (
 	"embed"
 
 	"golang.org/x/image/font/gofont/gomono"
+	"golang.org/x/image/font/gofont/gomonobold"
 )
 
 //go:embed inter/InterVariable.ttf inter/LICENSE.txt gomono/LICENSE
@@ -28,6 +29,12 @@ func License() (string, error) {
 // ships it.
 func GoMono() []byte {
 	return gomono.TTF
+}
+
+// GoMonoBold is the raw TrueType data of Go Mono Bold, for a table's
+// header row.
+func GoMonoBold() []byte {
+	return gomonobold.TTF
 }
 
 // GoMonoLicense is Go Mono's licence, for crediting it wherever the font
