@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Manual pages**: `man botropolis`, a page per command such as `man botropolis-attach`, `man botropolisd`, `man botropolis-hook`, and `man botropolis-config` for every config key with its default and environment variable.
   The deb, rpm, Arch package and Homebrew formula install them, and `make man` builds them.
 
-- **Sharing mode, for posting your city**: `shift+s` in the city hides what identifies you (session titles, project and district names, prompts, spend and token figures, and every panel that shows them), then `p` saves a picture, `g` a four-second GIF and `c` a clip of 5 to 60 seconds (`l` picks), to your Pictures and Videos folders.
+- **Sharing mode, for posting your city**: `shift+s` in the city hides what identifies you (session titles, project and district names, prompts, spend and token figures, and every panel that shows them), then `p` saves a picture, `g` a four-second GIF at 1080p and 30 frames a second, and `c` a clip of 5 to 60 seconds (`l` picks), to your Pictures and Videos folders.
   The city wears neutral names while it is shared, such as District A and Session 3, and `esc` brings everything back as it was.
   A clip needs ffmpeg, which the deb and rpm suggest; the city says so when it is missing.
 

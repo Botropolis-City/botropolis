@@ -15,7 +15,8 @@ import (
 	"botropolis.city/botropolis/testing/helpers"
 )
 
-// Item 168, slice 2: shift+s, then g, records a GIF; --record keeps the
+// Item 168, slice 2: shift+s, then g, records a GIF (at 1080p since item
+// 188); --record keeps the
 // city running, and presses a key every two seconds, so g comes at 3 s
 // and the GIF is done at 7.
 func TestSharingGIF(t *testing.T) {
@@ -46,14 +47,19 @@ func TestSharingGIF(t *testing.T) {
 			assert.Len(t, saved, 1)
 		})
 
-		t.Run("it should hold sixty frames", func(t *testing.T) {
+		t.Run("it should hold 120 frames, four seconds at thirty a second", func(t *testing.T) {
 			require.NotNil(t, anim)
-			assert.Len(t, anim.Image, 60)
+			assert.Len(t, anim.Image, 120)
 		})
 
-		t.Run("it should be 720 pixels wide", func(t *testing.T) {
+		t.Run("it should be 1920 pixels wide", func(t *testing.T) {
 			require.NotNil(t, anim)
-			assert.Equal(t, 720, anim.Config.Width)
+			assert.Equal(t, 1920, anim.Config.Width)
+		})
+
+		t.Run("it should be 1080 pixels high", func(t *testing.T) {
+			require.NotNil(t, anim)
+			assert.Equal(t, 1080, anim.Config.Height)
 		})
 	})
 }

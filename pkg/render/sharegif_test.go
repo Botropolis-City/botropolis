@@ -1,9 +1,8 @@
 package render
 
 import (
-	"image"
-	"image/color"
 	"image/gif"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,10 +12,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/pkg/city"
 )
 
-// Item 168, slice 2: a GIF of the shared city, a few seconds long and
-// sized for a chat or an issue, on the city's own clock.
+// Item 168, slice 2: a GIF of the shared city, a few seconds long, on
+// the city's own clock. Item 188: at 1080p, a frame every tick.
 
 func TestShareGIF(t *testing.T) {
 	t.Run("when sharing and g is pressed, and the city draws on", func(t *testing.T) {
@@ -50,7 +51,7 @@ func TestShareGIF(t *testing.T) {
 			assert.Len(t, files, 1)
 		})
 
-		t.Run("it should hold four seconds of frames at fifteen a second", func(t *testing.T) {
+		t.Run("it should hold four seconds of frames at thirty a second", func(t *testing.T) {
 			require.NotNil(t, anim)
 			assert.Len(t, anim.Image, gifSeconds*gifFPS)
 		})
@@ -64,14 +65,25 @@ func TestShareGIF(t *testing.T) {
 			assert.Equal(t, gifSeconds*100, total)
 		})
 
-		t.Run("it should be at most 720 pixels wide", func(t *testing.T) {
+		t.Run("each frame should last three or four hundredths of a second", func(t *testing.T) {
 			require.NotNil(t, anim)
-			assert.Equal(t, gifMaxWidth, anim.Config.Width)
+			var odd []int
+			for _, d := range anim.Delay {
+				if d != 3 && d != 4 {
+					odd = append(odd, d)
+				}
+			}
+			assert.Empty(t, odd)
 		})
 
-		t.Run("it should keep the window's shape", func(t *testing.T) {
+		t.Run("it should be 1920 pixels wide", func(t *testing.T) {
 			require.NotNil(t, anim)
-			assert.Equal(t, gifMaxWidth*shareHeight/shareWidth, anim.Config.Height)
+			assert.Equal(t, 1920, anim.Config.Width)
+		})
+
+		t.Run("it should be 1080 pixels high", func(t *testing.T) {
+			require.NotNil(t, anim)
+			assert.Equal(t, 1080, anim.Config.Height)
 		})
 
 		t.Run("it should span four seconds of the city's clock, within a tick", func(t *testing.T) {
@@ -85,6 +97,59 @@ func TestShareGIF(t *testing.T) {
 
 		t.Run("it should still be sharing", func(t *testing.T) {
 			assert.True(t, r.g.sharing())
+		})
+	})
+
+	t.Run("when a GIF has finished recording", func(t *testing.T) {
+		r := newShareRig(t)
+		r.press(t, ebiten.KeyS, true)
+		r.press(t, ebiten.KeyG, false)
+		for i := 0; r.g.share.rec != nil && i < 1000; i++ {
+			r.draw()
+		}
+		r.draw()
+		r.g.share.encoding.Wait()
+
+		t.Run("it should give the window its own size back", func(t *testing.T) {
+			assert.Equal(t, city.Point{X: shareWidth, Y: shareHeight}, r.g.scene.Size())
+		})
+	})
+
+	t.Run("when the window is 16:10, and a GIF starts", func(t *testing.T) {
+		r := newShareRig(t)
+		r.press(t, ebiten.KeyS, true)
+		r.draw()
+		r.press(t, ebiten.KeyG, false)
+		r.draw()
+		b := r.screen.Bounds()
+
+		// The camera has one zoom for both axes, so the city could only
+		// be stretched by being laid out for one size and drawn at another.
+		t.Run("it should not stretch the city: it is laid out for the size it is drawn at", func(t *testing.T) {
+			assert.Equal(t, city.Point{X: float64(b.Dx()), Y: float64(b.Dy())}, r.g.scene.Size())
+		})
+	})
+
+	t.Run("when the view was framed by hand, and a GIF starts", func(t *testing.T) {
+		r := newShareRig(t)
+		r.press(t, ebiten.KeyS, true)
+		r.draw()
+		r.g.scene.Pan(city.Point{X: 120, Y: -40})
+		cam := r.g.scene.Camera()
+		centre := cam.ScreenToWorld(city.Point{X: shareWidth / 2, Y: shareHeight / 2})
+		tall := shareHeight / cam.Zoom
+		r.press(t, ebiten.KeyG, false)
+		r.draw()
+		cam = r.g.scene.Camera()
+		size := r.g.scene.Size()
+
+		t.Run("it should keep the same point at the centre", func(t *testing.T) {
+			at := cam.ScreenToWorld(size.Scale(0.5))
+			assert.InDelta(t, 0, math.Hypot(at.X-centre.X, at.Y-centre.Y), 1e-6)
+		})
+
+		t.Run("it should show the same height of the city", func(t *testing.T) {
+			assert.InDelta(t, tall, size.Y/cam.Zoom, 1e-6)
 		})
 	})
 
@@ -155,57 +220,6 @@ func TestShareGIF(t *testing.T) {
 		t.Run("it should hold the city's clock to one update a drawn frame", func(t *testing.T) {
 			r.g.painted = r.g.ticks - 1
 			assert.False(t, r.g.startTick())
-		})
-	})
-}
-
-func TestQuantize(t *testing.T) {
-	t.Run("when a frame has fewer than 256 colours", func(t *testing.T) {
-		img := image.NewRGBA(image.Rect(0, 0, 40, 30))
-		colours := []color.RGBA{{0x10, 0x20, 0x30, 0xff}, {0xf0, 0xb4, 0x4c, 0xff}, {0x5c, 0xc8, 0xb0, 0xff}}
-		for y := range 30 {
-			for x := range 40 {
-				img.SetRGBA(x, y, colours[(x+y)%len(colours)])
-			}
-		}
-		p := quantize(img)
-		var changed int
-		for y := range 30 {
-			for x := range 40 {
-				if color.RGBAModel.Convert(p.At(x, y)) != img.At(x, y) {
-					changed++
-				}
-			}
-		}
-
-		t.Run("it should keep every pixel's colour", func(t *testing.T) {
-			assert.Zero(t, changed)
-		})
-	})
-
-	t.Run("when a frame has thousands of colours", func(t *testing.T) {
-		img := image.NewRGBA(image.Rect(0, 0, 256, 64))
-		for y := range 64 {
-			for x := range 256 {
-				img.SetRGBA(x, y, color.RGBA{uint8(x), uint8(y * 4), uint8(255 - x), 0xff})
-			}
-		}
-		p := quantize(img)
-		var worst int
-		for y := range 64 {
-			for x := range 256 {
-				a := color.RGBAModel.Convert(p.At(x, y)).(color.RGBA)
-				b := img.RGBAAt(x, y)
-				worst = max(worst, absDiff(a.R, b.R), absDiff(a.G, b.G), absDiff(a.B, b.B))
-			}
-		}
-
-		t.Run("it should fit them in one GIF palette", func(t *testing.T) {
-			assert.LessOrEqual(t, len(p.Palette), 256)
-		})
-
-		t.Run("it should keep every pixel within a shade of its colour", func(t *testing.T) {
-			assert.LessOrEqual(t, worst, 24)
 		})
 	})
 }

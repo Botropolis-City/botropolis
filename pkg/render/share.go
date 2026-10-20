@@ -57,6 +57,9 @@ type shareRec struct {
 	path  string
 	sink  frameSink
 	every int
+	// size is the screen a frame must be drawn at, or zero for any: a
+	// GIF's is its own, which the screen only takes from the next layout.
+	size image.Point
 	// frames is how many it holds, written how many it has, and draws
 	// the draws since it began; from and to are the city's ticks at its
 	// first and last frame.
@@ -75,12 +78,16 @@ func (r *shareRec) seconds() float64 {
 // recording is whether sharing mode is recording.
 func (s *shareMode) recording() bool { return s != nil && s.rec != nil }
 
+// recordingGIF is whether the recording under way is a GIF, which is
+// drawn at its own size rather than the window's.
+func (s *shareMode) recordingGIF() bool { return s.recording() && s.rec.kind == "GIF" }
+
 // startGIF begins a GIF of the shared city.
 func (g *Game) startGIF() {
 	path := filepath.Join(g.captureDir(picturesDir), captureName(timeNow(), "gif"))
 	g.share.rec = &shareRec{
-		kind: "GIF", path: path, sink: newGIFWriter(path, gifFPS, gifMaxWidth),
-		every: liveTPS / gifFPS, frames: gifSeconds * gifFPS,
+		kind: "GIF", path: path, sink: newGIFWriter(path, gifFPS),
+		every: liveTPS / gifFPS, frames: gifSeconds * gifFPS, size: image.Pt(gifWidth, gifHeight),
 	}
 }
 
@@ -127,6 +134,9 @@ func (s *shareMode) drop() {
 // frame.
 func (g *Game) recordFrame(screen *ebiten.Image) {
 	rec := g.share.rec
+	if rec.size != (image.Point{}) && screen.Bounds().Size() != rec.size {
+		return
+	}
 	if rec.draws%rec.every == 0 {
 		if rec.written == 0 {
 			rec.from = g.ticks

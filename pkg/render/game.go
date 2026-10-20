@@ -159,7 +159,10 @@ type Game struct {
 	// shareDir is where its captures go and openFolder shows one. grab
 	// reads the frame, and textSeen hears every string drawn; both are
 	// for tests. Item 168.
-	share      *shareMode
+	share *shareMode
+	// atGIFSize is whether the screen was last laid out at a GIF's size
+	// rather than the window's (item 188).
+	atGIFSize  bool
 	shareDir   func(userDirKind) string
 	openFolder func(dir string) error
 	grab       func(*ebiten.Image) image.Image
@@ -1516,6 +1519,16 @@ func (g *Game) labelRight(screen *ebiten.Image, end city.Point, s string, c colo
 // at the display's own resolution instead of being scaled up afterwards.
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
 	width, height := outsideWidth*g.theme.Scale, outsideHeight*g.theme.Scale
+	// A GIF is drawn at its own size, which Ebitengine fits into the
+	// window, letterboxed, while it records (item 188).
+	gif := g.share.recordingGIF()
+	if gif {
+		width, height = gifWidth, gifHeight
+	}
+	if gif != g.atGIFSize {
+		g.atGIFSize = gif
+		g.scene.Reframe(width, height)
+	}
 	g.scene.Resize(width, height)
 	return width, height
 }

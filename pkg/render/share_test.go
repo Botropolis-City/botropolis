@@ -64,7 +64,7 @@ func newShareRig(t *testing.T) *shareRig {
 	g.textSeen = func(s string) { r.drawn = append(r.drawn, s) }
 	g.grab = func(screen *ebiten.Image) image.Image {
 		r.drawn = append(r.drawn, grabbed)
-		return image.NewRGBA(image.Rect(0, 0, shareWidth, shareHeight))
+		return image.NewRGBA(screen.Bounds())
 	}
 	g.shareDir = func(userDirKind) string { return r.dir }
 	g.openFolder = func(dir string) error {
@@ -72,18 +72,31 @@ func newShareRig(t *testing.T) *shareRig {
 		return nil
 	}
 	r.g = g
+	r.layout()
 	return r
 }
 
 // grabbed marks, among the strings drawn, the moment the frame was read.
 const grabbed = "\x00grabbed"
 
-// draw paints one frame and returns the strings it drew.
+// draw paints one frame and lays out the next, and returns the strings
+// it drew. Ebitengine lays out, then updates, then draws, so a key
+// pressed between two draws reaches the screen's size one frame late.
 func (r *shareRig) draw() []string {
 	r.drawn = nil
 	r.g.ticks++
 	r.g.Draw(r.screen)
+	r.layout()
 	return r.drawn
+}
+
+// layout asks the game for its screen in a window of the rig's size,
+// and gives it one of the size it asks for.
+func (r *shareRig) layout() {
+	w, h := r.g.LayoutF(shareWidth, shareHeight)
+	if b := r.screen.Bounds(); b.Dx() != int(w) || b.Dy() != int(h) {
+		r.screen = ebiten.NewImage(int(w), int(h))
+	}
 }
 
 func (r *shareRig) press(t *testing.T, key ebiten.Key, shift bool) {

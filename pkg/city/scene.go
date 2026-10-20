@@ -420,6 +420,30 @@ func (s *Scene) Resize(width, height float64) {
 	s.fit()
 }
 
+// Reframe lays the scene out for a picture of another size than the
+// window, such as a 1080p GIF (item 188): an untouched view refits to
+// it, and a view the user framed keeps the point at its centre and
+// shows the same height of the city, so the shot is the one they framed.
+func (s *Scene) Reframe(width, height float64) {
+	if !s.touched || s.height <= 0 || s.camera.Zoom <= 0 {
+		s.Resize(width, height)
+		return
+	}
+	if width == s.width && height == s.height {
+		return
+	}
+	centre := s.camera.ScreenToWorld(Point{X: s.width / 2, Y: s.height / 2})
+	anchor := s.camera.ScreenToWorld(s.zoomAnchor)
+	k := height / s.height
+	s.width, s.height = width, height
+	s.camera.Zoom *= k
+	if s.zoomTarget > 0 {
+		s.zoomTarget *= k
+	}
+	s.camera.Offset = Point{X: width / 2, Y: height / 2}.Scale(1 / s.camera.Zoom).Sub(s.camera.Project(centre))
+	s.zoomAnchor = s.camera.WorldToScreen(anchor)
+}
+
 func (s *Scene) Fit() {
 	s.zoomTarget = 0
 	s.touched = false
