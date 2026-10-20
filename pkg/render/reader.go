@@ -250,6 +250,11 @@ func (r *reader) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.text(screen, p.Subtitle.At, p.Subtitle.Text, p.Subtitle.Size, th.Palette.Dim)
 	for _, lines := range [][]ui.ReaderLine{p.Lead, p.Lines} {
 		for _, l := range lines {
+			if l.Kind == ui.LineRule {
+				_, h := g.faces.Measure("", l.Size)
+				g.roundRect(screen, city.RectAt(l.At.X, l.At.Y+h/2, p.Rect.Max.X-p.Pad-l.At.X, th.Hairline()), 0, th.Palette.Hairline)
+				continue
+			}
 			g.text(screen, l.At, l.Text, l.Size, l.Color)
 		}
 	}

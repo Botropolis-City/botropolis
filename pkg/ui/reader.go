@@ -59,6 +59,7 @@ const (
 	LineApproval
 	LineNote
 	LineError
+	LineRule
 )
 
 // ReaderLine is one line of the reading pane, placed and coloured.
@@ -71,6 +72,12 @@ type ReaderLine struct {
 	// Turn is the index in the input's turns of the turn the line is part
 	// of, for a line of a turn.
 	Turn int
+	// Spans are the line's text in its styles, for a reply read as
+	// Markdown. Item 182.
+	Spans []Span
+	// Indent is how far right of the pane's text the line starts: a list
+	// item's depth, a quote's, and a wrapped item's hang past its bullet.
+	Indent float64
 }
 
 // ReaderCopy is a kept prompt's copy button, beside its first line, and
@@ -223,7 +230,7 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 		for j := len(block) - 1; j >= 0; j-- {
 			_, lh := measure("", block[j].Size)
 			y -= lh
-			block[j].At = city.Point{X: x, Y: y}
+			block[j].At = city.Point{X: x + block[j].Indent, Y: y}
 		}
 		y -= gap
 	}
@@ -270,10 +277,10 @@ func turnLines(th Theme, turn ReaderTurn, width float64, measure Measure) []Read
 	if turn.From == FromTool {
 		return []ReaderLine{{Text: clipTo(turn.Text, width, Small, measure), Size: Small, Kind: LineTool, Color: pal.Dim}}
 	}
-	kind, c := LineClaude, pal.Text
-	if turn.From == FromYou {
-		kind, c = LineYou, pal.Accent
+	if turn.From == FromClaude {
+		return replyLines(th, ParseMarkdown(turn.Text), width, measure)
 	}
+	kind, c := LineYou, pal.Accent
 	var lines []ReaderLine
 	for _, line := range wrapPara(turn.Text, width, 1<<10, measure) {
 		lines = append(lines, ReaderLine{Text: line, Size: Body, Kind: kind, Color: c})

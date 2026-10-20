@@ -237,6 +237,85 @@ func TestLayoutReader(t *testing.T) {
 		})
 	})
 
+	t.Run("when Claude's reply is written in Markdown", func(t *testing.T) {
+		reply := func(text string) ui.ReaderPanel {
+			return layout(1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromClaude, Text: text}}})
+		}
+
+		t.Run("and it holds **bold** and `code`", func(t *testing.T) {
+			p := reply("**Step 1: refactor.** `to_html` now delegates to a small `_Parser` class.")
+
+			t.Run("it should lay out no asterisks or backticks", func(t *testing.T) {
+				var text []string
+				for _, l := range of(p, ui.LineClaude) {
+					text = append(text, l.Text)
+				}
+				assert.False(t, strings.ContainsAny(strings.Join(text, ""), "*`"), "%q", text)
+			})
+		})
+
+		t.Run("and a list item wraps", func(t *testing.T) {
+			lines := of(reply("- "+strings.Repeat("the kiln is hot ", 30)), ui.LineClaude)
+			require.True(t, len(lines) > 1, "%d lines", len(lines))
+			bullet, _ := measure7("• ", ui.Body)
+
+			t.Run("it should indent its continuation past the bullet", func(t *testing.T) {
+				assert.Equal(t, lines[0].At.X+bullet, lines[1].At.X)
+			})
+		})
+
+		t.Run("and a list item is nested", func(t *testing.T) {
+			lines := of(reply("- outer\n  - inner"), ui.LineClaude)
+			require.Len(t, lines, 2)
+
+			t.Run("it should indent it further than its parent", func(t *testing.T) {
+				assert.Greater(t, lines[1].At.X, lines[0].At.X)
+			})
+		})
+
+		t.Run("and it holds a code block wider than the pane", func(t *testing.T) {
+			lines := of(reply("```\n"+strings.Repeat("x", 400)+"\n```"), ui.LineClaude)
+
+			t.Run("it should clip the code line to one line, not wrap it", func(t *testing.T) {
+				assert.Len(t, lines, 1)
+			})
+		})
+
+		t.Run("and it holds a horizontal rule", func(t *testing.T) {
+			p := reply("above\n\n---\n\nbelow")
+
+			t.Run("it should lay out a rule line between the paragraphs", func(t *testing.T) {
+				var kinds []ui.LineKind
+				for _, l := range p.Lines {
+					kinds = append(kinds, l.Kind)
+				}
+				assert.Equal(t, []ui.LineKind{ui.LineClaude, ui.LineRule, ui.LineClaude}, kinds)
+			})
+		})
+
+		t.Run("it should carry each line's styled spans beside its text", func(t *testing.T) {
+			lines := of(reply("a **b** c"), ui.LineClaude)
+			require.Len(t, lines, 1)
+			assert.Contains(t, lines[0].Spans, ui.Span{Text: "b", Style: ui.SpanStrong})
+		})
+	})
+
+	t.Run("when your prompt holds Markdown characters", func(t *testing.T) {
+		p := layout(1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromYou, Text: "make it **bold**"}}})
+
+		t.Run("it should show them as you typed them", func(t *testing.T) {
+			assert.Equal(t, "make it **bold**", of(p, ui.LineYou)[0].Text)
+		})
+	})
+
+	t.Run("when a tool call holds backticks", func(t *testing.T) {
+		p := layout(1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromTool, Text: "echo `date`"}}})
+
+		t.Run("it should show them as typed", func(t *testing.T) {
+			assert.Equal(t, "echo `date`", of(p, ui.LineTool)[0].Text)
+		})
+	})
+
 	t.Run("when the start of the conversation is shown", func(t *testing.T) {
 		p := layout(1280, 800, ui.ReaderInput{Turns: turns, AtStart: true})
 
