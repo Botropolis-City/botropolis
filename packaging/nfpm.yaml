@@ -12,7 +12,7 @@ description: |
   means one thing you can read by hovering it.
 vendor: Aria Vesta
 homepage: https://botropolis.city
-license: MIT AND OFL-1.1 AND CC0-1.0
+license: MIT AND OFL-1.1 AND CC0-1.0 AND BSD-3-Clause
 
 # Ebitengine dlopens GL and X11, so the binary's only NEEDED entry is libc and no
 # linker-based tool can see these. They are read off the sonames in the binary's
@@ -107,6 +107,8 @@ contents:
     dst: /usr/share/licenses/botropolis/LICENSE
   - src: ./pkg/assets/fonts/inter/LICENSE.txt
     dst: /usr/share/licenses/botropolis/inter-OFL.txt
+  - src: ./pkg/assets/fonts/gomono/LICENSE
+    dst: /usr/share/licenses/botropolis/gomono-BSD.txt
   - src: ./pkg/assets/kits/nature-kit/License.txt
     dst: /usr/share/licenses/botropolis/kenney-CC0.txt
   - src: ./pkg/assets/kits/README.md

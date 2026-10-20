@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
@@ -176,8 +177,8 @@ func (r *reader) click(g *Game, at city.Point) bool {
 
 // layout lays the pane out for a frame, and keeps where it went, for the
 // clicks that come before the next one.
-func (r *reader) layout(g *Game, th ui.Theme, width, height float64, measure ui.Measure) ui.ReaderPanel {
-	p := ui.LayoutReader(th, width, height, r.input(g), measure)
+func (r *reader) layout(g *Game, th ui.Theme, width, height float64, measure ui.Measure, styled ui.StyleMeasure) ui.ReaderPanel {
+	p := ui.LayoutReaderStyled(th, width, height, r.input(g), measure, styled)
 	r.shown = p.Shown
 	g.mu.Lock()
 	g.readerRect, r.panel = p.Rect, p
@@ -240,7 +241,7 @@ func (r *reader) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	scrim := th.Palette.Panel
 	scrim.A = 0x60
 	g.roundRect(screen, city.RectAt(0, 0, width, height), 0, scrim)
-	p := r.layout(g, th, width, height, g.faces.Measure)
+	p := r.layout(g, th, width, height, g.faces.Measure, g.faces.Styled)
 	// Opaque, unlike a plate: a pane is read, and the card behind it
 	// showed through the plates' translucency.
 	fill := p.Fill
@@ -255,6 +256,10 @@ func (r *reader) draw(g *Game, screen *ebiten.Image, width, height float64) {
 				g.roundRect(screen, city.RectAt(l.At.X, l.At.Y+h/2, p.Rect.Max.X-p.Pad-l.At.X, th.Hairline()), 0, th.Palette.Hairline)
 				continue
 			}
+			if len(l.Runs) > 0 {
+				g.runs(screen, l)
+				continue
+			}
 			g.text(screen, l.At, l.Text, l.Size, l.Color)
 		}
 	}
@@ -266,4 +271,23 @@ func (r *reader) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.run(screen, c.Button.Label, th.Palette.Accent)
 	}
 	g.text(screen, p.Keys.At, p.Keys.Text, p.Keys.Size, th.Palette.Dim)
+}
+
+// runs draws a line of a reply a run at a time, each in its style's
+// face on the plain face's baseline. Sharing mode judges the line whole,
+// as it judges any other text. Item 182.
+func (g *Game) runs(screen *ebiten.Image, l ui.ReaderLine) {
+	if !g.shareAllows(l.Text) {
+		return
+	}
+	if g.textSeen != nil {
+		g.textSeen(l.Text)
+	}
+	for _, run := range l.Runs {
+		face, drop := g.faces.Styling(l.Size, run.Style)
+		op := &text.DrawOptions{}
+		op.GeoM.Translate(l.At.X+run.X, l.At.Y+drop)
+		op.ColorScale.ScaleWithColor(l.Color)
+		text.Draw(screen, run.Text, face, op)
+	}
 }

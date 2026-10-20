@@ -296,7 +296,71 @@ func TestLayoutReader(t *testing.T) {
 		t.Run("it should carry each line's styled spans beside its text", func(t *testing.T) {
 			lines := of(reply("a **b** c"), ui.LineClaude)
 			require.Len(t, lines, 1)
-			assert.Contains(t, lines[0].Spans, ui.Span{Text: "b", Style: ui.SpanStrong})
+			var spans []ui.Span
+			for _, r := range lines[0].Runs {
+				spans = append(spans, r.Span)
+			}
+			assert.Contains(t, spans, ui.Span{Text: "b", Style: ui.SpanStrong})
+		})
+
+		t.Run("and it has two paragraphs", func(t *testing.T) {
+			lines := of(reply("first\n\nsecond"), ui.LineClaude)
+			require.Len(t, lines, 2)
+			_, bodyH := measure7("", ui.Body)
+
+			t.Run("it should leave a gap between them", func(t *testing.T) {
+				assert.Greater(t, lines[1].At.Y-lines[0].At.Y, bodyH)
+			})
+		})
+
+		t.Run("and it has a list", func(t *testing.T) {
+			lines := of(reply("- one\n- two"), ui.LineClaude)
+			require.Len(t, lines, 2)
+			_, bodyH := measure7("", ui.Body)
+
+			t.Run("it should leave no gap between its items", func(t *testing.T) {
+				assert.Equal(t, bodyH, lines[1].At.Y-lines[0].At.Y)
+			})
+		})
+	})
+
+	t.Run("when each style is measured in its own face", func(t *testing.T) {
+		styled := func(s string, size ui.Size, style ui.SpanStyle) (float64, float64) {
+			w, h := measure7(s, size)
+			if style == ui.SpanStrong {
+				w *= 2
+			}
+			return w, h
+		}
+		reply := func(text string) []ui.ReaderLine {
+			p := ui.LayoutReaderStyled(th, 1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromClaude, Text: text}}}, measure7, styled)
+			return of(p, ui.LineClaude)
+		}
+
+		t.Run("and a line mixes bold and plain", func(t *testing.T) {
+			lines := reply("a **bb** c")
+			require.Len(t, lines, 1)
+
+			t.Run("it should place each span after the one before, by its own face's width", func(t *testing.T) {
+				var xs []float64
+				for _, r := range lines[0].Runs {
+					xs = append(xs, r.X)
+				}
+				assert.Equal(t, []float64{0, 14, 42}, xs)
+			})
+		})
+
+		t.Run("and a bold reply is long", func(t *testing.T) {
+			p := ui.LayoutReaderStyled(th, 1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromClaude, Text: "**" + strings.TrimSpace(strings.Repeat("the kiln is hot ", 40)) + "**"}}}, measure7, styled)
+
+			t.Run("it should wrap by the bold face's width", func(t *testing.T) {
+				inside := true
+				for _, l := range of(p, ui.LineClaude) {
+					w, _ := styled(l.Text, l.Size, ui.SpanStrong)
+					inside = inside && l.At.X+w <= p.Rect.Max.X-p.Pad
+				}
+				assert.True(t, inside)
+			})
 		})
 	})
 

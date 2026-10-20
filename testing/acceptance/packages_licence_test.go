@@ -14,8 +14,8 @@ import (
 	"botropolis.city/botropolis/testing/helpers"
 )
 
-// The binaries embed Inter (OFL-1.1) and Kenney's atlases (CC0-1.0), so every
-// package must declare both beside MIT (item 121). tools/check-packages reads
+// The binaries embed Inter (OFL-1.1), Go Mono (BSD-3-Clause, item 182) and Kenney's atlases (CC0-1.0), so every
+// package must declare them all beside MIT (item 121). tools/check-packages reads
 // the fields; these run it against the repository and against mutated copies.
 
 const (
@@ -23,7 +23,7 @@ const (
 	brewTemplate = "packaging/brew/botropolis.rb.in"
 )
 
-var allLicences = []string{"MIT", "OFL-1.1", "CC0-1.0"}
+var allLicences = []string{"MIT", "OFL-1.1", "CC0-1.0", "BSD-3-Clause"}
 
 // licenceField is how one packaging file declares a set of licences.
 type licenceField struct {
@@ -106,7 +106,7 @@ func TestCheckPackagesLicences(t *testing.T) {
 		})
 	})
 
-	t.Run("when both fields declare MIT, OFL-1.1 and CC0-1.0", func(t *testing.T) {
+	t.Run("when both fields declare MIT, OFL-1.1, CC0-1.0 and BSD-3-Clause", func(t *testing.T) {
 		out, err := runLicenceCheck(t, packagingCopy(t, declaring(allLicences, "AND")))
 
 		t.Run("it should pass", func(t *testing.T) {

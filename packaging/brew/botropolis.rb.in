@@ -4,7 +4,7 @@ class Botropolis < Formula
   url "@URL@"
   version "@VERSION@"
   sha256 "@SHA256@"
-  license all_of: ["MIT", "OFL-1.1", "CC0-1.0"]
+  license all_of: ["MIT", "OFL-1.1", "CC0-1.0", "BSD-3-Clause"]
 
   depends_on "go" => :build
 
@@ -20,6 +20,7 @@ class Botropolis < Formula
     man5.install Dir["man/*.5.gz"]
     pkgshare.install "packaging/botropolis.bash"
     (share/"licenses/botropolis").install "pkg/assets/fonts/inter/LICENSE.txt" => "inter-OFL.txt",
+                                          "pkg/assets/fonts/gomono/LICENSE" => "gomono-BSD.txt",
                                           "pkg/assets/kits/nature-kit/License.txt" => "kenney-CC0.txt",
                                           "pkg/assets/kits/README.md" => "kenney-kits.md",
                                           "pkg/assets/kenney/README.md" => "kenney-packs.md"

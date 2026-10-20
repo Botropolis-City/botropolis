@@ -17,16 +17,16 @@ Usage: tools/check-packages [--licences] [--root DIR] [dist-dir]
   --licences  check only the licence fields in packaging/, not built packages
   --root DIR  the tree whose packaging/ is checked (default: this repository)
 
-The binaries embed Inter (OFL-1.1) and Kenney's atlases (CC0-1.0) beside
+The binaries embed Inter (OFL-1.1), Go Mono (BSD-3-Clause) and Kenney's atlases (CC0-1.0) beside
 botropolis's own MIT code, so nfpm.yaml, the Homebrew formula and the built
-rpm and Arch package must each declare all three (item 121).
+rpm and Arch package must each declare all four (items 121, 182).
 
 Needs dpkg-deb, rpm and tar. Skips any format whose tool is absent, and says
 which it skipped rather than passing silently.
 USAGE
 }
 
-required_licences=(MIT OFL-1.1 CC0-1.0)
+required_licences=(MIT OFL-1.1 CC0-1.0 BSD-3-Clause)
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 licences_only=0

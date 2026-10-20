@@ -9,7 +9,7 @@ Every picture comes from one of three places, and from nowhere else.
 
 1. **A human artist**, credited, and paid when the work is commissioned.
 2. **An openly licensed asset pack**, with its licence followed, its licence file committed beside what was taken from it, and its author thanked.
-   Today that is Kenney's CC0 kits, in `pkg/assets/kits/` and `pkg/assets/kenney/`, and Inter under the SIL Open Font License, in `pkg/assets/fonts/`.
+   Today that is Kenney's CC0 kits, in `pkg/assets/kits/` and `pkg/assets/kenney/`, and Inter under the SIL Open Font License, in `pkg/assets/fonts/`, with Go Mono, by Bigelow & Holmes under the Go project's BSD licence, embedded from `golang.org/x/image` and its licence committed in `pkg/assets/fonts/gomono/`.
    The thanks are in the README.
 3. **Geometry built by hand in code**: primitives placed, sized and coloured in a Blender script (`tools/render-sprites/`) or shapes drawn in Go (`pkg/render/`), the way an artist models.
    Claude writing that code is allowed,

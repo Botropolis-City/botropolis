@@ -200,6 +200,8 @@ and [support the studio](https://kenney.nl/donate) if the work helps you too.
 
 The chrome is set in [Inter](https://rsms.me/inter/) by The Inter Project Authors, embedded from `pkg/assets/fonts` under the SIL Open Font License 1.1
 (the licence text ships beside the face).
+Code in the reading pane is set in [Go Mono](https://go.dev/blog/go-fonts) by Bigelow & Holmes, made for the Go project and embedded from `golang.org/x/image` under its BSD licence, which ships as `gomono-BSD.txt`.
+Thank you, Charles Bigelow and Kris Holmes.
 
 ## Not doing
 

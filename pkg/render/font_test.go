@@ -38,6 +38,42 @@ func TestFaces(t *testing.T) {
 		})
 	})
 
+	t.Run("when measuring a reply's styles", func(t *testing.T) {
+		f, err := newFaces(ui.NewTheme(1))
+		require.NoError(t, err)
+		plain, plainH := f.Styled("kiln", ui.Body, ui.SpanPlain)
+
+		t.Run("it should set strong wider than plain", func(t *testing.T) {
+			strong, _ := f.Styled("kiln", ui.Body, ui.SpanStrong)
+			assert.Greater(t, strong, plain)
+		})
+
+		t.Run("it should set code in a monospace face", func(t *testing.T) {
+			narrow, _ := f.Styled("iiii", ui.Body, ui.SpanCode)
+			wide, _ := f.Styled("mmmm", ui.Body, ui.SpanCode)
+			assert.Equal(t, narrow, wide)
+		})
+
+		t.Run("it should give every style the plain line's height", func(t *testing.T) {
+			var heights []float64
+			for _, style := range []ui.SpanStyle{ui.SpanStrong, ui.SpanEmphasis, ui.SpanCode} {
+				_, h := f.Styled("kiln", ui.Body, style)
+				heights = append(heights, h)
+			}
+			assert.Equal(t, []float64{plainH, plainH, plainH}, heights)
+		})
+
+		t.Run("it should sit every style on the plain face's baseline", func(t *testing.T) {
+			base := f.Face(ui.Body).Metrics().HAscent
+			var baselines []float64
+			for _, style := range []ui.SpanStyle{ui.SpanPlain, ui.SpanStrong, ui.SpanCode} {
+				face, drop := f.Styling(ui.Body, style)
+				baselines = append(baselines, drop+face.Metrics().HAscent)
+			}
+			assert.Equal(t, []float64{base, base, base}, baselines)
+		})
+	})
+
 	t.Run("when measuring at 2x", func(t *testing.T) {
 		one, err := newFaces(ui.NewTheme(1))
 		require.NoError(t, err)

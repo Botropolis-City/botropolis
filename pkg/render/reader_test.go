@@ -66,7 +66,8 @@ func TestReadingPane(t *testing.T) {
 	// since a test has no window to draw it in.
 	laidOut := func(g *Game) {
 		measure := func(s string, _ ui.Size) (float64, float64) { return 7 * float64(len([]rune(s))), 14 }
-		pane(g).layout(g, ui.NewTheme(1), 1280, 800, measure)
+		styled := func(s string, size ui.Size, _ ui.SpanStyle) (float64, float64) { return measure(s, size) }
+		pane(g).layout(g, ui.NewTheme(1), 1280, 800, measure, styled)
 	}
 	five := claude.Conversation{Messages: make([]claude.Message, 5)}
 

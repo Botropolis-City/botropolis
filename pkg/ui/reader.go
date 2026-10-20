@@ -72,9 +72,12 @@ type ReaderLine struct {
 	// Turn is the index in the input's turns of the turn the line is part
 	// of, for a line of a turn.
 	Turn int
-	// Spans are the line's text in its styles, for a reply read as
-	// Markdown. Item 182.
-	Spans []Span
+	// Runs are the line's text in its styles, each at its offset from
+	// the line's start, for a reply read as Markdown. Item 182.
+	Runs []Run
+	// Gap is the space left above the line: a half-line between a
+	// reply's blocks.
+	Gap float64
 	// Indent is how far right of the pane's text the line starts: a list
 	// item's depth, a quote's, and a wrapped item's hang past its bullet.
 	Indent float64
@@ -123,6 +126,18 @@ const readerGoneKeys = "enter for a new session here   esc to close"
 // LayoutReader centres the reading pane across a width×height window,
 // most of its height tall.
 func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measure) ReaderPanel {
+	return LayoutReaderStyled(th, width, height, in, measure, func(s string, size Size, _ SpanStyle) (float64, float64) {
+		return measure(s, size)
+	})
+}
+
+// StyleMeasure is Measure in a span's own face: bold, or monospace for
+// code.
+type StyleMeasure func(s string, size Size, style SpanStyle) (width, height float64)
+
+// LayoutReaderStyled is LayoutReader with each style of a reply measured
+// in its own face, so bold and code wrap and sit at their own widths.
+func LayoutReaderStyled(th Theme, width, height float64, in ReaderInput, measure Measure, styled StyleMeasure) ReaderPanel {
 	grid := th.Grid()
 	pad := 2 * grid
 	w := min(readerGrids*grid, width-2*grid)
@@ -206,14 +221,14 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 		textW -= copyW + grid
 	}
 	for i := len(in.Turns) - 1; i >= 0; i-- {
-		block := turnLines(th, in.Turns[i], textW, measure)
+		block := turnLines(th, in.Turns[i], textW, measure, styled)
 		for j := range block {
 			block[j].Turn = i
 		}
 		h := gap * float64(min(len(blocks), 1))
 		for _, l := range block {
 			_, lh := measure("", l.Size)
-			h += lh
+			h += lh + l.Gap
 		}
 		if h > room {
 			if len(blocks) == 0 {
@@ -231,6 +246,7 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 			_, lh := measure("", block[j].Size)
 			y -= lh
 			block[j].At = city.Point{X: x + block[j].Indent, Y: y}
+			y -= block[j].Gap
 		}
 		y -= gap
 	}
@@ -272,13 +288,13 @@ func LayoutReader(th Theme, width, height float64, in ReaderInput, measure Measu
 
 // turnLines is a turn as lines: a tool call clipped to one, a prompt or
 // a reply wrapped to the pane's width.
-func turnLines(th Theme, turn ReaderTurn, width float64, measure Measure) []ReaderLine {
+func turnLines(th Theme, turn ReaderTurn, width float64, measure Measure, styled StyleMeasure) []ReaderLine {
 	pal := th.Palette
 	if turn.From == FromTool {
 		return []ReaderLine{{Text: clipTo(turn.Text, width, Small, measure), Size: Small, Kind: LineTool, Color: pal.Dim}}
 	}
 	if turn.From == FromClaude {
-		return replyLines(th, ParseMarkdown(turn.Text), width, measure)
+		return replyLines(th, ParseMarkdown(turn.Text), width, styled)
 	}
 	kind, c := LineYou, pal.Accent
 	var lines []ReaderLine
