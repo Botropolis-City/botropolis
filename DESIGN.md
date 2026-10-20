@@ -39,7 +39,7 @@ Everything else is redesigned around how the sessions on this machine are actual
 | [session-lifecycle.md](design/session-lifecycle.md) | how a session is started, watched and ended |
 | [city-and-rendering.md](design/city-and-rendering.md) | the city, the projection, the view and the plan |
 | [chrome.md](design/chrome.md) | strip, footer, cards, panels |
-| [info-views.md](design/info-views.md) | the nine views, their legends and what each says |
+| [info-views.md](design/info-views.md) | the six lenses, the views they fold, their legends and what each says |
 | [sprite-pipeline.md](design/sprite-pipeline.md) | Blender, the kits, the packer, the atlases |
 | [art-sources.md](design/art-sources.md) | where every picture comes from, and that no image model makes any |
 | [milestones.md](design/milestones.md) | what shipped, in order |

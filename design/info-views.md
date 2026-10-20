@@ -1,5 +1,9 @@
 ## Info views
 
+The number keys pick one of six lenses — Attention, Work, Cost, Capacity, Health and Connections (`city.Lenses`) — and each lens is a question the map can be asked (item 88).
+A lens folds the views that answer it, opens on the first, and steps to the next when its key is pressed again, so the ten views are still what draws the map; a lens chooses among them.
+Before item 88 the views were the choice themselves, nine of them on nine keys, and some of what follows was written then.
+
 A view is subtractive: it shows one network and takes the rest away.
 The city behind it recedes — `colorm.ChangeHSV(0, 0.18, 0.75)` drains most of its saturation and a little of its value — and only the objects the view is about keep their colour.
 
@@ -25,14 +29,16 @@ The view itself is remembered in `layout.json` by name rather than by number, so
 While a view is up the strip gives its state tones back and keeps only the counts.
 That is the same correctness requirement, not a flourish: the tones have to be off the screen for the view's palette to be legal at all.
 
-There are two projections and the views have to mean the same thing in both.
-The isometric map recedes by pushing sprites through a colour matrix; the top-down map has no sprites to push, only flat fills, so it drains the fill colour with `ui.Receded`.
+There used to be two projections, and the views had to mean the same thing in both.
+The top-down map had no sprites to push through a colour matrix, only flat fills, so it drained the fill colour with `ui.Receded` instead.
+Item 106 retired it: `--projection top` still parses, warns, and opens the isometric map.
+`ui.Receded` outlived it, because the isometric map has flat fills of its own — the driveway pads, and the streets when no kit is loaded — and they have to recede with the sprites around them.
 `colorm.ChangeHSV` does not work in HSV despite its name — YCbCr, hue rotated in the CbCr plane, luma scaled by value and chroma by saturation×value — so `ui.Receded` is written as that same transform and held against the matrix by a test over eight colours.
-Writing the honest HSV version instead lands two units away on a mid grey: invisible, and enough to make the two halves of the map different functions.
+Writing the honest HSV version instead lands two units away on a mid grey: invisible, and enough to make a pad and the sprite beside it recede by different functions.
 
 Anything that hands the sprite path a tint of its own is invisible to all of this.
 The recede happens where the tint is nil, so a sprite that always supplies a `ColorScale` — the water towers, which carry their server's call count — never receded at all, and stood over a city that had stepped back.
-It is a class of bug rather than one bug: the 16 px top-down projection has the same shape and has not been checked.
+It is a class of bug rather than one bug: the 16 px top-down projection had the same shape and was never checked before it was retired.
 
 Two things the validator established that the eye did not.
 
@@ -45,9 +51,24 @@ So a categorical view colours the top three kinds and folds everything else into
 Thirteen MCP servers were never going to be thirteen colours; Servers is legible because colour carries the top three and the contextual highlight carries the rest.
 
 The networks — the wires from the plant, the beams from the towers, the cars on the roads, the freight loop, the drones at work on the buildings — each sit behind the view that asks about them.
-Spend has the wires and the train, Servers the beams, Traffic the cars and the drones, Fan-out the drones, and Attention the cars, the drones and the train, because each of those answers for itself on hover.
-Health keeps the wires too, for what is *not* there: a session the daemon has seen no hook events from has no wire, and that missing wire says the numbers beside that building are files-only guesses.
-Which view draws which network is a property of `pkg/city`, so it is testable without a window.
+It is the view that decides, not the lens, so stepping through a lens's views can change which networks are up:
+
+| lens | view | networks |
+| --- | --- | --- |
+| Attention | `attention` | traffic (the cars), cranes (the drones), freight (the train) |
+| Work | `groups` | — |
+| Cost | `spend` | wires, freight (the train) |
+| Cost | `models` | — |
+| Capacity | `pressure` | — |
+| Capacity | `fan-out` | cranes (the drones) |
+| Health | `health` | wires |
+| Health | `staleness` | — |
+| Connections | `servers` | beams |
+| Connections | `traffic` | traffic (the cars), cranes (the drones) |
+
+Attention keeps the cars, the drones and the train because each of those answers for itself on hover.
+Health keeps the wires for what is *not* there: a session the daemon has seen no hook events from has no wire, and that missing wire says the numbers beside that building are files-only guesses.
+Which view draws which network is a property of `pkg/city`, so it is testable without a window, and `pkg/city/network_doc_test.go` holds this table against it (item 178).
 
 The carrier is tinted, not only what it runs to: a wire by the rate it is carrying, a beam by its calls, a road by its traffic.
 Each already held that number, so this reads what was there rather than adding anything.
@@ -88,4 +109,10 @@ Its card still teaches the key, because Aria had not realised the refresh existe
 
 **The honest limit.** All three are hoverable in principle and hard to hover in practice, because two of them are moving and the courier lives five seconds. Pointing at a moving object is a real cost that the "it can answer for itself" test does not measure, and the river is where that cost has accumulated. A fourth meaning should not be added here.
 
-**The base view draws one network, and only one.** The rule is subtractive — a view says something by taking things away, and the base view is quiet so that the quiet means something. Traffic is the exception, added 2026-09-26, and the test for the exception is whether the thing can answer for itself without the view to explain it. A car can: its hover card names the two projects and what passes between them. A wire cannot, so the wires stay on the views that are about spend and health. The exception is not "cars are nice"; it is that an object carrying its own explanation is not the unexplained motion the rule guards against.
+**The base view draws only the networks that explain themselves.**
+The rule is subtractive — a view says something by taking things away, and the base view is quiet so that the quiet means something.
+Traffic was the first exception, added 2026-09-26, and the test for an exception is whether the thing can answer for itself without the view to explain it.
+A car can: its hover card names the two projects and what passes between them.
+The drones joined it on that test (item 89), and so did the train, whose card names its model, its tokens and its cost (item 78).
+A wire cannot, so the wires stay on the views that are about spend and health.
+The exception is not "cars are nice"; it is that an object carrying its own explanation is not the unexplained motion the rule guards against.
