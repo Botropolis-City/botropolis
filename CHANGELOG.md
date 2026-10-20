@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
 
+- **The minimap stays in its panel after the camera turns, and turns with the city.**
+  After pressing `r`, the minimap's map was drawn off its panel and down over the footer, and it showed even when the whole city was already in view.
+  Now it sits in its panel at every heading, facing the way the city does, and stays hidden while the whole city is on screen.
+
 - **A new building's windows light floor by floor as it rises.**
   At night, a session still arriving by tug lit every window of its finished building over its empty lot, as rows of floating discs, and a building going up glowed above its own rising roof.
   Now nothing is lit before the building stands, and each storey's windows light once that storey is built, so a building lights from the ground up while the storey going up stays dark.
