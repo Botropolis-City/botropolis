@@ -131,6 +131,10 @@ type Shown struct {
 	// (item 75).
 	WorldDrawn                bool
 	TagsDrawn, TagsUnderWorld int
+	// Sprites is how many world sprites the frame drew, and at night
+	// WindowDraws how many buildings' windows it lit and Punches how many
+	// sprites it cut out of the lights behind them (item 166).
+	Sprites, WindowDraws, Punches int
 }
 
 // ShownLabel is one drawn label: its kind, "sign", "plate", "caption",
@@ -571,6 +575,7 @@ func (g *Game) noteShown() {
 	g.mu.Lock()
 	s.Labels = slices.Clone(g.shownLabels)
 	s.WorldDrawn, s.TagsDrawn, s.TagsUnderWorld = g.drawnOrder.lastWorld > 0, len(g.drawnOrder.tags), g.drawnOrder.tagsUnderWorld()
+	s.Sprites, s.WindowDraws, s.Punches = g.drawnOrder.n-len(g.drawnOrder.tags), g.windowDraws, g.punches
 	g.mu.Unlock()
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID

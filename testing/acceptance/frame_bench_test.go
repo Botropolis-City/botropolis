@@ -2,12 +2,40 @@ package acceptance_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/render"
 )
+
+// Item 166: the time to update and draw a frame of the largest demo by
+// day and by night. At night each building lays its lit windows in a
+// layer and every sprite drawn after it is drawn again to cut its shape
+// out of that layer; the gap between the rows is what the night costs.
+// It reports and never gates.
+func BenchmarkDrawANightFrame(b *testing.B) {
+	day := time.Now()
+	for _, when := range []struct {
+		name string
+		hour int
+	}{{"day", 14}, {"night", 22}} {
+		b.Run("metropolis/fitted/"+when.name, func(b *testing.B) {
+			now := time.Date(day.Year(), day.Month(), day.Day(), when.hour, 30, 0, 0, time.Local)
+			d, err := render.NewDrive(render.DriveOptions{Home: stageDemo(b, "metropolis"), Width: 1600, Height: 900, Now: now})
+			require.NoError(b, err)
+			require.NoError(b, d.Run(settleTicks))
+			for b.Loop() {
+				require.NoError(b, d.Tick())
+			}
+			shown := d.Shown()
+			b.ReportMetric(float64(shown.Sprites), "sprites/frame")
+			b.ReportMetric(float64(shown.WindowDraws), "windows/frame")
+			b.ReportMetric(float64(shown.Punches), "cuts/frame")
+		})
+	}
+}
 
 // The time to update and draw one frame of the largest demo at 1600 by
 // 900, fitted and zoomed in until its labels show, with the labels on

@@ -119,6 +119,12 @@ type Game struct {
 	// (item 166).
 	lights   *ebiten.Image
 	lightsOn bool
+	// lightOps are the night's lights noted in depth order, litBounds the
+	// box around the windows noted so far, and punches how many sprites
+	// were noted to cut them (item 166).
+	lightOps  []lightOp
+	litBounds image.Rectangle
+	punches   int
 
 	mu          sync.Mutex
 	pending     *state.Snapshot

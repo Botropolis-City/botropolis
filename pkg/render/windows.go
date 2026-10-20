@@ -137,14 +137,13 @@ func headingIndex(heading int) int {
 	return ((heading/90)%4 + 4) % 4
 }
 
-// drawWindows draws a building's lit windows over the dark: each lit
-// pane of its sprite, from the atlas page, where the sprite stands risen
-// as far as it has, all in one call.
-func (g *Game) drawWindows(screen *ebiten.Image, cam *city.Camera, b *city.Building, lights litWindows, rise float64) {
+// windowTriangles is a building's lit panes as triangles over the atlas
+// page they come from, where the sprite stands risen as far as it has.
+func (g *Game) windowTriangles(cam *city.Camera, b *city.Building, lights litWindows, rise float64) ([]ebiten.Vertex, []uint16, *ebiten.Image) {
 	atlas := g.kits.pick(cam.Zoom)
 	sprite, ok := atlas.Sprite(buildingPiece(b), cam.Heading)
 	if !ok || sprite.Page >= len(atlas.pages) {
-		return
+		return nil, nil, nil
 	}
 	scale := cam.Zoom / atlas.Zoom
 	foot := g.footOf(cam, b)
@@ -168,15 +167,36 @@ func (g *Game) drawWindows(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		indices = append(indices, base, base+1, base+2, base, base+2, base+3)
 	}
 	if len(indices) == 0 {
-		return
+		return nil, nil, nil
 	}
-	screen.DrawTriangles(vertices, indices, atlas.pages[sprite.Page], &ebiten.DrawTrianglesOptions{Filter: ebiten.FilterLinear})
-	g.windowDraws++
+	return vertices, indices, atlas.pages[sprite.Page]
 }
 
-// beginLights starts the night's lights layer for a frame of a size:
-// from here every lit building lays its windows in it as it is drawn,
-// and every sprite cuts its own shape out of what is already there.
+var windowOptions = &ebiten.DrawTrianglesOptions{Filter: ebiten.FilterLinear}
+
+// drawWindows draws a building's lit windows straight onto an image, for
+// a building with nothing in front of it, in one call.
+func (g *Game) drawWindows(screen *ebiten.Image, cam *city.Camera, b *city.Building, lights litWindows, rise float64) {
+	if vertices, indices, page := g.windowTriangles(cam, b, lights, rise); page != nil {
+		screen.DrawTriangles(vertices, indices, page, windowOptions)
+		g.windowDraws++
+	}
+}
+
+// lightOp is one step of laying the night's lights, kept in the order
+// the scene was drawn: a building's windows laid, or a sprite in front
+// of them cut out.
+type lightOp struct {
+	vertices []ebiten.Vertex
+	indices  []uint16
+	src      *ebiten.Image
+	geo      ebiten.GeoM
+	punch    bool
+}
+
+// beginLights starts the night's lights for a frame of a size: from here
+// every lit building's windows, and every sprite drawn in front of any,
+// are noted in depth order, to be laid once the scene is drawn.
 func (g *Game) beginLights(width, height int) {
 	if g.lights == nil || g.lights.Bounds().Dx() != width || g.lights.Bounds().Dy() != height {
 		if g.lights != nil {
@@ -184,37 +204,78 @@ func (g *Game) beginLights(width, height int) {
 		}
 		g.lights = ebiten.NewImage(width, height)
 	}
-	g.lights.Clear()
-	g.lightsOn, g.windowDraws = true, 0
+	g.lightOps = g.lightOps[:0]
+	g.litBounds = image.Rectangle{}
+	g.lightsOn, g.windowDraws, g.punches = true, 0, 0
 }
 
-// endLights puts the night's lit windows over the frame, after the wash.
+// endLights lays the night's lights in the order noted, each sprite
+// cutting out what was laid behind it, and puts them over the frame,
+// after the wash. Laid here rather than as the scene is drawn, the
+// scene's own draws stay batched together, and the cuts batch together.
 func (g *Game) endLights(screen *ebiten.Image) {
 	if !g.lightsOn {
 		return
 	}
 	g.lightsOn = false
+	if len(g.lightOps) == 0 {
+		return
+	}
+	g.lights.Clear()
+	for _, op := range g.lightOps {
+		if op.punch {
+			g.lights.DrawImage(op.src, &ebiten.DrawImageOptions{GeoM: op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+			continue
+		}
+		g.lights.DrawTriangles(op.vertices, op.indices, op.src, windowOptions)
+	}
 	screen.DrawImage(g.lights, nil)
 }
 
-// punch cuts a sprite drawn with geo out of the lights laid so far: a
-// window behind it does not show through it.
+// punch notes a sprite drawn with geo, to be cut out of any lights laid
+// behind it, when it covers any: a window behind it does not show
+// through it.
 func (g *Game) punch(img *ebiten.Image, geo ebiten.GeoM) {
-	if !g.lightsOn {
+	if !g.lightsOn || g.litBounds.Empty() {
 		return
 	}
-	op := &ebiten.DrawImageOptions{GeoM: geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear}
-	g.lights.DrawImage(img, op)
+	b := img.Bounds()
+	box := image.Rectangle{}
+	for i, c := range [][2]float64{{0, 0}, {float64(b.Dx()), 0}, {0, float64(b.Dy())}, {float64(b.Dx()), float64(b.Dy())}} {
+		x, y := geo.Apply(c[0], c[1])
+		p := image.Rect(int(math.Floor(x)), int(math.Floor(y)), int(math.Ceil(x))+1, int(math.Ceil(y))+1)
+		if i == 0 {
+			box = p
+		} else {
+			box = box.Union(p)
+		}
+	}
+	if !box.Overlaps(g.litBounds) {
+		return
+	}
+	g.lightOps = append(g.lightOps, lightOp{src: img, geo: geo, punch: true})
+	g.punches++
 }
 
-// lightBuilding lays a building's lit windows, if it has any tonight,
+// lightBuilding notes a building's lit windows, if it has any tonight,
 // once it is drawn and before anything in front of it is.
 func (g *Game) lightBuilding(cam *city.Camera, b *city.Building) {
 	if !g.lightsOn {
 		return
 	}
 	rise := g.scene.Rising(b.Session.ID)
-	if lights, ok := g.windowLights(cam, b, rise, g.scene.Lights(b.Session.ID)); ok {
-		g.drawWindows(g.lights, cam, b, lights, rise)
+	lights, ok := g.windowLights(cam, b, rise, g.scene.Lights(b.Session.ID))
+	if !ok {
+		return
 	}
+	vertices, indices, page := g.windowTriangles(cam, b, lights, rise)
+	if page == nil {
+		return
+	}
+	for _, v := range vertices {
+		p := image.Rect(int(math.Floor(float64(v.DstX))), int(math.Floor(float64(v.DstY))), int(math.Ceil(float64(v.DstX)))+1, int(math.Ceil(float64(v.DstY)))+1)
+		g.litBounds = g.litBounds.Union(p)
+	}
+	g.lightOps = append(g.lightOps, lightOp{vertices: vertices, indices: indices, src: page})
+	g.windowDraws++
 }

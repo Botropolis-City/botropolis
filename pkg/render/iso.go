@@ -886,6 +886,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 	}
 	fade := g.fadeUnkept(&screen, items, airborne)
+	g.windowDraws, g.punches = 0, 0
 	if c.Night {
 		g.beginLights(int(width), int(height))
 	}
