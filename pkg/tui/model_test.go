@@ -1,6 +1,7 @@
 package tui_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -242,6 +243,152 @@ func TestModel(t *testing.T) {
 		}
 	})
 
+	t.Run("when there are more rows than the height allows", func(t *testing.T) {
+		const height = 10
+		fresh := func() *tui.Model {
+			m := model(many(28)...)
+			m.SetHeight(height)
+			return m
+		}
+
+		t.Run("and the cursor is on the first row", func(t *testing.T) {
+			lines := fresh().Lines(0)
+
+			t.Run("it should draw the header first", func(t *testing.T) {
+				assert.True(t, strings.HasPrefix(lines[0], "  STATE"), lines[0])
+			})
+
+			t.Run("it should draw exactly height-1 lines, leaving one for the footer", func(t *testing.T) {
+				assert.Len(t, lines, height-1)
+			})
+
+			t.Run("it should draw the cursor's row", func(t *testing.T) {
+				assert.True(t, drawsCursor(lines, "s00"), strings.Join(lines, "\n"))
+			})
+
+			t.Run("it should say how many rows lie below", func(t *testing.T) {
+				assert.Equal(t, "  ↑ 0 above · ↓ 21 below", lines[len(lines)-1])
+			})
+		})
+
+		t.Run("and the cursor walks down past the last drawn row", func(t *testing.T) {
+			m := fresh()
+			press(m, "j", 12)
+			lines := m.Lines(0)
+
+			t.Run("it should still draw the header first", func(t *testing.T) {
+				assert.True(t, strings.HasPrefix(lines[0], "  STATE"), lines[0])
+			})
+
+			t.Run("it should draw the cursor's row", func(t *testing.T) {
+				assert.True(t, drawsCursor(lines, "s12"), strings.Join(lines, "\n"))
+			})
+
+			t.Run("it should draw exactly height-1 lines", func(t *testing.T) {
+				assert.Len(t, lines, height-1)
+			})
+
+			t.Run("it should say how many rows lie above and below", func(t *testing.T) {
+				assert.Equal(t, "  ↑ 6 above · ↓ 15 below", lines[len(lines)-1])
+			})
+
+			t.Run("and walks back up one row", func(t *testing.T) {
+				press(m, "k", 1)
+
+				t.Run("it should not scroll", func(t *testing.T) {
+					assert.Contains(t, m.Lines(0)[1], "Job s06 ")
+				})
+			})
+		})
+
+		t.Run("and the cursor jumps to the end", func(t *testing.T) {
+			m := fresh()
+			press(m, "G", 1)
+			lines := m.Lines(0)
+
+			t.Run("it should draw the last row", func(t *testing.T) {
+				assert.True(t, drawsCursor(lines, "s27"), strings.Join(lines, "\n"))
+			})
+
+			t.Run("it should say nothing lies below", func(t *testing.T) {
+				assert.Equal(t, "  ↑ 21 above · ↓ 0 below", lines[len(lines)-1])
+			})
+		})
+
+		t.Run("and the height shrinks while the cursor is low in the window", func(t *testing.T) {
+			m := fresh()
+			press(m, "j", 6)
+			m.Lines(0)
+			m.SetHeight(5)
+
+			t.Run("it should still draw the cursor's row", func(t *testing.T) {
+				assert.True(t, drawsCursor(m.Lines(0), "s06"), strings.Join(m.Lines(0), "\n"))
+			})
+		})
+
+		t.Run("and rows disappear while the window is scrolled to the end", func(t *testing.T) {
+			m := fresh()
+			press(m, "G", 1)
+			m.Lines(0)
+			m.SetSnapshot(state.Snapshot{At: now, Sessions: many(12)})
+			lines := m.Lines(0)
+
+			t.Run("it should fill the window with rows instead of blank lines", func(t *testing.T) {
+				assert.Equal(t, "  ↑ 5 above · ↓ 0 below", lines[len(lines)-1])
+			})
+
+			t.Run("it should still draw the cursor's row", func(t *testing.T) {
+				assert.True(t, drawsCursor(lines, "s11"), strings.Join(lines, "\n"))
+			})
+		})
+
+		t.Run("and the height grows to fit every row", func(t *testing.T) {
+			m := fresh()
+			m.SetHeight(30)
+
+			t.Run("it should draw every row with no above/below line", func(t *testing.T) {
+				assert.Len(t, m.Lines(0), 29)
+			})
+		})
+
+		for _, tiny := range []struct {
+			name   string
+			height int
+			want   []string
+		}{
+			{"and the height has room for the header and one row", 3, []string{"  STATE  ", "> working"}},
+			{"and the height has room for one line", 2, []string{"> working"}},
+		} {
+			t.Run(tiny.name, func(t *testing.T) {
+				m := fresh()
+				press(m, "j", 4)
+				m.SetHeight(tiny.height)
+				lines := m.Lines(0)
+				got := []string{}
+				for _, l := range lines {
+					got = append(got, l[:min(len(l), 9)])
+				}
+
+				t.Run("it should drop the above/below line first, then the header", func(t *testing.T) {
+					assert.Equal(t, tiny.want, got)
+				})
+
+				t.Run("it should still draw the cursor's row", func(t *testing.T) {
+					assert.True(t, drawsCursor(lines, "s04"), strings.Join(lines, "\n"))
+				})
+			})
+		}
+	})
+
+	t.Run("when the rows fit the height", func(t *testing.T) {
+		m := model(many(3)...)
+		m.SetHeight(10)
+
+		t.Run("it should draw no above/below line", func(t *testing.T) {
+			assert.Len(t, m.Lines(0), 4)
+		})
+	})
+
 	t.Run("when there are no rows", func(t *testing.T) {
 		m := model()
 
@@ -268,6 +415,29 @@ func TestModel(t *testing.T) {
 			assert.Equal(t, "attached a", m.Footer())
 		})
 	})
+}
+
+func many(n int) []state.Session {
+	sessions := []state.Session{}
+	for i := range n {
+		sessions = append(sessions, session(fmt.Sprintf("s%02d", i), state.Working, time.Duration(i)*time.Minute))
+	}
+	return sessions
+}
+
+func press(m *tui.Model, key string, times int) {
+	for range times {
+		m.Key(key, now)
+	}
+}
+
+func drawsCursor(lines []string, id string) bool {
+	for _, l := range lines {
+		if strings.HasPrefix(l, "> ") && strings.Contains(l, "Job "+id+" ") {
+			return true
+		}
+	}
+	return false
 }
 
 func column(line, sub string) int {

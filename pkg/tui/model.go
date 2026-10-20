@@ -38,6 +38,36 @@ type Model struct {
 	status   string
 	armed    string
 	armedAt  time.Time
+	height   int
+	offset   int
+}
+
+func (m *Model) SetHeight(height int) {
+	m.height = height
+}
+
+// window picks the rows that fit above the footer, moving the offset only
+// as far as it must to keep the cursor drawn. The header goes on the first
+// line and the above/below count on the last, the count dropped first when
+// there is no room for both (item 176).
+func (m *Model) window() (first, last int, scrolled bool) {
+	room := m.height - 1
+	if m.height <= 0 || len(m.rows)+1 <= room {
+		m.offset = 0
+		return 0, len(m.rows), false
+	}
+	visible := room
+	if room >= 2 {
+		visible--
+	}
+	if room >= 3 {
+		visible--
+	}
+	visible = max(visible, 1)
+	m.offset = min(m.offset, m.cursor)
+	m.offset = max(m.offset, m.cursor-visible+1)
+	m.offset = max(min(m.offset, len(m.rows)-visible), 0)
+	return m.offset, m.offset + visible, true
 }
 
 func New() *Model {
@@ -167,8 +197,14 @@ func (m *Model) demolish(now time.Time) Action {
 
 func (m *Model) Lines(width int) []string {
 	now := m.snapshot.At
-	lines := []string{fmt.Sprintf("  %-10s %-24s %-14s %-40s %-5s %-8s %-8s %s", "STATE", "DOING", "PROJECT", "TITLE", "CTX", "FRESH/H", "CACHED/H", "IDLE")}
-	for i, s := range m.rows {
+	header := fmt.Sprintf("  %-10s %-24s %-14s %-40s %-5s %-8s %-8s %s", "STATE", "DOING", "PROJECT", "TITLE", "CTX", "FRESH/H", "CACHED/H", "IDLE")
+	lines := []string{header}
+	first, last, scrolled := m.window()
+	if scrolled && m.height-1 < 2 {
+		lines = nil
+	}
+	for i := first; i < last; i++ {
+		s := m.rows[i]
 		marker := "  "
 		if i == m.cursor {
 			marker = "> "
@@ -179,6 +215,9 @@ func (m *Model) Lines(width int) []string {
 	}
 	if len(m.rows) == 0 {
 		lines = append(lines, "  no sessions")
+	}
+	if scrolled && m.height-1 >= 3 {
+		lines = append(lines, fmt.Sprintf("  ↑ %d above · ↓ %d below", first, len(m.rows)-last))
 	}
 	if width > 0 {
 		for i, line := range lines {

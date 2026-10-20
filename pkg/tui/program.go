@@ -94,6 +94,7 @@ func (p *program) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return p, p.wait()
 	case tea.WindowSizeMsg:
 		p.width, p.height = msg.Width, msg.Height
+		p.model.SetHeight(msg.Height)
 	case tea.KeyMsg:
 		action := p.model.Key(msg.String(), p.clock())
 		switch action.Kind {
@@ -131,12 +132,14 @@ func (p *program) perform(action Action) {
 func (p *program) View() string {
 	lines := p.model.Lines(p.width)
 	var b strings.Builder
-	for i, line := range lines {
+	for _, line := range lines {
 		switch {
-		case i == 0:
+		case strings.HasPrefix(line, "  STATE "):
 			b.WriteString(styleHeader.Render(line))
-		case i-1 == p.model.Cursor() && len(p.model.Rows()) > 0:
+		case strings.HasPrefix(line, "> "):
 			b.WriteString(styleCursor.Render(line))
+		case strings.HasPrefix(line, "  ↑ "):
+			b.WriteString(styleFooter.Render(line))
 		case strings.HasPrefix(strings.TrimSpace(line), string(state.NeedsYou)):
 			b.WriteString(styleNeeds.Render(line))
 		default:

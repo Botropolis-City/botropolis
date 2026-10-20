@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The live table (`status --live`) scrolls when there are more sessions than lines.**
+  Its column names and the selected row stay on screen, and a line under the rows says how many lie above and below.
+
 - **The live table (`status --live`) no longer breaks text with accents, dashes or non-Latin scripts.**
   A shortened title, folder or tool line could end in a replacement mark, lines stopped short of the terminal's edge, and a title in a wide script such as Chinese or Japanese pushed the columns after it out of line.
 
