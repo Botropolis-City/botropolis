@@ -54,7 +54,10 @@ func (f *fakeSessions) New(_ context.Context, dir, prompt string) (string, error
 	f.calls = append(f.calls, "new "+dir+" "+prompt)
 	return f.id, f.err
 }
-func (f *fakeSessions) Attach(id string) error { f.calls = append(f.calls, "attach "+id); return f.err }
+func (f *fakeSessions) Open(_ context.Context, id, dir string, here bool) error {
+	f.calls = append(f.calls, fmt.Sprintf("open %s dir=%s here=%v", id, dir, here))
+	return f.err
+}
 func (f *fakeSessions) Stop(_ context.Context, id string) error {
 	f.calls = append(f.calls, "stop "+id)
 	return f.err
@@ -63,11 +66,6 @@ func (f *fakeSessions) Remove(_ context.Context, id string) error {
 	f.calls = append(f.calls, "rm "+id)
 	return f.err
 }
-func (f *fakeSessions) Resume(_ context.Context, dir, sessionID string) (string, error) {
-	f.calls = append(f.calls, "resume "+dir+" "+sessionID)
-	return f.id, f.err
-}
-
 func (f *fakeSessions) Prune(_ context.Context, _ state.Snapshot, olderThan time.Duration, _ time.Time, dryRun bool) ([]commands.Pruned, error) {
 	f.calls = append(f.calls, fmt.Sprintf("prune %s dry=%v", olderThan, dryRun))
 	if f.err != nil {
@@ -128,6 +126,16 @@ func (f *fakeCity) Run(cmd *cobra.Command) error {
 	return nil
 }
 
+type fakeDaemon struct {
+	calls []string
+	err   error
+}
+
+func (f *fakeDaemon) Ensure(_ io.Writer, dryRun bool) error {
+	f.calls = append(f.calls, fmt.Sprintf("ensure dry=%v", dryRun))
+	return f.err
+}
+
 type fakeEvents struct {
 	since time.Duration
 	runs  int
@@ -151,10 +159,16 @@ type harness struct {
 	tui      *fakeTUI
 	doctor   *fakeDoctor
 	find     *fakeFind
+	daemon   *fakeDaemon
 	seen     *config.Config
 	out      bytes.Buffer
+	errOut   bytes.Buffer
+	tty      bool
+	shell    string
 	root     *cobra.Command
 }
+
+func (h *harness) Daemon(cfg *config.Config) cli.DaemonRunner { h.seen = cfg; return h.daemon }
 
 func (h *harness) Status(cfg *config.Config) cli.StatusRunner     { h.seen = cfg; return h.status }
 func (h *harness) Hooks(cfg *config.Config) cli.HooksRunner       { h.seen = cfg; return h.hooks }
@@ -167,14 +181,21 @@ func (h *harness) Events(cfg *config.Config) cli.EventsRunner     { h.seen = cfg
 func (h *harness) Find(cfg *config.Config) cli.FindRunner         { h.seen = cfg; return h.find }
 
 func newHarness(cfg *config.Config) *harness {
-	h := &harness{status: &fakeStatus{}, hooks: &fakeHooks{}, sessions: &fakeSessions{id: "0898d7e4"}, city: &fakeCity{}, bar: &fakeBar{}, notify: &fakeNotify{}, tui: &fakeTUI{}, doctor: &fakeDoctor{}, events: &fakeEvents{}, find: &fakeFind{}}
+	h := &harness{status: &fakeStatus{}, hooks: &fakeHooks{}, sessions: &fakeSessions{id: "0898d7e4"}, city: &fakeCity{}, bar: &fakeBar{}, notify: &fakeNotify{}, tui: &fakeTUI{}, doctor: &fakeDoctor{}, events: &fakeEvents{}, find: &fakeFind{}, daemon: &fakeDaemon{}, shell: "/bin/bash"}
 	load := func() (*config.Config, error) { return cfg, nil }
+	isTerminal := func(*cobra.Command) bool { return h.tty }
+	getenv := func(key string) string {
+		if key == "SHELL" {
+			return h.shell
+		}
+		return ""
+	}
 	v := config.NewViper()
-	subs := append([]*cobra.Command{cli.NewStatusCLI(load, h), cli.NewInstallHooksCLI(load, h), cli.NewCityCLI(load, h), cli.NewBarCLI(load, h), cli.NewNotifyCLI(load, h), cli.NewTUICLI(load, h), cli.NewDoctorCLI(load, h), cli.NewEventsCLI(load, h), cli.NewFindCLI(load, h)},
-		cli.NewSessionCLIs(load, h)...)
+	subs := append([]*cobra.Command{cli.NewStatusCLI(load, h, h), cli.NewSetupCLI(load, h, getenv), cli.NewInstallHooksCLI(load, h), cli.NewCityCLI(load, h), cli.NewBarCLI(load, h), cli.NewNotifyCLI(load, h), cli.NewTUICLI(load, h), cli.NewDoctorCLI(load, h), cli.NewEventsCLI(load, h), cli.NewFindCLI(load, h), cli.NewVersionCLI(), cli.NewShellInitCLI()},
+		cli.NewSessionCLIs(load, h, isTerminal)...)
 	h.root = cli.NewRootCLI(v, subs...)
 	h.root.SetOut(&h.out)
-	h.root.SetErr(io.Discard)
+	h.root.SetErr(&h.errOut)
 	return h
 }
 
@@ -302,25 +323,6 @@ func TestRootCLI(t *testing.T) {
 		})
 	})
 
-	t.Run("when run with --tui", func(t *testing.T) {
-		h := newHarness(&config.Config{})
-		require.NoError(t, h.run("--tui"))
-
-		t.Run("it should open the terminal table instead of the city", func(t *testing.T) {
-			assert.Equal(t, 1, h.tui.runs)
-			assert.Equal(t, 0, h.city.runs)
-		})
-	})
-
-	t.Run("when run with the tui subcommand", func(t *testing.T) {
-		h := newHarness(&config.Config{})
-		require.NoError(t, h.run("tui"))
-
-		t.Run("it should open the terminal table", func(t *testing.T) {
-			assert.Equal(t, 1, h.tui.runs)
-		})
-	})
-
 	t.Run("when given an unknown command", func(t *testing.T) {
 		err := newHarness(&config.Config{}).run("dance")
 
@@ -438,7 +440,7 @@ func TestSessionCLIs(t *testing.T) {
 		})
 	})
 
-	for _, verb := range []string{"attach", "stop", "rm"} {
+	for _, verb := range []string{"stop", "rm"} {
 		t.Run("when "+verb+" is given an id", func(t *testing.T) {
 			h := newHarness(&config.Config{})
 			require.NoError(t, h.run(verb, "0898d7e4"))
@@ -478,12 +480,8 @@ func TestSessionCLIs(t *testing.T) {
 		h := newHarness(&config.Config{})
 		require.NoError(t, h.run("resume", "--dir", "/tmp/elsewhere", "08b1d655-276f-495b-a61f-2214af35a97a"))
 
-		t.Run("it should pass both on", func(t *testing.T) {
-			assert.Equal(t, []string{"resume /tmp/elsewhere 08b1d655-276f-495b-a61f-2214af35a97a"}, h.sessions.calls)
-		})
-
-		t.Run("it should print the job id", func(t *testing.T) {
-			assert.Equal(t, "0898d7e4\n", h.out.String())
+		t.Run("it should open the session in that directory, as attach does", func(t *testing.T) {
+			assert.Equal(t, []string{"open 08b1d655-276f-495b-a61f-2214af35a97a dir=/tmp/elsewhere here=false"}, h.sessions.calls)
 		})
 	})
 

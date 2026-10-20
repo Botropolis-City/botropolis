@@ -35,7 +35,7 @@ func TestCompletion(t *testing.T) {
 		args     []string
 		want     []string
 	}{
-		{"when attach is completed", []string{"attach", ""}, []string{"0898d7e4\tfix the CI queue"}},
+		{"when attach is completed", []string{"attach", ""}, []string{"0898d7e4\tfix the CI queue", "16daefa1-0000-0000-0000-000000000000\tthe parked one"}},
 		{"when stop is completed", []string{"stop", ""}, []string{"0898d7e4\tfix the CI queue"}},
 		{"when rm is completed", []string{"rm", ""}, []string{"0898d7e4\tfix the CI queue", "16daefa1\tthe parked one"}},
 		{"when resume is completed", []string{"resume", ""}, []string{"16daefa1-0000-0000-0000-000000000000\tthe parked one"}},

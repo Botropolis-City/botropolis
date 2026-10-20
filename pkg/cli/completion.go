@@ -47,6 +47,15 @@ func liveBackground(s state.Session) (string, bool) {
 	return jobID(s), s.Kind == claude.KindBackground && s.Alive
 }
 
+// liveOrResting is what attach can open: a live background job by its id,
+// or a resting session by its own, which attach resumes.
+func liveOrResting(s state.Session) (string, bool) {
+	if id, ok := liveBackground(s); ok {
+		return id, true
+	}
+	return parked(s)
+}
+
 func anyBackground(s state.Session) (string, bool) {
 	return jobID(s), s.Kind == claude.KindBackground
 }

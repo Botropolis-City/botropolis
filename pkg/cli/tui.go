@@ -17,7 +17,7 @@ type TUIServices interface {
 }
 
 func NewTUICLI(load Loader, services TUIServices) *cobra.Command {
-	return &cobra.Command{
+	return deprecate(&cobra.Command{
 		Use:   "tui",
 		Short: "The session table in your terminal, live",
 		Args:  cobra.NoArgs,
@@ -28,5 +28,5 @@ func NewTUICLI(load Loader, services TUIServices) *cobra.Command {
 			}
 			return services.TUI(cfg).Run(cmd.Context())
 		},
-	}
+	}, "status --live")
 }

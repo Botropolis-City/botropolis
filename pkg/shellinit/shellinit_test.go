@@ -18,6 +18,14 @@ func TestScript(t *testing.T) {
 			t.Run("it should define claude", func(t *testing.T) {
 				assert.Regexp(t, `(?m)^(function claude\b|claude\(\))`, script)
 			})
+
+			t.Run("it should attach with botropolis attach", func(t *testing.T) {
+				assert.Contains(t, script, "botropolis attach")
+			})
+
+			t.Run("it should never attach with claude attach itself", func(t *testing.T) {
+				assert.NotContains(t, script, "command claude attach")
+			})
 		})
 	}
 

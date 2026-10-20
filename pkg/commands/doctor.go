@@ -62,11 +62,11 @@ func (d Doctor) Run() []Check {
 
 	settings := filepath.Join(d.Home, ".claude", "settings.json")
 	if data, err := os.ReadFile(settings); err != nil {
-		checks = append(checks, Check{"hooks", CheckWarn, "no " + settings, "botropolis install-hooks (needs-you is derived without them, but arrives in under a second with)"})
+		checks = append(checks, Check{"hooks", CheckWarn, "no " + settings, "botropolis setup (needs-you is derived without them, but arrives in under a second with)"})
 	} else if strings.Contains(string(data), d.HookCommand) {
 		checks = append(checks, Check{"hooks", CheckOK, d.HookCommand + " is in " + settings, ""})
 	} else {
-		checks = append(checks, Check{"hooks", CheckWarn, d.HookCommand + " is not in " + settings, "botropolis install-hooks"})
+		checks = append(checks, Check{"hooks", CheckWarn, d.HookCommand + " is not in " + settings, "botropolis setup"})
 	}
 
 	getenv := func(key string) string {

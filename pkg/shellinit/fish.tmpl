@@ -24,7 +24,7 @@ function claude
         set -l rc $status
         switch $rc
             case 0
-                command claude attach $id
+                botropolis attach $id
             case 3
                 echo "botropolis: starting this one in the foreground so claude can ask whether to trust $PWD" >&2
                 command claude $argv

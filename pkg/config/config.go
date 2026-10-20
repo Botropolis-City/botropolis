@@ -189,8 +189,8 @@ func NewViper() *viper.Viper {
 }
 
 func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
-	flags.String(KeyHome, "", "home directory holding .claude (default: $HOME)")
-	flags.String(KeySocket, "", "daemon socket (default: "+proto.SocketPath()+")")
+	flags.String(KeyHome, "", "the home `dir` holding .claude (default: $HOME)")
+	flags.String(KeySocket, "", "the daemon's socket `path` (default: "+proto.SocketPath()+")")
 	flags.Int(KeyShutteredDays, DefaultShutteredDays, "how many quiet days before a stopped session is shuttered")
 	flags.Int(KeyOvergrownDays, DefaultOvergrownDays, "how many quiet days before a stopped session is overgrown")
 	flags.String(KeyProjection, DefaultProjection, "deprecated: the map is isometric, and zooming out past Skyline shows the City Plan")
@@ -204,7 +204,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
 	flags.Bool(KeyGroupLines, true, "draw each group of sessions as a line across its districts")
 	flags.Bool(KeyLabels, true, "draw the map's labels: group badges, line names, street names and plates; signs on posts stay either way")
-	flags.String(KeyConfig, "", "the config file to read and save (default: "+DefaultFile()+")")
+	flags.String(KeyConfig, "", "the config `file` to read and save (default: "+DefaultFile()+")")
 	_ = v.BindPFlag(KeyConfig, flags.Lookup(KeyConfig))
 	_ = v.BindPFlag(KeyHome, flags.Lookup(KeyHome))
 	_ = v.BindPFlag(KeySocket, flags.Lookup(KeySocket))
@@ -243,6 +243,12 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
 	_ = v.BindPFlag(KeyLabels, flags.Lookup(KeyLabels))
 	_ = v.BindPFlag(KeyLabelsToggle, flags.Lookup(KeyLabelsToggle))
+	for _, key := range append(deprecatedKeyFlags, "projection") {
+		if f := flags.Lookup(key); f != nil {
+			f.Hidden = true
+		}
+	}
+	flags.Var(&setValue{v: v}, KeySet, "set a config key for this run; repeatable (see botropolis-config(5))")
 }
 
 func New(v *viper.Viper) (*Config, error) {

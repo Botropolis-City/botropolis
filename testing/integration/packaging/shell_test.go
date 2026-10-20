@@ -60,7 +60,7 @@ func TestShellIntegration(t *testing.T) {
 				{
 					name:     "and botropolis starts the session",
 					exit:     "0",
-					calls:    "botropolis new DIR fix the queue\nclaude attach 16daefa1\n",
+					calls:    "botropolis new DIR fix the queue\nbotropolis attach 16daefa1\n",
 					exitCode: "0",
 				},
 				{

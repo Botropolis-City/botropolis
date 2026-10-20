@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -14,6 +15,7 @@ import (
 type Controller interface {
 	New(ctx context.Context, dir, prompt string) (string, error)
 	Attach(id string) error
+	AttachHere(id string) error
 	Stop(ctx context.Context, id string) error
 	Remove(ctx context.Context, id string) error
 	Resume(ctx context.Context, dir, sessionID string) (string, error)
@@ -188,6 +190,67 @@ func (s *Sessions) Resume(ctx context.Context, dir, sessionID string) (string, e
 		return "", err
 	}
 	return id, s.ctl.Attach(id)
+}
+
+// Open attaches to a session, here or in a new terminal, resuming it
+// first when no live job has it. id is a job id or a session id. Item 167.
+func (s *Sessions) Open(ctx context.Context, id, dir string, here bool) error {
+	live, err := s.ctl.Agents(ctx, false)
+	if err != nil {
+		return err
+	}
+	for _, agent := range live {
+		if agent.ID == id || agent.SessionID == id {
+			return s.attach(agent.ID, here)
+		}
+	}
+	sessionID, err := s.sessionNamed(ctx, id)
+	if errors.Is(err, errUnlisted) {
+		return s.attach(id, here)
+	}
+	if err != nil {
+		return err
+	}
+	if dir == "" {
+		if dir, err = s.sessionDir(sessionID); err != nil {
+			return err
+		}
+	}
+	job, err := s.ctl.Resume(ctx, dir, sessionID)
+	if err != nil {
+		return err
+	}
+	return s.attach(job, here)
+}
+
+func (s *Sessions) attach(job string, here bool) error {
+	if here {
+		return s.ctl.AttachHere(job)
+	}
+	return s.ctl.Attach(job)
+}
+
+// errUnlisted is a job id no listing has. A job started a moment ago may
+// not be listed yet, so Open attaches it as given and lets claude say
+// whether it exists.
+var errUnlisted = errors.New("job not listed")
+
+// sessionNamed is the session an id names that no live job has: itself
+// when it is a session id, else the session of the stopped job it names.
+func (s *Sessions) sessionNamed(ctx context.Context, id string) (string, error) {
+	if len(id) > 8 && id[8] == '-' {
+		return id, nil
+	}
+	agents, err := s.ctl.Agents(ctx, true)
+	if err != nil {
+		return "", err
+	}
+	for _, agent := range agents {
+		if agent.ID == id && agent.SessionID != "" {
+			return agent.SessionID, nil
+		}
+	}
+	return "", errUnlisted
 }
 
 // ResumeBackground resumes a session in the background, with claude --bg

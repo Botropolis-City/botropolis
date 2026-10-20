@@ -24,12 +24,11 @@ class Botropolis < Formula
 
   def caveats
     <<~EOS
-      Start the daemon and register the hooks:
-        brew services start botropolis
-        botropolis install-hooks
+      Finish with one command, which starts the daemon (brew services), registers
+      the hooks, and prints the line for your shell's startup file:
+        botropolis setup
 
-      Then one line in your shell's startup file, so a plain `claude` becomes a
-      background session the city can see:
+      That line makes a plain `claude` a background session the city can see:
         zsh   ~/.zshrc                    eval "$(botropolis shell-init zsh)"
         bash  ~/.bashrc                   eval "$(botropolis shell-init bash)"
         fish  ~/.config/fish/config.fish  botropolis shell-init fish | source

@@ -7,7 +7,7 @@ import (
 )
 
 func NewVersionCLI() *cobra.Command {
-	return &cobra.Command{
+	return deprecate(&cobra.Command{
 		Use:   "version",
 		Short: "Print the version this binary was built from",
 		Args:  cobra.NoArgs,
@@ -15,5 +15,5 @@ func NewVersionCLI() *cobra.Command {
 			version.Print(cmd.OutOrStdout(), cmd.Root().Name())
 			return nil
 		},
-	}
+	}, "--version")
 }

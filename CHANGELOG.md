@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The command line is smaller: 13 commands in four groups, and four global flags.**
+  `botropolis --help` groups the commands as sessions, the city, setting up and checking, and those other programs run.
+  `attach` attaches in the terminal you are in, and opens one only when run from elsewhere or with `--new-window`; given a resting session it resumes it first, so a plain `claude` no longer drops to `claude attach`.
+  `rm` takes several ids, or `--older-than` for every resting session quiet that long.
+  `status --live` is the live table.
+  `setup` registers the hooks, starts the daemon with systemd or Homebrew and says exactly what it ran, and prints the line for your shell's startup file.
+  `shell-init` loads completions too.
+  `--set key=value` sets any config key for one run, including those that never had a flag, so `--help` on every command no longer lists two dozen city settings.
+
+### Deprecated
+
+- These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).
+
 ### Fixed
 
 - **`botropolis bar` names the session that has waited longest, not the one first in the alphabet.**

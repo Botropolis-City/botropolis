@@ -26,6 +26,8 @@ var (
 type Runner interface {
 	Run(ctx context.Context, dir string, name string, args ...string) (string, error)
 	Start(dir string, name string, args ...string) error
+	// Interactive hands the caller's terminal to a command.
+	Interactive(name string, args ...string) error
 	// Feed runs a command with input on its stdin.
 	Feed(ctx context.Context, input string, name string, args ...string) error
 }
@@ -153,6 +155,15 @@ func (c *Control) Attach(id string) error {
 	return c.runner.Start("", argv[0], argv[1:]...)
 }
 
+// AttachHere attaches to a session in the terminal botropolis runs in.
+func (c *Control) AttachHere(id string) error {
+	jobID, err := JobID(id)
+	if err != nil {
+		return err
+	}
+	return c.runner.Interactive(claudeBinary, "attach", jobID)
+}
+
 // Reveal opens a directory in the desktop's file manager.
 func (c *Control) Reveal(dir string) error {
 	if dir == "" {
@@ -238,6 +249,16 @@ func (execRunner) Start(dir string, name string, args ...string) error {
 	}
 	go func() { _ = cmd.Wait() }()
 	return nil
+}
+
+// Interactive replaces this process with the command, so it has the
+// terminal, its signals and its exit status to itself.
+func (execRunner) Interactive(name string, args ...string) error {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return err
+	}
+	return syscall.Exec(path, append([]string{name}, args...), os.Environ())
 }
 
 var errNoTerminal = errors.New("no terminal found: set BOTROPOLIS_TERMINAL (a command prefix, e.g. \"wezterm start --\") or TERMINAL")

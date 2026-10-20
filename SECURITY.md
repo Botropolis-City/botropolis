@@ -38,4 +38,4 @@ That runs inside a directory the session loader skips, and its transcripts are p
 
 ## What would count as a vulnerability
 
-Anything that gets transcript content off the machine, anything that writes to `~/.claude` outside `install-hooks`, anything reachable over the network, and any path where a crafted transcript or hook payload leads to code execution.
+Anything that gets transcript content off the machine, anything that writes to `~/.claude` outside `botropolis setup`, anything reachable over the network, and any path where a crafted transcript or hook payload leads to code execution.

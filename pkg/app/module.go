@@ -41,6 +41,8 @@ import (
 	"botropolis.city/botropolis/pkg/tui"
 	"botropolis.city/botropolis/pkg/ui"
 	"botropolis.city/botropolis/pkg/xvfb"
+
+	"github.com/mattn/go-isatty"
 )
 
 type cliParams struct {
@@ -58,6 +60,21 @@ type cliParams struct {
 	Find     *cobra.Command   `name:"find"`
 	Version  *cobra.Command   `name:"version"`
 	Shell    *cobra.Command   `name:"shellInit"`
+	Setup    *cobra.Command   `name:"setup"`
+}
+
+// inTerminal is whether botropolis runs in a terminal, where attach
+// attaches rather than opening one. Item 167.
+func inTerminal(*cobra.Command) bool {
+	return isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stdout.Fd())
+}
+
+func newSessionCLIs(load cli.Loader, services cli.Services) []*cobra.Command {
+	return cli.NewSessionCLIs(load, services, inTerminal)
+}
+
+func newSetupCLI(load cli.Loader, services cli.SetupServices) *cobra.Command {
+	return cli.NewSetupCLI(load, services, os.Getenv)
 }
 
 var Module = fx.Module("botropolis",
@@ -65,10 +82,11 @@ var Module = fx.Module("botropolis",
 		config.NewViper,
 		newLoader,
 		appd.NewProbes,
-		fx.Annotate(newServices, fx.As(new(cli.Services)), fx.As(new(cli.CityServices)), fx.As(new(cli.BarServices)), fx.As(new(cli.NotifyServices)), fx.As(new(cli.TUIServices)), fx.As(new(cli.DoctorServices)), fx.As(new(cli.EventsServices)), fx.As(new(cli.FindServices))),
+		fx.Annotate(newServices, fx.As(new(cli.Services)), fx.As(new(cli.CityServices)), fx.As(new(cli.BarServices)), fx.As(new(cli.NotifyServices)), fx.As(new(cli.TUIServices)), fx.As(new(cli.DoctorServices)), fx.As(new(cli.EventsServices)), fx.As(new(cli.FindServices)), fx.As(new(cli.SetupServices))),
 		fx.Annotate(cli.NewStatusCLI, fx.ResultTags(`name:"status"`)),
 		fx.Annotate(cli.NewInstallHooksCLI, fx.ResultTags(`name:"installHooks"`)),
-		fx.Annotate(cli.NewSessionCLIs, fx.ResultTags(`name:"sessions"`)),
+		fx.Annotate(newSessionCLIs, fx.ResultTags(`name:"sessions"`)),
+		fx.Annotate(newSetupCLI, fx.ResultTags(`name:"setup"`)),
 		fx.Annotate(cli.NewCityCLI, fx.ResultTags(`name:"city"`)),
 		fx.Annotate(cli.NewBarCLI, fx.ResultTags(`name:"bar"`)),
 		fx.Annotate(cli.NewNotifyCLI, fx.ResultTags(`name:"notify"`)),
@@ -79,7 +97,7 @@ var Module = fx.Module("botropolis",
 		fx.Annotate(cli.NewVersionCLI, fx.ResultTags(`name:"version"`)),
 		fx.Annotate(cli.NewShellInitCLI, fx.ResultTags(`name:"shellInit"`)),
 		func(p cliParams) *cobra.Command {
-			subs := append([]*cobra.Command{p.Status, p.Hooks, p.City, p.Bar, p.Notify, p.TUI, p.Doctor, p.Events, p.Find, p.Version, p.Shell}, p.Sessions...)
+			subs := append([]*cobra.Command{p.Status, p.Hooks, p.City, p.Bar, p.Notify, p.TUI, p.Doctor, p.Events, p.Find, p.Version, p.Shell, p.Setup}, p.Sessions...)
 			return cli.NewRootCLI(p.Viper, subs...)
 		},
 	),
@@ -204,6 +222,19 @@ func startCityWithFinder() error {
 
 func (s *services) Hooks(cfg *config.Config) cli.HooksRunner {
 	return commands.NewHooks(cfg.Home, cfg.HookCommand)
+}
+
+func (s *services) Daemon(cfg *config.Config) cli.DaemonRunner {
+	return commands.Daemon{
+		GOOS:    runtime.GOOS,
+		OnPath:  func(name string) bool { _, err := exec.LookPath(name); return err == nil },
+		Running: func() bool { _, err := proto.Ask(cfg.Socket); return err == nil },
+		Run: func(argv []string) error {
+			cmd := exec.Command(argv[0], argv[1:]...)
+			cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+			return cmd.Run()
+		},
+	}
 }
 
 func (s *services) Sessions(cfg *config.Config) cli.SessionsRunner {

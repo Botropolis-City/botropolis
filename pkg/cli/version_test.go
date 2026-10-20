@@ -19,6 +19,7 @@ func TestVersionCLI(t *testing.T) {
 
 		out := &bytes.Buffer{}
 		root.SetOut(out)
+		root.SetErr(&bytes.Buffer{})
 		root.SetArgs([]string{"version"})
 		err := root.Execute()
 

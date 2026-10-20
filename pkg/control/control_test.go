@@ -20,6 +20,7 @@ type fakeRunner struct {
 	runs    []call
 	starts  []call
 	feeds   []feed
+	here    []call
 	stdout  string
 	agents  string
 	failure error
@@ -35,6 +36,11 @@ func (f *fakeRunner) Run(_ context.Context, dir string, name string, args ...str
 
 func (f *fakeRunner) Start(dir string, name string, args ...string) error {
 	f.starts = append(f.starts, call{dir, append([]string{name}, args...)})
+	return f.failure
+}
+
+func (f *fakeRunner) Interactive(name string, args ...string) error {
+	f.here = append(f.here, call{"", append([]string{name}, args...)})
 	return f.failure
 }
 
@@ -169,6 +175,19 @@ func TestControl(t *testing.T) {
 
 		t.Run("it should not block on the terminal", func(t *testing.T) {
 			assert.Empty(t, runner.runs)
+		})
+	})
+
+	t.Run("when a session is attached in this terminal", func(t *testing.T) {
+		runner := &fakeRunner{}
+		require.NoError(t, newControl(runner).AttachHere(sessionID))
+
+		t.Run("it should run claude attach on the caller's own terminal", func(t *testing.T) {
+			assert.Equal(t, []call{{"", []string{"claude", "attach", jobID}}}, runner.here)
+		})
+
+		t.Run("it should open no other terminal", func(t *testing.T) {
+			assert.Empty(t, runner.starts)
 		})
 	})
 

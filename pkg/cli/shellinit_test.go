@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -23,14 +24,24 @@ func TestShellInitCLI(t *testing.T) {
 		return out.String(), err
 	}
 
-	t.Run("when a shell is named", func(t *testing.T) {
-		out, _ := run("zsh")
-		want, _ := shellinit.Script("zsh")
+	for _, c := range []struct{ shell, completion string }{
+		{"bash", "__start_botropolis"},
+		{"zsh", "compdef _botropolis botropolis"},
+		{"fish", "complete -c botropolis"},
+	} {
+		t.Run("when "+c.shell+" is named", func(t *testing.T) {
+			out, _ := run(c.shell)
+			want, _ := shellinit.Script(c.shell)
 
-		t.Run("it should print that shell's script", func(t *testing.T) {
-			assert.Equal(t, want, out)
+			t.Run("it should print that shell's script first", func(t *testing.T) {
+				assert.True(t, strings.HasPrefix(out, want))
+			})
+
+			t.Run("it should load completions after it", func(t *testing.T) {
+				assert.Contains(t, strings.TrimPrefix(out, want), c.completion)
+			})
 		})
-	})
+	}
 
 	t.Run("when no shell is named", func(t *testing.T) {
 		_, err := run()

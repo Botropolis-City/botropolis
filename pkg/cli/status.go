@@ -1,8 +1,10 @@
 package cli
 
 import (
-	"botropolis.city/botropolis/pkg/state"
+	"errors"
 	"io"
+
+	"botropolis.city/botropolis/pkg/state"
 
 	"github.com/spf13/cobra"
 )
@@ -12,11 +14,14 @@ type StatusRunner interface {
 	Snapshot(direct bool) (state.Snapshot, error)
 }
 
-func NewStatusCLI(load Loader, services Services) *cobra.Command {
+func NewStatusCLI(load Loader, services Services, live TUIServices) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "Print one row per live session",
-		Args:  cobra.NoArgs,
+		Short: "List the sessions; --live keeps the table open",
+		Long: "List the sessions: one row per live one, or with --all the resting ones too.\n" +
+			"With --live the table stays open and updates; j and k move, enter attaches,\n" +
+			"s stops, x deletes, q quits.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := load()
 			if err != nil {
@@ -24,15 +29,23 @@ func NewStatusCLI(load Loader, services Services) *cobra.Command {
 			}
 			direct, _ := cmd.Flags().GetBool("direct")
 			all, _ := cmd.Flags().GetBool("all")
+			asJSON, _ := cmd.Flags().GetBool("json")
+			isLive, _ := cmd.Flags().GetBool("live")
+			if isLive {
+				if asJSON {
+					return errors.New("--live and --json do not combine")
+				}
+				return live.TUI(cfg).Run(cmd.Context())
+			}
 			if cfg.HomeSet && !cfg.SocketSet {
 				direct = true
 			}
-			asJSON, _ := cmd.Flags().GetBool("json")
 			return services.Status(cfg).Run(cmd.OutOrStdout(), direct, all, asJSON)
 		},
 	}
-	cmd.Flags().Bool("direct", false, "skip the daemon and scan ~/.claude directly (implied by --home without --socket)")
 	cmd.Flags().BoolP("all", "a", false, "include resting sessions")
-	cmd.Flags().Bool("json", false, "emit one JSON object per session, carrying the id and pid that `claude agents` also reports")
+	cmd.Flags().BoolP("live", "l", false, "keep the table open, live")
+	cmd.Flags().Bool("json", false, "a JSON array, one object per session")
+	cmd.Flags().Bool("direct", false, "read ~/.claude without asking the daemon (implied by --home without --socket)")
 	return cmd
 }

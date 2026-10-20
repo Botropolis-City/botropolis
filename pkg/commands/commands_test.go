@@ -36,10 +36,12 @@ func (f *fakeSource) Snapshot(direct bool) (state.Snapshot, error) {
 }
 
 type fakeController struct {
-	calls   []string
-	id      string
-	agents  []control.Agent
-	failure error
+	calls  []string
+	id     string
+	agents []control.Agent
+	// liveAgents, when set, is what agents without --all lists.
+	liveAgents []control.Agent
+	failure    error
 }
 
 func (f *fakeController) New(_ context.Context, dir, prompt string) (string, error) {
@@ -49,6 +51,11 @@ func (f *fakeController) New(_ context.Context, dir, prompt string) (string, err
 
 func (f *fakeController) Attach(id string) error {
 	f.calls = append(f.calls, "attach "+id)
+	return f.failure
+}
+
+func (f *fakeController) AttachHere(id string) error {
+	f.calls = append(f.calls, "attach here "+id)
 	return f.failure
 }
 
@@ -84,6 +91,9 @@ func (f *fakeController) Fork(_ context.Context, dir, sessionID string) (string,
 
 func (f *fakeController) Agents(_ context.Context, all bool) ([]control.Agent, error) {
 	f.calls = append(f.calls, fmt.Sprintf("agents all=%v", all))
+	if !all && f.liveAgents != nil {
+		return f.liveAgents, f.failure
+	}
 	return f.agents, f.failure
 }
 

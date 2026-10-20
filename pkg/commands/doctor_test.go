@@ -74,13 +74,13 @@ func TestDoctor(t *testing.T) {
 		t.Run("it should warn about the hooks with the command to run", func(t *testing.T) {
 			c := checkNamed(checks, "hooks")
 			assert.Equal(t, commands.CheckWarn, c.Status)
-			assert.Contains(t, c.Hint, "install-hooks")
+			assert.Contains(t, c.Hint, "botropolis setup")
 		})
 
 		t.Run("it should print the hints", func(t *testing.T) {
 			var out bytes.Buffer
 			require.NoError(t, d.Report(&out))
-			assert.Contains(t, out.String(), "install-hooks")
+			assert.Contains(t, out.String(), "botropolis setup")
 			assert.NotContains(t, out.String(), "all good")
 		})
 	})

@@ -48,7 +48,7 @@ While a session is mid-turn its roof is scaffolded with work lights, and each to
 A drone works on the building for each subagent in flight and flies to the project it works in, and smoke rises per API error.
 A flag flies per PR, an inspector's car parks outside while one is open, and a merge sends a truck off the island by the bridge.
 Each message one session sends another drives a van along the road between their projects.
-A vacant plot is a session nothing has been typed into yet: never counted, and `botropolis prune` clears it after an hour.
+A vacant plot is a session nothing has been typed into yet: never counted, and `botropolis rm --older-than` clears it after an hour.
 
 The plant on the plaza is the API — click it for the breakdown by model, project and session over an hour, a day or a week.
 The towers on the ridge are MCP servers, the library ranks skills, and the city hall carries Claude Code's own rollup.
@@ -127,10 +127,12 @@ There is also a plain tarball if you would rather not install anything, and `mak
 
 The package installs `botropolis.desktop`, so the city is in your launcher under "Botropolis".
 
-`botropolis` opens the city and `botropolis --tui` the terminal table.
-`botropolis new <dir> [prompt]`, `attach <id>`, `stop <id>`, `resume <session-id>`, `rm <id>` and `prune` wrap the `claude` CLI;
-`status` prints the table, `events --since 2h` the daemon's log, and `install-hooks --remove` takes the hook out again.
-`--direct` skips the daemon.
+`botropolis setup` finishes an install: it registers the hooks, starts the daemon, and prints the line for your shell's startup file.
+`botropolis` opens the city, and `botropolis --help` lists the rest, grouped.
+`new <dir> [prompt]`, `attach <id>`, `stop <id>` and `rm <id>` wrap the `claude` CLI, so you never need to type `claude` yourself;
+`attach` attaches in the terminal you are in and resumes a resting session first, and `rm --older-than 168h` clears the old ones.
+`status` prints the table and `status --live` keeps it open, `events --since 2h` prints the daemon's log, and `setup --remove` takes the hooks out again.
+`--set key=value` sets any config key for one run.
 
 `botropolis city --screenshot city.png` renders one frame and exits;
 `--headless` runs it on a virtual display so no window opens, `--keys n,n,x` presses keys first, and `--record dir --seconds 24` writes frames for a GIF (`make gif`).

@@ -19,7 +19,7 @@ claude() {
         id=$(botropolis new "$PWD" "$@")
         rc=$?
         case $rc in
-            0) command claude attach "$id" ;;
+            0) botropolis attach "$id" ;;
             3) echo "botropolis: starting this one in the foreground so claude can ask whether to trust $PWD" >&2
                command claude "$@" ;;
             *) return $rc ;;
