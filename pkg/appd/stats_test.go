@@ -53,6 +53,19 @@ func TestStatsWiring(t *testing.T) {
 		})
 	})
 
+	t.Run("when the daemon was pointed at a home", func(t *testing.T) {
+		dir := stateDir(t)
+		src := statsSource(&config.Config{Stats: true, HomeSet: true})
+
+		t.Run("it should read whole", func(t *testing.T) {
+			assert.Nil(t, src)
+		})
+
+		t.Run("it should not create a database", func(t *testing.T) {
+			assert.NoFileExists(t, filepath.Join(dir, "stats.db"))
+		})
+	})
+
 	t.Run("when the on prompt is owed", func(t *testing.T) {
 		dir := stateDir(t)
 		s, err := stats.Open(filepath.Join(dir, "stats.db"))

@@ -246,8 +246,12 @@ func closeUpPath(ledger string) string {
 // is owed the store stays closed, so its last write still marks where a
 // gap starts. It is opened here, once, rather than when first written,
 // so a private run's directory is never made again after it is removed.
-// Item 110.
+// Item 110. A home the run was pointed at keeps none, like the ledger
+// and the groups (item 165).
 func statsSource(cfg *config.Config) *stats.Store {
+	if cfg.HomeSet && !statedir.IsPrivate() {
+		return nil
+	}
 	if !cfg.Stats || stats.Owed(statedir.Dir(), true) != stats.NoPrompt {
 		return nil
 	}

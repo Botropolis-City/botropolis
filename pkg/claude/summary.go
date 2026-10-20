@@ -162,6 +162,7 @@ func Summarise(ctx context.Context, bin, excerpt string) (string, error) {
 		return "", ErrPrivate
 	}
 	dir := SummaryDir()
+	statedir.Check(dir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

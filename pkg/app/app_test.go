@@ -68,6 +68,7 @@ func TestRunExitCodes(t *testing.T) {
 	} {
 		t.Run(refusal.name, func(t *testing.T) {
 			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+			t.Setenv("XDG_STATE_HOME", t.TempDir())
 			fakeClaudeFailing(t, refusal.claude)
 
 			t.Run(fmt.Sprintf("it should exit %d from new", refusal.code), func(t *testing.T) {

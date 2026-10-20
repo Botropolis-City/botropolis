@@ -28,6 +28,7 @@ type statsHarness struct {
 
 // Item 110: the statistics prompts.
 func TestStatsPrompt(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	now := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 	since := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 

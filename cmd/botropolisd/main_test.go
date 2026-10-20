@@ -55,6 +55,7 @@ func startDaemon(t *testing.T, home, sock string) (*bytes.Buffer, <-chan int) {
 }
 
 func TestRun(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Run("when invoked with --version", func(t *testing.T) {
 		var out bytes.Buffer
 		code := run(context.Background(), []string{"--version"}, &out)

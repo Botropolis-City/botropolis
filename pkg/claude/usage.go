@@ -264,6 +264,7 @@ func RefreshUtilization(ctx context.Context, bin string) bool {
 		return false
 	}
 	dir := UsageProbeDir()
+	statedir.Check(dir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return false
 	}

@@ -10,8 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
+	"testing"
 
 	"botropolis.city/botropolis/pkg/proc"
 )
@@ -23,7 +25,13 @@ var (
 	private string
 )
 
-// Default is the person's own state directory.
+// started is the state directory this process started with: in a test
+// binary, the developer's own.
+var started = Default()
+
+// Default is the person's own state directory. Resolving its name is
+// always allowed, so a fence can compare against it; reading or writing
+// under it goes through Dir or Check.
 func Default() string {
 	dir := os.Getenv("XDG_STATE_HOME")
 	if dir == "" {
@@ -36,6 +44,22 @@ func Default() string {
 	return filepath.Join(dir, appDir)
 }
 
+// Check fails a test that is about to read or write path when it is the
+// state directory the run started with, or under it: the developer's
+// own (item 165). Every writer under Default calls it.
+func Check(path string) { guard(path, started, testing.Testing()) }
+
+func guard(path, started string, inTest bool) {
+	if !inTest {
+		return
+	}
+	rel, err := filepath.Rel(started, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return
+	}
+	panic(fmt.Sprintf("statedir: a test reached the real state directory, %s; point XDG_STATE_HOME at t.TempDir() (item 165)", path))
+}
+
 // Dir is where every store keeps its file: the private directory when
 // this process made one, the default otherwise.
 func Dir() string {
@@ -44,7 +68,9 @@ func Dir() string {
 	if private != "" {
 		return private
 	}
-	return Default()
+	dir := Default()
+	Check(dir)
+	return dir
 }
 
 // IsPrivate reports whether this process works in a private directory.
