@@ -3,6 +3,7 @@ package state_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -71,6 +72,28 @@ func TestOrder(t *testing.T) {
 
 		t.Run("it should leave parked out", func(t *testing.T) {
 			assert.Equal(t, []state.Count{{state.Working, 3}}, counts)
+		})
+	})
+}
+
+func TestLongestWaiting(t *testing.T) {
+	asked := time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
+
+	t.Run("when one session's last activity is earlier", func(t *testing.T) {
+		older := state.Session{ID: "z", LastActivity: asked}
+		newer := state.Session{ID: "a", LastActivity: asked.Add(time.Minute)}
+
+		t.Run("it should order it first", func(t *testing.T) {
+			assert.Negative(t, state.LongestWaiting(older, newer))
+		})
+	})
+
+	t.Run("when last activity is equal", func(t *testing.T) {
+		first := state.Session{ID: "a", LastActivity: asked}
+		second := state.Session{ID: "b", LastActivity: asked}
+
+		t.Run("it should order by ID", func(t *testing.T) {
+			assert.Negative(t, state.LongestWaiting(first, second))
 		})
 	})
 }

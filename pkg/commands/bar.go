@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"sort"
+	"slices"
 	"strings"
 
 	"botropolis.city/botropolis/pkg/format"
@@ -63,7 +63,7 @@ func writeBar(out io.Writer, format BarFormat, line BarLine) error {
 
 func Summarize(snapshot state.Snapshot) BarLine {
 	counts := map[state.State]int{}
-	var needs []string
+	var needs []state.Session
 	var busiest float64
 	for _, s := range snapshot.Sessions {
 		if !state.Live(s.State) {
@@ -71,13 +71,13 @@ func Summarize(snapshot state.Snapshot) BarLine {
 		}
 		counts[s.State]++
 		if s.State == state.NeedsYou {
-			needs = append(needs, s.Title)
+			needs = append(needs, s)
 		}
 		if s.ContextPercent > busiest {
 			busiest = s.ContextPercent
 		}
 	}
-	sort.Strings(needs)
+	slices.SortFunc(needs, state.LongestWaiting)
 	var parts []string
 	for _, c := range state.Nonzero(counts, state.Live) {
 		parts = append(parts, fmt.Sprintf("%d %s", c.N, c.State))
@@ -95,9 +95,13 @@ func Summarize(snapshot state.Snapshot) BarLine {
 		line.Text = "no sessions"
 	}
 	if len(needs) > 0 {
-		line.Tooltip = "needs you:\n" + strings.Join(needs, "\n")
+		titles := make([]string, len(needs))
+		for i, s := range needs {
+			titles[i] = s.Title
+		}
+		line.Tooltip = "needs you:\n" + strings.Join(titles, "\n")
 		// The bar has room for a name: say who is first in line.
-		line.Text += " — " + format.Clip(needs[0], BarTitleWidth)
+		line.Text += " — " + format.Clip(titles[0], BarTitleWidth)
 	}
 	return line
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"botropolis.city/botropolis/pkg/commands"
 	"botropolis.city/botropolis/pkg/state"
@@ -13,9 +14,10 @@ import (
 )
 
 func TestBar(t *testing.T) {
+	asked := time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
 	snapshot := state.Snapshot{Sessions: []state.Session{
-		{ID: "a", State: state.NeedsYou, Title: "Fix the CI queue", ContextPercent: 73},
-		{ID: "b", State: state.NeedsYou, Title: "Issue 613", ContextPercent: 12},
+		{ID: "a", State: state.NeedsYou, Title: "Fix the CI queue", ContextPercent: 73, LastActivity: asked.Add(4 * time.Minute)},
+		{ID: "b", State: state.NeedsYou, Title: "Issue 613", ContextPercent: 12, LastActivity: asked},
 		{ID: "c", State: state.Working, Title: "scaffold", ContextPercent: 48},
 		{ID: "d", State: state.Resting, Title: "old", ContextPercent: 99},
 	}}
@@ -23,20 +25,31 @@ func TestBar(t *testing.T) {
 	t.Run("when sessions need you", func(t *testing.T) {
 		line := commands.Summarize(snapshot)
 
-		t.Run("it should count live states in order of urgency and name who is first", func(t *testing.T) {
-			assert.Equal(t, "● 2 needs-you · 1 working — Fix the CI queue", line.Text)
+		t.Run("it should count live states in order of urgency and name who has waited longest", func(t *testing.T) {
+			assert.Equal(t, "● 2 needs-you · 1 working — Issue 613", line.Text)
 		})
 
 		t.Run("it should carry the needs-you class", func(t *testing.T) {
 			assert.Equal(t, "needs-you", line.Class)
 		})
 
-		t.Run("it should list who needs you in the tooltip, sorted", func(t *testing.T) {
-			assert.Equal(t, "needs you:\nFix the CI queue\nIssue 613", line.Tooltip)
+		t.Run("it should list who needs you in the tooltip, longest-waiting first", func(t *testing.T) {
+			assert.Equal(t, "needs you:\nIssue 613\nFix the CI queue", line.Tooltip)
 		})
 
 		t.Run("it should report the fullest live context as the percentage", func(t *testing.T) {
 			assert.Equal(t, 73, line.Percentage)
+		})
+	})
+
+	t.Run("when two sessions have waited equally long", func(t *testing.T) {
+		line := commands.Summarize(state.Snapshot{Sessions: []state.Session{
+			{ID: "z", State: state.NeedsYou, Title: "Apples", LastActivity: asked},
+			{ID: "m", State: state.NeedsYou, Title: "Zebras", LastActivity: asked},
+		}})
+
+		t.Run("it should name the one whose ID comes first", func(t *testing.T) {
+			assert.Equal(t, "● 2 needs-you — Zebras", line.Text)
 		})
 	})
 
@@ -92,7 +105,7 @@ func TestBar(t *testing.T) {
 		require.NoError(t, commands.NewBar(&fakeSource{snapshot: snapshot}, nil).Once(&out, commands.BarText, true))
 
 		t.Run("it should print the text line only", func(t *testing.T) {
-			assert.Equal(t, "● 2 needs-you · 1 working — Fix the CI queue\n", out.String())
+			assert.Equal(t, "● 2 needs-you · 1 working — Issue 613\n", out.String())
 		})
 	})
 
@@ -106,7 +119,7 @@ func TestBar(t *testing.T) {
 		_ = commands.NewBar(&fakeSource{}, feed).Watch(context.Background(), &out, commands.BarText)
 
 		t.Run("it should print a line per snapshot", func(t *testing.T) {
-			assert.Equal(t, "● 2 needs-you · 1 working — Fix the CI queue\nno sessions\n", out.String())
+			assert.Equal(t, "● 2 needs-you · 1 working — Issue 613\nno sessions\n", out.String())
 		})
 	})
 }

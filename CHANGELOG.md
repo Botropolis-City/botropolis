@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`botropolis bar` names the session that has waited longest, not the one first in the alphabet.**
+  Its tooltip lists who needs you in the same order, longest-waiting first, which is the order triage (`w`) walks them.
+
 - Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
 
 - **A new building's windows light floor by floor as it rises.**

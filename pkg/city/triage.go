@@ -3,7 +3,6 @@ package city
 import (
 	"errors"
 	"slices"
-	"strings"
 	"time"
 
 	"botropolis.city/botropolis/pkg/state"
@@ -35,10 +34,7 @@ func (s *Scene) TriageWalk() []*Building {
 		}
 	}
 	slices.SortFunc(walk, func(a, b *Building) int {
-		if c := a.Session.LastActivity.Compare(b.Session.LastActivity); c != 0 {
-			return c
-		}
-		return strings.Compare(a.Session.ID, b.Session.ID)
+		return state.LongestWaiting(a.Session, b.Session)
 	})
 	return walk
 }
