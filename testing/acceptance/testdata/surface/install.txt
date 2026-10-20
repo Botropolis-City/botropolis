@@ -1,0 +1,13 @@
+botropolis	formula
+botropolis	package
+botropolis-aarch64.pkg.tar.zst	asset
+botropolis-hook	hook
+botropolis-linux-amd64.tar.gz	asset
+botropolis-linux-arm64.tar.gz	asset
+botropolis-notify.service	unit
+botropolis-x86_64.pkg.tar.zst	asset
+botropolis.aarch64.rpm	asset
+botropolis.x86_64.rpm	asset
+botropolis_amd64.deb	asset
+botropolis_arm64.deb	asset
+botropolisd.service	unit

@@ -57,6 +57,11 @@ func (s *Status) Run(out io.Writer, direct, all, asJSON bool) error {
 // two cannot drift, and every field the model gains is here without
 // anyone remembering to add it. `id` and `pid` are the two the CLI also
 // knows, and either one makes the reconciliation mechanical.
+// PromisedStatusKeys are the keys of each `status --json` object that
+// 1.0.0 promises (Aria, 2026-10-20, item 149). Every other key the
+// model gains is emitted too, but may change in any release.
+var PromisedStatusKeys = []string{"id", "pid", "harness", "title", "state", "cwd", "branch", "model", "contextPercent", "startedAt", "lastActivity", "prs"}
+
 func RenderJSON(out io.Writer, snapshot state.Snapshot) error {
 	sessions := snapshot.Sessions
 	if sessions == nil {

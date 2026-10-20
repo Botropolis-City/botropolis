@@ -1,0 +1,42 @@
+city_plan_key	string
+codex_home	string
+daily_budget_usd	float64
+detail	string
+detail=full
+detail=plain
+district_type	string
+district_type=guess
+district_type=industrial
+district_type=office
+district_type=random
+district_type=residential
+district_type=shopping
+explain_key	string
+find_copy_key	string
+find_key	string
+find_show_key	string
+global_shortcut	string
+group_lines	bool
+home	string
+hook_command	string
+journal_hours	int
+journal_key	string
+labels	bool
+labels_key	string
+liveliness	string
+liveliness=calm
+liveliness=lively
+liveliness=steady
+liveliness=still
+new_session_key	string
+overgrown_days	int
+reduced_motion	bool
+render_scale	float64
+shuttered_days	int
+socket	string
+stats	bool
+stream_key	string
+terminal	string
+triage_key	string
+usage_refresh	string
+usage_refresh=manual

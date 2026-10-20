@@ -1,0 +1,7 @@
+class	string
+class=idle
+class=needs-you
+class=working
+percentage	number
+text	string
+tooltip	string

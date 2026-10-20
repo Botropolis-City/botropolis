@@ -16,7 +16,12 @@ jobs:
   test-lint:
     runs-on: ubuntu-latest
     steps:
+      # The whole history, tags included: make version-check compares what
+      # 1.0.0 promises with the last release tag, and fails without one
+      # (item 149).
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       # Go is pinned by go.mod's toolchain line and golangci-lint by
       # tools/lint/go.mod (item 103), and make lint builds and checks both, so
       # this job and every machine lint with the same versions.

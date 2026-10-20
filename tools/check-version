@@ -17,6 +17,9 @@ Checks:
   1. VERSION holds a single semver line
   2. the newest released heading in CHANGELOG.md is that version
   3. the built binaries report it, if bin/ has been built
+  4. nothing in testing/acceptance/testdata/surface at the last v* tag is
+     gone without a Removed changelog entry naming it, and, from 1.0.0 on,
+     a higher major version (item 149)
 
 Exit 0 if they agree, 1 otherwise, naming each file that disagrees.
 USAGE
@@ -60,6 +63,52 @@ for bin in botropolis botropolisd botropolis-hook; do
         note "bin/${bin}: reports ${reported}, VERSION says ${version}"
     fi
 done
+
+# What 1.0.0 promises is in the surface files (item 149). Anything in them at
+# the last release and gone now is a removal: it needs an entry naming it in
+# backticks under a Removed heading written since that release, and from 1.0.0
+# on a higher major version. The baseline is the release tag, which no change
+# to the working tree can move.
+surface_dir="testing/acceptance/testdata/surface"
+surface_said=""
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    surface_said="surface: not a git checkout, removals unchecked"
+elif ! tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null)"; then
+    note "surface: no v* release tag is reachable from HEAD, so removals cannot be checked; fetch the tags (git fetch --tags)"
+else
+    baseline_files="$(git ls-tree -r --name-only "${tag}" -- "${surface_dir}")"
+    if [ -z "${baseline_files}" ]; then
+        surface_said="surface: no baseline at ${tag}, removals unchecked"
+    else
+        base_version="${tag#v}"
+        removed_entries="$(awk -v base="${base_version}" '
+            index($0, "## [" base "]") == 1 { exit }
+            /^## \[/ { section = ""; next }
+            /^### / { section = $0; next }
+            section == "### Removed" { print }
+        ' CHANGELOG.md)"
+        base_major="${base_version%%.*}"
+        major="${version%%.*}"
+        removals=0
+        while IFS= read -r file; do
+            current=""
+            [ -f "${file}" ] && current="$(cat "${file}")"
+            while IFS= read -r line; do
+                [ -n "${line}" ] || continue
+                removals=$((removals + 1))
+                name="${line%%$'\t'*}"
+                if ! grep -qF "\`${name}\`" <<< "${removed_entries}"; then
+                    note "${name}: removed since ${tag} with no \`${name}\` under Removed in CHANGELOG.md"
+                fi
+                if [ "${major}" -ge 1 ] && [ "${major}" -le "${base_major}" ]; then
+                    note "${name}: removed since ${tag}, which needs $((base_major + 1)).0.0, and VERSION is ${version}"
+                fi
+            done < <(LC_ALL=C comm -23 <(git show "${tag}:${file}" | LC_ALL=C sort) <(printf '%s\n' "${current}" | LC_ALL=C sort))
+        done <<< "${baseline_files}"
+        surface_said="surface: ${removals} removed since ${tag}"
+    fi
+fi
+[ -n "${surface_said}" ] && printf '  %s\n' "${surface_said}"
 
 if [ "${fail}" -ne 0 ]; then
     printf '\n%s\n' "Version drift. Update the files above, or VERSION, so they agree."

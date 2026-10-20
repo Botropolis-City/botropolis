@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **[docs/compatibility.md](docs/compatibility.md) says what 1.0.0 promises not to break**, and `make version-check` now fails when any of it is removed without an entry here under *Removed* and, from 1.0.0 on, a new major version:
+  `status --json`'s documented keys, `bar`'s JSON, every config key and its named values, every data file an earlier version wrote, and the package, release, unit and hook names.
+
 ### Changed
 
 - **The command line is smaller: 13 commands in four groups, and four global flags.**
@@ -25,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).
+
+### Removed
+
+- **The `projection` config key and `--projection` flag.**
+  The map has been isometric only since the top-down view went, and the key only opened the isometric map with a warning.
+  A config file that still sets it loads as before, and the key is ignored.
 
 ### Fixed
 

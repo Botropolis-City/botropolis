@@ -1,0 +1,21 @@
+branch	string
+contextPercent	number
+cwd	string
+harness	string
+id	string
+lastActivity	string
+model	string
+pid	number
+prs	array
+prs[].number	number
+prs[].repository	string
+prs[].state	string
+prs[].url	string
+startedAt	string
+state	string
+state=needs-you
+state=resting
+state=unattended
+state=waiting
+state=working
+title	string

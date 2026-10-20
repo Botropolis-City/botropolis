@@ -145,6 +145,8 @@ Settings come from flags, then `BOTROPOLIS_HOME`, `BOTROPOLIS_SOCKET`, `BOTROPOL
 then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `shuttered_days`, `overgrown_days`, `codex_home`, `render_scale`, `liveliness`, `reduced_motion`, `daily_budget_usd`, `district_type`).
 `s` in the city opens a settings panel for the same keys and writes the file back.
 
+[docs/compatibility.md](docs/compatibility.md) says which of these, and which of `status --json`, `bar` and the packages, 1.0.0 promises not to break.
+
 A waybar module, for example:
 
 ```json

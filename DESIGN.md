@@ -46,6 +46,7 @@ Everything else is redesigned around how the sessions on this machine are actual
 | [parity-and-ship.md](design/parity-and-ship.md) | bot-crossing parity, what went beyond it, what shipping means |
 | [what-it-costs.md](design/what-it-costs.md) | measured cost — CPU, memory, binary, package |
 | [open-questions.md](design/open-questions.md) | what is not decided |
+| [compatibility.md](docs/compatibility.md) | what 1.0.0 promises, and how a change to it fails |
 
 ## Rules
 

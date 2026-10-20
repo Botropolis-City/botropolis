@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "districts": {
+    "/w/lib": {
+      "slots": {
+        "aaaaaaaa-0000-0000-0000-000000000149": 4
+      },
+      "type": "office"
+    }
+  },
+  "starred": {
+    "/w/lib": true
+  }
+}
