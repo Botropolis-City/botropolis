@@ -38,6 +38,10 @@ class Botropolis < Formula
 
       Completion for zsh and fish works as installed; for bash it needs
       Homebrew's bash-completion.
+
+      Sharing the city (shift+s in it) saves pictures and GIFs as it is;
+      a video clip needs ffmpeg:
+        brew install ffmpeg
     EOS
   end
 

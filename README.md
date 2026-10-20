@@ -135,6 +135,9 @@ The package installs `botropolis.desktop`, so the city is in your launcher under
 `--set key=value` sets any config key for one run.
 
 `p` in the city saves the frame as a PNG.
+To post your city somewhere, `shift+s` shares it first: names, prompts, spend and token figures are hidden, and every panel with them.
+Then `p` saves a picture, `g` a four-second GIF, and `c` a clip (`l` picks 5 to 60 seconds) to your Pictures and Videos folders.
+A clip needs ffmpeg, and the city says so when it is missing.
 For frames from a checkout, `make build-dev` builds the binaries with the frame tooling, which release builds leave out:
 `bin/botropolis city --screenshot city.png` renders one frame and exits;
 `--headless` runs it on a virtual display so no window opens, `--keys n,n,x` presses keys first, and `--record dir --seconds 24` writes frames for a GIF (`make gif`).

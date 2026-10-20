@@ -45,6 +45,8 @@ type shareMode struct {
 	rec      *shareRec
 	last     *shareRec
 	encoding sync.WaitGroup
+	// clipStep is how many times l has stepped the clip's length.
+	clipStep int
 }
 
 // shareRec is one recording of the shared city, on the city's own clock:
@@ -53,7 +55,7 @@ type shareMode struct {
 type shareRec struct {
 	kind  string
 	path  string
-	gif   *gifWriter
+	sink  frameSink
 	every int
 	// frames is how many it holds, written how many it has, and draws
 	// the draws since it began; from and to are the city's ticks at its
@@ -77,9 +79,48 @@ func (s *shareMode) recording() bool { return s != nil && s.rec != nil }
 func (g *Game) startGIF() {
 	path := filepath.Join(g.captureDir(picturesDir), captureName(timeNow(), "gif"))
 	g.share.rec = &shareRec{
-		kind: "GIF", path: path, gif: newGIFWriter(path, gifFPS, gifMaxWidth),
+		kind: "GIF", path: path, sink: newGIFWriter(path, gifFPS, gifMaxWidth),
 		every: liveTPS / gifFPS, frames: gifSeconds * gifFPS,
 	}
+}
+
+// startClip begins a clip of the shared city, or says what is missing.
+func (g *Game) startClip() {
+	bin, err := g.ffmpegPath()
+	if err != nil {
+		g.SetStatus("a clip needs ffmpeg, which is not installed; install it and press c again")
+		return
+	}
+	format, ok := pickClipFormat(clipEncoders(bin))
+	if !ok {
+		g.SetStatus("a clip needs ffmpeg with libx264 or libvpx-vp9, and this ffmpeg has neither")
+		return
+	}
+	length := g.share.clipLength()
+	path := filepath.Join(g.captureDir(videosDir), captureName(timeNow(), format.ext))
+	g.share.rec = &shareRec{
+		kind: "clip", path: path, sink: newClipWriter(bin, path, clipFPS, format),
+		every: liveTPS / clipFPS, frames: length * clipFPS,
+	}
+}
+
+// drop ends a recording before its last frame: it writes nothing, and
+// encoding waits for its writer to have cleaned up.
+func (s *shareMode) drop() {
+	if s.rec == nil {
+		return
+	}
+	done := s.rec.sink.abandon()
+	s.rec = nil
+	s.encoding.Add(1)
+	go func() {
+		defer s.encoding.Done()
+		// An abandoned recording can only fail to clean up after itself,
+		// and sharing is over, so there is no bar left to say so on.
+		if err := <-done; err != nil {
+			return
+		}
+	}()
 }
 
 // recordFrame gives the recording this draw, and ends it with its last
@@ -91,7 +132,7 @@ func (g *Game) recordFrame(screen *ebiten.Image) {
 			rec.from = g.ticks
 		}
 		rec.to = g.ticks
-		rec.gif.add(g.grabFrame(screen))
+		rec.sink.add(g.grabFrame(screen))
 		rec.written++
 	}
 	rec.draws++
@@ -102,7 +143,7 @@ func (g *Game) recordFrame(screen *ebiten.Image) {
 	share.rec, share.last = nil, rec
 	share.saved = filepath.Dir(rec.path)
 	g.SetStatus("writing the " + rec.kind + "…")
-	done := rec.gif.finish()
+	done := rec.sink.finish()
 	share.encoding.Add(1)
 	go func() {
 		defer share.encoding.Done()
@@ -131,9 +172,7 @@ func (g *Game) toggleSharing() {
 // leaveSharing takes the veil off; everything open underneath was left
 // open, so there is nothing else to restore.
 func (g *Game) leaveSharing() {
-	if g.share.rec != nil {
-		g.share.rec.gif.abandon()
-	}
+	g.share.drop()
 	g.share = nil
 	g.scene.SetVeil(nil)
 }
@@ -144,10 +183,7 @@ func (g *Game) finishSharing() {
 	if g.share == nil {
 		return
 	}
-	if g.share.rec != nil {
-		g.share.rec.gif.abandon()
-		g.share.rec = nil
-	}
+	g.share.drop()
 	g.share.encoding.Wait()
 }
 
@@ -171,6 +207,11 @@ func (g *Game) shareKeys() error {
 		g.share.snap = filepath.Join(g.captureDir(picturesDir), captureName(timeNow(), "png"))
 	case just(ebiten.KeyG) && g.share.rec == nil:
 		g.startGIF()
+	case just(ebiten.KeyC) && g.share.rec == nil:
+		g.startClip()
+	case just(ebiten.KeyL) && g.share.rec == nil:
+		g.share.clipStep++
+		g.SetStatus(fmt.Sprintf("clips are %d s", g.share.clipLength()))
 	case just(ebiten.KeyO):
 		dir := g.share.saved
 		if dir == "" {
@@ -260,7 +301,9 @@ func (g *Game) shareCapture(screen *ebiten.Image) {
 }
 
 // shareBar is what the sharing bar says.
-const shareBar = "Sharing: names and figures hidden    p picture    g GIF    o open folder    esc leave"
+func (s *shareMode) bar() string {
+	return fmt.Sprintf("Sharing: names and figures hidden    p picture    g GIF    c clip, %d s    l length    o open folder    esc leave", s.clipLength())
+}
 
 // drawShareBar draws the sharing bar and the last notice over the frame,
 // after any capture has read it.
@@ -271,7 +314,7 @@ func (g *Game) drawShareBar(screen *ebiten.Image) {
 	th := g.theme
 	bounds := screen.Bounds()
 	width, height := float64(bounds.Dx()), float64(bounds.Dy())
-	lines := []string{shareBar}
+	lines := []string{g.share.bar()}
 	if note := g.notice.Text(timeNow()); note != "" {
 		lines = append([]string{note}, lines...)
 	}

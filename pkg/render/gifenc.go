@@ -64,9 +64,10 @@ func (w *gifWriter) finish() <-chan error {
 }
 
 // abandon ends the recording and writes nothing.
-func (w *gifWriter) abandon() {
+func (w *gifWriter) abandon() <-chan error {
 	w.discard.Store(true)
 	close(w.frames)
+	return w.done
 }
 
 // frameDelay is frame i's delay in hundredths of a second, rounded so

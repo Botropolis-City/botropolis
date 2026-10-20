@@ -164,6 +164,8 @@ type Game struct {
 	openFolder func(dir string) error
 	grab       func(*ebiten.Image) image.Image
 	textSeen   func(string)
+	// findFFmpeg finds the encoder a clip needs; nil looks on PATH.
+	findFFmpeg func() (string, error)
 	// viewKey is the overlay listing the six lenses; see ui.LayoutViewKey.
 	// viewKeyRows is the layout as last drawn, so a click lands on the
 	// rows the reader can actually see.

@@ -52,7 +52,7 @@ var bindings = []ui.Key{
 	{Key: "pgup pgdn home end", Action: "scroll the sidebar"},
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
-	{Key: shareBinding, Action: "share: the city with names and figures hidden, as a picture"},
+	{Key: shareBinding, Action: "share: the city with names and figures hidden, as a picture (p), a GIF (g) or a clip (c)"},
 	{Key: "shift+p", Action: "pack the selected session up, or unpack a crate"},
 	{Key: "shift+q", Action: "close up: note what is open and what to start with next time; pause only what you choose"},
 	{Key: "/ or ctrl+k", Action: "find a session by what was said; the map dims the rest"},

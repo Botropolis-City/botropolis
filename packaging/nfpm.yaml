@@ -22,8 +22,16 @@ license: MIT AND OFL-1.1 AND CC0-1.0
 # installs, which is not the same as a runtime need: nothing references either,
 # and botropolis has no audio. Requiring ALSA would make every user install a
 # sound stack for a program that never opens one.
+#
+# ffmpeg is only suggested: sharing the city records a clip with it, says so
+# when it is missing, and saves pictures and GIFs without it (item 168). The
+# rpm names the file, which Fedora's ffmpeg-free and RPM Fusion's ffmpeg both
+# provide. nfpm has no optional dependencies for Arch, so the Arch package
+# says nothing.
 overrides:
   deb:
+    suggests:
+      - ffmpeg
     depends:
       - libgl1
       - libx11-6
@@ -33,6 +41,8 @@ overrides:
       - libxrandr2
       - hicolor-icon-theme
   rpm:
+    suggests:
+      - /usr/bin/ffmpeg
     depends:
       - mesa-libGL
       - libX11
