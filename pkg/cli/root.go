@@ -56,13 +56,7 @@ func NewRootCLI(v *viper.Viper, subcommands ...*cobra.Command) *cobra.Command {
 	}
 	root.AddCommand(subcommands...)
 	root.Flags().Bool("tui", false, "open the terminal table instead of the city")
-	AddScreenshotFlag(root.Flags())
-	AddKeysFlag(root.Flags())
-	AddHoverFlag(root.Flags())
-	AddRecordFlags(root.Flags())
-	AddHeadlessFlag(root.Flags())
-	AddWindowFlag(root.Flags())
-	AddScriptFlag(root.Flags())
+	addFrameFlags(root.Flags(), false)
 	root.Flags().VisitAll(func(f *pflag.Flag) {
 		if f.Name != "help" && f.Name != "version" {
 			f.Hidden = true

@@ -31,7 +31,9 @@ func (b *built) Run() int {
 		panic(err)
 	}
 	botropolis = filepath.Join(dir, "botropolis")
-	build := exec.Command("go", "build", "-o", botropolis, "../../cmd/botropolis")
+	// The devtools tag keeps the frame tooling the city tests drive (item
+	// 167); release_build_test.go builds without it.
+	build := exec.Command("go", "build", "-tags", "devtools", "-o", botropolis, "../../cmd/botropolis")
 	// tools/acceptance-targets maps each test to the packages it runs (item
 	// 117). go test -cover points GOCOVERDIR at a directory of its own, so the
 	// binary's coverage is sent to the one the tool names instead.

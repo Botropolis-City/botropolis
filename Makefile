@@ -57,6 +57,19 @@ build ::
 		go build -trimpath -ldflags "${LDFLAGS}" -o bin/$$bin ./cmd/$$bin || exit 1; \
 	done
 
+# The city's frame tooling -- --screenshot, --record, --keys, --headless and
+# the rest -- is only in builds with the devtools tag (item 167), so release
+# builds neither show nor promise it. build-dev builds the same binaries with
+# it, for filming, frames and measuring; every packaging target depends on
+# build, which builds them again without it.
+DEV_TAGS := -tags devtools
+
+build-dev ::
+	$(LOG) "Building ${BINARIES} (${VERSION}) with the devtools tag"
+	@for bin in ${BINARIES}; do \
+		go build ${DEV_TAGS} -trimpath -ldflags "${LDFLAGS}" -o bin/$$bin ./cmd/$$bin || exit 1; \
+	done
+
 # The demo stager is a development tool for filming the city, so it is built
 # beside the binaries rather than among them: nothing packages it.
 demo-tool ::
@@ -124,7 +137,7 @@ DEMO_FILM = docker run --rm $$([ -t 2 ] && echo -t) --network none --read-only -
 		/opt/botropolis/botropolis-demo film --corpus /corpus --out /out --botropolis /opt/botropolis/botropolis \
 		--source ${DEMO_SOURCE} $(if ${DEMO_FRESH},--fresh) /scenarios
 
-demo-media :: build demo-tool demo-image
+demo-media :: build-dev demo-tool demo-image
 	$(LOG) "Filming ${DEMO_SCENARIOS} from ${DEMO_CORPUS} into ${DEMO_OUT}"
 	@mkdir -p ${DEMO_OUT}
 	@${DEMO_FILM}
@@ -132,7 +145,7 @@ demo-media :: build demo-tool demo-image
 # Files every cached shot under the current key without filming anything:
 # for after the key's own recipe changes, when the pictures cannot have. A
 # shot with nothing cached stops it, rather than starting an hour of filming.
-demo-adopt :: build demo-tool demo-image
+demo-adopt :: build-dev demo-tool demo-image
 	$(LOG) "Adopting the shots cached in ${DEMO_OUT} under the current keys"
 	@${DEMO_FILM} --adopt
 
@@ -141,6 +154,7 @@ test :: test-unit test-integration test-acceptance
 test-unit ::
 	$(LOG) "Running unit tests"
 	@go test ./cmd/... ./pkg/... ./tools/acceptance-targets/...
+	@go test ${DEV_TAGS} ./pkg/cli/...
 
 test-integration ::
 	$(LOG) "Running integration tests"
@@ -195,6 +209,7 @@ bench ::
 lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check asset-sources-check
 	$(LOG) "Linting"
 	@go vet ./...
+	@go vet ${DEV_TAGS} ./...
 	@${GOLANGCI_LINT} run ${GOLANGCI_LINT_FLAGS} ./...
 
 go-version-check ::
@@ -326,7 +341,7 @@ analyze ::
 # on the district plates, MCP vendor names on the towers and a real daily spend
 # across the strip -- published, in a repository whose history had just been
 # rewritten to remove exactly that. Pointing this at ~/.claude is opt-in now.
-gif :: fixtures
+gif :: build-dev fixtures
 	$(LOG) "Recording docs/botropolis.gif headlessly from the ${FIXTURE} fixture (24 s)"
 	@rm -rf dist/frames && mkdir -p dist/frames
 	@bin/botropolis city --headless --record dist/frames --seconds 24 \

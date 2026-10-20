@@ -72,7 +72,7 @@ body:
     attributes:
       label: A frame, if it is something you can see
       description: >
-        `botropolis city --screenshot bug.png` writes one frame and exits, and you can drag the PNG in here.
+        Press `p` in the city to save the frame as a PNG in ~/Pictures (or your home directory), and drag it in here.
         Please check it for anything you would rather not publish — project names are drawn on the district plates.
     validations:
       required: false

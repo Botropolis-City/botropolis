@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `shell-init` loads completions too.
   `--set key=value` sets any config key for one run, including those that never had a flag, so `--help` on every command no longer lists two dozen city settings.
 
+- **Release builds leave out the city's frame tooling**: `--screenshot`, `--record`, `--fps`, `--seconds`, `--keys`, `--hover`, `--script`, `--headless`, `--window` and `--signage`, which exist to film the city and test it.
+  `p` still saves a screenshot.
+  `make build-dev` builds them in, with the `devtools` tag.
+
 ### Deprecated
 
 - These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).

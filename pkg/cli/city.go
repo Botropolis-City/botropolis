@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 type CityRunner interface {
@@ -16,10 +15,6 @@ type CityRunner interface {
 // ScreenshotFlag names the flag that makes the city render one frame to a
 // PNG and exit; it lives on the root and the city command alike.
 const ScreenshotFlag = "screenshot"
-
-func AddScreenshotFlag(flags *pflag.FlagSet) {
-	flags.String(ScreenshotFlag, "", "render one frame to this PNG and exit")
-}
 
 // Screenshot is the path given with --screenshot, or "" when not asked for.
 func Screenshot(cmd *cobra.Command) string {
@@ -31,10 +26,6 @@ func Screenshot(cmd *cobra.Command) string {
 // screenshot is taken, so a zoomed or sidebar frame can be shot
 // without a hand on the keyboard.
 const KeysFlag = "keys"
-
-func AddKeysFlag(flags *pflag.FlagSet) {
-	flags.StringSlice(KeysFlag, nil, "keys to press before the screenshot, e.g. equal,equal,b")
-}
 
 // RecordFlag names the flag that writes a frame every tenth of a
 // second into a directory for --seconds, pressing --keys a couple of
@@ -49,15 +40,18 @@ const (
 // has to divide it, or frames would land unevenly.
 const recordTicks = 30
 
-func AddRecordFlags(flags *pflag.FlagSet) {
-	flags.String(RecordFlag, "", "write frames into this directory for --seconds, then exit")
-	flags.Float64(SecondsFlag, 20, "how long to record with --record")
-	flags.Int(FPSFlag, 10, "frames a second to write with --record: 1, 2, 3, 5, 6, 10, 15 or 30")
-}
+// defaultFPS and defaultSignage are what a build without the flags uses.
+const (
+	defaultFPS     = 10
+	defaultSignage = "hover"
+)
 
 // FPS is the frame rate given with --fps.
 func FPS(cmd *cobra.Command) (int, error) {
-	fps, _ := cmd.Flags().GetInt(FPSFlag)
+	fps, err := cmd.Flags().GetInt(FPSFlag)
+	if err != nil {
+		return defaultFPS, nil
+	}
 	if fps <= 0 || recordTicks%fps != 0 {
 		return 0, fmt.Errorf("--fps %d: must divide %d", fps, recordTicks)
 	}
@@ -68,10 +62,6 @@ func FPS(cmd *cobra.Command) (int, error) {
 // recording: the pointer gliding, clicking, zooming and panning.
 const ScriptFlag = "script"
 
-func AddScriptFlag(flags *pflag.FlagSet) {
-	flags.String(ScriptFlag, "", "with --record, play this choreography (see pkg/script)")
-}
-
 // Script is the path given with --script, or "".
 func Script(cmd *cobra.Command) string {
 	path, _ := cmd.Flags().GetString(ScriptFlag)
@@ -81,10 +71,6 @@ func Script(cmd *cobra.Command) string {
 // WindowFlag names the flag that sizes the window, and the virtual
 // display under --headless with it, for frames bigger than the default.
 const WindowFlag = "window"
-
-func AddWindowFlag(flags *pflag.FlagSet) {
-	flags.String(WindowFlag, "", "window size as WIDTHxHEIGHT, e.g. 1920x1080")
-}
 
 // Window is the size given with --window, or 0, 0 when not asked for.
 func Window(cmd *cobra.Command) (width, height int, err error) {
@@ -113,10 +99,6 @@ func Record(cmd *cobra.Command) (string, float64) {
 // while someone is using the desktop.
 const HeadlessFlag = "headless"
 
-func AddHeadlessFlag(flags *pflag.FlagSet) {
-	flags.Bool(HeadlessFlag, false, "run on a virtual display (Xvfb) so no window opens")
-}
-
 // Headless reports whether --headless was asked for.
 func Headless(cmd *cobra.Command) bool {
 	headless, _ := cmd.Flags().GetBool(HeadlessFlag)
@@ -127,12 +109,11 @@ func Headless(cmd *cobra.Command) bool {
 // the map: phase 21 item 38's prototypes, for comparison frames.
 const SignageFlag = "signage"
 
-func AddSignageFlag(flags *pflag.FlagSet) {
-	flags.String(SignageFlag, "hover", "how a session's title is shown: hover (the default), plates, gantry, board or plaque")
-}
-
 func Signage(cmd *cobra.Command) string {
-	raw, _ := cmd.Flags().GetString(SignageFlag)
+	raw, err := cmd.Flags().GetString(SignageFlag)
+	if err != nil {
+		return defaultSignage
+	}
 	return raw
 }
 
@@ -142,10 +123,6 @@ func Signage(cmd *cobra.Command) string {
 // move a mouse, so without this those frames cannot be shot headless at
 // all.
 const HoverFlag = "hover"
-
-func AddHoverFlag(flags *pflag.FlagSet) {
-	flags.String(HoverFlag, "", "park the pointer at X,Y in window pixels for the screenshot")
-}
 
 // Hover is the point given with --hover, and whether one was given.
 func Hover(cmd *cobra.Command) (x, y float64, ok bool) {
@@ -184,13 +161,6 @@ func NewCityCLI(load Loader, services CityServices) *cobra.Command {
 			return services.City(cfg).Run(cmd)
 		},
 	}
-	AddScreenshotFlag(cmd.Flags())
-	AddKeysFlag(cmd.Flags())
-	AddRecordFlags(cmd.Flags())
-	AddHeadlessFlag(cmd.Flags())
-	AddHoverFlag(cmd.Flags())
-	AddSignageFlag(cmd.Flags())
-	AddWindowFlag(cmd.Flags())
-	AddScriptFlag(cmd.Flags())
+	addFrameFlags(cmd.Flags(), true)
 	return cmd
 }

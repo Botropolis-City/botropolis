@@ -134,7 +134,9 @@ The package installs `botropolis.desktop`, so the city is in your launcher under
 `status` prints the table and `status --live` keeps it open, `events --since 2h` prints the daemon's log, and `setup --remove` takes the hooks out again.
 `--set key=value` sets any config key for one run.
 
-`botropolis city --screenshot city.png` renders one frame and exits;
+`p` in the city saves the frame as a PNG.
+For frames from a checkout, `make build-dev` builds the binaries with the frame tooling, which release builds leave out:
+`bin/botropolis city --screenshot city.png` renders one frame and exits;
 `--headless` runs it on a virtual display so no window opens, `--keys n,n,x` presses keys first, and `--record dir --seconds 24` writes frames for a GIF (`make gif`).
 `--window 1920x1080` sizes the window and `--fps 30` records smoother frames.
 Media for the website is filmed from recorded demo sessions rather than anyone's real ones: see [demo/](demo/README.md).
