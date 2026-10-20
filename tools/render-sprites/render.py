@@ -646,6 +646,18 @@ def kit_glass(r, g, b, a):
     return (a > 200) & (b - r > 40) & (b > 120)
 
 
+# The kit's glass itself, which a pane must hold some of: bluer than
+# green, so City Hall's green cross and the library's awning trim, which
+# pass the rule above, are not windows. Item 185.
+def kit_core(r, g, b, a):
+    return kit_glass(r, g, b, a) & (b - g >= 20)
+
+
+# The landmarks, whose windows the map lights at night: the library, City
+# Hall and the power plant. Item 185.
+LANDMARKS = {("city-kit-commercial", "building-l"), ("city-kit-commercial", "building-n"), ("city-kit-industrial", "building-a")}
+
+
 # How our own buildings' lit windows are told in a rendered sprite, as
 # inclusive bounds on red, green, blue and alpha and how much redder than
 # blue, how much at most redder than green, and how much greener than
@@ -884,8 +896,8 @@ def atlas(args):
                         "page": page, "x": int(x), "y": int(y), "w": int(cut.shape[1]), "h": int(cut.shape[0]),
                         "ax": round(float(ax - x0), 2), "ay": round(float(ay - y0), 2),
                     }
-                    if kit == "city-kit-commercial" and name.startswith("building"):
-                        sprites[key][str(heading)]["panes"] = panes(cut)
+                    if (kit, name) in LANDMARKS:
+                        sprites[key][str(heading)]["panes"] = panes(cut, kit_glass, kit_core)
                     if kit == "botropolis" and buildings.is_kind(name):
                         sprites[key][str(heading)]["panes"] = panes(cut, warm_glass, warm_core, min_area=1, corner=round(float(ax - x0), 2))
                         sprites[key][str(heading)]["body"] = list(root["body"]) + [root["roof"]]
