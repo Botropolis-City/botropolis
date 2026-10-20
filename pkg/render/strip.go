@@ -60,6 +60,6 @@ func (g *Game) jump(st state.State) {
 	if b := g.scene.JumpTo(st); b != nil {
 		g.SetStatus(fmt.Sprintf("%s: %s", st, b.Card(g.scene.City().Time).Title))
 	} else {
-		g.SetStatus(fmt.Sprintf("nothing is %s", st))
+		g.SetStatus(city.NothingToJumpTo(st))
 	}
 }

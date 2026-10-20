@@ -66,7 +66,7 @@ func TestBuildingSpent(t *testing.T) {
 		s.SelectLens(city.LensCost)
 
 		t.Run("it should add the store's cost and Codex's own", func(t *testing.T) {
-			assert.Equal(t, "$3.50 across 2 sessions", s.LensPanel().Aggregate)
+			assert.Equal(t, "$3.50 across 2 sessions, since they started", s.LensPanel().Aggregate)
 		})
 	})
 }

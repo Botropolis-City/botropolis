@@ -182,7 +182,7 @@ func (s *Scene) LensPanel() LensPanel {
 		About:     l.About(),
 		Legend:    s.Legend(),
 		Aggregate: s.aggregate(l),
-		Do:        l.Do(),
+		Do:        s.do(l),
 		Chip:      seen > LensPanelViewings && !s.lensExpanded,
 	}
 }
@@ -207,18 +207,31 @@ func (s *Scene) aggregate(l Lens) string {
 				yours++
 			}
 		}
-		return fmt.Sprintf("%s, %d your move", plural(len(s.snapshot.Groups), "group"), yours)
+		groups := len(s.snapshot.Groups)
+		if groups == 0 {
+			return "no groups yet"
+		}
+		verb := "are"
+		if groups == 1 {
+			verb = "is"
+		}
+		return fmt.Sprintf("%d of %s %s your move", yours, plural(groups, "group"), verb)
 	case LensCost:
-		total, known := 0.0, false
+		total, known, ranged := 0.0, false, false
 		for _, b := range buildings {
 			usd, ok, _ := b.spend()
 			total += usd
 			known = known || ok
+			ranged = ranged || (ok && isClaude(b.Session) && b.Cost.Low < b.Cost.High)
 		}
 		if !known {
 			return "spend not known yet"
 		}
-		return fmt.Sprintf("$%.2f across %s", total, plural(len(buildings), "session"))
+		upTo := ""
+		if ranged {
+			upTo = "up to "
+		}
+		return fmt.Sprintf("%s$%.2f across %s, since they started", upTo, total, plural(len(buildings), "session"))
 	case LensCapacity:
 		return plural(count(func(s state.Session) bool { return s.ContextPercent > 80 }), "session") + " over 80%"
 	case LensHealth:
@@ -231,6 +244,38 @@ func (s *Scene) aggregate(l Lens) string {
 		return "1 session needs you"
 	}
 	return fmt.Sprintf("%d sessions need you", n)
+}
+
+// NothingToJumpTo is what tab, or a strip chip, says when no session is
+// in the state it looks for.
+func NothingToJumpTo(st state.State) string {
+	if st == state.NeedsYou {
+		return "nobody needs you right now"
+	}
+	return fmt.Sprintf("nothing is %s", st)
+}
+
+// do is the panel's what-to-do line: Attention's follows its count, so
+// it does not point tab at nobody.
+func (s *Scene) do(l Lens) string {
+	if l == LensAttention && s.inState(state.NeedsYou) == 0 {
+		return "Nobody is waiting on you; tab finds the next one when someone is."
+	}
+	return l.Do()
+}
+
+// inState is how many buildings are in a state.
+func (s *Scene) inState(st state.State) int {
+	n := 0
+	if s.city == nil {
+		return n
+	}
+	for _, b := range s.city.Buildings() {
+		if b.Session.State == st {
+			n++
+		}
+	}
+	return n
 }
 
 // prURL is the address of the session's pull request: the last one still
