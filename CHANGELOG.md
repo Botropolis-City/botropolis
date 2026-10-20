@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`botropolis bar` names the session that has waited longest, not the one first in the alphabet.**
   Its tooltip lists who needs you in the same order, longest-waiting first, which is the order triage (`w`) walks them.
 
+- Counts agree with their numbers: the strip, the window title, the sidebar and the City Plan say "1 needs you", "1 PR", "1 error" and "1 subagent" instead of "1 need you", "1 prs", "1 errors" and "1 subagents".
+
 - Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
 
 - **A new building's windows light floor by floor as it rises.**
