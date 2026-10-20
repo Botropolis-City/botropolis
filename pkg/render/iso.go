@@ -1,6 +1,7 @@
 package render
 
 import (
+	"image"
 	"image/color"
 	"math"
 	"sort"
@@ -1265,11 +1266,11 @@ func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City)
 		}
 		foot := g.footOf(cam, b)
 		size := g.kitSize(cam, buildingPiece(b))
-		w, h := float64(size.X), float64(size.Y)
-		storeys := max(1, int(h/(38*cam.Zoom)))
-		storey := h * 0.7 / float64(storeys)
-		for i := 0; i < storeys; i++ {
-			y := foot.Y - h*0.15 - (h*0.7)*(float64(i)+0.5)/float64(storeys)
+		w := float64(size.X)
+		storeys, storey, plinth := g.storeyFrame(cam, b, size)
+		built := g.scene.Rising(b.Session.ID) * (plinth + float64(storeys)*storey)
+		for _, up := range windowRows(storeys, storey, plinth, built) {
+			y := foot.Y - up
 			side := windowGlow(w*0.16, minWindowGlow, storey)
 			core := windowGlow(w*0.1, minWindowGlow*0.6, storey)
 			glow(screen, city.Point{X: foot.X - w*0.2, Y: y}, side, dimLight(boost(colorWindowGlow, cam.Zoom), on))
@@ -1282,6 +1283,40 @@ func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City)
 		size := g.kitSizeTurned(cam, kitPlant, landmarkTurn)
 		glow(screen, city.Point{X: foot.X, Y: foot.Y - float64(size.Y)*0.6}, lit(float64(size.X)*0.22, minPlantGlow), boost(colorPlantGlow, cam.Zoom))
 	}
+}
+
+// windowRows is the height above its foot of each lit storey's windows:
+// those of every storey whose top the building has built up to, so a
+// building lights from the ground up as it rises and the storey still
+// going up stays dark. Item 155.
+func windowRows(storeys int, storey, plinth, built float64) []float64 {
+	var rows []float64
+	for i := range storeys {
+		if plinth+float64(i+1)*storey > built+1e-9 {
+			break
+		}
+		rows = append(rows, plinth+(float64(i)+0.5)*storey)
+	}
+	return rows
+}
+
+// storeyFrame is how a building's storeys stand on screen: how many, how
+// tall each is and the plinth under them. A city kit's piece has its
+// session's storeys; a piece the pipeline gives no body has its height
+// shared out, as the glow always did.
+func (g *Game) storeyFrame(cam *city.Camera, b *city.Building, size image.Point) (int, float64, float64) {
+	if g.kits == nil {
+		return 0, 0, 0
+	}
+	if atlas := g.kits.pick(cam.Zoom); atlas != nil {
+		if sprite, ok := atlas.Sprite(buildingPiece(b), cam.Heading); ok && sprite.Body.W > 0 {
+			storey := storeyHeight(cam.Zoom)
+			return min(max(b.Session.Storeys, 1), state.MaxStoreys), storey, kindPlinth / kindStorey * storey
+		}
+	}
+	h := float64(size.Y)
+	n := max(1, int(h/(38*cam.Zoom)))
+	return n, h * 0.7 / float64(n), h * 0.15
 }
 
 // dimLight scales a light's alpha by how far its building's lights are on.

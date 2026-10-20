@@ -44,26 +44,25 @@ func TestConstruction(t *testing.T) {
 		})
 	})
 
-	// Item 74: the windows glowed at the finished height while the
-	// floors were still rising.
+	// Item 155: once it docks, a building's lights are on for whatever
+	// floors are finished; which floors those are is the renderer's.
 	for _, c := range []struct {
 		moment string
 		p      float64
-		want   float64
 	}{
-		{"just docked", 0, 0},
-		{"half built", 0.5, 0},
-		{"topped out", 0.75, 0},
-		{"scaffolding down", 0.88, 0},
-		{"part way through the lights coming on", 0.94, 0.5},
+		{"just docked", 0},
+		{"half built", 0.5},
+		{"topped out", 0.75},
+		{"scaffolding down", 0.88},
+		{"in its last moments", 0.94},
 	} {
 		t.Run("when the build is "+c.moment, func(t *testing.T) {
 			var clock time.Time
 			s := arriving(t, &clock, city.Lively)
 			clock = docked.Add(time.Duration(c.p * float64(city.BuildFor)))
 
-			t.Run("it should have its lights at their place", func(t *testing.T) {
-				assert.InDelta(t, c.want, s.Lights("b"), 1e-6)
+			t.Run("it should have its lights on for its finished floors", func(t *testing.T) {
+				assert.InDelta(t, 1, s.Lights("b"), 1e-6)
 			})
 		})
 	}
