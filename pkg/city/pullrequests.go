@@ -242,7 +242,7 @@ type ribbon struct {
 
 // notePRs compares every pull request with the last snapshot's.
 func (s *Scene) notePRs(now time.Time) {
-	first := s.prs == nil
+	first := !s.opened
 	seen := map[string]string{}
 	open := map[string]bool{}
 	groupOpen := map[string]bool{}

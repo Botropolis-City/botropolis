@@ -355,7 +355,7 @@ func walkWords(val reflect.Value, path string, visit func(path, s string)) {
 // city from the snapshot as it came.
 func (s *Scene) SetVeil(v *Veil) {
 	s.veil = v
-	s.SetSnapshot(s.real)
+	s.restate()
 }
 
 // Veiled is whether the city is wearing the veil.

@@ -199,6 +199,12 @@ type Scene struct {
 	// celebrating is when a session's count rose, for a one-shot show.
 	merged      map[string]int
 	celebrating map[string]time.Time
+	// opened is whether a snapshot has come from outside the scene. The
+	// passes that only take note of the first snapshot read it rather
+	// than whether their own map is still nil: settings applied at
+	// start-up re-apply the scene's empty snapshot, and that filled
+	// every such map before the first real one arrived (item 169).
+	opened bool
 	// known is the last snapshot's live sessions by id and voyages the
 	// tugs on the river for those that came or went since.
 	known   map[string]state.Session
@@ -678,21 +684,36 @@ func (s *Scene) SetLadder(t state.Thresholds) {
 		return
 	}
 	s.ladder = t
-	s.SetSnapshot(s.snapshot)
+	s.restate()
 }
 
 // SetLedger has the city read its usage from a statistics store; nil
 // is statistics turned off (item 116).
 func (s *Scene) SetLedger(l Ledger) {
 	s.ledger = l
-	s.SetSnapshot(s.snapshot)
+	s.restate()
 }
 
+// SetSnapshot shows a snapshot from outside the scene, and the first
+// one opens the city.
 func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.real = snapshot
+	s.restate()
+	s.opened = true
+}
+
+// restate rebuilds the city from the snapshot it already holds, through
+// the veil when there is one, for a change made inside the scene; it
+// never opens the city.
+func (s *Scene) restate() {
+	snapshot := s.real
 	if s.veil != nil {
 		snapshot = s.veil.Snapshot(snapshot)
 	}
+	s.apply(snapshot)
+}
+
+func (s *Scene) apply(snapshot state.Snapshot) {
 	s.snapshot = snapshot
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
@@ -976,7 +997,7 @@ func (s *Scene) Click(screen Point) Action {
 // that have one keep it (item 109).
 func (s *Scene) SetTyping(t Typing) {
 	s.layout.SetTyping(t)
-	s.SetSnapshot(s.snapshot)
+	s.restate()
 }
 
 // Actions is what the selection's card offers, in order: the way in
@@ -1080,7 +1101,7 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 	case ActionHide:
 		s.layout.SetHidden(root, true)
 		s.selected = nil
-		s.SetSnapshot(s.snapshot)
+		s.restate()
 		return Action{}, "hid " + name + " (unhide it from the sidebar)"
 	case ActionDetails:
 		s.detailsFor = b.Session.ID
@@ -1128,7 +1149,7 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 	case ActionDistrictType:
 		next := NextDistrictType(s.layout.DistrictType(root))
 		s.layout.SetDistrictType(root, next)
-		s.SetSnapshot(s.snapshot)
+		s.restate()
 		return Action{}, name + " is now " + string(next)
 	}
 	return Action{}, ""
@@ -1164,8 +1185,8 @@ func (s *Scene) Away(since time.Time) []events.Event {
 // count rose since the last snapshot; the first snapshot only takes
 // note, so an old merge does not fire on start-up.
 func (s *Scene) noteMerges() {
-	first := s.merged == nil
-	if first {
+	first := !s.opened
+	if s.merged == nil {
 		s.merged = map[string]int{}
 		s.celebrating = map[string]time.Time{}
 	}
@@ -1236,7 +1257,7 @@ func (s *Scene) Turn() int {
 // Unhide puts a hidden project back on the map.
 func (s *Scene) Unhide(root string) {
 	s.layout.SetHidden(root, false)
-	s.SetSnapshot(s.snapshot)
+	s.restate()
 }
 
 // NewHere is the c key: a new session in the selected building's

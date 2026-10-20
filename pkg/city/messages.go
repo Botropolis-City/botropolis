@@ -74,7 +74,7 @@ type mailCount struct{ messages, back int }
 
 // noteMessages sends a van for every message each road gained.
 func (s *Scene) noteMessages(now time.Time) {
-	first := s.mail == nil
+	first := !s.opened
 	seen := map[string]mailCount{}
 	for i := range s.city.Roads {
 		road := &s.city.Roads[i]

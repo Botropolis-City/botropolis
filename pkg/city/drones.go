@@ -69,7 +69,7 @@ type flight struct {
 // already at work finds their drones already on station.
 func (s *Scene) noteDrones(now time.Time) {
 	launched := now
-	if s.known == nil {
+	if !s.opened {
 		launched = now.Add(-TakeoffFor - FlyFor - DroneFadeFor)
 	}
 	seen := map[string]bool{}

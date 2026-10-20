@@ -75,8 +75,8 @@ type load struct {
 // so each reads on its own, merging only those that would come closer
 // than PulseGap. The first snapshot only takes note.
 func (s *Scene) noteLoads(snapshot state.Snapshot, now time.Time) {
-	first := s.calls == nil
-	if first {
+	first := !s.opened
+	if s.calls == nil {
 		s.calls = map[string]int{}
 	}
 	interval := ReadEvery

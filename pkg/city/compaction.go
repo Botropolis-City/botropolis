@@ -76,8 +76,8 @@ type compactionJob struct {
 // takes note, and at still nothing is started: the course is simply
 // there and the skip shows its new fill.
 func (s *Scene) noteCompactions(snapshot state.Snapshot, now time.Time) {
-	first := s.compacted == nil
-	if first {
+	first := !s.opened
+	if s.compacted == nil {
 		s.compacted = map[string]int{}
 		s.skips = map[string]int{}
 	}

@@ -119,7 +119,7 @@ func (s *Scene) noteVoyages(snapshot state.Snapshot, now time.Time) {
 			current[sess.ID] = sess
 		}
 	}
-	first := s.known == nil
+	first := !s.opened
 	// The river only has to exist for a voyage to be worth launching;
 	// where its ends are is settled per frame by Voyages, not here.
 	if _, _, ok := s.city.riverEnds(); !first && ok {

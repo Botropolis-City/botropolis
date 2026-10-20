@@ -138,6 +138,6 @@ func (s *Scene) DropDistrict(screen Point) bool {
 	if !ok || s.layout == nil || !s.layout.MoveDistrict(root, slot, s.city.Rings()) {
 		return false
 	}
-	s.SetSnapshot(s.snapshot)
+	s.restate()
 	return true
 }

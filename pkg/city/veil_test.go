@@ -152,6 +152,25 @@ func TestVeil(t *testing.T) {
 			assert.Equal(t, 4, veiled.Sessions[0].MCPCalls[veiled.Servers[0].Name])
 		})
 	})
+
+	// Item 169: the scene's own rebuilds re-applied the snapshot it
+	// showed, which while veiled is the veiled one, and kept that as
+	// the snapshot as it came.
+	t.Run("when a veiled city is rebuilt from inside the scene", func(t *testing.T) {
+		scene := city.NewScene(city.NewLayout())
+		scene.Resize(1280, 800)
+		scene.SetSnapshot(helpers.ShareSnapshot(now))
+		scene.SetVeil(city.NewVeil())
+		scene.SetLedger(&fakeLedger{})
+
+		t.Run("and the veil is lifted", func(t *testing.T) {
+			scene.SetVeil(nil)
+
+			t.Run("it should restore every building's title", func(t *testing.T) {
+				assert.Equal(t, "Qzalphatitle", buildingTitles(scene.City())["aaaa-1"])
+			})
+		})
+	})
 }
 
 // TestVeilAccountsForEveryWord fails on any string a snapshot can carry
