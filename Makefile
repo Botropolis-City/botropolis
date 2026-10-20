@@ -266,17 +266,17 @@ publishable ::
 nfpm ::
 	@command -v nfpm >/dev/null || { echo "nfpm is not installed: yay -S nfpm-bin"; exit 1; }
 
-package-deb :: build completions nfpm
+package-deb :: build completions man nfpm
 	$(LOG) "Packaging botropolis ${VERSION} as a deb"
 	@mkdir -p dist
 	@VERSION=${VERSION} GOARCH=${GOARCH} nfpm package --config packaging/nfpm.yaml --packager deb --target dist/
 
-package-rpm :: build completions nfpm
+package-rpm :: build completions man nfpm
 	$(LOG) "Packaging botropolis ${VERSION} as an rpm"
 	@mkdir -p dist
 	@VERSION=${VERSION} GOARCH=${GOARCH} nfpm package --config packaging/nfpm.yaml --packager rpm --target dist/
 
-package-archlinux :: build completions nfpm
+package-archlinux :: build completions man nfpm
 	$(LOG) "Packaging botropolis ${VERSION} for Arch"
 	@mkdir -p dist
 	@VERSION=${VERSION} GOARCH=${GOARCH} nfpm package --config packaging/nfpm.yaml --packager archlinux --target dist/
@@ -297,7 +297,17 @@ completions ::
 	@env -u GOARCH -u GOOS go run ./cmd/botropolis completion zsh > bin/completions/_botropolis
 	@env -u GOARCH -u GOOS go run ./cmd/botropolis completion fish > bin/completions/botropolis.fish
 
-tarball :: build completions
+# The manual pages, from the command trees and the config keys, gzipped, with
+# the date of the commit built so a package builds the same twice (item 167).
+# Made with the host's toolchain, as the completions are.
+MAN_DATE ?= $(shell git log -1 --no-show-signature --format=%cs 2>/dev/null || date -u +%F)
+
+man ::
+	$(LOG) "Writing the manual pages into bin/man/"
+	@rm -rf bin/man
+	@env -u GOARCH -u GOOS go run -ldflags "${LDFLAGS}" ./tools/man -out bin/man -date ${MAN_DATE}
+
+tarball :: build completions man
 	$(LOG) "Tarring botropolis ${VERSION} with its licences and packaging"
 	@mkdir -p dist
 	@rm -rf dist/botropolis-${VERSION}
@@ -310,6 +320,7 @@ tarball :: build completions
 	@cp pkg/assets/kenney/README.md dist/botropolis-${VERSION}/kenney-packs.md
 	@cp -r packaging dist/botropolis-${VERSION}/packaging
 	@cp -r bin/completions dist/botropolis-${VERSION}/completions
+	@cp -r bin/man dist/botropolis-${VERSION}/man
 	@rm -f dist/botropolis-${VERSION}/packaging/nfpm.yaml
 	@tar -C dist -czf dist/botropolis-${VERSION}-linux-${GOARCH}.tar.gz botropolis-${VERSION}
 	@rm -rf dist/botropolis-${VERSION}

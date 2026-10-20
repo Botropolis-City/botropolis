@@ -146,6 +146,13 @@ for f in "${work}"/deb "${work}"/rpm "${work}"/arch; do
     fi
 done
 
+for page in usr/share/man/man1/botropolis.1.gz usr/share/man/man1/botropolis-status.1.gz usr/share/man/man5/botropolis-config.5.gz; do
+    if ! grep -qx "$page" "$first"; then
+        echo "  $(basename "$first") carries no /${page}: run make man before packaging"
+        fail=1
+    fi
+done
+
 [ "$fail" -eq 0 ] && [ "$licence_fail" -eq 0 ] || exit 1
 echo "  nfpm, Homebrew and the built rpm and Arch package declare ${required_licences[*]}"
-echo "  ${checked} packages carry the same $(wc -l < "$first") files${skipped:+ (skipped:${skipped})}"
+echo "  ${checked} packages carry the same $(wc -l < "$first") files, the manual pages among them${skipped:+ (skipped:${skipped})}"

@@ -15,6 +15,9 @@ class Botropolis < Formula
       system "go", "build", *std_go_args(ldflags:, output: bin/cmd), "./cmd/#{cmd}"
     end
     generate_completions_from_executable(bin/"botropolis", "completion", shells: [:bash, :zsh, :fish])
+    system "go", "run", "-ldflags", ldflags, "./tools/man", "-out", "man", "-date", Time.now.utc.strftime("%F")
+    man1.install Dir["man/*.1.gz"]
+    man5.install Dir["man/*.5.gz"]
     pkgshare.install "packaging/botropolis.bash"
     (share/"licenses/botropolis").install "pkg/assets/fonts/inter/LICENSE.txt" => "inter-OFL.txt",
                                           "pkg/assets/kits/nature-kit/License.txt" => "kenney-CC0.txt",

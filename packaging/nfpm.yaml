@@ -73,6 +73,12 @@ contents:
     dst: /usr/share/zsh/site-functions/_botropolis
   - src: ./bin/completions/botropolis.fish
     dst: /usr/share/fish/vendor_completions.d/botropolis.fish
+  # make man writes botropolis(1), a page per command, botropolisd(1),
+  # botropolis-hook(1) and botropolis-config(5) (item 167).
+  - src: ./bin/man/*.1.gz
+    dst: /usr/share/man/man1/
+  - src: ./bin/man/*.5.gz
+    dst: /usr/share/man/man5/
   - src: ./packaging/botropolis.bash
     dst: /usr/share/botropolis/botropolis.bash
   - src: ./packaging/botropolis.desktop

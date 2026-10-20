@@ -65,17 +65,20 @@ debian() {
     curl -fsSLo /etc/apt/keyrings/botropolis.asc $base/botropolis.asc
     curl -fsSLo /etc/apt/sources.list.d/botropolis.sources $base/botropolis.sources
     apt-get update -qq
+    rm -f /etc/dpkg/dpkg.cfg.d/excludes /etc/dpkg/dpkg.cfg.d/docker*
     apt-get install -y -qq botropolis >/dev/null
     for f in /usr/share/bash-completion/completions/botropolis /usr/share/zsh/site-functions/_botropolis /usr/share/fish/vendor_completions.d/botropolis.fish; do test -s \$f || { echo \"no completion at \$f\"; exit 1; }; done
+    for f in /usr/share/man/man1/botropolis.1.gz /usr/share/man/man1/botropolis-status.1.gz /usr/share/man/man5/botropolis-config.5.gz; do test -s \$f || { echo \"no manual page at \$f\"; exit 1; }; done
     botropolis --version"
 }
 
 fedora() {
   docker run --rm --network "$net" fedora:latest bash -euc "
     curl -fsSLo /etc/yum.repos.d/botropolis.repo $base/botropolis.repo
-    dnf install -y -q botropolis >/dev/null
+    dnf install -y -q --setopt=tsflags= botropolis >/dev/null
     rpm -q --qf '%{SIGPGP:pgpsig}%{RSAHEADER:pgpsig}\n' botropolis | grep -q 'Key ID'
     for f in /usr/share/bash-completion/completions/botropolis /usr/share/zsh/site-functions/_botropolis /usr/share/fish/vendor_completions.d/botropolis.fish; do test -s \$f || { echo \"no completion at \$f\"; exit 1; }; done
+    for f in /usr/share/man/man1/botropolis.1.gz /usr/share/man/man1/botropolis-status.1.gz /usr/share/man/man5/botropolis-config.5.gz; do test -s \$f || { echo \"no manual page at \$f\"; exit 1; }; done
     botropolis --version"
 }
 

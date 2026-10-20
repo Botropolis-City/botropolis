@@ -103,14 +103,21 @@ var Module = fx.Module("botropolis",
 	),
 )
 
-func Run(ctx context.Context, args []string) int {
+// NewRoot is botropolis's command tree, as Run executes it and the
+// manual pages describe it.
+func NewRoot() (*cobra.Command, error) {
 	var root *cobra.Command
 	app := fx.New(
 		Module,
 		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
 		fx.Populate(&root),
 	)
-	if err := app.Err(); err != nil {
+	return root, app.Err()
+}
+
+func Run(ctx context.Context, args []string) int {
+	root, err := NewRoot()
+	if err != nil {
 		_, _ = os.Stderr.WriteString("botropolis: " + err.Error() + "\n")
 		return 1
 	}

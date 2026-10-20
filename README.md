@@ -141,9 +141,9 @@ For frames from a checkout, `make build-dev` builds the binaries with the frame 
 `--window 1920x1080` sizes the window and `--fps 30` records smoother frames.
 Media for the website is filmed from recorded demo sessions rather than anyone's real ones: see [demo/](demo/README.md).
 
-Settings come from flags, then `BOTROPOLIS_HOME`, `BOTROPOLIS_SOCKET`, `BOTROPOLIS_TERMINAL`, `BOTROPOLIS_PARKED_DAYS`, `BOTROPOLIS_CODEX_HOME`,
-then `~/.config/botropolis/config.{toml,yaml,json}` (`home`, `socket`, `terminal`, `hook_command`, `shuttered_days`, `overgrown_days`, `codex_home`, `render_scale`, `liveliness`, `reduced_motion`, `daily_budget_usd`, `district_type`).
-`s` in the city opens a settings panel for the same keys and writes the file back.
+Settings live in `~/.config/botropolis/config.toml` (or `.yaml` or `.json`), and `s` in the city opens a settings panel that writes it back.
+Any key can be set for one run with `--set key=value`, or with its environment variable, such as `BOTROPOLIS_TERMINAL` for `terminal`.
+`man botropolis-config` lists every key with its default, and `man botropolis` and `man botropolis-<command>` cover the commands.
 
 [docs/compatibility.md](docs/compatibility.md) says which of these, and which of `status --json`, `bar` and the packages, 1.0.0 promises not to break.
 
