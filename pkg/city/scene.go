@@ -181,11 +181,15 @@ type Scene struct {
 	sightings  []Kind
 	sightingAt time.Time
 	generated  map[string]Generated
-	width      float64
-	height     float64
-	touched    bool
-	armed      string
-	armedAt    time.Time
+	// veil is the names the city wears while it is shared, nil when it
+	// wears its own, and real the snapshot as it came (item 168).
+	veil    *Veil
+	real    state.Snapshot
+	width   float64
+	height  float64
+	touched bool
+	armed   string
+	armedAt time.Time
 	// zoomTarget is where the wheel is taking the zoom; Animate eases the
 	// camera there about zoomAnchor, or Instant snaps it.
 	zoomTarget float64
@@ -685,11 +689,18 @@ func (s *Scene) SetLedger(l Ledger) {
 }
 
 func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
+	s.real = snapshot
+	if s.veil != nil {
+		snapshot = s.veil.Snapshot(snapshot)
+	}
 	s.snapshot = snapshot
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
 	was := s.city.StreetCells
 	s.city = build(snapshot, s.layout, s.ladder, false, s.ledger)
+	if s.veil != nil {
+		s.veil.name(s.city)
+	}
 	s.city.Face(s.camera.Heading)
 	s.noteOvergrowth(was, s.now())
 	s.noteMowing(s.now())

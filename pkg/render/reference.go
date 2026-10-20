@@ -83,6 +83,10 @@ func (r *reference) click(g *Game, at city.Point) bool {
 	g.mu.Unlock()
 	if r.ref.Current().ID == ui.KeysEntry {
 		if hit, ok := keys.Hit(at); ok {
+			if hit.Key == shareBinding {
+				g.toggleSharing()
+				return false
+			}
 			if key, ok := press(hit.Key); ok {
 				g.clicked = key
 			}

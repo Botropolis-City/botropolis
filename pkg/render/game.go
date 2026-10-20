@@ -155,6 +155,15 @@ type Game struct {
 	frames *frameWriter
 	// snap is a frame the p key asked for, saved on the next draw.
 	snap string
+	// share is sharing mode, nil when the city is not being shared;
+	// shareDir is where its captures go and openFolder shows one. grab
+	// reads the frame, and textSeen hears every string drawn; both are
+	// for tests. Item 168.
+	share      *shareMode
+	shareDir   func(userDirKind) string
+	openFolder func(dir string) error
+	grab       func(*ebiten.Image) image.Image
+	textSeen   func(string)
 	// viewKey is the overlay listing the six lenses; see ui.LayoutViewKey.
 	// viewKeyRows is the layout as last drawn, so a click lands on the
 	// rows the reader can actually see.
@@ -479,6 +488,7 @@ func (g *Game) Update() error {
 	}
 	if pending != nil {
 		g.scene.SetSnapshot(*pending)
+		g.shareSnapshot()
 		g.maybeJournal()
 		g.followUsage()
 		if title := windowTitle + " — " + g.scene.City().Summary().Headline(); title != g.shownTitle {
@@ -542,6 +552,15 @@ func (g *Game) Update() error {
 		g.watchFocus()
 	}
 	cursor := g.notePointer()
+	if g.share != nil {
+		_, wheel := ebiten.Wheel()
+		left := ebiten.MouseButtonLeft
+		g.sharePointer(cursor, wheel+g.play.wheel,
+			inpututil.IsMouseButtonJustPressed(left) || g.play.press,
+			ebiten.IsMouseButtonPressed(left) || g.play.shown && !g.play.release,
+			inpututil.IsMouseButtonJustReleased(left) || g.play.release)
+		return g.handleKeys()
+	}
 
 	if _, wheel := ebiten.Wheel(); wheel != 0 && !g.overlayWheel(cursor, wheel) && !g.wheelStream(cursor, wheel) && !g.wheelSidebar(cursor, wheel) {
 		g.scene.Wheel(cursor, wheel)
@@ -795,6 +814,7 @@ func (g *Game) capture(screen *ebiten.Image) {
 		}
 		return
 	}
+	g.shareCapture(screen)
 	if g.snap != "" {
 		if err := writePNG(g.snap, frame(screen)); err != nil {
 			g.SetStatus(err.Error())
@@ -857,6 +877,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// screen is not cleared between frames, so leaving it is enough.
 		return
 	}
+	// The sharing bar goes over the frame after it is captured, so no
+	// picture carries it (item 168).
+	defer g.drawShareBar(screen)
 	defer g.capture(screen)
 	defer g.drawPointer(screen)
 	if !g.cityShown() {
@@ -937,6 +960,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 // overlay is the chrome and, over it, the help; h hides the lot.
 func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
+	// Sharing draws none of it: every panel, card and figure stays open
+	// underneath, unseen, until sharing ends (item 168).
+	if g.share != nil {
+		g.scene.SetTopChrome(0)
+		g.scene.SetBottomChrome(0)
+		return
+	}
 	if g.hidden {
 		g.scene.SetTopChrome(0)
 		g.scene.SetBottomChrome(0)
@@ -1446,6 +1476,12 @@ func (g *Game) outline(screen *ebiten.Image, cam *city.Camera, r city.Rect, c co
 // text draws s with its top-left corner at a screen point, in one of the
 // theme's four sizes.
 func (g *Game) text(screen *ebiten.Image, at city.Point, s string, size ui.Size, c color.NRGBA) {
+	if !g.shareAllows(s) {
+		return
+	}
+	if g.textSeen != nil {
+		g.textSeen(s)
+	}
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(at.X, at.Y)
 	op.ColorScale.ScaleWithColor(c)

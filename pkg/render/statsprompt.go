@@ -81,7 +81,7 @@ func (g *Game) statsPrompt() *statsPrompt {
 // owes: a setting changed where no prompt could be shown. A screenshot,
 // a recording or a driven run is not asked.
 func (g *Game) maybeStatsPrompt() {
-	if g.stats.asked {
+	if g.stats.asked || g.share != nil {
 		return
 	}
 	g.stats.asked = true

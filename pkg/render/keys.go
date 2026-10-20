@@ -52,6 +52,7 @@ var bindings = []ui.Key{
 	{Key: "pgup pgdn home end", Action: "scroll the sidebar"},
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
+	{Key: shareBinding, Action: "share: the city with names and figures hidden, as a picture"},
 	{Key: "shift+p", Action: "pack the selected session up, or unpack a crate"},
 	{Key: "shift+q", Action: "close up: note what is open and what to start with next time; pause only what you choose"},
 	{Key: "/ or ctrl+k", Action: "find a session by what was said; the map dims the rest"},
@@ -155,6 +156,10 @@ func (g *Game) handleKeys() error {
 	just := g.just
 	g.answerRequests()
 	g.reserveDive()
+	// Sharing takes every key, so nothing behind it opens unseen.
+	if g.share != nil {
+		return g.shareKeys()
+	}
 	// Recording the global shortcut takes every key, Ctrl+K among them.
 	// Item 84.
 	if g.settingsOpen && g.recordShortcutKeys() {
@@ -164,6 +169,10 @@ func (g *Game) handleKeys() error {
 	// and l move inside the settings and the timeline.
 	if g.paletteKey() {
 		g.openFinder()
+		return nil
+	}
+	if just(ebiten.KeyS) && g.shifted() && g.shareReachable() {
+		g.toggleSharing()
 		return nil
 	}
 	if g.overlayKeys() {
@@ -405,21 +414,20 @@ func (g *Game) handleKeys() error {
 		return nil
 	}
 	if just(ebiten.KeyN) {
-		switch g.scene.CycleLight() {
-		case city.LightNight:
-			g.SetStatus("light: night (n again for day)")
-		case city.LightDay:
-			g.SetStatus("light: day (n again to follow the clock)")
-		default:
-			g.scene.Scrub(0)
-			g.SetStatus("light: live")
-		}
+		g.cycleLight()
 	}
 	if just(ebiten.KeyD) || just(ebiten.KeyDelete) {
 		action, note := g.scene.Demolish(time.Now())
 		g.SetStatus(note)
 		g.act(action)
 	}
+	g.viewKeys()
+	return nil
+}
+
+// viewKeys pans with the arrows and zooms with + and -.
+func (g *Game) viewKeys() {
+	just := g.just
 	held, holding := keyByName(g.play.hold)
 	pan := panFor(func(k ebiten.Key) bool { return ebiten.IsKeyPressed(k) || (holding && g.play.hold != "" && k == held) }, keyPanStep).
 		Add(panFor(func(k ebiten.Key) bool { return g.scripted == k }, keyPanStep*scriptPanBeat))
@@ -433,7 +441,19 @@ func (g *Game) handleKeys() error {
 	if just(ebiten.KeyMinus) || just(ebiten.KeyKPSubtract) {
 		g.scene.Wheel(centre, -1)
 	}
-	return nil
+}
+
+// cycleLight steps the light through night, day and live, and says so.
+func (g *Game) cycleLight() {
+	switch g.scene.CycleLight() {
+	case city.LightNight:
+		g.SetStatus("light: night (n again for day)")
+	case city.LightDay:
+		g.SetStatus("light: day (n again to follow the clock)")
+	default:
+		g.scene.Scrub(0)
+		g.SetStatus("light: live")
+	}
 }
 
 // showOpenPanels shows the interface when a panel is open behind it: a

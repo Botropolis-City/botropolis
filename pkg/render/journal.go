@@ -45,7 +45,9 @@ const closeUpFresh = time.Hour
 // map was last seen journal_hours or more ago. It needs no input, so a
 // city opened after a gap shows where you were on its first frame.
 func (g *Game) maybeJournal() {
-	if g.journalChecked {
+	// Not while sharing, or it would be built from the veil's names; it
+	// opens once sharing ends (item 168).
+	if g.journalChecked || g.share != nil {
 		return
 	}
 	g.journalChecked = true

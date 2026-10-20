@@ -41,7 +41,9 @@ func (g *Game) firstRun() *firstRun {
 // reviewed and there are some, once a launch, and only for someone
 // looking: a screenshot, a recording or a driven run is not asked.
 func (g *Game) maybeFirstRun() {
-	if g.firstRunAsked || g.screenshot != "" || g.record != "" || g.driven {
+	// Not while sharing: the review would show the veil's names, and
+	// saving it would keep them (item 168).
+	if g.firstRunAsked || g.share != nil || g.screenshot != "" || g.record != "" || g.driven {
 		return
 	}
 	if g.openFirstRun() {

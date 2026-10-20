@@ -562,6 +562,12 @@ const droneHover = 31.0
 // sign draws painted-on text: scaled with the map, and turned a quarter
 // anticlockwise to run up a side when the sign is vertical.
 func (g *Game) sign(screen *ebiten.Image, s ui.Sign, c color.NRGBA) {
+	if !g.shareAllows(s.Text) {
+		return
+	}
+	if g.textSeen != nil {
+		g.textSeen(s.Text)
+	}
 	op := &text.DrawOptions{}
 	op.GeoM.Scale(s.Scale, s.Scale)
 	if s.Vertical {

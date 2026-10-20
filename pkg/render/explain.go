@@ -68,7 +68,9 @@ func (g *Game) explainCaptions(held, drawing bool, width, height float64) []ui.C
 // other labels, so one cannot land on a sign or a badge (item 102). The
 // map is isometric here; drawExplain draws them in the other views.
 func (g *Game) queueSightings(width, height float64) {
-	if g.hidden || g.explainHeld() {
+	// Sharing draws no captions, and so sights nothing: a first sighting
+	// nobody was shown is still owed (item 168).
+	if g.hidden || g.share != nil || g.explainHeld() {
 		return
 	}
 	g.captions = g.explainCaptions(false, true, width, height)
