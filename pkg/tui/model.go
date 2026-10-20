@@ -9,6 +9,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type ActionKind string
@@ -172,11 +173,7 @@ func (m *Model) Lines(width int) []string {
 		if i == m.cursor {
 			marker = "> "
 		}
-		title := s.Title
-		if len(title) > 40 {
-			title = title[:39] + "…"
-		}
-		line := fmt.Sprintf("%s%-10s %-24s %-14s %-40s %-5s %-8s %-8s %s", marker, s.State, clip(format.Dash(s.Doing()), 24), clip(filepath.Base(s.CWD), 14), title,
+		line := fmt.Sprintf("%s%-10s %s %s %s %-5s %-8s %-8s %s", marker, s.State, cell(format.Dash(s.Doing()), 24), cell(filepath.Base(s.CWD), 14), cell(s.Title, 40),
 			format.Percent(s.ContextPercent), format.Tokens(s.FreshTokensPerHour), format.Tokens(s.CacheReadPerHour), format.Age(now.Sub(s.LastActivity)))
 		lines = append(lines, line)
 	}
@@ -185,9 +182,7 @@ func (m *Model) Lines(width int) []string {
 	}
 	if width > 0 {
 		for i, line := range lines {
-			if len(line) > width {
-				lines[i] = line[:width]
-			}
+			lines[i] = ansi.Truncate(line, width, "")
 		}
 	}
 	return lines
@@ -205,9 +200,9 @@ func (m *Model) Footer() string {
 		len(m.rows), scope)
 }
 
-func clip(s string, n int) string {
-	if len(s) <= n {
-		return s
+func cell(s string, n int) string {
+	if ansi.StringWidth(s) > n {
+		s = strings.TrimSpace(ansi.Truncate(s, n-1, "")) + "…"
 	}
-	return strings.TrimSpace(s[:n-1]) + "…"
+	return s + strings.Repeat(" ", n-ansi.StringWidth(s))
 }

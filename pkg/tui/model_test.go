@@ -4,9 +4,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/tui"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -180,6 +182,64 @@ func TestModel(t *testing.T) {
 				assert.LessOrEqual(t, len(l), 30)
 			}
 		})
+
+		ctx := column(lines[0], "CTX")
+		row := func(edit func(*state.Session), width int) string {
+			s := session("i", state.Working, 0)
+			edit(&s)
+			return model(s).Lines(width)[1]
+		}
+		dashed := func(s *state.Session) { s.Title = strings.Repeat("a", 38) + "— and well past forty columns" }
+		accented := func(s *state.Session) {
+			s.CWD = "/home/x/" + strings.Repeat("é", 20)
+			s.Tool, s.Subject = "Edit", s.CWD+"/a"+strings.Repeat("é", 30)
+		}
+
+		t.Run("and a title has an em dash at byte 39", func(t *testing.T) {
+			line := row(dashed, 0)
+
+			t.Run("it should stay valid UTF-8", func(t *testing.T) {
+				assert.True(t, utf8.ValidString(line), line)
+			})
+
+			t.Run("it should shorten the title to 40 columns ending in …", func(t *testing.T) {
+				assert.Contains(t, line, strings.Repeat("a", 38)+"—… ")
+			})
+		})
+
+		t.Run("and the doing and project columns are cut inside an accented character", func(t *testing.T) {
+			t.Run("it should stay valid UTF-8", func(t *testing.T) {
+				line := row(accented, 0)
+				assert.True(t, utf8.ValidString(line), line)
+			})
+		})
+
+		t.Run("and a line with non-ASCII text is wider than the given width", func(t *testing.T) {
+			cut := row(accented, 60)
+
+			t.Run("it should stay valid UTF-8", func(t *testing.T) {
+				assert.True(t, utf8.ValidString(cut), cut)
+			})
+
+			t.Run("it should fill the width exactly", func(t *testing.T) {
+				assert.Equal(t, 60, ansi.StringWidth(cut), cut)
+			})
+		})
+
+		for name, title := range map[string]string{
+			"and a title is in a wide script":                        "漢字の題",
+			"and a wide character straddles the title's 40th column": strings.Repeat("漢", 30),
+		} {
+			t.Run(name, func(t *testing.T) {
+				wide := session("w", state.Working, 0)
+				wide.Title = title
+				line := model(wide).Lines(0)[1]
+
+				t.Run("it should start the CTX column where the header does", func(t *testing.T) {
+					assert.Equal(t, ctx, column(line, "25%"), line)
+				})
+			})
+		}
 	})
 
 	t.Run("when there are no rows", func(t *testing.T) {
@@ -208,4 +268,12 @@ func TestModel(t *testing.T) {
 			assert.Equal(t, "attached a", m.Footer())
 		})
 	})
+}
+
+func column(line, sub string) int {
+	i := strings.Index(line, sub)
+	if i < 0 {
+		return -1
+	}
+	return ansi.StringWidth(line[:i])
 }
