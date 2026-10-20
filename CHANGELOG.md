@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The live table (`status --live`) no longer breaks text with accents, dashes or non-Latin scripts.**
+  A shortened title, folder or tool line could end in a replacement mark, lines stopped short of the terminal's edge, and a title in a wide script such as Chinese or Japanese pushed the columns after it out of line.
+
 - New session names the session its group guess is based on by its title, as the board does, rather than by its id.
 
 - **Your statistics hold only your own sessions.**
