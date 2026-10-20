@@ -1058,6 +1058,43 @@ func TestMinimap(t *testing.T) {
 		})
 	})
 
+	// Item 170: the box was scaled for the turned map and its contents
+	// drawn unturned, so after a turn they landed off it.
+	t.Run("when a fitted isometric city is projected into a box", func(t *testing.T) {
+		holds := func(outer, inner city.Rect) bool {
+			const e = 1e-6
+			return inner.Min.X >= outer.Min.X-e && inner.Min.Y >= outer.Min.Y-e &&
+				inner.Max.X <= outer.Max.X+e && inner.Max.Y <= outer.Max.Y+e
+		}
+		for turns := 1; turns <= 3; turns++ {
+			t.Run(fmt.Sprintf("and the camera has turned %d times", turns), func(t *testing.T) {
+				s := scene(t, session("a", cinders, state.Working), session("b", botropolis, state.Working), session("c", "/p/c", state.Working))
+				s.SetProjection(city.Isometric)
+				s.Fit()
+				for i := 0; i < turns; i++ {
+					s.Turn()
+				}
+				box := city.RectAt(600, 500, 160, 96)
+				m := s.Minimap(box)
+				all := m.ProjectRect(s.City().Bounds())
+
+				t.Run("it should keep every district inside the box", func(t *testing.T) {
+					for _, d := range s.City().Districts {
+						assert.True(t, holds(box, m.ProjectRect(d.Rect)), d.Root)
+					}
+				})
+
+				t.Run("it should keep the city inside the box", func(t *testing.T) {
+					assert.True(t, holds(box, all))
+				})
+
+				t.Run("it should mark the view as holding the whole city", func(t *testing.T) {
+					assert.True(t, holds(m.View, all))
+				})
+			})
+		}
+	})
+
 	t.Run("when there is no city", func(t *testing.T) {
 		s := city.NewScene(city.NewLayout())
 		s.Resize(800, 600)

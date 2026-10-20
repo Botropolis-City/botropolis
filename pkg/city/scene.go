@@ -546,14 +546,15 @@ func (s *Scene) DistrictLabelAt(d *District, lineHeight, width float64) Point {
 }
 
 // Minimap projects the whole city into a screen box, with the camera's
-// viewport marked.
+// viewport marked. It projects through the camera, heading and all, so
+// it turns with the city (item 170).
 type Minimap struct {
-	Box        Rect
-	Scale      float64
-	origin     Point
-	bounds     Rect
-	projection Projection
-	View       Rect
+	Box    Rect
+	Scale  float64
+	origin Point
+	bounds Rect
+	camera Camera
+	View   Rect
 }
 
 func (s *Scene) Minimap(box Rect) Minimap {
@@ -562,7 +563,7 @@ func (s *Scene) Minimap(box Rect) Minimap {
 		return Minimap{Box: box}
 	}
 	scale := math.Min(box.Width()/bounds.Width(), box.Height()/bounds.Height())
-	m := Minimap{Box: box, Scale: scale, bounds: bounds, projection: s.camera.Projection}
+	m := Minimap{Box: box, Scale: scale, bounds: bounds, camera: *s.camera}
 	m.origin = Point{
 		X: box.Min.X + (box.Width()-bounds.Width()*scale)/2,
 		Y: box.Min.Y + (box.Height()-bounds.Height()*scale)/2,
@@ -573,12 +574,12 @@ func (s *Scene) Minimap(box Rect) Minimap {
 
 // Project maps a world point into the minimap box.
 func (m Minimap) Project(p Point) Point {
-	return m.origin.Add(m.projection.Apply(p).Sub(m.bounds.Min).Scale(m.Scale))
+	return m.origin.Add(m.camera.Project(p).Sub(m.bounds.Min).Scale(m.Scale))
 }
 
 // ProjectRect maps a world rect's projected box into the minimap.
 func (m Minimap) ProjectRect(r Rect) Rect {
-	b := m.projection.Bounds(r)
+	b := m.camera.Bounds(r)
 	return Rect{
 		Min: m.origin.Add(b.Min.Sub(m.bounds.Min).Scale(m.Scale)),
 		Max: m.origin.Add(b.Max.Sub(m.bounds.Min).Scale(m.Scale)),
