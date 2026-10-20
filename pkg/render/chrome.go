@@ -86,7 +86,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		g.pinnedKinds = g.scene.Actions()
 	}
 	if st, ok := g.stripHover(pointer); ok {
-		g.card(screen, ui.LayoutCard(th, g.scene.City().StateCard(st), bounds, g.faces.Measure))
+		g.card(screen, ui.LayoutCard(th, g.scene.StateCard(st), bounds, g.faces.Measure))
 	} else if hover := g.scene.Hover(); hover.Building == nil || hover.Building != g.scene.Selected() {
 		if card, ok := g.scene.Card(); ok {
 			g.card(screen, g.raisedCard(card, bounds))

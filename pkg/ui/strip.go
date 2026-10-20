@@ -28,6 +28,9 @@ func StripChips(s city.Summary) []Chip {
 	for _, c := range state.Nonzero(s.Counts()) {
 		chips = append(chips, Chip{city.CountLabel(c), StateTone(c.State), c.State})
 	}
+	if s.SetAside > 0 {
+		chips = append(chips, Chip{Text: fmt.Sprintf("%d set aside", s.SetAside)})
+	}
 	chips = append(chips,
 		Chip{Text: format.Tokens(s.FreshPerH) + "/h fresh"},
 		Chip{Text: format.Tokens(s.CachedPerH) + "/h cached"},

@@ -214,4 +214,33 @@ func TestBar(t *testing.T) {
 			assert.Equal(t, "● 1 needs you · 1 working · 1 set aside — Fix the CI queue\n", out.String())
 		})
 	})
+
+	t.Run("when the city and the bar read the same snapshot and snoozed layout", func(t *testing.T) {
+		shared := state.Snapshot{At: asked, Sessions: []state.Session{
+			{ID: "a", CWD: "/home/a/cinders", State: state.NeedsYou, Title: "Waiting", LastActivity: asked},
+			{ID: "b", CWD: "/home/a/cinders", State: state.NeedsYou, Title: "Snoozed", LastActivity: asked},
+		}}
+		layout := city.NewLayout()
+		layout.Snoozed = map[string]time.Time{"b": asked.Add(time.Hour)}
+		headline := func(at time.Time) string {
+			s := city.NewScene(layout)
+			s.SetClock(func() time.Time { return at }, time.UTC)
+			s.Resize(800, 600)
+			s.SetSnapshot(shared)
+			return s.Summary().Headline()
+		}
+
+		t.Run("and the snooze has not run out", func(t *testing.T) {
+			t.Run("it should give the bar the city's headline", func(t *testing.T) {
+				assert.Contains(t, commands.Summarize(shared, layout, asked).Text, headline(asked))
+			})
+		})
+
+		t.Run("and the snooze has run out", func(t *testing.T) {
+			t.Run("it should give the bar the city's headline", func(t *testing.T) {
+				later := asked.Add(time.Hour)
+				assert.Contains(t, commands.Summarize(shared, layout, later).Text, headline(later))
+			})
+		})
+	})
 }

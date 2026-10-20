@@ -239,7 +239,7 @@ func (s *Scene) aggregate(l Lens) string {
 	case LensConnections:
 		return plural(len(s.city.Roads), "road") + " between projects"
 	}
-	n := count(func(s state.Session) bool { return s.State == state.NeedsYou })
+	n := s.needingYou()
 	if n == 1 {
 		return "1 session needs you"
 	}
@@ -267,24 +267,10 @@ func NothingToJumpTo(st state.State) string {
 // do is the panel's what-to-do line: Attention's follows its count, so
 // it does not point tab at nobody.
 func (s *Scene) do(l Lens) string {
-	if l == LensAttention && s.inState(state.NeedsYou) == 0 {
+	if l == LensAttention && s.needingYou() == 0 {
 		return "Nobody is waiting on you; tab finds the next one when someone is."
 	}
 	return l.Do()
-}
-
-// inState is how many buildings are in a state.
-func (s *Scene) inState(st state.State) int {
-	n := 0
-	if s.city == nil {
-		return n
-	}
-	for _, b := range s.city.Buildings() {
-		if b.Session.State == st {
-			n++
-		}
-	}
-	return n
 }
 
 // prURL is the address of the session's pull request: the last one still

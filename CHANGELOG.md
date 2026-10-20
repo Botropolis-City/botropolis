@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`botropolis bar` leaves out the sessions you set aside in triage.**
   A session marked done with `d` and quiet since, or snoozed until a time still to come, is no longer named, listed in the tooltip, or counted as needing you; the bar counts it as "set aside" instead, as in "○ 1 working · 2 set aside", and the line moves on to the next session the way the city's footer does.
+
+- **The city counts set-aside sessions the way the bar does.**
+  The top strip, the window title, the needs-you chip's card and the Attention lens no longer count a session you marked done or snoozed as needing you; the strip shows it in a plain "1 set aside" chip, and clicking "needs you" skips it.
+  When the snooze runs out it needs you again everywhere at once (the window title at the next update from the daemon).
   Its counts now read as the city's do, "2 need you" rather than "2 needs-you".
   The JSON's keys and classes are unchanged.
 

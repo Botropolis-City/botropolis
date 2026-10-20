@@ -958,7 +958,7 @@ func (s *Scene) clamp() {
 func (s *Scene) JumpTo(st state.State) *Building {
 	var candidates []*Building
 	for _, b := range s.city.Buildings() {
-		if b.Session.State == st {
+		if b.Session.State == st && !s.setAside(b) {
 			candidates = append(candidates, b)
 		}
 	}

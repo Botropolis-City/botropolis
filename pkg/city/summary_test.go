@@ -106,6 +106,8 @@ func TestSummary(t *testing.T) {
 			"with only work running":       {city.Summary{Working: 3}, "3 working"},
 			"with only unattended work":    {city.Summary{Unattended: 1, Resting: 2}, "1 unattended"},
 			"with nothing live":            {city.Summary{Resting: 9}, "quiet"},
+			"with sessions set aside":      {city.Summary{NeedsYou: 1, Working: 1, SetAside: 1}, "1 needs you · 1 working · 1 set aside"},
+			"with only sessions set aside": {city.Summary{SetAside: 2}, "2 set aside"},
 		}
 		for name, c := range cases {
 			t.Run("and the city is "+name, func(t *testing.T) {

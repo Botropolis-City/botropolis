@@ -73,6 +73,14 @@ func TestStripChips(t *testing.T) {
 		})
 	})
 
+	t.Run("when sessions are set aside", func(t *testing.T) {
+		chips := ui.StripChips(city.Summary{NeedsYou: 1, Working: 1, SetAside: 1})
+
+		t.Run("it should show a plain set-aside chip after the state chips", func(t *testing.T) {
+			assert.Equal(t, ui.Chip{Text: "1 set aside"}, chips[2])
+		})
+	})
+
 	t.Run("when a daily budget is set", func(t *testing.T) {
 		cases := []struct {
 			cost float64

@@ -32,6 +32,9 @@ type Summary struct {
 	Errors    int
 	// BudgetUSD is the daily target from config, 0 for none.
 	BudgetUSD float64
+	// SetAside is the sessions needing you that triage marked done or
+	// snoozed, counted apart from NeedsYou (item 189).
+	SetAside int
 }
 
 // BudgetShare is how much of the daily budget the last 24 h spent, or 0
@@ -45,7 +48,7 @@ func (s Summary) BudgetShare() float64 {
 
 // Live is every session that is not resting.
 func (s Summary) Live() int {
-	return s.Working + s.NeedsYou + s.Waiting + s.Unattended
+	return s.Working + s.NeedsYou + s.Waiting + s.Unattended + s.SetAside
 }
 
 func (c *City) Summary() Summary {
@@ -102,6 +105,9 @@ func (s Summary) Headline() string {
 	for _, c := range state.Nonzero(s.Counts(), state.Live) {
 		parts = append(parts, CountLabel(c))
 	}
+	if s.SetAside > 0 {
+		parts = append(parts, fmt.Sprintf("%d set aside", s.SetAside))
+	}
 	if len(parts) == 0 {
 		return "quiet"
 	}
@@ -118,18 +124,25 @@ func CountLabel(c state.Count) string {
 
 // StateCard lists the sessions in a state, for hovering a strip chip.
 func (c *City) StateCard(st state.State) Card {
-	var lines []string
+	return c.stateCard(st, func(*Building) bool { return true })
+}
+
+func (c *City) stateCard(st state.State, keep func(*Building) bool) Card {
+	var matching []*Building
 	for _, b := range c.Buildings() {
-		if b.Session.State != st {
-			continue
+		if b.Session.State == st && keep(b) {
+			matching = append(matching, b)
 		}
+	}
+	var lines []string
+	for _, b := range matching {
 		line := b.Card(c.Time).Title
 		if doing := b.Session.Doing(); doing != "" {
 			line += "  " + doing
 		}
 		lines = append(lines, line)
 		if len(lines) == maxStateCardLines {
-			lines = append(lines, fmt.Sprintf("... and %d more", c.Summary().Counts()[st]-maxStateCardLines))
+			lines = append(lines, fmt.Sprintf("... and %d more", len(matching)-maxStateCardLines))
 			break
 		}
 	}

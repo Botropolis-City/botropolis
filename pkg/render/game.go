@@ -496,7 +496,7 @@ func (g *Game) Update() error {
 		g.shareSnapshot()
 		g.maybeJournal()
 		g.followUsage()
-		if title := windowTitle + " — " + g.scene.City().Summary().Headline(); title != g.shownTitle {
+		if title := windowTitle + " — " + g.scene.Summary().Headline(); title != g.shownTitle {
 			g.shownTitle = title
 			ebiten.SetWindowTitle(title)
 		}
