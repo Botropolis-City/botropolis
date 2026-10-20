@@ -100,3 +100,54 @@ func TestNothingRunsXvfbRun(t *testing.T) {
 		})
 	})
 }
+
+// Item 186: Xvfb gives the next server the display number just freed, and
+// a server started without a cookie answers anyone, so the hotkey test's
+// open server answered the xvfb test's check that a closed server had
+// stopped. pkg/xvfb starts every server with a cookie; nothing else may
+// start one.
+func TestOnlyPkgXvfbStartsXvfb(t *testing.T) {
+	root := repoRoot(t)
+
+	t.Run("when every Go file's exec.Command calls are read", func(t *testing.T) {
+		var calls int
+		var found []string
+		walkRepo(t, root, func(rel, path string) {
+			if !strings.HasSuffix(path, ".go") {
+				return
+			}
+			fset := token.NewFileSet()
+			file, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+			require.NoError(t, err, rel)
+			ast.Inspect(file, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				sel, ok := call.Fun.(*ast.SelectorExpr)
+				if !ok || (sel.Sel.Name != "Command" && sel.Sel.Name != "CommandContext") {
+					return true
+				}
+				if pkg, ok := sel.X.(*ast.Ident); !ok || pkg.Name != "exec" {
+					return true
+				}
+				calls++
+				for _, arg := range call.Args {
+					lit, ok := arg.(*ast.BasicLit)
+					if !ok || lit.Kind != token.STRING {
+						continue
+					}
+					if s, err := strconv.Unquote(lit.Value); err == nil && filepath.Base(s) == "Xvfb" && filepath.ToSlash(filepath.Dir(rel)) != "pkg/xvfb" {
+						found = append(found, fset.Position(lit.Pos()).String())
+					}
+				}
+				return true
+			})
+		})
+		require.NotZero(t, calls)
+
+		t.Run("it should find none starting Xvfb outside pkg/xvfb", func(t *testing.T) {
+			assert.Empty(t, found)
+		})
+	})
+}

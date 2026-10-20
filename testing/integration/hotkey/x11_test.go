@@ -1,14 +1,12 @@
 package hotkey_test
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +18,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/hotkey"
+	"botropolis.city/botropolis/pkg/xvfb"
 )
 
 // Xvfb is the whole proof that the X11 part works, so under CI a missing
@@ -46,17 +45,11 @@ type server struct {
 func startServer(t *testing.T) *server {
 	t.Helper()
 	need(t, "Xvfb", "test the global shortcut against an X server")
-	read, write, err := os.Pipe()
+	x, err := xvfb.Start(t.TempDir(), 800, 600)
 	require.NoError(t, err)
-	cmd := exec.Command("Xvfb", "-displayfd", "3", "-screen", "0", "800x600x24", "-nolisten", "tcp")
-	cmd.ExtraFiles = []*os.File{write}
-	require.NoError(t, cmd.Start())
-	_ = write.Close()
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-	line, err := bufio.NewReader(read).ReadString('\n')
-	require.NoError(t, err)
-	_ = read.Close()
-	s := &server{display: ":" + strings.TrimSpace(line)}
+	t.Cleanup(func() { _ = x.Close() })
+	t.Setenv("XAUTHORITY", x.Authority)
+	s := &server{display: x.Display}
 	s.conn, err = xgb.NewConnDisplay(s.display)
 	require.NoError(t, err)
 	t.Cleanup(s.conn.Close)
