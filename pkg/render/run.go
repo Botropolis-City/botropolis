@@ -261,6 +261,7 @@ func Run(ctx context.Context, opts Options) error {
 		X11InstanceName: x11Instance,
 	})
 	release()
+	game.finishSharing()
 	save(opts.Layout)
 	if err != nil && err != ebiten.Termination {
 		return err

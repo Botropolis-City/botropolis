@@ -21,7 +21,7 @@ func (g *Game) clipReport() string {
 // software GL Ebitengine ran several updates per draw, and the city ran
 // about three times ahead of its clip. Item 113.
 func (g *Game) startTick() bool {
-	if g.record != "" && g.ticks != g.painted {
+	if (g.record != "" || g.share.recording()) && g.ticks != g.painted {
 		return false
 	}
 	g.ticks++

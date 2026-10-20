@@ -791,6 +791,7 @@ func (g *Game) shifted() bool {
 }
 
 func (g *Game) capture(screen *ebiten.Image) {
+	g.shareCapture(screen)
 	if g.record != "" && g.shotFrames > 0 && !g.shotDone {
 		every := max(g.recordEvery, 1)
 		if g.recorded%every == 0 {
@@ -814,7 +815,6 @@ func (g *Game) capture(screen *ebiten.Image) {
 		}
 		return
 	}
-	g.shareCapture(screen)
 	if g.snap != "" {
 		if err := writePNG(g.snap, frame(screen)); err != nil {
 			g.SetStatus(err.Error())
