@@ -21,9 +21,11 @@ GO_MOD ?= go.mod
 GO_TOOLCHAIN := $(shell awk '$$1 == "toolchain" { print $$2 }' ${GO_MOD})
 export GOTOOLCHAIN := ${GO_TOOLCHAIN}
 GOLANGCI_LINT := go tool -modfile=tools/lint/go.mod golangci-lint
-# Item 133: empty for make lint. The format probe passes
-# --allow-parallel-runners, so another session's lint lock cannot fail it.
-GOLANGCI_LINT_FLAGS ?=
+# Item 186: golangci-lint takes a lock in TMPDIR for the whole machine and,
+# without this flag, gives up on it after five seconds, so a lint failed
+# whenever another session was linting. With it, a lint waits its turn. The
+# format probe passes --allow-parallel-runners instead (item 133).
+GOLANGCI_LINT_FLAGS ?= --allow-serial-runners
 GOLANGCI_LINT_PIN := $(shell awk '$$1 == "github.com/golangci/golangci-lint/v2" { print $$2 }' tools/lint/go.mod)
 
 MODULE := botropolis.city/botropolis
@@ -151,20 +153,23 @@ demo-adopt :: build-dev demo-tool demo-image
 
 test :: test-unit test-integration test-acceptance
 
+# Item 131: go test's default ten-minute timeout panics the acceptance suite
+# when several item sessions test at once; at a load average of about 63 it
+# took twelve minutes. Item 186: at about 150, pkg/render's unit tests hit it
+# too, so every suite takes the same explicit timeout. CI sets a tighter
+# ACCEPTANCE_TIMEOUT, since a CI run takes about four and a half minutes and a
+# hang should fail it quickly.
+TEST_TIMEOUT ?= 40m
+ACCEPTANCE_TIMEOUT ?= ${TEST_TIMEOUT}
+
 test-unit ::
 	$(LOG) "Running unit tests"
-	@go test ./cmd/... ./pkg/... ./tools/acceptance-targets/...
-	@go test ${DEV_TAGS} ./pkg/cli/...
+	@go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/acceptance-targets/...
+	@go test -timeout ${TEST_TIMEOUT} ${DEV_TAGS} ./pkg/cli/...
 
 test-integration ::
 	$(LOG) "Running integration tests"
-	@go test ./testing/helpers/... ./testing/integration/...
-
-# Item 131: go test's default ten-minute timeout panics the acceptance suite
-# when several item sessions test at once; at a load average of about 63 it
-# took twelve minutes. CI sets its own, tighter value, since a CI run takes
-# about four and a half and a hang should fail it quickly.
-ACCEPTANCE_TIMEOUT ?= 40m
+	@go test -timeout ${TEST_TIMEOUT} ./testing/helpers/... ./testing/integration/...
 
 test-acceptance ::
 	$(LOG) "Running acceptance tests"
@@ -210,7 +215,32 @@ lint :: go-version-check lint-version-check docs-check version-check workflows-c
 	$(LOG) "Linting"
 	@go vet ./...
 	@go vet ${DEV_TAGS} ./...
+	@${MAKE} --no-print-directory lint-golangci
+
+lint-golangci ::
 	@${GOLANGCI_LINT} run ${GOLANGCI_LINT_FLAGS} ./...
+
+# Item 186: item sessions land one at a time. Each runs make land, one plain
+# command, which takes a lock for the whole machine and, holding it, rebases
+# onto the remote's main, runs the gate and pushes. Nothing is piped, so the
+# gate's exit code alone decides the push. Every process under the lock holds
+# it, so a session killed with its process group releases it at once.
+LAND_LOCK ?= /tmp/botropolis-land.lock
+LAND_REMOTE ?= github
+LAND_BRANCH ?= main
+LAND_GATE ?= lint test
+
+land ::
+	@command -v flock >/dev/null || { echo "make land needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
+	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
+	@flock ${LAND_LOCK} ${MAKE} --no-print-directory land-under-lock
+
+land-under-lock ::
+	$(LOG) "Landing on ${LAND_REMOTE}/${LAND_BRANCH}, holding ${LAND_LOCK}"
+	@git fetch ${LAND_REMOTE}
+	@git rebase ${LAND_REMOTE}/${LAND_BRANCH}
+	@${MAKE} --no-print-directory ${LAND_GATE}
+	@git push ${LAND_REMOTE} HEAD:${LAND_BRANCH}
 
 go-version-check ::
 	$(LOG) "Checking Go is the toolchain go.mod pins"
