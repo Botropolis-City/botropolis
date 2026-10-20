@@ -74,10 +74,42 @@ type Body struct {
 // face of a building carries that face's slope.
 type Pane [4]image.Point
 
+// GlassRule is a colour of lit glass as the pipeline measured windows
+// with: inclusive bounds on red, green, blue and alpha, and how much
+// redder than blue it must be, how much redder than green it may be, and
+// how much greener than blue it must be (item 166).
+type GlassRule struct {
+	Min                [4]uint8 `json:"min"`
+	Max                [4]uint8 `json:"max"`
+	RedOverBlue        int      `json:"red_over_blue"`
+	RedOverGreenAtMost int      `json:"red_over_green_at_most"`
+	GreenOverBlue      int      `json:"green_over_blue"`
+}
+
+// Matches is whether a pixel is this glass.
+func (r GlassRule) Matches(red, green, blue, alpha uint8) bool {
+	c := [4]uint8{red, green, blue, alpha}
+	for i := range c {
+		if c[i] < r.Min[i] || c[i] > r.Max[i] {
+			return false
+		}
+	}
+	return int(red)-int(blue) >= r.RedOverBlue && int(red)-int(green) <= r.RedOverGreenAtMost && int(green)-int(blue) >= r.GreenOverBlue
+}
+
+// GlassRules are the colours the pipeline told glass by: Lit is every
+// pixel of a lit window, its soft edge included, and Core is the glass
+// itself, which a window must hold some of to be one.
+type GlassRules struct {
+	Lit, Core GlassRule
+}
+
 // KitAtlas is every piece the map draws, cut at one zoom level.
 type KitAtlas struct {
-	Zoom    float64
-	Tile    float64
+	Zoom float64
+	Tile float64
+	// Glass is how the pipeline told our own buildings' windows (item 166).
+	Glass   GlassRules
 	Pages   []image.Image
 	sprites map[string][4]KitSprite
 	files   []string
@@ -159,9 +191,13 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 		return KitAtlas{}, err
 	}
 	var m struct {
-		Zoom    float64  `json:"zoom"`
-		Tile    float64  `json:"tile"`
-		Pages   []string `json:"pages"`
+		Zoom  float64  `json:"zoom"`
+		Tile  float64  `json:"tile"`
+		Pages []string `json:"pages"`
+		Glass struct {
+			Lit  GlassRule `json:"lit"`
+			Core GlassRule `json:"core"`
+		} `json:"glass"`
 		Sprites map[string]map[string]struct {
 			Page  int       `json:"page"`
 			X     int       `json:"x"`
@@ -180,7 +216,8 @@ func loadKitAtlas(path string) (KitAtlas, error) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return KitAtlas{}, err
 	}
-	atlas := KitAtlas{Zoom: m.Zoom, Tile: m.Tile, sprites: map[string][4]KitSprite{}, files: m.Pages}
+	atlas := KitAtlas{Zoom: m.Zoom, Tile: m.Tile, sprites: map[string][4]KitSprite{}, files: m.Pages,
+		Glass: GlassRules{Lit: m.Glass.Lit, Core: m.Glass.Core}}
 	for name, headings := range m.Sprites {
 		var set [4]KitSprite
 		for i, heading := range Headings {

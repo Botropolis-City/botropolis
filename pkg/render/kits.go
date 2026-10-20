@@ -17,6 +17,20 @@ import (
 type kitAtlas struct {
 	assets.KitAtlas
 	pages []*ebiten.Image
+	// walls is each kind's span on every row at each heading, which
+	// holds its planks to the building, and storeys the storey each of
+	// its panes is on, which says which light as it rises; both measured
+	// as its page is put up (item 166).
+	walls   map[string][4][]span
+	storeys map[string][4][]int
+}
+
+// kitAtlas is the atlas for a camera, or nil without kits.
+func (g *Game) kitAtlas(cam *city.Camera) *kitAtlas {
+	if g.kits == nil {
+		return nil
+	}
+	return g.kits.pick(cam.Zoom)
 }
 
 type kits struct {
@@ -83,6 +97,7 @@ func (k *kits) uploadNext() (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		a.prepareKinds(len(a.pages), page)
 		a.pages = append(a.pages, ebiten.NewImageFromImageWithOptions(page, pageOptions()))
 		if k.ready() {
 			// Nothing else the city does allocates on this scale, so

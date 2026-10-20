@@ -646,19 +646,48 @@ def kit_glass(r, g, b, a):
     return (a > 200) & (b - r > 40) & (b > 120)
 
 
-def warm_glass(r, g, b, a):
-    """Our own buildings' lit windows, buildings.WINDOW as rendered."""
-    return (a > 200) & (r > 225) & (g > 190) & (b > 90) & (b < 185) & (r - b > 70)
+# How our own buildings' lit windows are told in a rendered sprite, as
+# inclusive bounds on red, green, blue and alpha and how much redder than
+# blue, how much at most redder than green, and how much greener than
+# blue. "lit" is every pixel of a window, its soft edge included; "core"
+# is the glass itself, which a window must hold some of, so trim that
+# shares a soft edge's colour and the billboard, redder and less green
+# than any glass, are not windows.
+# The manifest carries this, so the map's tests tell glass the same way.
+# Item 166.
+GLASS = {
+    "lit": {"min": [226, 191, 91, 201], "max": [255, 255, 184, 255], "red_over_blue": 71, "red_over_green_at_most": 255, "green_over_blue": 0},
+    "core": {"min": [226, 191, 91, 201], "max": [255, 255, 160, 255], "red_over_blue": 90, "red_over_green_at_most": 39, "green_over_blue": 80},
+}
 
 
-def panes(rgba, glass_of=kit_glass):
+def glass_rule(rule):
+    lo, hi = rule["min"], rule["max"]
+
+    def match(r, g, b, a):
+        inside = (r >= lo[0]) & (r <= hi[0]) & (g >= lo[1]) & (g <= hi[1]) & (b >= lo[2]) & (b <= hi[2]) & (a >= lo[3]) & (a <= hi[3])
+        return inside & (r - b >= rule["red_over_blue"]) & (r - g <= rule["red_over_green_at_most"]) & (g - b >= rule["green_over_blue"])
+
+    return match
+
+
+warm_glass = glass_rule(GLASS["lit"])
+warm_core = glass_rule(GLASS["core"])
+
+
+def panes(rgba, glass_of=kit_glass, core_of=None, min_area=PANE_MIN_AREA, corner=None):
     """Each window pane in a cut sprite, as the four corners of the
     parallelogram it covers -- top left, top right, bottom right, bottom
-    left -- in the sprite's own pixels. The corners are the topmost and
-    bottommost glass pixel in the pane's leftmost and rightmost columns,
-    so a pane on either face carries that face's slope. Item 86."""
+    left -- in the sprite's own pixels. A pane is a patch of glass,
+    touching at edges or corners, split at the building's near corner
+    so each face's windows are their own; its slope is its face's, and
+    its edges are pushed out until every pixel of its glass is inside.
+    With core_of, a patch holding none of that glass is not a window, and
+    one that does is however small: an industrial transom is a pixel tall.
+    Items 86 and 166."""
     r, g, b, a = (rgba[:, :, i].astype(int) for i in range(4))
     glass = glass_of(r, g, b, a)
+    core = core_of(r, g, b, a) if core_of else glass
     seen = np.zeros(glass.shape, dtype=bool)
     h, w = glass.shape
     out = []
@@ -670,19 +699,83 @@ def panes(rgba, glass_of=kit_glass):
         while stack:
             y, x = stack.pop()
             pixels.append((y, x))
-            for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
-                if 0 <= ny < h and 0 <= nx < w and glass[ny, nx] and not seen[ny, nx]:
-                    seen[ny, nx] = True
-                    stack.append((ny, nx))
-        if len(pixels) < PANE_MIN_AREA:
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ny, nx = y + dy, x + dx
+                    if 0 <= ny < h and 0 <= nx < w and glass[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        stack.append((ny, nx))
+        if not any(core[y, x] for y, x in pixels):
             continue
-        xs = [x for _, x in pixels]
-        left, right = min(xs), max(xs)
-        lys = [y for y, x in pixels if x == left]
-        rys = [y for y, x in pixels if x == right]
-        out.append([left, min(lys), right + 1, min(rys), right + 1, max(rys) + 1, left, max(lys) + 1])
+        for part in faces(pixels):
+            if len(part) >= min_area:
+                out.append(enclose(part, corner))
     out.sort()
     return [[int(v) for v in q] for q in out]
+
+
+# How steeply a face's horizontal lines fall across the sprite: the map's
+# projection is two across for one down, so every face slopes by half.
+ISO_SLOPE = 0.5
+
+
+
+def enclose(pixels, corner=None):
+    """The parallelogram over a pane's glass: its face's slope, which way
+    told by whichever of its top and bottom edges, across its inner columns
+    where the glass is whole, runs nearest the projection's slope, or, when
+    the glass is too narrow to say, by which side of the building's near
+    corner (the sprite's anchor) it is on; and its top and
+    bottom edges pushed out until every pixel is inside, so an end column
+    cut short by a soft edge, or glass half hidden by a sign or a crane,
+    does not skew or pinch it. Item 166."""
+    top, bottom = {}, {}
+    for y, x in pixels:
+        top[x] = min(top.get(x, y), y)
+        bottom[x] = max(bottom.get(x, y), y)
+    cols = sorted(top)
+    left, right = cols[0], cols[-1] + 1
+    inner = cols[1:-1] if len(cols) >= 4 else cols
+    slope = 0.0
+    if len(inner) >= 2:
+        mean = sum(inner) / len(inner)
+        spread = sum((x - mean) ** 2 for x in inner)
+
+        def fit(edge):
+            level = sum(edge[x] for x in inner) / len(inner)
+            return sum((x - mean) * (edge[x] - level) for x in inner) / spread
+
+        # The edge that runs closest to the projection's slope is a face's
+        # own edge; the other may be where a sign or a crane cuts it.
+        fitted = min((fit(top), fit(bottom)), key=lambda f: abs(abs(f) - ISO_SLOPE))
+        if fitted:
+            slope = math.copysign(ISO_SLOPE, fitted)
+        elif corner is not None:
+            slope = ISO_SLOPE if (cols[0] + cols[-1] + 1) / 2 < corner else -ISO_SLOPE
+    t0 = min(top[x] - slope * (x - left) for x in cols)
+    b0 = max(bottom[x] + 1 - slope * (x - left) for x in cols)
+    run = slope * (right - left)
+    return [left, math.floor(t0), right, math.floor(t0 + run), right, math.ceil(b0 + run), left, math.ceil(b0)]
+
+
+# How much higher than the corner both ends of a wrapped band must be
+# before it is split there, in pixels.
+CORNER_RISE = 1
+
+
+def faces(pixels):
+    """A glass patch split at the building's near corner. A ribbon window
+    that wraps the corner is one patch but two panes, one on each face:
+    its top edge falls to the corner and rises away from it, so the
+    lowest point of the top edge is where it turns. Item 166."""
+    top = {}
+    for y, x in pixels:
+        top[x] = min(top.get(x, y), y)
+    cols = sorted(top)
+    corner = max(cols, key=lambda x: (top[x], -abs(x - (cols[0] + cols[-1]) / 2)))
+    if corner in (cols[0], cols[-1]) or min(top[corner] - top[cols[0]], top[corner] - top[cols[-1]]) < CORNER_RISE:
+        return [pixels]
+    return [[p for p in pixels if p[1] <= corner], [p for p in pixels if p[1] > corner]]
 
 
 class Pages:
@@ -794,7 +887,7 @@ def atlas(args):
                     if kit == "city-kit-commercial" and name.startswith("building"):
                         sprites[key][str(heading)]["panes"] = panes(cut)
                     if kit == "botropolis" and buildings.is_kind(name):
-                        sprites[key][str(heading)]["panes"] = panes(cut, warm_glass)
+                        sprites[key][str(heading)]["panes"] = panes(cut, warm_glass, warm_core, min_area=1, corner=round(float(ax - x0), 2))
                         sprites[key][str(heading)]["body"] = list(root["body"]) + [root["roof"]]
                     if kit == "botropolis" and buildings.is_course(name):
                         sprites[key][str(heading)]["body"] = list(root["body"])
@@ -821,7 +914,7 @@ def atlas(args):
         if len(names) > PAGE_BUDGET:
             print(f"BUDGET zoom {zoom:g} needs {len(names)} pages; the budget is {PAGE_BUDGET}", file=sys.stderr)
             sys.exit(1)
-        manifest = {"zoom": zoom, "tile": TILE_PX * zoom, "page": PAGE, "pages": names, "sprites": sprites}
+        manifest = {"zoom": zoom, "tile": TILE_PX * zoom, "page": PAGE, "pages": names, "sprites": sprites, "glass": GLASS}
         with open(os.path.join(out, stem + ".json"), "w") as f:
             json.dump(manifest, f, indent=1, sort_keys=True)
             f.write("\n")
@@ -850,7 +943,7 @@ def kinds(args):
         _, (ax, ay) = frame_piece(root, args.heading, zoom, ground)
         cut, (x0, y0) = crop(render_pixels(tmp))
         cuts[name] = (cut, ax - x0, ay - y0)
-        print(f"KIND {name}: {cut.shape[1]}x{cut.shape[0]} px, {len(panes(cut, warm_glass))} panes")
+        print(f"KIND {name}: {cut.shape[1]}x{cut.shape[0]} px, {len(panes(cut, warm_glass, warm_core, min_area=1, corner=round(float(ax - x0), 2)))} panes")
         remove(root)
     cell_w = max(c.shape[1] for c, _, _ in cuts.values()) + 24
     above = max(ay for _, _, ay in cuts.values())

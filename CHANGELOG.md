@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A building's lit windows also sit on its own storeys now, so a new storey lights as soon as the building gains it.
   Under reduced motion they fade in with the building.
 
+- **At night a building's own windows are lit, not round halos over them.**
+  Each lived-in building keeps its windows at their daytime brightness while the rest of it goes dark, so a lit building reads as its windows rather than a grid of discs.
+  Boarded-up windows fit every building too: an industrial building's planks no longer hang off its corners.
+
 ## [0.2.3] - 2026-10-19
 
 ### Changed

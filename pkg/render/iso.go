@@ -1198,21 +1198,15 @@ func (g *Game) drawCar(screen *ebiten.Image, cam *city.Camera, car car) {
 }
 
 // Night: the wash dims everything, then every building with a session
-// awake in it glows from its windows, so at night the map reads as
-// "which lights are on".
-var (
-	colorWindowGlow = color.NRGBA{0xff, 0xc8, 0x70, 0x2c}
-	colorWindowCore = color.NRGBA{0xff, 0xe0, 0xa0, 0x30}
-	colorPlantGlow  = color.NRGBA{0xf0, 0xb4, 0x4c, 0x40}
-)
+// awake in it shows its own windows lit through the dark (item 166), so
+// at night the map reads as "which lights are on".
+var colorPlantGlow = color.NRGBA{0xf0, 0xb4, 0x4c, 0x40}
 
-// At fit a lamp is a pixel and a window a fraction of one, so every
-// light keeps a floor in screen pixels and gets brighter the further
-// out the view is: what matters at fit is which lights are on, not
-// their size.
+// At fit a lamp is a pixel, so every lamp keeps a floor in screen pixels
+// and gets brighter the further out the view is: what matters at fit is
+// which lights are on, not their size.
 const (
 	minLampGlow   = 3.0
-	minWindowGlow = 2.5
 	minPlantGlow  = 14.0
 	glowBoostZoom = 0.6
 	glowBoostMax  = 2.5
@@ -1221,27 +1215,6 @@ const (
 // lit is a glow radius with a floor in pixels.
 func lit(radius, floor float64) float64 {
 	return math.Max(radius, floor)
-}
-
-// windowGlow is lit for a window, held to the storey it lights.
-//
-// The discs are additive — two that overlap are brighter than either,
-// and a column of them saturates to white. That is deliberate at fit,
-// where what matters is which lights are on rather than their size. It
-// stops being deliberate as the view comes in: the radius grows with the
-// zoom while the storeys between the discs do not grow faster, so a
-// five-storey building came to wear five merged discs and disappeared
-// behind its own windows.
-//
-// So the radius is capped at half a storey, which is what keeps two of
-// them apart, and the floor is itself held to the storey — a floor that
-// is taller than the thing it lights is not a floor, it is the whole
-// building.
-func windowGlow(radius, floor, storey float64) float64 {
-	if storey <= 0 {
-		return math.Max(radius, floor)
-	}
-	return math.Min(math.Max(radius, math.Min(floor, storey/2)), storey/2)
 }
 
 // boost brightens a light's alpha as the view zooms out past
@@ -1256,26 +1229,11 @@ func boost(c color.NRGBA, zoom float64) color.NRGBA {
 }
 
 func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City) {
+	g.windowDraws = 0
 	for _, b := range c.Buildings() {
-		if !b.Lit || b.Blinds {
-			continue
-		}
-		on := g.scene.Lights(b.Session.ID)
-		if on <= 0 {
-			continue
-		}
-		foot := g.footOf(cam, b)
-		size := g.kitSize(cam, buildingPiece(b))
-		w := float64(size.X)
-		storeys, storey, plinth := g.storeyFrame(cam, b, size)
-		built := g.scene.Rising(b.Session.ID) * (plinth + float64(storeys)*storey)
-		for _, up := range windowRows(storeys, storey, plinth, built) {
-			y := foot.Y - up
-			side := windowGlow(w*0.16, minWindowGlow, storey)
-			core := windowGlow(w*0.1, minWindowGlow*0.6, storey)
-			glow(screen, city.Point{X: foot.X - w*0.2, Y: y}, side, dimLight(boost(colorWindowGlow, cam.Zoom), on))
-			glow(screen, city.Point{X: foot.X + w*0.2, Y: y}, side, dimLight(boost(colorWindowGlow, cam.Zoom), on))
-			glow(screen, city.Point{X: foot.X, Y: y}, core, dimLight(boost(colorWindowCore, cam.Zoom), on))
+		rise := g.scene.Rising(b.Session.ID)
+		if lights, ok := g.windowLights(cam, b, rise, g.scene.Lights(b.Session.ID)); ok {
+			g.drawWindows(screen, cam, b, lights, rise)
 		}
 	}
 	if c.Plant.Rect.Area() > 0 {
@@ -1317,12 +1275,6 @@ func (g *Game) storeyFrame(cam *city.Camera, b *city.Building, size image.Point)
 	h := float64(size.Y)
 	n := max(1, int(h/(38*cam.Zoom)))
 	return n, h * 0.7 / float64(n), h * 0.15
-}
-
-// dimLight scales a light's alpha by how far its building's lights are on.
-func dimLight(c color.NRGBA, k float64) color.NRGBA {
-	c.A = uint8(math.Round(float64(c.A) * min(1, max(0, k))))
-	return c
 }
 
 // glow is a soft additive disc: light, not paint.

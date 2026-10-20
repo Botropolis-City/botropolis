@@ -17,7 +17,7 @@ import (
 const sheetDisplayEnv = "BOTROPOLIS_SHEET_DISPLAY"
 
 func sheetCommand() *cobra.Command {
-	out, zoom := "", 1.0
+	out, zoom, check := "", 1.0, false
 	cmd := &cobra.Command{
 		Use:   "sheet",
 		Short: "Draw every building piece, lived in and boarded up, by day and by night, to a PNG",
@@ -25,10 +25,23 @@ func sheetCommand() *cobra.Command {
 			"map's own drawing, on a private virtual display (Xvfb). Item 166.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if out == "" {
+			if out == "" && !check {
 				return fmt.Errorf("--out is required")
 			}
 			if os.Getenv(sheetDisplayEnv) != "" {
+				if check {
+					problems, err := render.CheckLights(zoom)
+					if err != nil {
+						return err
+					}
+					for _, p := range problems {
+						fmt.Fprintln(cmd.ErrOrStderr(), p)
+					}
+					if len(problems) > 0 {
+						return fmt.Errorf("%d buildings lit wrongly at night", len(problems))
+					}
+					return nil
+				}
 				return render.Sheet(out, zoom)
 			}
 			dir, err := os.MkdirTemp("", "botropolis-sheet-")
@@ -55,11 +68,16 @@ func sheetCommand() *cobra.Command {
 			if err := child.Run(); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", out)
+			if check {
+				fmt.Fprintln(cmd.OutOrStdout(), "every lit building lights its own panes and nothing else")
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", out)
+			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&out, "out", out, "PNG to write")
 	cmd.Flags().Float64Var(&zoom, "zoom", zoom, "camera zoom to draw at; 1 is the map's")
+	cmd.Flags().BoolVar(&check, "check-lights", check, "draw no sheet; check every building's night lights fall on its panes")
 	return cmd
 }

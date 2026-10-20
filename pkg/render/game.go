@@ -111,6 +111,8 @@ type Game struct {
 	saveState func(*city.Layout)
 	sprites   *sprites
 	kits      *kits
+	// windowDraws counts the night's window draws this frame (item 166).
+	windowDraws int
 
 	mu          sync.Mutex
 	pending     *state.Snapshot
