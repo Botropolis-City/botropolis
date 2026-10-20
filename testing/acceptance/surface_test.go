@@ -13,10 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/fx"
 	"go.yaml.in/yaml/v3"
 
+	"botropolis.city/botropolis/pkg/app"
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/commands"
@@ -41,6 +45,7 @@ type surface struct {
 
 func TestSurface(t *testing.T) {
 	surfaces := []surface{
+		{"commands", commandSurface},
 		{"config", configSurface},
 		{"bar", barSurface},
 		{"status-json", statusSurface},
@@ -63,6 +68,20 @@ func TestSurface(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("when the command tree is read", func(t *testing.T) {
+		commands := lineNames(commandSurface(t))
+		for _, promised := range []string{"botropolis --version", "botropolis --set", "botropolis status --live", "botropolis setup", "botropolis help"} {
+			t.Run("it should promise "+promised, func(t *testing.T) {
+				assert.Contains(t, commands, promised)
+			})
+		}
+		for _, deprecated := range []string{"botropolis version", "botropolis tui", "botropolis --tui", "botropolis resume", "botropolis prune", "botropolis install-hooks", "botropolis completion", "botropolis --daily_budget_usd"} {
+			t.Run("it should not promise "+deprecated+", deprecated or hidden", func(t *testing.T) {
+				assert.NotContains(t, commands, deprecated)
+			})
+		}
+	})
 
 	t.Run("when the config keys are read", func(t *testing.T) {
 		keys := lineNames(configSurface(t))
@@ -153,6 +172,49 @@ func lineNames(lines []string) []string {
 		out = append(out, name)
 	}
 	return out
+}
+
+// commandSurface is every command and flag a release build shows, by its
+// path from the root: `botropolis status --json<TAB>bool`, with the
+// shorthand after it when there is one. Hidden and deprecated ones are
+// left out, so a deprecation is not a removal until the command goes
+// (item 167). This test compiles without the devtools tag, as release
+// builds do; a frame flag in the tree means it did not, and fails.
+func commandSurface(t *testing.T) []string {
+	var root *cobra.Command
+	graph := fx.New(app.Module, fx.NopLogger, fx.Populate(&root))
+	require.NoError(t, graph.Err())
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
+	root.InitDefaultHelpFlag()
+	root.InitDefaultVersionFlag()
+	var lines []string
+	flagLine := func(path string, f *pflag.Flag) {
+		if f.Hidden || f.Deprecated != "" {
+			return
+		}
+		line := path + " --" + f.Name + "\t" + f.Value.Type()
+		if f.Shorthand != "" {
+			line += "\t-" + f.Shorthand
+		}
+		lines = append(lines, line)
+	}
+	var walk func(cmd *cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		if cmd.Hidden || cmd.Deprecated != "" {
+			return
+		}
+		path := cmd.CommandPath()
+		require.Nil(t, cmd.Flags().Lookup("screenshot"), "%s has --screenshot: this test was built with the devtools tag, which release builds are not", path)
+		lines = append(lines, path+"\tcommand")
+		cmd.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) { flagLine(path, f) })
+		cmd.PersistentFlags().VisitAll(func(f *pflag.Flag) { flagLine(path, f) })
+		for _, sub := range cmd.Commands() {
+			walk(sub)
+		}
+	}
+	walk(root)
+	return lines
 }
 
 // configSurface is every key config.toml reads, its type, and each value

@@ -1,0 +1,36 @@
+botropolis	command
+botropolis --config	string
+botropolis --help	bool	-h
+botropolis --home	string
+botropolis --set	key=value
+botropolis --socket	string
+botropolis --version	bool	-v
+botropolis attach	command
+botropolis attach --dir	string
+botropolis attach --new-window	bool
+botropolis bar	command
+botropolis bar --format	string
+botropolis bar --watch	bool
+botropolis city	command
+botropolis doctor	command
+botropolis events	command
+botropolis events --since	duration
+botropolis find	command
+botropolis find --limit	int	-n
+botropolis find --tool-output	bool
+botropolis help	command
+botropolis new	command
+botropolis notify	command
+botropolis rm	command
+botropolis rm --dry-run	bool
+botropolis rm --older-than	duration
+botropolis setup	command
+botropolis setup --dry-run	bool
+botropolis setup --remove	bool
+botropolis shell-init	command
+botropolis status	command
+botropolis status --all	bool	-a
+botropolis status --direct	bool
+botropolis status --json	bool
+botropolis status --live	bool	-l
+botropolis stop	command

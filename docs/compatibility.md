@@ -16,8 +16,19 @@ These are Aria's rulings of 2026-10-20 (roadmap item 149).
 
 ### The command line
 
-The commands, their flags and `botropolis --version` are being consolidated, with man pages, by roadmap item 167.
-This section will list them once that lands; until then the command line is not yet promised.
+Every command `botropolis --help` lists, and every flag each one shows, in the shape Aria chose for 1.0 (roadmap item 167):
+
+- `new`, `attach`, `stop`, `rm`, `status`, `find`, `city`, `setup`, `doctor`, `events`, `bar`, `notify`, `shell-init` and `help`;
+- the global flags `--config`, `--set key=value`, `--home`, `--socket` and `-h`/`--help`, and `-v`/`--version` on `botropolis` itself;
+- `attach --dir --new-window`, `rm --older-than --dry-run`, `status -a/--all -l/--live --json --direct`, `find -n/--limit --tool-output`, `events --since`, `bar --format --watch` and `setup --dry-run --remove`.
+
+Each flag's type and shorthand is promised with it.
+[`commands.txt`](../testing/acceptance/testdata/surface/commands.txt) is walked from the root command of a release build.
+
+Not promised: anything hidden or deprecated.
+`tui`, `--tui`, `resume`, `prune`, `install-hooks`, `version` and the per-setting flags such as `--daily_budget_usd` keep working through 0.x, each naming its replacement, and are removed at 1.0.0.
+`completion` is kept, hidden, for packagers.
+The city's frame flags (`--screenshot`, `--record` and the rest) are only in builds with the `devtools` tag.
 
 ### Machine-readable output
 

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **[docs/compatibility.md](docs/compatibility.md) says what 1.0.0 promises not to break**, and `make version-check` now fails when any of it is removed without an entry here under *Removed* and, from 1.0.0 on, a new major version:
-  `status --json`'s documented keys, `bar`'s JSON, every config key and its named values, every data file an earlier version wrote, and the package, release, unit and hook names.
+  every command and flag `--help` shows, `status --json`'s documented keys, `bar`'s JSON, every config key and its named values, every data file an earlier version wrote, and the package, release, unit and hook names.
 
 ### Changed
 
