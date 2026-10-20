@@ -277,17 +277,27 @@ func answering(sessions []Session, name string) (string, bool) {
 // groupViews is each group as the map shows it, with whose move it is
 // among the sessions the snapshot holds, and each of those sessions
 // marked with its group and why it joined.
-func groupViews(result group.Result, sessions []Session) []Group {
-	index := map[string]int{}
+// TitleOf names a session as the city does: by its title, or by its
+// short id when it has none or is not among sessions.
+func TitleOf(sessions []Session) func(id string) string {
+	index := make(map[string]int, len(sessions))
 	for i, s := range sessions {
 		index[s.ID] = i
 	}
-	titleOf := func(id string) string {
+	return func(id string) string {
 		if i, ok := index[id]; ok {
 			return title(sessions[i])
 		}
 		return ShortID(id)
 	}
+}
+
+func groupViews(result group.Result, sessions []Session) []Group {
+	index := map[string]int{}
+	for i, s := range sessions {
+		index[s.ID] = i
+	}
+	titleOf := TitleOf(sessions)
 	views := make([]Group, 0, len(result.Groups))
 	for _, g := range result.Groups {
 		view := Group{ID: g.ID, Name: g.Name, Short: group.Short(g), Anchor: g.Anchor}

@@ -193,8 +193,39 @@ func TestNewSession(t *testing.T) {
 			})
 		})
 	})
-}
+	t.Run("when the guess's reason names a session", func(t *testing.T) {
+		const id = "48b5815b-eb10-482d-9b32-bb648a4ed38b"
+		why := func(t *testing.T, sessions []state.Session) string {
+			t.Helper()
+			g, _ := opened(t)
+			g.scene.SetSnapshot(state.Snapshot{At: now, Sessions: sessions})
+			n := g.newSession()
+			n.guess = group.Guess{Group: "millrace", Tier: group.Likely, Reason: group.Reason{Signal: group.SignalTiming, With: id}}
+			n.alt = 0
+			got := n.why(g)
+			require.NotEmpty(t, got, "New session should give the guess's reason")
+			return got
+		}
 
+		t.Run("and the session is in the city with a title", func(t *testing.T) {
+			got := why(t, []state.Session{{ID: id, Title: "Saltmarsh API", CWD: "/w/api", State: state.Working}})
+
+			t.Run("it should name the session by its title", func(t *testing.T) {
+				assert.Contains(t, got, "Saltmarsh API")
+			})
+
+			t.Run("it should not name the session by its id", func(t *testing.T) {
+				assert.NotContains(t, got, id)
+			})
+		})
+
+		t.Run("and the session is not in the city", func(t *testing.T) {
+			t.Run("it should name the session by its short id", func(t *testing.T) {
+				assert.Equal(t, "likely, because it started with 48b5815b", why(t, nil))
+			})
+		})
+	})
+}
 func TestCompleteDir(t *testing.T) {
 	root := t.TempDir()
 	for _, d := range []string{"alpha", "beta", "gamma"} {

@@ -10,6 +10,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/group"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -253,7 +254,7 @@ func (n *newSession) why(g *Game) string {
 		return ""
 	}
 	tier := map[group.Tier]string{group.Sure: "because it ", group.Likely: "likely, because it ", group.Possible: "perhaps, because it "}[n.guess.Tier]
-	return tier + n.guess.Reason.Describe(func(id string) string { return id })
+	return tier + n.guess.Reason.Describe(state.TitleOf(g.scene.Snapshot().Sessions))
 }
 
 func (n *newSession) alternatives(g *Game) []string {

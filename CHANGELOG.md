@@ -46,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- New session names the session its group guess is based on by its title, as the board does, rather than by its id.
+
 - **Your statistics hold only your own sessions.**
   A daemon started with `--home` on another Claude home no longer records that home's sessions into your statistics, as it already kept out of your ledger and groups.
   Running Botropolis's own tests no longer adds a test session to them either.
