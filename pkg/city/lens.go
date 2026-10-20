@@ -246,6 +246,15 @@ func (s *Scene) aggregate(l Lens) string {
 	return fmt.Sprintf("%d sessions need you", n)
 }
 
+// JumpedTo is what tab, or a strip chip, says when it lands on a session.
+func JumpedTo(st state.State, title string) string {
+	words := string(st)
+	if st == state.NeedsYou {
+		words = "needs you"
+	}
+	return words + ": " + title
+}
+
 // NothingToJumpTo is what tab, or a strip chip, says when no session is
 // in the state it looks for.
 func NothingToJumpTo(st state.State) string {

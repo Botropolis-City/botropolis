@@ -1,8 +1,6 @@
 package render
 
 import (
-	"fmt"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
@@ -58,7 +56,7 @@ func (g *Game) stripClick(at city.Point) bool {
 
 func (g *Game) jump(st state.State) {
 	if b := g.scene.JumpTo(st); b != nil {
-		g.SetStatus(fmt.Sprintf("%s: %s", st, b.Card(g.scene.City().Time).Title))
+		g.SetStatus(city.JumpedTo(st, b.Card(g.scene.City().Time).Title))
 	} else {
 		g.SetStatus(city.NothingToJumpTo(st))
 	}

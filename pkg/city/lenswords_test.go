@@ -101,6 +101,18 @@ func TestLensPanelWords(t *testing.T) {
 	})
 }
 
+func TestJumpedTo(t *testing.T) {
+	cases := map[state.State]string{
+		state.NeedsYou: "needs you: Fix the CI queue",
+		state.Working:  "working: Fix the CI queue",
+	}
+	for st, want := range cases {
+		t.Run("when tab lands on a session "+string(st)+", it should name its state in words", func(t *testing.T) {
+			assert.Equal(t, want, city.JumpedTo(st, "Fix the CI queue"))
+		})
+	}
+}
+
 func TestNothingToJumpTo(t *testing.T) {
 	cases := map[state.State]string{
 		state.NeedsYou: "nobody needs you right now",

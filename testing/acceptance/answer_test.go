@@ -89,7 +89,7 @@ func TestAnswerAndComeBack(t *testing.T) {
 		d := drive(t, home)
 
 		t.Run("it should name the one that has waited longest", func(t *testing.T) {
-			assert.Equal(t, "needs-you: "+longestTitle+" (+1 more)", a.shown.Waiting)
+			assert.Equal(t, "needs you: "+longestTitle+" (+1 more)", a.shown.Waiting)
 		})
 
 		t.Run("it should attach the one the line names", func(t *testing.T) {

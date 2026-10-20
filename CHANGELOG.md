@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Three lens panels no longer read as wrong beside the strip.**
   Attention no longer tells you to press tab when nobody is waiting, and tab then says "nobody needs you right now".
+  Tab and the footer say "needs you" rather than "needs-you".
   Work counts groups in the cards' words, such as "1 of 2 groups are your move".
   Cost says its total is since the sessions started, and "up to" when any spend is a range.
 

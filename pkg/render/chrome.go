@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -26,7 +27,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	} else if walk := g.scene.TriageWalk(); len(walk) > 0 {
 		// The needs-you line names what has waited longest, in the order
 		// triage walks, and a click on it attaches that session. Item 91.
-		line := "needs-you: " + walk[0].Card(g.scene.Now()).Title
+		line := city.JumpedTo(state.NeedsYou, walk[0].Card(g.scene.Now()).Title)
 		if len(walk) > 1 {
 			line += fmt.Sprintf(" (+%d more)", len(walk)-1)
 		}
