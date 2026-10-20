@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`botropolis bar` leaves out the sessions you set aside in triage.**
+  A session marked done with `d` and quiet since, or snoozed until a time still to come, is no longer named, listed in the tooltip, or counted as needing you; the bar counts it as "set aside" instead, as in "○ 1 working · 2 set aside", and the line moves on to the next session the way the city's footer does.
+  Its counts now read as the city's do, "2 need you" rather than "2 needs-you".
+  The JSON's keys and classes are unchanged.
+
 - **The command line is smaller: 13 commands in four groups, and four global flags.**
   `botropolis --help` groups the commands as sessions, the city, setting up and checking, and those other programs run.
   `attach` attaches in the terminal you are in, and opens one only when run from elsewhere or with `--new-window`; given a resting session it resumes it first, so a plain `claude` no longer drops to `claude attach`.

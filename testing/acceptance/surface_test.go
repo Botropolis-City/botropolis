@@ -243,7 +243,7 @@ func barSurface(t *testing.T) []string {
 		snapshots[string(s)] = state.Snapshot{Sessions: []state.Session{{ID: "a", Title: "a", State: s}}}
 	}
 	for _, snapshot := range snapshots {
-		line := commands.Summarize(snapshot)
+		line := commands.Summarize(snapshot, nil, time.Time{})
 		data, err := json.Marshal(line)
 		require.NoError(t, err)
 		var fields map[string]any

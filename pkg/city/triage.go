@@ -44,16 +44,7 @@ func (s *Scene) inTriage(b *Building) bool {
 	if sess.State != state.NeedsYou {
 		return false
 	}
-	if s.layout == nil {
-		return true
-	}
-	if at, ok := s.layout.Done[sess.ID]; ok && !sess.LastActivity.After(at) {
-		return false
-	}
-	if until, ok := s.layout.Snoozed[sess.ID]; ok && s.now().Before(until) {
-		return false
-	}
-	return true
+	return !s.layout.SetAside(sess, s.now())
 }
 
 // StartTriage takes the walk's first step, and reports false when

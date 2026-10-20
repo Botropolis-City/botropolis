@@ -258,7 +258,17 @@ func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
 func (s *services) Bar(cfg *config.Config) cli.BarRunner {
 	source := s.source(cfg)
 	feed := commands.Feed{Socket: cfg.Socket, Source: source, Poll: 2 * time.Second, Retry: 5 * time.Second}
-	return commands.NewBar(source, feed.RunRefusing)
+	return commands.NewBar(source, feed.RunRefusing).WithTriage(barLayout, time.Now)
+}
+
+// barLayout is the city's triage marks; a layout that cannot be read
+// sets nothing aside.
+func barLayout() *city.Layout {
+	layout, err := city.LoadLayout(city.LayoutPath())
+	if err != nil {
+		return nil
+	}
+	return layout
 }
 
 func (s *services) Notify(cfg *config.Config) cli.NotifyRunner {

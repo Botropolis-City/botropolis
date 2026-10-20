@@ -261,3 +261,18 @@ func freeSlot(slots map[string]int) int {
 		}
 	}
 }
+
+// SetAside reports whether triage has put a session down: marked done
+// with nothing new since, or snoozed until a time still to come.
+func (l *Layout) SetAside(sess state.Session, now time.Time) bool {
+	if l == nil {
+		return false
+	}
+	if at, ok := l.Done[sess.ID]; ok && !sess.LastActivity.After(at) {
+		return true
+	}
+	if until, ok := l.Snoozed[sess.ID]; ok && now.Before(until) {
+		return true
+	}
+	return false
+}
