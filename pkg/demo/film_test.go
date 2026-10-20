@@ -27,11 +27,11 @@ func TestCityArgs(t *testing.T) {
 
 	t.Run("when a still asks for keys, a hover point and a look", func(t *testing.T) {
 		shot := Shot{Name: "s", Window: "1280x720", Keys: []string{"equal", "b"}, Hover: "640,360",
-			Projection: "top", Detail: "plain", Signage: "plates", Scale: 1.5}
+			Detail: "plain", Signage: "plates", Scale: 1.5}
 
 		t.Run("it should pass each one through", func(t *testing.T) {
 			assert.Equal(t, append(base, "--window", "1280x720", "--keys", "equal,b", "--hover", "640,360",
-				"--projection", "top", "--detail", "plain", "--signage", "plates", "--render_scale", "1.5",
+				"--detail", "plain", "--signage", "plates", "--render_scale", "1.5",
 				"--screenshot", "/o/s.png"),
 				cityArgs(shot, "/h", "/o/s.png", ""))
 		})

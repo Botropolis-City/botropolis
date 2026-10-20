@@ -100,7 +100,7 @@ shots:
     formats: [mp4, webm, gif]
 ```
 
-A shot also takes `window`, `hover`, `projection`, `detail`, `signage`, `scale` and its own `clock`.
+A shot also takes `window`, `hover`, `detail`, `signage`, `scale` and its own `clock`.
 Unknown keys are refused, and so is a scenario that places no sessions.
 
 ## What a recording cannot cheaply produce

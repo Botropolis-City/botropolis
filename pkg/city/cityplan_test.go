@@ -384,30 +384,6 @@ func TestCityPlan(t *testing.T) {
 	})
 }
 
-// Item 106: the top-down projection is no longer offered; a setting
-// that still asks for it opens the isometric map.
-func TestProjectionTopDeprecated(t *testing.T) {
-	p, warning, _ := city.UserProjection("top")
-
-	t.Run("when a setting asks for top", func(t *testing.T) {
-		t.Run("it should open isometric", func(t *testing.T) {
-			assert.Equal(t, city.Isometric, p)
-		})
-
-		t.Run("it should say it is deprecated", func(t *testing.T) {
-			assert.NotEmpty(t, warning)
-		})
-	})
-
-	t.Run("when a setting asks for iso", func(t *testing.T) {
-		_, warning, _ := city.UserProjection("iso")
-
-		t.Run("it should not warn", func(t *testing.T) {
-			assert.Empty(t, warning)
-		})
-	})
-}
-
 // planScene is a city of six districts on the isometric map, at Skyline,
 // with a clock the test can move.
 func planScene(t *testing.T) (*city.Scene, func(time.Duration)) {

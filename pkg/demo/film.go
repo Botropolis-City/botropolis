@@ -26,7 +26,6 @@ type Shot struct {
 	Window      string   `yaml:"window"`
 	Keys        []string `yaml:"keys"`
 	Hover       string   `yaml:"hover"`
-	Projection  string   `yaml:"projection"`
 	Detail      string   `yaml:"detail"`
 	Signage     string   `yaml:"signage"`
 	// DistrictType films every new district as this type, or by the
@@ -90,7 +89,7 @@ func cityArgs(shot Shot, home, still, frames string, opts ...cityOption) []strin
 		args = append(args, "--keys", strings.Join(shot.Keys, ","))
 	}
 	for _, f := range []struct{ flag, value string }{
-		{"--hover", shot.Hover}, {"--projection", shot.Projection}, {"--detail", shot.Detail}, {"--signage", shot.Signage}, {"--district_type", shot.DistrictType},
+		{"--hover", shot.Hover}, {"--detail", shot.Detail}, {"--signage", shot.Signage}, {"--district_type", shot.DistrictType},
 	} {
 		if f.value != "" {
 			args = append(args, f.flag, f.value)

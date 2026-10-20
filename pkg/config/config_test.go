@@ -220,31 +220,6 @@ func TestConfig(t *testing.T) {
 	})
 }
 
-func TestProjectionKey(t *testing.T) {
-	t.Run("when nothing sets the projection", func(t *testing.T) {
-		v := config.NewViper()
-		cfg, err := config.New(v)
-		require.NoError(t, err)
-
-		t.Run("it should draw the city isometric", func(t *testing.T) {
-			assert.Equal(t, "iso", cfg.Projection)
-		})
-	})
-
-	t.Run("when the flag asks for the top-down view", func(t *testing.T) {
-		v := config.NewViper()
-		flags := pflag.NewFlagSet("t", pflag.ContinueOnError)
-		config.BindFlags(v, flags)
-		require.NoError(t, flags.Parse([]string{"--projection", "top"}))
-		cfg, err := config.New(v)
-		require.NoError(t, err)
-
-		t.Run("it should say top", func(t *testing.T) {
-			assert.Equal(t, "top", cfg.Projection)
-		})
-	})
-}
-
 func TestRenderScaleKey(t *testing.T) {
 	t.Run("when nothing sets the render scale", func(t *testing.T) {
 		v := config.NewViper()
@@ -340,7 +315,7 @@ func TestSave(t *testing.T) {
 		configHome := t.TempDir()
 		t.Setenv("XDG_CONFIG_HOME", configHome)
 		path := filepath.Join(configHome, "botropolis", "config.toml")
-		require.NoError(t, config.Save("", config.KeyProjection, "top"))
+		require.NoError(t, config.Save("", config.KeyDetail, "plain"))
 		cfg, err := config.New(config.NewViper())
 		require.NoError(t, err)
 
@@ -349,7 +324,7 @@ func TestSave(t *testing.T) {
 		})
 
 		t.Run("it should read back the value", func(t *testing.T) {
-			assert.Equal(t, "top", cfg.Projection)
+			assert.Equal(t, "plain", cfg.Detail)
 		})
 	})
 

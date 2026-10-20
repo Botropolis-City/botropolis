@@ -25,7 +25,6 @@ const (
 	KeyShutteredDays = "shuttered_days"
 	KeyOvergrownDays = "overgrown_days"
 	KeyCodexHome     = "codex_home"
-	KeyProjection    = "projection"
 	KeyRenderScale   = "render_scale"
 	KeyReducedMotion = "reduced_motion"
 	// KeyLiveliness is how much the city moves, still to lively; reduced
@@ -61,8 +60,6 @@ const (
 	DefaultJournalHours  = 8
 	DefaultOvergrownDays = 30
 )
-
-const DefaultProjection = "iso"
 
 // DefaultDistrictType gives each new district a type hashed from its
 // path. Item 109.
@@ -107,7 +104,6 @@ type Config struct {
 	ShutteredDays int
 	OvergrownDays int
 	CodexHome     string
-	Projection    string
 	RenderScale   float64
 	ReducedMotion bool
 	Liveliness    string
@@ -160,7 +156,6 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyShutteredDays, DefaultShutteredDays)
 	v.SetDefault(KeyOvergrownDays, DefaultOvergrownDays)
 	v.SetDefault(KeyCodexHome, "")
-	v.SetDefault(KeyProjection, DefaultProjection)
 	v.SetDefault(KeyRenderScale, 0.0)
 	v.SetDefault(KeyReducedMotion, false)
 	v.SetDefault(KeyLiveliness, DefaultLiveliness)
@@ -193,7 +188,6 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.String(KeySocket, "", "the daemon's socket `path` (default: "+proto.SocketPath()+")")
 	flags.Int(KeyShutteredDays, DefaultShutteredDays, "how many quiet days before a stopped session is shuttered")
 	flags.Int(KeyOvergrownDays, DefaultOvergrownDays, "how many quiet days before a stopped session is overgrown")
-	flags.String(KeyProjection, DefaultProjection, "deprecated: the map is isometric, and zooming out past Skyline shows the City Plan")
 	flags.Float64(KeyRenderScale, 0, "chrome and pixel scale (default: follow the display)")
 	flags.Bool(KeyReducedMotion, false, "stop every animation and keep the colours: liveliness still")
 	flags.String(KeyLiveliness, DefaultLiveliness, "how much the city moves: still, calm, steady or lively")
@@ -210,7 +204,6 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeySocket, flags.Lookup(KeySocket))
 	_ = v.BindPFlag(KeyShutteredDays, flags.Lookup(KeyShutteredDays))
 	_ = v.BindPFlag(KeyOvergrownDays, flags.Lookup(KeyOvergrownDays))
-	_ = v.BindPFlag(KeyProjection, flags.Lookup(KeyProjection))
 	_ = v.BindPFlag(KeyRenderScale, flags.Lookup(KeyRenderScale))
 	_ = v.BindPFlag(KeyReducedMotion, flags.Lookup(KeyReducedMotion))
 	_ = v.BindPFlag(KeyLiveliness, flags.Lookup(KeyLiveliness))
@@ -243,7 +236,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	_ = v.BindPFlag(KeyGroupLines, flags.Lookup(KeyGroupLines))
 	_ = v.BindPFlag(KeyLabels, flags.Lookup(KeyLabels))
 	_ = v.BindPFlag(KeyLabelsToggle, flags.Lookup(KeyLabelsToggle))
-	for _, key := range append(deprecatedKeyFlags, "projection") {
+	for _, key := range deprecatedKeyFlags {
 		if f := flags.Lookup(key); f != nil {
 			f.Hidden = true
 		}
@@ -273,7 +266,6 @@ func New(v *viper.Viper) (*Config, error) {
 		ShutteredDays:  v.GetInt(KeyShutteredDays),
 		OvergrownDays:  v.GetInt(KeyOvergrownDays),
 		CodexHome:      v.GetString(KeyCodexHome),
-		Projection:     v.GetString(KeyProjection),
 		RenderScale:    v.GetFloat64(KeyRenderScale),
 		ReducedMotion:  v.GetBool(KeyReducedMotion),
 		Liveliness:     v.GetString(KeyLiveliness),

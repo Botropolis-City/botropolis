@@ -451,10 +451,6 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		OnError: func(err error) { fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v\n", err) },
 		Since:   func() time.Time { return layout.Seen },
 	}
-	projection, err := projectionFor(c.config.Projection, cmd.ErrOrStderr())
-	if err != nil {
-		return err
-	}
 	detail, ok := city.ParseDetail(c.config.Detail)
 	if !ok {
 		return fmt.Errorf("unknown detail %q: use full or plain", c.config.Detail)
@@ -547,7 +543,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		Home:           c.config.Home,
 		FindChords:     &chords,
 		Search:         commands.NewFind(c.config.Socket, c.config.Home, c.services.source(c.config), time.Now).Search,
-		Projection:     projection,
+		Projection:     city.Isometric,
 		Screenshot:     cli.Screenshot(cmd),
 		Keys:           cli.Keys(cmd),
 		Hover:          hoverPoint,
