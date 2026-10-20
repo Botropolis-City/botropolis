@@ -9,6 +9,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestCountLabel(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		count state.Count
+		want  string
+	}{
+		{"when one session needs you, it should say it needs you", state.Count{State: state.NeedsYou, N: 1}, "1 needs you"},
+		{"when two sessions need you, it should say they need you", state.Count{State: state.NeedsYou, N: 2}, "2 need you"},
+		{"when one session is working, it should name the state", state.Count{State: state.Working, N: 1}, "1 working"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, city.CountLabel(c.count))
+		})
+	}
+}
+
 func TestSummaryPacked(t *testing.T) {
 	t.Run("when sessions are packed up into the depot", func(t *testing.T) {
 		crate := session("c", cinders, state.Resting)
@@ -85,10 +101,11 @@ func TestSummary(t *testing.T) {
 			s    city.Summary
 			want string
 		}{
-			"with sessions needing you": {city.Summary{NeedsYou: 2, Working: 1, Unattended: 1}, "2 need you · 1 working · 1 unattended"},
-			"with only work running":    {city.Summary{Working: 3}, "3 working"},
-			"with only unattended work": {city.Summary{Unattended: 1, Resting: 2}, "1 unattended"},
-			"with nothing live":         {city.Summary{Resting: 9}, "quiet"},
+			"with sessions needing you":    {city.Summary{NeedsYou: 2, Working: 1, Unattended: 1}, "2 need you · 1 working · 1 unattended"},
+			"with one session needing you": {city.Summary{NeedsYou: 1, Working: 1}, "1 needs you · 1 working"},
+			"with only work running":       {city.Summary{Working: 3}, "3 working"},
+			"with only unattended work":    {city.Summary{Unattended: 1, Resting: 2}, "1 unattended"},
+			"with nothing live":            {city.Summary{Resting: 9}, "quiet"},
 		}
 		for name, c := range cases {
 			t.Run("and the city is "+name, func(t *testing.T) {

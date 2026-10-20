@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -180,7 +181,7 @@ func planCounts(b city.PlanBadge) string {
 		s += "s"
 	}
 	if b.NeedsYou > 0 {
-		s += fmt.Sprintf(" · %d need you", b.NeedsYou)
+		s += " · " + format.Count(b.NeedsYou, "needs you", "need you")
 	}
 	if b.Subagents > 0 {
 		s += fmt.Sprintf(" · %d agent", b.Subagents)

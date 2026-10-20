@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -148,7 +149,7 @@ func sidebarRows(th Theme, width float64, projects []city.ProjectRow, hidden []c
 		}
 		detail := fmt.Sprintf("%d live", p.Live)
 		if p.NeedsYou > 0 {
-			detail = fmt.Sprintf("%d need you · %d live", p.NeedsYou, p.Live)
+			detail = fmt.Sprintf("%s · %d live", format.Count(p.NeedsYou, "needs you", "need you"), p.Live)
 		}
 		dw, _ := measure(detail, Small)
 		add(SidebarRow{

@@ -24,6 +24,24 @@ func someProjects() []city.ProjectRow {
 	}
 }
 
+func TestSidebarProjectDetail(t *testing.T) {
+	th := ui.NewTheme(1)
+	for _, c := range []struct {
+		name     string
+		needsYou int
+		want     string
+	}{
+		{"when one session needs you, it should say it needs you", 1, "1 needs you · 3 live"},
+		{"when two sessions need you, it should say they need you", 2, "2 need you · 3 live"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			projects := []city.ProjectRow{{Root: "/p/kiln", Name: "kiln", Live: 3, NeedsYou: c.needsYou}}
+			sb := ui.LayoutSidebar(th, 32, 568, projects, nil, "", 0, false, measure7)
+			assert.Equal(t, c.want, sb.Rows[0].Detail.Text)
+		})
+	}
+}
+
 func TestUntitledSidebarRow(t *testing.T) {
 	t.Run("when a session has no title", func(t *testing.T) {
 		th := ui.NewTheme(1)
@@ -58,7 +76,7 @@ func TestLayoutSidebar(t *testing.T) {
 		})
 
 		t.Run("it should say what needs you on the project row", func(t *testing.T) {
-			assert.Equal(t, "1 need you · 2 live", sb.Rows[0].Detail.Text)
+			assert.Equal(t, "1 needs you · 2 live", sb.Rows[0].Detail.Text)
 		})
 
 		t.Run("it should dot a session with its state's tone", func(t *testing.T) {

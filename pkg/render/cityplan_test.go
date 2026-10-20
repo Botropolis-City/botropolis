@@ -117,6 +117,22 @@ func TestCompactBadgeCount(t *testing.T) {
 	}
 }
 
+// Item 171: a badge's count of who needs you agrees with its number.
+func TestPlanCounts(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		needsYou int
+		want     string
+	}{
+		{"when one session needs you, it should say it needs you", 1, "3 sessions · 1 needs you"},
+		{"when two sessions need you, it should say they need you", 2, "3 sessions · 2 need you"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, planCounts(city.PlanBadge{Name: "kiln", NeedsYou: c.needsYou, Sessions: 3}))
+		})
+	}
+}
+
 // Item 106: m opens and closes the City Plan from anywhere, Esc closes
 // it, and the key can be rebound.
 func TestCityPlanKey(t *testing.T) {

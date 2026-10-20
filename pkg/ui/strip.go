@@ -42,14 +42,14 @@ func StripChips(s city.Summary) []Chip {
 		Chip{Text: "hit " + format.Percent(100*s.HitRatio)},
 	)
 	if s.Subagents > 0 {
-		chips = append(chips, Chip{Text: fmt.Sprintf("%d subagents", s.Subagents)})
+		chips = append(chips, Chip{Text: format.Count(s.Subagents, "subagent", "subagents")})
 	}
 	chips = append(chips, Chip{Text: fmt.Sprintf("%d mcp", s.MCPCalls)})
 	if s.PRs > 0 {
-		chips = append(chips, Chip{Text: fmt.Sprintf("%d prs", s.PRs), Tone: ToneMerged})
+		chips = append(chips, Chip{Text: format.Count(s.PRs, "PR", "PRs"), Tone: ToneMerged})
 	}
 	if s.Errors > 0 {
-		chips = append(chips, Chip{Text: fmt.Sprintf("%d errors", s.Errors), Tone: ToneError})
+		chips = append(chips, Chip{Text: format.Count(s.Errors, "error", "errors"), Tone: ToneError})
 	}
 	return chips
 }

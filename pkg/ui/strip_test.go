@@ -52,7 +52,7 @@ func TestStripChips(t *testing.T) {
 			assert.Equal(t, state.Working, chips[0].State)
 		})
 
-		for _, absent := range []string{"need you", "unattended", "subagents", "prs", "errors"} {
+		for _, absent := range []string{"need you", "unattended", "subagent", "PR", "error"} {
 			t.Run("it should omit the "+absent+" chip", func(t *testing.T) {
 				assert.NotContains(t, fmt.Sprint(chipTexts(chips)), absent)
 			})
@@ -130,7 +130,7 @@ func TestStripChips(t *testing.T) {
 		chips := ui.StripChips(city.Summary{Working: 2, Resting: 3, NeedsYou: 1, Unattended: 4})
 
 		t.Run("it should lead with needs-you and run down the urgency order", func(t *testing.T) {
-			assert.Equal(t, []string{"1 need you", "2 working", "4 unattended", "3 resting"}, chipTexts(chips)[:4])
+			assert.Equal(t, []string{"1 needs you", "2 working", "4 unattended", "3 resting"}, chipTexts(chips)[:4])
 		})
 	})
 
@@ -138,7 +138,7 @@ func TestStripChips(t *testing.T) {
 		chips := ui.StripChips(city.Summary{NeedsYou: 1, Resting: 3})
 
 		t.Run("it should drop the working chip and keep the slot order", func(t *testing.T) {
-			assert.Equal(t, []string{"1 need you", "3 resting"}, chipTexts(chips)[:2])
+			assert.Equal(t, []string{"1 needs you", "3 resting"}, chipTexts(chips)[:2])
 		})
 	})
 
@@ -149,11 +149,15 @@ func TestStripChips(t *testing.T) {
 			tone    ui.Tone
 			state   state.State
 		}{
-			{city.Summary{NeedsYou: 1}, "1 need you", ui.ToneNeedsYou, state.NeedsYou},
+			{city.Summary{NeedsYou: 1}, "1 needs you", ui.ToneNeedsYou, state.NeedsYou},
+			{city.Summary{NeedsYou: 2}, "2 need you", ui.ToneNeedsYou, state.NeedsYou},
 			{city.Summary{Unattended: 2}, "2 unattended", ui.ToneUnattended, state.Unattended},
 			{city.Summary{Resting: 3}, "3 resting", ui.ToneResting, state.Resting},
+			{city.Summary{Subagents: 1}, "1 subagent", ui.ToneNone, ""},
 			{city.Summary{Subagents: 4}, "4 subagents", ui.ToneNone, ""},
-			{city.Summary{PRs: 5}, "5 prs", ui.ToneMerged, ""},
+			{city.Summary{PRs: 1}, "1 PR", ui.ToneMerged, ""},
+			{city.Summary{PRs: 5}, "5 PRs", ui.ToneMerged, ""},
+			{city.Summary{Errors: 1}, "1 error", ui.ToneError, ""},
 			{city.Summary{Errors: 6}, "6 errors", ui.ToneError, ""},
 		}
 		for _, tc := range cases {
@@ -181,7 +185,7 @@ func TestLayoutStrip(t *testing.T) {
 	chips := []ui.Chip{
 		{Text: "2 working", Tone: ui.ToneWorking, State: state.Working},
 		{Text: "2k/h fresh"},
-		{Text: "1 errors", Tone: ui.ToneError},
+		{Text: "1 error", Tone: ui.ToneError},
 	}
 
 	t.Run("when the chips fit", func(t *testing.T) {

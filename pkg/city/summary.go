@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/stats"
 )
@@ -107,10 +108,10 @@ func (s Summary) Headline() string {
 	return strings.Join(parts, " · ")
 }
 
-// CountLabel is a state count as prose: "2 need you", "1 working".
+// CountLabel is a state count as prose: "1 needs you", "2 need you", "1 working".
 func CountLabel(c state.Count) string {
 	if c.State == state.NeedsYou {
-		return fmt.Sprintf("%d need you", c.N)
+		return format.Count(c.N, "needs you", "need you")
 	}
 	return fmt.Sprintf("%d %s", c.N, c.State)
 }

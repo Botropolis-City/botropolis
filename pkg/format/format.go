@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+// Count is a number with its noun agreeing: "1 PR", "2 PRs".
+func Count(n int, one, many string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, one)
+	}
+	return fmt.Sprintf("%d %s", n, many)
+}
+
 func Dash(s string) string {
 	if s == "" {
 		return "-"
