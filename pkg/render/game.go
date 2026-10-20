@@ -113,6 +113,12 @@ type Game struct {
 	kits      *kits
 	// windowDraws counts the night's window draws this frame (item 166).
 	windowDraws int
+	// lights is the night's lit windows, laid in depth order as the
+	// buildings are drawn and cut away by every sprite drawn in front of
+	// them, then put over the night wash; lightsOn while it is being laid
+	// (item 166).
+	lights   *ebiten.Image
+	lightsOn bool
 
 	mu          sync.Mutex
 	pending     *state.Snapshot

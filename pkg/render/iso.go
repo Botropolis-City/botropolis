@@ -66,6 +66,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point
 		op.GeoM.Translate(at.X, at.Y)
 		op.Filter = ebiten.FilterLinear
 		colorm.DrawImage(screen, img, recedeMatrix(), op)
+		g.punch(img, op.GeoM)
 		return
 	}
 	op := &ebiten.DrawImageOptions{}
@@ -76,6 +77,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point
 	}
 	op.Filter = ebiten.FilterLinear
 	screen.DrawImage(img, op)
+	g.punch(img, op.GeoM)
 }
 
 // footprint is the projected diamond of a world rect: its top corner and
@@ -360,6 +362,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	case dress.Dark && rise >= 1 && !g.viewing():
 		g.shutter(screen, cam, b, buildingPiece(b), dress.Boards)
 	}
+	g.lightBuilding(cam, b)
 	// The state light: a beacon over the door in the state's own colour,
 	// pulsing for needs-you, so the palette reads the same as the strip.
 	foot := g.footOf(cam, b)
@@ -883,6 +886,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 	}
 	fade := g.fadeUnkept(&screen, items, airborne)
+	if c.Night {
+		g.beginLights(int(width), int(height))
+	}
 	for _, draw := range layered(cam, items, airborne) {
 		draw()
 	}
@@ -892,6 +898,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	if c.Night {
 		vector.FillRect(screen, 0, 0, float32(width), float32(height), colorNightOverlay, false)
+		g.endLights(screen)
 		g.nightLights(screen, cam, c)
 	}
 	g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
@@ -1228,14 +1235,9 @@ func boost(c color.NRGBA, zoom float64) color.NRGBA {
 	return c
 }
 
+// nightLights is the plant's glow over the night; the buildings' windows
+// are laid with the buildings, in depth order (lightBuilding).
 func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City) {
-	g.windowDraws = 0
-	for _, b := range c.Buildings() {
-		rise := g.scene.Rising(b.Session.ID)
-		if lights, ok := g.windowLights(cam, b, rise, g.scene.Lights(b.Session.ID)); ok {
-			g.drawWindows(screen, cam, b, lights, rise)
-		}
-	}
 	if c.Plant.Rect.Area() > 0 {
 		foot := cam.WorldToScreen(c.Plant.Rect.Center())
 		size := g.kitSizeTurned(cam, kitPlant, landmarkTurn)

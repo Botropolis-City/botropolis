@@ -182,8 +182,11 @@ func TestNightLightsCost(t *testing.T) {
 			buildings = append(buildings, b)
 		}
 	}
-	screen := ebiten.NewImage(64, 64)
-	g.nightLights(screen, cam, &city.City{Districts: []*city.District{{Buildings: buildings}}})
+	g.beginLights(64, 64)
+	for _, b := range buildings {
+		g.lightBuilding(cam, b)
+	}
+	g.endLights(ebiten.NewImage(64, 64))
 
 	t.Run("when twenty lit buildings of every kind and tier are drawn at night", func(t *testing.T) {
 		t.Run("it should draw each one's windows in a single call", func(t *testing.T) {

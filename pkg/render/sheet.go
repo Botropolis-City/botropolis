@@ -92,7 +92,9 @@ func (g *Game) sheetCell(screen *ebiten.Image, zoom float64, b *city.Building, f
 	}
 	if night {
 		vector.FillRect(clip, float32(cell.Min.X), float32(cell.Min.Y), float32(cell.Dx()), float32(cell.Dy()), colorNightOverlay, false)
-		g.nightLights(clip, cam, &city.City{Districts: []*city.District{{Type: b.Type, Buildings: []*city.Building{b}}}})
+		if lights, ok := g.windowLights(cam, b, 1, 1); ok {
+			g.drawWindows(clip, cam, b, lights, 1)
+		}
 	}
 }
 
@@ -241,9 +243,96 @@ func CheckLights(zoom float64) ([]string, error) {
 				}
 			}
 		}
+		problems = append(problems, g.checkOcclusion(zoom)...)
 		return nil
 	})
 	return problems, err
+}
+
+// checkOcclusion draws a lit tower with a dark building standing in
+// front of it, as the map draws a scene, lights on and off, and reports
+// any lit pixel on the building in front: a window behind it must not
+// show through it.
+func (g *Game) checkOcclusion(zoom float64) []string {
+	back := sheetBuilding(city.ResidentialDistrict, state.MaxStoreys, false)
+	front := sheetBuilding(city.OfficeDistrict, state.MaxStoreys, false)
+	front.Lit = false
+	front.Session.ID = "sheet-front"
+	backFoot := city.Point{X: sheetCellSize / 2, Y: sheetCellSize * 0.6}
+	frontFoot := city.Point{X: backFoot.X + 10*zoom, Y: backFoot.Y + 40*zoom}
+	scene := func(lit bool) *image.NRGBA {
+		b := *back
+		b.Lit = lit
+		return g.sheetScene(zoom, []*city.Building{&b, front}, []city.Point{backFoot, frontFoot})
+	}
+	on, off := scene(true), scene(false)
+	mask := g.sheetScene(zoom, []*city.Building{front}, []city.Point{frontFoot})
+	blank := g.sheetScene(zoom, nil, nil)
+	// Inside the building in front, two pixels in from its soft edge, where
+	// it is solid: at the edge, filtered, it is part see-through, and was
+	// before.
+	solid := func(x, y int) bool {
+		for dy := -2; dy <= 2; dy++ {
+			for dx := -2; dx <= 2; dx++ {
+				if mask.NRGBAAt(x+dx, y+dy) == blank.NRGBAAt(x+dx, y+dy) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	through, lit := 0, 0
+	bounds := on.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if on.NRGBAAt(x, y) == off.NRGBAAt(x, y) {
+				continue
+			}
+			lit++
+			if solid(x, y) && brighter(on.NRGBAAt(x, y), off.NRGBAAt(x, y)) > seenThrough {
+				through++
+			}
+		}
+	}
+	switch {
+	case lit == 0:
+		return []string{"a lit tower behind a dark building: lit nothing"}
+	case through > 0:
+		return []string{fmt.Sprintf("a lit tower behind a dark building: %d lit pixels show through the building in front", through)}
+	}
+	return nil
+}
+
+// seenThrough is how much brighter, in any channel, a pixel must be with
+// the lights on for a window to show through: a lit window is about a
+// hundred levels; filtering at an edge moves a pixel by one or two.
+const seenThrough = 16
+
+// brighter is how much brighter on is than off, in its brightest channel.
+func brighter(on, off color.NRGBA) int {
+	return max(int(on.R)-int(off.R), int(on.G)-int(off.G), int(on.B)-int(off.B))
+}
+
+// sheetScene draws buildings at night, back to front, the way the map
+// draws a scene: each building as isoBuilding draws it, then the wash,
+// then the lights.
+func (g *Game) sheetScene(zoom float64, buildings []*city.Building, feet []city.Point) *image.NRGBA {
+	img := ebiten.NewImage(sheetCellSize, sheetCellSize)
+	defer img.Deallocate()
+	img.Fill(colorVoid)
+	g.beginLights(sheetCellSize, sheetCellSize)
+	for i, b := range buildings {
+		cam := &city.Camera{Zoom: zoom}
+		at := cam.Project(b.Rect.Center())
+		cam.Offset = city.Point{X: feet[i].X/zoom - at.X, Y: feet[i].Y/zoom - at.Y}
+		g.kitRising(img, cam, buildingPiece(b), g.footOf(cam, b), nil, 1)
+		g.lightBuilding(cam, b)
+	}
+	vector.FillRect(img, 0, 0, sheetCellSize, sheetCellSize, colorNightOverlay, false)
+	g.endLights(img)
+	out := image.NewNRGBA(img.Bounds())
+	img.ReadPixels(out.Pix)
+	return out
 }
 
 // checkRising draws a building going up with only its ground floor

@@ -173,3 +173,48 @@ func (g *Game) drawWindows(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	screen.DrawTriangles(vertices, indices, atlas.pages[sprite.Page], &ebiten.DrawTrianglesOptions{Filter: ebiten.FilterLinear})
 	g.windowDraws++
 }
+
+// beginLights starts the night's lights layer for a frame of a size:
+// from here every lit building lays its windows in it as it is drawn,
+// and every sprite cuts its own shape out of what is already there.
+func (g *Game) beginLights(width, height int) {
+	if g.lights == nil || g.lights.Bounds().Dx() != width || g.lights.Bounds().Dy() != height {
+		if g.lights != nil {
+			g.lights.Deallocate()
+		}
+		g.lights = ebiten.NewImage(width, height)
+	}
+	g.lights.Clear()
+	g.lightsOn, g.windowDraws = true, 0
+}
+
+// endLights puts the night's lit windows over the frame, after the wash.
+func (g *Game) endLights(screen *ebiten.Image) {
+	if !g.lightsOn {
+		return
+	}
+	g.lightsOn = false
+	screen.DrawImage(g.lights, nil)
+}
+
+// punch cuts a sprite drawn with geo out of the lights laid so far: a
+// window behind it does not show through it.
+func (g *Game) punch(img *ebiten.Image, geo ebiten.GeoM) {
+	if !g.lightsOn {
+		return
+	}
+	op := &ebiten.DrawImageOptions{GeoM: geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear}
+	g.lights.DrawImage(img, op)
+}
+
+// lightBuilding lays a building's lit windows, if it has any tonight,
+// once it is drawn and before anything in front of it is.
+func (g *Game) lightBuilding(cam *city.Camera, b *city.Building) {
+	if !g.lightsOn {
+		return
+	}
+	rise := g.scene.Rising(b.Session.ID)
+	if lights, ok := g.windowLights(cam, b, rise, g.scene.Lights(b.Session.ID)); ok {
+		g.drawWindows(g.lights, cam, b, lights, rise)
+	}
+}
