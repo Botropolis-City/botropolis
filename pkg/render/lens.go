@@ -104,3 +104,23 @@ func (g *Game) selectLens(l city.Lens) {
 	g.scene.SelectLens(l)
 	g.SetStatus(l.Name() + " — " + g.scene.View().Name() + ": " + g.scene.View().Question())
 }
+
+// lensKeys are the keys that select each lens, in city.Lenses' order.
+var lensKeys = []ebiten.Key{
+	ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5,
+	ebiten.KeyDigit6,
+}
+
+// LensOfKey is the lens a scripted key name selects, if any.
+func LensOfKey(name string) (city.Lens, bool) {
+	key, ok := keyByName(name)
+	if !ok {
+		return 0, false
+	}
+	for i, k := range lensKeys {
+		if k == key {
+			return city.Lenses[i], true
+		}
+	}
+	return 0, false
+}

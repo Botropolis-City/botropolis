@@ -322,10 +322,7 @@ func (g *Game) handleKeys() error {
 		g.viewKey = !g.viewKey
 		g.scene.ShowLensPanel()
 	}
-	for i, key := range []ebiten.Key{
-		ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5,
-		ebiten.KeyDigit6,
-	} {
+	for i, key := range lensKeys {
 		if just(key) {
 			g.selectLens(city.Lenses[i])
 			g.viewKey = false

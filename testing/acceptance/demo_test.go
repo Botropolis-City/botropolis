@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +18,10 @@ import (
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/testing/helpers"
 )
+
+// isDigit is a number key that once chose one of nine views; since
+// item 88 only the first six choose a lens (item 177).
+var isDigit = regexp.MustCompile(`^Digit[1-9]$`)
 
 // Every scenario must stage from the committed corpus and load as the
 // city it says it is. A scenario names sessions by script label, so a
@@ -88,6 +94,27 @@ func TestDemoScenarios(t *testing.T) {
 					t.Run("it should know the key "+shot.Name+" presses, "+key, func(t *testing.T) {
 						assert.True(t, render.KnownKey(key))
 					})
+				}
+				for _, key := range keys {
+					if !isDigit.MatchString(key) {
+						continue
+					}
+					lens, selects := render.LensOfKey(key)
+					t.Run("it should select a lens with "+shot.Name+"'s "+key, func(t *testing.T) {
+						assert.True(t, selects)
+					})
+					if !selects {
+						continue
+					}
+					if len(shot.Script) == 0 {
+						t.Run("it should title the still "+shot.Name+" for the lens "+key+" selects, "+lens.Name(), func(t *testing.T) {
+							assert.Contains(t, strings.ToLower(shot.Title), strings.ToLower(lens.Name()))
+						})
+					} else {
+						t.Run("it should name in "+shot.Name+"'s description the lens "+key+" selects, "+lens.Name(), func(t *testing.T) {
+							assert.Contains(t, strings.ToLower(shot.Description), strings.ToLower(lens.Name()))
+						})
+					}
 				}
 				for _, cue := range shot.Script {
 					for _, target := range []string{cue.PointAt, cue.PanTo} {
