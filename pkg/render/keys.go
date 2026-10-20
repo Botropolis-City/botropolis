@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -43,6 +44,7 @@ var bindings = []ui.Key{
 	{Key: "[ ]", Action: "scrub the clock an hour"},
 	{Key: "s", Action: "settings"},
 	{Key: "x", Action: "power breakdown (also click the plant)"},
+	{Key: "u", Action: "fetch the plan's usage again; the launch carries it down the river"},
 	{Key: "g", Action: "groups board (also click City Hall)"},
 	{Key: "shift+n", Action: "New session, in any directory (also on the board)"},
 	{Key: "t", Action: "timeline; enter jumps to the session"},
@@ -58,17 +60,13 @@ var bindings = []ui.Key{
 	{Key: "q", Action: "quit (asks; y or enter confirms)"},
 }
 
-// helpKeys is bindings with the finder's chords as configured.
+// helpKeys is bindings with every rebindable key as configured.
 func (g *Game) helpKeys() []ui.Key {
 	chords := g.findChords()
 	var keys []ui.Key
 	for _, k := range bindings {
-		if k.Key == planBinding {
-			keys = append(keys, ui.Key{Key: chords.Plan.String(), Action: k.Action})
-			continue
-		}
-		if k.Key == labelsBinding {
-			keys = append(keys, ui.Key{Key: chords.Labels.String(), Action: k.Action})
+		if r, ok := rebindable[k.Key]; ok {
+			keys = append(keys, ui.Key{Key: r.prefix + r.chord(chords).String(), Action: k.Action})
 			continue
 		}
 		if k.Key != findBinding {
@@ -81,6 +79,22 @@ func (g *Game) helpKeys() []ui.Key {
 			ui.Key{Key: chords.Show.String(), Action: "in the finder: show the session on the map"})
 	}
 	return keys
+}
+
+// rebindable is each help row whose key can be configured, by the key
+// bindings lists it under, and the chord helpKeys spells it with
+// (items 102 and 172).
+var rebindable = map[string]struct {
+	prefix string
+	chord  func(config.Chords) config.Chord
+}{
+	planBinding:   {"", func(c config.Chords) config.Chord { return c.Plan }},
+	labelsBinding: {"", func(c config.Chords) config.Chord { return c.Labels }},
+	"w":           {"", func(c config.Chords) config.Chord { return c.Triage }},
+	"shift+w":     {"", func(c config.Chords) config.Chord { return c.Journal }},
+	"l":           {"", func(c config.Chords) config.Chord { return c.Stream }},
+	"shift+n":     {"", func(c config.Chords) config.Chord { return c.New }},
+	"hold e":      {"hold ", func(c config.Chords) config.Chord { return c.Explain }},
 }
 
 // findBinding is the help's row for the finder, which helpKeys spells

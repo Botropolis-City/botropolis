@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Counts agree with their numbers: the strip, the window title, the sidebar and the City Plan say "1 needs you", "1 PR", "1 error" and "1 subagent" instead of "1 need you", "1 prs", "1 errors" and "1 subagents".
 
+- **The key reference (`?`) lists `u`, and names every key as you have set it.**
+  It left out `u`, which fetches the plan's usage again, and always showed triage, the journal, the stream, New session and explain at their default keys, however they were rebound.
+
 - Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
 
 - **The minimap stays in its panel after the camera turns, and turns with the city.**
