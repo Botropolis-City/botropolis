@@ -48,16 +48,7 @@ func checkLooks() []checkLook {
 			}
 		}
 	}
-	dressed := func() *city.Building {
-		b := sheetBuilding(city.OfficeDistrict, state.MaxStoreys, false)
-		b.Session.Title = "fix the flaky build"
-		b.Session.Spire = 3
-		b.Session.Compactions = 2
-		b.Flags = 2
-		b.Merged = 1
-		b.Session.PRs = []claude.PR{{Number: 1}, {Number: 2, State: claude.PRClosed}}
-		return b
-	}
+	dressed := dressedBuilding
 	out = append(out,
 		checkLook{name: "dressed: sign, spire, courses, flags, scaffold", building: dressed,
 			change: func(b *city.Building) { b.Session.Title = "ship the release" }},
@@ -82,6 +73,19 @@ func checkLooks() []checkLook {
 	return out
 }
 
+// dressedBuilding is a tower with every dressing a still building can
+// carry: a sign, a spire, courses, flags and a scaffold.
+func dressedBuilding() *city.Building {
+	b := sheetBuilding(city.OfficeDistrict, state.MaxStoreys, false)
+	b.Session.Title = "fix the flaky build"
+	b.Session.Spire = 3
+	b.Session.Compactions = 2
+	b.Flags = 2
+	b.Merged = 1
+	b.Session.PRs = []claude.PR{{Number: 1}, {Number: 2, State: claude.PRClosed}}
+	return b
+}
+
 // CheckLooks draws every building the sheet does, and dressed ones, from
 // each heading through the look cache and straight onto a frame, and
 // reports each whose cached frame differs from its direct one: as it is
@@ -93,6 +97,9 @@ func CheckLooks(zoom float64) ([]string, error) {
 			for _, heading := range []int{0, 90, 180, 270} {
 				problems = append(problems, g.checkLook(zoom, heading, look)...)
 			}
+		}
+		for _, heading := range []int{0, 90, 180, 270} {
+			problems = append(problems, g.checkLooksAtNight(zoom, heading)...)
 		}
 		return nil
 	})
