@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Fail on anti-aliased vector calls outside tools/antialias/allow.txt (item 191).
+# Usage: tools/check-antialias [--root DIR] [--allow FILE] [--help]
+set -euo pipefail
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec go -C "$repo" run ./tools/antialias "$@"

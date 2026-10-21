@@ -211,7 +211,7 @@ bench ::
 	$(LOG) "Benchmarking the bar's tasks"
 	@go test ./testing/acceptance -run '^$$' -bench . -benchtime ${BENCH_TIME} -count ${BENCH_COUNT}
 
-lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check asset-sources-check
+lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check asset-sources-check antialias-check
 	$(LOG) "Linting"
 	@go vet ./...
 	@go vet ${DEV_TAGS} ./...
@@ -271,6 +271,12 @@ docs-check ::
 asset-sources-check ::
 	$(LOG) "Checking every image under pkg/assets has a source"
 	@tools/check-asset-sources
+
+# No shape is drawn with an anti-aliased vector call, which costs stencil
+# passes and heap every frame; draw through pkg/shapes (item 191).
+antialias-check ::
+	$(LOG) "Checking nothing draws with anti-aliased vector calls"
+	@tools/check-antialias
 
 version-check ::
 	$(LOG) "Checking every file that names a version agrees"
