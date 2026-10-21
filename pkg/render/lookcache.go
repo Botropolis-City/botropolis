@@ -32,11 +32,11 @@ type lookCache[K comparable, V deallocator] struct {
 	total   int
 	order   list.List
 	entries map[K]*list.Element
-	seen    map[string]seenKey[K]
+	seen    map[runID]seenKey[K]
 }
 
 func newLookCache[K comparable, V deallocator](cap int) *lookCache[K, V] {
-	return &lookCache[K, V]{cap: cap, entries: map[K]*list.Element{}, seen: map[string]seenKey[K]{}}
+	return &lookCache[K, V]{cap: cap, entries: map[K]*list.Element{}, seen: map[runID]seenKey[K]{}}
 }
 
 func (c *lookCache[K, V]) len() int   { return len(c.entries) }
@@ -84,7 +84,7 @@ func (c *lookCache[K, V]) remove(key K) {
 // whether it drew under the same key the frame before: only a look that
 // has held is worth baking, so a zoom or a slide draws as it always did
 // rather than baking every frame.
-func (c *lookCache[K, V]) steady(id string, key K, frame int) bool {
+func (c *lookCache[K, V]) steady(id runID, key K, frame int) bool {
 	last, ok := c.seen[id]
 	c.seen[id] = seenKey[K]{key: key, frame: frame}
 	return ok && last.key == key && last.frame == frame-1

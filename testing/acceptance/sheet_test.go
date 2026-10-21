@@ -33,3 +33,25 @@ func TestBuildingSheetLights(t *testing.T) {
 		})
 	}
 }
+
+// Item 192: a building's look is baked once and blitted after, and the
+// blit must be the building as it was drawn before: every kind and
+// dressing, from every heading, by day and by night, and drawn anew
+// once its look changes after it was baked.
+func TestBuildingLooksCached(t *testing.T) {
+	helpers.NeedXvfb(t)
+	demo := filepath.Join(t.TempDir(), "botropolis-demo")
+	build := exec.Command("go", "build", "-o", demo, "../../cmd/botropolis-demo")
+	out, err := build.CombinedOutput()
+	require.NoError(t, err, "%s", out)
+
+	for _, zoom := range []string{"1", "2"} {
+		t.Run("when each look is drawn through the cache at zoom "+zoom, func(t *testing.T) {
+			out, err := exec.Command(demo, "sheet", "--check-looks", "--zoom", zoom).CombinedOutput()
+
+			t.Run("it should match the building drawn directly", func(t *testing.T) {
+				assert.NoError(t, err, "%s", out)
+			})
+		})
+	}
+}

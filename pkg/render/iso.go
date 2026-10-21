@@ -12,7 +12,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
-	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/shapes"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
@@ -275,8 +274,10 @@ func wash(dst *ebiten.Image, x, y, width, height float32) {
 	vector.FillRect(dst, x, y, width, height, colorNightOverlay, false)
 }
 
-// isoBuilding draws a session as a stacked building on its footprint, or a
-// flat diamond in the map view.
+// isoBuilding draws a session that is not drawn as steps: a flat
+// diamond in the map view, nothing while it rides a truck, and a bare
+// plot, with its site, before its building stands. drawBuilding draws
+// the rest.
 func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Building, selected, detailed bool, seconds float64) {
 	if !detailed || g.kits == nil {
 		g.poly(screen, cam, b.Rect, blockColor(b, g.attention()))
@@ -286,147 +287,16 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		}
 		return
 	}
-	rise := g.scene.Rising(b.Session.ID)
 	// A session on a truck is drawn on the truck, not where it is going;
 	// under reduced motion it fades in there instead (item 86).
 	if g.scene.Hauling(b.Session.ID) && !g.reduced {
 		return
 	}
 	site, building := g.scene.Construction(b.Session.ID)
-	building = building && !b.Vacant
-	drawSite := func() {
-		if building {
-			foot := cam.WorldToScreen(b.Rect.Center())
-			g.drawSite(screen, lotCorners(cam, b.Rect), foot.Y-g.kitTop(cam, buildingPiece(b)), site, cam.Zoom)
-		}
-	}
-	if b.Vacant || rise <= 0 {
-		g.vacantPlot(screen, cam, b, selected)
-		drawSite()
-		return
-	}
-	var tint *ebiten.ColorScale
-	switch {
-	case g.scene.Dimmed(b):
-		tint = dimmed()
-	case g.unlit(b):
-		tint = dimmed()
-	case g.viewing():
-		// In a view the city recedes and only what the view has
-		// something to say about is painted in its colour. Leaving the
-		// tint nil is deliberate: that is what drains a sprite, which a
-		// scale cannot do because draining mixes channels.
-		if c, ok := g.viewTint(b); ok {
-			tint = viewScale(c)
-		}
-	case b.Blinds:
-		tint = blindsTint()
-	case b.Session.State == state.Unattended:
-		tint = &ebiten.ColorScale{}
-		tint.SetR(0.85)
-		tint.SetG(0.8)
-		tint.SetB(1)
-	}
-	if fade := g.scene.HaulProgress(b.Session.ID); fade < 1 {
-		faded := &ebiten.ColorScale{}
-		if tint != nil {
-			*faded = *tint
-		}
-		faded.ScaleAlpha(float32(fade))
-		tint = faded
-	}
-	if building {
-		tint = buildTint(tint, site)
-	}
-	dress := g.dressing(b)
-	settle, progress := g.scene.Settling(b.Session.ID)
-	settling := settle != city.SettleNone && rise >= 1 && !g.scene.Dimmed(b) && !g.viewing()
-	if settling && !g.reduced {
-		tint = settleTint(settle, progress)
-	}
-	if rise >= 1 {
-		g.drawCourses(screen, cam, b, tint)
-	}
-	r := g.kitRising(screen, cam, buildingPiece(b), g.footOf(cam, b), tint, rise)
-	drawSite()
-	district := g.scene.City().DistrictOf(b)
-	g.noteHit(r, city.Hit{Building: b, District: district})
-	if r.Area() == 0 || g.scene.Dimmed(b) {
-		return
-	}
-	switch {
-	case settling:
-		g.putOut(screen, cam, b, buildingPiece(b), settle, progress)
-	case dress.Dark && rise >= 1 && !g.viewing():
-		g.shutter(screen, cam, b, buildingPiece(b), dress.Boards)
-	}
-	g.lightBuilding(cam, b)
-	// The state light: a beacon over the door in the state's own colour,
-	// pulsing for needs-you, so the palette reads the same as the strip.
-	foot := g.footOf(cam, b)
-	if dress.Beacon || settle != city.SettleNone {
-		beacon := g.theme.Color(ui.StateTone(b.Session.State))
-		if b.Pulse {
-			beacon = pulse(beacon, g.attention())
-		}
-		kerb := colorKitKerb
-		if settle != city.SettleNone {
-			fade := beaconFade(settle, progress)
-			beacon.A, kerb.A = uint8(float64(beacon.A)*fade), uint8(float64(kerb.A)*fade)
-		}
-		radius := math.Max(2, 4*cam.Zoom)
-		lamp := city.Point{X: foot.X, Y: foot.Y - radius*2}
-		g.paint.Disc(screen, lamp, radius*1.6, kerb)
-		g.paint.Disc(screen, lamp, radius, beacon)
-	}
-	roofTop := r.Min.Y
-	dot := math.Max(3, 6*cam.Zoom)
-	// Signage is paint on the building, not chrome: like a tower's name
-	// it stays when h hides the interface.
-	if dress.Sign {
-		title := b.Card(g.scene.City().Time).Title
-		if !g.buildingSignage(screen, cam, r, foot, title) {
-			g.buildingSign(screen, r, foot, title)
-		}
-		if g.labelsVisible() {
-			g.queueBadge(b, foot)
-		}
-	}
-	// One flag per PR, coloured by its state: open in the accent, merged
-	// green, closed slate.
-	for i := 0; i < min(b.Flags, 3); i++ {
-		hoist := 1.0
-		if i < len(b.Session.PRs) {
-			hoist = g.scene.Hoist(b.Session.ID, b.Session.PRs[i].Number)
-		}
-		if hoist <= 0 {
-			continue
-		}
-		x := r.Min.X + r.Width()*0.62 + float64(i)*dot*1.8
-		flag := g.theme.Palette.Accent
-		if i < b.Merged {
-			flag = g.theme.Palette.Merged
-		} else if i < len(b.Session.PRs) && b.Session.PRs[i].State == claude.PRClosed {
-			flag = g.theme.Palette.Resting
-		}
-		g.paint.Box(screen, float32(x), float32(roofTop-dot*2), float32(dot*0.4), float32(dot*2.5), colorPole)
-		// The flag runs up its pole as it is hoisted (item 89).
-		g.paint.Box(screen, float32(x), float32(roofTop+dot*0.5-dot*2.5*hoist), float32(dot*1.4), float32(dot), flag)
-		if i < len(b.Session.PRs) {
-			g.noteHit(city.RectAt(x, roofTop-dot*2, dot*1.4, dot*2.5),
-				city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Flag: &city.FlagHit{Building: b, PR: b.Session.PRs[i]}})
-		}
-	}
-	if p := g.scene.Celebration(b.Session.ID); p >= 0 {
-		g.celebrate(screen, city.Point{X: r.Min.X + r.Width()/2, Y: roofTop}, r.Width(), p)
-	}
-	for _, p := range smokePuffs(r, cam.Zoom, b.Smoke, seconds) {
-		g.paint.Disc(screen, p.at, p.radius, colorSmoke)
-		g.noteHit(city.RectAt(p.at.X-p.radius, p.at.Y-p.radius, p.radius*2, p.radius*2),
-			city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Smoke: b})
-	}
-	if selected {
-		g.polyStroke(screen, cam, b.Rect, 2, colorSelected)
+	g.vacantPlot(screen, cam, b, selected)
+	if building && !b.Vacant {
+		foot := cam.WorldToScreen(b.Rect.Center())
+		g.drawSite(screen, lotCorners(cam, b.Rect), foot.Y-g.kitTop(cam, buildingPiece(b)), site, cam.Zoom)
 	}
 }
 
@@ -632,6 +502,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	labels := g.labelsVisible()
 	defer frames.start()()
 	g.drawing.reset()
+	g.nextLookFrame()
 	defer func() {
 		g.mu.Lock()
 		g.hits = append(g.hits[:0], g.frameHits...)
@@ -679,20 +550,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			// The building's own work, its scaffold and hoist, is drawn
 			// with it, so it takes the building's place in the sort
 			// (item 89).
-			items = append(items, buildingItem(cam, b.Rect, func() {
-				g.isoBuilding(screen, cam, b, b == selected, detailed, seconds)
-			}, func() {
-				if g.kits != nil && !b.Vacant && !g.scene.Dimmed(b) {
-					g.drawSkip(screen, cam, b, nil)
-				}
-				if detailed && g.kits != nil && !g.viewing() && !b.Vacant && !g.scene.Dimmed(b) {
-					g.drawWork(screen, cam, b)
-				}
-				// The spire goes over the work: a segment is half a storey,
-				// so the storey being built would hide the first of them.
-				if g.kits != nil && !b.Vacant && !g.scene.Dimmed(b) {
-					g.drawSpire(screen, cam, b)
-				}
+			items = append(items, footprintAt(cam, b.Rect, func() {
+				g.drawBuilding(screen, cam, b, b == selected, detailed, seconds)
 			}))
 			items[len(items)-1].kept = g.keeps(d)
 		}

@@ -101,6 +101,12 @@ func (g *Game) jobPaths(c *city.City, b *city.Building, stop city.Point) (in, ou
 // drawSkip draws the skip at a building's kerb and the trucks of any
 // compaction job there.
 func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building, tint *ebiten.ColorScale) {
+	g.drawSkipPiece(screen, cam, b, tint)
+	g.drawSkipTrucks(screen, cam, b, tint)
+}
+
+// drawSkipPiece draws the skip at a building's kerb.
+func (g *Game) drawSkipPiece(screen *ebiten.Image, cam *city.Camera, b *city.Building, tint *ebiten.ColorScale) {
 	if b.Packed || b.Vacant {
 		return
 	}
@@ -108,6 +114,14 @@ func (g *Game) drawSkip(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	if piece := skipPiece(shownSkip(b, job, collecting)); piece != "" {
 		g.kit(screen, cam, piece, 0, g.skipAt(cam, b), tint)
 	}
+}
+
+// drawSkipTrucks draws the trucks of a compaction job at a building.
+func (g *Game) drawSkipTrucks(screen *ebiten.Image, cam *city.Camera, b *city.Building, tint *ebiten.ColorScale) {
+	if b.Packed || b.Vacant {
+		return
+	}
+	job, collecting := g.scene.CompactionJob(b.Session.ID)
 	if !collecting {
 		return
 	}

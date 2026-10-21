@@ -106,7 +106,6 @@ func (g *Game) drawCourses(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	ground := cam.WorldToScreen(b.Rect.Center())
 	h := courseHeight(cam.Zoom)
 	pour, pouring := g.pouring(b)
-	var bottom city.Rect
 	for i := range n {
 		at := city.Point{X: ground.X, Y: ground.Y - float64(i)*h}
 		t := tint
@@ -124,20 +123,32 @@ func (g *Game) drawCourses(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			faded.ScaleAlpha(float32(pour))
 			t = faded
 		}
-		r := g.kitAt(screen, cam, coursePiece(name, n-i), 0, at, t)
-		if i == 0 {
-			bottom = r
-		}
+		g.kitAt(screen, cam, coursePiece(name, n-i), 0, at, t)
 	}
-	if label := coursePlaque(b.Session.Compactions); label != "" && bottom.Area() > 0 {
-		w, th := g.measure(label)
-		pad := max(2, th*0.2)
-		centre := city.Point{X: (bottom.Min.X + ground.X) / 2, Y: ground.Y - h*0.5}
-		plate := city.RectAt(centre.X-w/2-pad, centre.Y-th/2-pad*0.5, w+2*pad, th+pad)
+	if plate, label, pad, ok := g.coursePlate(cam, b); ok {
 		g.paint.Box(screen, float32(plate.Min.X), float32(plate.Min.Y), float32(plate.Width()), float32(plate.Height()), colorPlaqueFace)
 		g.paint.BoxStroke(screen, float32(plate.Min.X), float32(plate.Min.Y), float32(plate.Width()), float32(plate.Height()), 1, colorPlaque)
 		g.text(screen, city.Point{X: plate.Min.X + pad, Y: plate.Min.Y + pad*0.5}, label, ui.Small, colorPlaque)
 	}
+}
+
+// coursePlate is where the count on a building's bottom course is
+// painted, the count, and the plate's padding, when it has one.
+func (g *Game) coursePlate(cam *city.Camera, b *city.Building) (city.Rect, string, float64, bool) {
+	n := courseCount(b.Session.Compactions)
+	label := coursePlaque(b.Session.Compactions)
+	if n == 0 || label == "" || b.Packed || b.Vacant || b.Session.ConversationGone {
+		return city.Rect{}, "", 0, false
+	}
+	ground := cam.WorldToScreen(b.Rect.Center())
+	_, _, _, bottom, ok := g.kitAtPlace(cam, coursePiece(buildingPiece(b), n), 0, ground)
+	if !ok || bottom.Area() == 0 {
+		return city.Rect{}, "", 0, false
+	}
+	w, th := g.measure(label)
+	pad := max(2, th*0.2)
+	centre := city.Point{X: (bottom.Min.X + ground.X) / 2, Y: ground.Y - courseHeight(cam.Zoom)*0.5}
+	return city.RectAt(centre.X-w/2-pad, centre.Y-th/2-pad*0.5, w+2*pad, th+pad), label, pad, true
 }
 
 // litCourse warms a course the way the board's mock-ups light a new one.

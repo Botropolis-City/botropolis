@@ -95,26 +95,26 @@ func TestLookCache(t *testing.T) {
 		c := newLookCache[string, *fakeLook](100)
 
 		t.Run("it should not bake", func(t *testing.T) {
-			assert.False(t, c.steady("building", "k1", 1))
+			assert.False(t, c.steady(runID{id: "building"}, "k1", 1))
 		})
 
 		t.Run("and it holds the next frame", func(t *testing.T) {
 			t.Run("it should bake", func(t *testing.T) {
-				assert.True(t, c.steady("building", "k1", 2))
+				assert.True(t, c.steady(runID{id: "building"}, "k1", 2))
 			})
 		})
 
 		t.Run("and it changes the next frame", func(t *testing.T) {
 			t.Run("it should not bake", func(t *testing.T) {
-				assert.False(t, c.steady("building", "k2", 3))
+				assert.False(t, c.steady(runID{id: "building"}, "k2", 3))
 			})
 		})
 
 		t.Run("and it returns after a frame missed", func(t *testing.T) {
-			c.steady("building", "k3", 4)
+			c.steady(runID{id: "building"}, "k3", 4)
 
 			t.Run("it should not bake", func(t *testing.T) {
-				assert.False(t, c.steady("building", "k3", 6))
+				assert.False(t, c.steady(runID{id: "building"}, "k3", 6))
 			})
 		})
 	})
@@ -123,16 +123,16 @@ func TestLookCache(t *testing.T) {
 func TestLookCacheForget(t *testing.T) {
 	t.Run("when a building drawn before a frame is forgotten", func(t *testing.T) {
 		c := newLookCache[string, *fakeLook](100)
-		c.steady("gone", "k", 10)
-		c.steady("here", "k", 12)
+		c.steady(runID{id: "gone"}, "k", 10)
+		c.steady(runID{id: "here"}, "k", 12)
 		c.forget(11)
 
 		t.Run("it should drop what was seen of it", func(t *testing.T) {
-			assert.NotContains(t, c.seen, "gone")
+			assert.NotContains(t, c.seen, runID{id: "gone"})
 		})
 
 		t.Run("it should keep what was seen of a building drawn since", func(t *testing.T) {
-			assert.Contains(t, c.seen, "here")
+			assert.Contains(t, c.seen, runID{id: "here"})
 		})
 	})
 }

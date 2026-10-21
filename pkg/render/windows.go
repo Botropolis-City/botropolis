@@ -344,7 +344,7 @@ func seenSource(ops []lightOp, src *ebiten.Image, punch bool) bool {
 // behind it, when it covers any: a window behind it does not show
 // through it.
 func (g *Game) punch(img *ebiten.Image, geo ebiten.GeoM) {
-	if !g.lightsOn || g.litBounds.Empty() {
+	if !g.lightsOn || g.baking || g.litBounds.Empty() {
 		return
 	}
 	b := img.Bounds()

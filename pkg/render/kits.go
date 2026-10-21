@@ -396,19 +396,29 @@ func (g *Game) kitRising(screen *ebiten.Image, cam *city.Camera, name string, fo
 // kitAt is kit with the foot already projected, and returns the screen
 // rect it drew into so the caller can make it answer when pointed at.
 func (g *Game) kitAt(screen *ebiten.Image, cam *city.Camera, name string, turn int, foot city.Point, tint *ebiten.ColorScale) city.Rect {
-	if g.kits == nil {
+	img, origin, scale, rect, ok := g.kitAtPlace(cam, name, turn, foot)
+	if !ok {
 		return city.Rect{}
+	}
+	g.drawSprite(screen, img, origin, scale, tint)
+	return rect
+}
+
+// kitAtPlace works out where kitAt would draw a piece, without drawing
+// it.
+func (g *Game) kitAtPlace(cam *city.Camera, name string, turn int, foot city.Point) (img *ebiten.Image, origin city.Point, scale float64, rect city.Rect, ok bool) {
+	if g.kits == nil {
+		return nil, city.Point{}, 0, city.Rect{}, false
 	}
 	atlas := g.kits.pick(cam.Zoom)
-	sprite, ok := atlas.Sprite(name, cam.Heading-turn)
-	if !ok || sprite.Page >= len(atlas.pages) {
-		return city.Rect{}
+	sprite, found := atlas.Sprite(name, cam.Heading-turn)
+	if !found || sprite.Page >= len(atlas.pages) {
+		return nil, city.Point{}, 0, city.Rect{}, false
 	}
-	scale := cam.Zoom / atlas.Zoom
-	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
-	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
-	g.drawSprite(screen, img, origin, scale, tint)
-	return city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale)
+	scale = cam.Zoom / atlas.Zoom
+	origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
+	img = atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	return img, origin, scale, city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale), true
 }
 
 // kitRoofLift is how high above its ground point a piece's roof plane

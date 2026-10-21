@@ -155,6 +155,15 @@ type Game struct {
 	// lights where they were painted (item 195).
 	paintUncut bool
 
+	// looks are buildings' looks baked into images, lookFrame counts the
+	// frames they are kept across, and baking is set while one is being
+	// baked, when nothing drawn is noted for the frame (item 192).
+	looks       *lookCache[lookKey, *bakedLook]
+	lookFrame   int
+	baking      bool
+	lookStats   lookStats
+	noLookCache bool
+
 	mu          sync.Mutex
 	pending     *state.Snapshot
 	notice      ui.Notice
