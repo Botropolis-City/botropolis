@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -22,7 +21,7 @@ func (g *Game) strip(screen *ebiten.Image, width float64) float64 {
 	for _, chip := range strip.Chips {
 		if chip.Tone != ui.ToneNone {
 			centre := chip.Dot.Center()
-			vector.FillCircle(screen, float32(centre.X), float32(centre.Y), float32(chip.Dot.Width()/2), th.Color(chip.Tone), true)
+			g.fillCircle(screen, float32(centre.X), float32(centre.Y), float32(chip.Dot.Width()/2), th.Color(chip.Tone))
 		}
 		g.text(screen, chip.TextAt, chip.Text, strip.Size, th.Palette.Text)
 	}

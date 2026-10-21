@@ -6,7 +6,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
@@ -173,42 +172,28 @@ func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building,
 		}
 	}
 	for i, pane := range panes {
-		fillQuad(screen, pane, colorDarkGlass)
+		g.fillQuad(screen, pane, colorDarkGlass)
 		if !boarded {
 			continue
 		}
 		planks := planksFor(pane, seed+uint32(i)*2654435761)
 		nail(planks, rows, origin, scale)
 		for _, plank := range planks {
-			fillQuad(screen, plank, colorPlankWood)
-			strokeQuad(screen, plank, float32(math.Max(1, 0.6*cam.Zoom)), colorPlankEdge)
+			g.fillQuad(screen, plank, colorPlankWood)
+			g.strokeQuad(screen, plank, float32(math.Max(1, 0.6*cam.Zoom)), colorPlankEdge)
 			radius := float32(math.Max(0.8, 0.9*cam.Zoom))
 			for _, end := range []city.Point{lerp(plank[0], plank[3], 0.5), lerp(plank[1], plank[2], 0.5)} {
 				nail := lerp(end, lerp(plank[0], plank[2], 0.5), 0.12)
-				vector.FillCircle(screen, float32(nail.X), float32(nail.Y), radius, colorNail, true)
+				g.fillCircle(screen, float32(nail.X), float32(nail.Y), radius, colorNail)
 			}
 		}
 	}
 }
 
-func quadPath(q [4]city.Point) *vector.Path {
-	var p vector.Path
-	p.MoveTo(float32(q[0].X), float32(q[0].Y))
-	for _, c := range q[1:] {
-		p.LineTo(float32(c.X), float32(c.Y))
-	}
-	p.Close()
-	return &p
+func (g *Game) fillQuad(screen *ebiten.Image, q [4]city.Point, c color.NRGBA) {
+	g.paint.Fill(screen, q[:], c)
 }
 
-func fillQuad(screen *ebiten.Image, q [4]city.Point, c color.NRGBA) {
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, quadPath(q), nil, op)
-}
-
-func strokeQuad(screen *ebiten.Image, q [4]city.Point, width float32, c color.NRGBA) {
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.StrokePath(screen, quadPath(q), &vector.StrokeOptions{Width: width}, op)
+func (g *Game) strokeQuad(screen *ebiten.Image, q [4]city.Point, width float32, c color.NRGBA) {
+	g.paint.Stroke(screen, q[:], float64(width), true, c)
 }

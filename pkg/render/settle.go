@@ -58,12 +58,12 @@ func (g *Game) putOut(screen *ebiten.Image, cam *city.Camera, b *city.Building, 
 		glass := colorDarkGlass
 		glass.A = uint8(float64(glass.A) * (1 - beaconFade(kind, p)))
 		for _, pane := range panes {
-			fillQuad(screen, pane, glass)
+			g.fillQuad(screen, pane, glass)
 		}
 		return
 	}
 	out := len(panes) - panesLit(kind, p, len(panes))
 	for _, i := range outFirst(panes)[:out] {
-		fillQuad(screen, panes[i], colorDarkGlass)
+		g.fillQuad(screen, panes[i], colorDarkGlass)
 	}
 }

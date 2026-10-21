@@ -45,38 +45,14 @@ func planLotTint(th ui.Theme, m state.Move) color.NRGBA {
 	return c
 }
 
-// ring is a closed path through points.
-func ring(points []city.Point) *vector.Path {
-	var path vector.Path
-	for i, p := range points {
-		if i == 0 {
-			path.MoveTo(float32(p.X), float32(p.Y))
-		} else {
-			path.LineTo(float32(p.X), float32(p.Y))
-		}
-	}
-	path.Close()
-	return &path
-}
-
 // fillRing fills a closed ring of points in a colour.
-func fillRing(screen *ebiten.Image, points []city.Point, c color.NRGBA) {
-	if len(points) < 3 {
-		return
-	}
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, ring(points), nil, op)
+func (g *Game) fillRing(screen *ebiten.Image, points []city.Point, c color.NRGBA) {
+	g.paint.Fill(screen, points, c)
 }
 
 // strokeRing inks a closed ring of points.
-func strokeRing(screen *ebiten.Image, points []city.Point, width float32, c color.NRGBA) {
-	if len(points) < 2 {
-		return
-	}
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.StrokePath(screen, ring(points), &vector.StrokeOptions{Width: width, LineJoin: vector.LineJoinRound}, op)
+func (g *Game) strokeRing(screen *ebiten.Image, points []city.Point, width float32, c color.NRGBA) {
+	g.paint.Stroke(screen, points, float64(width), true, c)
 }
 
 // planDashes cuts a path into dashes of on pixels with off pixels
@@ -117,7 +93,7 @@ func planDashes(path []city.Point, on, off float64) [][]city.Point {
 
 // drawPlanTraffic is each road between districts in dashed ink: full
 // while travellers work on it, faint while it is quiet.
-func drawPlanTraffic(screen *ebiten.Image, traffic []city.PlanTraffic) {
+func (g *Game) drawPlanTraffic(screen *ebiten.Image, traffic []city.PlanTraffic) {
 	for _, tr := range traffic {
 		c := colorPlanQuiet
 		if tr.Active {
@@ -125,7 +101,7 @@ func drawPlanTraffic(screen *ebiten.Image, traffic []city.PlanTraffic) {
 		}
 		for _, d := range planDashes(tr.Points, planDashOn, planDashOff) {
 			for i := 1; i < len(d); i++ {
-				vector.StrokeLine(screen, float32(d[i-1].X), float32(d[i-1].Y), float32(d[i].X), float32(d[i].Y), 1.5, c, true)
+				g.strokeLine(screen, float32(d[i-1].X), float32(d[i-1].Y), float32(d[i].X), float32(d[i].Y), 1.5, c)
 			}
 		}
 	}
@@ -133,33 +109,37 @@ func drawPlanTraffic(screen *ebiten.Image, traffic []city.PlanTraffic) {
 
 // drawPlanCoast is the water beyond the island, the island's land, and
 // its coast in ink.
-func drawPlanCoast(screen *ebiten.Image, width, height float64, coast []city.Point) {
+func (g *Game) drawPlanCoast(screen *ebiten.Image, width, height float64, coast []city.Point, shape uint64) {
 	if len(coast) < 3 {
 		return
 	}
 	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorPlanWater, false)
-	fillRing(screen, coast, colorPlanPaper)
-	strokeRing(screen, coast, 1.5, colorPlanCoast)
+	if shape != g.coastShape {
+		g.coast.Forget()
+		g.coastShape = shape
+	}
+	g.paint.FillRing(screen, coast, colorPlanPaper, &g.coast)
+	g.strokeRing(screen, coast, 1.5, colorPlanCoast)
 }
 
 // drawPlanPlaza is the plaza as a small civic mark: a portico of three
 // columns under a pediment, on a disc of paper.
-func drawPlanPlaza(screen *ebiten.Image, r city.Rect) {
+func (g *Game) drawPlanPlaza(screen *ebiten.Image, r city.Rect) {
 	if r.Area() == 0 {
 		return
 	}
 	c := r.Center()
 	u := r.Width() / 30
-	vector.FillCircle(screen, float32(c.X), float32(c.Y), float32(14*u), colorPlanPaper, true)
-	vector.StrokeCircle(screen, float32(c.X), float32(c.Y), float32(14*u), float32(1.2), colorPlanInk, true)
+	g.fillCircle(screen, float32(c.X), float32(c.Y), float32(14*u), colorPlanPaper)
+	g.strokeCircle(screen, float32(c.X), float32(c.Y), float32(14*u), float32(1.2), colorPlanInk)
 	at := func(dx, dy float64) city.Point { return city.Point{X: c.X + dx*u, Y: c.Y + dy*u} }
-	fillRing(screen, []city.Point{at(-8, -3), at(0, -8), at(8, -3)}, colorPlanInk)
+	g.fillRing(screen, []city.Point{at(-8, -3), at(0, -8), at(8, -3)}, colorPlanInk)
 	for _, dx := range []float64{-5.5, 0, 5.5} {
 		a, b := at(dx, -2), at(dx, 5)
-		vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(1.6*u), colorPlanInk, true)
+		g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(1.6*u), colorPlanInk)
 	}
 	a, b := at(-8.5, 6.5), at(8.5, 6.5)
-	vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(1.6*u), colorPlanInk, true)
+	g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(1.6*u), colorPlanInk)
 }
 
 const planGrid = 48.0
@@ -213,25 +193,25 @@ func (g *Game) drawCityPlan(screen *ebiten.Image, width, height, alpha float64) 
 	g.scene.SetPlanCovers(g.planCovers(width, height))
 	plan := g.scene.CityPlan()
 	vector.FillRect(target, 0, 0, float32(width), float32(height), colorPlanPaper, false)
-	drawPlanCoast(target, width, height, plan.Coast)
+	g.drawPlanCoast(target, width, height, plan.Coast, plan.CoastShape)
 	g.drawPlanGrid(target, width, height)
 	for _, b := range plan.Badges {
-		fillRing(target, b.Lot[:], planLotTint(g.theme, b.Tone))
+		g.fillRing(target, b.Lot[:], planLotTint(g.theme, b.Tone))
 	}
-	drawPlanTraffic(target, plan.Traffic)
+	g.drawPlanTraffic(target, plan.Traffic)
 	for _, b := range plan.Badges {
 		for i := range b.Lot {
 			a, c := b.Lot[i], b.Lot[(i+1)%len(b.Lot)]
-			vector.StrokeLine(target, float32(a.X), float32(a.Y), float32(c.X), float32(c.Y), 1, colorPlanLot, true)
+			g.strokeLine(target, float32(a.X), float32(a.Y), float32(c.X), float32(c.Y), 1, colorPlanLot)
 		}
 	}
 	for _, l := range plan.Lines {
 		for i := 1; i < len(l.Points); i++ {
 			a, b := l.Points[i-1], l.Points[i]
-			vector.StrokeLine(target, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), 3, colorPlanInk, true)
+			g.strokeLine(target, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), 3, colorPlanInk)
 		}
 	}
-	drawPlanPlaza(target, plan.Plaza)
+	g.drawPlanPlaza(target, plan.Plaza)
 	g.drawPlanCompass(target, plan.Compass)
 	g.drawPlanCartouche(target, plan.Cartouche)
 	for _, b := range plan.Badges {
@@ -276,7 +256,7 @@ func (g *Game) drawCompactBadge(screen *ebiten.Image, b city.PlanBadge) {
 	g.roundRect(screen, r, r.Height()/2, colorPlanPaper)
 	g.roundRect(screen, r, r.Height()/2, th.Palette.Panel)
 	mid := r.Min.Y + r.Height()/2
-	vector.FillCircle(screen, float32(r.Min.X+r.Height()/2), float32(mid), 4, th.Color(ui.MoveTone(b.Tone)), true)
+	g.fillCircle(screen, float32(r.Min.X+r.Height()/2), float32(mid), 4, th.Color(ui.MoveTone(b.Tone)))
 	x := r.Min.X + r.Height()
 	room := r.Max.X - r.Height()/2 - x
 	count := compactCount(b)
@@ -358,7 +338,7 @@ func (g *Game) drawPlanLegend(screen *ebiten.Image, plan city.CityPlan) {
 	for _, m := range plan.Tones {
 		label := city.MovePhrase(m)
 		_, h := g.faces.Measure(label, ui.Small)
-		vector.FillCircle(screen, float32(x+5), float32(mid), 5, th.Color(ui.MoveTone(m)), true)
+		g.fillCircle(screen, float32(x+5), float32(mid), 5, th.Color(ui.MoveTone(m)))
 		g.text(screen, city.Point{X: x + 16, Y: mid - h/2}, label, ui.Small, th.Palette.Text)
 		w, _ := g.faces.Measure(label, ui.Small)
 		x += 16 + w + 3*pad
@@ -424,14 +404,14 @@ func (g *Game) drawPlanCompass(screen *ebiten.Image, c city.PlanCompass) {
 	th := g.theme
 	mid := c.Box.Center()
 	r := c.Box.Width()/2 - 2
-	vector.FillCircle(screen, float32(mid.X), float32(mid.Y), float32(r), colorPlanPaper, true)
-	vector.StrokeCircle(screen, float32(mid.X), float32(mid.Y), float32(r), 1.2, colorPlanInk, true)
+	g.fillCircle(screen, float32(mid.X), float32(mid.Y), float32(r), colorPlanPaper)
+	g.strokeCircle(screen, float32(mid.X), float32(mid.Y), float32(r), 1.2, colorPlanInk)
 	n := c.North
 	side := city.Point{X: -n.Y, Y: n.X}
 	needle := r * 0.62
 	tip, tail := mid.Add(n.Scale(needle)), mid.Sub(n.Scale(needle))
-	fillRing(screen, []city.Point{tip, mid.Add(side.Scale(r * 0.18)), mid.Sub(side.Scale(r * 0.18))}, colorPlanInk)
-	strokeRing(screen, []city.Point{tail, mid.Add(side.Scale(r * 0.18)), mid.Sub(side.Scale(r * 0.18))}, 1.2, colorPlanInk)
+	g.fillRing(screen, []city.Point{tip, mid.Add(side.Scale(r * 0.18)), mid.Sub(side.Scale(r * 0.18))}, colorPlanInk)
+	g.strokeRing(screen, []city.Point{tail, mid.Add(side.Scale(r * 0.18)), mid.Sub(side.Scale(r * 0.18))}, 1.2, colorPlanInk)
 	w, h := g.faces.Measure("N", ui.Small)
 	at := mid.Add(n.Scale(r * 0.82))
 	g.text(screen, city.Point{X: at.X - w/2, Y: at.Y - h/2}, "N", ui.Small, th.Palette.Text)
@@ -449,7 +429,7 @@ func (g *Game) drawPlanCartouche(screen *ebiten.Image, c city.PlanCartouche) {
 	g.roundRect(screen, r, th.Radius()/2, th.Palette.Panel)
 	for _, in := range []float64{1, 4} {
 		box := r.Inset(in)
-		strokeRing(screen, []city.Point{box.Min, {X: box.Max.X, Y: box.Min.Y}, box.Max, {X: box.Min.X, Y: box.Max.Y}}, 1, colorPlanCoast)
+		g.strokeRing(screen, []city.Point{box.Min, {X: box.Max.X, Y: box.Min.Y}, box.Max, {X: box.Min.X, Y: box.Max.Y}}, 1, colorPlanCoast)
 	}
 	tw, th1 := g.faces.Measure(c.Title, ui.Body)
 	mw, mh := g.faces.Measure(c.Time, ui.Small)

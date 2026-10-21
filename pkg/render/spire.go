@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -95,15 +94,15 @@ func (g *Game) drawSpire(screen *ebiten.Image, cam *city.Camera, b *city.Buildin
 	}
 	s := spireOf(g.spireBase(cam, b), storeyHeight(cam.Zoom), n)
 	for _, seg := range s.segments {
-		vector.StrokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width+1.5), colorSpireEdge, true)
-		vector.StrokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width), colorSpire, true)
-		vector.FillCircle(screen, float32(seg.b.X), float32(seg.b.Y), float32(seg.width*0.8), colorSpireEdge, true)
+		g.strokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width+1.5), colorSpireEdge)
+		g.strokeLine(screen, float32(seg.a.X), float32(seg.a.Y), float32(seg.b.X), float32(seg.b.Y), float32(seg.width), colorSpire)
+		g.fillCircle(screen, float32(seg.b.X), float32(seg.b.Y), float32(seg.width*0.8), colorSpireEdge)
 	}
 	if s.beacon {
 		r := float32(max(2, storeyHeight(cam.Zoom)*0.12))
 		glow := colorBeacon
 		glow.A = 0x60
-		vector.FillCircle(screen, float32(s.tip.X), float32(s.tip.Y), r*2.2, glow, true)
-		vector.FillCircle(screen, float32(s.tip.X), float32(s.tip.Y), r, colorBeacon, true)
+		g.fillCircle(screen, float32(s.tip.X), float32(s.tip.Y), r*2.2, glow)
+		g.fillCircle(screen, float32(s.tip.X), float32(s.tip.Y), r, colorBeacon)
 	}
 }

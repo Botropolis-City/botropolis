@@ -5,9 +5,9 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/shapes"
 )
 
 // Drones in flight, with their shadows. Item 89.
@@ -250,24 +250,12 @@ func (g *Game) flights(screen **ebiten.Image, c *city.City, cam *city.Camera, se
 }
 
 // droneShadow is a soft ellipse on the ground beneath a drone.
-func droneShadow(screen *ebiten.Image, cam *city.Camera, at city.Point) {
+func (g *Game) droneShadow(screen *ebiten.Image, cam *city.Camera, at city.Point) {
 	p := cam.WorldToScreen(at)
 	rx, ry := 5*cam.Zoom, 2.5*cam.Zoom
-	var path vector.Path
-	const steps = 16
-	for i := 0; i < steps; i++ {
-		a := 2 * math.Pi * float64(i) / steps
-		x, y := float32(p.X+rx*math.Cos(a)), float32(p.Y+ry*math.Sin(a))
-		if i == 0 {
-			path.MoveTo(x, y)
-		} else {
-			path.LineTo(x, y)
-		}
-	}
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(colorDroneShadow)
-	vector.FillPath(screen, &path, nil, op)
+	pts := shapes.AppendEllipse(g.paint.Points(), p, rx, ry)
+	g.paint.Fill(screen, pts, colorDroneShadow)
+	g.paint.Keep(pts)
 }
 
 // droneMinWidth is the narrowest a drone is drawn, in pixels, so one

@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -149,23 +148,12 @@ func raised(cam *city.Camera, p city.Point, lift float64) city.Point {
 	return s
 }
 
-func fillScreen(screen *ebiten.Image, pts []city.Point, c color.NRGBA) {
-	var path vector.Path
-	for i, p := range pts {
-		if i == 0 {
-			path.MoveTo(float32(p.X), float32(p.Y))
-		} else {
-			path.LineTo(float32(p.X), float32(p.Y))
-		}
-	}
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, &path, nil, op)
+func (g *Game) fillScreen(screen *ebiten.Image, pts []city.Point, c color.NRGBA) {
+	g.paint.Fill(screen, pts, c)
 }
 
-func strokeScreen(screen *ebiten.Image, a, b city.Point, width float64, c color.NRGBA) {
-	vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), c, true)
+func (g *Game) strokeScreen(screen *ebiten.Image, a, b city.Point, width float64, c color.NRGBA) {
+	g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), c)
 }
 
 // nearer is whether world point a is nearer the camera than b.
@@ -186,14 +174,14 @@ func sides(cam *city.Camera, r city.Rect) [2][2]city.Point {
 
 // railing runs along an edge of the road at a height, with a post at
 // each end and every quarter of the way.
-func railing(screen *ebiten.Image, cam *city.Camera, a, b city.Point, liftA, liftB float64) {
+func (g *Game) railing(screen *ebiten.Image, cam *city.Camera, a, b city.Point, liftA, liftB float64) {
 	up := railHeight * cam.Zoom
-	strokeScreen(screen, raised(cam, a, liftA+up), raised(cam, b, liftB+up), math.Max(1, cam.Zoom), colorRailing)
+	g.strokeScreen(screen, raised(cam, a, liftA+up), raised(cam, b, liftB+up), math.Max(1, cam.Zoom), colorRailing)
 	for i := 0; i <= 4; i++ {
 		f := float64(i) / 4
 		p := lerpPoint(a, b, f)
 		lift := liftA + (liftB-liftA)*f
-		strokeScreen(screen, raised(cam, p, lift), raised(cam, p, lift+up), math.Max(1, 0.8*cam.Zoom), colorRailing)
+		g.strokeScreen(screen, raised(cam, p, lift), raised(cam, p, lift+up), math.Max(1, 0.8*cam.Zoom), colorRailing)
 	}
 }
 
@@ -213,7 +201,7 @@ func (g *Game) drawRampSegment(screen *ebiten.Image, cam *city.Camera, b city.Br
 	inset := 0.2 * (r.Max.Y - r.Min.Y)
 	pa, pb := city.Point{X: high, Y: r.Min.Y + inset}, city.Point{X: high, Y: r.Max.Y - inset}
 	if under(liftHigh) > 0 {
-		fillScreen(screen, []city.Point{raised(cam, pa, 0), raised(cam, pb, 0), raised(cam, pb, under(liftHigh)), raised(cam, pa, under(liftHigh))}, colorPier)
+		g.fillScreen(screen, []city.Point{raised(cam, pa, 0), raised(cam, pb, 0), raised(cam, pb, under(liftHigh)), raised(cam, pa, under(liftHigh))}, colorPier)
 	}
 	edges := sides(cam, r)
 	along := func(e [2]city.Point) (lo, hi city.Point) {
@@ -224,17 +212,17 @@ func (g *Game) drawRampSegment(screen *ebiten.Image, cam *city.Camera, b city.Br
 	}
 	for _, e := range edges {
 		lo, hi := along(e)
-		fillScreen(screen, []city.Point{raised(cam, lo, liftLow), raised(cam, hi, liftHigh), raised(cam, hi, under(liftHigh)), raised(cam, lo, under(liftLow))}, colorGirder)
+		g.fillScreen(screen, []city.Point{raised(cam, lo, liftLow), raised(cam, hi, liftHigh), raised(cam, hi, under(liftHigh)), raised(cam, lo, under(liftLow))}, colorGirder)
 	}
 	f, n := edges[0], edges[1]
 	flo, fhi := along(f)
 	nlo, nhi := along(n)
-	fillScreen(screen, []city.Point{raised(cam, flo, liftLow), raised(cam, fhi, liftHigh), raised(cam, nhi, liftHigh), raised(cam, nlo, liftLow)}, colorRampRoad)
+	g.fillScreen(screen, []city.Point{raised(cam, flo, liftLow), raised(cam, fhi, liftHigh), raised(cam, nhi, liftHigh), raised(cam, nlo, liftLow)}, colorRampRoad)
 	mid := r.Center().Y
-	strokeScreen(screen, raised(cam, city.Point{X: low, Y: mid}, liftLow), raised(cam, city.Point{X: high, Y: mid}, liftHigh), math.Max(1, cam.Zoom), colorRampLine)
+	g.strokeScreen(screen, raised(cam, city.Point{X: low, Y: mid}, liftLow), raised(cam, city.Point{X: high, Y: mid}, liftHigh), math.Max(1, cam.Zoom), colorRampLine)
 	for _, e := range edges {
 		lo, hi := along(e)
-		railing(screen, cam, lo, hi, liftLow, liftHigh)
+		g.railing(screen, cam, lo, hi, liftLow, liftHigh)
 	}
 }
 
@@ -250,18 +238,18 @@ func (g *Game) drawSpan(screen *ebiten.Image, cam *city.Camera, b city.Bridge, c
 	}
 	inset := 0.2 * (r.Max.Y - r.Min.Y)
 	pa, pb := city.Point{X: out, Y: r.Min.Y + inset}, city.Point{X: out, Y: r.Max.Y - inset}
-	fillScreen(screen, []city.Point{raised(cam, pa, 0), raised(cam, pb, 0), raised(cam, pb, under), raised(cam, pa, under)}, colorPier)
+	g.fillScreen(screen, []city.Point{raised(cam, pa, 0), raised(cam, pb, 0), raised(cam, pb, under), raised(cam, pa, under)}, colorPier)
 	edges := sides(cam, r)
 	for _, e := range edges {
-		fillScreen(screen, []city.Point{raised(cam, e[0], top), raised(cam, e[1], top), raised(cam, e[1], under), raised(cam, e[0], under)}, colorGirder)
+		g.fillScreen(screen, []city.Point{raised(cam, e[0], top), raised(cam, e[1], top), raised(cam, e[1], under), raised(cam, e[0], under)}, colorGirder)
 	}
 	if g.kits != nil {
 		g.kitGroundLifted(screen, cam, deckPiece, 0, cell.Center(), top, nil)
 	} else {
 		c := [4]city.Point{r.Min, {X: r.Max.X, Y: r.Min.Y}, r.Max, {X: r.Min.X, Y: r.Max.Y}}
-		fillScreen(screen, []city.Point{raised(cam, c[0], top), raised(cam, c[1], top), raised(cam, c[2], top), raised(cam, c[3], top)}, colorStreet)
+		g.fillScreen(screen, []city.Point{raised(cam, c[0], top), raised(cam, c[1], top), raised(cam, c[2], top), raised(cam, c[3], top)}, colorStreet)
 	}
 	for _, e := range edges {
-		railing(screen, cam, e[0], e[1], top, top)
+		g.railing(screen, cam, e[0], e[1], top, top)
 	}
 }

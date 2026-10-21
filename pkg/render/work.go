@@ -291,17 +291,17 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	// beside is drawn over it in the same silver as the others.
 	if up > 0 {
 		foot, top := hoistAt(lot, roofLift, 0), hoistAt(lot, roofLift, 1)
-		vector.StrokeLine(screen, float32(foot.X), float32(foot.Y), float32(top.X), float32(top.Y-storey), float32(max(1, cam.Zoom)), colorHoist, true)
+		g.strokeLine(screen, float32(foot.X), float32(foot.Y), float32(top.X), float32(top.Y-storey), float32(max(1, cam.Zoom)), colorHoist)
 	}
 	for _, s := range scaffoldOrder(lines) {
 		if s.plank {
-			drawBoard(screen, s)
+			g.drawBoard(screen, s)
 		} else {
-			drawTube(screen, s)
+			g.drawTube(screen, s)
 		}
 	}
 	if up >= 0.5 {
-		drawLadder(screen, onRoof(lot, roofLift, 0.5, scaffoldGrid[len(scaffoldGrid)-1]), storey*up*0.5, max(2, roofLift*0.05))
+		g.drawLadder(screen, onRoof(lot, roofLift, 0.5, scaffoldGrid[len(scaffoldGrid)-1]), storey*up*0.5, max(2, roofLift*0.05))
 	}
 	flash := 0.0
 	for _, l := range loads {
@@ -313,7 +313,7 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		c := colorWorkLight
 		c.A = uint8(200 + 55*flash)
 		light := float32(max(1.5, roofLift*0.045) * (1 + flash))
-		vector.FillCircle(screen, float32(at.X), float32(at.Y), light, c, true)
+		g.fillCircle(screen, float32(at.X), float32(at.Y), light, c)
 	}
 	if up <= 0 {
 		return
@@ -361,18 +361,18 @@ var (
 )
 
 // drawTube draws a scaffold tube: a dark edge with a lighter core.
-func drawTube(screen *ebiten.Image, s segment) {
+func (g *Game) drawTube(screen *ebiten.Image, s segment) {
 	w := float32(max(1, s.width))
-	vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), w, colorTubeEdge, true)
-	vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), max(0.6, w*0.45), colorTube, true)
+	g.strokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), w, colorTubeEdge)
+	g.strokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), max(0.6, w*0.45), colorTube)
 }
 
 // drawBoard draws a deck board: a dark underside, the tan board, a light
 // top edge, and a dark seam every few pixels along it.
-func drawBoard(screen *ebiten.Image, s segment) {
+func (g *Game) drawBoard(screen *ebiten.Image, s segment) {
 	w := max(1, s.width)
 	line := func(dy, width float64, c color.NRGBA) {
-		vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y+dy), float32(s.b.X), float32(s.b.Y+dy), float32(width), c, true)
+		g.strokeLine(screen, float32(s.a.X), float32(s.a.Y+dy), float32(s.b.X), float32(s.b.Y+dy), float32(width), c)
 	}
 	line(w*0.45, w*0.5, colorBoardEdge)
 	line(0, w, colorBoard)
@@ -382,20 +382,20 @@ func drawBoard(screen *ebiten.Image, s segment) {
 	for k := 1; k < seams; k++ {
 		t := float64(k) / float64(seams)
 		x, y := s.a.X+(s.b.X-s.a.X)*t, s.a.Y+(s.b.Y-s.a.Y)*t
-		vector.StrokeLine(screen, float32(x), float32(y-w/2), float32(x), float32(y+w/2), 1, colorBoardEdge, true)
+		g.strokeLine(screen, float32(x), float32(y-w/2), float32(x), float32(y+w/2), 1, colorBoardEdge)
 	}
 }
 
 // drawLadder draws a short ladder standing at foot, height tall: two
 // rails and rungs.
-func drawLadder(screen *ebiten.Image, foot city.Point, height, width float64) {
+func (g *Game) drawLadder(screen *ebiten.Image, foot city.Point, height, width float64) {
 	x0, x1 := float32(foot.X-width/2), float32(foot.X+width/2)
 	y0, y1 := float32(foot.Y), float32(foot.Y-height)
-	vector.StrokeLine(screen, x0, y0, x0, y1, 1, colorTubeEdge, true)
-	vector.StrokeLine(screen, x1, y0, x1, y1, 1, colorTubeEdge, true)
+	g.strokeLine(screen, x0, y0, x0, y1, 1, colorTubeEdge)
+	g.strokeLine(screen, x1, y0, x1, y1, 1, colorTubeEdge)
 	rungs := max(2, int(height/4))
 	for k := 1; k < rungs; k++ {
 		y := y0 + (y1-y0)*float32(k)/float32(rungs)
-		vector.StrokeLine(screen, x0, y, x1, y, 1, colorTubeEdge, true)
+		g.strokeLine(screen, x0, y, x1, y, 1, colorTubeEdge)
 	}
 }

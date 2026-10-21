@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -78,18 +77,18 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
 		var office city.Point
 		if l.Office != nil && len(points) > 0 {
 			office = cam.WorldToScreen(l.Office.At)
-			vector.StrokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width+2), casing, true)
-			vector.StrokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width), ink, true)
+			g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width+2), casing)
+			g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width), ink)
 		}
 		for i := 1; i < len(points); i++ {
 			a, b := points[i-1], points[i]
 			if l.Stations[i].Dashed {
-				dashed(screen, a, b, width+2, 6*cam.Zoom, casing)
-				dashed(screen, a, b, width, 6*cam.Zoom, ink)
+				g.dashed(screen, a, b, width+2, 6*cam.Zoom, casing)
+				g.dashed(screen, a, b, width, 6*cam.Zoom, ink)
 				continue
 			}
-			vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width+2), casing, true)
-			vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), ink, true)
+			g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width+2), casing)
+			g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), ink)
 		}
 		for i, st := range l.Stations {
 			if g.stationLit(st.District) {
@@ -108,10 +107,10 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
 			if focus != "" && l.Group.ID != focus {
 				tone.A = lineFaded
 			}
-			vector.FillRect(screen, float32(box.Min.X-1.5), float32(box.Min.Y-1.5), float32(box.Width()+3), float32(box.Height()+3), casing, true)
-			vector.FillRect(screen, float32(box.Min.X), float32(box.Min.Y), float32(box.Width()), float32(box.Height()), ink, true)
+			g.fillRect(screen, float32(box.Min.X-1.5), float32(box.Min.Y-1.5), float32(box.Width()+3), float32(box.Height()+3), casing)
+			g.fillRect(screen, float32(box.Min.X), float32(box.Min.Y), float32(box.Width()), float32(box.Height()), ink)
 			inner := box.Inset(box.Width() * 0.22)
-			vector.FillRect(screen, float32(inner.Min.X), float32(inner.Min.Y), float32(inner.Width()), float32(inner.Height()), tone, true)
+			g.fillRect(screen, float32(inner.Min.X), float32(inner.Min.Y), float32(inner.Width()), float32(inner.Height()), tone)
 		}
 		if len(points) > 0 && g.labelsVisible() && l.Group.Short != "" {
 			g.queueStationLabel(l.Stations[0].District, points[0], radius, l.Group.Short, ink, casing)
@@ -121,9 +120,9 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
 
 // station draws one station of a line and notes it under the pointer.
 func (g *Game) station(screen *ebiten.Image, l *city.Line, i int, p city.Point, radius float64, ink, casing, tone color.NRGBA) {
-	vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius+1.5), casing, true)
-	vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius), ink, true)
-	vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius*0.6), tone, true)
+	g.fillCircle(screen, float32(p.X), float32(p.Y), float32(radius+1.5), casing)
+	g.fillCircle(screen, float32(p.X), float32(p.Y), float32(radius), ink)
+	g.fillCircle(screen, float32(p.X), float32(p.Y), float32(radius*0.6), tone)
 	g.noteHit(city.RectAt(p.X-radius, p.Y-radius, radius*2, radius*2),
 		city.Hit{Station: &city.StationHit{Line: l, Index: i}})
 }

@@ -34,7 +34,7 @@ func (g *Game) drawTimeline(screen *ebiten.Image, width, height float64) {
 		if row.Time.Text != "" {
 			g.run(screen, row.Time, th.Palette.Dim)
 			centre := row.Dot.Center()
-			vector.FillCircle(screen, float32(centre.X), float32(centre.Y), float32(row.Dot.Width()/2), th.Color(row.Tone), true)
+			g.fillCircle(screen, float32(centre.X), float32(centre.Y), float32(row.Dot.Width()/2), th.Color(row.Tone))
 		}
 		g.run(screen, row.Title, th.Palette.Text)
 		g.run(screen, row.Detail, th.Palette.Dim)

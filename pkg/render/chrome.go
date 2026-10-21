@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/shapes"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -210,16 +211,9 @@ func (g *Game) sparkline(screen *ebiten.Image, sp ui.Sparkline) {
 	th := g.theme
 	vector.FillRect(screen, float32(sp.Box.Min.X), float32(sp.Box.Max.Y-th.Hairline()), float32(sp.Box.Width()), float32(th.Hairline()), th.Palette.Hairline, false)
 	if len(sp.Points) > 1 {
-		var path vector.Path
-		path.MoveTo(float32(sp.Points[0].X), float32(sp.Points[0].Y))
-		for _, p := range sp.Points[1:] {
-			path.LineTo(float32(p.X), float32(p.Y))
-		}
-		op := &vector.DrawPathOptions{AntiAlias: true}
-		op.ColorScale.ScaleWithColor(th.Palette.Accent)
-		vector.StrokePath(screen, &path, &vector.StrokeOptions{Width: float32(th.Px(1.5))}, op)
+		g.paint.Stroke(screen, sp.Points, th.Px(1.5), false, th.Palette.Accent)
 	}
-	vector.FillCircle(screen, float32(sp.Last.X), float32(sp.Last.Y), float32(th.Px(2.5)), th.Palette.Accent, true)
+	g.fillCircle(screen, float32(sp.Last.X), float32(sp.Last.Y), float32(th.Px(2.5)), th.Palette.Accent)
 }
 
 func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
@@ -278,27 +272,14 @@ func (g *Game) roundPanel(screen *ebiten.Image, r city.Rect) {
 	g.roundStroke(screen, r, th.Radius(), th.Hairline(), th.Palette.Hairline)
 }
 
-func roundPath(r city.Rect, radius float64) *vector.Path {
-	x0, y0, x1, y1 := float32(r.Min.X), float32(r.Min.Y), float32(r.Max.X), float32(r.Max.Y)
-	rad := float32(radius)
-	p := &vector.Path{}
-	p.MoveTo(x0+rad, y0)
-	p.ArcTo(x1, y0, x1, y1, rad)
-	p.ArcTo(x1, y1, x0, y1, rad)
-	p.ArcTo(x0, y1, x0, y0, rad)
-	p.ArcTo(x0, y0, x1, y0, rad)
-	p.Close()
-	return p
-}
-
 func (g *Game) roundRect(screen *ebiten.Image, r city.Rect, radius float64, c color.NRGBA) {
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, roundPath(r, radius), nil, op)
+	pts := shapes.AppendRoundRect(g.paint.Points(), r, radius)
+	g.paint.Fill(screen, pts, c)
+	g.paint.Keep(pts)
 }
 
 func (g *Game) roundStroke(screen *ebiten.Image, r city.Rect, radius, width float64, c color.NRGBA) {
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.StrokePath(screen, roundPath(r.Inset(width/2), radius), &vector.StrokeOptions{Width: float32(width)}, op)
+	pts := shapes.AppendRoundRect(g.paint.Points(), r.Inset(width/2), radius)
+	g.paint.Stroke(screen, pts, width, true, c)
+	g.paint.Keep(pts)
 }

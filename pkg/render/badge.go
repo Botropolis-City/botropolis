@@ -59,6 +59,6 @@ func (g *Game) drawBadge(screen *ebiten.Image, bd badge) {
 	vector.FillRect(screen, float32(p.Min.X), float32(p.Min.Y), float32(p.Width()), float32(p.Height()), colorText, false)
 	vector.StrokeRect(screen, float32(p.Min.X), float32(p.Min.Y), float32(p.Width()), float32(p.Height()), 1, colorBadgeInk, false)
 	_, h := g.measure(bd.Text)
-	vector.FillCircle(screen, float32(bd.Dot.X), float32(bd.Dot.Y), float32(h*0.3), g.theme.Color(bd.Tone), true)
+	g.fillCircle(screen, float32(bd.Dot.X), float32(bd.Dot.Y), float32(h*0.3), g.theme.Color(bd.Tone))
 	g.label(screen, bd.Ink, bd.Text, colorBadgeInk)
 }

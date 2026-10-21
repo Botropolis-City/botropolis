@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -91,8 +90,8 @@ func (g *Game) drawRibbon(screen *ebiten.Image, cam *city.Camera, r city.Ribbon)
 	alpha := uint8(255 * (1 - r.P))
 	ribbon := colorRibbon
 	ribbon.A = alpha
-	vector.StrokeLine(screen, float32(foot.X-half), float32(foot.Y), float32(foot.X-gap/2), float32(foot.Y), float32(2*cam.Zoom), ribbon, true)
-	vector.StrokeLine(screen, float32(foot.X+gap/2), float32(foot.Y), float32(foot.X+half), float32(foot.Y), float32(2*cam.Zoom), ribbon, true)
+	g.strokeLine(screen, float32(foot.X-half), float32(foot.Y), float32(foot.X-gap/2), float32(foot.Y), float32(2*cam.Zoom), ribbon)
+	g.strokeLine(screen, float32(foot.X+gap/2), float32(foot.Y), float32(foot.X+half), float32(foot.Y), float32(2*cam.Zoom), ribbon)
 	if !r.Fireworks {
 		return
 	}
@@ -107,7 +106,7 @@ func (g *Game) drawRibbon(screen *ebiten.Image, cam *city.Camera, r city.Ribbon)
 		s := cam.WorldToScreen(p)
 		lift := 30 * cam.Zoom * math.Sin(math.Pi*r.P)
 		c := color.NRGBA{green.R, green.G, green.B, alpha}
-		vector.FillCircle(screen, float32(s.X), float32(s.Y-lift), float32(1.5*cam.Zoom+0.5), c, true)
+		g.fillCircle(screen, float32(s.X), float32(s.Y-lift), float32(1.5*cam.Zoom+0.5), c)
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
@@ -73,11 +72,9 @@ func (g *Game) isoRails(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 		return
 	}
 	width := float32(math.Max(1, 1.2*cam.Zoom))
-	var sleepers, rails vector.Path
-	seg := func(path *vector.Path, a, b city.Point) {
-		p, q := cam.WorldToScreen(a), cam.WorldToScreen(b)
-		path.MoveTo(float32(p.X), float32(p.Y))
-		path.LineTo(float32(q.X), float32(q.Y))
+	var sleepers, rails []city.Point
+	seg := func(path *[]city.Point, a, b city.Point) {
+		*path = append(*path, cam.WorldToScreen(a), cam.WorldToScreen(b))
 	}
 	for i := 1; i < len(c.Rails); i++ {
 		a, b := c.Rails[i-1], c.Rails[i]
@@ -95,13 +92,14 @@ func (g *Game) isoRails(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 		seg(&rails, city.Point{X: a.X + nx, Y: a.Y + ny}, city.Point{X: b.X + nx, Y: b.Y + ny})
 		seg(&rails, city.Point{X: a.X - nx, Y: a.Y - ny}, city.Point{X: b.X - nx, Y: b.Y - ny})
 	}
-	stroke := func(path *vector.Path, w float32, col color.NRGBA) {
-		op := &vector.DrawPathOptions{AntiAlias: true}
-		op.ColorScale.ScaleWithColor(col)
-		vector.StrokePath(screen, path, &vector.StrokeOptions{Width: w}, op)
+	stroke := func(segs []city.Point, w float32, col color.NRGBA) {
+		for i := 0; i+1 < len(segs); i += 2 {
+			g.paint.AddLine(segs[i], segs[i+1], float64(w), col)
+		}
+		g.paint.Flush(screen)
 	}
-	stroke(&sleepers, width*1.6, colorSleeper)
-	stroke(&rails, width, colorRail)
+	stroke(sleepers, width*1.6, colorSleeper)
+	stroke(rails, width, colorRail)
 }
 
 // carriage is one piece of a train on the loop this frame.

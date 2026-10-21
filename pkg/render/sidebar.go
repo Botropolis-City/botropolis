@@ -57,7 +57,7 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 		}
 		if row.Kind == ui.RowSession {
 			centre := row.Dot.Center()
-			vector.FillCircle(screen, float32(centre.X), float32(centre.Y), float32(row.Dot.Width()/2), th.Color(row.Tone), true)
+			g.fillCircle(screen, float32(centre.X), float32(centre.Y), float32(row.Dot.Width()/2), th.Color(row.Tone))
 		}
 		colour := th.Palette.Text
 		if row.Kind == ui.RowSession || row.Kind == ui.RowHeader {

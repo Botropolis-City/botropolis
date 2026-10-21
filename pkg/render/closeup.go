@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
@@ -228,9 +227,9 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		mark := r.Pin.Center()
 		radius := float32(r.Box.Width() / 2)
 		if r.Pinned {
-			vector.FillCircle(screen, float32(mark.X), float32(mark.Y), radius, th.Palette.Accent, true)
+			g.fillCircle(screen, float32(mark.X), float32(mark.Y), radius, th.Palette.Accent)
 		} else {
-			vector.StrokeCircle(screen, float32(mark.X), float32(mark.Y), radius, 1.5, th.Palette.Dim, true)
+			g.strokeCircle(screen, float32(mark.X), float32(mark.Y), radius, 1.5, th.Palette.Dim)
 		}
 	}
 	if len(rows) > 0 {
@@ -257,7 +256,7 @@ func (g *Game) checkbox(screen *ebiten.Image, box city.Rect, checked bool) {
 			{X: box.Min.X + box.Width()*0.78, Y: box.Min.Y + box.Height()*0.3},
 		}
 		for i := 1; i < len(tick); i++ {
-			vector.StrokeLine(screen, float32(tick[i-1].X), float32(tick[i-1].Y), float32(tick[i].X), float32(tick[i].Y), float32(max(1.5, box.Width()/7)), th.Palette.Panel, true)
+			g.strokeLine(screen, float32(tick[i-1].X), float32(tick[i-1].Y), float32(tick[i].X), float32(tick[i].Y), float32(max(1.5, box.Width()/7)), th.Palette.Panel)
 		}
 		return
 	}
@@ -266,7 +265,7 @@ func (g *Game) checkbox(screen *ebiten.Image, box city.Rect, checked bool) {
 
 // strokeRound outlines a rect.
 func (g *Game) strokeRound(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
-	vector.StrokeRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), 1.5, c, true)
+	g.strokeRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), 1.5, c)
 }
 
 // quitButton is the close up button beside the quit prompt, while the

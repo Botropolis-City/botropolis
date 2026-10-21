@@ -13,41 +13,32 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/shapes"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
 // poly fills a world rectangle as its projected outline.
 func (g *Game) poly(screen *ebiten.Image, cam *city.Camera, r city.Rect, c color.NRGBA) {
-	var path vector.Path
-	for i, corner := range cam.Corners(r) {
-		p := corner.Add(cam.Offset).Scale(cam.Zoom)
-		if i == 0 {
-			path.MoveTo(float32(p.X), float32(p.Y))
-		} else {
-			path.LineTo(float32(p.X), float32(p.Y))
-		}
-	}
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, &path, nil, op)
+	pts := g.corners(cam, r)
+	g.paint.Fill(screen, pts, c)
+	g.paint.Keep(pts)
 }
 
 func (g *Game) polyStroke(screen *ebiten.Image, cam *city.Camera, r city.Rect, width float32, c color.NRGBA) {
-	var path vector.Path
-	for i, corner := range cam.Corners(r) {
-		p := corner.Add(cam.Offset).Scale(cam.Zoom)
-		if i == 0 {
-			path.MoveTo(float32(p.X), float32(p.Y))
-		} else {
-			path.LineTo(float32(p.X), float32(p.Y))
-		}
+	pts := g.corners(cam, r)
+	g.paint.Stroke(screen, pts, float64(width), true, c)
+	g.paint.Keep(pts)
+}
+
+// corners is a world rectangle's projected corners, in the painter's
+// points buffer.
+func (g *Game) corners(cam *city.Camera, r city.Rect) []city.Point {
+	pts := g.paint.Points()
+	for _, corner := range cam.Corners(r) {
+		pts = append(pts, corner.Add(cam.Offset).Scale(cam.Zoom))
 	}
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.StrokePath(screen, &path, &vector.StrokeOptions{Width: width}, op)
+	return pts
 }
 
 // drawSprite draws a sheet sprite with its top-left at a screen point,
@@ -221,15 +212,15 @@ func (g *Game) powerLines(screen *ebiten.Image, c *city.City, cam *city.Camera, 
 		for i := 1; i < len(tops); i++ {
 			a, b := tops[i-1], tops[i]
 			mid := city.Point{X: (a.X + b.X) / 2, Y: (a.Y+b.Y)/2 + wireSag*cam.Zoom}
-			var cached, fresh vector.Path
-			cached.MoveTo(float32(a.X), float32(a.Y+2*cam.Zoom))
-			cached.QuadTo(float32(mid.X), float32(mid.Y+2*cam.Zoom), float32(b.X), float32(b.Y+2*cam.Zoom))
-			fresh.MoveTo(float32(a.X), float32(a.Y))
-			fresh.QuadTo(float32(mid.X), float32(mid.Y), float32(b.X), float32(b.Y))
-			strokeWire := func(path *vector.Path, width float32, col color.NRGBA) {
-				op := &vector.DrawPathOptions{AntiAlias: true}
-				op.ColorScale.ScaleWithColor(col)
-				vector.StrokePath(screen, path, &vector.StrokeOptions{Width: width}, op)
+			drop := city.Point{Y: 2 * cam.Zoom}
+			strokeWire := func(lower bool, width float32, col color.NRGBA) {
+				from, via, to := a, mid, b
+				if lower {
+					from, via, to = a.Add(drop), mid.Add(drop), b.Add(drop)
+				}
+				pts := shapes.AppendQuad(g.paint.Points(), from, via, to)
+				g.paint.Stroke(screen, pts, float64(width), false, col)
+				g.paint.Keep(pts)
 			}
 			cachedCol, freshCol := colorLineCached, colorLineFresh
 			// Spend paints the carrier, not only what it runs to: a wire
@@ -238,10 +229,10 @@ func (g *Game) powerLines(screen *ebiten.Image, c *city.City, cam *city.Camera, 
 			if t := g.scene.WireTint(line, lines); t.Known {
 				cachedCol, freshCol = ui.Sequential.At(t.Value), ui.Sequential.At(t.Value)
 			}
-			strokeWire(&cached, lineWidth(line.Cached, 1, 3), cachedCol)
-			strokeWire(&fresh, lineWidth(line.Fresh, 1, 4), freshCol)
+			strokeWire(true, lineWidth(line.Cached, 1, 3), cachedCol)
+			strokeWire(false, lineWidth(line.Fresh, 1, 4), freshCol)
 			if highlight {
-				strokeWire(&fresh, 2, colorHighlight)
+				strokeWire(false, 2, colorHighlight)
 			}
 		}
 		// Sparks: one per line at a middling rate, more and faster as it climbs.
@@ -254,7 +245,7 @@ func (g *Game) powerLines(screen *ebiten.Image, c *city.City, cam *city.Camera, 
 		for k := 0; k < count; k++ {
 			t := math.Mod(seconds*speed/sparkPeriod+float64(k)/float64(count), 1)
 			p := wirePoint(tops, t, wireSag*cam.Zoom)
-			vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(math.Max(1.5, 2.5*cam.Zoom)), colorPlantCore, true)
+			g.paint.Disc(screen, p, math.Max(1.5, 2.5*cam.Zoom), colorPlantCore)
 		}
 	}
 }
@@ -377,8 +368,9 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 			beacon.A, kerb.A = uint8(float64(beacon.A)*fade), uint8(float64(kerb.A)*fade)
 		}
 		radius := math.Max(2, 4*cam.Zoom)
-		vector.FillCircle(screen, float32(foot.X), float32(foot.Y-radius*2), float32(radius*1.6), kerb, true)
-		vector.FillCircle(screen, float32(foot.X), float32(foot.Y-radius*2), float32(radius), beacon, true)
+		lamp := city.Point{X: foot.X, Y: foot.Y - radius*2}
+		g.paint.Disc(screen, lamp, radius*1.6, kerb)
+		g.paint.Disc(screen, lamp, radius, beacon)
 	}
 	roofTop := r.Min.Y
 	dot := math.Max(3, 6*cam.Zoom)
@@ -422,7 +414,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		g.celebrate(screen, city.Point{X: r.Min.X + r.Width()/2, Y: roofTop}, r.Width(), p)
 	}
 	for _, p := range smokePuffs(r, cam.Zoom, b.Smoke, seconds) {
-		vector.FillCircle(screen, float32(p.at.X), float32(p.at.Y), float32(p.radius), colorSmoke, true)
+		g.paint.Disc(screen, p.at, p.radius, colorSmoke)
 		g.noteHit(city.RectAt(p.at.X-p.radius, p.at.Y-p.radius, p.radius*2, p.radius*2),
 			city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Smoke: b})
 	}
@@ -653,7 +645,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.fadeAll(&screen, func() {
 		g.powerLines(screen, c, cam, hover, seconds)
 		for _, at := range shadows {
-			droneShadow(screen, cam, at)
+			g.droneShadow(screen, cam, at)
 		}
 	})
 	items := drones
@@ -1159,13 +1151,13 @@ func (g *Game) camps(screen *ebiten.Image, c *city.City, cam *city.Camera) {
 		from := cam.WorldToScreen(camp.Lead.Rect.Center())
 		for _, m := range camp.Members {
 			to := cam.WorldToScreen(m.Rect.Center())
-			dashed(screen, from, to, math.Max(1, 1.5*cam.Zoom), 6*cam.Zoom, g.theme.Palette.Accent)
+			g.dashed(screen, from, to, math.Max(1, 1.5*cam.Zoom), 6*cam.Zoom, g.theme.Palette.Accent)
 		}
 	}
 }
 
 // dashed strokes a line as dashes.
-func dashed(screen *ebiten.Image, a, b city.Point, width, dash float64, col color.NRGBA) {
+func (g *Game) dashed(screen *ebiten.Image, a, b city.Point, width, dash float64, col color.NRGBA) {
 	length := math.Hypot(b.X-a.X, b.Y-a.Y)
 	if length == 0 || dash <= 0 {
 		return
@@ -1173,7 +1165,7 @@ func dashed(screen *ebiten.Image, a, b city.Point, width, dash float64, col colo
 	ux, uy := (b.X-a.X)/length, (b.Y-a.Y)/length
 	for d := 0.0; d < length; d += 2 * dash {
 		end := math.Min(length, d+dash)
-		vector.StrokeLine(screen, float32(a.X+ux*d), float32(a.Y+uy*d), float32(a.X+ux*end), float32(a.Y+uy*end), float32(width), col, true)
+		g.paint.Line(screen, a.X+ux*d, a.Y+uy*d, a.X+ux*end, a.Y+uy*end, width, col)
 	}
 }
 
@@ -1184,15 +1176,11 @@ func (g *Game) celebrate(screen *ebiten.Image, top city.Point, width float64, p 
 	fade := uint8(255 * (1 - p))
 	ring := color.NRGBA{green.R, green.G, green.B, fade}
 	radius := width * (0.3 + 1.2*p)
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(ring)
-	var path vector.Path
-	path.Arc(float32(top.X), float32(top.Y), float32(radius), 0, 2*math.Pi, vector.Clockwise)
-	vector.StrokePath(screen, &path, &vector.StrokeOptions{Width: float32(math.Max(1.5, 3*(1-p)))}, op)
+	g.paint.Circle(screen, top, radius, math.Max(1.5, 3*(1-p)), ring)
 	for i := 0; i < 6; i++ {
 		a := float64(i) * math.Pi / 3
 		rise := width * (0.2 + 0.9*p)
-		vector.FillCircle(screen, float32(top.X+math.Cos(a)*width*0.35*(0.5+p)), float32(top.Y-rise*math.Abs(math.Sin(a+1))), float32(2.5*(1-p)+1), ring, true)
+		g.paint.Disc(screen, city.Point{X: top.X + math.Cos(a)*width*0.35*(0.5+p), Y: top.Y - rise*math.Abs(math.Sin(a+1))}, 2.5*(1-p)+1, ring)
 	}
 }
 
@@ -1283,12 +1271,7 @@ func (g *Game) storeyFrame(cam *city.Camera, b *city.Building, size image.Point)
 // kept for the frame (item 185).
 func (g *Game) glow(screen *ebiten.Image, at city.Point, radius float64, col color.NRGBA) {
 	g.glows = append(g.glows, at)
-	var path vector.Path
-	path.Arc(float32(at.X), float32(at.Y), float32(radius), 0, 2*math.Pi, vector.Clockwise)
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true, Blend: ebiten.BlendLighter}
-	op.ColorScale.ScaleWithColor(col)
-	vector.FillPath(screen, &path, nil, op)
+	g.paint.DiscBlend(screen, at, radius, col, ebiten.BlendLighter)
 }
 
 // towerTint is the colour a tower carries for its own reasons: warm when

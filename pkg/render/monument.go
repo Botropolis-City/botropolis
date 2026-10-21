@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/shapes"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -156,37 +157,19 @@ func bedOf(cam *city.Camera, at city.Point, width float64) city.Point {
 
 // ellipse fills a flattened disc, for the contact patch a sign makes on
 // the ground it stands on.
-func ellipse(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
+func (g *Game) ellipse(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
 	cx, cy := r.Center().X, r.Center().Y
 	rx, ry := r.Width()/2, r.Height()/2
-	var path vector.Path
-	for i := 0; i <= 24; i++ {
-		t := 2 * math.Pi * float64(i) / 24
-		x, y := cx+rx*math.Cos(t), cy+ry*math.Sin(t)
-		if i == 0 {
-			path.MoveTo(float32(x), float32(y))
-		} else {
-			path.LineTo(float32(x), float32(y))
-		}
-	}
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, &path, nil, op)
+	pts := shapes.AppendEllipse(g.paint.Points(), city.Point{X: cx, Y: cy}, rx, ry)
+	g.paint.Fill(screen, pts, c)
+	g.paint.Keep(pts)
 }
 
 // returnOf draws the side of a block stepping back from its right edge,
 // so a face-on element still shows its depth.
 func (g *Game) returnOf(screen *ebiten.Image, r city.Rect, depth float64, c color.NRGBA) {
-	var path vector.Path
-	path.MoveTo(float32(r.Max.X), float32(r.Min.Y))
-	path.LineTo(float32(r.Max.X+depth), float32(r.Min.Y-depth/2))
-	path.LineTo(float32(r.Max.X+depth), float32(r.Max.Y-depth/2))
-	path.LineTo(float32(r.Max.X), float32(r.Max.Y))
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, &path, nil, op)
+	side := [4]city.Point{{X: r.Max.X, Y: r.Min.Y}, {X: r.Max.X + depth, Y: r.Min.Y - depth/2}, {X: r.Max.X + depth, Y: r.Max.Y - depth/2}, {X: r.Max.X, Y: r.Max.Y}}
+	g.paint.Fill(screen, side[:], c)
 }
 
 func (g *Game) fill(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
@@ -221,7 +204,7 @@ func (g *Game) districtMonument(screen *ebiten.Image, cam *city.Camera, d *city.
 
 	// The ground first: the contact patch is what stops a head-on
 	// object hovering, and it is the thing the Oak Hollow reference has.
-	ellipse(screen, sign.Shadow, colorMonumentShadow)
+	g.ellipse(screen, sign.Shadow, colorMonumentShadow)
 	if night {
 		lamp := city.Point{X: ground.X, Y: ground.Y - sign.Base.Height()*0.4}
 		g.glow(screen, lamp, lit(sign.Base.Width()*0.4, minMonumentGlow), boost(colorMonumentLamp, cam.Zoom))

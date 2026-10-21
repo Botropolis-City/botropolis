@@ -4,7 +4,6 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -122,7 +121,7 @@ func (g *Game) drawSite(screen *ebiten.Image, lot [4]city.Point, roofline float6
 		color color.NRGBA
 	}{{fence, colorFence}, {scaffold, colorScaffold}, {crane, colorSiteCrane}} {
 		for _, s := range set.lines {
-			vector.StrokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), float32(max(1, s.width)), set.color, true)
+			g.strokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), float32(max(1, s.width)), set.color)
 		}
 	}
 }

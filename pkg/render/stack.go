@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -43,41 +42,14 @@ func arc(box city.Rect, from, to float64) []city.Point {
 	return out
 }
 
-func pathThrough(points []city.Point) vector.Path {
-	var path vector.Path
-	for i, p := range points {
-		if i == 0 {
-			path.MoveTo(float32(p.X), float32(p.Y))
-		} else {
-			path.LineTo(float32(p.X), float32(p.Y))
-		}
-	}
-	return path
-}
-
-func fillPoints(screen *ebiten.Image, points []city.Point, c color.NRGBA) {
-	path := pathThrough(points)
-	path.Close()
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, &path, nil, op)
-}
-
-func strokePoints(screen *ebiten.Image, points []city.Point, width float32, c color.NRGBA) {
-	path := pathThrough(points)
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(c)
-	vector.StrokePath(screen, &path, &vector.StrokeOptions{Width: width}, op)
-}
-
 // curbBehind draws the whole ring: the cylinder's silhouette, bounded
 // above by the top ellipse's far arc and below by the foot ellipse's
 // near arc. The stack goes over it next and takes out the 98° that
 // really is hidden.
 func (g *Game) curbBehind(screen *ebiten.Image, f ui.StackFittings, hair float32) {
 	silhouette := append(arc(f.OuterTop, math.Pi, 2*math.Pi), arc(f.OuterFoot, 0, math.Pi)...)
-	fillPoints(screen, silhouette, colorStackCurb)
-	strokePoints(screen, arc(f.OuterFoot, 0, math.Pi), hair, colorStackRim)
+	g.fillPoints(screen, silhouette, colorStackCurb)
+	g.strokePoints(screen, arc(f.OuterFoot, 0, math.Pi), hair, colorStackRim)
 }
 
 // curbFront draws the near half of the curb's top surface: the annulus
@@ -86,7 +58,7 @@ func (g *Game) curbBehind(screen *ebiten.Image, f ui.StackFittings, hair float32
 // is no gap at the wall — is the stack's visible bottom line.
 func (g *Game) curbFront(screen *ebiten.Image, f ui.StackFittings) {
 	annulus := append(arc(f.OuterTop, math.Pi, 0), arc(f.InnerTop, 0, math.Pi)...)
-	fillPoints(screen, annulus, colorStackTop)
+	g.fillPoints(screen, annulus, colorStackTop)
 }
 
 // stackThrough draws a stack rising through a roof, curb and all: the

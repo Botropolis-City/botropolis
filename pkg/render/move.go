@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -124,6 +123,6 @@ func (g *Game) drawCarry(screen *ebiten.Image, cam *city.Camera, cursor city.Poi
 		return
 	}
 	from := cam.WorldToScreen(g.carrying.Rect.Center())
-	dashed(screen, from, cursor, 2, 6, colorLineInk)
-	vector.FillCircle(screen, float32(cursor.X), float32(cursor.Y), 4, colorLineInk, true)
+	g.dashed(screen, from, cursor, 2, 6, colorLineInk)
+	g.fillCircle(screen, float32(cursor.X), float32(cursor.Y), 4, colorLineInk)
 }

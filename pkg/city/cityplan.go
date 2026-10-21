@@ -5,6 +5,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"botropolis.city/botropolis/pkg/state"
@@ -133,13 +134,18 @@ const (
 type planCoast struct {
 	lots  []Rect
 	world []Point
+	shape uint64
 }
+
+// coastShapes numbers every coast traced, in every scene, so a coast's
+// number changes exactly when its shape does (item 191).
+var coastShapes atomic.Uint64
 
 // coast is the plan's coastline round the lots in world points,
 // remembered.
 func (s *Scene) coast(lots []Rect) []Point {
 	if s.planCoast.world == nil || !slices.Equal(s.planCoast.lots, lots) {
-		s.planCoast = planCoast{lots: slices.Clone(lots), world: PlanCoastline(lots)}
+		s.planCoast = planCoast{lots: slices.Clone(lots), world: PlanCoastline(lots), shape: coastShapes.Add(1)}
 	}
 	return s.planCoast.world
 }
@@ -447,8 +453,11 @@ type CityPlan struct {
 	// in.
 	Area   Rect
 	Legend Rect
-	// Coast is the island's coastline on the plan, a closed ring.
-	Coast []Point
+	// Coast is the island's coastline on the plan, a closed ring, and
+	// CoastShape changes whenever its shape does, not when it only
+	// moves or scales with the plan.
+	Coast      []Point
+	CoastShape uint64
 	// Plaza is the plaza glyph's box, which no badge covers.
 	Plaza Rect
 	// Compass and Cartouche stand in the plan's top corners.
@@ -724,7 +733,7 @@ func (s *Scene) CityPlan() CityPlan {
 		}
 	}
 
-	plan := CityPlan{Area: area, Legend: legend, frame: frame}
+	plan := CityPlan{Area: area, Legend: legend, frame: frame, CoastShape: s.planCoast.shape}
 	for _, w := range coast {
 		plan.Coast = append(plan.Coast, frame.toScreen(w))
 	}

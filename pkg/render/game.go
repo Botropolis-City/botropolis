@@ -27,6 +27,7 @@ import (
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/shapes"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/stats"
@@ -117,6 +118,13 @@ type Game struct {
 	landmarkDraws int
 	// glows is where each glow was drawn this frame (item 185).
 	glows []city.Point
+	// paint draws the world's lines, quads, rings and discs as small
+	// meshes and stamps rather than anti-aliased paths (item 191).
+	paint shapes.Painter
+	// coast remembers the City Plan coast's triangulation, for as long
+	// as the scene's coast is the same ring (item 191).
+	coast      shapes.Ring
+	coastShape uint64
 	// lights is the night's lit windows, laid in depth order as the
 	// buildings are drawn and cut away by every sprite drawn in front of
 	// them, then put over the night wash; lightsOn while it is being laid
@@ -1454,12 +1462,12 @@ func (g *Game) landmarks(screen *ebiten.Image, cam *city.Camera, labels bool) {
 func (g *Game) line(screen *ebiten.Image, cam *city.Camera, from, to city.Point, width float32, c color.NRGBA) {
 	a := cam.WorldToScreen(from)
 	b := cam.WorldToScreen(to)
-	vector.StrokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), width*float32(cam.Zoom), c, true)
+	g.paint.Line(screen, a.X, a.Y, b.X, b.Y, float64(width)*cam.Zoom, c)
 }
 
 func (g *Game) circle(screen *ebiten.Image, cam *city.Camera, centre city.Point, radius float64, c color.NRGBA) {
 	p := cam.WorldToScreen(centre)
-	vector.FillCircle(screen, float32(p.X), float32(p.Y), float32(radius*cam.Zoom), c, true)
+	g.paint.Disc(screen, p, radius*cam.Zoom, c)
 }
 
 func lineWidth(perHour, min, max float64) float32 {
