@@ -416,9 +416,12 @@ func (g *Game) sheetRising(cam *city.Camera, b *city.Building, rise float64, lig
 const sheetCellSize = 512
 
 // sheetNight is one building drawn at night on its own, with its lights
-// on or off.
+// on or off. It draws on a texture of its own: packed into the shared
+// atlas, each frame would sit at a different offset, and a shape's
+// soft edge rounds a level differently there (item 191), which the
+// check would read as a light.
 func (g *Game) sheetNight(zoom float64, b *city.Building, lights bool) *image.NRGBA {
-	img := ebiten.NewImage(sheetCellSize, sheetCellSize)
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, sheetCellSize, sheetCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
 	img.Fill(colorVoid)
 	c := *b
