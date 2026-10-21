@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -57,7 +56,7 @@ func (g *Game) nightFrame(p nightPair, cached, lit bool) *image.NRGBA {
 	g.beginLights(sheetCellSize, sheetCellSize)
 	g.drawBuilding(img, p.cams[0], &back, false, true, 0)
 	g.drawBuilding(img, p.cams[1], p.front, false, true, 0)
-	vector.FillRect(img, 0, 0, sheetCellSize, sheetCellSize, colorNightOverlay, false)
+	wash(img, 0, 0, sheetCellSize, sheetCellSize)
 	g.endLights(img)
 	g.noLookCache = false
 	out := image.NewNRGBA(img.Bounds())
@@ -76,17 +75,18 @@ func (g *Game) alone(cam *city.Camera, b *city.Building) *image.NRGBA {
 		g.drawBuilding(img, cam, b, false, true, 0)
 		g.noLookCache = false
 	}
-	vector.FillRect(img, 0, 0, sheetCellSize, sheetCellSize, colorNightOverlay, false)
+	wash(img, 0, 0, sheetCellSize, sheetCellSize)
 	out := image.NewNRGBA(img.Bounds())
 	img.ReadPixels(out.Pix)
 	return out
 }
 
 // afterLights is where a building paints after its own lights are noted:
-// its sign, beacon, flags, scaffold and spire, which now cut the lights
-// laid before them (item 195, and Aria's ruling that signs go in front
-// of lit windows), so the night check does not hold them to the old
-// frame.
+// its sign, beacon, flags, scaffold and spire. Drawn straight, each cuts
+// the lights as item 195 does, a line as a hard bar a pixel wider than
+// it; baked, the whole look cuts them at its own alpha. Both hide the
+// light behind them, a pixel of edge apart, so the night check does not
+// hold those pixels to the frame drawn straight.
 func (g *Game) afterLights(cam *city.Camera, b *city.Building) *image.NRGBA {
 	img := ebiten.NewImageWithOptions(image.Rect(0, 0, sheetCellSize, sheetCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
