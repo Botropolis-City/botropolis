@@ -28,15 +28,15 @@ type Painter struct {
 	Record Recorder
 	// key is what was asked of the mesh drawn next: its shapes' points,
 	// in the float64 they were given in, and their widths and colours.
-	key  MeshKey
-	mesh Mesh
-	white  *ebiten.Image
-	discs  []*ebiten.Image
-	path   vector.Path
-	line   [2]city.Point
-	pts    []city.Point
-	tri    ebiten.DrawTrianglesOptions
-	img    ebiten.DrawImageOptions
+	key   MeshKey
+	mesh  Mesh
+	white *ebiten.Image
+	discs []*ebiten.Image
+	path  vector.Path
+	line  [2]city.Point
+	pts   []city.Point
+	tri   ebiten.DrawTrianglesOptions
+	img   ebiten.DrawImageOptions
 }
 
 // Cutter is told of each shape a Painter draws, in the order it draws
