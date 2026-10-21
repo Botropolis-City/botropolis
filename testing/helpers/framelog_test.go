@@ -93,11 +93,11 @@ func TestFrameLogLooks(t *testing.T) {
 // composed.
 func TestFrameLogStill(t *testing.T) {
 	t.Run("when a frame reports its standing city", func(t *testing.T) {
-		frames := ParseFrameLog(strings.NewReader("----\nstill: composes=1 redos=2 overlays=1 rects=11 ground=1\n"))
+		frames := ParseFrameLog(strings.NewReader("----\nstill: composes=1 redos=2 overlays=1 rects=11 ground=1 direct=1 shifts=3\n"))
 		require.Len(t, frames, 1)
 
 		t.Run("it should read what the standing city cost", func(t *testing.T) {
-			assert.Equal(t, Still{Composes: 1, Redos: 2, Overlays: 1, Rects: 11, Ground: 1}, frames[0].Still)
+			assert.Equal(t, Still{Composes: 1, Redos: 2, Overlays: 1, Rects: 11, Ground: 1, Direct: 1, Shifts: 3}, frames[0].Still)
 		})
 	})
 

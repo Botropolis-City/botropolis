@@ -1,6 +1,8 @@
 package render
 
 import (
+	"image"
+
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -51,10 +53,19 @@ type staticLayer struct {
 	key  layerKey
 	hits []spriteHit
 	ok   bool
-	// hash is what the layer painted, by the dry pass (item 193).
-	hash uint64
-	// composes is how often it was painted this frame, for the frame log.
-	composes int
+	// whole counts how often the layer was painted whole, set holds
+	// what each of its draws painted and where, and redo is where it
+	// was painted again this frame, for the standing city over it to
+	// compose again there too (item 193).
+	whole         uint64
+	set           *stillSet
+	marks         []entry
+	changed, redo []image.Rectangle
+	// composes and shifts are how often it was painted and shifted this
+	// frame, for the frame log, and origin the camera's origin it was
+	// painted at.
+	composes, shifts int
+	origin           city.Point
 }
 
 // keyFor is the key this frame would compose under.
@@ -102,7 +113,7 @@ func (g *Game) staticCity(c *city.City, cam *city.Camera, hover city.Hit, width,
 		if st.img != nil {
 			st.img.Deallocate()
 		}
-		st.img = ebiten.NewImage(int(width), int(height))
+		st.img = sizedImage(nil, image.Pt(int(width), int(height)))
 		st.ok = false
 	}
 	// The layers under the traffic own hover targets too — a street, a
@@ -124,14 +135,54 @@ func (g *Game) staticCity(c *city.City, cam *city.Camera, hover city.Hit, width,
 		l.begin()
 		g.composeStatic(l.dry, c, cam, hover, width, height)
 		in := l.end()
-		if !st.ok || in.hash != st.hash {
+		// Each of its draws is compared, as the standing city's drawables
+		// are: a pan by whole pixels moves the layer and paints what it
+		// uncovers, and a draw that changed is painted again where it
+		// was and where it is, and nowhere else.
+		st.marks = st.marks[:0]
+		for _, c := range l.cmds[in.from:in.to] {
+			st.marks = append(st.marks, entry{inked: inked{hash: c.hash, box: c.box}})
+		}
+		if st.set == nil {
+			st.set = newStillSet(nil)
+		}
+		whole := !st.ok
+		var shift image.Point
+		if !whole && l.origin != st.origin {
+			k, ok := wholeShift(st.origin, l.origin, st.img.Bounds())
+			whole, shift = !ok, k
+		}
+		frame := st.img.Bounds()
+		st.changed = st.changed[:0]
+		if !whole {
+			if shift != (image.Point{}) {
+				g.shiftLayer(&st.img, shift)
+				st.set.shift(shift)
+				st.changed = append(st.changed, exposed(frame, shift)...)
+				st.shifts++
+			}
+			st.changed = st.set.changes(st.changed, st.marks)
+			st.redo = dirtyRects(st.redo[:0], st.changed, frame)
+			whole = area(st.redo) > frame.Dx()*frame.Dy()/2
+		}
+		if whole {
 			st.img.Clear()
 			f := g.newFadePlay(st.img)
 			l.play(st.img, in, f)
 			f.done()
-			st.hash = in.hash
+			st.whole++
 			st.composes++
+			st.redo = st.redo[:0]
 		}
+		for _, r := range st.redo {
+			sub := st.img.SubImage(r).(*ebiten.Image)
+			sub.Clear()
+			f := g.newFadePlay(sub)
+			l.playIn(sub, in, f, r)
+			f.done()
+		}
+		st.set.reset(st.marks)
+		st.origin = l.origin
 	}
 	g.mu.Lock()
 	st.hits = append(st.hits[:0], g.frameHits...)

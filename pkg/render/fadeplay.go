@@ -25,7 +25,7 @@ func (g *Game) newFadePlay(real *ebiten.Image) *fadePlay {
 		if g.carFadeLayer != nil {
 			g.carFadeLayer.Deallocate()
 		}
-		g.carFadeLayer = ebiten.NewImage(size.X, size.Y)
+		g.carFadeLayer = sizedImage(nil, size)
 	}
 	layer := g.carFadeLayer.SubImage(real.Bounds()).(*ebiten.Image)
 	layer.Clear()

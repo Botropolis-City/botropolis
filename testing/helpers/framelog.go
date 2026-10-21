@@ -24,12 +24,14 @@ type Looks struct {
 
 // Still is what the city's standing city cost in a frame: composed
 // whole, composed again in rectangles, the group lines composed, the
-// rectangles of movers drawn again, and the ground composed (item 193).
+// rectangles of movers drawn again, the ground composed, whether the
+// city was drawn straight while its camera moved, and how many layers a
+// whole-pixel pan shifted (item 193).
 type Still struct {
-	Composes, Redos, Overlays, Rects, Ground int
+	Composes, Redos, Overlays, Rects, Ground, Direct, Shifts int
 }
 
-var stillLine = regexp.MustCompile(`^still: composes=(\d+) redos=(\d+) overlays=(\d+) rects=(\d+) ground=(\d+)`)
+var stillLine = regexp.MustCompile(`^still: composes=(\d+) redos=(\d+) overlays=(\d+) rects=(\d+) ground=(\d+)(?: direct=(\d+) shifts=(\d+))?`)
 
 var looksLine = regexp.MustCompile(`^looks: hits=(\d+) misses=(\d+) bakes=(\d+) bytes=(\d+)`)
 
@@ -57,7 +59,7 @@ func ParseFrameLog(r io.Reader) []Frame {
 		}
 		if l := stillLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {
 			n := func(i int) int { v, _ := strconv.Atoi(l[i]); return v }
-			frames[len(frames)-1].Still = Still{Composes: n(1), Redos: n(2), Overlays: n(3), Rects: n(4), Ground: n(5)}
+			frames[len(frames)-1].Still = Still{Composes: n(1), Redos: n(2), Overlays: n(3), Rects: n(4), Ground: n(5), Direct: n(6), Shifts: n(7)}
 			continue
 		}
 		m := drawTriangles.FindStringSubmatch(line)
@@ -92,6 +94,8 @@ func MostWork(frames []Frame) Frame {
 		worst.Still.Overlays = max(worst.Still.Overlays, f.Still.Overlays)
 		worst.Still.Rects = max(worst.Still.Rects, f.Still.Rects)
 		worst.Still.Ground = max(worst.Still.Ground, f.Still.Ground)
+		worst.Still.Direct = max(worst.Still.Direct, f.Still.Direct)
+		worst.Still.Shifts = max(worst.Still.Shifts, f.Still.Shifts)
 	}
 	return worst
 }

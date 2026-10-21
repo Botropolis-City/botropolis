@@ -5,9 +5,13 @@ import (
 	"hash/maphash"
 	"image"
 	"math"
+	"sort"
 	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
+
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // The standing city (item 193). The dry pass records every drawable of
@@ -29,16 +33,31 @@ type stillFrame struct {
 	// frame's was new, so the city was drawn straight instead.
 	held   stillKey
 	direct bool
+	// origin is the camera's origin the layer was composed at, and
+	// heldOrigin the last frame's (item 193).
+	origin, heldOrigin city.Point
+	// scratch is a frame-sized image a layer is shifted through; it
+	// then takes the layer's old pixels' place.
+	scratch *ebiten.Image
+	// overlayOrigin is the origin the group lines were composed at.
+	overlayOrigin city.Point
 	// set is the still drawables the layer holds, changed what differs
 	// this frame and redo the rectangles composed again for it.
-	set           *stillSet
-	changed, redo []image.Rectangle
-	overlayHash   uint64
-	overlayHeld   uint64
-	overlayOK     bool
+	set               *stillSet
+	changed, redo     []image.Rectangle
+	overlayHash       uint64
+	overlayHeld       uint64
+	overlayHeldOrigin city.Point
+	overlayOK         bool
 
 	entries []entry
 	boxes   []image.Rectangle
+	subs    []*ebiten.Image
+	plays   []streamPlay
+	batched []streamPlay
+	lit     []entry
+	pend    [][]lightOp
+	left    []leftCut
 	rects   []image.Rectangle
 	ops     []lightOp
 	opsHash maphash.Hash
@@ -47,8 +66,8 @@ type stillFrame struct {
 }
 
 // stillKey is what the standing city is composed over and through that
-// what its drawables would paint does not hold: the ground, by what it
-// painted, and whether a view drains the colour from it.
+// what its drawables would paint does not hold: the ground, by how often
+// it was painted whole, and whether a view drains the colour from it.
 type stillKey struct {
 	under   uint64
 	viewing bool
@@ -58,7 +77,7 @@ type stillKey struct {
 // composed whole, in how many rectangles again, whether the group lines
 // were, and how many rectangles of movers were drawn again.
 type stillStats struct {
-	composes, redos, overlays, rects, direct int
+	composes, redos, overlays, rects, direct, shifts int
 }
 
 // note runs a drawable: onto the frame when nothing is recorded, or in
@@ -97,6 +116,9 @@ func (g *Game) withLights(e entry, ops []lightOp) (image.Rectangle, uint64) {
 		h.Write(b[:])
 	}
 	put(e.hash)
+	// Positions relative to the camera's origin, as a drawable's draws
+	// are hashed, so a whole-pixel pan changes nothing here either.
+	o := g.rec.origin
 	box := e.box
 	for _, op := range ops {
 		box = box.Union(padded(op.box))
@@ -104,15 +126,18 @@ func (g *Game) withLights(e entry, ops []lightOp) (image.Rectangle, uint64) {
 			put(uint64(op.cut))
 			put(uint64(uintptr(unsafe.Pointer(op.src))))
 			for i := range 2 {
-				for j := range 3 {
-					put(math.Float64bits(op.geo.Element(i, j)))
+				for j := range 2 {
+					put(uint64(int64(math.Round(op.geo.Element(i, j) * (1 << 24)))))
 				}
 			}
+			put(relQ(op.geo.Element(0, 2), o.X))
+			put(relQ(op.geo.Element(1, 2), o.Y))
 			put(uint64(math.Float32bits(op.alpha)))
 			h.WriteString(op.words)
-			for _, v := range []int{op.box.Min.X, op.box.Min.Y, op.box.Max.X, op.box.Max.Y} {
-				put(uint64(int64(v)))
-			}
+			put(relQ(float64(op.box.Min.X), o.X))
+			put(relQ(float64(op.box.Min.Y), o.Y))
+			put(relQ(float64(op.box.Max.X), o.X))
+			put(relQ(float64(op.box.Max.Y), o.Y))
 			continue
 		}
 		for _, r := range g.litRects[op.from:op.to] {
@@ -122,8 +147,11 @@ func (g *Game) withLights(e entry, ops []lightOp) (image.Rectangle, uint64) {
 		if op.warm {
 			put(1)
 		}
-		if len(op.vertices) > 0 {
-			h.Write(unsafe.Slice((*byte)(unsafe.Pointer(&op.vertices[0])), len(op.vertices)*int(unsafe.Sizeof(op.vertices[0]))))
+		for _, v := range op.vertices {
+			put(relQ(float64(v.DstX), o.X))
+			put(relQ(float64(v.DstY), o.Y))
+			put(uint64(math.Float32bits(v.SrcX))<<32 | uint64(math.Float32bits(v.SrcY)))
+			put(uint64(math.Float32bits(v.ColorR))<<32 | uint64(math.Float32bits(v.ColorA)))
 		}
 		if len(op.indices) > 0 {
 			h.Write(unsafe.Slice((*byte)(unsafe.Pointer(&op.indices[0])), len(op.indices)*2))
@@ -152,9 +180,15 @@ func (g *Game) paintStill(real, under *ebiten.Image, key stillKey) {
 	if s.set == nil {
 		s.set = newStillSet(nil)
 	}
+	origin := g.rec.origin
 	whole := !s.ok || s.key != key || s.img == nil || s.img.Bounds().Size() != size || g.lightsOn && s.lights == nil
-	s.direct = whole && key != s.held
-	s.held = key
+	var shift image.Point
+	if !whole && origin != s.origin {
+		k, ok := wholeShift(s.origin, origin, s.img.Bounds())
+		whole, shift = !ok, k
+	}
+	s.direct = whole && (key != s.held || origin != s.heldOrigin)
+	s.held, s.heldOrigin = key, origin
 	if s.direct {
 		// A key new this frame changes every frame while the camera
 		// moves, and composing the city each frame to blit it once
@@ -180,7 +214,19 @@ func (g *Game) paintStill(real, under *ebiten.Image, key stillKey) {
 		g.composeStill(s.img.Bounds(), under)
 		s.stats.composes++
 	} else {
-		s.changed = s.set.changes(s.changed[:0], s.entries)
+		s.changed = s.changed[:0]
+		if shift != (image.Point{}) {
+			g.shiftLayer(&s.img, shift)
+			if s.lights != nil {
+				g.shiftLayer(&s.lights, shift)
+			}
+			s.set.shift(shift)
+			s.changed = append(s.changed, exposed(s.img.Bounds(), shift)...)
+			s.stats.shifts++
+		}
+		// Where the ground under it was painted again, so is it.
+		s.changed = append(s.changed, g.static.redo...)
+		s.changed = s.set.changes(s.changed, s.entries)
 		s.redo = dirtyRects(s.redo[:0], s.changed, s.img.Bounds())
 		for _, r := range s.redo {
 			g.composeStill(r, under)
@@ -188,7 +234,7 @@ func (g *Game) paintStill(real, under *ebiten.Image, key stillKey) {
 		s.stats.redos = len(s.redo)
 	}
 	s.set.reset(s.entries)
-	s.key, s.ok = key, true
+	s.key, s.origin, s.ok = key, origin, true
 	real.DrawImage(s.img, nil)
 	s.boxes = s.boxes[:0]
 	for _, e := range s.entries {
@@ -198,16 +244,29 @@ func (g *Game) paintStill(real, under *ebiten.Image, key stillKey) {
 	}
 	s.rects = dirtyRects(s.rects[:0], s.boxes, real.Bounds())
 	s.stats.rects = len(s.rects)
+	s.subs = s.subs[:0]
 	for _, r := range s.rects {
 		sub := real.SubImage(r).(*ebiten.Image)
 		g.blitBase(sub, under)
-		f := g.newFadePlay(sub)
-		for _, e := range s.entries {
-			if e.box.Overlaps(r) {
-				g.rec.play(sub, e.inked, f)
+		s.subs = append(s.subs, sub)
+	}
+	if g.lit.RecedesGround() {
+		// The fade's layer goes down a rectangle at a time.
+		for i, r := range s.rects {
+			f := g.newFadePlay(s.subs[i])
+			for _, e := range s.entries {
+				if e.box.Overlaps(r) {
+					g.rec.play(s.subs[i], e.inked, f)
+				}
 			}
+			f.done()
 		}
-		f.done()
+		return
+	}
+	s.plays = stream(s.plays[:0], s.entries, g.rec.cmdBox, s.rects)
+	s.batched = batch(s.batched[:0], s.plays, g.rec.cmdBox, g.rec.batchKey)
+	for _, p := range s.batched {
+		g.rec.playCmd(s.subs[p.rect], &g.rec.cmds[p.cmd])
 	}
 }
 
@@ -253,12 +312,93 @@ func (g *Game) paintLights(real *ebiten.Image) {
 		return
 	}
 	g.lights.DrawImage(s.lights, &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy})
+	s.subs = s.subs[:0]
 	for _, r := range s.rects {
 		sub := g.lights.SubImage(r).(*ebiten.Image)
 		sub.Clear()
-		g.layLights(sub, g.opsOf(&r, false))
+		s.subs = append(s.subs, sub)
 	}
+	// The ops of what is drawn in the rectangles, played as one stream,
+	// as its draws were.
+	s.lit = s.lit[:0]
+	for _, e := range s.entries {
+		s.lit = append(s.lit, entry{inked: inked{from: e.lights[0], to: e.lights[1], box: e.box}})
+	}
+	s.plays = stream(s.plays[:0], s.lit, func(int) image.Rectangle { return everywhere }, s.rects)
+	g.layLightsStream(s.subs, s.plays)
 	real.DrawImage(g.lights, nil)
+}
+
+// layLightsStream lays light ops into the rectangles they were played
+// into, each rectangle's in the order noted: a cut waits, in its own
+// rectangle, for the next window there it meets, as layLights has it.
+// What is left over is laid at the end a kind and a source at a time
+// across every rectangle, since cuts only take light away and their
+// order among themselves does not matter (item 193).
+func (g *Game) layLightsStream(subs []*ebiten.Image, plays []streamPlay) {
+	s := &g.still
+	for len(s.pend) < len(subs) {
+		s.pend = append(s.pend, nil)
+	}
+	for i := range subs {
+		s.pend[i] = s.pend[i][:0]
+	}
+	for _, p := range plays {
+		op, r := g.lightOps[p.cmd], p.rect
+		if op.punch || op.cut != cutNone {
+			s.pend[r] = append(s.pend[r], op)
+			continue
+		}
+		due, kept := g.dueCuts[:0], s.pend[r][:0]
+		for _, c := range s.pend[r] {
+			if meets(c.box, g.litRects[op.from:op.to]) {
+				due = append(due, c)
+			} else {
+				kept = append(kept, c)
+			}
+		}
+		g.layCuts(subs[r], due)
+		g.dueCuts, s.pend[r] = due[:0], kept
+		if op.warm {
+			colorm.DrawTriangles(subs[r], op.vertices, op.indices, op.src, warmGlass, warmOptions)
+			continue
+		}
+		subs[r].DrawTriangles(op.vertices, op.indices, op.src, windowOptions)
+	}
+	s.left = s.left[:0]
+	for r := range subs {
+		for _, op := range s.pend[r] {
+			s.left = append(s.left, leftCut{op: op, rect: r})
+		}
+	}
+	sort.SliceStable(s.left, func(i, j int) bool {
+		a, b := s.left[i], s.left[j]
+		if ka, kb := cutOrder(a.op), cutOrder(b.op); ka != kb {
+			return ka < kb
+		}
+		return uintptr(unsafe.Pointer(a.op.src)) < uintptr(unsafe.Pointer(b.op.src))
+	})
+	for _, c := range s.left {
+		if c.op.punch {
+			subs[c.rect].DrawImage(c.op.src, &ebiten.DrawImageOptions{GeoM: c.op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+			continue
+		}
+		g.layCut(subs[c.rect], c.op)
+	}
+}
+
+// leftCut is a cut still to be laid, and the rectangle it is laid in.
+type leftCut struct {
+	op   lightOp
+	rect int
+}
+
+// cutOrder is the order layCuts lays cuts in, by kind.
+func cutOrder(op lightOp) int {
+	if op.punch {
+		return 0
+	}
+	return int(op.cut)
 }
 
 // opsOf is the light ops, in the order noted, of the still drawables, or
@@ -283,9 +423,15 @@ func (g *Game) paintOverlay(real *ebiten.Image, in inked) {
 	}
 	s := &g.still
 	size := real.Bounds().Size()
+	origin := g.rec.origin
 	whole := !s.overlayOK || s.overlayHash != in.hash || s.overlay == nil || s.overlay.Bounds().Size() != size
-	held := s.overlayHeld == in.hash
-	s.overlayHeld = in.hash
+	var shift image.Point
+	if !whole && origin != s.overlayOrigin {
+		k, ok := wholeShift(s.overlayOrigin, origin, s.overlay.Bounds())
+		whole, shift = !ok, k
+	}
+	held := s.overlayHeld == in.hash && origin == s.overlayHeldOrigin
+	s.overlayHeld, s.overlayHeldOrigin = in.hash, origin
 	if whole && !held {
 		// New this frame, as every frame's is while the camera moves:
 		// drawn straight until it holds for one.
@@ -303,8 +449,31 @@ func (g *Game) paintOverlay(real *ebiten.Image, in inked) {
 		f.done()
 		s.overlayHash, s.overlayOK = in.hash, true
 		s.stats.overlays++
+	} else if shift != (image.Point{}) {
+		g.shiftLayer(&s.overlay, shift)
+		for _, r := range exposed(s.overlay.Bounds(), shift) {
+			sub := s.overlay.SubImage(r).(*ebiten.Image)
+			sub.Clear()
+			f := g.newFadePlay(sub)
+			g.rec.playIn(sub, in, f, r)
+			f.done()
+		}
+		s.stats.shifts++
 	}
+	s.overlayOrigin = origin
 	real.DrawImage(s.overlay, nil)
+}
+
+// shiftLayer moves *img by k through the scratch image, which then
+// takes *img's old pixels' place as the scratch. What the move uncovers
+// keeps whatever the scratch held, for the caller to compose.
+func (g *Game) shiftLayer(img **ebiten.Image, k image.Point) {
+	s := &g.still
+	s.scratch = sizedImage(s.scratch, (*img).Bounds().Size())
+	op := &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy}
+	op.GeoM.Translate(float64(k.X), float64(k.Y))
+	s.scratch.DrawImage(*img, op)
+	*img, s.scratch = s.scratch, *img
 }
 
 // sizedImage is img, or a new image when it is not size. A layer the

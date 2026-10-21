@@ -38,3 +38,12 @@ func dirtyRects(out []image.Rectangle, boxes []image.Rectangle, frame image.Rect
 func meet(a, b image.Rectangle) bool {
 	return a.Min.X <= b.Max.X && b.Min.X <= a.Max.X && a.Min.Y <= b.Max.Y && b.Min.Y <= a.Max.Y
 }
+
+// area is how many pixels rectangles cover, counting any overlap twice.
+func area(rs []image.Rectangle) int {
+	n := 0
+	for _, r := range rs {
+		n += r.Dx() * r.Dy()
+	}
+	return n
+}

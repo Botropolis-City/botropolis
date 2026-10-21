@@ -18,11 +18,16 @@ func (g *Game) strip(screen *ebiten.Image, width float64) float64 {
 	}
 	strip := ui.LayoutStrip(th, chips, width, g.faces.Measure)
 	g.bar(screen, city.RectAt(0, 0, width, strip.Height), strip.Height)
+	// Every dot, then every label: they never overlap, and drawn apart
+	// the dots go down together and the labels together, where taking
+	// them chip by chip made a draw of each (item 193).
 	for _, chip := range strip.Chips {
 		if chip.Tone != ui.ToneNone {
 			centre := chip.Dot.Center()
 			g.fillCircle(screen, float32(centre.X), float32(centre.Y), float32(chip.Dot.Width()/2), th.Color(chip.Tone))
 		}
+	}
+	for _, chip := range strip.Chips {
 		g.text(screen, chip.TextAt, chip.Text, strip.Size, th.Palette.Text)
 	}
 	g.mu.Lock()

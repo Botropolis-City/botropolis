@@ -25,8 +25,9 @@ type stillSet struct {
 }
 
 type stillMark struct {
-	box image.Rectangle
-	n   int
+	hash uint64
+	box  image.Rectangle
+	n    int
 }
 
 func newStillSet(entries []entry) *stillSet {
@@ -66,18 +67,31 @@ func count(marks map[uint64]stillMark, entries []entry) {
 		if e.moves {
 			continue
 		}
-		k := markOf(e)
+		k := markOf(e.hash, e.box)
 		m := marks[k]
-		m.box, m.n = e.box, m.n+1
+		m.hash, m.box, m.n = e.hash, e.box, m.n+1
 		marks[k] = m
 	}
 }
 
+// shift moves every drawable in the set by k, as a whole-pixel pan
+// moves them on the frame.
+func (s *stillSet) shift(k image.Point) {
+	clear(s.now)
+	for _, m := range s.marks {
+		if m.box != everywhere {
+			m.box = m.box.Add(k)
+		}
+		s.now[markOf(m.hash, m.box)] = m
+	}
+	s.marks, s.now = s.now, s.marks
+}
+
 // markOf is what a still drawable paints and where.
-func markOf(e entry) uint64 {
+func markOf(hash uint64, box image.Rectangle) uint64 {
 	var b [40]byte
-	binary.LittleEndian.PutUint64(b[0:], e.hash)
-	for i, v := range []int{e.box.Min.X, e.box.Min.Y, e.box.Max.X, e.box.Max.Y} {
+	binary.LittleEndian.PutUint64(b[0:], hash)
+	for i, v := range []int{box.Min.X, box.Min.Y, box.Max.X, box.Max.Y} {
 		binary.LittleEndian.PutUint64(b[8+i*8:], uint64(int64(v)))
 	}
 	return maphash.Bytes(inkSeed, b[:])

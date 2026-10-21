@@ -65,6 +65,8 @@ type drawCmd struct {
 	// layer put down when the group ends (item 108).
 	fade int
 	box  image.Rectangle
+	// hash is what the command draws, positions relative to the origin.
+	hash uint64
 }
 
 // inked is one drawable's commands in the list, the box they ink and
@@ -89,16 +91,23 @@ type drawList struct {
 	fade, fades int
 	// moving is whether the drawable recorded now said it moves.
 	moving bool
+	// batchKeys numbers the sources draws read, for grouping them.
+	batchKeys map[batchSource]int
+	// origin is where the camera puts the world's origin this frame:
+	// positions are hashed relative to it, so a pan by whole pixels
+	// changes no hash (item 193).
+	origin city.Point
 
 	open  bool
 	start int
 	box   image.Rectangle
-	h     maphash.Hash
+	h, ch maphash.Hash
 }
 
 func newDrawList() *drawList {
 	l := &drawList{dry: ebiten.NewImage(1, 1)}
 	l.h.SetSeed(inkSeed)
+	l.ch.SetSeed(inkSeed)
 	return l
 }
 
@@ -108,7 +117,17 @@ func (l *drawList) reset() {
 	l.fade, l.fades, l.open = 0, 0, false
 }
 
-// begin starts a drawable's inked.
+// seal closes the command recorded last: its hash is kept with it, and
+// folded into its drawable's.
+func (l *drawList) seal() {
+	c := &l.cmds[len(l.cmds)-1]
+	c.hash = l.ch.Sum64()
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:], c.hash)
+	l.h.Write(b[:])
+}
+
+// begin starts a drawable's record.
 func (l *drawList) begin() {
 	l.open, l.start, l.box = true, len(l.cmds), image.Rectangle{}
 	l.h.Reset()
@@ -140,6 +159,7 @@ func (l *drawList) push(c drawCmd, box image.Rectangle) {
 	c.fade = l.fade
 	c.box = box
 	l.cmds = append(l.cmds, c)
+	l.ch.Reset()
 	l.box = l.box.Union(box)
 	l.hashInt(uint64(c.kind))
 	l.hashInt(uint64(c.fade))
@@ -156,6 +176,7 @@ func (l *drawList) Image(dst, img *ebiten.Image, op *ebiten.DrawImageOptions) {
 	l.hashGeoM(op.GeoM)
 	l.hashScale(op.ColorScale)
 	l.hashInt(uint64(op.Filter), uint64(blendBits(op.Blend)))
+	l.seal()
 }
 
 // colorm draws img through a colour matrix, or records it.
@@ -173,10 +194,11 @@ func (l *drawList) colorm(dst, img *ebiten.Image, m colorm.ColorM, op *colorm.Dr
 		}
 	}
 	l.hashInt(uint64(op.Filter), uint64(blendBits(op.Blend)))
+	l.seal()
 }
 
 // Mesh draws triangles, or records them.
-func (l *drawList) Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []uint32, src *ebiten.Image, op *ebiten.DrawTrianglesOptions) {
+func (l *drawList) Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []uint32, src *ebiten.Image, op *ebiten.DrawTrianglesOptions, key shapes.MeshKey) {
 	if !l.records(dst) {
 		dst.DrawTriangles32(vertices, indices, src, op)
 		return
@@ -188,13 +210,25 @@ func (l *drawList) Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []u
 	l.indices = append(l.indices, indices...)
 	l.push(c, vertexBox(vertices))
 	l.hashImage(src)
-	if len(vertices) > 0 {
-		l.h.Write(unsafe.Slice((*byte)(unsafe.Pointer(&vertices[0])), len(vertices)*int(unsafe.Sizeof(vertices[0]))))
+	if key.Values != nil {
+		// What the painter was asked for, not its float32 vertices.
+		for _, p := range key.Points {
+			l.hashInt(relQ(p.X, l.origin.X), relQ(p.Y, l.origin.Y))
+		}
+		for _, v := range key.Values {
+			l.hashInt(math.Float64bits(v))
+		}
+		l.hashInt(uint64(len(indices)))
+		l.hashInt(uint64(op.Filter), uint64(blendBits(op.Blend)))
+		l.seal()
+		return
 	}
+	l.hashVertices(vertices)
 	if len(indices) > 0 {
-		l.h.Write(unsafe.Slice((*byte)(unsafe.Pointer(&indices[0])), len(indices)*4))
+		l.ch.Write(unsafe.Slice((*byte)(unsafe.Pointer(&indices[0])), len(indices)*4))
 	}
 	l.hashInt(uint64(op.Filter), uint64(blendBits(op.Blend)))
+	l.seal()
 }
 
 // triangles16 is Mesh for 16-bit indices.
@@ -207,7 +241,7 @@ func (l *drawList) triangles16(dst *ebiten.Image, vertices []ebiten.Vertex, indi
 	for i, x := range indices {
 		wide[i] = uint32(x)
 	}
-	l.Mesh(dst, vertices, wide, src, op)
+	l.Mesh(dst, vertices, wide, src, op, shapes.MeshKey{})
 }
 
 // Ring fills a ring by the non-zero rule, or records it.
@@ -230,11 +264,11 @@ func (l *drawList) Ring(dst *ebiten.Image, pts []city.Point, op *vector.DrawPath
 	}
 	l.push(c, box)
 	for _, p := range pts {
-		l.hashFloat(float32(p.X))
-		l.hashFloat(float32(p.Y))
+		l.hashInt(relQ(p.X, l.origin.X), relQ(p.Y, l.origin.Y))
 	}
 	l.hashScale(op.ColorScale)
 	l.hashInt(uint64(blendBits(op.Blend)))
+	l.seal()
 }
 
 // words draws text, or records it.
@@ -244,12 +278,13 @@ func (l *drawList) words(dst *ebiten.Image, s string, face text.Face, op *text.D
 		return
 	}
 	l.push(drawCmd{kind: cmdWords, words: s, face: face, text: *op}, wordsBox(s, face, op))
-	l.h.WriteString(s)
+	l.ch.WriteString(s)
 	l.hashInt(uint64(uintptr(faceID(face))))
 	l.hashGeoM(op.GeoM)
 	l.hashScale(op.ColorScale)
 	l.hashInt(uint64(op.PrimaryAlign), uint64(op.SecondaryAlign), uint64(blendBits(op.Blend)))
 	l.hashFloat(float32(op.LineSpacing))
+	l.seal()
 }
 
 // everywhere is the box of a draw that covers whatever it is drawn on.
@@ -264,6 +299,7 @@ func (l *drawList) fill(dst *ebiten.Image, c color.Color) {
 	l.push(drawCmd{kind: cmdFill, fill: c}, everywhere)
 	r, g, b, a := c.RGBA()
 	l.hashInt(uint64(r)<<48 | uint64(g)<<32 | uint64(b)<<16 | uint64(a))
+	l.seal()
 }
 
 // play draws the commands of a drawable onto dst, sending each fade group's
@@ -277,6 +313,24 @@ func (l *drawList) play(dst *ebiten.Image, s inked, f *fadePlay) {
 		l.playCmd(target, &c)
 	}
 }
+
+// playIn plays the commands of a drawable whose boxes meet r onto dst,
+// which is clipped to r: the rest would draw nothing there.
+func (l *drawList) playIn(dst *ebiten.Image, s inked, f *fadePlay, r image.Rectangle) {
+	for _, c := range l.cmds[s.from:s.to] {
+		if !c.box.Overlaps(r) {
+			continue
+		}
+		target := dst
+		if f != nil {
+			target = f.target(dst, c.fade)
+		}
+		l.playCmd(target, &c)
+	}
+}
+
+// cmdBox is the box the ith recorded command inks.
+func (l *drawList) cmdBox(i int) image.Rectangle { return l.cmds[i].box }
 
 func (l *drawList) playCmd(dst *ebiten.Image, c *drawCmd) {
 	switch c.kind {
@@ -348,28 +402,49 @@ func pixelBox(minX, minY, maxX, maxY float64) image.Rectangle {
 	if math.IsNaN(minX+minY+maxX+maxY) || math.IsInf(minX+minY+maxX+maxY, 0) {
 		return image.Rectangle{}
 	}
-	return image.Rect(int(math.Floor(minX))-inkPad, int(math.Floor(minY))-inkPad, int(math.Ceil(maxX))+inkPad, int(math.Ceil(maxY))+inkPad)
+	// An edge within a hair of a whole pixel is on it, so rounding in
+	// the last bits of a transform does not move the box as the camera
+	// does (item 193); the pad covers the hair.
+	const hair = 1e-6
+	return image.Rect(int(math.Floor(minX+hair))-inkPad, int(math.Floor(minY+hair))-inkPad, int(math.Ceil(maxX-hair))+inkPad, int(math.Ceil(maxY-hair))+inkPad)
 }
 
 func (l *drawList) hashInt(vs ...uint64) {
 	var b [8]byte
 	for _, v := range vs {
 		binary.LittleEndian.PutUint64(b[:], v)
-		l.h.Write(b[:])
+		l.ch.Write(b[:])
 	}
 }
 
 func (l *drawList) hashFloat(f float32) {
 	var b [4]byte
 	binary.LittleEndian.PutUint32(b[:], math.Float32bits(f))
-	l.h.Write(b[:])
+	l.ch.Write(b[:])
 }
 
+// hashGeoM hashes a transform, its translation relative to the origin and
+// its scale to 2^-24: worked out from projected points, a scale comes out
+// a few bits apart as the camera moves, which draws nothing differently.
 func (l *drawList) hashGeoM(g ebiten.GeoM) {
 	for i := range 2 {
-		for j := range 3 {
-			l.hashInt(math.Float64bits(g.Element(i, j)))
+		for j := range 2 {
+			l.hashInt(uint64(int64(math.Round(g.Element(i, j) * (1 << 24)))))
 		}
+	}
+	l.hashInt(relQ(g.Element(0, 2), l.origin.X), relQ(g.Element(1, 2), l.origin.Y))
+}
+
+// hashVertices hashes vertices, their positions relative to the origin.
+func (l *drawList) hashVertices(vertices []ebiten.Vertex) {
+	for _, v := range vertices {
+		l.hashInt(relQ(float64(v.DstX), l.origin.X), relQ(float64(v.DstY), l.origin.Y))
+		l.hashFloat(v.SrcX)
+		l.hashFloat(v.SrcY)
+		l.hashFloat(v.ColorR)
+		l.hashFloat(v.ColorG)
+		l.hashFloat(v.ColorB)
+		l.hashFloat(v.ColorA)
 	}
 }
 

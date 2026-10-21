@@ -26,7 +26,10 @@ type Painter struct {
 	// image: it draws it, or records it when the image is one it
 	// records for (item 193).
 	Record Recorder
-	mesh   Mesh
+	// key is what was asked of the mesh drawn next: its shapes' points,
+	// in the float64 they were given in, and their widths and colours.
+	key  MeshKey
+	mesh Mesh
 	white  *ebiten.Image
 	discs  []*ebiten.Image
 	path   vector.Path
@@ -48,8 +51,28 @@ type Cutter interface {
 // record of what would have been drawn there (item 193).
 type Recorder interface {
 	Image(dst, img *ebiten.Image, op *ebiten.DrawImageOptions)
-	Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []uint32, src *ebiten.Image, op *ebiten.DrawTrianglesOptions)
+	// Mesh is given the key the mesh was built from too: its vertices
+	// are float32, which rounds a shape a hair differently as it moves,
+	// and what was asked of it does not.
+	Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []uint32, src *ebiten.Image, op *ebiten.DrawTrianglesOptions, key MeshKey)
 	Ring(dst *ebiten.Image, pts []city.Point, op *vector.DrawPathOptions)
+}
+
+// MeshKey is what a mesh was built from: the points of its shapes and,
+// for each shape, its kind, width, whether it is closed and its colour.
+type MeshKey struct {
+	Points []city.Point
+	Values []float64
+}
+
+// shape notes a shape added to the mesh drawn next.
+func (p *Painter) shape(kind float64, pts []city.Point, width float64, closed bool, c color.NRGBA) {
+	p.key.Points = append(p.key.Points, pts...)
+	shut := 0.0
+	if closed {
+		shut = 1
+	}
+	p.key.Values = append(p.key.Values, kind, float64(len(pts)), width, shut, float64(c.R), float64(c.G), float64(c.B), float64(c.A))
 }
 
 func (p *Painter) drawImage(dst, img *ebiten.Image, op *ebiten.DrawImageOptions) {
@@ -119,6 +142,7 @@ func (p *Painter) Fill(dst *ebiten.Image, pts []city.Point, c color.NRGBA) {
 
 // FillBlend fills a closed ring of points with a blend.
 func (p *Painter) FillBlend(dst *ebiten.Image, pts []city.Point, c color.NRGBA, blend ebiten.Blend) {
+	p.shape(1, pts, 0, true, c)
 	if !p.mesh.Fill(pts, c) {
 		p.fallback(dst, pts, c, blend)
 	}
@@ -127,6 +151,7 @@ func (p *Painter) FillBlend(dst *ebiten.Image, pts []city.Point, c color.NRGBA, 
 
 // FillRing fills a ring whose triangulation r remembers between frames.
 func (p *Painter) FillRing(dst *ebiten.Image, pts []city.Point, c color.NRGBA, r *Ring) {
+	p.shape(1, pts, 0, true, c)
 	if !p.mesh.FillRing(pts, c, r) {
 		p.fallback(dst, pts, c, ebiten.BlendSourceOver)
 	}
@@ -136,6 +161,7 @@ func (p *Painter) FillRing(dst *ebiten.Image, pts []city.Point, c color.NRGBA, r
 // Stroke strokes a polyline of points width wide; closed joins its last
 // point to its first.
 func (p *Painter) Stroke(dst *ebiten.Image, pts []city.Point, width float64, closed bool, c color.NRGBA) {
+	p.shape(2, pts, width, closed, c)
 	p.mesh.Stroke(pts, width, closed, c)
 	p.flush(dst, ebiten.BlendSourceOver)
 }
@@ -143,12 +169,14 @@ func (p *Painter) Stroke(dst *ebiten.Image, pts []city.Point, width float64, clo
 // AddStroke adds a stroke to what the next Flush draws, so many strokes
 // go down in one draw.
 func (p *Painter) AddStroke(pts []city.Point, width float64, closed bool, c color.NRGBA) {
+	p.shape(2, pts, width, closed, c)
 	p.mesh.Stroke(pts, width, closed, c)
 }
 
 // AddLine adds one straight line to what the next Flush draws.
 func (p *Painter) AddLine(a, b city.Point, width float64, c color.NRGBA) {
 	p.line = [2]city.Point{a, b}
+	p.shape(2, p.line[:], width, false, c)
 	p.mesh.Stroke(p.line[:], width, false, c)
 }
 
@@ -217,7 +245,7 @@ func (p *Painter) flush(dst *ebiten.Image, blend ebiten.Blend) {
 	if len(p.mesh.Indices) > 0 {
 		p.tri = ebiten.DrawTrianglesOptions{Blend: blend}
 		if p.Record != nil {
-			p.Record.Mesh(dst, p.mesh.Vertices, p.mesh.Indices, p.whitePixel(), &p.tri)
+			p.Record.Mesh(dst, p.mesh.Vertices, p.mesh.Indices, p.whitePixel(), &p.tri, p.key)
 		} else {
 			dst.DrawTriangles32(p.mesh.Vertices, p.mesh.Indices, p.whitePixel(), &p.tri)
 		}
@@ -226,6 +254,7 @@ func (p *Painter) flush(dst *ebiten.Image, blend ebiten.Blend) {
 		}
 	}
 	p.mesh.Reset()
+	p.key.Points, p.key.Values = p.key.Points[:0], p.key.Values[:0]
 }
 
 // fallback fills a ring that crosses itself by the non-zero rule, without

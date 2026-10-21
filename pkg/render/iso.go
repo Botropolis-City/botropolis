@@ -521,6 +521,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	defer frames.start()()
 	g.drawing.reset()
 	g.recorder().reset()
+	g.rec.origin = cameraOrigin(cam)
 	g.nextLookFrame()
 	defer g.logLooks()
 	defer func() {
@@ -532,7 +533,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	// The city under the traffic, composed once and blitted; then its
 	// hover targets replayed, because the frame is drawn fresh even when
 	// the layer is not.
-	g.groundLayer().composes = 0
+	g.groundLayer().composes, g.groundLayer().shifts = 0, 0
+	g.groundLayer().redo = g.groundLayer().redo[:0]
 	under := g.staticCity(c, cam, hover, width, height)
 	g.mu.Lock()
 	g.frameHits = append(g.frameHits[:0], g.groundLayer().hits...)
@@ -819,7 +821,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	fade.done()
 	if !g.noStill {
 		screen = real
-		g.paintStill(real, under, stillKey{under: g.static.hash, viewing: g.viewing()})
+		g.paintStill(real, under, stillKey{under: g.static.whole, viewing: g.viewing()})
 	}
 	if hover.Building != nil && hover.Building != selected {
 		g.polyStroke(screen, cam, hover.Building.Rect, 1.5, colorHighlight)

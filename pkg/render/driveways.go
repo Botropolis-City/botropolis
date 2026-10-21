@@ -146,7 +146,7 @@ func (g *Game) newFader(screen **ebiten.Image) *fader {
 		if g.carFadeLayer != nil {
 			g.carFadeLayer.Deallocate()
 		}
-		g.carFadeLayer = ebiten.NewImage(size.X, size.Y)
+		g.carFadeLayer = sizedImage(nil, size)
 	}
 	layer := g.carFadeLayer
 	layer.Clear()

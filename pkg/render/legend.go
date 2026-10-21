@@ -19,8 +19,11 @@ func (g *Game) legend(screen *ebiten.Image, l ui.Legend) {
 	th := g.theme
 	g.bar(screen, l.Rect, l.Rect.Min.Y)
 	g.run(screen, l.Title, th.Palette.Dim)
+	// Every swatch, then every label, as the strip draws its chips.
 	for _, e := range l.Entries {
 		g.roundRect(screen, e.Box, th.Radius()/3, e.Swatch)
+	}
+	for _, e := range l.Entries {
 		g.text(screen, e.LabelAt, e.Label, l.Size, th.Palette.Text)
 	}
 	// Low carries the ramp's near end, or — when the view has nothing to

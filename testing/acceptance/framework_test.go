@@ -48,7 +48,7 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		unmet, unmatched map[int]bool
 	}{
 		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 7_280, 22: 8_800}, nil, map[int]bool{14: true, 22: true}},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 66, 22: 118}, map[int]bool{22: true}, map[int]bool{14: true, 22: true}},
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 66, 22: 118}, nil, map[int]bool{14: true, 22: true}},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 6, 22: 8}, nil, map[int]bool{14: true, 22: true}},
 	}
 
@@ -236,6 +236,27 @@ func TestTheStillLayerAFrameKeeps(t *testing.T) {
 			})
 		}
 	}
+
+	// A held arrow pans by whole pixels, so the standing city is shifted
+	// and only the strips the pan uncovers are composed: never the whole
+	// of it, nor drawn straight. The pan's counts are reported against
+	// the targets, not gated.
+	t.Run("when the camera pans with an arrow held", func(t *testing.T) {
+		t.Parallel()
+		all := frameLog(t, "metropolis", 14, 2.5, `[{"at":0.5,"hold":"ArrowRight","for":1.5}]`)
+		require.Greater(t, len(all), 60, "too few frames logged")
+		panning := all[20:55]
+		worst := helpers.MostWork(panning)
+		t.Logf("worst frame while panning: %+v; %d commands, %d indices, %d switches; targets 70, 20000, 30", worst.Still, worst.Commands, worst.Indices, worst.Switches)
+
+		t.Run("it should shift the standing city", func(t *testing.T) {
+			assert.Positive(t, worst.Still.Shifts)
+		})
+
+		t.Run("it should compose only strips", func(t *testing.T) {
+			assert.Zero(t, worst.Still.Composes+worst.Still.Overlays+worst.Still.Ground+worst.Still.Direct)
+		})
+	})
 }
 
 // zoneAt names a fixed zone in which the UTC hour utc reads as hour.

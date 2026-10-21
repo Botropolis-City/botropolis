@@ -154,7 +154,7 @@ func TestInk(t *testing.T) {
 			l := newDrawList()
 			l.begin()
 			v := []ebiten.Vertex{{DstX: 0, DstY: 0}, {DstX: x, DstY: 0}, {DstX: 0, DstY: 5}}
-			l.Mesh(l.dry, v, []uint32{0, 1, 2}, page, &ebiten.DrawTrianglesOptions{})
+			l.Mesh(l.dry, v, []uint32{0, 1, 2}, page, &ebiten.DrawTrianglesOptions{}, shapes.MeshKey{})
 			return l.end()
 		}
 

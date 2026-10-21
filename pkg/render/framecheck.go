@@ -21,18 +21,20 @@ var frameCheckSize = image.Pt(1600, 900)
 type frameVariant struct {
 	name, slug string
 	set        func(d *Drive)
+	// each is done before every frame of the way, when it is set.
+	each func(d *Drive)
 }
 
 func frameVariants() []frameVariant {
 	return []frameVariant{
-		{"as it stands", "as-it-stands", func(*Drive) {}},
+		{"as it stands", "as-it-stands", func(*Drive) {}, nil},
 		// Selecting changes one still building and nothing the layer's
 		// key holds, so only what the stills would paint can tell.
 		{"with a building selected", "selected", func(d *Drive) {
 			if bs := d.game.scene.City().Buildings(); len(bs) > 0 {
 				d.game.scene.Select(bs[len(bs)/2].Session.ID)
 			}
-		}},
+		}, nil},
 		{"with traffic shown and a car hovered", "traffic-hovered", func(d *Drive) {
 			g := d.game
 			g.scene.SetView(city.ViewTraffic)
@@ -40,10 +42,24 @@ func frameVariants() []frameVariant {
 			if len(cars) > 0 {
 				_ = d.PointAtPoint(g.scene.Camera().WorldToScreen(cars[0].at))
 			}
-		}},
+		}, nil},
 		{"with a view up", "spend-view", func(d *Drive) {
 			_ = d.PointAtPoint(city.Point{X: -100, Y: -100})
 			d.game.scene.SetView(city.ViewSpend)
+		}, nil},
+		// Item 193: a pan by whole pixels shifts the standing city and
+		// composes the strips it uncovers; by part of a pixel it cannot,
+		// and the city is drawn straight until the camera rests.
+		{"zoomed in and panned by whole pixels", "pan-whole", func(d *Drive) {
+			d.game.scene.SetView(city.ViewAttention)
+			d.game.scene.Wheel(city.Point{X: float64(frameCheckSize.X) / 2, Y: float64(frameCheckSize.Y) / 2}, 2)
+			// Let the zoom settle, so the pan is the only thing moving.
+			_ = d.Run(120)
+		}, func(d *Drive) {
+			d.game.scene.Pan(city.Point{X: -3, Y: 2})
+		}},
+		{"panned by part of a pixel", "pan-part", nil, func(d *Drive) {
+			d.game.scene.Pan(city.Point{X: 0.5, Y: -0.25})
 		}},
 	}
 }
@@ -69,8 +85,13 @@ func CheckFrames(home string, at time.Time, frames int, dump, write string) ([]s
 		defer straight.Deallocate()
 		defer composed.Deallocate()
 		for _, v := range frameVariants() {
-			v.set(d)
+			if v.set != nil {
+				v.set(d)
+			}
 			for i := range frames {
+				if v.each != nil {
+					v.each(d)
+				}
 				if err := g.Update(); err != nil {
 					return err
 				}
