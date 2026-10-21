@@ -24,22 +24,12 @@ var (
 	colorHoist     = color.NRGBA{0x3a, 0x34, 0x2c, 0xff}
 )
 
-// buildingItem is a building in the depth sort: its sprite, then its
-// work on top of it, so the scaffold and the hoist take the building's
-// own place and a nearer building is drawn over both.
-func buildingItem(cam *city.Camera, r city.Rect, sprite, work func()) drawable {
-	return footprintAt(cam, r, func() {
-		sprite()
-		work()
-	})
-}
-
 // frontOf is a footprint's corner nearest the viewer on screen, the one
 // lowest down, and the corners either side of it.
 func frontOf(lot [4]city.Point) (city.Point, [2]city.Point) {
 	best := 0
 	for i, p := range lot {
-		if p.Y > lot[best].Y {
+		if p.Y > lot[best].Y+0.5 || (math.Abs(p.Y-lot[best].Y) <= 0.5 && p.X > lot[best].X) {
 			best = i
 		}
 	}
@@ -158,14 +148,18 @@ func roofScaffold(lot [4]city.Point, roofLift, storey, up float64) []segment {
 		{func(t float64) (float64, float64) { return first, t }},
 		{func(t float64) (float64, float64) { return last, t }},
 	}
-	nearness := func(f face) float64 {
+	faceMiddle := func(f face) city.Point {
 		u, v := f.at(0.5)
-		return onRoof(lot, roofLift, u, v).Y
+		return onRoof(lot, roofLift, u, v)
+	}
+	nearer := func(a, b face) bool {
+		p, q := faceMiddle(a), faceMiddle(b)
+		return p.Y > q.Y+0.5 || (math.Abs(p.Y-q.Y) <= 0.5 && p.X > q.X)
 	}
 	for pick := 0; pick < 2; pick++ {
 		best := pick
 		for i := pick; i < len(faces); i++ {
-			if nearness(faces[i]) > nearness(faces[best]) {
+			if nearer(faces[i], faces[best]) {
 				best = i
 			}
 		}
@@ -225,7 +219,7 @@ func workLights(lines []segment) []city.Point {
 	}
 	back := -1
 	for i, s := range corners {
-		if back < 0 || s.a.Y < corners[back].a.Y {
+		if back < 0 || s.a.Y < corners[back].a.Y-0.5 || (math.Abs(s.a.Y-corners[back].a.Y) <= 0.5 && s.a.X > corners[back].a.X) {
 			back = i
 		}
 	}

@@ -1,6 +1,8 @@
 package render
 
 import (
+	"math"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -214,22 +216,6 @@ func TestBuildingWork(t *testing.T) {
 		})
 	})
 
-	t.Run("when the scaffold and a load are drawn with their building and a nearer building", func(t *testing.T) {
-		cam := city.NewCamera()
-		own := city.RectAt(5*city.Tile, 5*city.Tile, city.Tile, city.Tile)
-		nearer := city.RectAt(6*city.Tile, 6*city.Tile, city.Tile, city.Tile)
-		got := namedOrder(cam, func(rec func(string) func()) []drawable {
-			return []drawable{
-				footprintAt(cam, nearer, rec("nearer")),
-				buildingItem(cam, own, rec("building"), rec("work")),
-			}
-		})
-
-		t.Run("they should be drawn after their building and before the nearer one", func(t *testing.T) {
-			assert.Equal(t, []string{"building", "work", "nearer"}, got)
-		})
-	})
-
 	t.Run("when a drone is drawn at the fit zoom on a small building", func(t *testing.T) {
 		t.Run("it should be at least 12 px wide", func(t *testing.T) {
 			assert.GreaterOrEqual(t, droneWidth(20), 12.0)
@@ -239,6 +225,67 @@ func TestBuildingWork(t *testing.T) {
 	t.Run("when a drone is drawn at a normal zoom", func(t *testing.T) {
 		t.Run("it should still be about one window wide", func(t *testing.T) {
 			assert.InDelta(t, droneWindow*200, droneWidth(200), 1e-9)
+		})
+	})
+}
+
+// Item 192: two corner poles can stand equally high on screen, and which
+// of them is the back one must not turn on a rounding, or a baked look
+// and a panned frame put the lamps on different poles.
+func TestWorkLightsTie(t *testing.T) {
+	pole := func(x, y float64) segment {
+		return segment{a: city.Point{X: x, Y: y}, b: city.Point{X: x, Y: y - 10}, pole: true, corner: true}
+	}
+	lit := func(leftY, rightY float64) []float64 {
+		var xs []float64
+		for _, p := range workLights([]segment{pole(0, leftY), pole(20, rightY), pole(0, 30), pole(20, 30)}) {
+			xs = append(xs, p.X)
+		}
+		return xs
+	}
+
+	t.Run("when the two back poles stand equally high, give or take a rounding", func(t *testing.T) {
+		t.Run("it should light the same poles whichever is a hair higher", func(t *testing.T) {
+			assert.Equal(t, lit(10, 10+1e-9), lit(10+1e-9, 10))
+		})
+	})
+}
+
+// Item 192: two corners of a lot can stand equally low on screen, and
+// which is the front one must not turn on a rounding, or the hoist runs
+// up a different corner in a baked look than in a panned frame.
+func TestFrontOfTie(t *testing.T) {
+	front := func(leftY, rightY float64) float64 {
+		p, _ := frontOf([4]city.Point{{X: 10, Y: 0}, {X: 20, Y: rightY}, {X: 10, Y: 5}, {X: 0, Y: leftY}})
+		return p.X
+	}
+
+	t.Run("when the two lowest corners stand equally low, give or take a rounding", func(t *testing.T) {
+		t.Run("it should take the same corner whichever is a hair lower", func(t *testing.T) {
+			assert.Equal(t, front(10, 10+1e-9), front(10+1e-9, 10))
+		})
+	})
+}
+
+// Item 192: two faces of a scaffold can stand equally near on screen,
+// and which carries the braces must not turn on a rounding, or a baked
+// look and a panned frame brace different faces.
+func TestScaffoldBracesTie(t *testing.T) {
+	braces := func(nudge float64) []float64 {
+		lot := [4]city.Point{{X: 0, Y: 0}, {X: 30, Y: 0}, {X: 30, Y: 20 + nudge}, {X: 0, Y: 20}}
+		var xs []float64
+		for _, s := range roofScaffold(lot, 40, 12, 1) {
+			if s.brace {
+				xs = append(xs, math.Round(s.a.X))
+			}
+		}
+		sort.Float64s(xs)
+		return xs
+	}
+
+	t.Run("when two faces stand equally near, give or take a rounding", func(t *testing.T) {
+		t.Run("it should brace the same faces whichever is a hair nearer", func(t *testing.T) {
+			assert.Equal(t, braces(1e-9), braces(-1e-9))
 		})
 	})
 }
