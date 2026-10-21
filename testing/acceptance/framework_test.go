@@ -37,7 +37,7 @@ import (
 // so the skip cannot outlive the fix that removes it.
 func TestTheWorkAFrameTakes(t *testing.T) {
 	helpers.NeedXvfb(t)
-	const ceilingAt = "r844"
+	const ceilingAt = "item 191"
 	counts := []struct {
 		name    string
 		of      func(helpers.Frame) int
@@ -45,9 +45,9 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		ceiling map[int]int
 		skip    bool
 	}{
-		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 766_700, 22: 777_800}, true},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 430, 22: 490}, true},
-		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 169, 22: 175}, true},
+		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 77_100, 22: 80_200}, true},
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 283, 22: 341}, true},
+		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 6, 22: 8}, false},
 	}
 
 	for _, light := range []struct {
