@@ -83,7 +83,7 @@ func empty(pts []city.Point, ear []int, a, b, c int) bool {
 		d1, d2, d3 := side(p, pa, pb), side(p, pb, pc), side(p, pc, pa)
 		neg := d1 < 0 || d2 < 0 || d3 < 0
 		pos := d1 > 0 || d2 > 0 || d3 > 0
-		if !(neg && pos) {
+		if !neg || !pos {
 			return false
 		}
 	}
