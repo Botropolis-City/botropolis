@@ -270,6 +270,8 @@ type Game struct {
 	rec     *drawList
 	still   stillFrame
 	noStill bool
+	// labelLooks keeps each map label baked once it holds.
+	labelLooks *labelCache
 
 	settings     ui.Settings
 	settingsOpen bool

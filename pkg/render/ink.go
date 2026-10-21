@@ -91,6 +91,9 @@ type drawList struct {
 	fade, fades int
 	// moving is whether the drawable recorded now said it moves.
 	moving bool
+	// shifted and shiftedPts are buffers for playing a draw moved.
+	shifted    []ebiten.Vertex
+	shiftedPts []city.Point
 	// batchKeys numbers the sources draws read, for grouping them.
 	batchKeys map[batchSource]int
 	// origin is where the camera puts the world's origin this frame:
@@ -326,6 +329,40 @@ func (l *drawList) playIn(dst *ebiten.Image, s inked, f *fadePlay, r image.Recta
 			target = f.target(dst, c.fade)
 		}
 		l.playCmd(target, &c)
+	}
+}
+
+// playShifted plays a drawable's commands onto dst moved by d, for
+// baking it into an image of its own.
+func (l *drawList) playShifted(dst *ebiten.Image, s inked, d image.Point) {
+	dx, dy := float64(d.X), float64(d.Y)
+	for _, c := range l.cmds[s.from:s.to] {
+		switch c.kind {
+		case cmdImage:
+			c.img.GeoM.Translate(dx, dy)
+		case cmdColorM:
+			c.cmImg.GeoM.Translate(dx, dy)
+		case cmdWords:
+			c.text.GeoM.Translate(dx, dy)
+		case cmdMesh:
+			moved := append(l.shifted[:0], l.vertices[c.v[0]:c.v[1]]...)
+			for i := range moved {
+				moved[i].DstX += float32(dx)
+				moved[i].DstY += float32(dy)
+			}
+			l.shifted = moved
+			dst.DrawTriangles32(moved, l.indices[c.i[0]:c.i[1]], c.src, &c.tri)
+			continue
+		case cmdRing:
+			moved := append(l.shiftedPts[:0], l.points[c.p[0]:c.p[1]]...)
+			for i := range moved {
+				moved[i] = moved[i].Add(city.Point{X: dx, Y: dy})
+			}
+			l.shiftedPts = moved
+			l.painter.FillPath(dst, moved, &c.path)
+			continue
+		}
+		l.playCmd(dst, &c)
 	}
 }
 

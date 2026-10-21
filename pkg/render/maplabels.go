@@ -150,7 +150,7 @@ func (g *Game) drawMapLabels(screen *ebiten.Image) {
 			if l.Kind == labelTag {
 				g.drawing.tag()
 			}
-			l.draw(dst, at.At)
+			g.drawLabel(dst, l.draw, at.At)
 		}
 	}
 	if g.lit.RecedesGround() {

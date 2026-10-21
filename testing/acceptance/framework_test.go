@@ -47,7 +47,7 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// unmatched whether the count is over 1.25× the hamlet's.
 		unmet, unmatched map[int]bool
 	}{
-		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 7_280, 22: 8_800}, nil, map[int]bool{14: true, 22: true}},
+		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 7_280, 22: 8_800}, nil, map[int]bool{22: true}},
 		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 66, 22: 118}, nil, map[int]bool{14: true, 22: true}},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 6, 22: 8}, nil, map[int]bool{14: true, 22: true}},
 	}

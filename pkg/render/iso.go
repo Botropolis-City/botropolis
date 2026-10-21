@@ -522,6 +522,10 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.drawing.reset()
 	g.recorder().reset()
 	g.rec.origin = cameraOrigin(cam)
+	if g.labelLooks == nil {
+		g.labelLooks = newLabelCache()
+	}
+	g.labelLooks.next()
 	g.nextLookFrame()
 	defer g.logLooks()
 	defer func() {
