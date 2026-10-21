@@ -1,7 +1,5 @@
 package ui
 
-import "strings"
-
 // Run is a span placed on its line: X is its offset from the line's
 // start, measured in the faces of the spans before it.
 type Run struct {
@@ -70,7 +68,7 @@ func replyLines(th Theme, blocks []MdBlock, width float64, styled StyleMeasure) 
 		case MdItem:
 			marker := []Span{{Text: b.Marker + " "}}
 			hang := widthOf(marker)
-			wrapped := wrapSpans(b.Spans, room-hang, widthOf, styled)
+			wrapped := wrapSpans(b.Spans, room-hang, styled)
 			if len(wrapped) == 0 {
 				wrapped = [][]Span{nil}
 			}
@@ -86,7 +84,7 @@ func replyLines(th Theme, blocks []MdBlock, width float64, styled StyleMeasure) 
 			if b.Kind == MdHeading {
 				spans = restyle(spans, SpanStrong)
 			}
-			for _, s := range wrapSpans(spans, room, widthOf, styled) {
+			for _, s := range wrapSpans(spans, room, styled) {
 				line(s, indent, LineClaude)
 			}
 		}
@@ -116,6 +114,8 @@ type mdWord struct {
 
 // words splits spans at their spaces, keeping a word that changes style
 // part way through, like **bold**, together. A newline is a hard break.
+// Words are sliced from the spans' own text: a space, a tab and a newline
+// are single bytes that never occur inside another character in UTF-8.
 func words(spans []Span) []mdWord {
 	var out []mdWord
 	cur := mdWord{}
@@ -127,31 +127,30 @@ func words(spans []Span) []mdWord {
 		cur = mdWord{space: space}
 	}
 	for _, s := range spans {
-		var piece strings.Builder
-		for _, r := range s.Text {
-			switch r {
+		text := s.Text
+		for i := 0; i < len(text); {
+			switch c := text[i]; c {
 			case ' ', '\t', '\n':
-				if piece.Len() > 0 {
-					cur.pieces = append(cur.pieces, Span{Text: piece.String(), Style: s.Style})
-					piece.Reset()
-				}
 				flush()
 				space = true
-				if r == '\n' {
+				if c == '\n' {
 					out = append(out, mdWord{brk: true})
 					space = false
 				}
 				cur.space = space
+				i++
 			default:
-				if len(cur.pieces) == 0 && piece.Len() == 0 {
+				j := i
+				for j < len(text) && text[j] != ' ' && text[j] != '\t' && text[j] != '\n' {
+					j++
+				}
+				if len(cur.pieces) == 0 {
 					cur.space = space
 				}
 				space = false
-				piece.WriteRune(r)
+				cur.pieces = append(cur.pieces, Span{Text: text[i:j], Style: s.Style})
+				i = j
 			}
-		}
-		if piece.Len() > 0 {
-			cur.pieces = append(cur.pieces, Span{Text: piece.String(), Style: s.Style})
 		}
 	}
 	flush()
@@ -160,53 +159,63 @@ func words(spans []Span) []mdWord {
 
 // wrapSpans is wrapPara for styled text: as many words to a line as fit
 // the width in their own faces, a word too long for a line clipped to it.
-func wrapSpans(spans []Span, width float64, widthOf func([]Span) float64, styled StyleMeasure) [][]Span {
+// It keeps each line's width as it goes, measuring each word once,
+// because the pane is laid out every frame. Item 182.
+func wrapSpans(spans []Span, width float64, styled StyleMeasure) [][]Span {
 	var lines [][]Span
 	var cur []Span
-	add := func(line []Span, s Span) []Span {
-		if n := len(line); n > 0 && line[n-1].Style == s.Style {
-			out := append([]Span{}, line...)
-			out[n-1].Text += s.Text
-			return out
+	curW := 0.0
+	add := func(s Span) {
+		if n := len(cur); n > 0 && cur[n-1].Style == s.Style {
+			cur[n-1].Text += s.Text
+			return
 		}
-		return append(append([]Span{}, line...), s)
+		cur = append(cur, s)
 	}
 	end := func() {
 		if len(cur) > 0 {
 			lines = append(lines, cur)
 		}
-		cur = nil
+		cur, curW = nil, 0
 	}
 	for _, w := range words(spans) {
 		if w.brk {
 			end()
 			continue
 		}
-		next := cur
+		wordW := 0.0
+		for _, p := range w.pieces {
+			pw, _ := styled(p.Text, Body, p.Style)
+			wordW += pw
+		}
 		if len(cur) > 0 && w.space {
 			style := SpanPlain
 			if prev := cur[len(cur)-1].Style; prev == w.pieces[0].Style {
 				style = prev
 			}
-			next = add(next, Span{Text: " ", Style: style})
-		}
-		for _, p := range w.pieces {
-			next = add(next, p)
-		}
-		if len(cur) > 0 && widthOf(next) > width {
-			end()
-			next = nil
-			for _, p := range w.pieces {
-				next = add(next, p)
+			spaceW, _ := styled(" ", Body, style)
+			if curW+spaceW+wordW > width {
+				end()
+			} else {
+				add(Span{Text: " ", Style: style})
+				curW += spaceW
 			}
+		} else if len(cur) > 0 && curW+wordW > width {
+			end()
 		}
-		if len(cur) == 0 && widthOf(next) > width {
-			style := next[0].Style
-			next = []Span{{Text: clipTo(spanText(next), width, Body, func(s string, size Size) (float64, float64) {
+		if len(cur) == 0 && wordW > width {
+			style := w.pieces[0].Style
+			text := spanText(w.pieces)
+			cur = []Span{{Text: clipTo(text, width, Body, func(s string, size Size) (float64, float64) {
 				return styled(s, size, style)
 			}), Style: style}}
+			curW = width
+			continue
 		}
-		cur = next
+		for _, p := range w.pieces {
+			add(p)
+		}
+		curW += wordW
 	}
 	end()
 	return lines

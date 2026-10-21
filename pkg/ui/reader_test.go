@@ -475,6 +475,15 @@ func TestLayoutReader(t *testing.T) {
 		})
 	})
 
+	t.Run("when a reply arrives with its blocks already read", func(t *testing.T) {
+		read := ui.ParseMarkdown("already **read**")
+		p := layout(1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromClaude, Text: "the raw text", Blocks: read}}})
+
+		t.Run("it should lay out those blocks, not read its text again", func(t *testing.T) {
+			assert.Equal(t, "already read", of(p, ui.LineClaude)[0].Text)
+		})
+	})
+
 	t.Run("when your prompt holds Markdown characters", func(t *testing.T) {
 		p := layout(1280, 800, ui.ReaderInput{Turns: []ui.ReaderTurn{{From: ui.FromYou, Text: "make it **bold**"}}})
 

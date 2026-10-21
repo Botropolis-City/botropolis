@@ -84,6 +84,25 @@ func TestReadingPane(t *testing.T) {
 		})
 	})
 
+	t.Run("when a page of the conversation is read", func(t *testing.T) {
+		page := claude.Conversation{Messages: []claude.Message{
+			{From: claude.FromYou, Text: "make it **bold**"},
+			{From: claude.FromTool, Text: "echo `date`"},
+			{From: claude.FromClaude, Text: "it is **bold**"},
+		}}
+		g, _, _ := opened(t, "live", page, nil)
+		turns := pane(g).input(g).Turns
+		require.Len(t, turns, 3)
+
+		t.Run("it should hand the layout Claude's reply already read as Markdown", func(t *testing.T) {
+			assert.Equal(t, ui.ParseMarkdown("it is **bold**"), turns[2].Blocks)
+		})
+
+		t.Run("it should leave your prompts and tool calls unread", func(t *testing.T) {
+			assert.Equal(t, [2]bool{true, true}, [2]bool{turns[0].Blocks == nil, turns[1].Blocks == nil})
+		})
+	})
+
 	t.Run("when nothing is selected and o is pressed", func(t *testing.T) {
 		g, _, _ := setup(t, "", five, nil)
 		pressKey(t, g, ebiten.KeyO, false)

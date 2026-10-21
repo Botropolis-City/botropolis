@@ -21,6 +21,10 @@ const (
 type ReaderTurn struct {
 	From ReaderFrom
 	Text string
+	// Blocks are a reply already read as Markdown, so a pane laid out
+	// every frame does not read it again; without them the layout reads
+	// Text itself. Item 182.
+	Blocks []MdBlock
 }
 
 // ReaderQuestion is a question the session is waiting on you to answer.
@@ -303,7 +307,11 @@ func turnLines(th Theme, turn ReaderTurn, width float64, measure Measure, styled
 		return []ReaderLine{{Text: clipTo(turn.Text, width, Small, measure), Size: Small, Kind: LineTool, Color: pal.Dim}}
 	}
 	if turn.From == FromClaude {
-		return replyLines(th, ParseMarkdown(turn.Text), width, styled)
+		blocks := turn.Blocks
+		if blocks == nil {
+			blocks = ParseMarkdown(turn.Text)
+		}
+		return replyLines(th, blocks, width, styled)
 	}
 	kind, c := LineYou, pal.Accent
 	var lines []ReaderLine

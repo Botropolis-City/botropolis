@@ -55,7 +55,10 @@ type reader struct {
 
 	mu   sync.Mutex
 	page claude.Conversation
-	err  string
+	// parsed is each of the page's messages read as Markdown when it is
+	// Claude's, once per page rather than once per frame. Item 182.
+	parsed [][]ui.MdBlock
+	err    string
 	// gone says the transcript has been deleted, and kept is what the
 	// prompt history still has for the session.
 	gone bool
@@ -98,6 +101,12 @@ func (r *reader) read(g *Game, skip int) {
 	id, count := r.id, r.count
 	dispatch(func() {
 		conv, err := readConversation(id, skip, count)
+		read := make([][]ui.MdBlock, len(conv.Messages))
+		for i, m := range conv.Messages {
+			if m.From == claude.FromClaude {
+				read[i] = ui.ParseMarkdown(m.Text)
+			}
+		}
 		var kept []claude.Prompt
 		gone := errors.Is(err, errTranscriptGone)
 		if gone {
@@ -108,7 +117,7 @@ func (r *reader) read(g *Game, skip int) {
 		if skip != r.skip {
 			return
 		}
-		r.page, r.gone, r.kept, r.err = conv, gone, kept, ""
+		r.page, r.parsed, r.gone, r.kept, r.err = conv, read, gone, kept, ""
 		if err != nil {
 			r.err = err.Error()
 		}
@@ -191,7 +200,7 @@ func (r *reader) layout(g *Game, th ui.Theme, width, height float64, measure ui.
 // waiting on your approval and one still running look the same.
 func (r *reader) input(g *Game) ui.ReaderInput {
 	r.mu.Lock()
-	page, err, gone, kept := r.page, r.err, r.gone, r.kept
+	page, read, err, gone, kept := r.page, r.parsed, r.err, r.gone, r.kept
 	r.mu.Unlock()
 	in := ui.ReaderInput{AtStart: page.AtStart, Err: err, Gone: gone}
 	if gone {
@@ -209,8 +218,12 @@ func (r *reader) input(g *Game) ui.ReaderInput {
 			in.Title = b.Card(g.now()).Title
 		}
 	}
-	for _, m := range page.Messages {
-		in.Turns = append(in.Turns, ui.ReaderTurn{From: readerFrom(m.From), Text: m.Text})
+	for i, m := range page.Messages {
+		turn := ui.ReaderTurn{From: readerFrom(m.From), Text: m.Text}
+		if i < len(read) {
+			turn.Blocks = read[i]
+		}
+		in.Turns = append(in.Turns, turn)
 	}
 	for _, q := range page.Questions {
 		in.Questions = append(in.Questions, ui.ReaderQuestion{Text: q.Text, Options: q.Options})
