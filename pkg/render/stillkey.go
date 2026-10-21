@@ -96,3 +96,15 @@ func markOf(hash uint64, box image.Rectangle) uint64 {
 	}
 	return maphash.Bytes(inkSeed, b[:])
 }
+
+// stillsOnly is entries without what moves, in place: the frame the frame
+// test compares two cities by (item 193).
+func stillsOnly(entries []entry) []entry {
+	out := entries[:0]
+	for _, e := range entries {
+		if !e.moves {
+			out = append(out, e)
+		}
+	}
+	return out
+}

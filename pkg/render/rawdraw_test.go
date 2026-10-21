@@ -21,15 +21,14 @@ import (
 var drawsAllowed = map[string]string{
 	// The recorder itself, drawing when the image is not the dry one,
 	// and playing what it recorded.
-	"ink.go:Image":            "the recorder",
-	"ink.go:colorm":           "the recorder",
-	"ink.go:Mesh":             "the recorder",
-	"ink.go:triangles16":      "the recorder",
-	"ink.go:words":            "the recorder",
-	"ink.go:fill":             "the recorder",
-	"ink.go:playCmd":          "the recorder, playing",
-	"ink.go:playShifted":      "the recorder, baking a label",
-	"labelcache.go:blitLabel": "lays a label baked from the record",
+	"ink.go:Image":       "the recorder",
+	"ink.go:colorm":      "the recorder",
+	"ink.go:Mesh":        "the recorder",
+	"ink.go:triangles16": "the recorder",
+	"ink.go:words":       "the recorder",
+	"ink.go:fill":        "the recorder",
+	"ink.go:playCmd":     "the recorder, playing",
+	"ink.go:playShifted": "the recorder, baking a label",
 	// The painter, which hands every draw onto its destination to its
 	// Recorder when it has one.
 	"painter.go:drawImage":    "hands the draw to the recorder when set",

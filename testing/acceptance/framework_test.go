@@ -47,9 +47,9 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// unmatched whether the count is over 1.25× the hamlet's.
 		unmet, unmatched map[int]bool
 	}{
-		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 5_340, 22: 6_210}, nil, map[int]bool{22: true}},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 35, 22: 52}, nil, map[int]bool{14: true, 22: true}},
-		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 4, 22: 6}, nil, map[int]bool{14: true, 22: true}},
+		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 4_990, 22: 5_860}, nil, nil},
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 34, 22: 51}, nil, nil},
+		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 4, 22: 6}, nil, nil},
 	}
 
 	for _, light := range []struct {
@@ -59,11 +59,10 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		t.Run("when the metropolis demo is drawn at 1600×900 by "+light.name+", and it has settled", func(t *testing.T) {
 			t.Parallel()
 			worst := frameWork(t, "metropolis", light.hour)
-			hamlet := frameWork(t, "hamlet", light.hour)
 
 			for _, c := range counts {
 				got := c.of(worst)
-				t.Logf("%s: %d a frame; ceiling %d, target %d; the hamlet %d", c.name, got, c.ceiling[light.hour], c.target, c.of(hamlet))
+				t.Logf("%s: %d a frame; ceiling %d, target %d", c.name, got, c.ceiling[light.hour], c.target)
 
 				t.Run(fmt.Sprintf("it should issue no more %s a frame than it did at %s", c.name, ceilingAt), func(t *testing.T) {
 					assert.LessOrEqual(t, got, c.ceiling[light.hour])
@@ -76,13 +75,24 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 					}
 					assert.LessOrEqual(t, got, c.target)
 				})
+			}
+		})
 
-				// Item 193: once the standing city is composed, what a
-				// frame costs is what moves and the chrome, so the city
-				// with twenty districts costs about what the one with
-				// three does.
-				t.Run(fmt.Sprintf("it should issue no more than 1.25× the hamlet's %s a frame", c.name), func(t *testing.T) {
-					limit := c.of(hamlet) * 5 / 4
+		// Item 193: once the standing city is composed, a city with
+		// twenty districts costs about what one with three does, for the
+		// same activity. Hold movers equal (Aria, 2026-10-21): both are
+		// drawn with none, so the comparison is of the still city and the
+		// chrome, and more activity may cost more.
+		t.Run("when the hamlet and the metropolis are drawn by "+light.name+" with the same movers, none", func(t *testing.T) {
+			t.Parallel()
+			metropolis := frameWorkWith(t, "metropolis", light.hour, withoutMovers)
+			hamlet := frameWorkWith(t, "hamlet", light.hour, withoutMovers)
+
+			for _, c := range counts {
+				got, limit := c.of(metropolis), c.of(hamlet)*5/4
+				t.Logf("%s: the metropolis %d a frame, the hamlet %d", c.name, got, c.of(hamlet))
+
+				t.Run(fmt.Sprintf("it should cost the metropolis no more than 1.25× the hamlet in %s", c.name), func(t *testing.T) {
 					if c.unmatched[light.hour] {
 						require.Greater(t, got, limit, "target met: remove the skip")
 						t.Skipf("unmet: %d against %d, 1.25× the hamlet's %d; item 193", got, limit, c.of(hamlet))
@@ -93,6 +103,10 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		})
 	}
 }
+
+// withoutMovers is the environment that has the debug city leave out
+// everything that moves (item 193).
+const withoutMovers = "BOTROPOLIS_FRAME_MOVERS=none"
 
 // settledFrom is the first frame counted. The buildings' looks are baked
 // by the third frame, and about ten frames after that Ebitengine moves
@@ -105,7 +119,13 @@ const settledFrom = 20
 // settled frames.
 func frameWork(t *testing.T, demo string, hour int) helpers.Frame {
 	t.Helper()
-	all := frameLog(t, demo, hour, 1, "")
+	return frameWorkWith(t, demo, hour)
+}
+
+// frameWorkWith is frameWork with more of the city's environment.
+func frameWorkWith(t *testing.T, demo string, hour int, env ...string) helpers.Frame {
+	t.Helper()
+	all := frameLog(t, demo, hour, 1, "", env...)
 	require.Greater(t, len(all), settledFrom+10, "too few frames logged to call any settled")
 	return helpers.MostWork(all[settledFrom:])
 }
@@ -113,7 +133,7 @@ func frameWork(t *testing.T, demo string, hour int) helpers.Frame {
 // frameLog runs the debug city for seconds of frames on a staged demo,
 // with the local clock at hour, playing a choreography if one is given
 // as JSON, and returns every frame it logged.
-func frameLog(t *testing.T, demo string, hour int, seconds float64, choreography string) []helpers.Frame {
+func frameLog(t *testing.T, demo string, hour int, seconds float64, choreography string, env ...string) []helpers.Frame {
 	t.Helper()
 	bin, err := debugCity()
 	require.NoError(t, err)
@@ -130,7 +150,7 @@ func frameLog(t *testing.T, demo string, hour int, seconds float64, choreography
 		require.NoError(t, os.WriteFile(path, []byte(choreography), 0o644))
 		cmd.Args = append(cmd.Args, "--script", path)
 	}
-	cmd.Env = append(os.Environ(), "TZ="+zoneAt(time.Now().UTC().Hour(), hour))
+	cmd.Env = append(append(os.Environ(), "TZ="+zoneAt(time.Now().UTC().Hour(), hour)), env...)
 	cmd.Stdout = out
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

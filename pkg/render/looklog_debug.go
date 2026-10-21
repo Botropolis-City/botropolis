@@ -2,7 +2,10 @@
 
 package render
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 // logLooks writes what the look cache did this frame beside
 // Ebitengine's own command log, for item 194's frame test.
@@ -22,3 +25,8 @@ func (g *Game) logStill() {
 	s := g.still.stats
 	fmt.Printf("still: composes=%d redos=%d overlays=%d rects=%d ground=%d direct=%d shifts=%d\n", s.composes, s.redos, s.overlays, s.rects, g.static.composes, s.direct, s.shifts+g.static.shifts)
 }
+
+// framesWithoutMovers is whether the frame test asked for the city with
+// nothing that moves, to compare two cities with the same movers (item
+// 193; Aria, 2026-10-21: "Hold movers equal").
+var framesWithoutMovers = os.Getenv("BOTROPOLIS_FRAME_MOVERS") == "none"

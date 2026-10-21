@@ -825,6 +825,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	fade.done()
 	if !g.noStill {
 		screen = real
+		if framesWithoutMovers {
+			g.still.entries = stillsOnly(g.still.entries)
+		}
 		g.paintStill(real, under, stillKey{under: g.static.whole, viewing: g.viewing()})
 	}
 	if hover.Building != nil && hover.Building != selected {
@@ -838,18 +841,6 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.paintLights(screen)
 		}
 	}
-	if g.noStill {
-		g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
-		g.groupLines(screen, cam, true)
-	} else {
-		screen = g.rec.dry
-		g.rec.begin()
-		g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
-		g.groupLines(screen, cam, true)
-		lines := g.rec.end()
-		screen = real
-		g.paintOverlay(real, lines)
-	}
 	for _, d := range c.Districts {
 		// The sign stands in the district; the plate is for when it is
 		// too small to read, and for the district under the pointer.
@@ -862,7 +853,28 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if labels {
 		g.queueLandmarkLabels(cam, c, hover)
 	}
-	g.drawMapLabels(screen)
+	// The map's labels go into the group lines' layer, drawn after them,
+	// so the two go down as one blit (item 193); faded under a hovered
+	// car, they keep their own layer and go over it.
+	labelsInLayer := !g.noStill && !g.lit.RecedesGround()
+	if g.noStill {
+		g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
+		g.groupLines(screen, cam, true)
+	} else {
+		screen = g.rec.dry
+		g.rec.begin()
+		g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
+		g.groupLines(screen, cam, true)
+		if labelsInLayer {
+			g.drawMapLabels(screen)
+		}
+		lines := g.rec.end()
+		screen = real
+		g.paintOverlay(real, lines)
+	}
+	if !labelsInLayer {
+		g.drawMapLabels(screen)
+	}
 	if labels {
 		g.towerPlate(screen, cam, c, hover)
 	}

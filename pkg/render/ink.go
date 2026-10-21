@@ -366,6 +366,34 @@ func (l *drawList) playShifted(dst *ebiten.Image, s inked, d image.Point) {
 	}
 }
 
+// listMark is how far the list had recorded, to come back to.
+type listMark struct{ cmds, vertices, indices, points int }
+
+func (l *drawList) mark() listMark {
+	return listMark{len(l.cmds), len(l.vertices), len(l.indices), len(l.points)}
+}
+
+// truncate forgets what was recorded since m.
+func (l *drawList) truncate(m listMark) {
+	l.cmds, l.vertices, l.indices, l.points = l.cmds[:m.cmds], l.vertices[:m.vertices], l.indices[:m.indices], l.points[:m.points]
+}
+
+// since is what was recorded since m: its commands, a hash of what they
+// draw and the box they ink.
+func (l *drawList) since(m listMark) inked {
+	in := inked{from: m.cmds, to: len(l.cmds)}
+	var b [8]byte
+	var h maphash.Hash
+	h.SetSeed(inkSeed)
+	for _, c := range l.cmds[m.cmds:] {
+		binary.LittleEndian.PutUint64(b[:], c.hash)
+		h.Write(b[:])
+		in.box = in.box.Union(c.box)
+	}
+	in.hash = h.Sum64()
+	return in
+}
+
 // cmdBox is the box the ith recorded command inks.
 func (l *drawList) cmdBox(i int) image.Rectangle { return l.cmds[i].box }
 

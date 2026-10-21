@@ -151,17 +151,21 @@ func (g *Game) drawLabel(dst *ebiten.Image, draw func(*ebiten.Image, city.Rect),
 		return
 	}
 	l := g.recorder()
-	origin := l.origin
+	// Recorded where it is drawn when the group lines' layer is being
+	// recorded, so it goes into that layer; in a mark of its own, so the
+	// layer's record goes on around it.
+	recording := l.records(dst)
+	origin, m := l.origin, l.mark()
 	l.origin = at.Min
-	l.begin()
 	draw(l.dry, at)
-	in := l.end()
+	in := l.since(m)
 	l.origin = origin
 	cell, phase := labelPhase(at.Min)
 	key := labelKey{hash: in.hash, phase: phase}
 	switch g.labelLooks.decide(key) {
 	case labelBaked:
 		b, _ := g.labelLooks.looks.get(key)
+		l.truncate(m)
 		g.blitLabel(dst, b, cell)
 		return
 	case labelBake:
@@ -187,14 +191,18 @@ func (g *Game) drawLabel(dst *ebiten.Image, draw func(*ebiten.Image, city.Rect),
 		l.playShifted(sub, in, r.Min.Sub(box.Min))
 		b := &bakedLabel{img: sub, at: box.Min.Sub(cell)}
 		lc.keep(key, b, box.Dx()*box.Dy()*4)
+		l.truncate(m)
 		g.blitLabel(dst, b, cell)
 		return
 	}
-	l.play(dst, in, nil)
+	if !recording {
+		l.play(dst, in, nil)
+		l.truncate(m)
+	}
 }
 
 func (g *Game) blitLabel(dst *ebiten.Image, b *bakedLabel, cell image.Point) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(cell.X+b.at.X), float64(cell.Y+b.at.Y))
-	dst.DrawImage(b.img, op)
+	g.recorder().Image(dst, b.img, op)
 }
