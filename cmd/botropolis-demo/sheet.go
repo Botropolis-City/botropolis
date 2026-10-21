@@ -19,7 +19,7 @@ const sheetDisplayEnv = "BOTROPOLIS_SHEET_DISPLAY"
 
 func sheetCommand() *cobra.Command {
 	out, zoom, check, looks := "", 1.0, false, false
-	framesHome, hour, frames, dumpDir := "", 14, 30, ""
+	framesHome, hour, frames, dumpDir, writeDir := "", 14, 30, "", ""
 	cmd := &cobra.Command{
 		Use:   "sheet",
 		Short: "Draw every building piece, lived in and boarded up, by day and by night, to a PNG",
@@ -34,7 +34,7 @@ func sheetCommand() *cobra.Command {
 				if framesHome != "" {
 					now := time.Now()
 					at := time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, time.Local)
-					problems, err := render.CheckFrames(framesHome, at, frames, dumpDir)
+					problems, err := render.CheckFrames(framesHome, at, frames, dumpDir, writeDir)
 					if err != nil {
 						return err
 					}
@@ -119,5 +119,6 @@ func sheetCommand() *cobra.Command {
 	cmd.Flags().IntVar(&hour, "hour", hour, "with --check-frames, the local hour the city is shown at")
 	cmd.Flags().IntVar(&frames, "frames", frames, "with --check-frames, how many frames to check each way the city is shown")
 	cmd.Flags().StringVar(&dumpDir, "dump", dumpDir, "with --check-frames, a directory to write both drawings of each frame that differs to")
+	cmd.Flags().StringVar(&writeDir, "write", writeDir, "with --check-frames, a directory to write both drawings of each way's last frame to")
 	return cmd
 }

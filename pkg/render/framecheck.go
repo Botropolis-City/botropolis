@@ -19,21 +19,21 @@ var frameCheckSize = image.Pt(1600, 900)
 
 // frameVariant is one way the city is shown while the check runs.
 type frameVariant struct {
-	name string
-	set  func(d *Drive)
+	name, slug string
+	set        func(d *Drive)
 }
 
 func frameVariants() []frameVariant {
 	return []frameVariant{
-		{"as it stands", func(*Drive) {}},
+		{"as it stands", "as-it-stands", func(*Drive) {}},
 		// Selecting changes one still building and nothing the layer's
 		// key holds, so only what the stills would paint can tell.
-		{"with a building selected", func(d *Drive) {
+		{"with a building selected", "selected", func(d *Drive) {
 			if bs := d.game.scene.City().Buildings(); len(bs) > 0 {
 				d.game.scene.Select(bs[len(bs)/2].Session.ID)
 			}
 		}},
-		{"with traffic shown and a car hovered", func(d *Drive) {
+		{"with traffic shown and a car hovered", "traffic-hovered", func(d *Drive) {
 			g := d.game
 			g.scene.SetView(city.ViewTraffic)
 			cars := g.cars(g.scene.City(), g.motion.ambient)
@@ -41,7 +41,7 @@ func frameVariants() []frameVariant {
 				_ = d.PointAtPoint(g.scene.Camera().WorldToScreen(cars[0].at))
 			}
 		}},
-		{"with a view up", func(d *Drive) {
+		{"with a view up", "spend-view", func(d *Drive) {
 			_ = d.PointAtPoint(city.Point{X: -100, Y: -100})
 			d.game.scene.SetView(city.ViewSpend)
 		}},
@@ -53,8 +53,10 @@ func frameVariants() []frameVariant {
 // straight, as every frame was drawn before item 193, and through the
 // standing city composed once and drawn again where something moves. It
 // reports every frame whose two drawings differ by more than
-// lookTolerance, and writes both to dump when one is given.
-func CheckFrames(home string, at time.Time, frames int, dump string) ([]string, error) {
+// lookTolerance, and writes both to dump when one is given. With write,
+// it also writes both drawings of each way's last frame there, for a
+// person to judge.
+func CheckFrames(home string, at time.Time, frames int, dump, write string) ([]string, error) {
 	var problems []string
 	err := runSheet(func(*Game) error {
 		d, err := NewDrive(DriveOptions{Home: home, Now: at, Width: frameCheckSize.X, Height: frameCheckSize.Y})
@@ -79,6 +81,10 @@ func CheckFrames(home string, at time.Time, frames int, dump string) ([]string, 
 				want := g.worldFrame(straight, true)
 				g.lookFrame = frame
 				got := g.worldFrame(composed, false)
+				if write != "" && i == frames-1 {
+					dumpPNG(filepath.Join(write, v.slug+"-straight.png"), want)
+					dumpPNG(filepath.Join(write, v.slug+"-standing.png"), got)
+				}
 				if off, box, most := framesApart(want, got); off > 0 {
 					problems = append(problems, fmt.Sprintf("%s, frame %d: %d pixels in %v differ from the city drawn straight, by up to %d", v.name, i, off, box, most))
 					if dump != "" {
