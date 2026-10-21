@@ -258,9 +258,18 @@ type Game struct {
 	// static is the city under the traffic, composed once and blitted
 	// until the snapshot, the camera, the heading or the view changes.
 	static staticLayer
+	// straightStatic is the same for a frame drawn straight, as the check
+	// of the standing city draws one (item 193).
+	straightStatic staticLayer
 	// carFadeLayer is where a hovered car's fader draws what it fades
 	// (item 108).
 	carFadeLayer *ebiten.Image
+	// rec is the frame's dry pass, still the standing city composed from
+	// it, and noStill draws every frame straight instead, as the check
+	// against it does (item 193).
+	rec     *drawList
+	still   stillFrame
+	noStill bool
 
 	settings     ui.Settings
 	settingsOpen bool
@@ -1528,7 +1537,7 @@ func (g *Game) text(screen *ebiten.Image, at city.Point, s string, size ui.Size,
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(at.X, at.Y)
 	op.ColorScale.ScaleWithColor(c)
-	text.Draw(screen, s, g.faces.Face(size), op)
+	g.recorder().words(screen, s, g.faces.Face(size), op)
 }
 
 // measure is the size of an in-world label, which is always set small.

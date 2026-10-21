@@ -86,3 +86,26 @@ func TestFrameLogLooks(t *testing.T) {
 		})
 	})
 }
+
+// Item 193: the city's debug build reports what its standing city cost
+// each frame: composed whole, composed again in rectangles, the group
+// lines composed, rectangles of movers drawn again, and the ground
+// composed.
+func TestFrameLogStill(t *testing.T) {
+	t.Run("when a frame reports its standing city", func(t *testing.T) {
+		frames := ParseFrameLog(strings.NewReader("----\nstill: composes=1 redos=2 overlays=1 rects=11 ground=1\n"))
+		require.Len(t, frames, 1)
+
+		t.Run("it should read what the standing city cost", func(t *testing.T) {
+			assert.Equal(t, Still{Composes: 1, Redos: 2, Overlays: 1, Rects: 11, Ground: 1}, frames[0].Still)
+		})
+	})
+
+	t.Run("when the worst of several frames is asked for", func(t *testing.T) {
+		worst := MostWork([]Frame{{Still: Still{Composes: 1, Rects: 3}}, {Still: Still{Redos: 2, Rects: 9, Ground: 1}}})
+
+		t.Run("it should take each count's largest", func(t *testing.T) {
+			assert.Equal(t, Still{Composes: 1, Redos: 2, Rects: 9, Ground: 1}, worst.Still)
+		})
+	})
+}

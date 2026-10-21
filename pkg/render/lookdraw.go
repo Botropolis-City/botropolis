@@ -56,6 +56,14 @@ func (g *Game) drawBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 		return
 	}
 	g.buildingHits(cam, &f)
+	// Its own lights are noted rather than drawn, so they are never
+	// baked, but they do not move.
+	for i := range f.live {
+		if f.live[i] && f.present[i] && step(i) != stepLights {
+			g.rec.moves()
+			break
+		}
+	}
 	for _, r := range runsOf(f.present, f.live) {
 		if !r.baked || g.looks == nil || g.noLookCache {
 			g.drawSteps(screen, cam, &f, r.from, r.to)
@@ -476,7 +484,7 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(cell.X+look.at.X), float64(cell.Y+look.at.Y))
 	g.drawing.world()
-	screen.DrawImage(look.img, op)
+	g.recorder().Image(screen, look.img, op)
 	g.punch(look.img, op.GeoM)
 }
 

@@ -132,6 +132,9 @@ type fader struct {
 	real, layer *ebiten.Image
 	dirty       bool
 	flush       func()
+	// rec is the dry pass the fade is recorded into instead, its draws
+	// marked with their fade groups to be laid when played (item 193).
+	rec *drawList
 }
 
 // newFader is a fader over a screen, its layer kept on the game and
@@ -179,6 +182,9 @@ func (g *Game) fadeUnkept(screen **ebiten.Image, items []drawable, airborne []fu
 	if !g.lit.RecedesGround() {
 		return nil
 	}
+	if g.recording(*screen) {
+		return g.recordFade(items, airborne)
+	}
 	f := g.newFader(screen)
 	for i := range items {
 		if items[i].kept {
@@ -200,6 +206,13 @@ func (g *Game) fadeAll(screen **ebiten.Image, draw func()) {
 		draw()
 		return
 	}
+	if g.recording(*screen) {
+		prev := g.rec.fade
+		g.rec.newFade()
+		draw()
+		g.rec.fade = prev
+		return
+	}
 	f := g.newFader(screen)
 	f.faded(draw)()
 	f.done()
@@ -207,6 +220,10 @@ func (g *Game) fadeAll(screen **ebiten.Image, draw func()) {
 
 // done lays down whatever is still on the layer; a nil fader has none.
 func (f *fader) done() {
+	if f != nil && f.rec != nil {
+		f.rec.fade = 0
+		return
+	}
 	if f != nil && f.dirty {
 		f.flush()
 		f.dirty = false
@@ -225,4 +242,38 @@ func (g *Game) keepsRoad(r *city.RoadLine) bool { return !g.lit.FadesRoad(r) }
 // hovered car's districts (Aria, 2026-10-18).
 func (g *Game) stationLit(d *city.District) bool {
 	return g.lit.RecedesGround() && g.keeps(d)
+}
+
+// recording is whether draws onto dst go into the dry pass.
+func (g *Game) recording(dst *ebiten.Image) bool {
+	return g.rec != nil && g.rec.records(dst)
+}
+
+// recordFade is fadeUnkept in the dry pass: each run of faded drawables
+// between two kept ones is one fade group, as the fader lays them.
+func (g *Game) recordFade(items []drawable, airborne []func()) *fader {
+	l := g.rec
+	faded := func(draw func()) func() {
+		return func() {
+			if l.fade == 0 {
+				l.newFade()
+			}
+			draw()
+		}
+	}
+	for i := range items {
+		draw := items[i].draw
+		if items[i].kept {
+			items[i].draw = func() {
+				l.fade = 0
+				draw()
+			}
+		} else {
+			items[i].draw = faded(draw)
+		}
+	}
+	for i := range airborne {
+		airborne[i] = faded(airborne[i])
+	}
+	return &fader{rec: l}
 }

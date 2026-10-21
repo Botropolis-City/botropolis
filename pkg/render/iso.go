@@ -55,7 +55,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point
 		op.GeoM.Scale(scale, scale)
 		op.GeoM.Translate(at.X, at.Y)
 		op.Filter = ebiten.FilterLinear
-		colorm.DrawImage(screen, img, recedeMatrix(), op)
+		g.recorder().colorm(screen, img, recedeMatrix(), op)
 		g.punch(img, op.GeoM)
 		return
 	}
@@ -66,7 +66,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point
 		op.ColorScale = *tint
 	}
 	op.Filter = ebiten.FilterLinear
-	screen.DrawImage(img, op)
+	g.recorder().Image(screen, img, op)
 	g.punch(img, op.GeoM)
 }
 
@@ -92,7 +92,7 @@ func footprint(cam *city.Camera, r city.Rect) (top city.Point, width float64) {
 // river down the east side, and a tree on every cell the plan planted;
 // beyond the edge there is nothing to see.
 func (g *Game) isoGround(screen *ebiten.Image, cam *city.Camera, c *city.City, width, height float64) {
-	screen.Fill(colorVoid)
+	g.recorder().fill(screen, colorVoid)
 	bounds := c.Bounds()
 	if bounds.Area() == 0 {
 		return
@@ -184,69 +184,87 @@ var (
 	colorPowerPole = color.NRGBA{0x3a, 0x30, 0x26, 0xff}
 )
 
-// powerLines draws each line as poles with sagging wires, warm and thick
-// for fresh tokens, cool and thin for cache reads, with sparks running
-// from the plant to the building at a pace set by the token rate.
-func (g *Game) powerLines(screen *ebiten.Image, c *city.City, cam *city.Camera, hover city.Hit, seconds float64) {
-	if !g.shows(city.NetworkWires) {
-		return
+// poleTops is where the tops of a line's poles stand on screen.
+func poleTops(cam *city.Camera, line city.PowerLine) []city.Point {
+	from, to := line.From, line.To
+	length := math.Hypot(to.X-from.X, to.Y-from.Y)
+	poles := max(2, int(length/poleSpacing)+1)
+	h := poleHeight * cam.Zoom
+	tops := make([]city.Point, 0, poles)
+	for i := 0; i < poles; i++ {
+		t := float64(i) / float64(poles-1)
+		foot := cam.WorldToScreen(city.Point{X: from.X + (to.X-from.X)*t, Y: from.Y + (to.Y-from.Y)*t})
+		tops = append(tops, city.Point{X: foot.X, Y: foot.Y - h})
 	}
-	lines := c.PowerLines()
-	for _, line := range lines {
-		from, to := line.From, line.To
-		length := math.Hypot(to.X-from.X, to.Y-from.Y)
-		poles := max(2, int(length/poleSpacing)+1)
-		h := poleHeight * cam.Zoom
-		var tops []city.Point
-		for i := 0; i < poles; i++ {
-			t := float64(i) / float64(poles-1)
-			foot := cam.WorldToScreen(city.Point{X: from.X + (to.X-from.X)*t, Y: from.Y + (to.Y-from.Y)*t})
-			if i > 0 && i < poles-1 {
-				g.paint.Bar(screen, float32(foot.X), float32(foot.Y), float32(foot.X), float32(foot.Y-h), float32(math.Max(1, 2*cam.Zoom)), colorPowerPole)
-				g.paint.Bar(screen, float32(foot.X-4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(foot.X+4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(math.Max(1, 1.5*cam.Zoom)), colorPowerPole)
+	return tops
+}
+
+// wires draws a power line's poles and its sagging wires, warm and thick
+// for fresh tokens, cool and thin for cache reads, which stand still,
+// and returns the tops of its poles; its sparks run along them from the
+// plant to the building at a pace set by the token rate, and move.
+func (g *Game) wires(screen *ebiten.Image, cam *city.Camera, line city.PowerLine, lines []city.PowerLine, hover city.Hit) []city.Point {
+	tops := poleTops(cam, line)
+	h := poleHeight * cam.Zoom
+	for i := 1; i+1 < len(tops); i++ {
+		foot := city.Point{X: tops[i].X, Y: tops[i].Y + h}
+		g.paint.Bar(screen, float32(foot.X), float32(foot.Y), float32(foot.X), float32(foot.Y-h), float32(math.Max(1, 2*cam.Zoom)), colorPowerPole)
+		g.paint.Bar(screen, float32(foot.X-4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(foot.X+4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(math.Max(1, 1.5*cam.Zoom)), colorPowerPole)
+	}
+	highlight := hover.Line != nil && hover.Line.Building == line.Building
+	for i := 1; i < len(tops); i++ {
+		a, b := tops[i-1], tops[i]
+		mid := city.Point{X: (a.X + b.X) / 2, Y: (a.Y+b.Y)/2 + wireSag*cam.Zoom}
+		drop := city.Point{Y: 2 * cam.Zoom}
+		strokeWire := func(lower bool, width float32, col color.NRGBA) {
+			from, via, to := a, mid, b
+			if lower {
+				from, via, to = a.Add(drop), mid.Add(drop), b.Add(drop)
 			}
-			tops = append(tops, city.Point{X: foot.X, Y: foot.Y - h})
+			pts := shapes.AppendQuad(g.paint.Points(), from, via, to)
+			g.paint.Stroke(screen, pts, float64(width), false, col)
+			g.paint.Keep(pts)
 		}
-		highlight := hover.Line != nil && hover.Line.Building == line.Building
-		for i := 1; i < len(tops); i++ {
-			a, b := tops[i-1], tops[i]
-			mid := city.Point{X: (a.X + b.X) / 2, Y: (a.Y+b.Y)/2 + wireSag*cam.Zoom}
-			drop := city.Point{Y: 2 * cam.Zoom}
-			strokeWire := func(lower bool, width float32, col color.NRGBA) {
-				from, via, to := a, mid, b
-				if lower {
-					from, via, to = a.Add(drop), mid.Add(drop), b.Add(drop)
-				}
-				pts := shapes.AppendQuad(g.paint.Points(), from, via, to)
-				g.paint.Stroke(screen, pts, float64(width), false, col)
-				g.paint.Keep(pts)
-			}
-			cachedCol, freshCol := colorLineCached, colorLineFresh
-			// Spend paints the carrier, not only what it runs to: a wire
-			// by the rate it is carrying. Health draws the same wires
-			// plain, because there the signal is the one that is missing.
-			if t := g.scene.WireTint(line, lines); t.Known {
-				cachedCol, freshCol = ui.Sequential.At(t.Value), ui.Sequential.At(t.Value)
-			}
-			strokeWire(true, lineWidth(line.Cached, 1, 3), cachedCol)
-			strokeWire(false, lineWidth(line.Fresh, 1, 4), freshCol)
-			if highlight {
-				strokeWire(false, 2, colorHighlight)
-			}
+		cachedCol, freshCol := colorLineCached, colorLineFresh
+		// Spend paints the carrier, not only what it runs to: a wire
+		// by the rate it is carrying. Health draws the same wires
+		// plain, because there the signal is the one that is missing.
+		if t := g.scene.WireTint(line, lines); t.Known {
+			cachedCol, freshCol = ui.Sequential.At(t.Value), ui.Sequential.At(t.Value)
 		}
-		// Sparks: one per line at a middling rate, more and faster as it climbs.
-		rate := line.Fresh + line.Cached/20
-		if rate <= 0 {
-			continue
-		}
-		speed := math.Min(3, math.Max(0.3, math.Log10(rate/1000+1)))
-		count := 1 + min(2, int(speed))
-		for k := 0; k < count; k++ {
-			t := math.Mod(seconds*speed/sparkPeriod+float64(k)/float64(count), 1)
-			p := wirePoint(tops, t, wireSag*cam.Zoom)
-			g.paint.Disc(screen, p, math.Max(1.5, 2.5*cam.Zoom), colorPlantCore)
+		strokeWire(true, lineWidth(line.Cached, 1, 3), cachedCol)
+		strokeWire(false, lineWidth(line.Fresh, 1, 4), freshCol)
+		if highlight {
+			strokeWire(false, 2, colorHighlight)
 		}
 	}
+	return tops
+}
+
+// sparkCount is how many sparks run along a line: one at a middling
+// rate, more as it climbs, none when nothing flows.
+func sparkCount(line city.PowerLine) int {
+	speed := sparkSpeed(line)
+	if speed == 0 {
+		return 0
+	}
+	return 1 + min(2, int(speed))
+}
+
+func sparkSpeed(line city.PowerLine) float64 {
+	rate := line.Fresh + line.Cached/20
+	if rate <= 0 {
+		return 0
+	}
+	return math.Min(3, math.Max(0.3, math.Log10(rate/1000+1)))
+}
+
+// spark draws a line's kth spark where it has run to.
+func (g *Game) spark(screen *ebiten.Image, cam *city.Camera, line city.PowerLine, tops []city.Point, k int, seconds float64) {
+	speed, count := sparkSpeed(line), sparkCount(line)
+	t := math.Mod(seconds*speed/sparkPeriod+float64(k)/float64(count), 1)
+	p := wirePoint(tops, t, wireSag*cam.Zoom)
+	g.paint.Disc(screen, p, math.Max(1.5, 2.5*cam.Zoom), colorPlantCore)
 }
 
 // wirePoint is the point a fraction t along the sagging wire.
@@ -451,7 +469,7 @@ func (g *Game) sign(screen *ebiten.Image, s ui.Sign, c color.NRGBA) {
 	op.ColorScale.ScaleWithColor(c)
 	op.Filter = ebiten.FilterLinear
 	face := g.faces.Face(ui.Small)
-	text.Draw(screen, s.Text, face, op)
+	g.recorder().words(screen, s.Text, face, op)
 	g.cutWords(s.Text, face, op.GeoM, float32(c.A)/255)
 }
 
@@ -502,6 +520,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	labels := g.labelsVisible()
 	defer frames.start()()
 	g.drawing.reset()
+	g.recorder().reset()
 	g.nextLookFrame()
 	defer g.logLooks()
 	defer func() {
@@ -513,28 +532,53 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	// The city under the traffic, composed once and blitted; then its
 	// hover targets replayed, because the frame is drawn fresh even when
 	// the layer is not.
+	g.groundLayer().composes = 0
 	under := g.staticCity(c, cam, hover, width, height)
 	g.mu.Lock()
-	g.frameHits = append(g.frameHits[:0], g.static.hits...)
+	g.frameHits = append(g.frameHits[:0], g.groundLayer().hits...)
 	g.mu.Unlock()
-	g.blitBase(screen, under)
-	g.overgrowth(screen, cam, false)
-	g.agedLots(screen, cam, c)
+	// Every drawable from here to the group lines runs in the dry pass,
+	// which records what it would draw, and the standing city is put on
+	// the frame from that once the depth sort has run (item 193).
+	real := screen
+	defer g.logStill()
+	if g.noStill {
+		g.blitBase(screen, under)
+	} else {
+		g.still.entries = g.still.entries[:0]
+		g.still.stats = stillStats{}
+		screen = g.rec.dry
+	}
+	g.note(func() { g.overgrowth(screen, cam, false) }, true)
+	g.note(func() { g.agedLots(screen, cam, c) }, false)
 	// Drones stand in the depth sort on their shadows' ground points,
 	// and their shadows go on the ground first (item 89).
 	shadows, drones := g.flights(&screen, c, cam, seconds)
 	g.fadeAll(&screen, func() {
-		g.powerLines(screen, c, cam, hover, seconds)
+		if g.shows(city.NetworkWires) {
+			lines := c.PowerLines()
+			for _, line := range lines {
+				var tops []city.Point
+				g.note(func() { tops = g.wires(screen, cam, line, lines, hover) }, false)
+				for k := range sparkCount(line) {
+					g.note(func() { g.spark(screen, cam, line, tops, k, seconds) }, true)
+				}
+			}
+		}
 		for _, at := range shadows {
-			g.droneShadow(screen, cam, at)
+			g.note(func() { g.droneShadow(screen, cam, at) }, true)
 		}
 	})
+	for i := range drones {
+		drones[i].moves = true
+	}
 	items := drones
 	var airborne []func()
 	if c.Fountain.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Fountain, func() {
 			g.fountain(screen, cam, c, seconds)
 		}))
+		items[len(items)-1].moves = true
 	}
 	for _, l := range c.Lamps {
 		if !g.scene.Scenery() {
@@ -562,6 +606,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, standingAt(cam, v.At(g.scene.Clock()), func() {
 			g.drawVoyage(screen, cam, v, seconds)
 		}))
+		items[len(items)-1].moves = true
 	}
 	if !g.reduced {
 		for _, h := range g.scene.Hauls() {
@@ -570,6 +615,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			items = append(items, standingAt(cam, at, func() {
 				g.drawHaul(screen, cam, h)
 			}))
+			items[len(items)-1].moves = true
 		}
 	}
 	for _, b := range c.Buildings() {
@@ -579,6 +625,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			items = append(items, standingAt(cam, at, func() {
 				g.drawInspector(screen, cam, b, in)
 			}))
+			items[len(items)-1].moves = true
 			items[len(items)-1].kept = g.keeps(c.DistrictOf(b))
 		}
 	}
@@ -588,6 +635,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, standingAt(cam, at, func() {
 			g.drawMessage(screen, cam, m)
 		}))
+		items[len(items)-1].moves = true
 	}
 	bridge := c.Bridge()
 	items = append(items, bridgeItems(cam, bridge, func(p bridgePart) func() {
@@ -602,6 +650,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, deliveryAt(cam, bridge, at, func() {
 			g.drawDelivery(screen, cam, bridge, d)
 		}))
+		items[len(items)-1].moves = true
 	}
 	for _, r := range g.scene.Ribbons() {
 		r := r
@@ -612,12 +661,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, carriageAt(cam, k.at, func() {
 			g.drawCarriage(screen, cam, k)
 		}))
+		items[len(items)-1].moves = true
 	}
 	for _, car := range g.trafficCars(c, seconds) {
 		car := car
 		items = append(items, standingAt(cam, car.at, func() {
 			g.drawCar(screen, cam, car)
 		}))
+		items[len(items)-1].moves = true
 		items[len(items)-1].kept = g.keepsRoad(car.road)
 	}
 	if c.Plant.Rect.Area() > 0 {
@@ -684,6 +735,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 					r := g.drawGauge(screen, cam, at, gauge.Size, facing)
 					g.noteHit(r, city.Hit{Gauge: &city.GaugeHit{Gauge: gauge, Age: age}})
 				}))
+				items[len(items)-1].moves = true
 			}
 		}
 	}
@@ -698,6 +750,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			r := g.kitSized(screen, cam, kitCourier, bowTurn(unit(dir)), at, courierExtent, nil)
 			g.noteHit(r, city.Hit{Courier: courier})
 		}))
+		items[len(items)-1].moves = true
 	}
 	// A project's sign is an object on the ground, so it sorts with
 	// everything else rather than being painted over the scene. Bug 44.
@@ -760,19 +813,37 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if c.Night {
 		g.beginLights(int(width), int(height))
 	}
-	for _, draw := range layered(cam, items, airborne) {
-		draw()
+	for _, d := range layered(cam, items, airborne) {
+		g.note(d.draw, d.moves)
 	}
 	fade.done()
+	if !g.noStill {
+		screen = real
+		g.paintStill(real, under, stillKey{under: g.static.hash, viewing: g.viewing()})
+	}
 	if hover.Building != nil && hover.Building != selected {
 		g.polyStroke(screen, cam, hover.Building.Rect, 1.5, colorHighlight)
 	}
 	if c.Night {
 		wash(screen, 0, 0, float32(width), float32(height))
-		g.endLights(screen)
+		if g.noStill {
+			g.endLights(screen)
+		} else {
+			g.paintLights(screen)
+		}
 	}
-	g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
-	g.groupLines(screen, cam, true)
+	if g.noStill {
+		g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
+		g.groupLines(screen, cam, true)
+	} else {
+		screen = g.rec.dry
+		g.rec.begin()
+		g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
+		g.groupLines(screen, cam, true)
+		lines := g.rec.end()
+		screen = real
+		g.paintOverlay(real, lines)
+	}
 	for _, d := range c.Districts {
 		// The sign stands in the district; the plate is for when it is
 		// too small to read, and for the district under the pointer.

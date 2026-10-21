@@ -37,17 +37,19 @@ import (
 // so the skip cannot outlive the fix that removes it.
 func TestTheWorkAFrameTakes(t *testing.T) {
 	helpers.NeedXvfb(t)
-	const ceilingAt = "item 192"
+	const ceilingAt = "item 193"
 	counts := []struct {
 		name    string
 		of      func(helpers.Frame) int
 		target  int
 		ceiling map[int]int
-		skip    bool
+		// unmet is, by hour, whether the target is not met yet, and
+		// unmatched whether the count is over 1.25× the hamlet's.
+		unmet, unmatched map[int]bool
 	}{
-		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 54_900, 22: 58_200}, true},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 139, 22: 215}, true},
-		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 6, 22: 8}, false},
+		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 7_280, 22: 8_800}, nil, map[int]bool{14: true, 22: true}},
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 66, 22: 118}, map[int]bool{22: true}, map[int]bool{14: true, 22: true}},
+		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 6, 22: 8}, nil, map[int]bool{14: true, 22: true}},
 	}
 
 	for _, light := range []struct {
@@ -57,21 +59,35 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		t.Run("when the metropolis demo is drawn at 1600×900 by "+light.name+", and it has settled", func(t *testing.T) {
 			t.Parallel()
 			worst := frameWork(t, "metropolis", light.hour)
+			hamlet := frameWork(t, "hamlet", light.hour)
 
 			for _, c := range counts {
 				got := c.of(worst)
-				t.Logf("%s: %d a frame; ceiling %d, target %d", c.name, got, c.ceiling[light.hour], c.target)
+				t.Logf("%s: %d a frame; ceiling %d, target %d; the hamlet %d", c.name, got, c.ceiling[light.hour], c.target, c.of(hamlet))
 
 				t.Run(fmt.Sprintf("it should issue no more %s a frame than it did at %s", c.name, ceilingAt), func(t *testing.T) {
 					assert.LessOrEqual(t, got, c.ceiling[light.hour])
 				})
 
 				t.Run(fmt.Sprintf("it should issue no more than %d %s a frame", c.target, c.name), func(t *testing.T) {
-					if c.skip {
+					if c.unmet[light.hour] {
 						require.Greater(t, got, c.target, "target met: remove the skip")
-						t.Skipf("unmet: %d against target %d; items 191–193", got, c.target)
+						t.Skipf("unmet: %d against target %d; item 193", got, c.target)
 					}
 					assert.LessOrEqual(t, got, c.target)
+				})
+
+				// Item 193: once the standing city is composed, what a
+				// frame costs is what moves and the chrome, so the city
+				// with twenty districts costs about what the one with
+				// three does.
+				t.Run(fmt.Sprintf("it should issue no more than 1.25× the hamlet's %s a frame", c.name), func(t *testing.T) {
+					limit := c.of(hamlet) * 5 / 4
+					if c.unmatched[light.hour] {
+						require.Greater(t, got, limit, "target met: remove the skip")
+						t.Skipf("unmet: %d against %d, 1.25× the hamlet's %d; item 193", got, limit, c.of(hamlet))
+					}
+					assert.LessOrEqual(t, got, limit)
 				})
 			}
 		})
@@ -185,6 +201,40 @@ func TestTheLooksAFrameKeeps(t *testing.T) {
 				assert.Positive(t, moving.Looks.Hits+moving.Looks.Misses)
 			})
 		})
+	}
+}
+
+// Item 193: the standing city is composed once and kept, so a settled
+// metropolis composes none of it a frame, at fit and up close: not the
+// ground, not the stills, not the group lines, not even a rectangle.
+func TestTheStillLayerAFrameKeeps(t *testing.T) {
+	helpers.NeedXvfb(t)
+	closer := `[{"at":0.1,"key":"Equal"},{"at":0.2,"key":"Equal"},{"at":0.3,"key":"Equal"}]`
+
+	for _, view := range []struct {
+		name, choreography string
+		seconds            float64
+		from               int
+	}{
+		{"fit", "", 1, settledFrom},
+		{"three notches in", closer, 3, 60},
+	} {
+		for _, light := range []struct {
+			name string
+			hour int
+		}{{"day", 14}, {"night", 22}} {
+			t.Run("when the metropolis has settled at "+view.name+" by "+light.name, func(t *testing.T) {
+				t.Parallel()
+				all := frameLog(t, "metropolis", light.hour, view.seconds, view.choreography)
+				require.Greater(t, len(all), view.from+10, "too few frames logged to call any settled")
+				worst := helpers.MostWork(all[view.from:])
+				t.Logf("worst settled frame: %+v", worst.Still)
+
+				t.Run("it should compose nothing of the standing city a frame", func(t *testing.T) {
+					assert.Zero(t, worst.Still.Composes+worst.Still.Redos+worst.Still.Overlays+worst.Still.Ground)
+				})
+			})
+		}
 	}
 }
 

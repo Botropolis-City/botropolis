@@ -189,7 +189,7 @@ var windowOptions = &ebiten.DrawTrianglesOptions{Filter: ebiten.FilterLinear}
 // a building with nothing in front of it, in one call.
 func (g *Game) drawWindows(screen *ebiten.Image, cam *city.Camera, b *city.Building, lights litWindows, rise float64) {
 	if vertices, indices, page := g.windowTriangles(cam, b, lights, rise); page != nil {
-		screen.DrawTriangles(vertices, indices, page, windowOptions)
+		g.recorder().triangles16(screen, vertices, indices, page, windowOptions)
 		g.windowDraws++
 	}
 }
@@ -227,7 +227,7 @@ func (g *Game) beginLights(width, height int) {
 		if g.lights != nil {
 			g.lights.Deallocate()
 		}
-		g.lights = ebiten.NewImage(width, height)
+		g.lights = sizedImage(nil, image.Pt(width, height))
 	}
 	g.lightOps = g.lightOps[:0]
 	g.litBounds = image.Rectangle{}
@@ -254,8 +254,16 @@ func (g *Game) endLights(screen *ebiten.Image) {
 		return
 	}
 	g.lights.Clear()
+	g.layLights(g.lights, g.lightOps)
+	screen.DrawImage(g.lights, nil)
+}
+
+// layLights lays ops onto dst in the order noted, each sprite and
+// painted shape cutting out what was laid behind it; dst may be a
+// clipped part of a lights image (item 193).
+func (g *Game) layLights(dst *ebiten.Image, ops []lightOp) {
 	pending := g.pendingCuts[:0]
-	for _, op := range g.lightOps {
+	for _, op := range ops {
 		if op.punch || op.cut != cutNone {
 			pending = append(pending, op)
 			continue
@@ -268,26 +276,30 @@ func (g *Game) endLights(screen *ebiten.Image) {
 				kept = append(kept, c)
 			}
 		}
-		g.layCuts(due)
+		g.layCuts(dst, due)
 		g.dueCuts, pending = due[:0], kept
 		if op.warm {
-			colorm.DrawTriangles(g.lights, op.vertices, op.indices, op.src, warmGlass, warmOptions)
+			colorm.DrawTriangles(dst, op.vertices, op.indices, op.src, warmGlass, warmOptions)
 			continue
 		}
-		g.lights.DrawTriangles(op.vertices, op.indices, op.src, windowOptions)
+		dst.DrawTriangles(op.vertices, op.indices, op.src, windowOptions)
 	}
-	g.layCuts(pending)
+	g.layCuts(dst, pending)
 	g.pendingCuts = pending[:0]
-	screen.DrawImage(g.lights, nil)
 }
 
 // meets is whether a cut covers any of a window's panes. A cut laid
 // after a window it does not cover leaves it as it was, so a window
 // waits only for the cuts noted before it that it meets, and the rest
-// batch with the cuts after (item 195).
+// batch with the cuts after (item 195). A pane's light spreads
+// litMargin past it, and a cut over only that is met too: otherwise it
+// waited for whichever window came next that it did meet, so the pixel
+// it shared with this one came out lit or cut by what else was laid,
+// and the standing city lays fewer windows than the whole frame does
+// (item 193).
 func meets(box image.Rectangle, panes []image.Rectangle) bool {
 	for _, p := range panes {
-		if box.Overlaps(p) {
+		if box.Overlaps(p.Inset(-litMargin)) {
 			return true
 		}
 	}
@@ -298,14 +310,14 @@ func meets(box image.Rectangle, panes []image.Rectangle) bool {
 // takes light away, so their order among themselves does not change the
 // result, and they are laid a kind and a source at a time, so that each
 // kind batches into as few draws as it can (item 195).
-func (g *Game) layCuts(ops []lightOp) {
+func (g *Game) layCuts(dst *ebiten.Image, ops []lightOp) {
 	for i, op := range ops {
 		if !op.punch || seenSource(ops[:i], op.src, true) {
 			continue
 		}
 		for _, p := range ops[i:] {
 			if p.punch && p.src == op.src {
-				g.lights.DrawImage(p.src, &ebiten.DrawImageOptions{GeoM: p.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+				dst.DrawImage(p.src, &ebiten.DrawImageOptions{GeoM: p.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
 			}
 		}
 	}
@@ -320,12 +332,12 @@ func (g *Game) layCuts(ops []lightOp) {
 				}
 				for _, p := range ops[i:] {
 					if p.cut == cutStamp && p.src == op.src {
-						g.layCut(p)
+						g.layCut(dst, p)
 					}
 				}
 				continue
 			}
-			g.layCut(op)
+			g.layCut(dst, op)
 		}
 	}
 }

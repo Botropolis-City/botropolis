@@ -69,3 +69,33 @@ func BenchmarkDrawAFrame(b *testing.B) {
 		}
 	}
 }
+
+// Item 193: the CPU a settled frame of the largest demo takes drawn
+// straight, as every frame was before, and through the standing city,
+// whose dry pass runs and hashes every drawable each frame. A driven
+// city drops each draw before Ebitengine queues it, so neither row
+// counts the queueing the standing city saves; the gap is what the dry
+// pass adds. It reports and never gates.
+func BenchmarkTheStandingCity(b *testing.B) {
+	day := time.Now()
+	for _, when := range []struct {
+		name string
+		hour int
+	}{{"day", 14}, {"night", 22}} {
+		for _, way := range []struct {
+			name     string
+			straight bool
+		}{{"straight", true}, {"standing", false}} {
+			b.Run("metropolis/"+when.name+"/"+way.name, func(b *testing.B) {
+				now := time.Date(day.Year(), day.Month(), day.Day(), when.hour, 30, 0, 0, time.Local)
+				d, err := render.NewDrive(render.DriveOptions{Home: stageDemo(b, "metropolis"), Width: 1600, Height: 900, Now: now, Straight: way.straight})
+				require.NoError(b, err)
+				require.NoError(b, d.Run(settleTicks))
+				b.ReportAllocs()
+				for b.Loop() {
+					require.NoError(b, d.Tick())
+				}
+			})
+		}
+	}
+}

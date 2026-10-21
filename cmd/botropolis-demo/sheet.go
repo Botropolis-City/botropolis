@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -18,6 +19,7 @@ const sheetDisplayEnv = "BOTROPOLIS_SHEET_DISPLAY"
 
 func sheetCommand() *cobra.Command {
 	out, zoom, check, looks := "", 1.0, false, false
+	framesHome, hour, frames, dumpDir := "", 14, 30, ""
 	cmd := &cobra.Command{
 		Use:   "sheet",
 		Short: "Draw every building piece, lived in and boarded up, by day and by night, to a PNG",
@@ -25,10 +27,25 @@ func sheetCommand() *cobra.Command {
 			"map's own drawing, on a private virtual display (Xvfb). Item 166.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if out == "" && !check && !looks {
+			if out == "" && !check && !looks && framesHome == "" {
 				return fmt.Errorf("--out is required")
 			}
 			if os.Getenv(sheetDisplayEnv) != "" {
+				if framesHome != "" {
+					now := time.Now()
+					at := time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, time.Local)
+					problems, err := render.CheckFrames(framesHome, at, frames, dumpDir)
+					if err != nil {
+						return err
+					}
+					for _, p := range problems {
+						fmt.Fprintln(cmd.ErrOrStderr(), p)
+					}
+					if len(problems) > 0 {
+						return fmt.Errorf("%d frames drawn wrongly through the standing city", len(problems))
+					}
+					return nil
+				}
 				if looks {
 					problems, err := render.CheckLooks(zoom)
 					if err != nil {
@@ -82,6 +99,8 @@ func sheetCommand() *cobra.Command {
 				return err
 			}
 			switch {
+			case framesHome != "":
+				fmt.Fprintln(cmd.OutOrStdout(), "every frame drawn through the standing city matches the city drawn straight")
 			case looks:
 				fmt.Fprintln(cmd.OutOrStdout(), "every building's cached look matches the building drawn directly")
 			case check:
@@ -96,5 +115,9 @@ func sheetCommand() *cobra.Command {
 	cmd.Flags().Float64Var(&zoom, "zoom", zoom, "camera zoom to draw at; 1 is the map's")
 	cmd.Flags().BoolVar(&check, "check-lights", check, "draw no sheet; check every building's night lights fall on its panes")
 	cmd.Flags().BoolVar(&looks, "check-looks", looks, "draw no sheet; check every building drawn through the look cache matches it drawn directly")
+	cmd.Flags().StringVar(&framesHome, "check-frames", framesHome, "draw no sheet; check the city staged in this home drawn through the standing city matches it drawn straight, frame by frame")
+	cmd.Flags().IntVar(&hour, "hour", hour, "with --check-frames, the local hour the city is shown at")
+	cmd.Flags().IntVar(&frames, "frames", frames, "with --check-frames, how many frames to check each way the city is shown")
+	cmd.Flags().StringVar(&dumpDir, "dump", dumpDir, "with --check-frames, a directory to write both drawings of each frame that differs to")
 	return cmd
 }

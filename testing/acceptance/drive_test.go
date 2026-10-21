@@ -89,10 +89,14 @@ func TestDrive(t *testing.T) {
 				// city settles; they are neither opened nor selected (item 102).
 				// Nor is how many sprites cut the night's lights: a building
 				// drawn straight cuts with each sprite, and once its look is
-				// baked, a few frames in, with one image (item 192).
+				// baked, a few frames in, with one image (item 192). Nor,
+				// for the same reason, is how many sprites it drew: a
+				// building drawn straight counts each, its baked look one
+				// (item 193 found the hamlet's showing it at 166 and 165).
 				after := d.Shown()
 				before.Labels, after.Labels = nil, nil
 				before.Punches, after.Punches = 0, 0
+				before.Sprites, after.Sprites = 0, 0
 				assert.Equal(t, before, after)
 			})
 		})

@@ -144,5 +144,5 @@ func (g *Game) shore(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	op.GeoM.SetElement(1, 1, ey.Y)
 	op.GeoM.SetElement(0, 2, o.X)
 	op.GeoM.SetElement(1, 2, o.Y)
-	screen.DrawImage(s.img, op)
+	g.recorder().Image(screen, s.img, op)
 }

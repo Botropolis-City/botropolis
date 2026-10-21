@@ -27,6 +27,10 @@ type drawable struct {
 	// level is how far off the ground it stands: the bridge's deck and
 	// what drives on it (item 132).
 	level int
+	// moves is whether it is drawn somewhere new each frame, so it is
+	// drawn over the standing city rather than composed into it (item
+	// 193).
+	moves bool
 }
 
 // footprint is a drawable standing on a world rectangle.

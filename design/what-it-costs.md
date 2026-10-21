@@ -115,7 +115,27 @@ Three of eight runs on one desk did that.
 So there are two diagnostics behind `BOTROPOLIS_FRAMETIME`, because there are two ways to draw nothing: `QUIET no frames` names which of focus, visibility and minimisation failed, and `QUIET update is running but Draw has painted nothing` catches the harder case above, where the gate never gets a word in.
 Every measurement in the table below carries its frame count for the same reason.
 
-### Why the sorted list is not cached
+### The standing city is composed once (item 193)
+
+Every drawable of the frame runs as it always has, onto a stand-in image that is never drawn: each draw is recorded instead, with the box it would ink and a hash of what it would draw (`pkg/render/ink.go`).
+Everything a drawable notes as it draws — a hit, a light, a word seen, a look baked — happens there, once, so hit testing needs no replay.
+The still drawables are composed over the ground into one image, which a settled frame blits once; a still drawable that would paint differently is composed again inside its old and new boxes only.
+What moves — cars, drones and their shadows, trains, boats, tugs, hauls, messages, couriers, inspectors, deliveries, ribbons, sparks, the fountain, a building with a live step — is drawn again inside rectangles merged from its boxes, from the ground up: every drawable whose box meets one, still or moving, played clipped to it in the frame's order (`pkg/render/stillframe.go`).
+Inside a rectangle those are the same draws in the same order as drawing the whole frame, so nothing blends twice, which is what sank the attempt below.
+The night's lights are kept the same way, and the group lines are a layer of their own over the movers.
+The ground layer is recorded too, so a snapshot that rebuilds the city without changing how it looks composes nothing.
+A key new this frame is drawn straight rather than composed, so a pan costs what it did; it is composed once it holds for a frame.
+
+`botropolis-demo sheet --check-frames` draws every frame of the metropolis both ways — as it stands, with a building selected, with traffic shown and a car hovered, with a view up, by day and by night — and holds them within 3 levels; `TestRawDrawSites` holds every draw in `pkg/render` and `pkg/shapes` to the recorder or a listed reason, since a draw the record does not see goes stale.
+On the metropolis at 1600×900 a settled frame went from 131 commands and 34,002 indices to 64 and 7,134 by day, and from 188 to 115 commands and 8,622 indices by night; the group lines alone had been 20,520 indices.
+The CPU of a driven frame went from 3.05 ms to 2.14 by day and 3.74 to 2.70 by night, with half the allocations, before the queueing it no longer does.
+It holds three images the frame's size, the still city, its lights and the group lines: 16.5 MiB at 1600×900 and 95 MiB in a 4K window, against the 512 MiB budget.
+
+Two things it found on the way.
+A layer the frame's size must have its own texture: on Ebitengine's shared atlas, beside the sprites the lights are cut with, the same cuts laid onto it left a lit pixel dark that they kept lit on a fresh image.
+And a cut must meet the light a pane spreads past its edge, not only the pane, or where it lands depends on what other windows are laid.
+
+### Why the sorted list was not cached until item 193
 
 Tried and reverted, 2026-09-22 (`2eddc63`, reverted in `ad3fedf`).
 The static city is composed once and reused; the sorted list of buildings, landmarks, trees, lamps and movers is not, and that is deliberate.

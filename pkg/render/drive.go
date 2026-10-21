@@ -55,6 +55,9 @@ type DriveOptions struct {
 	// Events is the event log the city opens with, as the daemon would
 	// hand it over (item 100).
 	Events []events.Event
+	// Straight draws every frame whole, as before the standing city was
+	// composed and kept, for a benchmark to compare (item 193).
+	Straight bool
 }
 
 // Shown is what the last frame drew.
@@ -197,6 +200,7 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	g.kits = kitSprites
 	g.home = opts.Home
 	g.driven = true
+	g.noStill = opts.Straight
 	g.journalHours = config.DefaultJournalHours
 	// No window to type into: typing reaches the finder the way --keys
 	// does.

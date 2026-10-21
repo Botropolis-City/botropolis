@@ -21,15 +21,19 @@ type Painter struct {
 	// whatever stands in front of them (item 195). A glow, drawn with
 	// any blend but source-over, is light rather than cover, and is not
 	// told.
-	Cut   Cutter
-	mesh  Mesh
-	white *ebiten.Image
-	discs []*ebiten.Image
-	path  vector.Path
-	line  [2]city.Point
-	pts   []city.Point
-	tri   ebiten.DrawTrianglesOptions
-	img   ebiten.DrawImageOptions
+	Cut Cutter
+	// Record, when set, makes every draw the painter would make onto an
+	// image: it draws it, or records it when the image is one it
+	// records for (item 193).
+	Record Recorder
+	mesh   Mesh
+	white  *ebiten.Image
+	discs  []*ebiten.Image
+	path   vector.Path
+	line   [2]city.Point
+	pts    []city.Point
+	tri    ebiten.DrawTrianglesOptions
+	img    ebiten.DrawImageOptions
 }
 
 // Cutter is told of each shape a Painter draws, in the order it draws
@@ -38,6 +42,22 @@ type Cutter interface {
 	CutMesh(vertices []ebiten.Vertex, indices []uint32)
 	CutImage(img *ebiten.Image, op *ebiten.DrawImageOptions)
 	CutRing(pts []city.Point, alpha float32)
+}
+
+// Recorder makes a Painter's draws for it: onto the image, or into a
+// record of what would have been drawn there (item 193).
+type Recorder interface {
+	Image(dst, img *ebiten.Image, op *ebiten.DrawImageOptions)
+	Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []uint32, src *ebiten.Image, op *ebiten.DrawTrianglesOptions)
+	Ring(dst *ebiten.Image, pts []city.Point, op *vector.DrawPathOptions)
+}
+
+func (p *Painter) drawImage(dst, img *ebiten.Image, op *ebiten.DrawImageOptions) {
+	if p.Record != nil {
+		p.Record.Image(dst, img, op)
+		return
+	}
+	dst.DrawImage(img, op)
 }
 
 // Box fills a rectangle with hard edges, as vector.FillRect does without
@@ -79,7 +99,7 @@ func (p *Painter) Bar(dst *ebiten.Image, x0, y0, x1, y1, width float32, c color.
 func (p *Painter) drawWhite(dst *ebiten.Image, c color.Color) {
 	p.img.ColorScale.ScaleWithColor(c)
 	white := p.whitePixel()
-	dst.DrawImage(white, &p.img)
+	p.drawImage(dst, white, &p.img)
 	if p.Cut != nil {
 		p.Cut.CutImage(white, &p.img)
 	}
@@ -187,7 +207,7 @@ func (p *Painter) DiscBlend(dst *ebiten.Image, centre city.Point, r float64, c c
 	p.img.GeoM.Scale(scale, scale)
 	p.img.GeoM.Translate(centre.X, centre.Y)
 	p.img.ColorScale.ScaleWithColor(c)
-	dst.DrawImage(stamp, &p.img)
+	p.drawImage(dst, stamp, &p.img)
 	if p.Cut != nil && blend == ebiten.BlendSourceOver {
 		p.Cut.CutImage(stamp, &p.img)
 	}
@@ -196,7 +216,11 @@ func (p *Painter) DiscBlend(dst *ebiten.Image, centre city.Point, r float64, c c
 func (p *Painter) flush(dst *ebiten.Image, blend ebiten.Blend) {
 	if len(p.mesh.Indices) > 0 {
 		p.tri = ebiten.DrawTrianglesOptions{Blend: blend}
-		dst.DrawTriangles32(p.mesh.Vertices, p.mesh.Indices, p.whitePixel(), &p.tri)
+		if p.Record != nil {
+			p.Record.Mesh(dst, p.mesh.Vertices, p.mesh.Indices, p.whitePixel(), &p.tri)
+		} else {
+			dst.DrawTriangles32(p.mesh.Vertices, p.mesh.Indices, p.whitePixel(), &p.tri)
+		}
 		if p.Cut != nil && blend == ebiten.BlendSourceOver {
 			p.Cut.CutMesh(p.mesh.Vertices, p.mesh.Indices)
 		}
@@ -211,6 +235,21 @@ func (p *Painter) fallback(dst *ebiten.Image, pts []city.Point, c color.NRGBA, b
 	if len(pts) < 3 {
 		return
 	}
+	op := &vector.DrawPathOptions{Blend: blend}
+	op.ColorScale.ScaleWithColor(c)
+	if p.Record != nil {
+		p.Record.Ring(dst, pts, op)
+	} else {
+		p.FillPath(dst, pts, op)
+	}
+	if p.Cut != nil && blend == ebiten.BlendSourceOver {
+		p.Cut.CutRing(pts, float32(c.A)/255)
+	}
+}
+
+// FillPath fills a ring onto dst by the non-zero rule, without
+// anti-aliasing, as the fallback does.
+func (p *Painter) FillPath(dst *ebiten.Image, pts []city.Point, op *vector.DrawPathOptions) {
 	p.path.Reset()
 	for i, pt := range pts {
 		if i == 0 {
@@ -220,12 +259,7 @@ func (p *Painter) fallback(dst *ebiten.Image, pts []city.Point, c color.NRGBA, b
 		}
 	}
 	p.path.Close()
-	op := &vector.DrawPathOptions{Blend: blend}
-	op.ColorScale.ScaleWithColor(c)
 	vector.FillPath(dst, &p.path, &vector.FillOptions{FillRule: vector.FillRuleNonZero}, op)
-	if p.Cut != nil && blend == ebiten.BlendSourceOver {
-		p.Cut.CutRing(pts, float32(c.A)/255)
-	}
 }
 
 // CutTriangles cuts painted meshes out of dst at their own alpha: how a

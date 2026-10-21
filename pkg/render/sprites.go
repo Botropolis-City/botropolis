@@ -112,7 +112,7 @@ func (g *Game) drawTileScaled(screen *ebiten.Image, cam *city.Camera, t *ebiten.
 		op.ColorScale = *scale
 	}
 	op.Filter = ebiten.FilterNearest
-	screen.DrawImage(t, op)
+	g.recorder().Image(screen, t, op)
 }
 
 func (g *Game) drawTileMatrix(screen *ebiten.Image, cam *city.Camera, t *ebiten.Image, r city.Rect, m colorm.ColorM) {
@@ -122,7 +122,7 @@ func (g *Game) drawTileMatrix(screen *ebiten.Image, cam *city.Camera, t *ebiten.
 	op.GeoM.Scale((max.X-min.X)/assets.TileSize, (max.Y-min.Y)/assets.TileSize)
 	op.GeoM.Translate(min.X, min.Y)
 	op.Filter = ebiten.FilterNearest
-	colorm.DrawImage(screen, t, m, op)
+	g.recorder().colorm(screen, t, m, op)
 }
 
 func cell(r city.Rect, cols, rows, col, row int) city.Rect {

@@ -149,23 +149,23 @@ func (g *Game) cutWords(words string, face text.Face, geo ebiten.GeoM, alpha flo
 }
 
 // layCut cuts one op's shapes out of the lights.
-func (g *Game) layCut(op lightOp) {
+func (g *Game) layCut(dst *ebiten.Image, op lightOp) {
 	switch op.cut {
 	case cutMesh:
-		g.paint.CutTriangles(g.lights, g.cutVertices, g.cutIndices[op.from:op.to])
+		g.paint.CutTriangles(dst, g.cutVertices, g.cutIndices[op.from:op.to])
 	case cutStamp:
 		o := &ebiten.DrawImageOptions{GeoM: op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear, DisableMipmaps: true}
 		o.ColorScale.ScaleAlpha(op.alpha)
-		g.lights.DrawImage(op.src, o)
+		dst.DrawImage(op.src, o)
 	case cutRing:
-		g.paint.CutPath(g.lights, g.cutPoints[op.from:op.to], op.alpha)
+		g.paint.CutPath(dst, g.cutPoints[op.from:op.to], op.alpha)
 	case cutWords:
 		o := &text.DrawOptions{}
 		o.GeoM = op.geo
 		o.Blend = ebiten.BlendDestinationOut
 		o.Filter = ebiten.FilterLinear
 		o.ColorScale.ScaleAlpha(op.alpha)
-		text.Draw(g.lights, op.words, op.face, o)
+		text.Draw(dst, op.words, op.face, o)
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 type Frame struct {
 	Commands, Indices, Switches int
 	Looks                       Looks
+	Still                       Still
 }
 
 // Looks is what the city's look cache did in a frame: looks blitted,
@@ -20,6 +21,15 @@ type Frame struct {
 type Looks struct {
 	Hits, Misses, Bakes, Bytes int
 }
+
+// Still is what the city's standing city cost in a frame: composed
+// whole, composed again in rectangles, the group lines composed, the
+// rectangles of movers drawn again, and the ground composed (item 193).
+type Still struct {
+	Composes, Redos, Overlays, Rects, Ground int
+}
+
+var stillLine = regexp.MustCompile(`^still: composes=(\d+) redos=(\d+) overlays=(\d+) rects=(\d+) ground=(\d+)`)
 
 var looksLine = regexp.MustCompile(`^looks: hits=(\d+) misses=(\d+) bakes=(\d+) bytes=(\d+)`)
 
@@ -43,6 +53,11 @@ func ParseFrameLog(r io.Reader) []Frame {
 		if l := looksLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {
 			n := func(i int) int { v, _ := strconv.Atoi(l[i]); return v }
 			frames[len(frames)-1].Looks = Looks{Hits: n(1), Misses: n(2), Bakes: n(3), Bytes: n(4)}
+			continue
+		}
+		if l := stillLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {
+			n := func(i int) int { v, _ := strconv.Atoi(l[i]); return v }
+			frames[len(frames)-1].Still = Still{Composes: n(1), Redos: n(2), Overlays: n(3), Rects: n(4), Ground: n(5)}
 			continue
 		}
 		m := drawTriangles.FindStringSubmatch(line)
@@ -72,6 +87,11 @@ func MostWork(frames []Frame) Frame {
 		worst.Looks.Misses = max(worst.Looks.Misses, f.Looks.Misses)
 		worst.Looks.Bakes = max(worst.Looks.Bakes, f.Looks.Bakes)
 		worst.Looks.Bytes = max(worst.Looks.Bytes, f.Looks.Bytes)
+		worst.Still.Composes = max(worst.Still.Composes, f.Still.Composes)
+		worst.Still.Redos = max(worst.Still.Redos, f.Still.Redos)
+		worst.Still.Overlays = max(worst.Still.Overlays, f.Still.Overlays)
+		worst.Still.Rects = max(worst.Still.Rects, f.Still.Rects)
+		worst.Still.Ground = max(worst.Still.Ground, f.Still.Ground)
 	}
 	return worst
 }
