@@ -95,9 +95,9 @@ func (g *Game) note(draw func(), moves bool) {
 	// with it alone.
 	g.meshCut = -1
 	l.begin()
-	l.moving = false
+	l.moving, l.active = false, false
 	draw()
-	e := entry{inked: l.end(), moves: moves || l.moving, lights: [2]int{first, len(g.lightOps)}}
+	e := entry{inked: l.end(), moves: moves || l.moving, active: moves || l.active, lights: [2]int{first, len(g.lightOps)}}
 	if first < len(g.lightOps) {
 		e.box, e.hash = g.withLights(e, g.lightOps[first:])
 	}

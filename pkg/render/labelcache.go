@@ -47,10 +47,10 @@ func (b *bakedLabel) Deallocate() {}
 // labelPageSize is the label page's width and height.
 const labelPageSize = 1024
 
-// labelPage places labels on one image in shelves, left to right, a new
+// shelfPage places images on one page in shelves, left to right, a new
 // shelf under the tallest of the last when a row fills, with a pixel
 // between, so linear filtering never reads a neighbour.
-type labelPage struct {
+type shelfPage struct {
 	img         *ebiten.Image
 	w, h        int
 	x, y, shelf int
@@ -58,7 +58,7 @@ type labelPage struct {
 
 // place is where a label w×h goes on the page, or false when the page
 // is full.
-func (p *labelPage) place(w, h int) (image.Rectangle, bool) {
+func (p *shelfPage) place(w, h int) (image.Rectangle, bool) {
 	if p.x+w > p.w {
 		p.x, p.y, p.shelf = 0, p.y+p.shelf+1, 0
 	}
@@ -72,7 +72,7 @@ func (p *labelPage) place(w, h int) (image.Rectangle, bool) {
 }
 
 // reset empties the page.
-func (p *labelPage) reset() {
+func (p *shelfPage) reset() {
 	p.x, p.y, p.shelf = 0, 0, 0
 	if p.img != nil {
 		p.img.Clear()
@@ -93,16 +93,22 @@ type labelCache struct {
 	looks *lookCache[labelKey, *bakedLabel]
 	seen  map[labelKey]int
 	frame int
-	page  labelPage
+	page  shelfPage
+	full  bool
 }
 
 func newLabelCache() *labelCache {
-	return &labelCache{looks: newLookCache[labelKey, *bakedLabel](labelCacheCap), seen: map[labelKey]int{}, page: labelPage{w: labelPageSize, h: labelPageSize}}
+	return &labelCache{looks: newLookCache[labelKey, *bakedLabel](labelCacheCap), seen: map[labelKey]int{}, page: shelfPage{w: labelPageSize, h: labelPageSize}}
 }
 
 // next starts a frame, forgetting keys not drawn for a while.
 func (c *labelCache) next() {
 	c.frame++
+	if c.full {
+		c.full = false
+		c.page.reset()
+		c.looks = newLookCache[labelKey, *bakedLabel](labelCacheCap)
+	}
 	if c.frame%lookForget == 0 {
 		for k, f := range c.seen {
 			if f < c.frame-lookForget {
@@ -176,12 +182,10 @@ func (g *Game) drawLabel(dst *ebiten.Image, draw func(*ebiten.Image, city.Rect),
 		lc := g.labelLooks
 		r, ok := lc.page.place(box.Dx(), box.Dy())
 		if !ok {
-			// Full: start the page again, and every label with it.
-			lc.page.reset()
-			lc.looks = newLookCache[labelKey, *bakedLabel](labelCacheCap)
-			r, ok = lc.page.place(box.Dx(), box.Dy())
-		}
-		if !ok {
+			// Full: the page starts again at the next frame, every label
+			// with it, not now, when labels already drawn from it this
+			// frame have yet to go down.
+			lc.full = true
 			break
 		}
 		if lc.page.img == nil {

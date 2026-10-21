@@ -270,8 +270,10 @@ type Game struct {
 	rec     *drawList
 	still   stillFrame
 	noStill bool
-	// labelLooks keeps each map label baked once it holds.
+	// labelLooks keeps each map label baked once it holds, and
+	// lookPages the pages building looks are baked on.
 	labelLooks *labelCache
+	lookPages  *lookPages
 
 	settings     ui.Settings
 	settingsOpen bool

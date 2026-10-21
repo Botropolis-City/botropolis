@@ -93,7 +93,7 @@ Each count has a target from the 10 ms budget, which skips while unmet and fails
 **A building's look is baked, and only a still one** (item 192).
 Each run of a building's steps that does not move is drawn once into an image of its own and blitted after; the cache holds a sixteenth of the city's settled memory budget, least recently used out first.
 A look is baked only once its key has held for a frame, so a zoom draws buildings straight, as before, and the frame after it stops bakes them all at once: on the metropolis, about 430 commands and 60 switches for one frame.
-About ten frames later Ebitengine moves each new look onto its shared atlas, one copy each, and from then the blits batch; that is why the frame test counts from frame 20.
+Looks are baked onto pages of their own (item 193): as images of their own on Ebitengine's shared atlas, each was moved onto it some ten frames later, a copy and two target switches in a frame where nothing changed, and they batched only once they had.
 Panning by whole pixels keeps every look, since the key holds the foot's phase within a pixel, not its place.
 `TestTheLooksAFrameKeeps` gates that a settled frame bakes nothing, at fit and up close, and reports a wheel zoom and a held arrow without gating them.
 `botropolis-demo sheet --check-looks` holds every look to the building drawn directly, from every heading, by day and by night.
@@ -128,11 +128,12 @@ A key new this frame is drawn straight rather than composed, as a zoom's frames 
 A pan by whole pixels is the exception, and the most common move: what every draw paints is hashed relative to the camera's origin — a painted mesh by the shapes it was asked for, since its float32 vertices round a hair differently as they move — so a whole-pixel pan changes no hash, and the ground, the still city, its lights and the group lines are shifted, with only the strips the pan uncovers composed.
 The ground is compared draw by draw, and where it is painted again so is the city over it.
 The rectangles of movers are played as one stream, a draw at a time into every rectangle it meets, and draws from one source are put together wherever they pass no draw they overlap; the night's lights the same, a window's panes only where they land.
-Each map label is baked onto a page of labels once it holds, and blitted after.
+Each map label is baked onto a page of labels once it holds, and blitted from the group lines' layer, so the two go down as one.
 
 `botropolis-demo sheet --check-frames` draws every frame of the metropolis both ways — as it stands, with a building selected, with traffic shown and a car hovered, with a view up, by day and by night — and holds them within 3 levels; `TestRawDrawSites` holds every draw in `pkg/render` and `pkg/shapes` to the recorder or a listed reason, since a draw the record does not see goes stale.
-On the metropolis at 1600×900 a settled frame went from 131 commands and 34,002 indices to 34 and 5,232 by day, and from 188 to 51 commands and 6,084 indices by night; the group lines alone had been 20,520 indices.
-A held arrow's pan went from 138 commands and 54,500 indices a frame to 41 and 7,302.
+On the metropolis at 1600×900 a settled frame went from 131 commands and 34,002 indices to 22 and 4,890 by day, and from 188 to 40 commands and 5,742 indices by night; the group lines alone had been 20,520 indices.
+A held arrow's pan went from 138 commands and 54,500 indices a frame to 29 and 5,688.
+With the same activity, none, the metropolis costs what the hamlet does: 9 commands each by day and 14 by night, and indices within 5% (Aria, 2026-10-21: "Hold movers equal").
 Against the city as it was at r862, from the same staged moment, no pixel differs by more than 3 levels by night or 2 by day (`docs/screenshots/r867-item-193-night-before-after.png`).
 The CPU of a driven frame went from 3.05 ms to 2.14 by day and 3.74 to 2.70 by night, with half the allocations, before the queueing it no longer does.
 It holds four images the frame's size, the still city, its lights, the group lines and the one a layer is shifted through, and a 1024-pixel page of labels: 26 MiB at 1600×900 and 131 MiB in a 4K window, against the 512 MiB budget.

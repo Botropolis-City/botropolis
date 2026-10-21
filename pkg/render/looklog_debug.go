@@ -27,6 +27,7 @@ func (g *Game) logStill() {
 }
 
 // framesWithoutMovers is whether the frame test asked for the city with
-// nothing that moves, to compare two cities with the same movers (item
-// 193; Aria, 2026-10-21: "Hold movers equal").
+// no activity — no travellers, no building animating for its session —
+// to compare two cities with the same movers (item 193; Aria,
+// 2026-10-21: "Hold movers equal").
 var framesWithoutMovers = os.Getenv("BOTROPOLIS_FRAME_MOVERS") == "none"

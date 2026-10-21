@@ -18,9 +18,16 @@ type bakedLook struct {
 	img   *ebiten.Image
 	at    image.Point
 	words []string
+	// paged is whether img is part of a look page, whose room comes
+	// back when the page starts again rather than when the look goes.
+	paged bool
 }
 
-func (l *bakedLook) Deallocate() { l.img.Deallocate() }
+func (l *bakedLook) Deallocate() {
+	if !l.paged {
+		l.img.Deallocate()
+	}
+}
 
 // lookStats counts what the cache did this frame.
 type lookStats struct {
@@ -60,7 +67,7 @@ func (g *Game) drawBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 	// baked, but they do not move.
 	for i := range f.live {
 		if f.live[i] && f.present[i] && step(i) != stepLights {
-			g.rec.moves()
+			g.rec.shows()
 			break
 		}
 	}
@@ -499,9 +506,24 @@ func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point)
 	if size.X <= 0 || size.Y <= 0 {
 		return nil
 	}
-	look := &bakedLook{img: ebiten.NewImage(size.X, size.Y), at: lo.Sub(cell)}
+	// On a page of looks when it fits one, so Ebitengine never moves
+	// it (item 193); bigger than a page, in an image of its own; and
+	// with every page full this frame, not baked until one starts again.
+	look := &bakedLook{at: lo.Sub(cell)}
+	at := image.Point{}
+	if g.lookPages == nil {
+		g.lookPages = newLookPages(lookCacheCap/(lookPageSize*lookPageSize*4), lookPageSize)
+	}
+	if room, page, ok := g.lookPages.place(size, g.keyOf(cam, f, r)); ok {
+		look.img, look.paged, at = g.lookPages.image(page).SubImage(room).(*ebiten.Image), true, room.Min
+		look.img.Clear()
+	} else if g.lookPages.full {
+		return nil
+	} else {
+		look.img = sizedImage(nil, size)
+	}
 	moved := *cam
-	moved.Offset = cam.Offset.Sub(city.Point{X: float64(lo.X), Y: float64(lo.Y)}.Scale(1 / cam.Zoom))
+	moved.Offset = cam.Offset.Sub(city.Point{X: float64(lo.X - at.X), Y: float64(lo.Y - at.Y)}.Scale(1 / cam.Zoom))
 	seen, drawing := g.textSeen, g.drawing
 	g.textSeen = func(s string) {
 		look.words = append(look.words, s)
@@ -530,10 +552,16 @@ const lookForget = 600
 // nextLookFrame starts a frame of the looks: counted, its counts reset.
 func (g *Game) nextLookFrame() {
 	if g.looks == nil {
+		// A new cache holds no looks, so nothing is on the pages.
 		g.looks = newLookCache[lookKey, *bakedLook](lookCacheCap)
+		g.lookPages.release()
+		g.lookPages = nil
 	}
 	g.lookFrame++
 	g.lookStats = lookStats{}
+	if g.lookPages != nil {
+		g.lookPages.next(g.looks.remove)
+	}
 	if g.lookFrame%lookForget == 0 {
 		g.looks.forget(g.lookFrame - lookForget)
 	}

@@ -89,8 +89,9 @@ type drawList struct {
 	// fade is the fade group draws are recorded into now, and fades
 	// the last group begun.
 	fade, fades int
-	// moving is whether the drawable recorded now said it moves.
-	moving bool
+	// moving is whether the drawable recorded now said it moves, and
+	// active whether it said it shows activity.
+	moving, active bool
 	// shifted and shiftedPts are buffers for playing a draw moved.
 	shifted    []ebiten.Vertex
 	shiftedPts []city.Point
@@ -155,6 +156,14 @@ func (l *drawList) newFade() {
 func (l *drawList) moves() {
 	if l != nil && l.open {
 		l.moving = true
+	}
+}
+
+// shows says the drawable recorded now moves for its session's
+// activity: a building's pulsing beacon, its scaffold, its smoke.
+func (l *drawList) shows() {
+	if l != nil && l.open {
+		l.moving, l.active = true, true
 	}
 }
 

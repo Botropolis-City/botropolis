@@ -13,6 +13,11 @@ type entry struct {
 	inked
 	moves  bool
 	lights [2]int
+	// active is whether it shows activity: a traveller — a car, a
+	// drone, a boat — or a building animating for its session, its
+	// beacon pulsing, its scaffold up, its smoke; not the fountain,
+	// which sprays whatever the sessions do.
+	active bool
 }
 
 // stillSet is the still drawables a layer was composed from, counted by
@@ -97,12 +102,13 @@ func markOf(hash uint64, box image.Rectangle) uint64 {
 	return maphash.Bytes(inkSeed, b[:])
 }
 
-// stillsOnly is entries without what moves, in place: the frame the frame
-// test compares two cities by (item 193).
-func stillsOnly(entries []entry) []entry {
+// withoutActivity is entries without what shows activity, in place:
+// the frame the frame test compares two cities by, with the same
+// activity, none (item 193).
+func withoutActivity(entries []entry) []entry {
 	out := entries[:0]
 	for _, e := range entries {
-		if !e.moves {
+		if !e.active {
 			out = append(out, e)
 		}
 	}

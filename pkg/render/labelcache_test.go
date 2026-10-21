@@ -43,7 +43,7 @@ func TestLabelCache(t *testing.T) {
 	})
 
 	t.Run("when labels are placed on a page of their own", func(t *testing.T) {
-		p := &labelPage{w: 100, h: 40}
+		p := &shelfPage{w: 100, h: 40}
 		a, _ := p.place(60, 10)
 		b, _ := p.place(30, 12)
 		c, _ := p.place(50, 8)

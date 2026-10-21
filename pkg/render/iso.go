@@ -581,10 +581,12 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	items := drones
 	var airborne []func()
 	if c.Fountain.Area() > 0 {
+		// The fountain sprays: part of the city that animates, not a
+		// traveller.
 		items = append(items, footprintAt(cam, c.Fountain, func() {
+			g.rec.moves()
 			g.fountain(screen, cam, c, seconds)
 		}))
-		items[len(items)-1].moves = true
 	}
 	for _, l := range c.Lamps {
 		if !g.scene.Scenery() {
@@ -826,7 +828,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if !g.noStill {
 		screen = real
 		if framesWithoutMovers {
-			g.still.entries = stillsOnly(g.still.entries)
+			g.still.entries = withoutActivity(g.still.entries)
 		}
 		g.paintStill(real, under, stillKey{under: g.static.whole, viewing: g.viewing()})
 	}

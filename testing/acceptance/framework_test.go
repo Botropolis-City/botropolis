@@ -48,8 +48,8 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		unmet, unmatched map[int]bool
 	}{
 		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 4_990, 22: 5_860}, nil, nil},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 34, 22: 51}, nil, nil},
-		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 4, 22: 6}, nil, nil},
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 23, 22: 41}, nil, nil},
+		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, nil, nil},
 	}
 
 	for _, light := range []struct {
@@ -81,9 +81,10 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// Item 193: once the standing city is composed, a city with
 		// twenty districts costs about what one with three does, for the
 		// same activity. Hold movers equal (Aria, 2026-10-21): both are
-		// drawn with none, so the comparison is of the still city and the
+		// drawn with none — no travellers, and no building animating for
+		// its session — so the comparison is of the still city and the
 		// chrome, and more activity may cost more.
-		t.Run("when the hamlet and the metropolis are drawn by "+light.name+" with the same movers, none", func(t *testing.T) {
+		t.Run("when the hamlet and the metropolis are drawn by "+light.name+" with the same movers, none: no travellers and no building animating", func(t *testing.T) {
 			t.Parallel()
 			metropolis := frameWorkWith(t, "metropolis", light.hour, withoutMovers)
 			hamlet := frameWorkWith(t, "hamlet", light.hour, withoutMovers)
@@ -108,10 +109,10 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 // everything that moves (item 193).
 const withoutMovers = "BOTROPOLIS_FRAME_MOVERS=none"
 
-// settledFrom is the first frame counted. The buildings' looks are baked
-// by the third frame, and about ten frames after that Ebitengine moves
-// each onto its shared atlas, a copy each, once (item 192); from then the
-// blits batch together and the counts hold.
+// settledFrom is the first frame counted. The buildings' looks and the
+// map's labels are baked by the third frame, onto pages of their own that
+// Ebitengine never moves (items 192 and 193), and the counts hold from
+// then; the margin is the camera's settling.
 const settledFrom = 20
 
 // frameWork runs the debug city for a second of frames on a staged demo,
