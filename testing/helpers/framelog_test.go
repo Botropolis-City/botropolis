@@ -65,3 +65,24 @@ func TestFrameLog(t *testing.T) {
 		})
 	})
 }
+
+// Item 192: the city's debug build reports what its look cache did each
+// frame beside Ebitengine's commands.
+func TestFrameLogLooks(t *testing.T) {
+	t.Run("when a frame reports its looks", func(t *testing.T) {
+		frames := ParseFrameLog(strings.NewReader("----\nlooks: hits=40 misses=3 bakes=2 bytes=1048576\n"))
+		require.Len(t, frames, 1)
+
+		t.Run("it should read what the cache did", func(t *testing.T) {
+			assert.Equal(t, Looks{Hits: 40, Misses: 3, Bakes: 2, Bytes: 1 << 20}, frames[0].Looks)
+		})
+	})
+
+	t.Run("when the worst of several frames is asked for", func(t *testing.T) {
+		worst := MostWork([]Frame{{Looks: Looks{Misses: 5, Bakes: 1, Bytes: 10}}, {Looks: Looks{Misses: 2, Bakes: 4, Bytes: 30}}})
+
+		t.Run("it should take each look count's largest", func(t *testing.T) {
+			assert.Equal(t, Looks{Misses: 5, Bakes: 4, Bytes: 30}, worst.Looks)
+		})
+	})
+}

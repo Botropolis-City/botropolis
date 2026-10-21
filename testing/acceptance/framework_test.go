@@ -37,7 +37,7 @@ import (
 // so the skip cannot outlive the fix that removes it.
 func TestTheWorkAFrameTakes(t *testing.T) {
 	helpers.NeedXvfb(t)
-	const ceilingAt = "item 191"
+	const ceilingAt = "item 192"
 	counts := []struct {
 		name    string
 		of      func(helpers.Frame) int
@@ -45,8 +45,8 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		ceiling map[int]int
 		skip    bool
 	}{
-		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 77_100, 22: 80_200}, true},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 283, 22: 341}, true},
+		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 54_900, 22: 58_200}, true},
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 139, 22: 215}, true},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 6, 22: 8}, false},
 	}
 
@@ -78,13 +78,26 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 	}
 }
 
-// settledFrom is the first frame counted: the counts settle by the fifth.
-const settledFrom = 10
+// settledFrom is the first frame counted. The buildings' looks are baked
+// by the third frame, and about ten frames after that Ebitengine moves
+// each onto its shared atlas, a copy each, once (item 192); from then the
+// blits batch together and the counts hold.
+const settledFrom = 20
 
 // frameWork runs the debug city for a second of frames on a staged demo,
 // with the local clock at hour, and returns each count's worst over the
 // settled frames.
 func frameWork(t *testing.T, demo string, hour int) helpers.Frame {
+	t.Helper()
+	all := frameLog(t, demo, hour, 1, "")
+	require.Greater(t, len(all), settledFrom+10, "too few frames logged to call any settled")
+	return helpers.MostWork(all[settledFrom:])
+}
+
+// frameLog runs the debug city for seconds of frames on a staged demo,
+// with the local clock at hour, playing a choreography if one is given
+// as JSON, and returns every frame it logged.
+func frameLog(t *testing.T, demo string, hour int, seconds float64, choreography string) []helpers.Frame {
 	t.Helper()
 	bin, err := debugCity()
 	require.NoError(t, err)
@@ -94,8 +107,13 @@ func frameWork(t *testing.T, demo string, hour int) helpers.Frame {
 	logPath := filepath.Join(t.TempDir(), "commands.log")
 	out, err := os.Create(logPath)
 	require.NoError(t, err)
-	cmd := exec.Command(bin, "city", "--headless", "--record", frames, "--seconds", "1", "--fps", "1",
+	cmd := exec.Command(bin, "city", "--headless", "--record", frames, "--seconds", fmt.Sprint(seconds), "--fps", "1",
 		"--window", "1600x900", "--home", home, "--socket", filepath.Join(t.TempDir(), "none.sock"))
+	if choreography != "" {
+		path := filepath.Join(t.TempDir(), "script.json")
+		require.NoError(t, os.WriteFile(path, []byte(choreography), 0o644))
+		cmd.Args = append(cmd.Args, "--script", path)
+	}
 	cmd.Env = append(os.Environ(), "TZ="+zoneAt(time.Now().UTC().Hour(), hour))
 	cmd.Stdout = out
 	var stderr bytes.Buffer
@@ -107,9 +125,67 @@ func frameWork(t *testing.T, demo string, hour int) helpers.Frame {
 	f, err := os.Open(logPath)
 	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
-	all := helpers.ParseFrameLog(f)
-	require.Greater(t, len(all), settledFrom+10, "too few frames logged to call any settled")
-	return helpers.MostWork(all[settledFrom:])
+	return helpers.ParseFrameLog(f)
+}
+
+// Item 192: a still city draws its buildings from looks baked once, so a
+// settled frame bakes none, at fit and up close, and the looks it keeps
+// fit the cache's cap. While the camera moves a building's look changes
+// every frame and is drawn straight, as before, so those frames are
+// measured and reported, not gated.
+func TestTheLooksAFrameKeeps(t *testing.T) {
+	helpers.NeedXvfb(t)
+	const lookCap = 32 << 20
+	looks := func(f helpers.Looks) string {
+		return fmt.Sprintf("hits %d, misses %d, bakes %d, %.1f MiB kept", f.Hits, f.Misses, f.Bakes, float64(f.Bytes)/(1<<20))
+	}
+	closer := `[{"at":0.1,"key":"Equal"},{"at":0.2,"key":"Equal"},{"at":0.3,"key":"Equal"}]`
+
+	for _, view := range []struct {
+		name, choreography string
+		seconds            float64
+		from               int
+	}{
+		{"fit", "", 1, settledFrom},
+		{"three notches in", closer, 3, 60},
+	} {
+		t.Run("when the metropolis has settled at "+view.name, func(t *testing.T) {
+			t.Parallel()
+			all := frameLog(t, "metropolis", 14, view.seconds, view.choreography)
+			require.Greater(t, len(all), view.from+10, "too few frames logged to call any settled")
+			worst := helpers.MostWork(all[view.from:])
+			t.Logf("worst settled frame: %s; %d commands, %d indices, %d switches", looks(worst.Looks), worst.Commands, worst.Indices, worst.Switches)
+
+			t.Run("it should bake nothing a frame", func(t *testing.T) {
+				assert.Zero(t, worst.Looks.Bakes)
+			})
+
+			t.Run("it should draw its buildings from the cache", func(t *testing.T) {
+				assert.Positive(t, worst.Looks.Hits)
+			})
+
+			t.Run("it should keep its looks within the cache's cap", func(t *testing.T) {
+				assert.LessOrEqual(t, worst.Looks.Bytes, lookCap)
+			})
+		})
+	}
+
+	for _, move := range []struct{ name, choreography string }{
+		{"zooms in with the wheel", `[{"at":0.5,"wheel":4,"over":1.5}]`},
+		{"pans with an arrow held", `[{"at":0.5,"hold":"ArrowRight","for":1.5}]`},
+	} {
+		t.Run("when the camera "+move.name, func(t *testing.T) {
+			t.Parallel()
+			all := frameLog(t, "metropolis", 14, 2.5, move.choreography)
+			require.Greater(t, len(all), 60, "too few frames logged")
+			moving := helpers.MostWork(all[15:60])
+			t.Logf("worst frame while moving: %s; %d commands, %d indices, %d switches", looks(moving.Looks), moving.Commands, moving.Indices, moving.Switches)
+
+			t.Run("it should still draw its buildings", func(t *testing.T) {
+				assert.Positive(t, moving.Looks.Hits+moving.Looks.Misses)
+			})
+		})
+	}
 }
 
 // zoneAt names a fixed zone in which the UTC hour utc reads as hour.

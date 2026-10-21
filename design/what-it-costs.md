@@ -90,6 +90,14 @@ A driven city cannot count this, because it drops every draw before Ebitengine's
 Indices are the count that moved when the heap grew (item 156): anti-aliased vector fills multiplied them 6.6× with the commands unchanged.
 Each count has a target from the 10 ms budget, which skips while unmet and fails once met, and a ceiling under it that gates and only goes down.
 
+**A building's look is baked, and only a still one** (item 192).
+Each run of a building's steps that does not move is drawn once into an image of its own and blitted after; the cache holds a sixteenth of the city's settled memory budget, least recently used out first.
+A look is baked only once its key has held for a frame, so a zoom draws buildings straight, as before, and the frame after it stops bakes them all at once: on the metropolis, about 430 commands and 60 switches for one frame.
+About ten frames later Ebitengine moves each new look onto its shared atlas, one copy each, and from then the blits batch; that is why the frame test counts from frame 20.
+Panning by whole pixels keeps every look, since the key holds the foot's phase within a pixel, not its place.
+`TestTheLooksAFrameKeeps` gates that a settled frame bakes nothing, at fit and up close, and reports a wheel zoom and a held arrow without gating them.
+`botropolis-demo sheet --check-looks` holds every look to the building drawn directly, from every heading, by day and by night.
+
 **A guard clause can be false for every case the new code was written to handle.**
 Making the five moving things hoverable was finished, tested and would have done nothing: `hoverSprites` consulted the sprite hits only when the world hover was open ground, and `Hit.ground()` is false whenever a building is under the pointer.
 A rover stands at a door, a drone circles a roof, a flag stands on one and smoke rises off it — all four are inside or above the footprint of the building they belong to, so the guard excluded every case the change existed for.

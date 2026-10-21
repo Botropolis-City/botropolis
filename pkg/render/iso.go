@@ -503,6 +503,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	defer frames.start()()
 	g.drawing.reset()
 	g.nextLookFrame()
+	defer g.logLooks()
 	defer func() {
 		g.mu.Lock()
 		g.hits = append(g.hits[:0], g.frameHits...)

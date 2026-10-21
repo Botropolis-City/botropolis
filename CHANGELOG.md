@@ -52,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On the metropolis demo that is about 75,000 indices a frame instead of 766,000, and a live heap of about 125 MB instead of 255 MB.
   Filled shapes read about half a pixel larger at their edges, and two of one colour that meet leave no seam between them.
 
+- **A still building is drawn as one picture instead of a dozen pieces.**
+  Each building's walls, windows, sign, flags, scaffold and spire are put together once and reused every frame until its look changes; what moves, such as a pulsing beacon, smoke or a hoist's loads, is still drawn each frame on top.
+  On the metropolis demo a settled frame is about 135 draw commands instead of 280, and the pictures take a third of a megabyte at the opening zoom and about 2 MB up close, within a 32 MB cap.
+  A building's own sign, scaffold and spire now hide its lit windows behind them at night.
+  A scaffold's lamps, braces and hoist no longer swap corners as the map pans.
+
 ### Deprecated
 
 - These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).
