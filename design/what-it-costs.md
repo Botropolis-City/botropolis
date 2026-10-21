@@ -83,6 +83,13 @@ It is also the hardware-independent number: it counts the work of issuing the dr
 The catch is that `--record` costs about three seconds a frame, and none of that is drawing: `frame(screen)` reads the framebuffer back off the card, which stalls the pipeline.
 That cost lands outside the timer, so the ms/frame figure is clean, but a twelve-second recording takes six minutes of wall clock.
 
+**The work a frame asks of the GPU** — draw commands, their indices, and render-target switches — is the third, and the one that gates (item 194).
+`TestTheWorkAFrameTakes` builds the city with `-tags ebitenginedebug`, records a second of the metropolis demo headless by day and by night, and counts each frame from Ebitengine's own command log (`testing/helpers/framelog.go`).
+Counts do not change with load or driver, so a regression in drawing fails it on any machine.
+A driven city cannot count this, because it drops every draw before Ebitengine's queue sees it.
+Indices are the count that moved when the heap grew (item 156): anti-aliased vector fills multiplied them 6.6× with the commands unchanged.
+Each count has a target from the 10 ms budget, which skips while unmet and fails once met, and a ceiling under it that gates and only goes down.
+
 **A guard clause can be false for every case the new code was written to handle.**
 Making the five moving things hoverable was finished, tested and would have done nothing: `hoverSprites` consulted the sprite hits only when the world hover was open ground, and `Hit.ground()` is false whenever a building is under the pointer.
 A rover stands at a door, a drone circles a roof, a flag stands on one and smoke rises off it — all four are inside or above the footprint of the building they belong to, so the guard excluded every case the change existed for.
