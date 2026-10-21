@@ -1,8 +1,6 @@
 package render
 
 import (
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
 
@@ -60,17 +58,16 @@ func (g *Game) lightLandmark(cam *city.Camera, lot city.Rect, kit string, on flo
 }
 
 // The landmarks' glass is the kit's blue, so lit at its own brightness it
-// reads cool beside the city's warm windows; at night it is mixed a
-// little toward them (Aria, 2026-10-20: "Tint them a little yellow at
-// night only"). By day nothing is laid over it.
+// reads cool beside the city's warm windows; at night its colour is
+// drained and it is warmed a little, softer than the city's yellow (Aria,
+// 2026-10-20: "Tint them a little yellow at night only"). Mixing the blue
+// toward yellow instead passes through grey, which is what the first
+// frames showed. By day nothing is laid over it.
 var (
-	colorWarmGlass = color.NRGBA{0xf5, 0xcd, 0x78, 0xff}
-	landmarkWarmth = 0.3
-	warmGlass      = func() colorm.ColorM {
+	warmGlass = func() colorm.ColorM {
 		var m colorm.ColorM
-		k := landmarkWarmth
-		m.Scale(1-k, 1-k, 1-k, 1)
-		m.Translate(k*float64(colorWarmGlass.R)/0xff, k*float64(colorWarmGlass.G)/0xff, k*float64(colorWarmGlass.B)/0xff, 0)
+		m.ChangeHSV(0, 0, 1)
+		m.Scale(1.15, 1.05, 0.78, 1)
 		return m
 	}()
 	warmOptions = &colorm.DrawTrianglesOptions{Filter: ebiten.FilterLinear, ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}

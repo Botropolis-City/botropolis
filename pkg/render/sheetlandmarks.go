@@ -32,7 +32,7 @@ func (g *Game) checkLandmarks(zoom float64) []string {
 			day := g.sheetLandmarkByDay(cam, lot, kit)
 			panes := g.landmarkPanes(cam, lot, kit)
 			name, lettered := g.landmarkLettering(cam, cityLandmarks(landmarkCity(kit, lot)), 0)
-			stray, lit, onName, warmer := 0, 0, 0, 0
+			stray, lit, onName, warmer, warm := 0, 0, 0, 0, 0
 			bounds := on.Bounds()
 			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 				for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -41,6 +41,7 @@ func (g *Game) checkLandmarks(zoom float64) []string {
 					}
 					lit++
 					warmer += warmth(on.NRGBAAt(x, y)) - warmth(day.NRGBAAt(x, y))
+					warm += warmth(on.NRGBAAt(x, y))
 					if !nearPane(panes, x, y, litMargin) {
 						stray++
 					}
@@ -60,6 +61,9 @@ func (g *Game) checkLandmarks(zoom float64) []string {
 			}
 			if lit > 0 && warmer < litWarmer*lit {
 				problems = append(problems, fmt.Sprintf("%s: its lit glass is %.1f warmer than by day, on average, not %d", label, float64(warmer)/float64(lit), litWarmer))
+			}
+			if lit > 0 && warm < litWarm*lit {
+				problems = append(problems, fmt.Sprintf("%s: its lit glass is %.1f redder than blue, on average, not %d: it reads grey or blue, not yellow", label, float64(warm)/float64(lit), litWarm))
 			}
 			if onName > 0 {
 				problems = append(problems, fmt.Sprintf("%s: %d lit pixels on its painted name", label, onName))
@@ -94,6 +98,12 @@ func (g *Game) checkLandmarkOcclusion(zoom float64) []string {
 // litWarmer is how much warmer, on average, a landmark's lit glass must
 // be at night than by day: a little yellow (Aria, 2026-10-20).
 const litWarmer = 20
+
+// litWarm is how much redder than blue, on average, a landmark's lit
+// glass must be at night, so it reads yellow: mixing the kit's blue
+// toward yellow made it grey, which passed litWarmer and did not look
+// yellow.
+const litWarm = 15
 
 // warmth is how much redder than blue a colour is.
 func warmth(c color.NRGBA) int {
