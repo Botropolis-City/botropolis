@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -25,7 +24,7 @@ func (g *Game) drawViewKey(screen *ebiten.Image, width, height float64) {
 	g.viewKeyRows = k
 	g.mu.Unlock()
 	th := g.theme
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	g.roundPanel(screen, k.Rect)
 	g.run(screen, k.Title, th.Palette.Text)
 	g.run(screen, k.Subtitle, th.Palette.Dim)

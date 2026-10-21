@@ -203,8 +203,8 @@ func (g *Game) powerLines(screen *ebiten.Image, c *city.City, cam *city.Camera, 
 			t := float64(i) / float64(poles-1)
 			foot := cam.WorldToScreen(city.Point{X: from.X + (to.X-from.X)*t, Y: from.Y + (to.Y-from.Y)*t})
 			if i > 0 && i < poles-1 {
-				vector.StrokeLine(screen, float32(foot.X), float32(foot.Y), float32(foot.X), float32(foot.Y-h), float32(math.Max(1, 2*cam.Zoom)), colorPowerPole, false)
-				vector.StrokeLine(screen, float32(foot.X-4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(foot.X+4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(math.Max(1, 1.5*cam.Zoom)), colorPowerPole, false)
+				g.paint.Bar(screen, float32(foot.X), float32(foot.Y), float32(foot.X), float32(foot.Y-h), float32(math.Max(1, 2*cam.Zoom)), colorPowerPole)
+				g.paint.Bar(screen, float32(foot.X-4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(foot.X+4*cam.Zoom), float32(foot.Y-h+3*cam.Zoom), float32(math.Max(1, 1.5*cam.Zoom)), colorPowerPole)
 			}
 			tops = append(tops, city.Point{X: foot.X, Y: foot.Y - h})
 		}
@@ -267,6 +267,13 @@ func wirePoint(tops []city.Point, t, sag float64) city.Point {
 }
 
 var colorNightOverlay = color.NRGBA{0x08, 0x0c, 0x24, 0x70}
+
+// wash lays the night over a rectangle of the scene. It is drawn while
+// the night's lights are being noted, and over everything, so it goes
+// around the painter: through it, it would cut every light (item 195).
+func wash(dst *ebiten.Image, x, y, width, height float32) {
+	vector.FillRect(dst, x, y, width, height, colorNightOverlay, false)
+}
 
 // isoBuilding draws a session as a stacked building on its footprint, or a
 // flat diamond in the map view.
@@ -402,9 +409,9 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		} else if i < len(b.Session.PRs) && b.Session.PRs[i].State == claude.PRClosed {
 			flag = g.theme.Palette.Resting
 		}
-		vector.FillRect(screen, float32(x), float32(roofTop-dot*2), float32(dot*0.4), float32(dot*2.5), colorPole, false)
+		g.paint.Box(screen, float32(x), float32(roofTop-dot*2), float32(dot*0.4), float32(dot*2.5), colorPole)
 		// The flag runs up its pole as it is hoisted (item 89).
-		vector.FillRect(screen, float32(x), float32(roofTop+dot*0.5-dot*2.5*hoist), float32(dot*1.4), float32(dot), flag, false)
+		g.paint.Box(screen, float32(x), float32(roofTop+dot*0.5-dot*2.5*hoist), float32(dot*1.4), float32(dot), flag)
 		if i < len(b.Session.PRs) {
 			g.noteHit(city.RectAt(x, roofTop-dot*2, dot*1.4, dot*2.5),
 				city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Flag: &city.FlagHit{Building: b, PR: b.Session.PRs[i]}})
@@ -528,10 +535,10 @@ func (g *Game) buildingSign(screen *ebiten.Image, r city.Rect, foot city.Point, 
 	}
 	if sign.Billboard() {
 		for _, post := range sign.Posts {
-			vector.FillRect(screen, float32(post.Min.X), float32(post.Min.Y), float32(post.Width()), float32(post.Height()), colorKitKerb, false)
+			g.paint.Box(screen, float32(post.Min.X), float32(post.Min.Y), float32(post.Width()), float32(post.Height()), colorKitKerb)
 		}
-		vector.FillRect(screen, float32(sign.Panel.Min.X), float32(sign.Panel.Min.Y), float32(sign.Panel.Width()), float32(sign.Panel.Height()), colorKitFloor, false)
-		vector.StrokeRect(screen, float32(sign.Panel.Min.X), float32(sign.Panel.Min.Y), float32(sign.Panel.Width()), float32(sign.Panel.Height()), 1, colorKitKerb, false)
+		g.paint.Box(screen, float32(sign.Panel.Min.X), float32(sign.Panel.Min.Y), float32(sign.Panel.Width()), float32(sign.Panel.Height()), colorKitFloor)
+		g.paint.BoxStroke(screen, float32(sign.Panel.Min.X), float32(sign.Panel.Min.Y), float32(sign.Panel.Width()), float32(sign.Panel.Height()), 1, colorKitKerb)
 	}
 	// Paint is light on the building's own dark ground floor, and the
 	// billboard's panel is a light kit face, so its two lines are dark.
@@ -573,7 +580,9 @@ func (g *Game) sign(screen *ebiten.Image, s ui.Sign, c color.NRGBA) {
 	op.GeoM.Translate(s.At.X, s.At.Y)
 	op.ColorScale.ScaleWithColor(c)
 	op.Filter = ebiten.FilterLinear
-	text.Draw(screen, s.Text, g.faces.Face(ui.Small), op)
+	face := g.faces.Face(ui.Small)
+	text.Draw(screen, s.Text, face, op)
+	g.cutWords(s.Text, face, op.GeoM, float32(c.A)/255)
 }
 
 // vacantPlot is a session with nothing typed into it yet: bare ground
@@ -899,7 +908,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		g.polyStroke(screen, cam, hover.Building.Rect, 1.5, colorHighlight)
 	}
 	if c.Night {
-		vector.FillRect(screen, 0, 0, float32(width), float32(height), colorNightOverlay, false)
+		wash(screen, 0, 0, float32(width), float32(height))
 		g.endLights(screen)
 	}
 	g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/config"
@@ -119,7 +118,7 @@ func (g *Game) setScale(scale float64) error {
 
 func (g *Game) drawSettings(screen *ebiten.Image, width, height float64) {
 	th := g.theme
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	p := ui.LayoutSettings(th, width, height, g.settings, g.faces.Measure)
 	// Kept so a click lands on the row that was drawn. Bug 43.
 	g.mu.Lock()

@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -47,6 +46,6 @@ func (g *Game) rampBar(screen *ebiten.Image, r city.Rect) {
 		return
 	}
 	for x := 0.0; x < w; x++ {
-		vector.FillRect(screen, float32(r.Min.X+x), float32(r.Min.Y), 1, float32(r.Height()), ui.Sequential.At(x/(w-1)), false)
+		g.paint.Box(screen, float32(r.Min.X+x), float32(r.Min.Y), 1, float32(r.Height()), ui.Sequential.At(x/(w-1)))
 	}
 }

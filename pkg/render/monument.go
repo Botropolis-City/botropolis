@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/shapes"
@@ -173,7 +172,7 @@ func (g *Game) returnOf(screen *ebiten.Image, r city.Rect, depth float64, c colo
 }
 
 func (g *Game) fill(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
-	vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), c, false)
+	g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), c)
 }
 
 // monumentOf is where a district's sign stands and how big it is, or

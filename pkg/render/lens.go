@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -48,13 +47,13 @@ func (p *lensPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		w := l.Bar.Width() / steps
 		for i := range steps {
 			c := ui.Sequential.At(float64(i) / (steps - 1))
-			vector.FillRect(screen, float32(l.Bar.Min.X+w*float64(i)), float32(l.Bar.Min.Y), float32(w+1), float32(l.Bar.Height()), c, false)
+			g.paint.Box(screen, float32(l.Bar.Min.X+w*float64(i)), float32(l.Bar.Min.Y), float32(w+1), float32(l.Bar.Height()), c)
 		}
 		g.run(screen, l.Low, th.Palette.Dim)
 		g.run(screen, l.High, th.Palette.Dim)
 	}
 	for i, sw := range l.Swatches {
-		vector.FillRect(screen, float32(sw.Min.X), float32(sw.Min.Y), float32(sw.Width()), float32(sw.Height()), ui.Category(i), false)
+		g.paint.Box(screen, float32(sw.Min.X), float32(sw.Min.Y), float32(sw.Width()), float32(sw.Height()), ui.Category(i))
 		g.run(screen, l.Labels[i], th.Palette.Dim)
 	}
 	g.run(screen, l.Note, th.Palette.Dim)

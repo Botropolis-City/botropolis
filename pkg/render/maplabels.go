@@ -4,7 +4,6 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/config"
@@ -51,7 +50,7 @@ func (g *Game) queueStationLabel(d *city.District, station city.Point, radius fl
 	g.queueLabel(pendingLabel{
 		mapLabel: mapLabel{Kind: labelStation, Rect: plate, Anchor: station},
 		draw: func(screen *ebiten.Image, p city.Rect) {
-			vector.FillRect(screen, float32(p.Min.X), float32(p.Min.Y), float32(p.Width()), float32(p.Height()), casing, false)
+			g.paint.Box(screen, float32(p.Min.X), float32(p.Min.Y), float32(p.Width()), float32(p.Height()), casing)
 			g.label(screen, city.Point{X: p.Min.X + 3, Y: p.Min.Y + 1}, name, ink)
 		},
 		ink:   casing,

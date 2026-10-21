@@ -5,7 +5,6 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/shapes"
@@ -209,7 +208,7 @@ func (g *Game) sparkline(screen *ebiten.Image, sp ui.Sparkline) {
 		return
 	}
 	th := g.theme
-	vector.FillRect(screen, float32(sp.Box.Min.X), float32(sp.Box.Max.Y-th.Hairline()), float32(sp.Box.Width()), float32(th.Hairline()), th.Palette.Hairline, false)
+	g.paint.Box(screen, float32(sp.Box.Min.X), float32(sp.Box.Max.Y-th.Hairline()), float32(sp.Box.Width()), float32(th.Hairline()), th.Palette.Hairline)
 	if len(sp.Points) > 1 {
 		g.paint.Stroke(screen, sp.Points, th.Px(1.5), false, th.Palette.Accent)
 	}
@@ -257,12 +256,12 @@ func (g *Game) plate(screen *ebiten.Image, p ui.Plate, s string, c color.NRGBA) 
 // edge at y, which is its top for a footer and its bottom for a strip.
 func (g *Game) bar(screen *ebiten.Image, r city.Rect, edge float64) {
 	th := g.theme
-	vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), th.Palette.Panel, false)
+	g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), th.Palette.Panel)
 	y := edge
 	if edge >= r.Max.Y {
 		y = edge - th.Hairline()
 	}
-	vector.FillRect(screen, float32(r.Min.X), float32(y), float32(r.Width()), float32(th.Hairline()), th.Palette.Hairline, false)
+	g.paint.Box(screen, float32(r.Min.X), float32(y), float32(r.Width()), float32(th.Hairline()), th.Palette.Hairline)
 }
 
 // roundPanel is a floating panel: rounded, translucent, hairline all round.

@@ -17,7 +17,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
@@ -137,6 +136,24 @@ type Game struct {
 	lightOps  []lightOp
 	litBounds image.Rectangle
 	punches   int
+	// litRects is each lit building's box, for what is painted after it
+	// to cut only where it covers one; the cut buffers hold what was
+	// painted in front, kept between frames; cuts is how many shapes and
+	// words were noted to cut the lights (item 195).
+	litRects    []image.Rectangle
+	cutVertices []ebiten.Vertex
+	cutIndices  []uint32
+	cutPoints   []city.Point
+	cuts        int
+	// meshCut is the mesh cut noted since the last window, or -1, and
+	// pendingCuts the cuts waiting to be laid, kept between frames.
+	meshCut     int
+	pendingCuts []lightOp
+	dueCuts     []lightOp
+	// paintUncut is set while painting somewhere other than the screen,
+	// such as an image to be drawn later, whose shapes must not cut the
+	// lights where they were painted (item 195).
+	paintUncut bool
 
 	mu          sync.Mutex
 	pending     *state.Snapshot
@@ -1481,13 +1498,13 @@ func lineWidth(perHour, min, max float64) float32 {
 func (g *Game) rect(screen *ebiten.Image, cam *city.Camera, r city.Rect, c color.NRGBA) {
 	min := cam.WorldToScreen(r.Min)
 	max := cam.WorldToScreen(r.Max)
-	vector.FillRect(screen, float32(min.X), float32(min.Y), float32(max.X-min.X), float32(max.Y-min.Y), c, false)
+	g.paint.Box(screen, float32(min.X), float32(min.Y), float32(max.X-min.X), float32(max.Y-min.Y), c)
 }
 
 func (g *Game) outline(screen *ebiten.Image, cam *city.Camera, r city.Rect, c color.NRGBA) {
 	min := cam.WorldToScreen(r.Min)
 	max := cam.WorldToScreen(r.Max)
-	vector.StrokeRect(screen, float32(min.X), float32(min.Y), float32(max.X-min.X), float32(max.Y-min.Y), 2, c, false)
+	g.paint.BoxStroke(screen, float32(min.X), float32(min.Y), float32(max.X-min.X), float32(max.Y-min.Y), 2, c)
 }
 
 // text draws s with its top-left corner at a screen point, in one of the

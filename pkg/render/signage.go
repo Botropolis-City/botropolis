@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -101,8 +100,8 @@ func (g *Game) signOnMount(screen *ebiten.Image, cam *city.Camera, r city.Rect, 
 		post.Min.Y+post.Height()*(1-head)-panelLiftPx,
 		w*scale+panelPadPx*2, h*scale+panelPadPx,
 	)
-	vector.FillRect(screen, float32(panel.Min.X), float32(panel.Min.Y), float32(panel.Width()), float32(panel.Height()), colorKitKerb, false)
-	vector.StrokeRect(screen, float32(panel.Min.X), float32(panel.Min.Y), float32(panel.Width()), float32(panel.Height()), 1, colorKitFloor, false)
+	g.paint.Box(screen, float32(panel.Min.X), float32(panel.Min.Y), float32(panel.Width()), float32(panel.Height()), colorKitKerb)
+	g.paint.BoxStroke(screen, float32(panel.Min.X), float32(panel.Min.Y), float32(panel.Width()), float32(panel.Height()), 1, colorKitFloor)
 	sign, ok := ui.LayoutPlaque(name, panel, 0, g.faces.Measure)
 	if !ok {
 		return

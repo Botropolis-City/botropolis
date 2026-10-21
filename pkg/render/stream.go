@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/events"
@@ -68,7 +67,7 @@ func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float
 	solid := th.Palette.Panel
 	solid.A = 0xff
 	fill := func(r city.Rect, c color.NRGBA) {
-		vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), c, false)
+		g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), c)
 	}
 	fill(area, solid)
 	fill(city.RectAt(area.Min.X, area.Min.Y, th.Hairline(), area.Height()), th.Palette.Hairline)

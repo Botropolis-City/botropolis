@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/config"
@@ -251,7 +250,7 @@ func (g *Game) drawWindowRow(screen *ebiten.Image, row ui.WindowRow) {
 		button(b, !row.Current.Long && row.Current.Window == city.Window(i))
 	}
 	d := row.Divider
-	vector.FillRect(screen, float32(d.Min.X), float32(d.Min.Y), float32(max(1, d.Width())), float32(d.Height()), th.Palette.Dim, false)
+	g.paint.Box(screen, float32(d.Min.X), float32(d.Min.Y), float32(max(1, d.Width())), float32(d.Height()), th.Palette.Dim)
 	for i, b := range row.Long {
 		button(b, row.Current.Long && row.Current.Kind == ui.RangeKinds[i])
 	}
@@ -263,18 +262,18 @@ func fade(c color.NRGBA, alpha float64) color.NRGBA {
 	return c
 }
 
-func fillRect(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
+func (g *Game) fillBox(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
 	if r.Width() <= 0 || r.Height() <= 0 {
 		return
 	}
-	vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), c, false)
+	g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), c)
 }
 
 func (g *Game) hatch(screen *ebiten.Image, slot city.Rect, c color.NRGBA) {
 	grid := g.theme.Grid()
 	x := slot.Min.X + slot.Width()/2 - 0.5
 	for y := slot.Min.Y; y < slot.Max.Y; y += grid {
-		fillRect(screen, city.RectAt(x, y, 1, min(grid/2, slot.Max.Y-y)), c)
+		g.fillBox(screen, city.RectAt(x, y, 1, min(grid/2, slot.Max.Y-y)), c)
 	}
 }
 
@@ -282,13 +281,13 @@ func (g *Game) swatch(screen *ebiten.Image, kind ui.BarKind, r city.Rect) {
 	th := g.theme
 	switch kind {
 	case ui.BarCost:
-		fillRect(screen, r, th.Palette.Plant)
+		g.fillBox(screen, r, th.Palette.Plant)
 	case ui.BarNoData:
 		g.hatch(screen, r, th.Palette.Dim)
 	case ui.BarIncomplete:
-		vector.StrokeRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), 1, th.Palette.Dim, false)
+		g.paint.BoxStroke(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), 1, th.Palette.Dim)
 	case ui.BarUnknown:
-		fillRect(screen, city.RectAt(r.Min.X, r.Max.Y-r.Height()/3, r.Width(), r.Height()/3), th.Palette.Dim)
+		g.fillBox(screen, city.RectAt(r.Min.X, r.Max.Y-r.Height()/3, r.Width(), r.Height()/3), th.Palette.Dim)
 	}
 }
 
@@ -296,7 +295,7 @@ func (g *Game) swatch(screen *ebiten.Image, kind ui.BarKind, r city.Rect) {
 func (g *Game) drawRanges(screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	pal := th.Palette
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	p := ui.LayoutRanges(th, width, height, g.rangeData(), g.rangeSel, g.rangeChooser, g.faces.Measure)
 	g.roundPanel(screen, p.Rect)
 	g.run(screen, p.Title, pal.Text)
@@ -306,21 +305,21 @@ func (g *Game) drawRanges(screen *ebiten.Image, width, height float64) {
 	g.run(screen, p.Since, pal.Dim)
 
 	c := p.Chart
-	fillRect(screen, city.RectAt(c.Min.X, c.Max.Y, c.Width(), 1), pal.Hairline)
+	g.fillBox(screen, city.RectAt(c.Min.X, c.Max.Y, c.Width(), 1), pal.Hairline)
 	for _, b := range p.Bars {
 		switch b.Kind {
 		case ui.BarNoData:
 			g.hatch(screen, b.Slot, pal.Hairline)
 		case ui.BarUnknown:
-			fillRect(screen, b.Solid, pal.Dim)
+			g.fillBox(screen, b.Solid, pal.Dim)
 		case ui.BarIncomplete:
 			s := b.Slot
-			vector.StrokeRect(screen, float32(s.Min.X+1), float32(s.Min.Y), float32(max(1, s.Width()-2)), float32(s.Height()), 1, pal.Dim, false)
-			fillRect(screen, b.Solid, pal.Dim)
-			fillRect(screen, b.Cap, fade(pal.Dim, 0.45))
+			g.paint.BoxStroke(screen, float32(s.Min.X+1), float32(s.Min.Y), float32(max(1, s.Width()-2)), float32(s.Height()), 1, pal.Dim)
+			g.fillBox(screen, b.Solid, pal.Dim)
+			g.fillBox(screen, b.Cap, fade(pal.Dim, 0.45))
 		default:
-			fillRect(screen, b.Solid, pal.Plant)
-			fillRect(screen, b.Cap, fade(pal.Plant, 0.45))
+			g.fillBox(screen, b.Solid, pal.Plant)
+			g.fillBox(screen, b.Cap, fade(pal.Plant, 0.45))
 		}
 	}
 	for _, t := range p.Ticks {
@@ -336,7 +335,7 @@ func (g *Game) drawRanges(screen *ebiten.Image, width, height float64) {
 	g.run(screen, p.MixHead, pal.Dim)
 	for i, s := range p.Mix {
 		r := s.Rect
-		fillRect(screen, city.RectAt(r.Min.X, r.Min.Y, max(1, r.Width()-2), r.Height()), fade(pal.Plant, max(0.3, 1-float64(i)*0.18)))
+		g.fillBox(screen, city.RectAt(r.Min.X, r.Min.Y, max(1, r.Width()-2), r.Height()), fade(pal.Plant, max(0.3, 1-float64(i)*0.18)))
 	}
 	g.run(screen, p.MixLine, pal.Text)
 	g.run(screen, p.DistrictHead, pal.Dim)

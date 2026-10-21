@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -15,7 +14,7 @@ import (
 // from.
 func (g *Game) drawTimeline(screen *ebiten.Image, width, height float64) {
 	th := g.theme
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	title, list := "Timeline", g.scene.Events()
 	if g.away != nil {
 		title, list = "While you were away", g.away

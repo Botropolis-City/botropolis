@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -17,7 +16,7 @@ func (g *Game) drawBreakdown(screen *ebiten.Image, width, height float64) {
 	}
 	th := g.theme
 	c := g.scene.City()
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	titles := map[string]string{}
 	for _, b := range c.Buildings() {
 		titles[b.Session.ID] = b.Card(c.Time).Title

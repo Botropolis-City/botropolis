@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -135,7 +134,7 @@ func (g *Game) flatCells(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 func (g *Game) stroke(screen *ebiten.Image, cam *city.Camera, r city.Rect, width float32, c color.NRGBA) {
 	min := cam.WorldToScreen(r.Min)
 	max := cam.WorldToScreen(r.Max)
-	vector.StrokeRect(screen, float32(min.X), float32(min.Y), float32(max.X-min.X), float32(max.Y-min.Y), width, c, false)
+	g.paint.BoxStroke(screen, float32(min.X), float32(min.Y), float32(max.X-min.X), float32(max.Y-min.Y), width, c)
 }
 
 // floorLabel writes fixed-size text on a plate so it reads on any ground;
@@ -221,7 +220,7 @@ func (g *Game) minimap(screen *ebiten.Image, box city.Rect) {
 	g.roundPanel(screen, box)
 	seconds := 0.0
 	fill := func(r city.Rect, col color.NRGBA) {
-		vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(math.Max(1, r.Width())), float32(math.Max(1, r.Height())), col, false)
+		g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(math.Max(1, r.Width())), float32(math.Max(1, r.Height())), col)
 	}
 	fill(all, colorGroundNight)
 	for _, park := range c.Parks {
@@ -232,18 +231,18 @@ func (g *Game) minimap(screen *ebiten.Image, box city.Rect) {
 	}
 	for _, d := range c.Districts {
 		r := m.ProjectRect(d.Rect)
-		vector.FillRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(math.Max(1, r.Width())), float32(math.Max(1, r.Height())), colorMapDistHi, false)
+		g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(math.Max(1, r.Width())), float32(math.Max(1, r.Height())), colorMapDistHi)
 		for _, b := range d.Buildings {
 			if b.Blinds {
 				continue
 			}
 			p := m.Project(b.Rect.Center())
-			vector.FillRect(screen, float32(p.X-1), float32(p.Y-1), 2, 2, blockColor(b, seconds), false)
+			g.paint.Box(screen, float32(p.X-1), float32(p.Y-1), 2, 2, blockColor(b, seconds))
 		}
 	}
 	view := city.Rect{
 		Min: city.Point{X: math.Max(box.Min.X, m.View.Min.X), Y: math.Max(box.Min.Y, m.View.Min.Y)},
 		Max: city.Point{X: math.Min(box.Max.X, m.View.Max.X), Y: math.Min(box.Max.Y, m.View.Max.Y)},
 	}
-	vector.StrokeRect(screen, float32(view.Min.X), float32(view.Min.Y), float32(view.Width()), float32(view.Height()), 1, colorMinimapView, false)
+	g.paint.BoxStroke(screen, float32(view.Min.X), float32(view.Min.Y), float32(view.Width()), float32(view.Height()), 1, colorMinimapView)
 }

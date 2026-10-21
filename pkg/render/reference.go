@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -103,7 +102,7 @@ func (r *reference) click(g *Game, at city.Point) bool {
 
 func (r *reference) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	th := g.theme
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	if r.ref.Current().ID == ui.KeysEntry {
 		g.mu.Lock()
 		skip := r.skip

@@ -64,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **At night, lit windows no longer show through what stands in front of them.**
+  A district's sign, a building's own painted name, its beacon and flags, and a scaffold's tubes and boards now hide the windows behind them, as a building in front always did; something half transparent dims the light behind it rather than hiding it.
+
 - **The reading pane (`o`) shows Claude's replies as formatted text, not raw Markdown.**
   Bold is bold, code and tables are set in Go Mono on a faint tint, a table with its columns lined up and its header in bold, lists have bullets and indent as they nest, quotes are indented, paragraphs have room between them, and a link shows its URL after its text.
   Your prompts and tool calls are shown as typed, and HTML in a reply is shown as text, never run.

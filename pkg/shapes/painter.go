@@ -16,6 +16,12 @@ import (
 // needed, and its buffers are kept between shapes, so drawing allocates
 // nothing once they have grown.
 type Painter struct {
+	// Cut, when set, is told of every shape the painter draws over what
+	// is beneath it, as it draws it: the city's night lights are cut by
+	// whatever stands in front of them (item 195). A glow, drawn with
+	// any blend but source-over, is light rather than cover, and is not
+	// told.
+	Cut   Cutter
 	mesh  Mesh
 	white *ebiten.Image
 	discs []*ebiten.Image
@@ -24,6 +30,59 @@ type Painter struct {
 	pts   []city.Point
 	tri   ebiten.DrawTrianglesOptions
 	img   ebiten.DrawImageOptions
+}
+
+// Cutter is told of each shape a Painter draws, in the order it draws
+// them, with each shape's alpha in its vertices, its options or alpha.
+type Cutter interface {
+	CutMesh(vertices []ebiten.Vertex, indices []uint32)
+	CutImage(img *ebiten.Image, op *ebiten.DrawImageOptions)
+	CutRing(pts []city.Point, alpha float32)
+}
+
+// Box fills a rectangle with hard edges, as vector.FillRect does without
+// anti-aliasing: the white pixel scaled, which batches with the next.
+func (p *Painter) Box(dst *ebiten.Image, x, y, width, height float32, c color.Color) {
+	p.img = ebiten.DrawImageOptions{}
+	p.img.GeoM.Scale(float64(width), float64(height))
+	p.img.GeoM.Translate(float64(x), float64(y))
+	p.drawWhite(dst, c)
+}
+
+// BoxStroke strokes a rectangle with hard edges, as vector.StrokeRect
+// does without anti-aliasing.
+func (p *Painter) BoxStroke(dst *ebiten.Image, x, y, width, height, stroke float32, c color.Color) {
+	if stroke <= 0 {
+		return
+	}
+	if stroke >= width || stroke >= height {
+		p.Box(dst, x-stroke/2, y-stroke/2, width+stroke, height+stroke, c)
+		return
+	}
+	p.Box(dst, x-stroke/2, y-stroke/2, width+stroke, stroke, c)
+	p.Box(dst, x-stroke/2, y+height-stroke/2, width+stroke, stroke, c)
+	p.Box(dst, x-stroke/2, y+stroke/2, stroke, height-stroke, c)
+	p.Box(dst, x+width-stroke/2, y+stroke/2, stroke, height-stroke, c)
+}
+
+// Bar strokes a straight line with hard edges, as vector.StrokeLine
+// does without anti-aliasing.
+func (p *Painter) Bar(dst *ebiten.Image, x0, y0, x1, y1, width float32, c color.Color) {
+	p.img = ebiten.DrawImageOptions{}
+	p.img.GeoM.Scale(math.Hypot(float64(x1-x0), float64(y1-y0)), float64(width))
+	p.img.GeoM.Translate(0, -float64(width)/2)
+	p.img.GeoM.Rotate(math.Atan2(float64(y1-y0), float64(x1-x0)))
+	p.img.GeoM.Translate(float64(x0), float64(y0))
+	p.drawWhite(dst, c)
+}
+
+func (p *Painter) drawWhite(dst *ebiten.Image, c color.Color) {
+	p.img.ColorScale.ScaleWithColor(c)
+	white := p.whitePixel()
+	dst.DrawImage(white, &p.img)
+	if p.Cut != nil {
+		p.Cut.CutImage(white, &p.img)
+	}
 }
 
 // Points is a buffer of points the painter keeps, emptied, for a caller
@@ -81,7 +140,23 @@ func (p *Painter) Flush(dst *ebiten.Image) {
 // Line strokes one straight line width wide.
 func (p *Painter) Line(dst *ebiten.Image, x0, y0, x1, y1, width float64, c color.NRGBA) {
 	p.line = [2]city.Point{{X: x0, Y: y0}, {X: x1, Y: y1}}
+	cut := p.Cut
+	p.Cut = nil
 	p.Stroke(dst, p.line[:], width, false, c)
+	p.Cut = cut
+	if cut == nil {
+		return
+	}
+	// A line is cut as a hard-edged bar a pixel wider and longer, over
+	// its soft edge: a third of its mesh's indices, and the city strokes a
+	// scaffold's every tube and board as one (item 195).
+	p.img = ebiten.DrawImageOptions{}
+	p.img.GeoM.Scale(math.Hypot(x1-x0, y1-y0)+1, width+1)
+	p.img.GeoM.Translate(-0.5, -(width+1)/2)
+	p.img.GeoM.Rotate(math.Atan2(y1-y0, x1-x0))
+	p.img.GeoM.Translate(x0, y0)
+	p.img.ColorScale.ScaleAlpha(float32(c.A) / 255)
+	cut.CutImage(p.whitePixel(), &p.img)
 }
 
 // Circle strokes a circle of radius r round centre, width wide.
@@ -113,12 +188,18 @@ func (p *Painter) DiscBlend(dst *ebiten.Image, centre city.Point, r float64, c c
 	p.img.GeoM.Translate(centre.X, centre.Y)
 	p.img.ColorScale.ScaleWithColor(c)
 	dst.DrawImage(stamp, &p.img)
+	if p.Cut != nil && blend == ebiten.BlendSourceOver {
+		p.Cut.CutImage(stamp, &p.img)
+	}
 }
 
 func (p *Painter) flush(dst *ebiten.Image, blend ebiten.Blend) {
 	if len(p.mesh.Indices) > 0 {
 		p.tri = ebiten.DrawTrianglesOptions{Blend: blend}
 		dst.DrawTriangles32(p.mesh.Vertices, p.mesh.Indices, p.whitePixel(), &p.tri)
+		if p.Cut != nil && blend == ebiten.BlendSourceOver {
+			p.Cut.CutMesh(p.mesh.Vertices, p.mesh.Indices)
+		}
 	}
 	p.mesh.Reset()
 }
@@ -141,6 +222,39 @@ func (p *Painter) fallback(dst *ebiten.Image, pts []city.Point, c color.NRGBA, b
 	p.path.Close()
 	op := &vector.DrawPathOptions{Blend: blend}
 	op.ColorScale.ScaleWithColor(c)
+	vector.FillPath(dst, &p.path, &vector.FillOptions{FillRule: vector.FillRuleNonZero}, op)
+	if p.Cut != nil && blend == ebiten.BlendSourceOver {
+		p.Cut.CutRing(pts, float32(c.A)/255)
+	}
+}
+
+// CutTriangles cuts painted meshes out of dst at their own alpha: how a
+// Cutter lays what CutMesh told it.
+func (p *Painter) CutTriangles(dst *ebiten.Image, vertices []ebiten.Vertex, indices []uint32) {
+	if len(indices) == 0 {
+		return
+	}
+	p.tri = ebiten.DrawTrianglesOptions{Blend: ebiten.BlendDestinationOut}
+	dst.DrawTriangles32(vertices, indices, p.whitePixel(), &p.tri)
+}
+
+// CutPath fills a ring onto dst by the non-zero rule, as the fallback
+// draws it, cutting it out at alpha: how a Cutter lays a CutRing.
+func (p *Painter) CutPath(dst *ebiten.Image, pts []city.Point, alpha float32) {
+	if len(pts) < 3 {
+		return
+	}
+	p.path.Reset()
+	for i, pt := range pts {
+		if i == 0 {
+			p.path.MoveTo(float32(pt.X), float32(pt.Y))
+		} else {
+			p.path.LineTo(float32(pt.X), float32(pt.Y))
+		}
+	}
+	p.path.Close()
+	op := &vector.DrawPathOptions{Blend: ebiten.BlendDestinationOut}
+	op.ColorScale.ScaleAlpha(alpha)
 	vector.FillPath(dst, &p.path, &vector.FillOptions{FillRule: vector.FillRuleNonZero}, op)
 }
 

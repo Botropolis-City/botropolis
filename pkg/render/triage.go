@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -153,7 +152,7 @@ func (t *triage) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	}
 	shown, _ := p.typed.shown()
 	laid := ui.LayoutSnoozePicker(th, width, height, labels, p.cursor, shown, p.refused, g.faces.Measure)
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorScrim, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	g.roundPanel(screen, laid.Rect)
 	g.run(screen, laid.Title, th.Palette.Text)
 	for i, r := range laid.Rows {

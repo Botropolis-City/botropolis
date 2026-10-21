@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -91,7 +90,7 @@ func (g *Game) sheetCell(screen *ebiten.Image, zoom float64, b *city.Building, f
 		g.shutter(clip, cam, b, name, dress.Boards)
 	}
 	if night {
-		vector.FillRect(clip, float32(cell.Min.X), float32(cell.Min.Y), float32(cell.Dx()), float32(cell.Dy()), colorNightOverlay, false)
+		wash(clip, float32(cell.Min.X), float32(cell.Min.Y), float32(cell.Dx()), float32(cell.Dy()))
 		if lights, ok := g.windowLights(cam, b, 1, 1); ok {
 			g.drawWindows(clip, cam, b, lights, 1)
 		}
@@ -127,7 +126,7 @@ func (g *Game) drawSheet(zoom float64) *ebiten.Image {
 	y := header
 	for _, k := range sheetKinds {
 		g.text(sheet, city.Point{X: margin, Y: float64(y + 6)}, k.name, ui.Title, colorSheetInk)
-		vector.FillRect(sheet, float32(margin), float32(y+header-4), float32(width-2*margin), 1, colorSheetRule, false)
+		g.paint.Box(sheet, float32(margin), float32(y+header-4), float32(width-2*margin), 1, colorSheetRule)
 		y += header
 		for _, look := range sheetLooks {
 			g.text(sheet, city.Point{X: margin, Y: float64(y + cellH/2 - 8)}, look.name, ui.Body, colorSheetFaint)
@@ -244,6 +243,7 @@ func CheckLights(zoom float64) ([]string, error) {
 			}
 		}
 		problems = append(problems, g.checkOcclusion(zoom)...)
+		problems = append(problems, g.checkInFront(zoom)...)
 		problems = append(problems, g.checkLandmarks(zoom)...)
 		return nil
 	})
@@ -336,7 +336,7 @@ func (g *Game) sheetScene(zoom float64, buildings []*city.Building, feet []city.
 		g.kitRising(img, cam, buildingPiece(b), g.footOf(cam, b), nil, 1)
 		g.lightBuilding(cam, b)
 	}
-	vector.FillRect(img, 0, 0, sheetCellSize, sheetCellSize, colorNightOverlay, false)
+	wash(img, 0, 0, sheetCellSize, sheetCellSize)
 	g.endLights(img)
 	out := image.NewNRGBA(img.Bounds())
 	img.ReadPixels(out.Pix)
@@ -403,7 +403,7 @@ func (g *Game) sheetRising(cam *city.Camera, b *city.Building, rise float64, lig
 	defer img.Deallocate()
 	img.Fill(colorVoid)
 	g.kitRising(img, cam, buildingPiece(b), g.footOf(cam, b), nil, rise)
-	vector.FillRect(img, 0, 0, sheetCellSize, sheetCellSize, colorNightOverlay, false)
+	wash(img, 0, 0, sheetCellSize, sheetCellSize)
 	if l, ok := g.windowLights(cam, b, rise, 1); ok && lights {
 		g.drawWindows(img, cam, b, l, rise)
 	}

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -135,8 +134,8 @@ func (g *Game) drawCourses(screen *ebiten.Image, cam *city.Camera, b *city.Build
 		pad := max(2, th*0.2)
 		centre := city.Point{X: (bottom.Min.X + ground.X) / 2, Y: ground.Y - h*0.5}
 		plate := city.RectAt(centre.X-w/2-pad, centre.Y-th/2-pad*0.5, w+2*pad, th+pad)
-		vector.FillRect(screen, float32(plate.Min.X), float32(plate.Min.Y), float32(plate.Width()), float32(plate.Height()), colorPlaqueFace, false)
-		vector.StrokeRect(screen, float32(plate.Min.X), float32(plate.Min.Y), float32(plate.Width()), float32(plate.Height()), 1, colorPlaque, false)
+		g.paint.Box(screen, float32(plate.Min.X), float32(plate.Min.Y), float32(plate.Width()), float32(plate.Height()), colorPlaqueFace)
+		g.paint.BoxStroke(screen, float32(plate.Min.X), float32(plate.Min.Y), float32(plate.Width()), float32(plate.Height()), 1, colorPlaque)
 		g.text(screen, city.Point{X: plate.Min.X + pad, Y: plate.Min.Y + pad*0.5}, label, ui.Small, colorPlaque)
 	}
 }

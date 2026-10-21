@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
@@ -205,6 +206,17 @@ type lightOp struct {
 	// warm is whether the panes are tinted toward lit glass: a
 	// landmark's are (item 185).
 	warm bool
+	// cut is what a painted shape in front cuts the lights with, from
+	// and to its range in the cut buffers, alpha its strength, words and
+	// face a painted word's (item 195).
+	cut cutKind
+	// box is the screen box the op covers, so a window laid after a cut
+	// waits for it only when they meet.
+	box      image.Rectangle
+	from, to int
+	alpha    float32
+	words    string
+	face     text.Face
 }
 
 // beginLights starts the night's lights for a frame of a size: from here
@@ -219,34 +231,113 @@ func (g *Game) beginLights(width, height int) {
 	}
 	g.lightOps = g.lightOps[:0]
 	g.litBounds = image.Rectangle{}
-	g.lightsOn, g.windowDraws, g.landmarkDraws, g.punches = true, 0, 0, 0
+	g.litRects = g.litRects[:0]
+	g.cutVertices, g.cutIndices, g.cutPoints = g.cutVertices[:0], g.cutIndices[:0], g.cutPoints[:0]
+	g.lightsOn, g.windowDraws, g.landmarkDraws, g.punches, g.cuts = true, 0, 0, 0, 0
+	g.meshCut = -1
+	g.paint.Cut = lightCutter{g}
 }
 
-// endLights lays the night's lights in the order noted, each sprite
-// cutting out what was laid behind it, and puts them over the frame,
-// after the wash. Laid here rather than as the scene is drawn, the
-// scene's own draws stay batched together, and the cuts batch together.
+// endLights lays the night's lights in the order noted, each sprite and
+// painted shape cutting out what was laid behind it, and puts them over
+// the frame, after the wash. Laid here rather than as the scene is
+// drawn, the scene's own draws stay batched together; and each cut
+// waits to be laid until a window it meets, or the end, so the cuts
+// batch together too.
 func (g *Game) endLights(screen *ebiten.Image) {
 	if !g.lightsOn {
 		return
 	}
 	g.lightsOn = false
+	g.paint.Cut = nil
 	if len(g.lightOps) == 0 {
 		return
 	}
 	g.lights.Clear()
+	pending := g.pendingCuts[:0]
 	for _, op := range g.lightOps {
-		if op.punch {
-			g.lights.DrawImage(op.src, &ebiten.DrawImageOptions{GeoM: op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+		if op.punch || op.cut != cutNone {
+			pending = append(pending, op)
 			continue
 		}
+		due, kept := g.dueCuts[:0], pending[:0]
+		for _, c := range pending {
+			if meets(c.box, g.litRects[op.from:op.to]) {
+				due = append(due, c)
+			} else {
+				kept = append(kept, c)
+			}
+		}
+		g.layCuts(due)
+		g.dueCuts, pending = due[:0], kept
 		if op.warm {
 			colorm.DrawTriangles(g.lights, op.vertices, op.indices, op.src, warmGlass, warmOptions)
 			continue
 		}
 		g.lights.DrawTriangles(op.vertices, op.indices, op.src, windowOptions)
 	}
+	g.layCuts(pending)
+	g.pendingCuts = pending[:0]
 	screen.DrawImage(g.lights, nil)
+}
+
+// meets is whether a cut covers any of a window's panes. A cut laid
+// after a window it does not cover leaves it as it was, so a window
+// waits only for the cuts noted before it that it meets, and the rest
+// batch with the cuts after (item 195).
+func meets(box image.Rectangle, panes []image.Rectangle) bool {
+	for _, p := range panes {
+		if box.Overlaps(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// layCuts lays the cuts noted between two windows' lights. Each only
+// takes light away, so their order among themselves does not change the
+// result, and they are laid a kind and a source at a time, so that each
+// kind batches into as few draws as it can (item 195).
+func (g *Game) layCuts(ops []lightOp) {
+	for i, op := range ops {
+		if !op.punch || seenSource(ops[:i], op.src, true) {
+			continue
+		}
+		for _, p := range ops[i:] {
+			if p.punch && p.src == op.src {
+				g.lights.DrawImage(p.src, &ebiten.DrawImageOptions{GeoM: p.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+			}
+		}
+	}
+	for _, kind := range []cutKind{cutStamp, cutRing, cutMesh, cutWords} {
+		for i, op := range ops {
+			if op.cut != kind {
+				continue
+			}
+			if kind == cutStamp {
+				if seenSource(ops[:i], op.src, false) {
+					continue
+				}
+				for _, p := range ops[i:] {
+					if p.cut == cutStamp && p.src == op.src {
+						g.layCut(p)
+					}
+				}
+				continue
+			}
+			g.layCut(op)
+		}
+	}
+}
+
+// seenSource is whether any of ops is a punch, or a stamp cut, from src.
+func seenSource(ops []lightOp, src *ebiten.Image, punch bool) bool {
+	for _, op := range ops {
+		if op.src == src && (punch && op.punch || !punch && op.cut == cutStamp) {
+			return true
+		}
+	}
+	return false
 }
 
 // punch notes a sprite drawn with geo, to be cut out of any lights laid
@@ -270,7 +361,7 @@ func (g *Game) punch(img *ebiten.Image, geo ebiten.GeoM) {
 	if !box.Overlaps(g.litBounds) {
 		return
 	}
-	g.lightOps = append(g.lightOps, lightOp{src: img, geo: geo, punch: true})
+	g.lightOps = append(g.lightOps, lightOp{src: img, geo: geo, punch: true, box: box})
 	g.punches++
 }
 
@@ -299,10 +390,26 @@ func (g *Game) noteLightsTinted(vertices []ebiten.Vertex, indices []uint16, page
 	if page == nil {
 		return
 	}
-	for _, v := range vertices {
-		p := image.Rect(int(math.Floor(float64(v.DstX))), int(math.Floor(float64(v.DstY))), int(math.Ceil(float64(v.DstX)))+1, int(math.Ceil(float64(v.DstY)))+1)
-		g.litBounds = g.litBounds.Union(p)
+	step := 3
+	if len(indices)%6 == 0 {
+		step = 6
 	}
-	g.lightOps = append(g.lightOps, lightOp{vertices: vertices, indices: indices, src: page, warm: warm})
+	first := len(g.litRects)
+	for i := 0; i+step <= len(indices); i += step {
+		pane := image.Rectangle{}
+		for j, k := range indices[i : i+step] {
+			v := vertices[k]
+			p := pixelAround(float64(v.DstX), float64(v.DstY))
+			if j == 0 {
+				pane = p
+			} else {
+				pane = pane.Union(p)
+			}
+		}
+		g.litBounds = g.litBounds.Union(pane)
+		g.litRects = append(g.litRects, pane)
+	}
+	g.meshCut = -1
+	g.lightOps = append(g.lightOps, lightOp{vertices: vertices, indices: indices, src: page, warm: warm, from: first, to: len(g.litRects)})
 	g.windowDraws++
 }

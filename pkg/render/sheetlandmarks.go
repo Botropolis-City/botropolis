@@ -6,7 +6,6 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
@@ -113,7 +112,7 @@ func warmth(c color.NRGBA) int {
 // sheetLandmarkByDay draws a landmark by day, as the map does: no wash
 // and no lights.
 func (g *Game) sheetLandmarkByDay(cam *city.Camera, lot city.Rect, kit string) *image.NRGBA {
-	img := ebiten.NewImage(landmarkCellSize, landmarkCellSize)
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, landmarkCellSize, landmarkCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
 	img.Fill(colorVoid)
 	g.kit(img, cam, kit, landmarkTurn, lot.Center(), nil)
@@ -178,7 +177,7 @@ func (g *Game) landmarkPanes(cam *city.Camera, lot city.Rect, kit string) [][4]c
 // not nil, a building standing in front of it on foot. A nil camera
 // leaves the landmark out.
 func (g *Game) sheetLandmark(zoom float64, cam *city.Camera, lot city.Rect, kit string, on float64, front *city.Building, foot city.Point) *image.NRGBA {
-	img := ebiten.NewImage(landmarkCellSize, landmarkCellSize)
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, landmarkCellSize, landmarkCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
 	img.Fill(colorVoid)
 	g.beginLights(landmarkCellSize, landmarkCellSize)
@@ -193,7 +192,7 @@ func (g *Game) sheetLandmark(zoom float64, cam *city.Camera, lot city.Rect, kit 
 		fc.Offset = city.Point{X: foot.X/zoom - p.X, Y: foot.Y/zoom - p.Y}
 		g.kitRising(img, fc, buildingPiece(front), g.footOf(fc, front), nil, 1)
 	}
-	vector.FillRect(img, 0, 0, landmarkCellSize, landmarkCellSize, colorNightOverlay, false)
+	wash(img, 0, 0, landmarkCellSize, landmarkCellSize)
 	g.endLights(img)
 	out := image.NewNRGBA(img.Bounds())
 	img.ReadPixels(out.Pix)

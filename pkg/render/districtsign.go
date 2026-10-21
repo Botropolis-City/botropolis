@@ -2,7 +2,6 @@ package render
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
@@ -24,8 +23,8 @@ func (g *Game) districtSign(screen *ebiten.Image, cam *city.Camera, d *city.Dist
 	stroke := float32(th.Px(1))
 	g.queueSign(board, city.Rect{Min: city.Point{X: foot.X - float64(stroke), Y: board.Max.Y}, Max: city.Point{X: foot.X + float64(stroke), Y: foot.Y}})
 	g.strokeLine(screen, float32(foot.X), float32(foot.Y), float32(foot.X), float32(board.Max.Y), stroke*2, colorKitKerb)
-	vector.FillRect(screen, float32(board.Min.X), float32(board.Min.Y), float32(board.Width()), float32(board.Height()), colorKitKerb, false)
-	vector.StrokeRect(screen, float32(board.Min.X), float32(board.Min.Y), float32(board.Width()), float32(board.Height()), stroke, colorKitFloor, false)
+	g.paint.Box(screen, float32(board.Min.X), float32(board.Min.Y), float32(board.Width()), float32(board.Height()), colorKitKerb)
+	g.paint.BoxStroke(screen, float32(board.Min.X), float32(board.Min.Y), float32(board.Width()), float32(board.Height()), stroke, colorKitFloor)
 	g.sign(screen, laid.Name, colorKitFloor)
 	g.sign(screen, laid.Move, th.Color(ui.MoveTone(sign.Tone)))
 	return true

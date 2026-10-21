@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/format"
@@ -113,7 +112,7 @@ func (g *Game) drawPlanCoast(screen *ebiten.Image, width, height float64, coast 
 	if len(coast) < 3 {
 		return
 	}
-	vector.FillRect(screen, 0, 0, float32(width), float32(height), colorPlanWater, false)
+	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorPlanWater)
 	if shape != g.coastShape {
 		g.coast.Forget()
 		g.coastShape = shape
@@ -192,7 +191,7 @@ func (g *Game) drawCityPlan(screen *ebiten.Image, width, height, alpha float64) 
 	}
 	g.scene.SetPlanCovers(g.planCovers(width, height))
 	plan := g.scene.CityPlan()
-	vector.FillRect(target, 0, 0, float32(width), float32(height), colorPlanPaper, false)
+	g.paint.Box(target, 0, 0, float32(width), float32(height), colorPlanPaper)
 	g.drawPlanCoast(target, width, height, plan.Coast, plan.CoastShape)
 	g.drawPlanGrid(target, width, height)
 	for _, b := range plan.Badges {
@@ -232,10 +231,10 @@ func (g *Game) drawCityPlan(screen *ebiten.Image, width, height, alpha float64) 
 // drawPlanGrid is the sheet's faint grid.
 func (g *Game) drawPlanGrid(screen *ebiten.Image, width, height float64) {
 	for x := math.Mod(width/2, planGrid); x < width; x += planGrid {
-		vector.FillRect(screen, float32(x), 0, 1, float32(height), colorPlanGrid, false)
+		g.paint.Box(screen, float32(x), 0, 1, float32(height), colorPlanGrid)
 	}
 	for y := math.Mod(height/2, planGrid); y < height; y += planGrid {
-		vector.FillRect(screen, 0, float32(y), float32(width), 1, colorPlanGrid, false)
+		g.paint.Box(screen, 0, float32(y), float32(width), 1, colorPlanGrid)
 	}
 }
 
@@ -283,7 +282,7 @@ func (g *Game) drawPlanBadge(screen *ebiten.Image, b city.PlanBadge) {
 	g.roundRect(screen, r, th.Radius()/2, colorPlanPaper)
 	g.roundRect(screen, r, th.Radius()/2, th.Palette.Panel)
 	edge := city.RectAt(r.Min.X, r.Min.Y, 4, r.Height())
-	vector.FillRect(screen, float32(edge.Min.X), float32(edge.Min.Y), float32(edge.Width()), float32(edge.Height()), tone, false)
+	g.paint.Box(screen, float32(edge.Min.X), float32(edge.Min.Y), float32(edge.Width()), float32(edge.Height()), tone)
 	pad := th.Grid() / 2
 	x := r.Min.X + 4 + pad
 	room := r.Max.X - pad - x
@@ -345,7 +344,7 @@ func (g *Game) drawPlanLegend(screen *ebiten.Image, plan city.CityPlan) {
 	}
 	const barW, barH = 96.0, 6.0
 	if len(plan.Readings) > 0 && len(plan.Tones) > 0 {
-		vector.FillRect(screen, float32(x), float32(mid-10), 1, 20, th.Palette.Hairline, false)
+		g.paint.Box(screen, float32(x), float32(mid-10), 1, 20, th.Palette.Hairline)
 		x += 3 * pad
 	}
 	for _, rd := range plan.Readings {
@@ -353,9 +352,9 @@ func (g *Game) drawPlanLegend(screen *ebiten.Image, plan city.CityPlan) {
 		tw, th1 := g.faces.Measure(rd.Title, ui.Small)
 		g.text(screen, city.Point{X: x, Y: mid - th1 - 1}, rd.Title, ui.Small, th.Palette.Dim)
 		bar := city.RectAt(x, mid+3, barW, barH)
-		vector.FillRect(screen, float32(bar.Min.X), float32(bar.Min.Y), float32(barW), float32(barH), colorPlanTrack, false)
+		g.paint.Box(screen, float32(bar.Min.X), float32(bar.Min.Y), float32(barW), float32(barH), colorPlanTrack)
 		fill := ui.Sequential.At(math.Min(1, math.Max(0, rd.Percent/100)))
-		vector.FillRect(screen, float32(bar.Min.X), float32(bar.Min.Y), float32(barW*math.Min(1, math.Max(0, rd.Percent/100))), float32(barH), fill, false)
+		g.paint.Box(screen, float32(bar.Min.X), float32(bar.Min.Y), float32(barW*math.Min(1, math.Max(0, rd.Percent/100))), float32(barH), fill)
 		pw, ph := g.faces.Measure(pct, ui.Small)
 		g.text(screen, city.Point{X: x + barW + pad/2, Y: bar.Min.Y + barH/2 - ph/2}, pct, ui.Small, th.Palette.Text)
 		x += math.Max(tw, barW+pad/2+pw) + 4*pad

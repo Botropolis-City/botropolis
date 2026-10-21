@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -329,8 +328,8 @@ func (g *Game) drawWork(screen *ebiten.Image, cam *city.Camera, b *city.Building
 		if l.Merged {
 			size *= 1.5
 		}
-		vector.FillRect(screen, float32(at.X-size/2), float32(at.Y-size), float32(size), float32(size), colorLoad, false)
-		vector.StrokeRect(screen, float32(at.X-size/2), float32(at.Y-size), float32(size), float32(size), 1, colorHoist, false)
+		g.paint.Box(screen, float32(at.X-size/2), float32(at.Y-size), float32(size), float32(size), colorLoad)
+		g.paint.BoxStroke(screen, float32(at.X-size/2), float32(at.Y-size), float32(size), float32(size), 1, colorHoist)
 	}
 }
 
@@ -346,8 +345,8 @@ func (g *Game) drawRoofItems(screen *ebiten.Image, items []roofItem, storey floa
 		switch it.kind {
 		case "column":
 			h := float32(storey)
-			vector.StrokeLine(screen, x, y, x, y-h, max(2, s*0.35), colorSteel, false)
-			vector.StrokeLine(screen, x-s*0.6, y-h*0.6, x+s*0.6, y-h*0.6, max(1.5, s*0.2), colorSteel, false)
+			g.paint.Bar(screen, x, y, x, y-h, max(2, s*0.35), colorSteel)
+			g.paint.Bar(screen, x-s*0.6, y-h*0.6, x+s*0.6, y-h*0.6, max(1.5, s*0.2), colorSteel)
 		}
 	}
 }
