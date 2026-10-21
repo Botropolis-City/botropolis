@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
 
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
@@ -201,6 +202,9 @@ type lightOp struct {
 	src      *ebiten.Image
 	geo      ebiten.GeoM
 	punch    bool
+	// warm is whether the panes are tinted toward lit glass: a
+	// landmark's are (item 185).
+	warm bool
 }
 
 // beginLights starts the night's lights for a frame of a size: from here
@@ -234,6 +238,10 @@ func (g *Game) endLights(screen *ebiten.Image) {
 	for _, op := range g.lightOps {
 		if op.punch {
 			g.lights.DrawImage(op.src, &ebiten.DrawImageOptions{GeoM: op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+			continue
+		}
+		if op.warm {
+			colorm.DrawTriangles(g.lights, op.vertices, op.indices, op.src, warmGlass, warmOptions)
 			continue
 		}
 		g.lights.DrawTriangles(op.vertices, op.indices, op.src, windowOptions)
@@ -283,6 +291,11 @@ func (g *Game) lightBuilding(cam *city.Camera, b *city.Building) {
 // noteLights notes lit panes to be laid in depth order, in one draw, and
 // widens what any sprite drawn after must cut out of.
 func (g *Game) noteLights(vertices []ebiten.Vertex, indices []uint16, page *ebiten.Image) {
+	g.noteLightsTinted(vertices, indices, page, false)
+}
+
+// noteLightsTinted notes lit panes as noteLights does, tinted warm or not.
+func (g *Game) noteLightsTinted(vertices []ebiten.Vertex, indices []uint16, page *ebiten.Image, warm bool) {
 	if page == nil {
 		return
 	}
@@ -290,6 +303,6 @@ func (g *Game) noteLights(vertices []ebiten.Vertex, indices []uint16, page *ebit
 		p := image.Rect(int(math.Floor(float64(v.DstX))), int(math.Floor(float64(v.DstY))), int(math.Ceil(float64(v.DstX)))+1, int(math.Ceil(float64(v.DstY)))+1)
 		g.litBounds = g.litBounds.Union(p)
 	}
-	g.lightOps = append(g.lightOps, lightOp{vertices: vertices, indices: indices, src: page})
+	g.lightOps = append(g.lightOps, lightOp{vertices: vertices, indices: indices, src: page, warm: warm})
 	g.windowDraws++
 }

@@ -224,7 +224,7 @@ func (g *Game) districtMonument(screen *ebiten.Image, cam *city.Camera, d *city.
 	ellipse(screen, sign.Shadow, colorMonumentShadow)
 	if night {
 		lamp := city.Point{X: ground.X, Y: ground.Y - sign.Base.Height()*0.4}
-		glow(screen, lamp, lit(sign.Base.Width()*0.4, minPlantGlow), boost(colorMonumentLamp, cam.Zoom))
+		g.glow(screen, lamp, lit(sign.Base.Width()*0.4, minMonumentGlow), boost(colorMonumentLamp, cam.Zoom))
 	}
 
 	// Returns before faces, so each face laps over the side it shows.

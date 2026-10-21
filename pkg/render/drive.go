@@ -138,6 +138,9 @@ type Shown struct {
 	// LandmarkDraws is how many of the window draws were landmarks'
 	// (item 185).
 	LandmarkDraws int
+	// Glows is where each glow was drawn: a lamp's, a monument's
+	// (item 185).
+	Glows []city.Point
 }
 
 // ShownLabel is one drawn label: its kind, "sign", "plate", "caption",
@@ -579,6 +582,7 @@ func (g *Game) noteShown() {
 	s.Labels = slices.Clone(g.shownLabels)
 	s.WorldDrawn, s.TagsDrawn, s.TagsUnderWorld = g.drawnOrder.lastWorld > 0, len(g.drawnOrder.tags), g.drawnOrder.tagsUnderWorld()
 	s.Sprites, s.WindowDraws, s.LandmarkDraws, s.Punches = g.drawnOrder.n-len(g.drawnOrder.tags), g.windowDraws, g.landmarkDraws, g.punches
+	s.Glows = append([]city.Point(nil), g.glows...)
 	g.mu.Unlock()
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID

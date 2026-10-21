@@ -131,6 +131,32 @@ func TestLandmarkLights(t *testing.T) {
 	})
 }
 
+// Item 185: the plant's round glow went at night (Aria, 2026-10-20);
+// its spend stays on the strip's "$… 24h" chip and in the Cost lens.
+func TestThePlantHasNoGlow(t *testing.T) {
+	t.Run("when it is night and the plant stands", func(t *testing.T) {
+		now := time.Date(2026, 10, 12, 22, 30, 0, 0, time.Local)
+		d, err := NewDrive(DriveOptions{Home: helpers.ParkedWeek(t, 20, now, "The plant at night"), Now: now})
+		require.NoError(t, err)
+		require.NoError(t, d.Run(10))
+		c := d.game.scene.City()
+		require.Positive(t, c.Plant.Rect.Area())
+		cam := d.game.scene.Camera()
+		_, _, _, plant, ok := d.game.kitPlace(cam, kitPlant, landmarkTurn, c.Plant.Rect.Center(), 0)
+		require.True(t, ok)
+		var on []city.Point
+		for _, p := range d.Shown().Glows {
+			if plant.Contains(p) {
+				on = append(on, p)
+			}
+		}
+
+		t.Run("it should draw no glow on the plant", func(t *testing.T) {
+			assert.Empty(t, on)
+		})
+	})
+}
+
 // Item 185: the map itself lights the landmarks, not only the helper.
 func TestLandmarksLitOnTheMap(t *testing.T) {
 	for _, c := range []struct {

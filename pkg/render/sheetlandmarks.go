@@ -3,6 +3,7 @@ package render
 import (
 	"fmt"
 	"image"
+	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -28,9 +29,10 @@ func (g *Game) checkLandmarks(zoom float64) []string {
 		for _, heading := range assets.Headings {
 			cam, lot := landmarkSheetCam(zoom, heading, kit, city.Point{X: landmarkCellSize / 2, Y: landmarkCellSize - 32})
 			on, off := g.sheetLandmark(zoom, cam, lot, kit, 1, nil, city.Point{}), g.sheetLandmark(zoom, cam, lot, kit, 0, nil, city.Point{})
+			day := g.sheetLandmarkByDay(cam, lot, kit)
 			panes := g.landmarkPanes(cam, lot, kit)
 			name, lettered := g.landmarkLettering(cam, cityLandmarks(landmarkCity(kit, lot)), 0)
-			stray, lit, onName := 0, 0, 0
+			stray, lit, onName, warmer := 0, 0, 0, 0
 			bounds := on.Bounds()
 			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 				for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -38,6 +40,7 @@ func (g *Game) checkLandmarks(zoom float64) []string {
 						continue
 					}
 					lit++
+					warmer += warmth(on.NRGBAAt(x, y)) - warmth(day.NRGBAAt(x, y))
 					if !nearPane(panes, x, y, litMargin) {
 						stray++
 					}
@@ -54,6 +57,9 @@ func (g *Game) checkLandmarks(zoom float64) []string {
 				problems = append(problems, label+": has windows but lit nothing")
 			case len(panes) == 0 && lit > 0:
 				problems = append(problems, fmt.Sprintf("%s: has no windows but lit %d pixels", label, lit))
+			}
+			if lit > 0 && warmer < litWarmer*lit {
+				problems = append(problems, fmt.Sprintf("%s: its lit glass is %.1f warmer than by day, on average, not %d", label, float64(warmer)/float64(lit), litWarmer))
 			}
 			if onName > 0 {
 				problems = append(problems, fmt.Sprintf("%s: %d lit pixels on its painted name", label, onName))
@@ -83,6 +89,27 @@ func (g *Game) checkLandmarkOcclusion(zoom float64) []string {
 	mask := g.sheetLandmark(zoom, nil, lot, kitHall, 0, front, at)
 	blank := g.sheetLandmark(zoom, nil, lot, kitHall, 0, nil, at)
 	return seenThroughFront("a lit city hall behind a dark building", on, off, mask, blank)
+}
+
+// litWarmer is how much warmer, on average, a landmark's lit glass must
+// be at night than by day: a little yellow (Aria, 2026-10-20).
+const litWarmer = 20
+
+// warmth is how much redder than blue a colour is.
+func warmth(c color.NRGBA) int {
+	return int(c.R) - int(c.B)
+}
+
+// sheetLandmarkByDay draws a landmark by day, as the map does: no wash
+// and no lights.
+func (g *Game) sheetLandmarkByDay(cam *city.Camera, lot city.Rect, kit string) *image.NRGBA {
+	img := ebiten.NewImage(landmarkCellSize, landmarkCellSize)
+	defer img.Deallocate()
+	img.Fill(colorVoid)
+	g.kit(img, cam, kit, landmarkTurn, lot.Center(), nil)
+	out := image.NewNRGBA(img.Bounds())
+	img.ReadPixels(out.Pix)
+	return out
 }
 
 // landmarkSheetCam is a camera that stands a landmark's lot on foot, and

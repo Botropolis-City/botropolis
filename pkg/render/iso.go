@@ -167,7 +167,7 @@ func (g *Game) fountain(screen *ebiten.Image, cam *city.Camera, c *city.City, se
 func (g *Game) lamp(screen *ebiten.Image, cam *city.Camera, cell city.Cell, night bool) {
 	r := g.kit(screen, cam, kitLamp, 0, cell.Center(), nil)
 	if night && r.Area() > 0 {
-		glow(screen, city.Point{X: r.Min.X + r.Width()*0.5, Y: r.Min.Y + r.Height()*0.12}, lit(7*cam.Zoom, minLampGlow), boost(colorLampGlow, cam.Zoom))
+		g.glow(screen, city.Point{X: r.Min.X + r.Width()*0.5, Y: r.Min.Y + r.Height()*0.12}, lit(7*cam.Zoom, minLampGlow), boost(colorLampGlow, cam.Zoom))
 	}
 }
 
@@ -895,7 +895,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 	}
 	fade := g.fadeUnkept(&screen, items, airborne)
-	g.windowDraws, g.landmarkDraws, g.punches = 0, 0, 0
+	g.windowDraws, g.landmarkDraws, g.punches, g.glows = 0, 0, 0, g.glows[:0]
 	if c.Night {
 		g.beginLights(int(width), int(height))
 	}
@@ -909,7 +909,6 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if c.Night {
 		vector.FillRect(screen, 0, 0, float32(width), float32(height), colorNightOverlay, false)
 		g.endLights(screen)
-		g.nightLights(screen, cam, c)
 	}
 	g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
 	g.groupLines(screen, cam, true)
@@ -1215,18 +1214,19 @@ func (g *Game) drawCar(screen *ebiten.Image, cam *city.Camera, car car) {
 }
 
 // Night: the wash dims everything, then every building with a session
-// awake in it shows its own windows lit through the dark (item 166), so
-// at night the map reads as "which lights are on".
-var colorPlantGlow = color.NRGBA{0xf0, 0xb4, 0x4c, 0x40}
+// awake in it shows its own windows lit through the dark (item 166), and
+// so do the landmarks (item 185), so at night the map reads as "which
+// lights are on". The plant's round glow went with item 185: its spend
+// is on the strip's "$… 24h" chip and in the Cost lens.
 
 // At fit a lamp is a pixel, so every lamp keeps a floor in screen pixels
 // and gets brighter the further out the view is: what matters at fit is
 // which lights are on, not their size.
 const (
-	minLampGlow   = 3.0
-	minPlantGlow  = 14.0
-	glowBoostZoom = 0.6
-	glowBoostMax  = 2.5
+	minLampGlow     = 3.0
+	minMonumentGlow = 14.0
+	glowBoostZoom   = 0.6
+	glowBoostMax    = 2.5
 )
 
 // lit is a glow radius with a floor in pixels.
@@ -1243,16 +1243,6 @@ func boost(c color.NRGBA, zoom float64) color.NRGBA {
 	k := math.Min(glowBoostMax, glowBoostZoom/zoom)
 	c.A = uint8(math.Min(255, float64(c.A)*k))
 	return c
-}
-
-// nightLights is the plant's glow over the night; the buildings' windows
-// are laid with the buildings, in depth order (lightBuilding).
-func (g *Game) nightLights(screen *ebiten.Image, cam *city.Camera, c *city.City) {
-	if c.Plant.Rect.Area() > 0 {
-		foot := cam.WorldToScreen(c.Plant.Rect.Center())
-		size := g.kitSizeTurned(cam, kitPlant, landmarkTurn)
-		glow(screen, city.Point{X: foot.X, Y: foot.Y - float64(size.Y)*0.6}, lit(float64(size.X)*0.22, minPlantGlow), boost(colorPlantGlow, cam.Zoom))
-	}
 }
 
 // windowRows is the height above its foot of each lit storey's windows:
@@ -1289,8 +1279,10 @@ func (g *Game) storeyFrame(cam *city.Camera, b *city.Building, size image.Point)
 	return n, h * 0.7 / float64(n), h * 0.15
 }
 
-// glow is a soft additive disc: light, not paint.
-func glow(screen *ebiten.Image, at city.Point, radius float64, col color.NRGBA) {
+// glow is a soft additive disc: light, not paint. Where each lands is
+// kept for the frame (item 185).
+func (g *Game) glow(screen *ebiten.Image, at city.Point, radius float64, col color.NRGBA) {
+	g.glows = append(g.glows, at)
 	var path vector.Path
 	path.Arc(float32(at.X), float32(at.Y), float32(radius), 0, 2*math.Pi, vector.Clockwise)
 	path.Close()

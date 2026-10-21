@@ -1,7 +1,10 @@
 package render
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -52,6 +55,23 @@ func (g *Game) lightLandmark(cam *city.Camera, lot city.Rect, kit string, on flo
 	if page == nil {
 		return
 	}
-	g.noteLights(vertices, indices, page)
+	g.noteLightsTinted(vertices, indices, page, true)
 	g.landmarkDraws++
 }
+
+// The landmarks' glass is the kit's blue, so lit at its own brightness it
+// reads cool beside the city's warm windows; at night it is mixed a
+// little toward them (Aria, 2026-10-20: "Tint them a little yellow at
+// night only"). By day nothing is laid over it.
+var (
+	colorWarmGlass = color.NRGBA{0xf5, 0xcd, 0x78, 0xff}
+	landmarkWarmth = 0.3
+	warmGlass      = func() colorm.ColorM {
+		var m colorm.ColorM
+		k := landmarkWarmth
+		m.Scale(1-k, 1-k, 1-k, 1)
+		m.Translate(k*float64(colorWarmGlass.R)/0xff, k*float64(colorWarmGlass.G)/0xff, k*float64(colorWarmGlass.B)/0xff, 0)
+		return m
+	}()
+	warmOptions = &colorm.DrawTrianglesOptions{Filter: ebiten.FilterLinear, ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}
+)
