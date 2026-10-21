@@ -266,6 +266,11 @@ type Scene struct {
 	// its own stands still. It is not the same as instant, which a
 	// still frame sets so the camera does not have to ease into place.
 	reduced bool
+	// plantLights is how far the power plant's windows are on, and
+	// plantFaded whether it has been faded yet, before which it follows
+	// the sessions at once (item 185).
+	plantLights float64
+	plantFaded  bool
 	// compacted, skips and jobs are each session's compactions and skip
 	// as last seen, and the compaction jobs under way (item 109).
 	compacted map[string]int
@@ -912,6 +917,7 @@ func (s *Scene) Animate(dt float64) {
 	s.applyNight()
 	s.releaseDepot()
 	s.fadePlan(dt)
+	s.fadePlant(dt)
 	if s.zoomTarget <= 0 || s.zoomTarget == s.camera.Zoom {
 		return
 	}

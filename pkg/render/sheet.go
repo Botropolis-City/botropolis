@@ -244,6 +244,7 @@ func CheckLights(zoom float64) ([]string, error) {
 			}
 		}
 		problems = append(problems, g.checkOcclusion(zoom)...)
+		problems = append(problems, g.checkLandmarks(zoom)...)
 		return nil
 	})
 	return problems, err
@@ -268,6 +269,13 @@ func (g *Game) checkOcclusion(zoom float64) []string {
 	on, off := scene(true), scene(false)
 	mask := g.sheetScene(zoom, []*city.Building{front}, []city.Point{frontFoot})
 	blank := g.sheetScene(zoom, nil, nil)
+	return seenThroughFront("a lit tower behind a dark building", on, off, mask, blank)
+}
+
+// seenThroughFront reports any pixel the lights changed, between on and
+// off, that lies solidly inside the dark building in front, which mask
+// draws alone over blank: a window behind it must not show through it.
+func seenThroughFront(name string, on, off, mask, blank *image.NRGBA) []string {
 	// Inside the building in front, two pixels in from its soft edge, where
 	// it is solid: at the edge, filtered, it is part see-through, and was
 	// before.
@@ -296,9 +304,9 @@ func (g *Game) checkOcclusion(zoom float64) []string {
 	}
 	switch {
 	case lit == 0:
-		return []string{"a lit tower behind a dark building: lit nothing"}
+		return []string{name + ": lit nothing"}
 	case through > 0:
-		return []string{fmt.Sprintf("a lit tower behind a dark building: %d lit pixels show through the building in front", through)}
+		return []string{fmt.Sprintf("%s: %d lit pixels show through the building in front", name, through)}
 	}
 	return nil
 }

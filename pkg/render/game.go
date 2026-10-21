@@ -113,6 +113,8 @@ type Game struct {
 	kits      *kits
 	// windowDraws counts the night's window draws this frame (item 166).
 	windowDraws int
+	// landmarkDraws counts how many of those were landmarks' (item 185).
+	landmarkDraws int
 	// lights is the night's lit windows, laid in depth order as the
 	// buildings are drawn and cut away by every sprite drawn in front of
 	// them, then put over the night wash; lightsOn while it is being laid

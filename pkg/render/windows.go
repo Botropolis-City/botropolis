@@ -145,13 +145,25 @@ func (g *Game) windowTriangles(cam *city.Camera, b *city.Building, lights litWin
 	if !ok || sprite.Page >= len(atlas.pages) {
 		return nil, nil, nil
 	}
-	scale := cam.Zoom / atlas.Zoom
-	foot := g.footOf(cam, b)
-	a := float32(lights.alpha)
+	keep := func(i int) bool {
+		return lights.all || (i < len(lights.of) && lights.of[i] < lights.storeys)
+	}
+	vertices, indices := paneVertices(sprite, g.footOf(cam, b), cam.Zoom/atlas.Zoom, rise, lights.alpha, keep)
+	if len(indices) == 0 {
+		return nil, nil, nil
+	}
+	return vertices, indices, atlas.pages[sprite.Page]
+}
+
+// paneVertices is a sprite's panes that keep says to light, as triangles
+// over its atlas page, where the sprite stands on foot at scale, risen
+// as far as rise, at a strength of alpha.
+func paneVertices(sprite assets.KitSprite, foot city.Point, scale, rise, alpha float64, keep func(int) bool) ([]ebiten.Vertex, []uint16) {
+	a := float32(alpha)
 	vertices := make([]ebiten.Vertex, 0, 4*len(sprite.Panes))
 	indices := make([]uint16, 0, 6*len(sprite.Panes))
 	for i, q := range sprite.Panes {
-		if !lights.all && (i >= len(lights.of) || lights.of[i] >= lights.storeys) {
+		if !keep(i) {
 			continue
 		}
 		base := uint16(len(vertices))
@@ -166,10 +178,7 @@ func (g *Game) windowTriangles(cam *city.Camera, b *city.Building, lights litWin
 		}
 		indices = append(indices, base, base+1, base+2, base, base+2, base+3)
 	}
-	if len(indices) == 0 {
-		return nil, nil, nil
-	}
-	return vertices, indices, atlas.pages[sprite.Page]
+	return vertices, indices
 }
 
 var windowOptions = &ebiten.DrawTrianglesOptions{Filter: ebiten.FilterLinear}
@@ -206,7 +215,7 @@ func (g *Game) beginLights(width, height int) {
 	}
 	g.lightOps = g.lightOps[:0]
 	g.litBounds = image.Rectangle{}
-	g.lightsOn, g.windowDraws, g.punches = true, 0, 0
+	g.lightsOn, g.windowDraws, g.landmarkDraws, g.punches = true, 0, 0, 0
 }
 
 // endLights lays the night's lights in the order noted, each sprite
@@ -268,7 +277,12 @@ func (g *Game) lightBuilding(cam *city.Camera, b *city.Building) {
 	if !ok {
 		return
 	}
-	vertices, indices, page := g.windowTriangles(cam, b, lights, rise)
+	g.noteLights(g.windowTriangles(cam, b, lights, rise))
+}
+
+// noteLights notes lit panes to be laid in depth order, in one draw, and
+// widens what any sprite drawn after must cut out of.
+func (g *Game) noteLights(vertices []ebiten.Vertex, indices []uint16, page *ebiten.Image) {
 	if page == nil {
 		return
 	}
