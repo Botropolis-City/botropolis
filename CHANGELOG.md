@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `p` still saves a screenshot.
   `make build-dev` builds them in, with the `devtools` tag.
 
+- **At night the landmarks light their windows too.**
+  The library and City Hall are lit all night, and the power plant while any session is working, each from its own windows, warmed a little yellow; by day they look as they did.
+  The power plant's round glow at night is gone: its spend is on the strip's "$… 24h" chip and in the Cost lens.
+
 ### Deprecated
 
 - These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).
