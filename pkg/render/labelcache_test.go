@@ -1,6 +1,7 @@
 package render
 
 import (
+	"image"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,6 +39,26 @@ func TestLabelCache(t *testing.T) {
 
 		t.Run("it should draw it from the baked image after", func(t *testing.T) {
 			assert.Equal(t, []labelUse{labelBaked}, last)
+		})
+	})
+
+	t.Run("when labels are placed on a page of their own", func(t *testing.T) {
+		p := &labelPage{w: 100, h: 40}
+		a, _ := p.place(60, 10)
+		b, _ := p.place(30, 12)
+		c, _ := p.place(50, 8)
+		_, full := p.place(90, 30)
+
+		t.Run("it should set them side by side while they fit", func(t *testing.T) {
+			assert.Equal(t, []image.Rectangle{image.Rect(0, 0, 60, 10), image.Rect(61, 0, 91, 12)}, []image.Rectangle{a, b})
+		})
+
+		t.Run("it should start a shelf under the tallest when the row is full", func(t *testing.T) {
+			assert.Equal(t, image.Rect(0, 13, 50, 21), c)
+		})
+
+		t.Run("it should say when the page is full", func(t *testing.T) {
+			assert.False(t, full)
 		})
 	})
 

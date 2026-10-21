@@ -11,10 +11,12 @@ import (
 
 // A map label's plate and words change far less often than they are
 // drawn, and laying words out costs six indices a glyph; so each label
-// is recorded, hashed relative to where it lands, baked into an image
-// once it has held for a frame, and blitted after (item 193). Small
-// images share Ebitengine's atlas, so every label's blit goes down as one
-// draw.
+// is recorded, hashed relative to where it lands, baked once it has held
+// for a frame, and blitted after (item 193). The labels are baked onto
+// one page of their own, so every label's blit reads one texture and
+// goes down as one draw; on Ebitengine's shared atlas each new image was
+// moved onto it some frames later, a copy and two target switches in a
+// frame that changed nothing.
 
 // labelCacheCap is the bytes of label images kept: labels are small, and
 // a city shows a few dozen.
@@ -31,16 +33,49 @@ type labelKey struct {
 	phase [2]int16
 }
 
-// bakedLabel is a label's image and where it stands from the pixel the
-// label lands in.
+// bakedLabel is a label's image, part of the label page, and where it
+// stands from the pixel the label lands in. The page's room comes back
+// only when the page fills and starts again, so dropping one frees
+// nothing.
 type bakedLabel struct {
 	img *ebiten.Image
 	at  image.Point
 }
 
-func (b *bakedLabel) Deallocate() {
-	if b.img != nil {
-		b.img.Deallocate()
+func (b *bakedLabel) Deallocate() {}
+
+// labelPageSize is the label page's width and height.
+const labelPageSize = 1024
+
+// labelPage places labels on one image in shelves, left to right, a new
+// shelf under the tallest of the last when a row fills, with a pixel
+// between, so linear filtering never reads a neighbour.
+type labelPage struct {
+	img         *ebiten.Image
+	w, h        int
+	x, y, shelf int
+}
+
+// place is where a label w×h goes on the page, or false when the page
+// is full.
+func (p *labelPage) place(w, h int) (image.Rectangle, bool) {
+	if p.x+w > p.w {
+		p.x, p.y, p.shelf = 0, p.y+p.shelf+1, 0
+	}
+	if p.x+w > p.w || p.y+h > p.h {
+		return image.Rectangle{}, false
+	}
+	r := image.Rect(p.x, p.y, p.x+w, p.y+h)
+	p.x += w + 1
+	p.shelf = max(p.shelf, h)
+	return r, true
+}
+
+// reset empties the page.
+func (p *labelPage) reset() {
+	p.x, p.y, p.shelf = 0, 0, 0
+	if p.img != nil {
+		p.img.Clear()
 	}
 }
 
@@ -58,10 +93,11 @@ type labelCache struct {
 	looks *lookCache[labelKey, *bakedLabel]
 	seen  map[labelKey]int
 	frame int
+	page  labelPage
 }
 
 func newLabelCache() *labelCache {
-	return &labelCache{looks: newLookCache[labelKey, *bakedLabel](labelCacheCap), seen: map[labelKey]int{}}
+	return &labelCache{looks: newLookCache[labelKey, *bakedLabel](labelCacheCap), seen: map[labelKey]int{}, page: labelPage{w: labelPageSize, h: labelPageSize}}
 }
 
 // next starts a frame, forgetting keys not drawn for a while.
@@ -133,10 +169,24 @@ func (g *Game) drawLabel(dst *ebiten.Image, draw func(*ebiten.Image, city.Rect),
 		if box.Empty() {
 			return
 		}
-		img := ebiten.NewImage(box.Dx(), box.Dy())
-		l.playShifted(img, in, box.Min.Mul(-1))
-		b := &bakedLabel{img: img, at: box.Min.Sub(cell)}
-		g.labelLooks.keep(key, b, box.Dx()*box.Dy()*4)
+		lc := g.labelLooks
+		r, ok := lc.page.place(box.Dx(), box.Dy())
+		if !ok {
+			// Full: start the page again, and every label with it.
+			lc.page.reset()
+			lc.looks = newLookCache[labelKey, *bakedLabel](labelCacheCap)
+			r, ok = lc.page.place(box.Dx(), box.Dy())
+		}
+		if !ok {
+			break
+		}
+		if lc.page.img == nil {
+			lc.page.img = sizedImage(nil, image.Pt(lc.page.w, lc.page.h))
+		}
+		sub := lc.page.img.SubImage(r).(*ebiten.Image)
+		l.playShifted(sub, in, r.Min.Sub(box.Min))
+		b := &bakedLabel{img: sub, at: box.Min.Sub(cell)}
+		lc.keep(key, b, box.Dx()*box.Dy()*4)
 		g.blitLabel(dst, b, cell)
 		return
 	}

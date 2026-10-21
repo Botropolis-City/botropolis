@@ -124,15 +124,21 @@ What moves — cars, drones and their shadows, trains, boats, tugs, hauls, messa
 Inside a rectangle those are the same draws in the same order as drawing the whole frame, so nothing blends twice, which is what sank the attempt below.
 The night's lights are kept the same way, and the group lines are a layer of their own over the movers.
 The ground layer is recorded too, so a snapshot that rebuilds the city without changing how it looks composes nothing.
-A key new this frame is drawn straight rather than composed, so a pan costs what it did; it is composed once it holds for a frame.
+A key new this frame is drawn straight rather than composed, as a zoom's frames are; it is composed once it holds for a frame.
+A pan by whole pixels is the exception, and the most common move: what every draw paints is hashed relative to the camera's origin — a painted mesh by the shapes it was asked for, since its float32 vertices round a hair differently as they move — so a whole-pixel pan changes no hash, and the ground, the still city, its lights and the group lines are shifted, with only the strips the pan uncovers composed.
+The ground is compared draw by draw, and where it is painted again so is the city over it.
+The rectangles of movers are played as one stream, a draw at a time into every rectangle it meets, and draws from one source are put together wherever they pass no draw they overlap; the night's lights the same, a window's panes only where they land.
+Each map label is baked onto a page of labels once it holds, and blitted after.
 
 `botropolis-demo sheet --check-frames` draws every frame of the metropolis both ways — as it stands, with a building selected, with traffic shown and a car hovered, with a view up, by day and by night — and holds them within 3 levels; `TestRawDrawSites` holds every draw in `pkg/render` and `pkg/shapes` to the recorder or a listed reason, since a draw the record does not see goes stale.
-On the metropolis at 1600×900 a settled frame went from 131 commands and 34,002 indices to 64 and 7,134 by day, and from 188 to 115 commands and 8,622 indices by night; the group lines alone had been 20,520 indices.
+On the metropolis at 1600×900 a settled frame went from 131 commands and 34,002 indices to 34 and 5,232 by day, and from 188 to 51 commands and 6,084 indices by night; the group lines alone had been 20,520 indices.
+A held arrow's pan went from 138 commands and 54,500 indices a frame to 41 and 7,302.
+Against the city as it was at r862, from the same staged moment, no pixel differs by more than 3 levels by night or 2 by day (`docs/screenshots/r867-item-193-night-before-after.png`).
 The CPU of a driven frame went from 3.05 ms to 2.14 by day and 3.74 to 2.70 by night, with half the allocations, before the queueing it no longer does.
-It holds three images the frame's size, the still city, its lights and the group lines: 16.5 MiB at 1600×900 and 95 MiB in a 4K window, against the 512 MiB budget.
+It holds four images the frame's size, the still city, its lights, the group lines and the one a layer is shifted through, and a 1024-pixel page of labels: 26 MiB at 1600×900 and 131 MiB in a 4K window, against the 512 MiB budget.
 
 Two things it found on the way.
-A layer the frame's size must have its own texture: on Ebitengine's shared atlas, beside the sprites the lights are cut with, the same cuts laid onto it left a lit pixel dark that they kept lit on a fresh image.
+A layer the frame's size must have its own texture: on Ebitengine's shared atlas, beside the sprites the lights are cut with, the same cuts laid onto it left a lit pixel dark that they kept lit on a fresh image, and the ground drawn onto one lost the end pixel of a rail.
 And a cut must meet the light a pane spreads past its edge, not only the pane, or where it lands depends on what other windows are laid.
 
 ### Why the sorted list was not cached until item 193

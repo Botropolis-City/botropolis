@@ -131,7 +131,10 @@ func (g *Game) drawMapLabels(screen *ebiten.Image) {
 	}
 	laid := layoutLabels(asks, g.theme.Px(2))
 	shown := make([]ShownLabel, 0, len(laid))
-	faded := g.fadeLayer(screen)
+	// The faded labels' layer is made and cleared only when one is
+	// faded: clearing it every frame was a draw and a target switch for
+	// nothing (item 193).
+	var faded *ebiten.Image
 	for i, at := range laid {
 		l := g.mapLabels[i]
 		if !at.Shown {
@@ -140,6 +143,9 @@ func (g *Game) drawMapLabels(screen *ebiten.Image) {
 		shown = append(shown, ShownLabel{Kind: l.Kind.String(), Rect: at.At, Faded: l.faded})
 		dst := screen
 		if l.faded {
+			if faded == nil {
+				faded = g.fadeLayer(screen)
+			}
 			dst = faded
 		}
 		if at.Leader {
@@ -153,7 +159,7 @@ func (g *Game) drawMapLabels(screen *ebiten.Image) {
 			g.drawLabel(dst, l.draw, at.At)
 		}
 	}
-	if g.lit.RecedesGround() {
+	if faded != nil {
 		var op ebiten.DrawImageOptions
 		op.ColorScale.ScaleAlpha(labelFadedAlpha)
 		screen.DrawImage(faded, &op)
@@ -194,7 +200,7 @@ func (g *Game) fadeLayer(screen *ebiten.Image) *ebiten.Image {
 		if g.labelFade != nil {
 			g.labelFade.Deallocate()
 		}
-		g.labelFade = ebiten.NewImage(b.Dx(), b.Dy())
+		g.labelFade = sizedImage(nil, b.Size())
 	}
 	g.labelFade.Clear()
 	return g.labelFade

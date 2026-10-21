@@ -57,6 +57,7 @@ type stillFrame struct {
 	batched []streamPlay
 	lit     []entry
 	pend    [][]lightOp
+	panes   []uint16
 	left    []leftCut
 	rects   []image.Rectangle
 	ops     []lightOp
@@ -324,7 +325,7 @@ func (g *Game) paintLights(real *ebiten.Image) {
 	for _, e := range s.entries {
 		s.lit = append(s.lit, entry{inked: inked{from: e.lights[0], to: e.lights[1], box: e.box}})
 	}
-	s.plays = stream(s.plays[:0], s.lit, func(int) image.Rectangle { return everywhere }, s.rects)
+	s.plays = stream(s.plays[:0], s.lit, g.lightBox, s.rects)
 	g.layLightsStream(s.subs, s.plays)
 	real.DrawImage(g.lights, nil)
 }
@@ -359,11 +360,12 @@ func (g *Game) layLightsStream(subs []*ebiten.Image, plays []streamPlay) {
 		}
 		g.layCuts(subs[r], due)
 		g.dueCuts, s.pend[r] = due[:0], kept
+		indices := g.panesIn(op, s.rects[r])
 		if op.warm {
-			colorm.DrawTriangles(subs[r], op.vertices, op.indices, op.src, warmGlass, warmOptions)
+			colorm.DrawTriangles(subs[r], op.vertices, indices, op.src, warmGlass, warmOptions)
 			continue
 		}
-		subs[r].DrawTriangles(op.vertices, op.indices, op.src, windowOptions)
+		subs[r].DrawTriangles(op.vertices, indices, op.src, windowOptions)
 	}
 	s.left = s.left[:0]
 	for r := range subs {
@@ -385,6 +387,38 @@ func (g *Game) layLightsStream(subs []*ebiten.Image, plays []streamPlay) {
 		}
 		g.layCut(subs[c.rect], c.op)
 	}
+}
+
+// lightBox is the box the ith light op covers: a cut's own, or a
+// window's panes with the pixel their light spreads past them.
+func (g *Game) lightBox(i int) image.Rectangle {
+	op := &g.lightOps[i]
+	if op.punch || op.cut != cutNone {
+		return padded(op.box)
+	}
+	var box image.Rectangle
+	for _, r := range g.litRects[op.from:op.to] {
+		box = box.Union(padded(r))
+	}
+	return box
+}
+
+// panesIn is the indices of a window op's panes whose light reaches r:
+// the rest would light nothing there.
+func (g *Game) panesIn(op lightOp, r image.Rectangle) []uint16 {
+	panes := op.to - op.from
+	if panes == 0 || len(op.indices)%panes != 0 {
+		return op.indices
+	}
+	step := len(op.indices) / panes
+	s := &g.still
+	s.panes = s.panes[:0]
+	for i, p := range g.litRects[op.from:op.to] {
+		if padded(p).Overlaps(r) {
+			s.panes = append(s.panes, op.indices[i*step:(i+1)*step]...)
+		}
+	}
+	return s.panes
 }
 
 // leftCut is a cut still to be laid, and the rectangle it is laid in.
