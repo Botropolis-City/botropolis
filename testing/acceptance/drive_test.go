@@ -87,8 +87,12 @@ func TestDrive(t *testing.T) {
 			t.Run("it should leave nothing opened or selected after ten ticks", func(t *testing.T) {
 				// Labels are where the map put its names, which move as the
 				// city settles; they are neither opened nor selected (item 102).
+				// Nor is how many sprites cut the night's lights: a building
+				// drawn straight cuts with each sprite, and once its look is
+				// baked, a few frames in, with one image (item 192).
 				after := d.Shown()
 				before.Labels, after.Labels = nil, nil
+				before.Punches, after.Punches = 0, 0
 				assert.Equal(t, before, after)
 			})
 		})
