@@ -342,9 +342,14 @@ func (g *Game) followUsageInScene() {
 // usageDue is whether the schedule wants a probe: refreshing is on an
 // interval, and neither the reading nor the last probe is younger than
 // it. Never while filming or taking a still, which read a fixture home
-// and must not reach the network.
+// and must not reach the network. And never while nobody can see the
+// window (item 160): a probe is a whole Claude Code, and boats nobody
+// is looking at do not need it. The u key asks whenever it is pressed.
 func (g *Game) usageDue() bool {
 	if g.usageEvery <= 0 || g.record != "" || g.screenshot != "" {
+		return false
+	}
+	if !watching(g.driven) {
 		return false
 	}
 	g.mu.Lock()
@@ -395,6 +400,10 @@ func (g *Game) refreshUsage() bool {
 	if !g.mayAskUsage() {
 		return false
 	}
+	probe := g.probe
+	if probe == nil {
+		probe = func(ctx context.Context) { claude.RefreshUtilization(ctx, "") }
+	}
 	go func() {
 		defer func() {
 			g.mu.Lock()
@@ -403,7 +412,7 @@ func (g *Game) refreshUsage() bool {
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), usageTimeout)
 		defer cancel()
-		claude.RefreshUtilization(ctx, "")
+		probe(ctx)
 		// Whether or not the probe succeeded, re-read: Claude Code may
 		// have refetched for its own reasons in the meantime.
 		g.readUsage()
@@ -436,6 +445,7 @@ func (g *Game) mayAskUsage() bool {
 // in half a minute to be worth a boat.
 const usageDebounce = 30 * time.Second
 
-// usageTimeout is generous: the CLI takes about four seconds and a slow
+// usageTimeout is generous: /usage took 25–45 s on 2026-10-21 (item 160),
+// once it began reading the transcripts for its insights, and a slow
 // machine is not a failure.
-const usageTimeout = 45 * time.Second
+const usageTimeout = 90 * time.Second

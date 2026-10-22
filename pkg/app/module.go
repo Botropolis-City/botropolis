@@ -694,7 +694,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
 		{Key: config.KeyDistrictType, Label: "new districts", Options: withValue(append([]string{}, city.TypingModes...), cfg.DistrictType), Value: cfg.DistrictType},
 		{Key: config.KeyStats, Label: "statistics", Options: []string{"on", "off"}, Value: statsValue(cfg.Stats)},
-		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "5m", "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
+		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
 	})
 }

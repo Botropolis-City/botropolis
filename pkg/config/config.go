@@ -80,8 +80,16 @@ const DefaultDetail = "full"
 // u key. It is the default because the probe is a network call. Item 79.
 const UsageManual = "manual"
 
+// UsageRefreshFloor is the shortest interval the city probes on. Item
+// 160: each probe is a Claude Code of its own, measured at 25–45 s and
+// 200–420 MiB, and a background helper may run for a tenth of the time
+// at most, so 5m was over budget. Aria, 2026-10-21: "Probe less often."
+const UsageRefreshFloor = 15 * time.Minute
+
 // ParseUsageRefresh reads usage_refresh: manual, or how often the city
-// may ask Claude Code to fetch the figures. Zero means manual.
+// may ask Claude Code to fetch the figures. Zero means manual. An
+// interval under the floor is raised to it rather than refused, so a
+// config written for an earlier version still reads.
 func ParseUsageRefresh(value string) (time.Duration, error) {
 	switch value {
 	case UsageManual, "", "0":
@@ -91,7 +99,7 @@ func ParseUsageRefresh(value string) (time.Duration, error) {
 	if err != nil || every <= 0 {
 		return 0, fmt.Errorf("unknown usage_refresh %q: use manual or an interval such as 30m", value)
 	}
-	return every, nil
+	return max(every, UsageRefreshFloor), nil
 }
 
 type Config struct {
@@ -195,7 +203,7 @@ func BindFlags(v *viper.Viper, flags *pflag.FlagSet) {
 	flags.Bool(KeyStats, true, "keep each assistant message's usage in a statistics database of Botropolis's own")
 	flags.Float64(KeyDailyBudget, 0, "a daily spend to measure the strip and the plant against, in USD (0 for none)")
 	flags.String(KeyDetail, DefaultDetail, "how much of the city to draw: full or plain (plain drops the scenery)")
-	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m")
+	flags.String(KeyUsageRefresh, UsageManual, "how often to fetch plan usage: manual (press u) or an interval such as 30m; anything under 15m means 15m")
 	flags.Bool(KeyGroupLines, true, "draw each group of sessions as a line across its districts")
 	flags.Bool(KeyLabels, true, "draw the map's labels: group badges, line names, street names and plates; signs on posts stay either way")
 	flags.String(KeyConfig, "", "the config `file` to read and save (default: "+DefaultFile()+")")

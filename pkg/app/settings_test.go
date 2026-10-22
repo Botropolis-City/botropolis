@@ -69,7 +69,7 @@ func TestUsageRefreshSetting(t *testing.T) {
 		})
 
 		t.Run("it should offer manual first and then the intervals", func(t *testing.T) {
-			assert.Equal(t, []string{"manual", "5m", "15m", "30m", "1h"}, s.Options)
+			assert.Equal(t, []string{"manual", "15m", "30m", "1h"}, s.Options)
 		})
 	})
 

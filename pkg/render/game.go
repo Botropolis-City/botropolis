@@ -239,6 +239,8 @@ type Game struct {
 	// usageLanded that a probe came back. Item 79.
 	usageFresh  bool
 	usageLanded bool
+	// probe asks Claude Code for fresh figures; nil is the real probe.
+	probe func(ctx context.Context)
 	// summarise generates a session's summary; generating is the runs
 	// still out and generatedDone what has come back for the frame loop
 	// to hand over. Item 73. Both are read and written under mu.

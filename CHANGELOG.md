@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`usage_refresh` fetches usage at most every 15 minutes, and only while you can see the city.**
+  Each fetch runs Claude Code, which takes up to 45 seconds and a few hundred MiB, so the old `5m` spent up to a sixth of the time on it; `5m` and anything else under 15 minutes now means `15m`, and the settings menu offers manual, 15m, 30m and 1h.
+  A hidden or minimised city fetches nothing on its schedule, and `u` still fetches whenever you press it.
+
 - **`botropolis bar` leaves out the sessions you set aside in triage.**
   A session marked done with `d` and quiet since, or snoozed until a time still to come, is no longer named, listed in the tooltip, or counted as needing you; the bar counts it as "set aside" instead, as in "○ 1 working · 2 set aside", and the line moves on to the next session the way the city's footer does.
 
