@@ -298,6 +298,8 @@ type Game struct {
 	rec     *drawList
 	still   stillFrame
 	noStill bool
+	// panels are the overlays baked while they hold (item 161).
+	panels panelBakes
 	// labelLooks keeps each map label baked once it holds, and
 	// lookPages the pages building looks are baked on.
 	labelLooks *labelCache
@@ -1053,6 +1055,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 // overlay is the chrome and, over it, the help; h hides the lot.
 func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
+	g.panels.stats = panelStats{}
+	g.prunePanels()
 	// Sharing draws none of it: every panel, card and figure stays open
 	// underneath, unseen, until sharing ends (item 168).
 	if g.share != nil {

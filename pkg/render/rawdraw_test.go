@@ -66,6 +66,8 @@ var drawsAllowed = map[string]string{
 	"opening.go:drawOpening":               "the opening panel, drawn instead of the city until it opens (item 159)",
 	"ground.go:ground":                     "the top-down map, which draws no standing city",
 	"framecheck.go:worldFrame":             "the check of the standing city",
+	"framecheck.go:panelFrame":             "the check of the baked panels",
+	"panelbake.go:drawPanel":               "blits a panel baked from its record (item 161)",
 	"lookcheck.go:lookFrameOf":             "item 192's check",
 	"lookcheck_night.go:nightFrame":        "item 192's check",
 	"lookcheck_night.go:alone":             "item 192's check",

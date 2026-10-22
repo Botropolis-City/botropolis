@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // frameCheckSize is the window the frame check draws at: the size item
@@ -115,9 +116,81 @@ func CheckFrames(home string, at time.Time, frames int, dump, write string) ([]s
 				}
 			}
 		}
-		return nil
+		more, err := g.checkPanels(straight, composed, dump, write)
+		problems = append(problems, more...)
+		return err
 	})
 	return problems, err
+}
+
+// checkPanels opens each panel that is baked while it holds and draws
+// it over the same image straight and then through its bake three
+// times, the frames it is played straight, baked and blitted on, and
+// reports each that differs from it drawn straight by more than
+// lookTolerance (item 161).
+func (g *Game) checkPanels(straight, composed *ebiten.Image, dump, write string) ([]string, error) {
+	var problems []string
+	for _, p := range []struct {
+		name, slug string
+		open       func() bool
+	}{
+		{"the journal", "journal", func() bool {
+			g.openJournal()
+			_, ok := g.overlays.top().(*journal)
+			return ok
+		}},
+		{"the group review", "group-review", func() bool {
+			snap := g.scene.Snapshot()
+			if len(snap.Sessions) < 2 {
+				return false
+			}
+			ids := []string{snap.Sessions[0].ID, snap.Sessions[1].ID}
+			snap.Groups = []state.Group{{ID: "check", Name: "CHECK-1 · panels", Short: "CHECK-1", Reason: "the frame check", Members: ids}}
+			snap.GroupsReviewed = false
+			g.scene.SetSnapshot(snap)
+			return g.openFirstRun()
+		}},
+	} {
+		g.overlays = g.overlays[:0]
+		if !p.open() {
+			problems = append(problems, p.name+" did not open")
+			continue
+		}
+		want := g.panelFrame(straight, true)
+		for i, way := range []string{"played straight", "baked", "blitted"} {
+			got := g.panelFrame(composed, false)
+			if i == 2 && g.panels.stats.blits == 0 {
+				problems = append(problems, p.name+" was never blitted from its bake")
+			}
+			if write != "" && i == 2 {
+				dumpPNG(filepath.Join(write, "panel-"+p.slug+"-straight.png"), want)
+				dumpPNG(filepath.Join(write, "panel-"+p.slug+"-baked.png"), got)
+			}
+			if off, box, most := framesApart(want, got); off > 0 {
+				problems = append(problems, fmt.Sprintf("%s, %s: %d pixels in %v differ from it drawn straight, by up to %d", p.name, way, off, box, most))
+				if dump != "" {
+					dumpPNG(filepath.Join(dump, fmt.Sprintf("panel-%s-%d-straight.png", p.slug, i)), want)
+					dumpPNG(filepath.Join(dump, fmt.Sprintf("panel-%s-%d-baked.png", p.slug, i)), got)
+				}
+			}
+		}
+	}
+	g.overlays = g.overlays[:0]
+	return problems, nil
+}
+
+// panelFrame is the open panels drawn onto img, filled first with a
+// colour nothing is, straight or through their bakes, read back.
+func (g *Game) panelFrame(img *ebiten.Image, straight bool) *image.NRGBA {
+	img.Fill(colorCheckFill)
+	g.panels.straight = straight
+	defer func() { g.panels.straight = false }()
+	g.panels.stats = panelStats{}
+	b := img.Bounds()
+	g.drawOverlays(img, float64(b.Dx()), float64(b.Dy()), false)
+	out := image.NewNRGBA(b)
+	img.ReadPixels(out.Pix)
+	return out
 }
 
 // worldFrame is one frame of the world as drawIso draws it, onto img

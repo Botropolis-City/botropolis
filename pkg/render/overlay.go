@@ -120,7 +120,7 @@ func (g *Game) clickOverlay(cursor city.Point) bool {
 func (g *Game) drawOverlays(screen *ebiten.Image, width, height float64, ambient bool) {
 	for _, o := range g.overlays {
 		if isModal(o) != ambient {
-			o.draw(g, screen, width, height)
+			g.drawPanel(o, screen, width, height)
 		}
 	}
 }
