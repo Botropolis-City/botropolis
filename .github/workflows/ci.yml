@@ -49,11 +49,14 @@ jobs:
       - name: An X server and i3 for the global shortcut test
         run: sudo apt-get install -y xvfb i3-wm
       # The Makefile's 40m is for loaded local machines (item 131). Here the
-      # suite takes about four and a half minutes, so a hang fails at go
-      # test's own default instead.
+      # acceptance suite took 380-540 s through 2026-10-22, and past 600 s
+      # once item 197 added a two-minute measuring test, which the old 10m
+      # killed with no test hung (item 202). A timeout here is a hang
+      # detector, not a performance budget: 20m is about twice what the
+      # suite takes, so a hang still fails well inside the job.
       - run: make test lint
         env:
-          ACCEPTANCE_TIMEOUT: 10m
+          ACCEPTANCE_TIMEOUT: 20m
 
   # Nothing in the working arrangement runs macOS (item 80), so this is the
   # only place the darwin code runs: the netstat attached probe, open, pbcopy
