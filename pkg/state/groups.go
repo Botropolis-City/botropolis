@@ -38,7 +38,10 @@ type groupCache struct {
 	historyKey fileKey
 	signature  string
 	detections int
-	result     group.Result
+	// detector keeps each pair's score from run to run, so a prompt
+	// scores again only the pairs it can have changed (item 158).
+	detector *group.Detector
+	result   group.Result
 	// lastPrompts is each session's newest prompt in the history, for a
 	// session whose transcript carries no last-prompt record.
 	lastPrompts map[string]string
@@ -68,6 +71,15 @@ func (l *Loader) Detections() int {
 	return l.groups.detections
 }
 
+// PairsScored is how many pairs of sessions the loader has compared to
+// group them.
+func (l *Loader) PairsScored() int {
+	if l.groups.detector == nil {
+		return 0
+	}
+	return l.groups.detector.PairsScored()
+}
+
 func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time) error {
 	historyPath := filepath.Join(claudeDir, "history.jsonl")
 	key, err := stat(historyPath)
@@ -84,7 +96,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 		}
 	}
 	if c.detections == 0 || key != c.historyKey || signature != c.signature || storeKey != c.storeKey {
-		history, err := claude.ReadPromptHistory(historyPath)
+		history, err := l.promptHistory(historyPath)
 		if err != nil {
 			return err
 		}
@@ -116,14 +128,17 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 		}
 		memory = loaded
 	}
-	c.result = group.Detect(members, memory)
+	if c.detector == nil {
+		c.detector = group.NewDetector()
+	}
+	c.result = c.detector.Detect(members, memory)
 	c.detections++
 	if c.path == "" {
 		return nil
 	}
 	remembered := memory.Remember(c.result)
 	if confirmLikely(&remembered, c.result, history, now) {
-		c.result = group.Detect(members, remembered)
+		c.result = c.detector.Detect(members, remembered)
 		remembered = remembered.Remember(c.result)
 	}
 	c.reviewed = remembered.Reviewed != nil

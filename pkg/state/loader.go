@@ -55,6 +55,7 @@ type Loader struct {
 	closeUpPath     string
 	ledger          Ledger
 	historyKey      fileKey
+	historyReader   *claude.HistoryReader
 	history         map[string][]claude.Prompt
 	whole           *wholeRead
 	stored          *storedHefts
@@ -515,7 +516,7 @@ func merged(prs []claude.PR) bool {
 }
 
 // promptHistory reads Claude Code's prompt history again only when the
-// file has changed.
+// file has changed, and then only the lines appended since (item 158).
 func (l *Loader) promptHistory(path string) (map[string][]claude.Prompt, error) {
 	key, err := stat(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -524,7 +525,10 @@ func (l *Loader) promptHistory(path string) (map[string][]claude.Prompt, error) 
 	if l.history != nil && key == l.historyKey {
 		return l.history, nil
 	}
-	history, err := claude.ReadPromptHistory(path)
+	if l.historyReader == nil {
+		l.historyReader = claude.NewHistoryReader()
+	}
+	history, err := l.historyReader.Read(path)
 	if err != nil {
 		return nil, err
 	}

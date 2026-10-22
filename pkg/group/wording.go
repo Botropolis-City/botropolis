@@ -43,29 +43,48 @@ type Wording struct {
 	// word against the sessions outside the group so that it works on a
 	// history too small for any word to be rare across the whole of it.
 	df map[string]int
+	// read is every word in each session's prompts, muted or not, so
+	// that the next wording reads only the prompts added since (item 158).
+	read map[string]readTexts
 }
 
 func NewWording(prompts map[string][]string, muted []string) *Wording {
+	return (*Wording)(nil).Next(prompts, muted)
+}
+
+// Next is the wording of prompts, tokenising only the prompts each
+// session added since w; a session whose earlier prompts changed is read
+// again whole.
+func (w *Wording) Next(prompts map[string][]string, muted []string) *Wording {
 	mute := map[string]bool{}
 	for _, m := range muted {
 		mute[strings.ToLower(m)] = true
 	}
-	w := &Wording{words: map[string]map[string]bool{}, idf: map[string]float64{}, df: map[string]int{}}
-	df := w.df
+	next := &Wording{words: map[string]map[string]bool{}, idf: map[string]float64{}, df: map[string]int{},
+		read: make(map[string]readTexts, len(prompts))}
+	df := next.df
 	for id, ps := range prompts {
-		set := map[string]bool{}
-		for _, p := range ps {
-			for _, tok := range tokens(p) {
+		var r readTexts
+		if w != nil {
+			r = w.read[id]
+		}
+		r = r.next(ps, tokens)
+		next.read[id] = r
+		set := r.found
+		if len(mute) > 0 {
+			set = make(map[string]bool, len(r.found))
+			for tok := range r.found {
 				if !mute[tok] {
 					set[tok] = true
 				}
 			}
 		}
-		w.words[id] = set
+		next.words[id] = set
 		for tok := range set {
 			df[tok]++
 		}
 	}
+	w = next
 	n := float64(len(prompts))
 	for tok, d := range df {
 		if float64(d) <= math.Max(2, distinctiveShare*n) {

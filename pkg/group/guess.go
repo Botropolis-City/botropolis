@@ -37,7 +37,7 @@ func (g *Guesser) Groups() []Group {
 
 func (g *Guesser) Guess(prospect Member) Guess {
 	all := append(append([]Member(nil), g.members...), prospect)
-	d := newDetection(all, g.memory)
+	d := newDetection(all, g.memory, nil)
 	p := len(all) - 1
 	type match struct {
 		group string

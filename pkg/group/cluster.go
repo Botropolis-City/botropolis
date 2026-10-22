@@ -20,9 +20,10 @@ var signalRank = map[Signal]int{
 // strongest signal first, keeping the ids and names memory already has
 // and never joining a pair marked not related.
 func Detect(members []Member, memory Memory) Result {
-	members = append([]Member(nil), members...)
-	sort.SliceStable(members, func(i, j int) bool { return members[i].Started.Before(members[j].Started) })
-	d := newDetection(members, memory)
+	return NewDetector().Detect(members, memory)
+}
+
+func (d *detection) detect(memory Memory) Result {
 	edges := d.edges()
 	comps := d.cluster(edges)
 	groups := d.groups(comps, edges, memory)
@@ -33,7 +34,7 @@ func Detect(members []Member, memory Memory) Result {
 	return result
 }
 
-func newDetection(members []Member, memory Memory) *detection {
+func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 	d := &detection{members: members, index: map[string]int{}, blocked: map[[2]string]bool{},
 		moved: map[string]bool{}, confirmed: map[string]bool{}}
 	for _, mv := range memory.Moves {
@@ -53,18 +54,23 @@ func newDetection(members []Member, memory Memory) *detection {
 		d.confirmed[id] = true
 	}
 	prompts := map[string][]string{}
+	d.read = make(map[string]readRefs, len(members))
 	for i, m := range members {
 		d.index[m.ID] = i
 		prompts[m.ID] = m.Prompts
-		seen := map[string]bool{}
-		for _, text := range append(append([]string(nil), m.Prompts...), m.Pasted...) {
-			for _, r := range References(text) {
-				seen[r] = true
-			}
+		var r readRefs
+		if prior != nil {
+			r = prior.refs[m.ID]
 		}
-		d.refs = append(d.refs, sortedKeys(seen))
+		r = r.next(m)
+		d.read[m.ID] = r
+		d.refs = append(d.refs, r.refs)
 	}
-	d.wording = NewWording(prompts, memory.Muted)
+	var wording *Wording
+	if prior != nil {
+		wording = prior.wording
+	}
+	d.wording = wording.Next(prompts, memory.Muted)
 	for _, p := range memory.NotRelated {
 		d.blocked[[2]string{p[0], p[1]}] = true
 		d.blocked[[2]string{p[1], p[0]}] = true
@@ -79,7 +85,7 @@ func (d *detection) edges() []edge {
 			if d.blocked[[2]string{d.members[i].ID, d.members[j].ID}] || d.sitsOut(d.members[i].ID) || d.sitsOut(d.members[j].ID) {
 				continue
 			}
-			if e, ok := d.pair(i, j); ok {
+			if e, ok := d.scorePair(i, j); ok {
 				edges = append(edges, e)
 			}
 		}

@@ -1,10 +1,6 @@
 package claude
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -42,31 +38,7 @@ func PromptHistoryPath() string {
 // ReadPromptHistory reads every prompt in the history by session, in the
 // order typed. A missing file is an empty history.
 func ReadPromptHistory(path string) (map[string][]Prompt, error) {
-	history := map[string][]Prompt{}
-	f, err := os.Open(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return history, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(nil, maxTranscriptLine)
-	for scanner.Scan() {
-		line := bytes.TrimLeft(scanner.Bytes(), "\x00")
-		var rec historyLineJSON
-		if json.Unmarshal(line, &rec) != nil || rec.SessionID == "" {
-			continue
-		}
-		history[rec.SessionID] = append(history[rec.SessionID], Prompt{
-			Text:   rec.Display,
-			Pasted: pastedTexts(rec),
-			At:     time.UnixMilli(rec.Timestamp),
-			Dir:    rec.Project,
-		})
-	}
-	return history, scanner.Err()
+	return NewHistoryReader().Read(path)
 }
 
 func pastedTexts(rec historyLineJSON) []string {

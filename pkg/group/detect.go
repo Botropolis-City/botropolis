@@ -160,6 +160,7 @@ type detection struct {
 	members []Member
 	index   map[string]int
 	refs    [][]string
+	read    map[string]readRefs
 	wording *Wording
 	blocked map[[2]string]bool
 	// moved are the sessions put in a group, or none, by hand; they sit
@@ -169,4 +170,11 @@ type detection struct {
 	// started are the sessions started from a group, by session; like
 	// the moved, they sit out detection and join where they were started.
 	started map[string]string
+	// changed are the sessions whose pairs are scored again rather than
+	// taken from cache, the last run's scores; next collects this run's,
+	// and scored counts the pairs scored (item 158).
+	changed map[string]bool
+	cache   map[[2]string]scored
+	next    map[[2]string]scored
+	scored  int
 }

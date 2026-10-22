@@ -1,6 +1,7 @@
 package group
 
 import (
+	"math"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -66,7 +67,6 @@ func (r Reason) Describe(title func(id string) string) string {
 func (d *detection) name(g *Group) {
 	count := map[string]int{}
 	ids := make([]string, 0, len(g.Members))
-	var text strings.Builder
 	refTokens := map[string]bool{}
 	for _, m := range g.Members {
 		i := d.index[m.Session]
@@ -74,10 +74,6 @@ func (d *detection) name(g *Group) {
 		for _, r := range d.refs[i] {
 			count[r]++
 			refTokens[strings.ToLower(r)] = true
-		}
-		for _, p := range d.members[i].Prompts {
-			text.WriteString(" ")
-			text.WriteString(p)
 		}
 	}
 	g.Anchor = ""
@@ -92,14 +88,12 @@ func (d *detection) name(g *Group) {
 			words = append(words, w)
 		}
 	}
-	typed := tokens(text.String())
+	firsts := d.firstTyped(g.Members, words)
 	first := func(w string) int {
-		for i, t := range typed {
-			if t == w {
-				return i
-			}
+		if at, ok := firsts[w]; ok {
+			return at
 		}
-		return len(typed)
+		return math.MaxInt
 	}
 	sort.SliceStable(words, func(i, j int) bool { return first(words[i]) < first(words[j]) })
 	var parts []string
@@ -113,4 +107,25 @@ func (d *detection) name(g *Group) {
 		parts = append(parts, filepath.Base(g.Dirs()[0]))
 	}
 	g.Name = strings.Join(parts, " · ")
+}
+
+// firstTyped is where each of words was first typed across the members'
+// prompts, reading only as far as it takes to find them all.
+func (d *detection) firstTyped(members []Membership, words []string) map[string]int {
+	firsts := make(map[string]int, len(words))
+	at := 0
+	for _, m := range members {
+		for _, p := range d.members[d.index[m.Session]].Prompts {
+			if len(firsts) == len(words) {
+				return firsts
+			}
+			for _, t := range tokens(p) {
+				if _, seen := firsts[t]; !seen && contains(words, t) {
+					firsts[t] = at
+				}
+				at++
+			}
+		}
+	}
+	return firsts
 }
