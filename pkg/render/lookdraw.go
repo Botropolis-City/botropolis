@@ -34,6 +34,8 @@ func (l *bakedLook) Deallocate() {
 // lookStats counts what the cache did this frame.
 type lookStats struct {
 	hits, misses, bakes int
+	// runs is how many baked runs were asked for (item 161).
+	runs int
 }
 
 // buildingFrame is everything a building's steps read this frame, worked
@@ -466,6 +468,7 @@ func (g *Game) keyOf(cam *city.Camera, f *buildingFrame, r run) lookKey {
 // it first once its key has held a frame, and straight onto the frame
 // until then.
 func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame, r run) {
+	g.lookStats.runs++
 	key := g.keyOf(cam, f, r)
 	cell := lookCell(g.footOf(cam, f.b))
 	look, ok := g.looks.get(key)
@@ -480,6 +483,7 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	case g.looks.steady(runID{id: f.b.Session.ID, run: r.from}, key, g.lookFrame):
 		look = g.bake(cam, f, r, cell)
 		if look == nil {
+			g.lookStats.misses++
 			g.drawSteps(screen, cam, f, r.from, r.to)
 			return
 		}
