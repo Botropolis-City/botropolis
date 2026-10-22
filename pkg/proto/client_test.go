@@ -107,9 +107,14 @@ func TestSubscribeWithDeltas(t *testing.T) {
 		views := []state.Snapshot{view(), view("a"), view("a", "c"), view("c")}
 		responses := stream(views...)
 		require.NotNil(t, responses[1].Delta)
+		reading := proto.Reading()
 		updates, err := subscribe(t, daemon(t, proto.Self(), responses...))
 		require.NoError(t, err)
 		got := take(t, updates, len(views))
+
+		t.Run("it should count the time spent reading them", func(t *testing.T) {
+			assert.Greater(t, proto.Reading(), reading)
+		})
 
 		t.Run("it should hand on whole snapshots equal to the daemon's views", func(t *testing.T) {
 			var want []state.Snapshot

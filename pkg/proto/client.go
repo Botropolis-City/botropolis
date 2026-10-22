@@ -1,10 +1,12 @@
 package proto
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"botropolis.city/botropolis/pkg/events"
@@ -15,8 +17,8 @@ import (
 const dialTimeout = 500 * time.Millisecond
 
 type Client struct {
-	conn    net.Conn
-	decoder *json.Decoder
+	conn   net.Conn
+	reader *bufio.Reader
 	// sock is where this client reached its daemon, which a mismatch
 	// names (item 152).
 	sock string
@@ -35,7 +37,7 @@ func Dial(sock string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{conn: conn, decoder: json.NewDecoder(conn), sock: sock}, nil
+	return &Client{conn: conn, reader: bufio.NewReader(conn), sock: sock}, nil
 }
 
 func (c *Client) Close() error {
@@ -134,16 +136,42 @@ func (c *Client) readUpdate() (Update, error) {
 	if err != nil {
 		return Update{}, err
 	}
+	at := time.Now()
 	snapshot, err := c.mirror.Take(response)
+	reading.Add(int64(time.Since(at)))
 	if err != nil {
 		return Update{}, err
 	}
 	return Update{Snapshot: snapshot, Events: response.Events}, nil
 }
 
+// reading is the time every client in this process has spent decoding
+// what the daemon sent, waiting for it aside (item 201).
+var reading atomic.Int64
+
+// Reading is the time this process has spent decoding the daemon's
+// responses and applying its deltas, which a city that draws nothing
+// is gated on.
+func Reading() time.Duration {
+	return time.Duration(reading.Load())
+}
+
+// decode reads one response, a line, and decodes it, timing only the
+// decoding.
+func (c *Client) decode(v any) error {
+	line, err := c.reader.ReadBytes('\n')
+	if err != nil {
+		return err
+	}
+	at := time.Now()
+	err = json.Unmarshal(line, v)
+	reading.Add(int64(time.Since(at)))
+	return err
+}
+
 func (c *Client) readResponse() (Response, error) {
 	var response Response
-	if err := c.decoder.Decode(&response); err != nil {
+	if err := c.decode(&response); err != nil {
 		return Response{}, err
 	}
 	if err := Compare(response.Peer, Self()); err != nil {
@@ -171,7 +199,7 @@ func Ask(sock string) (Peer, error) {
 		return Peer{}, err
 	}
 	var response Response
-	if err := client.decoder.Decode(&response); err != nil {
+	if err := client.decode(&response); err != nil {
 		return Peer{}, err
 	}
 	return response.Peer, nil
@@ -190,7 +218,7 @@ func Loading(sock string) (state.LoadProgress, error) {
 		return state.LoadProgress{}, err
 	}
 	var response Response
-	if err := client.decoder.Decode(&response); err != nil {
+	if err := client.decode(&response); err != nil {
 		return state.LoadProgress{}, err
 	}
 	if response.Error != "" || response.Loading == nil {
@@ -211,7 +239,7 @@ func SendEvent(sock string, event json.RawMessage) error {
 		return err
 	}
 	var response Response
-	if err := client.decoder.Decode(&response); err != nil {
+	if err := client.decode(&response); err != nil {
 		return err
 	}
 	if response.Error != "" {

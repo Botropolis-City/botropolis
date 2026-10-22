@@ -2,7 +2,6 @@ package city
 
 import (
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"botropolis.city/botropolis/pkg/stats"
@@ -17,11 +16,18 @@ const FolderUnknown = "folder unknown"
 // fewest trailing folders no other root ends in, else the whole path
 // (item 139).
 func DistrictNames(roots []string) map[string]string {
-	split := map[string][]string{}
+	trimmed := map[string]string{}
 	for _, root := range roots {
 		if root != "" {
-			split[root] = strings.Split(strings.Trim(filepath.ToSlash(root), "/"), "/")
+			trimmed[root] = strings.Trim(filepath.ToSlash(root), "/")
 		}
+	}
+	// A tail is a root's own when no other root ends in it: each tail
+	// is counted once per root that ends in it, rather than every root
+	// being held against every other (item 201).
+	ending := map[string]int{}
+	for _, path := range trimmed {
+		tails(path, func(tail string) bool { ending[tail]++; return true })
 	}
 	names := make(map[string]string, len(roots))
 	for _, root := range roots {
@@ -30,25 +36,27 @@ func DistrictNames(roots []string) map[string]string {
 			continue
 		}
 		names[root] = root
-		parts := split[root]
-		for k := 1; k <= len(parts); k++ {
-			tail := parts[len(parts)-k:]
-			if !endsElsewhere(split, root, tail) {
-				names[root] = strings.Join(tail, "/")
-				break
+		tails(trimmed[root], func(tail string) bool {
+			if ending[tail] == 1 {
+				names[root] = tail
+				return false
 			}
-		}
+			return true
+		})
 	}
 	return names
 }
 
-func endsElsewhere(split map[string][]string, root string, tail []string) bool {
-	for other, parts := range split {
-		if other != root && len(parts) >= len(tail) && slices.Equal(parts[len(parts)-len(tail):], tail) {
-			return true
+// tails hands each run of a path's trailing folders to yield, the
+// shortest first, until yield says to stop.
+func tails(path string, yield func(string) bool) {
+	for end := len(path); ; {
+		cut := strings.LastIndexByte(path[:end], '/')
+		if !yield(path[cut+1:]) || cut < 0 {
+			return
 		}
+		end = cut
 	}
-	return false
 }
 
 // storeNames names the store's project roots alongside every root the

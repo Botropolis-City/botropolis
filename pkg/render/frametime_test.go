@@ -1,0 +1,26 @@
+package render
+
+import (
+	"bytes"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+)
+
+// Item 201: a city nobody is watching says, with the window's state,
+// what its snapshots have cost it, so that cost can be gated apart from
+// drawing, which a virtual display does in software.
+func TestQuietLine(t *testing.T) {
+	t.Run("when the frame timer is on and snapshots have been laid out", func(t *testing.T) {
+		var out bytes.Buffer
+		f := &frameTimer{on: true, out: &out, reading: func() time.Duration { return 30 * time.Millisecond }}
+		f.laidOut(12 * time.Millisecond)
+		f.laidOut(12 * time.Millisecond)
+		f.quiet(false, true, false)
+
+		t.Run("it should say how many, and the time spent decoding and laying them out", func(t *testing.T) {
+			assert.Contains(t, out.String(), "QUIET no frames: focused=false visible=true minimised=false snapshots=2 decoding=30.0ms layout=24.0ms\n")
+		})
+	})
+}

@@ -2,8 +2,11 @@ package render
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
+
+	"botropolis.city/botropolis/pkg/proto"
 )
 
 // What a frame costs the CPU, and how often the static layer is reused.
@@ -28,9 +31,35 @@ type frameTimer struct {
 	lastQuiet  time.Time
 	lastTick   time.Time
 	lastFrames int
+	// out is where it reports; nil is stderr.
+	out io.Writer
+	// snapshots and layout are how many snapshots have been laid out and
+	// the time it took, and reading is the time spent decoding them, so
+	// a city that draws nothing can be gated on them apart from drawing,
+	// which a virtual display does in software (item 201).
+	snapshots int
+	layout    time.Duration
+	reading   func() time.Duration
 }
 
-var frames = &frameTimer{on: os.Getenv("BOTROPOLIS_FRAMETIME") != ""}
+var frames = &frameTimer{on: os.Getenv("BOTROPOLIS_FRAMETIME") != "", reading: proto.Reading}
+
+func (f *frameTimer) writer() io.Writer {
+	if f.out == nil {
+		return os.Stderr
+	}
+	return f.out
+}
+
+// laidOut records a snapshot laid out, and how long it took.
+func (f *frameTimer) laidOut(took time.Duration) {
+	f.snapshots++
+	f.layout += took
+}
+
+func ms(d time.Duration) float64 {
+	return float64(d.Microseconds()) / 1000
+}
 
 // Why a run draws nothing.
 //
@@ -50,7 +79,8 @@ func (f *frameTimer) quiet(focused, visible, minimised bool) {
 	}
 	if now := time.Now(); now.Sub(f.lastQuiet) >= time.Second {
 		f.lastQuiet = now
-		fmt.Fprintf(os.Stderr, "QUIET no frames: focused=%v visible=%v minimised=%v\n", focused, visible, minimised)
+		fmt.Fprintf(f.writer(), "QUIET no frames: focused=%v visible=%v minimised=%v snapshots=%d decoding=%.1fms layout=%.1fms\n",
+			focused, visible, minimised, f.snapshots, ms(f.reading()), ms(f.layout))
 	}
 }
 
@@ -73,7 +103,7 @@ func (f *frameTimer) tick() {
 		return
 	}
 	if f.frames == f.lastFrames {
-		fmt.Fprintf(os.Stderr, "QUIET update is running but Draw has painted nothing for %.0fs\n", now.Sub(f.lastTick).Seconds())
+		fmt.Fprintf(f.writer(), "QUIET update is running but Draw has painted nothing for %.0fs\n", now.Sub(f.lastTick).Seconds())
 	}
 	f.lastTick, f.lastFrames = now, f.frames
 }
@@ -102,7 +132,7 @@ func (f *frameTimer) start() func() {
 		if f.frames%reportEvery != 0 {
 			return
 		}
-		fmt.Fprintf(os.Stderr, "FRAME %d frames: %.2f ms/frame of drawing, static layer reused %d of %d\n",
+		fmt.Fprintf(f.writer(), "FRAME %d frames: %.2f ms/frame of drawing, static layer reused %d of %d\n",
 			f.frames, float64(f.draw.Microseconds())/1000/float64(reportEvery), f.hits, f.hits+f.misses)
 		f.draw, f.hits, f.misses = 0, 0, 0
 	}
