@@ -10,6 +10,9 @@ func (g *Game) logLooks() {}
 // logStill reports nothing outside the debug build.
 func (g *Game) logStill() {}
 
+// logMiss reports nothing outside the debug build.
+func (g *Game) logMiss(string, step, lookKey) {}
+
 // logReading reports nothing outside the debug build.
 func (g *Game) logReading(string) {}
 

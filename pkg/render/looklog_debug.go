@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // logLooks writes what the look cache did this frame beside
@@ -27,6 +29,17 @@ func (g *Game) logStill() {
 	}
 	s := g.still.stats
 	fmt.Printf("still: composes=%d redos=%d overlays=%d rects=%d ground=%d direct=%d shifts=%d\n", s.composes, s.redos, s.overlays, s.rects, g.static.composes, s.direct, s.shifts+g.static.shifts)
+}
+
+// logMiss writes, for a look that missed, the frame and tick it missed
+// on and which of its key's fields changed since its run's last frame,
+// so a settled frame's work says whether the clock moved or a snapshot
+// arrived (item 202).
+func (g *Game) logMiss(id string, run step, key lookKey) {
+	if g.looks == nil {
+		return
+	}
+	fmt.Printf("look-miss: frame=%d tick=%d id=%s run=%d changed=%s\n", g.lookFrame, g.ticks, state.ShortID(id), run, lookChanged(g.looks.replaced, g.looks.hadReplaced, key))
 }
 
 // logReading writes the footer's reading line, for item 159's first

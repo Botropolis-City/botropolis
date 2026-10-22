@@ -136,7 +136,20 @@ func frameWorkWith(t *testing.T, demo string, hour int, env ...string) helpers.F
 	t.Helper()
 	all := frameLog(t, demo, hour, 1, "", env...)
 	require.Greater(t, len(all), settledFrom+10, "too few frames logged to call any settled")
-	return helpers.MostWork(all[settledFrom:])
+	return settledWork(t, all[settledFrom:])
+}
+
+// settledWork is each count's worst over frames that should have
+// settled, logging every look that missed in them with what changed in
+// its key, so a failure on a runner nobody can watch says why (item 202).
+func settledWork(t *testing.T, frames []helpers.Frame) helpers.Frame {
+	t.Helper()
+	for _, f := range frames {
+		for _, miss := range f.Missed {
+			t.Log(miss)
+		}
+	}
+	return helpers.MostWork(frames)
 }
 
 // frameLog runs the debug city for seconds of frames on a staged demo,
@@ -198,7 +211,7 @@ func TestTheLooksAFrameKeeps(t *testing.T) {
 			t.Parallel()
 			all := frameLog(t, "metropolis", 14, view.seconds, view.choreography)
 			require.Greater(t, len(all), view.from+10, "too few frames logged to call any settled")
-			worst := helpers.MostWork(all[view.from:])
+			worst := settledWork(t, all[view.from:])
 			t.Logf("worst settled frame: %s; %d commands, %d indices, %d switches", looks(worst.Looks), worst.Commands, worst.Indices, worst.Switches)
 
 			t.Run("it should bake nothing a frame", func(t *testing.T) {
@@ -256,7 +269,7 @@ func TestTheStillLayerAFrameKeeps(t *testing.T) {
 				t.Parallel()
 				all := frameLog(t, "metropolis", light.hour, view.seconds, view.choreography)
 				require.Greater(t, len(all), view.from+10, "too few frames logged to call any settled")
-				worst := helpers.MostWork(all[view.from:])
+				worst := settledWork(t, all[view.from:])
 				t.Logf("worst settled frame: %+v", worst.Still)
 
 				t.Run("it should compose nothing of the standing city a frame", func(t *testing.T) {

@@ -33,6 +33,11 @@ type lookCache[K comparable, V deallocator] struct {
 	order   list.List
 	entries map[K]*list.Element
 	seen    map[runID]seenKey[K]
+	// replaced is the key the last call to steady replaced, and
+	// hadReplaced whether there was one, for the debug build's look-miss
+	// line (item 202).
+	replaced    K
+	hadReplaced bool
 }
 
 func newLookCache[K comparable, V deallocator](cap int) *lookCache[K, V] {
@@ -86,6 +91,7 @@ func (c *lookCache[K, V]) remove(key K) {
 // rather than baking every frame.
 func (c *lookCache[K, V]) steady(id runID, key K, frame int) bool {
 	last, ok := c.seen[id]
+	c.replaced, c.hadReplaced = last.key, ok
 	c.seen[id] = seenKey[K]{key: key, frame: frame}
 	return ok && last.key == key && last.frame == frame-1
 }

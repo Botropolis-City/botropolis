@@ -145,3 +145,27 @@ func TestFrameLogStill(t *testing.T) {
 		})
 	})
 }
+
+// Item 202: the city's debug build names, for each look that missed,
+// which of its key's fields changed, so a settled frame's work says why.
+func TestFrameLogMissed(t *testing.T) {
+	miss := "look-miss: frame=40 tick=80 id=2b1f9c0e run=0 changed=title,beacon"
+
+	t.Run("when a frame's log has look-miss lines", func(t *testing.T) {
+		frames := ParseFrameLog(strings.NewReader("----\n----\n" + miss + "\n" + miss + "\n"))
+		require.Len(t, frames, 2)
+
+		t.Run("it should keep each line on that frame's Missed", func(t *testing.T) {
+			assert.Equal(t, []string{miss, miss}, frames[1].Missed)
+		})
+	})
+
+	t.Run("when a frame's log has none", func(t *testing.T) {
+		frames := ParseFrameLog(strings.NewReader("----\n----\n" + miss + "\n"))
+		require.Len(t, frames, 2)
+
+		t.Run("it should leave Missed empty", func(t *testing.T) {
+			assert.Empty(t, frames[0].Missed)
+		})
+	})
+}

@@ -485,6 +485,7 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 		g.looks.put(key, look, look.img.Bounds().Dx()*look.img.Bounds().Dy()*4)
 	default:
 		g.lookStats.misses++
+		g.logMiss(f.b.Session.ID, r.from, key)
 		g.drawSteps(screen, cam, f, r.from, r.to)
 		return
 	}
