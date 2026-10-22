@@ -103,11 +103,14 @@ type Game struct {
 	// lit is the contextual highlight for the frame being drawn.
 	lit city.Highlight
 	// hover parks the pointer for a scripted frame; see Options.Hover.
-	hover     city.Point
-	hoverSet  bool
-	actor     Actor
-	theme     ui.Theme
-	faces     *faces
+	hover    city.Point
+	hoverSet bool
+	actor    Actor
+	theme    ui.Theme
+	faces    *faces
+	// clips remembers clipped text, for the faces it was measured in.
+	clips     *clipper
+	clipsIn   *faces
 	saveState func(*city.Layout)
 	sprites   *sprites
 	kits      *kits

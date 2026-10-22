@@ -171,20 +171,97 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 }
 
 // clip cuts text to a width, ending it with an ellipsis when it is cut.
+// The clips are remembered for the faces they were measured in.
 func (g *Game) clip(s string, width float64, size ui.Size) string {
-	return clipTo(s, width, size, g.faces.Measure)
+	if g.clips == nil || g.clipsIn != g.faces {
+		g.clips, g.clipsIn = newClipper(g.faces.Measure), g.faces
+	}
+	return g.clips.clip(s, width, size)
 }
 
+// clipTo is s whole if it fits in width, or else its longest prefix that
+// fits with an ellipsis after it, or "" when not even the ellipsis does.
+//
+// It doubles a prefix until it no longer fits and halves back, so it
+// measures no string much longer than what fits. Cutting a rune at a time
+// from the end put hundreds of near-whole copies of a long row through
+// the shaper every frame, and Ebitengine's shaping cache kept 51 MB of
+// them (item 162). It takes the whole string to be too wide once a prefix
+// of half of it or less is.
 func clipTo(s string, width float64, size ui.Size, measure ui.Measure) string {
-	if w, _ := measure(s, size); w <= width {
-		return s
-	}
 	r := []rune(s)
-	for len(r) > 0 {
-		r = r[:len(r)-1]
-		if w, _ := measure(string(r)+"…", size); w <= width {
-			return string(r) + "…"
+	fits := func(k int) bool {
+		w, _ := measure(string(r[:k])+"…", size)
+		return w <= width
+	}
+	whole := func() bool {
+		w, _ := measure(s, size)
+		return w <= width
+	}
+	lo, hi := -1, len(r)
+	for k := clipFirstProbe; ; k *= 2 {
+		if k >= len(r) {
+			if whole() {
+				return s
+			}
+			break
+		}
+		if !fits(k) {
+			if len(r) < 2*k && whole() {
+				return s
+			}
+			hi = k
+			break
+		}
+		lo = k
+	}
+	for hi-lo > 1 {
+		mid := lo + (hi-lo)/2
+		if fits(mid) {
+			lo = mid
+		} else {
+			hi = mid
 		}
 	}
-	return ""
+	if lo < 0 {
+		return ""
+	}
+	return string(r[:lo]) + "…"
+}
+
+// clipFirstProbe is the first prefix clipTo tries, in runes.
+const clipFirstProbe = 8
+
+// clipMemoLimit is how many clips a clipper keeps before starting over:
+// more than any frame's rows, so a panel drawn again measures nothing.
+const clipMemoLimit = 1024
+
+type clipKey struct {
+	s     string
+	width float64
+	size  ui.Size
+}
+
+// clipper remembers each clip it has made, so a row drawn again unchanged
+// is not clipped again.
+type clipper struct {
+	measure ui.Measure
+	memo    map[clipKey]string
+}
+
+func newClipper(measure ui.Measure) *clipper {
+	return &clipper{measure: measure, memo: map[clipKey]string{}}
+}
+
+func (c *clipper) clip(s string, width float64, size ui.Size) string {
+	key := clipKey{s, width, size}
+	if out, ok := c.memo[key]; ok {
+		return out
+	}
+	if len(c.memo) >= clipMemoLimit {
+		clear(c.memo)
+	}
+	out := clipTo(s, width, size, c.measure)
+	c.memo[key] = out
+	return out
 }
