@@ -63,7 +63,7 @@ func TestGroupingCostPerPrompt(t *testing.T) {
 		{scenario: "when 2,000 small sessions are on the map", sessions: 2000,
 			history: helpers.ManySessions(198, 2000, now),
 			unmet: "the load around grouping, about 20 ms with nothing changed: the catalogue's stat of every " +
-				"stopped transcript, Build and the garbage both leave (item 198 found it, for a per-file load)"},
+				"stopped transcript, Build and the garbage both leave; item 205"},
 	}
 	for _, h := range homes {
 		t.Run(h.scenario+", and one sends a prompt", func(t *testing.T) {
@@ -211,7 +211,7 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 			t.Run("it should use at most 2% of a core", func(t *testing.T) {
 				if share := min(first, second); share > maxCoreShare {
 					t.Skipf("unmet: %.1f%% against 2%%; the rescan's load: the garbage collector, the catalogue's stat "+
-						"of every stopped transcript, Build and the transcript index, each rescan (found by item 198)", share*100)
+						"of every stopped transcript, Build and the transcript index, each rescan; item 205", share*100)
 				}
 			})
 		})
