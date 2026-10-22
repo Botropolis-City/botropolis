@@ -71,6 +71,13 @@ jobs:
         with:
           go-version-file: go.mod
       - run: make test-unit
+      # Item 200: every background policy for the first-launch ingest, each
+      # with and without asyncpreemptoff, beside two busy processes per core.
+      # Alone in its own step, since its busy loops starve other tests.
+      - name: Background priority policies against item 138's inversion
+        env:
+          BOTROPOLIS_DARWIN_PRIORITY_MATRIX: "1"
+        run: go test -count=1 -v -timeout 30m -run '^TestStateChangeDuringBackfillOnDarwin$' ./pkg/daemon/
       # macOS's own bash (3.2) and zsh, which are what a Mac user has, and fish;
       # bash-completion is Homebrew's 3.2-compatible one, which bash completion
       # on a Mac needs.

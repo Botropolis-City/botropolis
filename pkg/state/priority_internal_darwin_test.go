@@ -8,30 +8,38 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// priorityChange is what a policy does to a thread. PRIO_DARWIN_BG and a
+// thread I/O policy each strip the thread's QoS class, so it reads as
+// unspecified after either. A baseAtMost of zero leaves the base
+// priority where it was; CI's runners already hold threads at 20.
 type priorityChange struct {
-	darwinBG  bool
-	qos       uint32
-	diskIO    int
-	lowersCPU bool
+	darwinBG   bool
+	stripsQoS  bool
+	qos        uint32
+	diskIO     int
+	baseAtMost int32
 }
 
 func (c priorityChange) from(before ThreadPriority) priorityChange {
-	if c.qos == 0 {
+	if c.qos == 0 && !c.stripsQoS {
 		c.qos = before.QoS
 	}
 	if c.diskIO == 0 {
 		c.diskIO = before.DiskIO
+	}
+	if c.baseAtMost == 0 {
+		c.baseAtMost = before.BasePriority
 	}
 	return c
 }
 
 var policyChanges = map[BackgroundPolicy]priorityChange{
 	PolicyNone:               {},
-	PolicyDarwinBG:           {darwinBG: true, lowersCPU: true},
-	PolicyQoSUtility:         {qos: qosClassUtility, lowersCPU: true},
-	PolicyQoSBackground:      {qos: qosClassBackground, lowersCPU: true},
-	PolicyIOThrottle:         {diskIO: iopolThrottle},
-	PolicyDarwinBGIOThrottle: {darwinBG: true, diskIO: iopolThrottle, lowersCPU: true},
+	PolicyDarwinBG:           {darwinBG: true, stripsQoS: true, baseAtMost: 4},
+	PolicyQoSUtility:         {qos: qosClassUtility, baseAtMost: 20},
+	PolicyQoSBackground:      {qos: qosClassBackground, baseAtMost: 4},
+	PolicyIOThrottle:         {diskIO: iopolThrottle, stripsQoS: true},
+	PolicyDarwinBGIOThrottle: {darwinBG: true, stripsQoS: true, diskIO: iopolThrottle, baseAtMost: 4},
 }
 
 type policyRun struct {
@@ -77,8 +85,8 @@ func assertChange(t *testing.T, want priorityChange, r policyRun) {
 		assert.Equal(t, want.diskIO, r.after.DiskIO)
 	})
 
-	t.Run("it should lower the thread's base priority only if the policy lowers its CPU priority", func(t *testing.T) {
-		assert.Equal(t, want.lowersCPU, r.after.BasePriority < r.before.BasePriority, "base priority %d before, %d after", r.before.BasePriority, r.after.BasePriority)
+	t.Run("it should hold the thread's base priority at most where the policy puts it", func(t *testing.T) {
+		assert.LessOrEqual(t, r.after.BasePriority, want.baseAtMost, "base priority %d before", r.before.BasePriority)
 	})
 
 	t.Run("it should leave the process's other threads at their QoS class", func(t *testing.T) {
