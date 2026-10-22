@@ -15,30 +15,78 @@ import (
 
 // Item 186, from item 167: at a load of about 150, pkg/render hit go test's
 // default ten-minute timeout, the fault item 131 fixed for acceptance alone.
+// Item 202: CI sets ACCEPTANCE_TIMEOUT in the environment, which this test
+// leaked into make and failed on, so make runs with the timeouts cleared from
+// its environment, and the caller's are only ever passed on purpose.
 func TestTestTimeouts(t *testing.T) {
-	for _, target := range []string{"test-unit", "test-integration", "test-acceptance"} {
-		t.Run("when "+target+" is dry-run with a timeout", func(t *testing.T) {
-			cmd := exec.Command("make", "-n", "-C", repoRoot(t), target, "TEST_TIMEOUT=17m")
-			cmd.Env = landEnviron()
-			out, err := cmd.CombinedOutput()
-			require.NoError(t, err, string(out))
-			var runs, timed []string
-			for _, line := range strings.Split(string(out), "\n") {
-				if !strings.Contains(line, "go test") {
-					continue
-				}
+	dryRun := func(t *testing.T, target string, env ...string) []string {
+		t.Helper()
+		cmd := exec.Command("make", "-n", "-C", repoRoot(t), target, "TEST_TIMEOUT=17m")
+		cmd.Env = append(timeoutFreeEnviron(), env...)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, string(out))
+		var runs []string
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.Contains(line, "go test") {
 				runs = append(runs, line)
-				if strings.Contains(line, "-timeout 17m") {
-					timed = append(timed, line)
-				}
 			}
-			require.NotEmpty(t, runs)
+		}
+		require.NotEmpty(t, runs)
+		return runs
+	}
+	timed := func(runs []string, timeout string) []string {
+		var with []string
+		for _, line := range runs {
+			if strings.Contains(line, "-timeout "+timeout) {
+				with = append(with, line)
+			}
+		}
+		return with
+	}
 
-			t.Run("it should give every go test the timeout", func(t *testing.T) {
-				assert.Equal(t, runs, timed)
-			})
+	for _, caller := range []struct {
+		name string
+		env  []string
+	}{
+		{"and the caller's environment sets no timeout", nil},
+		{"and the caller's environment sets ACCEPTANCE_TIMEOUT and TEST_TIMEOUT", []string{"ACCEPTANCE_TIMEOUT=10m", "TEST_TIMEOUT=9m"}},
+	} {
+		t.Run(caller.name, func(t *testing.T) {
+			for _, kv := range caller.env {
+				k, v, _ := strings.Cut(kv, "=")
+				t.Setenv(k, v)
+			}
+			for _, target := range []string{"test-unit", "test-integration", "test-acceptance"} {
+				t.Run("when "+target+" is dry-run with a timeout", func(t *testing.T) {
+					runs := dryRun(t, target)
+
+					t.Run("it should give every go test the timeout", func(t *testing.T) {
+						assert.Equal(t, runs, timed(runs, "17m"))
+					})
+				})
+			}
 		})
 	}
+
+	t.Run("when test-acceptance is dry-run with a timeout, and ACCEPTANCE_TIMEOUT in make's environment, as CI runs it", func(t *testing.T) {
+		runs := dryRun(t, "test-acceptance", "ACCEPTANCE_TIMEOUT=10m")
+
+		t.Run("it should give the acceptance go test ACCEPTANCE_TIMEOUT", func(t *testing.T) {
+			assert.Equal(t, runs, timed(runs, "10m"))
+		})
+	})
+}
+
+func timeoutFreeEnviron() []string {
+	var env []string
+	for _, kv := range landEnviron() {
+		switch strings.SplitN(kv, "=", 2)[0] {
+		case "ACCEPTANCE_TIMEOUT", "TEST_TIMEOUT":
+			continue
+		}
+		env = append(env, kv)
+	}
+	return env
 }
 
 // Item 186: golangci-lint takes a lock in TMPDIR for the whole machine and,
