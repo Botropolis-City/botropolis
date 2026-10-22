@@ -42,6 +42,9 @@ type Options struct {
 	// city lets its subscription go but for a glance every so often
 	// (item 197).
 	Glance func(hidden bool)
+	// Loading asks the daemon how far its first load has got, for the
+	// panel the window shows until the city opens (item 159).
+	Loading func() (state.LoadProgress, error)
 	// RestartDaemon restarts the daemon the dialog found out of sync,
 	// and returns once one of this build's answers (item 152).
 	RestartDaemon func(context.Context) error
@@ -239,6 +242,9 @@ func Run(ctx context.Context, opts Options) error {
 	}
 	stopFeed := startFeed(ctx, feed, game.Offer, game.AddEvents)
 	defer stopFeed()
+	if opts.Loading != nil {
+		go watchLoading(loadingEvery, func() bool { return game.opened.Load() || ctx.Err() != nil }, opts.Loading, game.loading.Store)
+	}
 	// A signal ends the loop, never the process: Run returns, and the
 	// private state directory a caller made is removed (item 114).
 	go func() {

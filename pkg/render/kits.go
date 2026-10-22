@@ -102,6 +102,13 @@ func (k *kits) ready() bool {
 	return false
 }
 
+// progress is how many of the zoom's level's pages are up, of how many
+// it has: the only level going up before the city is drawn (item 159).
+func (k *kits) progress(zoom float64) (done, total int) {
+	a := &k.atlases[k.index(zoom)]
+	return len(a.pages), a.PageCount()
+}
+
 func (k *kits) complete(i int) bool {
 	return len(k.atlases[i].pages) == k.atlases[i].PageCount()
 }

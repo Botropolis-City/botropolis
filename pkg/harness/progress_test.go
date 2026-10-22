@@ -18,6 +18,29 @@ type scanning struct {
 
 func (s scanning) Progress() *state.ScanProgress { return s.scan }
 
+// loadingHarness is a harness partway through a load.
+type loadingHarness struct {
+	fake
+	load state.LoadProgress
+}
+
+func (l loadingHarness) LoadProgress() state.LoadProgress { return l.load }
+
+// Item 159.
+func TestMultiLoadProgress(t *testing.T) {
+	t.Run("when two harnesses are loading and a third cannot say", func(t *testing.T) {
+		m := harness.NewMulti(
+			loadingHarness{fake: fake{name: "claude"}, load: state.LoadProgress{Done: 40, Total: 120}},
+			loadingHarness{fake: fake{name: "codex"}, load: state.LoadProgress{Done: 5, Total: 10}},
+			fake{name: "other"},
+		)
+
+		t.Run("it should add up the ones that can", func(t *testing.T) {
+			assert.Equal(t, state.LoadProgress{Done: 45, Total: 130}, m.LoadProgress())
+		})
+	})
+}
+
 // Item 159.
 func TestMultiProgress(t *testing.T) {
 	scan := &state.ScanProgress{Done: 16 << 20, Known: 64 << 20}

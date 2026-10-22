@@ -238,7 +238,11 @@ type Game struct {
 	waitingHovered bool
 	// scanRate watches a first launch's read, for the time it has left.
 	// Item 159.
-	scanRate      ui.ScanRate
+	scanRate ui.ScanRate
+	// opened is whether a snapshot has opened the city, and loading the
+	// daemon's last word on its first load, for the opening panel.
+	opened        atomic.Bool
+	loading       atomic.Pointer[state.LoadProgress]
 	settingsPanel ui.SettingsPanel
 	searchPlate   city.Rect
 	// usage is Claude Code's own cached view of the account's limits,
@@ -941,7 +945,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.dashboard = false
 	}
 	if g.kits != nil && !g.kits.ready() {
-		screen.Fill(colorVoid)
+		done, total := g.kits.progress(g.scene.Camera().Zoom)
+		g.drawOpening(screen, done, max(total, done+1))
+		return
+	}
+	// A daemon out of sync never opens the city, and its dialog says why
+	// (item 152), so the wait for the first snapshot shows only without it.
+	if g.cityShown() && g.drawOpening(screen, 1, 1) {
 		return
 	}
 	if !g.startPaint() {

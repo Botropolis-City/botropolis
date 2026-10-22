@@ -726,6 +726,9 @@ func (s *Scene) SetLedger(l Ledger) {
 	s.restate()
 }
 
+// Opened is whether a snapshot from outside has opened the city.
+func (s *Scene) Opened() bool { return s.opened }
+
 // SetSnapshot shows a snapshot from outside the scene, and the first
 // one opens the city.
 func (s *Scene) SetSnapshot(snapshot state.Snapshot) {

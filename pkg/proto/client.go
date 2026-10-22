@@ -3,6 +3,7 @@ package proto
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -170,6 +171,28 @@ func Ask(sock string) (Peer, error) {
 		return Peer{}, err
 	}
 	return response.Peer, nil
+}
+
+// Loading asks the daemon on sock how far its load has got, which it
+// answers even while its first load holds every other request. A daemon
+// that does not know the question answers with an error.
+func Loading(sock string) (state.LoadProgress, error) {
+	client, err := Dial(sock)
+	if err != nil {
+		return state.LoadProgress{}, err
+	}
+	defer func() { _ = client.Close() }()
+	if err := client.send(Request{Op: OpLoading}); err != nil {
+		return state.LoadProgress{}, err
+	}
+	var response Response
+	if err := client.decoder.Decode(&response); err != nil {
+		return state.LoadProgress{}, err
+	}
+	if response.Error != "" || response.Loading == nil {
+		return state.LoadProgress{}, fmt.Errorf("the daemon did not say how far it has loaded: %s", response.Error)
+	}
+	return *response.Loading, nil
 }
 
 func SendEvent(sock string, event json.RawMessage) error {

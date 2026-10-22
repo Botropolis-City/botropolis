@@ -560,7 +560,8 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			feed.Mismatch = outOfSync
 			feed.Run(ctx, offer)
 		},
-		Glance: feed.Glance.Hide,
+		Glance:  feed.Glance.Hide,
+		Loading: func() (state.LoadProgress, error) { return proto.Loading(c.config.Socket) },
 		RestartDaemon: func(ctx context.Context) error {
 			return daemonctl.Restart(ctx, daemonctl.Native(), c.config.Socket, proto.Self())
 		},

@@ -36,11 +36,17 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 		if err := decoder.Decode(&request); err != nil {
 			return
 		}
-		// A hook holds up a session's tool call until it is answered.
-		if request.Op != proto.OpEvent && !d.waitLoaded(ctx) {
+		// A hook holds up a session's tool call until it is answered, and
+		// a city waiting on the first load asks how far it has got.
+		if request.Op != proto.OpEvent && request.Op != proto.OpLoading && !d.waitLoaded(ctx) {
 			return
 		}
 		switch request.Op {
+		case proto.OpLoading:
+			progress := d.LoadProgress()
+			if err := d.respond(conn, proto.Response{Loading: &progress}); err != nil {
+				return
+			}
 		case proto.OpSnapshot:
 			snapshot := d.Snapshot()
 			if err := d.respond(conn, proto.Response{Snapshot: &snapshot}); err != nil {

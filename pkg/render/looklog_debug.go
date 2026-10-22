@@ -5,6 +5,9 @@ package render
 import (
 	"fmt"
 	"os"
+	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // logLooks writes what the look cache did this frame beside
@@ -31,6 +34,32 @@ func (g *Game) logStill() {
 func (g *Game) logReading(line string) {
 	if line != "" {
 		fmt.Printf("reading: %s\n", line)
+	}
+}
+
+// logOpening writes the opening panel's line, for item 159's first
+// launch test.
+func (g *Game) logOpening(line string) {
+	fmt.Printf("opening: %s\n", line)
+}
+
+// openingFrame is where to keep one frame of the opening panel, for a
+// person to judge: a recording starts only once the city has opened.
+var openingFrame = os.Getenv("BOTROPOLIS_OPENING_FRAME")
+
+// openingKept is whether that frame has been written; one city runs per
+// process.
+var openingKept bool
+
+// keepOpening writes the opening panel's frame to openingFrame once the
+// city has waited two seconds, so the panel is up and its bar has moved.
+func (g *Game) keepOpening(screen *ebiten.Image) {
+	if openingFrame == "" || openingKept || time.Since(g.started) < 2*time.Second {
+		return
+	}
+	openingKept = true
+	if err := writePNG(openingFrame, frame(screen)); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 	}
 }
 

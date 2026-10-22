@@ -91,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The first read takes about twice as long, and nothing else waits for it.
   Quitting part-way through it now loses at most 16 MiB of one transcript, where it used to start that transcript over, however long.
   While it reads, the footer shows how far it has got on a bar, as in "Reading your history · 42% · about 6 min left", with the time left once its pace has settled.
+  A city opened while the daemon is still reading your sessions no longer shows an empty island: it shows "Reading your sessions · 40 of 120" on a bar until the map is ready.
 
 - **Refreshing usage no longer starts your MCP servers, settings, hooks or plugins.**
   Each refresh used to start Claude Code with everything you have configured, up to seven processes and about 900 MiB; it now starts Claude Code alone, at under half that.

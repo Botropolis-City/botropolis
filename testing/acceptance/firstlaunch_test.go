@@ -4,7 +4,10 @@ package acceptance_test
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,12 +15,15 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/testing/helpers"
 )
@@ -110,15 +116,16 @@ func TestFirstLaunchResumes(t *testing.T) {
 // load of 40, a city on an empty home took 12-15 s to draw, so they are
 // asserted only with BOTROPOLIS_FIRST_LAUNCH_TIMED=1, for a report. What
 // gates is work: the CPU-seconds the city spends before it draws the
-// city, which load barely moves. A start that is serial can spend no
-// more CPU than the time it takes, so 5 s on the budget's machine is at
-// most 5 CPU-seconds. BOTROPOLIS_FIRST_LAUNCH_FRAME=path keeps the last
-// frame, for a person to judge.
+// city, which load barely moves: 0.14-0.29 CPU-seconds on 2026-10-21.
+// The limit is 1 CPU-second, about 3.5 times that, and inside the 5 s
+// budget; slice 3 set it at 5, which Aria's note pointed out could only
+// catch a fifteenfold regression. BOTROPOLIS_FIRST_LAUNCH_FRAME=path
+// keeps the last frame, for a person to judge.
 func TestFirstLaunchCity(t *testing.T) {
 	helpers.NeedXvfb(t)
 	const (
 		within        = 5 * time.Second
-		maxCPUSeconds = 5.0
+		maxCPUSeconds = 1.0
 		clockTicksSec = 100
 	)
 	timed := os.Getenv("BOTROPOLIS_FIRST_LAUNCH_TIMED") != ""
@@ -209,7 +216,7 @@ func TestFirstLaunchCity(t *testing.T) {
 			assert.True(t, slices.IsSorted(percents))
 		})
 
-		t.Run("it should spend at most 5 CPU-seconds before it draws the city", func(t *testing.T) {
+		t.Run("it should spend at most 1 CPU-second before it draws the city", func(t *testing.T) {
 			assert.True(t, cpuToDrawn >= 0 && cpuToDrawn <= maxCPUSeconds)
 		})
 
@@ -223,6 +230,97 @@ func TestFirstLaunchCity(t *testing.T) {
 			})
 		}
 	})
+}
+
+// Item 159: a city opened while the daemon's first load runs waited on
+// an empty window. The daemon here is a stand-in that answers as this
+// build, says it has read 40 of 120 sessions, and never sends the first
+// snapshot, so the city waits for as long as the test watches.
+func TestFirstLaunchCityWaiting(t *testing.T) {
+	helpers.NeedXvfb(t)
+	const want = "Reading your sessions · 40 of 120"
+
+	t.Run("when the city opens while the daemon is 40 sessions of 120 into its first load", func(t *testing.T) {
+		bin, err := debugCity()
+		require.NoError(t, err)
+		sock := shortSocket(t)
+		listener, err := net.Listen("unix", sock)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = listener.Close() })
+		go holdingDaemon(listener, state.LoadProgress{Done: 40, Total: 120})
+		root := t.TempDir()
+		frames := filepath.Join(root, "frames")
+		require.NoError(t, os.MkdirAll(frames, 0o755))
+		// A recording counts its seconds from the city opening, which it
+		// never does here, so the city is watched for a while and stopped.
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		city := exec.CommandContext(ctx, bin, "city", "--headless", "--record", frames, "--seconds", "3", "--fps", "2", "--window", "1600x900", "--socket", sock)
+		city.Env = append(os.Environ(), "HOME="+filepath.Join(root, "home"), "XDG_STATE_HOME="+filepath.Join(root, "state"))
+		// BOTROPOLIS_FIRST_LAUNCH_OPENING_FRAME=path keeps a frame of the
+		// panel, for a person to judge.
+		keep := os.Getenv("BOTROPOLIS_FIRST_LAUNCH_OPENING_FRAME")
+		if keep != "" {
+			city.Env = append(city.Env, "BOTROPOLIS_OPENING_FRAME="+keep)
+		}
+		var out syncBuffer
+		city.Stdout = &out
+		// The city's own Xvfb holds its output open, so the whole group
+		// is stopped, and the wait gives up on the pipe soon after.
+		city.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		city.Cancel = func() error { return syscall.Kill(-city.Process.Pid, syscall.SIGKILL) }
+		city.WaitDelay = 3 * time.Second
+		_ = city.Run()
+		openings, drawn := 0, 0
+		for _, line := range strings.Split(out.String(), "\n") {
+			switch {
+			case line == "opening: "+want:
+				openings++
+			case strings.HasPrefix(line, "still: "):
+				drawn++
+			}
+		}
+		t.Logf("%d frames said %q, %d drew the city", openings, want, drawn)
+		if keep != "" {
+			_, err := os.Stat(keep)
+			require.NoError(t, err, "the city kept no frame of the opening panel")
+		}
+
+		t.Run("it should say how far the daemon has got", func(t *testing.T) {
+			assert.Positive(t, openings)
+		})
+
+		t.Run("it should draw no city while it waits", func(t *testing.T) {
+			assert.Zero(t, drawn)
+		})
+	})
+}
+
+// holdingDaemon answers every connection as a daemon of this build
+// holding its first load would: a loading request with load, a
+// subscription with nothing, ever.
+func holdingDaemon(listener net.Listener, load state.LoadProgress) {
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		go func() {
+			defer func() { _ = conn.Close() }()
+			var request proto.Request
+			if err := proto.NewDecoder(conn).Decode(&request); err != nil {
+				return
+			}
+			switch request.Op {
+			case proto.OpLoading:
+				_ = proto.Write(conn, proto.Response{Peer: proto.Self(), Loading: &load})
+			case proto.OpSubscribe:
+				_, _ = io.Copy(io.Discard, conn)
+			default:
+				_ = proto.Write(conn, proto.Response{Peer: proto.Self()})
+			}
+		}()
+	}
 }
 
 // launch is a home of synthetic history with its own state directory.

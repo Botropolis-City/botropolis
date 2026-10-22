@@ -19,6 +19,15 @@ type progressor interface {
 	Progress() *state.ScanProgress
 }
 
+// LoadProgress is how far the loader's load has got, or nothing of
+// nothing when it cannot say.
+func (d *Daemon) LoadProgress() state.LoadProgress {
+	if p, ok := d.loader.(interface{ LoadProgress() state.LoadProgress }); ok {
+		return p.LoadProgress()
+	}
+	return state.LoadProgress{}
+}
+
 // SetProgressEvery replaces how often progress is sent, for tests.
 func (d *Daemon) SetProgressEvery(every time.Duration) {
 	d.mu.Lock()

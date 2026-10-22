@@ -90,6 +90,20 @@ func (m *Multi) Progress() *state.ScanProgress {
 	return nil
 }
 
+// LoadProgress is every harness's load added up, of those that can say
+// how far theirs has got (item 159).
+func (m *Multi) LoadProgress() state.LoadProgress {
+	var total state.LoadProgress
+	for _, h := range m.harnesses {
+		if p, ok := h.(interface{ LoadProgress() state.LoadProgress }); ok {
+			load := p.LoadProgress()
+			total.Done += load.Done
+			total.Total += load.Total
+		}
+	}
+	return total
+}
+
 func (m *Multi) WatchDirs() []string {
 	var dirs []string
 	for _, h := range m.harnesses {

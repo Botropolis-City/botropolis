@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
@@ -64,6 +65,22 @@ type Loader struct {
 	// index locates transcripts without globbing every project on
 	// every load (item 196).
 	index *claude.Index
+	// loadDone and loadTotal are the running load's sessions read and
+	// found, for a city waiting on the first one (item 159).
+	loadDone, loadTotal atomic.Int64
+}
+
+// LoadProgress is how many sessions a load has read, of how many it
+// found: a live session counts for its record and again for its
+// transcript among the stopped ones.
+type LoadProgress struct {
+	Done  int `json:"done"`
+	Total int `json:"total"`
+}
+
+// LoadProgress is how far the running load, or the last, has got.
+func (l *Loader) LoadProgress() LoadProgress {
+	return LoadProgress{Done: int(l.loadDone.Load()), Total: int(l.loadTotal.Load())}
 }
 
 func NewLoader(home string, probes Probes) *Loader {
@@ -128,7 +145,11 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	subagents := map[string]cachedSubagent{}
 	src.Subagents = map[string][]claude.Subagent{}
 	dirs := []string{filepath.Join(claudeDir, "sessions"), filepath.Join(claudeDir, "daemon"), projectsDir}
+	paths := l.index.Transcripts(projectsDir)
+	l.loadDone.Store(0)
+	l.loadTotal.Store(int64(len(src.Records) + len(paths)))
 	for _, r := range src.Records {
+		l.loadDone.Add(1)
 		path, ok := l.index.Find(projectsDir, r.SessionID)
 		if !ok {
 			continue
@@ -164,7 +185,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	// Every stopped session Claude Code still has a transcript for is
 	// catalogued, however old: time ages a session, it never takes one
 	// off the map (item 86).
-	stopped, stoppedSubs, skipped, err := l.catalogue(projectsDir, live, now.Add(-PowerWindow))
+	stopped, stoppedSubs, skipped, err := l.catalogue(paths, live, now.Add(-PowerWindow))
 	if err != nil {
 		return snapshot, err
 	}
@@ -234,8 +255,7 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 	return l.stats, nil
 }
 
-func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince time.Time) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
-	paths := l.index.Transcripts(projectsDir)
+func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time.Time) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
 	parked := make([]claude.Transcript, 0, len(paths))
 	var skipped []claude.SkippedFile
 	cache := make(map[string]cachedTranscript, len(l.parked))
@@ -243,6 +263,7 @@ func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince 
 	stoppedSubs := map[string][]claude.Subagent{}
 	files := make(map[string]stoppedFile, len(l.stoppedFiles))
 	for _, path := range paths {
+		l.loadDone.Add(1)
 		id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		if live[id] {
 			continue

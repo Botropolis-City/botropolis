@@ -33,6 +33,9 @@ const (
 	// OpPeer asks the daemon only what it is: its response carries its
 	// release and protocol and nothing else (item 152).
 	OpPeer = "peer"
+	// OpLoading asks how far the daemon's load has got, and is answered
+	// while the first one runs, when everything else waits (item 159).
+	OpLoading = "loading"
 
 	socketDir  = "botropolis"
 	socketName = "botropolis.sock"
@@ -77,7 +80,9 @@ type Response struct {
 	Snapshot *state.Snapshot `json:"snapshot,omitempty"`
 	Events   []events.Event  `json:"events,omitempty"`
 	Found    []find.Hit      `json:"found,omitempty"`
-	Error    string          `json:"error,omitempty"`
+	// Loading is a loading request's answer.
+	Loading *state.LoadProgress `json:"loading,omitempty"`
+	Error   string              `json:"error,omitempty"`
 }
 
 // Update is one delivery to a subscriber: the snapshot, and the events
