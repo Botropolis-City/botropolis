@@ -113,30 +113,6 @@ func TestAHiddenCityHoldsItsSnapshots(t *testing.T) {
 		})
 	})
 
-	t.Run("when the city has a feed to hold off", func(t *testing.T) {
-		g := game(t)
-		var told []bool
-		g.glance = func(hidden bool) { told = append(told, hidden) }
-
-		t.Run("and the window is unmapped, it should tell the feed it is hidden", func(t *testing.T) {
-			window(t, true, false, false)
-			g.takeSnapshot(nil)
-			assert.Equal(t, []bool{true}, told)
-		})
-
-		t.Run("and it stays unmapped, it should not tell it again", func(t *testing.T) {
-			window(t, true, false, false)
-			g.takeSnapshot(nil)
-			assert.Equal(t, []bool{true}, told)
-		})
-
-		t.Run("and it is shown unfocused, it should tell the feed it is shown", func(t *testing.T) {
-			window(t, false, true, false)
-			g.takeSnapshot(nil)
-			assert.Equal(t, []bool{true, false}, told)
-		})
-	})
-
 	t.Run("when someone is watching, and a snapshot arrives", func(t *testing.T) {
 		window(t, true, true, false)
 		g := game(t)

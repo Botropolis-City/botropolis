@@ -38,10 +38,6 @@ type Options struct {
 	// the last delivery, and says when its daemon is out of sync, which
 	// stops the map until a snapshot from one in sync (item 152).
 	Feed func(ctx context.Context, offer func(state.Snapshot), events func([]events.Event), outOfSync func(*proto.Mismatch))
-	// Glance tells the feed whether the city can be seen, so a hidden
-	// city lets its subscription go but for a glance every so often
-	// (item 197).
-	Glance func(hidden bool)
 	// Loading asks the daemon how far its first load has got, for the
 	// panel the window shows until the city opens (item 159).
 	Loading func() (state.LoadProgress, error)
@@ -236,7 +232,6 @@ func Run(ctx context.Context, opts Options) error {
 	game.useShortcut(opts.GlobalShortcut)
 
 	game.restartDaemon = opts.RestartDaemon
-	game.glance = opts.Glance
 	var feed func(context.Context, func(state.Snapshot), func([]events.Event))
 	if opts.Feed != nil {
 		feed = func(ctx context.Context, offer func(state.Snapshot), fresh func([]events.Event)) {

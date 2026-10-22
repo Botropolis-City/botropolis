@@ -72,7 +72,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A city you cannot see costs far less while sessions work.**
   An update from the daemon is now laid out in milliseconds rather than more than a second on a history of a few hundred sessions, and is laid out at all only when it changes the map.
-  A hidden or minimised city lays out nothing until you bring it back, and looks at the daemon every 5 seconds instead of taking every update, so its window title still says within 5 seconds that a session needs you; on 200 sessions it went from about 6% of a core to under 1%.
+  A hidden or minimised city lays out nothing until you bring it back, and its window title still says at once that a session needs you; on 200 sessions it went from about 6% of a core to under 1%.
+
+- **The daemon sends the city only what changed.**
+  A city used to be sent the whole picture of every session on every update, about 260 KB a second while 200 sessions worked; it now gets the whole picture once and then only the changes, about half a kilobyte a second.
+  An unfocused city decoding and laying out those updates spends under 1% of a core on it.
+  A city and a daemon must still be the same version.
 
 ### Deprecated
 

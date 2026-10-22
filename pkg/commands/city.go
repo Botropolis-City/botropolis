@@ -30,9 +30,6 @@ type Feed struct {
 	// feed then offers nothing, and never scans around it, until a
 	// daemon of this build's answers (item 152).
 	Mismatch func(*proto.Mismatch)
-	// Glance, when set, holds the feed off the daemon while the city
-	// cannot be seen, but for a snapshot every so often (item 197).
-	Glance *Glance
 }
 
 // MismatchRetry is how often a feed asks again of a daemon out of sync,
@@ -44,15 +41,6 @@ func (f Feed) Run(ctx context.Context, offer func(state.Snapshot)) {
 	// again is given what it missed and nothing twice.
 	since := f.since()
 	for ctx.Err() == nil {
-		if hidden, changed := f.Glance.state(); hidden {
-			f.glance(ctx, offer, &since)
-			select {
-			case <-ctx.Done():
-			case <-changed:
-			case <-time.After(f.Glance.Every):
-			}
-			continue
-		}
 		delivered, mismatch := f.subscribe(ctx, offer, &since)
 		switch {
 		case mismatch != nil:
@@ -86,7 +74,6 @@ func (f Feed) RunRefusing(ctx context.Context, offer func(state.Snapshot)) error
 }
 
 func (f Feed) subscribe(ctx context.Context, offer func(state.Snapshot), since *time.Time) (bool, *proto.Mismatch) {
-	_, changed := f.Glance.state()
 	client, err := proto.Dial(f.Socket)
 	if err != nil {
 		return false, nil
@@ -105,41 +92,11 @@ func (f Feed) subscribe(ctx context.Context, offer func(state.Snapshot), since *
 		select {
 		case <-ctx.Done():
 			return true, nil
-		case <-changed:
-			// Hidden: let the subscription go, and glance instead.
-			return true, nil
 		case update, ok := <-updates:
 			if !ok {
 				return delivered, nil
 			}
 			delivered = true
-			f.take(since, update.Events)
-			offer(update.Snapshot)
-		}
-	}
-}
-
-// glance attaches for one snapshot and the events since the last seen,
-// and lets go.
-func (f Feed) glance(ctx context.Context, offer func(state.Snapshot), since *time.Time) {
-	client, err := proto.Dial(f.Socket)
-	if err != nil {
-		return
-	}
-	defer func() { _ = client.Close() }()
-	updates, err := client.Subscribe(*since)
-	var mismatch *proto.Mismatch
-	if errors.As(err, &mismatch) && f.Mismatch != nil {
-		f.Mismatch(mismatch)
-	}
-	if err != nil {
-		return
-	}
-	select {
-	case <-ctx.Done():
-	case <-time.After(f.Retry):
-	case update, ok := <-updates:
-		if ok {
 			f.take(since, update.Events)
 			offer(update.Snapshot)
 		}

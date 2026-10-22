@@ -182,12 +182,6 @@ type Game struct {
 	// frame for the last snapshot it laid out (item 197).
 	held      *state.Snapshot
 	dashboard bool
-	// glance tells the feed whether the city can be seen, so a hidden
-	// one lets its subscription go; told is whether it has been told,
-	// and toldHidden what (item 197).
-	glance     func(hidden bool)
-	told       bool
-	toldHidden bool
 
 	// screenshot mode: frames drawn since the first snapshot, and the result.
 	screenshot string

@@ -23,10 +23,6 @@ import (
 // still held once it can be.
 func (g *Game) takeSnapshot(pending *state.Snapshot) {
 	seen := g.capturing() || g.driven || shown()
-	if g.glance != nil && (!g.told || g.toldHidden == seen) {
-		g.told, g.toldHidden = true, !seen
-		g.glance(!seen)
-	}
 	if pending != nil {
 		g.held = pending
 	}

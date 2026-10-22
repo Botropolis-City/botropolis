@@ -24,9 +24,10 @@ import (
 // for every snapshot the daemon sent, at 7.9% of a core on the real
 // history against the budget in performance/budgets.md: hidden,
 // minimised or unfocused, at most 1% of one core. A hidden city now
-// holds its snapshots, and lets its subscription go but for a glance
-// every 5 s; an unfocused one that can be seen is a dashboard (Aria,
-// 2026-10-21), laying out each snapshot and painting one frame for it.
+// holds its snapshots and stays subscribed, since the daemon sends only
+// what changed (item 201); an unfocused one that can be seen is a
+// dashboard (Aria, 2026-10-21), laying out each snapshot and painting
+// one frame for it.
 //
 // The city runs on a virtual display against item 197's busy city while
 // one session writes a line every 200 ms. A hidden city draws nothing,
@@ -56,12 +57,9 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 		// drawn is whether the city paints while so; when it does, the
 		// time it counts decoding and laying out is what is gated.
 		drawn bool
-		// fed is the least it should read of the daemon while hidden: a
-		// glance of about 220 KiB every 5 s.
-		fed int64
 	}{
-		{"hidden", helpers.Hide, "visible=false", false, 256 << 10},
-		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true, 0},
+		{"hidden", helpers.Hide, "visible=false", false},
+		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true},
 	} {
 		t.Run("when the city is "+way.name+", and a session of 200 writes a line every 200 ms for 15 s", func(t *testing.T) {
 			b := newBusyCity(t)
@@ -109,13 +107,22 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 				measured = own
 			}
 
-			t.Run("the daemon's updates should have reached it", func(t *testing.T) {
-				if way.drawn {
+			if way.drawn {
+				t.Run("the daemon's updates should have reached it", func(t *testing.T) {
 					assert.Greater(t, counted1.snapshots-counted.snapshots, 5)
-				} else {
-					assert.Greater(t, fed, way.fed)
-				}
-			})
+				})
+			} else {
+				// Hidden, it holds what it is sent without laying it out, so
+				// what it read says it was streamed: some, and no whole
+				// snapshot of about 220 KiB.
+				t.Run("the daemon should have streamed it what changed", func(t *testing.T) {
+					assert.Greater(t, fed, int64(1<<10))
+				})
+
+				t.Run("it should have read no whole snapshot", func(t *testing.T) {
+					assert.Less(t, fed, int64(64<<10))
+				})
+			}
 
 			t.Run("the window should have been "+way.name+" throughout", func(t *testing.T) {
 				require.Contains(t, during, "QUIET no frames: ")
