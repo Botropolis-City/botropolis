@@ -551,7 +551,19 @@ type runID struct {
 const lookForget = 600
 
 // nextLookFrame starts a frame of the looks: counted, its counts reset.
+//
+// A cache no look has been drawn from for lookForget frames is let go
+// whole, pages and all (item 162): looks are baked at full zoom and not
+// at fit, so the pages a zoom in made were otherwise kept for the life
+// of the city. It counts frames rather than seconds on purpose: a
+// window that draws only on a change keeps its looks until it has drawn
+// that many frames without one, however long that takes.
 func (g *Game) nextLookFrame() {
+	if g.lookStats.hits+g.lookStats.bakes > 0 {
+		g.lookDrawn = g.lookFrame
+	} else if g.looks != nil && g.lookFrame-g.lookDrawn >= lookForget {
+		g.looks = nil
+	}
 	if g.looks == nil {
 		// A new cache holds no looks, so nothing is on the pages.
 		g.looks = newLookCache[lookKey, *bakedLook](lookCacheCap)

@@ -4,6 +4,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,6 +60,60 @@ func TestLookPages(t *testing.T) {
 
 		t.Run("it should not call the pages full", func(t *testing.T) {
 			assert.False(t, p.full)
+		})
+	})
+}
+
+// Item 162: looks are baked at full zoom and not at fit, so the pages a
+// zoom in made were kept for the life of the city: 24 MiB more at fit
+// after zooming in once and back.
+func TestLookPagesLetGo(t *testing.T) {
+	baked := func() *Game {
+		g := &Game{}
+		g.nextLookFrame()
+		g.lookPages = newLookPages(2, 64)
+		room, page, _ := g.lookPages.place(image.Pt(16, 16), lookKey{id: "a"})
+		look := &bakedLook{img: g.lookPages.image(page).SubImage(room).(*ebiten.Image), paged: true}
+		g.looks.put(lookKey{id: "a"}, look, 16*16*4)
+		g.lookStats.bakes++
+		return g
+	}
+	images := func(g *Game) int {
+		n := 0
+		if g.lookPages != nil {
+			for _, p := range g.lookPages.pages {
+				if p.img != nil {
+					n++
+				}
+			}
+		}
+		return n
+	}
+
+	t.Run("when looks have been baked onto pages", func(t *testing.T) {
+		t.Run("and no look is drawn for lookForget frames", func(t *testing.T) {
+			g := baked()
+			for range lookForget + 1 {
+				g.nextLookFrame()
+			}
+
+			t.Run("it should hold no look-page image", func(t *testing.T) {
+				assert.Zero(t, images(g))
+			})
+		})
+
+		t.Run("and a look is drawn within lookForget frames", func(t *testing.T) {
+			g := baked()
+			for i := range lookForget + 1 {
+				g.nextLookFrame()
+				if i == lookForget/2 {
+					g.lookStats.hits++
+				}
+			}
+
+			t.Run("it should keep its pages", func(t *testing.T) {
+				assert.Equal(t, 1, images(g))
+			})
 		})
 	})
 }

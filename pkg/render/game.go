@@ -302,6 +302,8 @@ type Game struct {
 	// lookPages the pages building looks are baked on.
 	labelLooks *labelCache
 	lookPages  *lookPages
+	// lookDrawn is the look frame a look was last drawn or baked on.
+	lookDrawn int
 
 	settings     ui.Settings
 	settingsOpen bool
