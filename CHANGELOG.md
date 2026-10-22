@@ -98,6 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The daemon no longer reads every session's statistics again whenever a transcript changes.**
   The statistics database now records which sessions' counters a write changed, whichever program wrote it, and the daemon reads only those; on a 3.2 GiB history that was about 85 ms of CPU for every line a session wrote.
 
+- **The daemon rescans at most once a second, and no longer looks for every transcript again each time.**
+  Each line a session wrote was its own rescan, and every rescan globbed every project; now changes within a second are read together, the first after a quiet spell still within a tenth of a second, and directories are listed again only when they change.
+  Hooks still change a building at once; only token counts and the power plant can lag by up to a second.
+
 - **At night, lit windows no longer show through what stands in front of them.**
   A district's sign, a building's own painted name, its beacon and flags, and a scaffold's tubes and boards now hide the windows behind them, as a building in front always did; something half transparent dims the light behind it rather than hiding it.
 

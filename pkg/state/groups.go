@@ -1,6 +1,8 @@
 package state
 
 import (
+	"crypto/sha256"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -36,7 +38,7 @@ type groupCache struct {
 	path       string
 	storeKey   fileKey
 	historyKey fileKey
-	signature  string
+	signature  [sha256.Size]byte
 	detections int
 	// detector keeps each pair's score from run to run, so a prompt
 	// scores again only the pairs it can have changed (item 158).
@@ -180,7 +182,7 @@ func confirmLikely(memory *group.Memory, result group.Result, history map[string
 // groupSignature is what about the sessions detection reads, other than
 // the prompt history: who they are, where, on which branch, in which
 // team, and whether they have closed.
-func groupSignature(sessions []Session) string {
+func groupSignature(sessions []Session) [sha256.Size]byte {
 	parts := make([]string, 0, len(sessions))
 	for _, s := range sessions {
 		visits := make([]string, 0, len(s.Visits))
@@ -192,7 +194,14 @@ func groupSignature(sessions []Session) string {
 			strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00"))
 	}
 	sort.Strings(parts)
-	return strings.Join(parts, "\x01")
+	// A digest rather than the parts joined: the joined string was the
+	// largest thing a settled load allocated (item 196).
+	h := sha256.New()
+	for _, p := range parts {
+		_, _ = io.WriteString(h, p)
+		_, _ = io.WriteString(h, "\x01")
+	}
+	return [sha256.Size]byte(h.Sum(nil))
 }
 
 func boolString(b bool) string {

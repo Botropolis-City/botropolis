@@ -61,6 +61,9 @@ type Loader struct {
 	stored          *storedHefts
 	stoppedFiles    map[string]stoppedFile
 	gate            loadGate
+	// index locates transcripts without globbing every project on
+	// every load (item 196).
+	index *claude.Index
 }
 
 func NewLoader(home string, probes Probes) *Loader {
@@ -72,6 +75,7 @@ func NewLoader(home string, probes Probes) *Loader {
 		parked:      map[string]cachedTranscript{},
 
 		parkedSubagents: map[string]cachedSubagent{},
+		index:           claude.NewIndex(),
 	}
 }
 
@@ -93,6 +97,7 @@ func (l *Loader) WatchDirs() []string {
 
 func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	defer l.gate.hold()()
+	l.index.Refresh()
 	claudeDir := filepath.Join(l.home, ".claude")
 	projectsDir := filepath.Join(claudeDir, "projects")
 	snapshot := Snapshot{At: now}
@@ -124,7 +129,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	src.Subagents = map[string][]claude.Subagent{}
 	dirs := []string{filepath.Join(claudeDir, "sessions"), filepath.Join(claudeDir, "daemon"), projectsDir}
 	for _, r := range src.Records {
-		path, ok := claude.FindTranscript(projectsDir, r.SessionID)
+		path, ok := l.index.Find(projectsDir, r.SessionID)
 		if !ok {
 			continue
 		}
@@ -139,11 +144,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 		if entry.transcript.IsBridgeStub {
 			continue
 		}
-		paths, err := claude.SubagentPaths(path)
-		if err != nil {
-			return snapshot, err
-		}
-		for _, subPath := range paths {
+		for _, subPath := range l.index.Subagents(path) {
 			sub, err := l.subagent(subPath)
 			if err != nil {
 				snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: subPath, Err: err})
@@ -233,10 +234,7 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 }
 
 func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince time.Time) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
-	paths, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	paths := l.index.Transcripts(projectsDir)
 	var parked []claude.Transcript
 	var skipped []claude.SkippedFile
 	cache := map[string]cachedTranscript{}
@@ -301,10 +299,7 @@ func (l *Loader) stoppedTranscript(path string, powerSince time.Time) (claude.Tr
 // stoppedSubagents are a stopped session's subagents, from the cache
 // unless a file changed, kept into next for the following load.
 func (l *Loader) stoppedSubagents(path string, next map[string]cachedSubagent) ([]claude.Subagent, []claude.SkippedFile) {
-	paths, err := claude.SubagentPaths(path)
-	if err != nil {
-		return nil, []claude.SkippedFile{{Path: path, Err: err}}
-	}
+	paths := l.index.Subagents(path)
 	var subs []claude.Subagent
 	var skipped []claude.SkippedFile
 	for _, subPath := range paths {

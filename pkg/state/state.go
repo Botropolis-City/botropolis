@@ -263,12 +263,21 @@ type Probes struct {
 //
 // The summariser is the second of botropolis's own runs, and it is
 // fenced the same way for the same reason.
-func isOwnRun(cwd string) bool {
-	return cwd != "" && isOwnProject(claude.ProjectFolder(cwd))
+// ownProjects are the project folders Botropolis's own runs of Claude
+// Code file their transcripts under, worked out once a build rather
+// than once a session (item 196).
+type ownProjects [2]string
+
+func newOwnProjects() ownProjects {
+	return ownProjects{claude.UsageProbeProject(), claude.ProjectFolder(claude.SummaryDir())}
 }
 
-func isOwnProject(project string) bool {
-	return project == claude.UsageProbeProject() || project == claude.ProjectFolder(claude.SummaryDir())
+func (o ownProjects) run(cwd string) bool {
+	return cwd != "" && o.project(claude.ProjectFolder(cwd))
+}
+
+func (o ownProjects) project(project string) bool {
+	return project == o[0] || project == o[1]
 }
 
 func Build(src Sources, probes Probes, now time.Time) []Session {
@@ -277,8 +286,9 @@ func Build(src Sources, probes Probes, now time.Time) []Session {
 		byID[t.SessionID] = t
 	}
 	sessions := make([]Session, 0, len(src.Records))
+	own := newOwnProjects()
 	for _, r := range src.Records {
-		if isOwnRun(r.CWD) {
+		if own.run(r.CWD) {
 			continue
 		}
 		transcript, hasTranscript := byID[r.SessionID]
@@ -290,7 +300,7 @@ func Build(src Sources, probes Probes, now time.Time) []Session {
 		sessions = append(sessions, buildSession(r, transcript, hasTranscript, src.Subagents[r.SessionID], isAlive, isAttached, now))
 	}
 	for _, t := range src.Stopped {
-		if isOwnRun(t.CWD) || isOwnProject(t.Project) {
+		if own.run(t.CWD) || own.project(t.Project) {
 			continue
 		}
 		s := parkedSession(t)
