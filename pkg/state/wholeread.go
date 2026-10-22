@@ -13,12 +13,14 @@ import (
 // and a tail. A stopped transcript never changes, so each is read once
 // and held in memory by path, size and modification time (item 109).
 type wholeRead struct {
-	done    func()
-	mu      sync.Mutex
-	hefts   map[string]cachedHeft
-	running bool
-	passed  bool
-	reads   atomic.Int64
+	done     func()
+	pace     *pace
+	readFile func(path string) (int64, bool)
+	mu       sync.Mutex
+	hefts    map[string]cachedHeft
+	running  bool
+	passed   bool
+	reads    atomic.Int64
 }
 
 type cachedHeft struct {
@@ -37,7 +39,7 @@ type stoppedFile struct {
 // so the caller can load again. Without it, stopped sessions' hefts stay
 // lower bounds and the scale stays on the starter lines.
 func (l *Loader) WithWholeRead(done func()) *Loader {
-	l.whole = &wholeRead{done: done, hefts: map[string]cachedHeft{}}
+	l.whole = &wholeRead{done: done, pace: newPace(), readFile: readHeft, hefts: map[string]cachedHeft{}}
 	return l
 }
 
@@ -110,12 +112,14 @@ func (w *wholeRead) start(pending []stoppedFile) bool {
 func (w *wholeRead) pass(todo []stoppedFile) {
 	runtime.LockOSThread()
 	backgroundPriority()
+	w.pace.start()
 	for _, f := range todo {
-		heft, ok := readHeft(f.path)
+		heft, ok := w.readFile(f.path)
 		w.reads.Add(1)
 		w.mu.Lock()
 		w.hefts[f.path] = cachedHeft{key: f.key, heft: heft, ok: ok}
 		w.mu.Unlock()
+		w.pace.yield(func() {})
 	}
 	w.mu.Lock()
 	w.running, w.passed = false, true

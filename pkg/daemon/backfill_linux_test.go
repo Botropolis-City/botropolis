@@ -33,8 +33,8 @@ const (
 )
 
 // slowIngest is a statistics backfill that never ends: it makes garbage
-// and burns CPU on the thread the pass gives it, the way reading every
-// transcript does, until it is stopped.
+// and burns CPU on the thread the pass gives it, and yields every
+// megabyte, the way reading every transcript does, until it is stopped.
 type slowIngest struct {
 	started chan struct{}
 	stop    chan struct{}
@@ -42,15 +42,19 @@ type slowIngest struct {
 	sink    atomic.Pointer[[]byte]
 }
 
-func (s *slowIngest) Ingest(string, time.Time, func()) error {
+func (s *slowIngest) Ingest(_ string, _ time.Time, yield func()) error {
 	if s.once.CompareAndSwap(false, true) {
 		close(s.started)
 	}
-	for {
+	for made := 0; ; made += 8 << 10 {
 		select {
 		case <-s.stop:
 			return nil
 		default:
+		}
+		if made >= 1<<20 {
+			yield()
+			made = 0
 		}
 		line := make([]byte, 8<<10)
 		for i := range line {

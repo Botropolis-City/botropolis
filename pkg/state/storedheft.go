@@ -24,6 +24,7 @@ type StatsSource interface {
 type storedHefts struct {
 	src     StatsSource
 	yield   func()
+	pace    *pace
 	done    func()
 	mu      sync.Mutex
 	hefts   map[string]claude.Usage
@@ -40,7 +41,7 @@ func (l *Loader) WithStats(src StatsSource, done func()) *Loader {
 	if err != nil {
 		hefts = nil
 	}
-	l.stored = &storedHefts{src: src, yield: l.gate.yield, done: done, hefts: hefts, read: len(hefts) > 0}
+	l.stored = &storedHefts{src: src, yield: l.gate.yield, pace: newPace(), done: done, hefts: hefts, read: len(hefts) > 0}
 	return l
 }
 
@@ -85,8 +86,10 @@ func (h *storedHefts) start(projectsDir string, now time.Time) {
 func (h *storedHefts) pass(projectsDir string, now time.Time) {
 	runtime.LockOSThread()
 	backgroundPriority()
+	h.pace.start()
+	yield := func() { h.pace.yield(h.yield) }
 	changed := false
-	if err := h.src.Ingest(projectsDir, now, h.yield); err == nil {
+	if err := h.src.Ingest(projectsDir, now, yield); err == nil {
 		if hefts, err := h.src.Hefts(); err == nil {
 			h.mu.Lock()
 			changed = !h.read || !maps.Equal(hefts, h.hefts)
