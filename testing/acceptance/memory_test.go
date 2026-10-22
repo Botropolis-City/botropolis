@@ -63,6 +63,100 @@ func TestStartUpPeak(t *testing.T) {
 	})
 }
 
+// Item 162: the city's budget is 512 MiB of its own memory and GPU memory
+// together, settled with the window open. Under Xvfb the city draws on
+// Mesa's software renderer, whose textures are the process's own memory,
+// so Private_Dirty there is both at once, Ebitengine's own images among
+// them: the 96 MB of kit pixels this item found were in none of the
+// city's own figures. A settled metropolis at r871 held 689 MiB on the
+// real GPU and 528 MiB here; at r889, 355 and 250.
+func TestSettledMemory(t *testing.T) {
+	helpers.NeedXvfb(t)
+	const (
+		budget = 512 << 20
+		settle = 20 * time.Second
+		window = 5 * time.Second
+	)
+
+	t.Run("when the metropolis demo has settled under Xvfb", func(t *testing.T) {
+		r := newStateRun(t)
+		home := stageDemo(t, "metropolis")
+		cmd := exec.Command(botropolis, "city", "--headless", "--home", home, "--socket", filepath.Join(r.tmp, "none.sock"))
+		cmd.Env = append(r.env(), "GODEBUG=gctrace=1", "BOTROPOLIS_FRAMETIME=1")
+		var trace bytes.Buffer
+		cmd.Stderr = &trace
+		require.NoError(t, cmd.Start())
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		settled := settledPrivateDirty(cmd.Process.Pid, done, settle, window)
+		stopCity(t, cmd, done)
+		log := trace.String()
+		t.Logf("settled Private_Dirty %d MiB; Go heap live %d MB", settled>>20, lastLiveMB(log))
+
+		t.Run("it should have drawn, or nothing was measured", func(t *testing.T) {
+			assert.Contains(t, log, "FRAME ")
+		})
+
+		t.Run("it should hold under 512 MiB of Private_Dirty, textures included", func(t *testing.T) {
+			assert.Less(t, settled, int64(budget), "settled at %d MiB", settled>>20)
+		})
+	})
+}
+
+// settledPrivateDirty is the largest Private_Dirty of a headless city's
+// drawing child over the window before settle.
+func settledPrivateDirty(parent int, done chan error, settle, window time.Duration) int64 {
+	var peak int64
+	start := time.Now()
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for time.Since(start) < settle {
+		select {
+		case err := <-done:
+			go func() { done <- err }()
+			return peak
+		case <-tick.C:
+			if time.Since(start) < settle-window {
+				continue
+			}
+			for _, pid := range children(parent) {
+				peak = max(peak, privateDirty(pid))
+			}
+		}
+	}
+	return peak
+}
+
+// stopCity ends a city that runs until told to, and its drawing child.
+func stopCity(t *testing.T, cmd *exec.Cmd, done <-chan error) {
+	t.Helper()
+	for _, pid := range children(cmd.Process.Pid) {
+		if p, err := os.FindProcess(pid); err == nil {
+			_ = p.Signal(os.Interrupt)
+		}
+	}
+	_ = cmd.Process.Signal(os.Interrupt)
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		_ = cmd.Process.Kill()
+		<-done
+	}
+}
+
+// gcLive is one gctrace line's live heap after the collection.
+var gcLive = regexp.MustCompile(`(?m)^gc \d+ .* \d+->\d+->(\d+) MB`)
+
+// lastLiveMB is the live heap, in MB, after the last collection traced.
+func lastLiveMB(trace string) int {
+	all := gcLive.FindAllStringSubmatch(trace, -1)
+	if len(all) == 0 {
+		return 0
+	}
+	mb, _ := strconv.Atoi(all[len(all)-1][1])
+	return mb
+}
+
 // gcStart is one gctrace line's heap sizes: at the collection's start,
 // at its end, and live after it.
 var gcStart = regexp.MustCompile(`(?m)^gc \d+ .* (\d+)->\d+->\d+ MB`)
