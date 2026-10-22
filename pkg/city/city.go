@@ -124,6 +124,9 @@ type City struct {
 	// folderless is the sessions with no known folder: on no district,
 	// still counted in the statistics (item 139).
 	folderless []state.Session
+	// memo is what the scene remembers between snapshots, or nil for a
+	// city built from nothing (item 197).
+	memo *memo
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.
@@ -305,18 +308,18 @@ func Build(snapshot state.Snapshot, layout *Layout) *City {
 // session keeps its lot in its own district and climbs the ladder there,
 // so a district stays while it has any session at all (item 86).
 func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds) *City {
-	return build(snapshot, layout, ladder, false, nil)
+	return build(snapshot, layout, ladder, false, nil, nil)
 }
 
 // BuildWithLedger builds the city reading its usage from a statistics
 // store.
 func BuildWithLedger(snapshot state.Snapshot, layout *Layout, ledger Ledger) *City {
-	return build(snapshot, layout, state.DefaultThresholds, false, ledger)
+	return build(snapshot, layout, state.DefaultThresholds, false, ledger, nil)
 }
 
 // build builds the city; keepDepot holds the depot open, empty, while a
 // truck is still leaving it with the last crate.
-func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool, ledger Ledger) *City {
+func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool, ledger Ledger, m *memo) *City {
 	byRoot := map[string][]state.Session{}
 	packed := map[string][]state.Session{}
 	known := layout.HiddenRoots()
@@ -346,7 +349,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		return names[roots[i]] < names[roots[j]]
 	})
 
-	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless}
+	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless, memo: m}
 	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
 		city.Plant.Day = city.Breakdown(LastDay)
@@ -356,12 +359,12 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		city.Districts = append(city.Districts, buildDistrict(root, names[root], byRoot[root], layout, snapshot.At, ladder))
 	}
 	in := planInput(city.Districts, len(snapshot.Servers))
-	p := plan.Make(in, layout.memory())
+	p := m.plan(in, layout.memory())
 	depot := buildDepot(packed, names, float64(p.SpanCols())*CellSize, snapshot.At, keepDepot)
 	if depot != nil {
 		in.DepotRows = cellsNeeded(depot.size.Y)
 		in.DepotCols = cellsNeeded(depot.size.X)
-		p = plan.Make(in, layout.memory())
+		p = m.plan(in, layout.memory())
 	}
 	city.plan = p
 	city.bounds = cellRect(p.Bounds)
@@ -396,6 +399,9 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	city.placeStreets()
 	city.placeCamps(snapshot.Teams)
 	city.placeGroups(snapshot.Groups)
+	if m != nil {
+		m.orders.Sweep()
+	}
 	city.Plant.Day = city.Breakdown(LastDay)
 	city.Trains = trains(city.Plant.Day, snapshot.Sessions, snapshot.At)
 	city.priceSessions()

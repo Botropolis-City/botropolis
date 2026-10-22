@@ -36,7 +36,7 @@ func realSized(at time.Time) state.Snapshot {
 			ContextPercent: float64(i % 100),
 		}
 		if i%4 == 0 {
-			g := fmt.Sprintf("g%d", i%groups)
+			g := fmt.Sprintf("g%d", (i/4)%groups)
 			s.Group = g
 			members[g] = append(members[g], s.ID)
 			s.PRs = []claude.PR{{Number: i, Repository: fmt.Sprintf("acme/project-%03d", i%projects), URL: fmt.Sprintf("https://code.example.com/acme/project-%03d/pull/%d", i%projects, i), State: claude.PROpen}}
@@ -49,7 +49,7 @@ func realSized(at time.Time) state.Snapshot {
 				s.OrderLines = append(s.OrderLines, claude.OrderLine{Text: text, Command: command, At: at.Add(-time.Duration(l) * time.Minute)})
 			}
 			s.LastPrompt = fmt.Sprintf("wait for project-%03d to release v1.2.0 before you start", (i+4)%projects)
-			s.Recap = claude.Recap{Text: fmt.Sprintf("blocked on project-%03d until its pull request merges", (i+8)%projects), At: at}
+			s.Recap = claude.Recap{Text: fmt.Sprintf("blocked on project-%03d until its pull request merges", (i+4*groups)%projects), At: at}
 		}
 		snap.Sessions = append(snap.Sessions, s)
 	}

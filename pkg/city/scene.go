@@ -291,13 +291,16 @@ type Scene struct {
 	filter      Filter
 	budget      float64
 	spriteHover bool
+	// memo keeps what laying out the last snapshot made, so the next lays
+	// out only what changed (item 197).
+	memo *memo
 }
 
 // CelebrateFor is how long a merge is shown off.
 const CelebrateFor = 2500 * time.Millisecond
 
 func NewScene(layout *Layout) *Scene {
-	s := &Scene{layout: layout, ladder: state.DefaultThresholds, camera: NewCamera(), city: &City{}, now: time.Now, location: time.Local, log: events.NewLog()}
+	s := &Scene{layout: layout, ladder: state.DefaultThresholds, camera: NewCamera(), city: &City{}, now: time.Now, location: time.Local, log: events.NewLog(), memo: &memo{}}
 	if layout != nil {
 		// An unknown name opens on Attention rather than refusing to
 		// start: the view is a preference, not data anyone can lose.
@@ -747,7 +750,7 @@ func (s *Scene) apply(snapshot state.Snapshot) {
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
 	was := s.city.StreetCells
-	s.city = build(snapshot, s.layout, s.ladder, false, s.ledger)
+	s.city = build(snapshot, s.layout, s.ladder, false, s.ledger, s.memo)
 	if s.veil != nil {
 		s.veil.name(s.city)
 	}

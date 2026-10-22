@@ -229,7 +229,7 @@ func (c *City) placeLines() {
 			}
 			return sites[i].Root < sites[j].Root
 		})
-		ordered, waits := orderSites(sites, bySite, started)
+		ordered, waits := c.memo.orderSites(g.ID, sites, bySite, started)
 		line := Line{Group: g}
 		if office != nil {
 			r := office.Rect
@@ -289,7 +289,7 @@ func (st Station) Name() string {
 // orderSites puts a line's sites, given in the order they were started,
 // in the order they can be read to depend on (item 90), and says which
 // waits on which, indexed by the order returned.
-func orderSites(sites []*District, bySite map[*District][]*Building, started map[*District]time.Time) ([]lineSite, []group.Wait) {
+func (m *memo) orderSites(key string, sites []*District, bySite map[*District][]*Building, started map[*District]time.Time) ([]lineSite, []group.Wait) {
 	in := make([]group.OrderSite, 0, len(sites))
 	var own []group.SitePR
 	var mentions []group.Mention
@@ -336,7 +336,7 @@ func orderSites(sites []*District, bySite map[*District][]*Building, started map
 		all = append(all, lineSite{district: sites[t.Site], teammate: t})
 		in = append(in, group.OrderSite{Name: all[len(all)-1].name(), Started: t.Seen, PRs: []group.SitePR{t.PR}, Done: t.PR.Merged || t.Closed})
 	}
-	order, waits := group.Order(in)
+	order, waits := m.order(key, in)
 	at := make([]int, len(order))
 	out := make([]lineSite, len(order))
 	for to, from := range order {
