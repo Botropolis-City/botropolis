@@ -20,13 +20,18 @@ import (
 // while the city cannot be seen; a nil pending lays out any snapshot
 // still held once it can be.
 func (g *Game) takeSnapshot(pending *state.Snapshot) {
+	seen := g.capturing() || g.driven || shown()
+	if g.glance != nil && (!g.told || g.toldHidden == seen) {
+		g.told, g.toldHidden = true, !seen
+		g.glance(!seen)
+	}
 	if pending != nil {
 		g.held = pending
 	}
 	if g.held == nil {
 		return
 	}
-	if !g.capturing() && !g.driven && !shown() {
+	if !seen {
 		if pending != nil {
 			g.setTitle(g.scene.HeadlineOf(*pending))
 		}

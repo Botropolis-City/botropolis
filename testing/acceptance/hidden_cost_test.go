@@ -24,7 +24,9 @@ import (
 // for every snapshot the daemon sent, at 7.9% of a core on the real
 // history against the budget in performance/budgets.md: hidden,
 // minimised or unfocused, at most 1% of one core. A hidden city now
-// holds its snapshots; an unfocused one that can be seen is a dashboard
+// holds its snapshots, and lets its subscription go but for a glance
+// every 5 s, because decoding the whole snapshot each second was most
+// of what was left; an unfocused one that can be seen is a dashboard
 // (Aria, 2026-10-21), laying out each snapshot and painting one frame
 // for it, against the same 1%.
 //
@@ -61,9 +63,14 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 		// not: the case skips, printing the gap, and fails once it is
 		// met, as item 194's targets do.
 		unmet string
+		// fed is the least it should read of the daemon's snapshots,
+		// about 220 KiB each: one a second while it can be seen, and a
+		// glance every 5 s while it cannot.
+		fed   int64
+		taken string
 	}{
-		{"hidden", helpers.Hide, "visible=false", false, "slice 4 of item 197"},
-		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true, "item 201"},
+		{"hidden", helpers.Hide, "visible=false", false, "", 512 << 10, "at a glance every 5 s"},
+		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true, "item 201", 1 << 20, "about one a second"},
 	} {
 		t.Run("when the city is "+way.name+", and a session of 200 writes a line every 200 ms for 30 s", func(t *testing.T) {
 			root := t.TempDir()
@@ -124,8 +131,8 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 				measured = restShare
 			}
 
-			t.Run("the daemon's snapshots should have reached it, about one a second", func(t *testing.T) {
-				assert.Greater(t, fed, int64(1<<20))
+			t.Run("the daemon's snapshots should have reached it, "+way.taken, func(t *testing.T) {
+				assert.Greater(t, fed, way.fed)
 			})
 
 			t.Run("the window should have been "+way.name+" throughout", func(t *testing.T) {

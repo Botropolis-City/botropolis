@@ -430,6 +430,11 @@ func groupAlive(group int) bool {
 	return false
 }
 
+// hiddenGlance is how often a city nobody can see looks at the daemon,
+// for its title: at most this long to say that someone needs you
+// (item 197).
+const hiddenGlance = 5 * time.Second
+
 func (c *cityRunner) Run(cmd *cobra.Command) error {
 	if cli.Headless(cmd) && os.Getenv(headlessEnv) == "" {
 		cleanup, err := statedir.MakePrivate(seedState(c.config))
@@ -467,6 +472,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		Retry:   5 * time.Second,
 		OnError: func(err error) { fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v\n", err) },
 		Since:   func() time.Time { return layout.Seen },
+		Glance:  commands.NewGlance(hiddenGlance),
 	}
 	detail, ok := city.ParseDetail(c.config.Detail)
 	if !ok {
@@ -554,6 +560,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			feed.Mismatch = outOfSync
 			feed.Run(ctx, offer)
 		},
+		Glance: feed.Glance.Hide,
 		RestartDaemon: func(ctx context.Context) error {
 			return daemonctl.Restart(ctx, daemonctl.Native(), c.config.Socket, proto.Self())
 		},
