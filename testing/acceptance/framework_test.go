@@ -48,22 +48,34 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		unmet, unmatched map[int]bool
 	}{
 		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 4_990, 22: 5_860}, nil, nil},
-		// The night's 42 is main's own worst, not item 193's one run:
-		// six runs of main at cedcaaf settled at 40, 40, 40, 41, 42 and
-		// 40, because where Ebitengine packs the night's light stamps
-		// varies by run, and each change of texture between cuts is a
-		// command (item 162; the packing is its own item).
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 23, 22: 42}, nil, nil},
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 23, 22: 39}, nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, nil, nil},
 	}
 
 	for _, light := range []struct {
 		name string
 		hour int
-	}{{"day", 14}, {"night", 22}} {
+		// runs is how many times the frame is drawn: the night's
+		// draw count once varied by run with where Ebitengine packed
+		// the light cuts' stamps (item 199).
+		runs int
+	}{{"day", 14, 1}, {"night", 22, 4}} {
 		t.Run("when the metropolis demo is drawn at 1600×900 by "+light.name+", and it has settled", func(t *testing.T) {
 			t.Parallel()
-			worst := frameWork(t, "metropolis", light.hour)
+			runs := frameWorkRuns(t, "metropolis", light.hour, light.runs)
+			worst := helpers.MostWork(runs)
+
+			if light.runs > 1 {
+				commands := make([]int, len(runs))
+				for i, r := range runs {
+					commands[i] = r.Commands
+				}
+				t.Logf("draw commands in each of %d runs: %v", light.runs, commands)
+
+				t.Run(fmt.Sprintf("it should issue the same number of draw commands in each of %d runs", light.runs), func(t *testing.T) {
+					assert.Len(t, slices.Compact(slices.Sorted(slices.Values(commands))), 1)
+				})
+			}
 
 			for _, c := range counts {
 				got := c.of(worst)
@@ -129,6 +141,26 @@ const settledFrom = 17
 func frameWork(t *testing.T, demo string, hour int) helpers.Frame {
 	t.Helper()
 	return frameWorkWith(t, demo, hour)
+}
+
+// frameWorkRuns is frameWork run n times at once, each in its own
+// subtest, so a failed run fails only itself.
+func frameWorkRuns(t *testing.T, demo string, hour, n int) []helpers.Frame {
+	t.Helper()
+	frames := make([]helpers.Frame, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Go(func() {
+			t.Run(fmt.Sprintf("run %d", i+1), func(t *testing.T) {
+				frames[i] = frameWork(t, demo, hour)
+			})
+		})
+	}
+	wg.Wait()
+	if t.Failed() {
+		t.FailNow()
+	}
+	return frames
 }
 
 // frameWorkWith is frameWork with more of the city's environment.

@@ -15,7 +15,9 @@ import (
 // bakedLook is a run of a building's steps baked into an image, where it
 // goes from the pixel its foot is in, and the words painted into it.
 type bakedLook struct {
-	img   *ebiten.Image
+	img *ebiten.Image
+	// page is the texture img is on: a look page, or img itself.
+	page  *ebiten.Image
 	at    image.Point
 	words []string
 	// paged is whether img is part of a look page, whose room comes
@@ -493,7 +495,7 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	op.GeoM.Translate(float64(cell.X+look.at.X), float64(cell.Y+look.at.Y))
 	g.drawing.world()
 	g.recorder().Image(screen, look.img, op)
-	g.punch(look.img, op.GeoM)
+	g.punch(look.img, look.page, op.GeoM)
 }
 
 // bake draws a run of a building's steps into an image of its own, with
@@ -516,12 +518,13 @@ func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point)
 		g.lookPages = newLookPages(lookCacheCap/(lookPageSize*lookPageSize*4), lookPageSize)
 	}
 	if room, page, ok := g.lookPages.place(size, g.keyOf(cam, f, r)); ok {
-		look.img, look.paged, at = g.lookPages.image(page).SubImage(room).(*ebiten.Image), true, room.Min
+		look.img, look.page, look.paged, at = g.lookPages.image(page).SubImage(room).(*ebiten.Image), g.lookPages.image(page), true, room.Min
 		look.img.Clear()
 	} else if g.lookPages.full {
 		return nil
 	} else {
 		look.img = sizedImage(nil, size)
+		look.page = look.img
 	}
 	moved := *cam
 	moved.Offset = cam.Offset.Sub(city.Point{X: float64(lo.X - at.X), Y: float64(lo.Y - at.Y)}.Scale(1 / cam.Zoom))

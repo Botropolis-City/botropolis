@@ -5,7 +5,6 @@ import (
 	"hash/maphash"
 	"image"
 	"math"
-	"sort"
 	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -333,9 +332,9 @@ func (g *Game) paintLights(real *ebiten.Image) {
 // layLightsStream lays light ops into the rectangles they were played
 // into, each rectangle's in the order noted: a cut waits, in its own
 // rectangle, for the next window there it meets, as layLights has it.
-// What is left over is laid at the end a kind and a source at a time
-// across every rectangle, since cuts only take light away and their
-// order among themselves does not matter (item 193).
+// What is left over is laid at the end in orderCuts' order across every
+// rectangle, since cuts only take light away and their order among
+// themselves does not matter (items 193 and 199).
 func (g *Game) layLightsStream(subs []*ebiten.Image, plays []streamPlay) {
 	s := &g.still
 	for len(s.pend) < len(subs) {
@@ -373,18 +372,8 @@ func (g *Game) layLightsStream(subs []*ebiten.Image, plays []streamPlay) {
 			s.left = append(s.left, leftCut{op: op, rect: r})
 		}
 	}
-	sort.SliceStable(s.left, func(i, j int) bool {
-		a, b := s.left[i], s.left[j]
-		if ka, kb := cutOrder(a.op), cutOrder(b.op); ka != kb {
-			return ka < kb
-		}
-		return uintptr(unsafe.Pointer(a.op.src)) < uintptr(unsafe.Pointer(b.op.src))
-	})
+	orderCutsBy(s.left, func(c *leftCut) *lightOp { return &c.op })
 	for _, c := range s.left {
-		if c.op.punch {
-			subs[c.rect].DrawImage(c.op.src, &ebiten.DrawImageOptions{GeoM: c.op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
-			continue
-		}
 		g.layCut(subs[c.rect], c.op)
 	}
 }

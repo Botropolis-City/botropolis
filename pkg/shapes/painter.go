@@ -32,6 +32,7 @@ type Painter struct {
 	mesh  Mesh
 	white *ebiten.Image
 	discs []*ebiten.Image
+	cuts  *sheet
 	path  vector.Path
 	line  [2]city.Point
 	pts   []city.Point
@@ -124,7 +125,7 @@ func (p *Painter) drawWhite(dst *ebiten.Image, c color.Color) {
 	white := p.whitePixel()
 	p.drawImage(dst, white, &p.img)
 	if p.Cut != nil {
-		p.Cut.CutImage(white, &p.img)
+		p.Cut.CutImage(p.cutSheet().white, &p.img)
 	}
 }
 
@@ -204,7 +205,7 @@ func (p *Painter) Line(dst *ebiten.Image, x0, y0, x1, y1, width float64, c color
 	p.img.GeoM.Rotate(math.Atan2(y1-y0, x1-x0))
 	p.img.GeoM.Translate(x0, y0)
 	p.img.ColorScale.ScaleAlpha(float32(c.A) / 255)
-	cut.CutImage(p.whitePixel(), &p.img)
+	cut.CutImage(p.cutSheet().white, &p.img)
 }
 
 // Circle strokes a circle of radius r round centre, width wide.
@@ -237,7 +238,7 @@ func (p *Painter) DiscBlend(dst *ebiten.Image, centre city.Point, r float64, c c
 	p.img.ColorScale.ScaleWithColor(c)
 	p.drawImage(dst, stamp, &p.img)
 	if p.Cut != nil && blend == ebiten.BlendSourceOver {
-		p.Cut.CutImage(stamp, &p.img)
+		p.Cut.CutImage(p.cutSheet().discs[level], &p.img)
 	}
 }
 
@@ -298,7 +299,7 @@ func (p *Painter) CutTriangles(dst *ebiten.Image, vertices []ebiten.Vertex, indi
 		return
 	}
 	p.tri = ebiten.DrawTrianglesOptions{Blend: ebiten.BlendDestinationOut}
-	dst.DrawTriangles32(vertices, indices, p.whitePixel(), &p.tri)
+	dst.DrawTriangles32(vertices, indices, p.cutSheet().white, &p.tri)
 }
 
 // CutPath fills a ring onto dst by the non-zero rule, as the fallback
@@ -339,7 +340,7 @@ func (p *Painter) disc(level int) *ebiten.Image {
 	}
 	if p.discs[level] == nil {
 		r := discRadii[level]
-		size := int(math.Ceil(2*r)) + 4
+		size := discSize(level)
 		img := ebiten.NewImage(size, size)
 		half := float32(size) / 2
 		vector.FillCircle(img, half, half, float32(r), color.White, true)

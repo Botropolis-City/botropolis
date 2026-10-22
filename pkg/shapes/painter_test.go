@@ -2,10 +2,12 @@ package shapes
 
 import (
 	"image/color"
+	"slices"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -15,6 +17,7 @@ type cutLog struct {
 	indices              int
 	ringPoints           int
 	discAlpha, ringAlpha float32
+	stamps               []*ebiten.Image
 }
 
 func (c *cutLog) CutMesh(vertices []ebiten.Vertex, indices []uint32) {
@@ -24,6 +27,7 @@ func (c *cutLog) CutMesh(vertices []ebiten.Vertex, indices []uint32) {
 
 func (c *cutLog) CutImage(stamp *ebiten.Image, op *ebiten.DrawImageOptions) {
 	c.discs++
+	c.stamps = append(c.stamps, stamp)
 	c.discAlpha = op.ColorScale.A()
 }
 
@@ -73,6 +77,42 @@ func TestPainterCuts(t *testing.T) {
 
 			t.Run("it should report them as one mesh", func(t *testing.T) {
 				assert.Equal(t, 1, log.meshes)
+			})
+		})
+
+		// Item 199: what the cutter is told of is laid as the night's
+		// lights are, and stamps from one texture lay in one draw. Packed
+		// into shared atlases wherever each fitted, they alternated
+		// between two, by run.
+		t.Run("and it fills a disc of every stamp size and strokes a line", func(t *testing.T) {
+			p := &Painter{}
+			log := draw(func(q *Painter, dst *ebiten.Image) {
+				p = q
+				for _, r := range discRadii {
+					q.Disc(dst, city.Point{X: 20, Y: 20}, r, half)
+				}
+				q.Line(dst, 5, 5, 35, 35, 2, half)
+			})
+			sheet := p.cutSheet()
+
+			t.Run("it should tell the cutter only of stamps that lie on its cut sheet", func(t *testing.T) {
+				for _, s := range log.stamps {
+					require.True(t, slices.Contains(sheet.stamps(), s), "a stamp not cut from the sheet: %v", s.Bounds())
+					require.True(t, s.Bounds().In(sheet.img.Bounds()), "a stamp off the sheet: %v", s.Bounds())
+				}
+				assert.Len(t, log.stamps, len(discRadii)+1)
+			})
+
+			t.Run("it should tell it of no two stamps that overlap there", func(t *testing.T) {
+				overlaps := 0
+				for i, a := range log.stamps {
+					for _, b := range log.stamps[i+1:] {
+						if a != b && a.Bounds().Overlaps(b.Bounds()) {
+							overlaps++
+						}
+					}
+				}
+				assert.Zero(t, overlaps)
 			})
 		})
 
@@ -127,6 +167,12 @@ func TestPainterCuts(t *testing.T) {
 			t.Run("it should report nothing", func(t *testing.T) {
 				assert.Equal(t, cutLog{}, *log)
 			})
+		})
+	})
+
+	t.Run("when a painter makes its cut sheet", func(t *testing.T) {
+		t.Run("it should be its own texture, not packed into a shared one", func(t *testing.T) {
+			assert.True(t, cutSheetOptions().Unmanaged)
 		})
 	})
 }

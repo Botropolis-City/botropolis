@@ -73,7 +73,7 @@ func (g *Game) stackThrough(screen *ebiten.Image, cam *city.Camera, name string,
 	if laid {
 		g.curbBehind(screen, f, hair)
 	}
-	g.drawSprite(screen, page.SubImage(src).(*ebiten.Image), origin, scale, nil)
+	g.drawSprite(screen, spriteOn(page, src), origin, scale, nil)
 	if laid {
 		g.curbFront(screen, f)
 	}

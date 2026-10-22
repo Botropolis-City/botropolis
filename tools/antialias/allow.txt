@@ -2,3 +2,4 @@
 # One a line: the file, the function as Name or Type.Name, and why.
 # Only what is drawn once, not every frame, belongs here.
 pkg/shapes/painter.go Painter.disc  draws each disc stamp once, the first time it is asked for
+pkg/shapes/cutsheet.go Painter.cutSheet  draws every disc stamp onto the cut sheet once, the first time it is asked for (item 199)

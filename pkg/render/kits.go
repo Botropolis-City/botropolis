@@ -297,23 +297,23 @@ func (g *Game) kitLifted(screen *ebiten.Image, cam *city.Camera, name string, tu
 // kitPlace works out where kitLifted would draw a piece, without
 // drawing it: the one expression both the drawing and anything placed
 // on the drawn sprite read, such as a landmark's label (item 99).
-func (g *Game) kitPlace(cam *city.Camera, name string, turn int, at city.Point, lift float64) (img *ebiten.Image, origin city.Point, scale float64, rect city.Rect, ok bool) {
+func (g *Game) kitPlace(cam *city.Camera, name string, turn int, at city.Point, lift float64) (img pagedSprite, origin city.Point, scale float64, rect city.Rect, ok bool) {
 	if g.kits == nil {
-		return nil, city.Point{}, 0, city.Rect{}, false
+		return pagedSprite{}, city.Point{}, 0, city.Rect{}, false
 	}
 	atlas := g.kits.pick(cam.Zoom)
 	if atlas == nil {
-		return nil, city.Point{}, 0, city.Rect{}, false
+		return pagedSprite{}, city.Point{}, 0, city.Rect{}, false
 	}
 	sprite, found := atlas.Sprite(name, cam.Heading-turn)
 	if !found || sprite.Page >= len(atlas.pages) {
-		return nil, city.Point{}, 0, city.Rect{}, false
+		return pagedSprite{}, city.Point{}, 0, city.Rect{}, false
 	}
 	scale = cam.Zoom / atlas.Zoom
 	foot := cam.WorldToScreen(at)
 	foot.Y -= lift
 	origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
-	img = atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	img = spriteOn(atlas.pages[sprite.Page], sprite.Rect)
 	return img, origin, scale, city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale), true
 }
 
@@ -397,7 +397,7 @@ func (g *Game) kitScaledLifted(screen *ebiten.Image, cam *city.Camera, name stri
 	foot := cam.WorldToScreen(at)
 	foot.Y -= lift
 	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
-	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	img := spriteOn(atlas.pages[sprite.Page], sprite.Rect)
 	g.drawSprite(screen, img, origin, scale, tint)
 	return city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale)
 }
@@ -483,7 +483,7 @@ func (g *Game) kitGroundLifted(screen *ebiten.Image, cam *city.Camera, name stri
 	foot := cam.WorldToScreen(at)
 	foot.Y -= lift
 	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
-	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	img := spriteOn(atlas.pages[sprite.Page], sprite.Rect)
 	g.drawSprite(screen, img, origin, scale, tint)
 }
 
@@ -518,7 +518,7 @@ func (g *Game) kitRising(screen *ebiten.Image, cam *city.Camera, name string, fo
 	op.Filter = ebiten.FilterLinear
 	g.drawing.world()
 	g.recorder().Image(screen, img, op)
-	g.punch(img, op.GeoM)
+	g.punch(img, atlas.pages[sprite.Page], op.GeoM)
 	h := float64(sprite.Rect.Dy()) * scale * rise
 	return city.RectAt(foot.X-float64(sprite.Anchor.X)*scale, foot.Y-float64(sprite.Anchor.Y)*scale*rise, float64(sprite.Rect.Dx())*scale, h)
 }
@@ -538,18 +538,18 @@ func (g *Game) kitAt(screen *ebiten.Image, cam *city.Camera, name string, turn i
 
 // kitAtPlace works out where kitAt would draw a piece, without drawing
 // it.
-func (g *Game) kitAtPlace(cam *city.Camera, name string, turn int, foot city.Point) (img *ebiten.Image, origin city.Point, scale float64, rect city.Rect, ok bool) {
+func (g *Game) kitAtPlace(cam *city.Camera, name string, turn int, foot city.Point) (img pagedSprite, origin city.Point, scale float64, rect city.Rect, ok bool) {
 	if g.kits == nil {
-		return nil, city.Point{}, 0, city.Rect{}, false
+		return pagedSprite{}, city.Point{}, 0, city.Rect{}, false
 	}
 	atlas := g.kits.pick(cam.Zoom)
 	sprite, found := atlas.Sprite(name, cam.Heading-turn)
 	if !found || sprite.Page >= len(atlas.pages) {
-		return nil, city.Point{}, 0, city.Rect{}, false
+		return pagedSprite{}, city.Point{}, 0, city.Rect{}, false
 	}
 	scale = cam.Zoom / atlas.Zoom
 	origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
-	img = atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	img = spriteOn(atlas.pages[sprite.Page], sprite.Rect)
 	return img, origin, scale, city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale), true
 }
 

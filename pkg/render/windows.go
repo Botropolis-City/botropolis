@@ -1,8 +1,10 @@
 package render
 
 import (
+	"cmp"
 	"image"
 	"math"
+	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
@@ -203,6 +205,11 @@ type lightOp struct {
 	src      *ebiten.Image
 	geo      ebiten.GeoM
 	punch    bool
+	// page is the texture a punch's sprite is cut from, so a page's
+	// punches are laid together, and rank its place among the pages
+	// while cuts are put in order (item 199).
+	page *ebiten.Image
+	rank int
 	// warm is whether the panes are tinted toward lit glass: a
 	// landmark's are (item 185).
 	warm bool
@@ -308,54 +315,64 @@ func meets(box image.Rectangle, panes []image.Rectangle) bool {
 
 // layCuts lays the cuts noted between two windows' lights. Each only
 // takes light away, so their order among themselves does not change the
-// result, and they are laid a kind and a source at a time, so that each
-// kind batches into as few draws as it can (item 195).
+// result, and they are laid in orderCuts' order, so that each kind
+// batches into as few draws as it can (item 195).
 func (g *Game) layCuts(dst *ebiten.Image, ops []lightOp) {
-	for i, op := range ops {
-		if !op.punch || seenSource(ops[:i], op.src, true) {
+	orderCuts(ops)
+	for _, op := range ops {
+		g.layCut(dst, op)
+	}
+}
+
+// orderCuts puts cuts in the order they are laid: a kind at a time, by
+// cutOrder, and among punches a page at a time, the pages in the order
+// first noted, and a page's largest first; otherwise in the order
+// noted. Every stamp and
+// painted mesh is cut from the painter's one sheet, so each page and
+// each kind is a draw, and the same draws every run: sorted by where
+// each sprite's image was allocated, the pages interleaved differently
+// by run (item 199).
+func orderCuts(ops []lightOp) {
+	orderCutsBy(ops, func(op *lightOp) *lightOp { return op })
+}
+
+// orderCutsBy is orderCuts over anything holding a light op.
+func orderCutsBy[T any](cuts []T, op func(*T) *lightOp) {
+	seen := make([]*ebiten.Image, 0, 8)
+	for i := range cuts {
+		o := op(&cuts[i])
+		o.rank = 0
+		if !o.punch {
 			continue
 		}
-		for _, p := range ops[i:] {
-			if p.punch && p.src == op.src {
-				dst.DrawImage(p.src, &ebiten.DrawImageOptions{GeoM: p.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
-			}
+		o.rank = slices.Index(seen, o.page)
+		if o.rank < 0 {
+			o.rank = len(seen)
+			seen = append(seen, o.page)
 		}
 	}
-	for _, kind := range []cutKind{cutStamp, cutRing, cutMesh, cutWords} {
-		for i, op := range ops {
-			if op.cut != kind {
-				continue
-			}
-			if kind == cutStamp {
-				if seenSource(ops[:i], op.src, false) {
-					continue
-				}
-				for _, p := range ops[i:] {
-					if p.cut == cutStamp && p.src == op.src {
-						g.layCut(dst, p)
-					}
-				}
-				continue
-			}
-			g.layCut(dst, op)
-		}
-	}
+	slices.SortStableFunc(cuts, func(a, b T) int {
+		x, y := op(&a), op(&b)
+		return cmp.Or(cmp.Compare(cutOrder(*x), cutOrder(*y)), cmp.Compare(x.rank, y.rank), cmp.Compare(punchSize(*y), punchSize(*x)))
+	})
 }
 
-// seenSource is whether any of ops is a punch, or a stamp cut, from src.
-func seenSource(ops []lightOp, src *ebiten.Image, punch bool) bool {
-	for _, op := range ops {
-		if op.src == src && (punch && op.punch || !punch && op.cut == cutStamp) {
-			return true
-		}
+// punchSize is how much a punch's geo scales its sprite's area, which
+// picks the mipmap Ebitengine draws it from, each a texture of its own:
+// a page's punches are laid largest first, so each mipmap is one draw.
+// Any other cut is drawn without mipmaps, and has none.
+func punchSize(op lightOp) float64 {
+	if !op.punch {
+		return 0
 	}
-	return false
+	g := op.geo
+	return math.Abs(g.Element(0, 0)*g.Element(1, 1) - g.Element(0, 1)*g.Element(1, 0))
 }
 
-// punch notes a sprite drawn with geo, to be cut out of any lights laid
-// behind it, when it covers any: a window behind it does not show
-// through it.
-func (g *Game) punch(img *ebiten.Image, geo ebiten.GeoM) {
+// punch notes a sprite drawn with geo, cut from page, to be cut out of
+// any lights laid behind it, when it covers any: a window behind it does
+// not show through it.
+func (g *Game) punch(img, page *ebiten.Image, geo ebiten.GeoM) {
 	if !g.lightsOn || g.baking || g.litBounds.Empty() {
 		return
 	}
@@ -373,7 +390,7 @@ func (g *Game) punch(img *ebiten.Image, geo ebiten.GeoM) {
 	if !box.Overlaps(g.litBounds) {
 		return
 	}
-	g.lightOps = append(g.lightOps, lightOp{src: img, geo: geo, punch: true, box: box})
+	g.lightOps = append(g.lightOps, lightOp{src: img, page: page, geo: geo, punch: true, box: box})
 	g.punches++
 }
 

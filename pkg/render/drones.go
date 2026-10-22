@@ -293,7 +293,7 @@ func (g *Game) kitAtShrunk(screen *ebiten.Image, cam *city.Camera, name string, 
 	}
 	scale := cam.Zoom / atlas.Zoom * shrink
 	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
-	img := atlas.pages[sprite.Page].SubImage(sprite.Rect).(*ebiten.Image)
+	img := spriteOn(atlas.pages[sprite.Page], sprite.Rect)
 	g.drawSprite(screen, img, origin, scale, tint)
 	return city.RectAt(origin.X, origin.Y, float64(sprite.Rect.Dx())*scale, float64(sprite.Rect.Dy())*scale)
 }

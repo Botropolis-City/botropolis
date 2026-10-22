@@ -40,9 +40,21 @@ func (g *Game) corners(cam *city.Camera, r city.Rect) []city.Point {
 	return pts
 }
 
+// pagedSprite is a sprite's image and the page it is cut from, which
+// the night's lights cut a page at a time (item 199).
+type pagedSprite struct {
+	img, page *ebiten.Image
+}
+
+// spriteOn is the sprite in r of page.
+func spriteOn(page *ebiten.Image, r image.Rectangle) pagedSprite {
+	return pagedSprite{img: page.SubImage(r).(*ebiten.Image), page: page}
+}
+
 // drawSprite draws a sheet sprite with its top-left at a screen point,
 // scaled uniformly.
-func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point, scale float64, tint *ebiten.ColorScale) {
+func (g *Game) drawSprite(screen *ebiten.Image, s pagedSprite, at city.Point, scale float64, tint *ebiten.ColorScale) {
+	img := s.img
 	if img == nil {
 		return
 	}
@@ -56,7 +68,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point
 		op.GeoM.Translate(at.X, at.Y)
 		op.Filter = ebiten.FilterLinear
 		g.recorder().colorm(screen, img, recedeMatrix(), op)
-		g.punch(img, op.GeoM)
+		g.punch(img, s.page, op.GeoM)
 		return
 	}
 	op := &ebiten.DrawImageOptions{}
@@ -67,7 +79,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, img *ebiten.Image, at city.Point
 	}
 	op.Filter = ebiten.FilterLinear
 	g.recorder().Image(screen, img, op)
-	g.punch(img, op.GeoM)
+	g.punch(img, s.page, op.GeoM)
 }
 
 // footprint is the projected diamond of a world rect: its top corner and

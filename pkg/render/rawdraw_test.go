@@ -38,6 +38,7 @@ var drawsAllowed = map[string]string{
 	"painter.go:CutPath":      "cuts the night's lights image, laid from the record",
 	"painter.go:whitePixel":   "makes the painter's own texture",
 	"painter.go:disc":         "makes the painter's own stamp",
+	"cutsheet.go:cutSheet":    "makes the sheet the painter cuts from",
 	// Not the world: a pixel of each kit page into a 1-pixel sink, so
 	// Ebitengine sends the page and lets its pixels go (item 162).
 	"kits.go:sendPage": "sends a kit page to the GPU",
@@ -53,7 +54,6 @@ var drawsAllowed = map[string]string{
 	"driveways.go:newFader":         "lays the fade layer of a frame drawn straight",
 	"windows.go:endLights":          "lays the night's lights of a frame drawn straight",
 	"windows.go:layLights":          "lays light ops, recorded",
-	"windows.go:layCuts":            "lays light ops, recorded",
 	"lightcuts.go:layCut":           "lays light ops, recorded",
 	"iso.go:wash":                   "the night's wash, drawn over the frame after the city",
 	// Drawn over the city after it, never part of it.

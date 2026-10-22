@@ -137,3 +137,62 @@ func TestPaintedWordsCutTheLights(t *testing.T) {
 		})
 	})
 }
+
+// Item 199: the cuts left between two windows are laid a kind at a time
+// and, among punches, a page at a time, so each page is one draw. Sorted
+// by where each sprite's image happened to be allocated, the pages
+// interleaved differently every run, and so did the frame's draw count.
+func TestTheOrderCutsAreLaidIn(t *testing.T) {
+	t.Run("when cuts are put in the order they are laid", func(t *testing.T) {
+		a, b := ebiten.NewImage(8, 8), ebiten.NewImage(8, 8)
+		defer a.Deallocate()
+		defer b.Deallocate()
+		punch := func(page *ebiten.Image, tag int) lightOp {
+			return lightOp{punch: true, page: page, src: page.SubImage(page.Bounds()).(*ebiten.Image), from: tag}
+		}
+		ops := []lightOp{
+			{cut: cutWords, from: 1}, punch(b, 2), {cut: cutStamp, from: 3}, punch(a, 4),
+			{cut: cutRing, from: 5}, punch(b, 6), {cut: cutMesh, from: 7}, punch(a, 8),
+		}
+		orderCuts(ops)
+
+		t.Run("and punches from two pages are noted between other cuts", func(t *testing.T) {
+			t.Run("it should lay a kind at a time: punches, meshes, stamps, rings, then words", func(t *testing.T) {
+				kinds := []int{}
+				for _, op := range ops {
+					kinds = append(kinds, cutOrder(op))
+				}
+				assert.Equal(t, []int{0, 0, 0, 0, 1, 2, 3, 4}, kinds)
+			})
+
+			t.Run("it should lay each page's punches together, the pages in the order first noted", func(t *testing.T) {
+				tags := []int{}
+				for _, op := range ops {
+					tags = append(tags, op.from)
+				}
+				assert.Equal(t, []int{2, 6, 4, 8, 7, 3, 5, 1}, tags)
+			})
+		})
+
+		// Shrunk, a punch is drawn from the mipmap its scale picks,
+		// each a texture of its own, so a page's punches at two sizes
+		// alternated between two textures.
+		t.Run("and a page's punches are noted at two sizes, alternately", func(t *testing.T) {
+			sized := func(scale float64, tag int) lightOp {
+				op := punch(a, tag)
+				op.geo.Scale(scale, scale)
+				return op
+			}
+			ops := []lightOp{sized(0.5, 1), sized(0.25, 2), sized(0.5, 3), sized(0.25, 4)}
+			orderCuts(ops)
+
+			t.Run("it should lay the page's punches a size at a time, each size in the order noted", func(t *testing.T) {
+				tags := []int{}
+				for _, op := range ops {
+					tags = append(tags, op.from)
+				}
+				assert.Equal(t, []int{1, 3, 2, 4}, tags)
+			})
+		})
+	})
+}

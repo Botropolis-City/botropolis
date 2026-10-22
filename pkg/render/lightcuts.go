@@ -148,8 +148,12 @@ func (g *Game) cutWords(words string, face text.Face, geo ebiten.GeoM, alpha flo
 	g.cuts++
 }
 
-// layCut cuts one op's shapes out of the lights.
+// layCut cuts one op's sprite or shapes out of the lights.
 func (g *Game) layCut(dst *ebiten.Image, op lightOp) {
+	if op.punch {
+		dst.DrawImage(op.src, &ebiten.DrawImageOptions{GeoM: op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+		return
+	}
 	switch op.cut {
 	case cutMesh:
 		g.paint.CutTriangles(dst, g.cutVertices, g.cutIndices[op.from:op.to])
