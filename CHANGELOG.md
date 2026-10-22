@@ -75,6 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Refreshing usage no longer starts your MCP servers, settings, hooks or plugins.**
+  Each refresh used to start Claude Code with everything you have configured, up to seven processes and about 900 MiB; it now starts Claude Code alone, at under half that.
+  A refresh and a summary also never run at the same time any more, and two summaries run one after the other.
+
 - **At night, lit windows no longer show through what stands in front of them.**
   A district's sign, a building's own painted name, its beacon and flags, and a scaffold's tubes and boards now hide the windows behind them, as a building in front always did; something half transparent dims the light behind it rather than hiding it.
 

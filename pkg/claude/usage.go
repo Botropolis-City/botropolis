@@ -251,9 +251,20 @@ func ProjectFolder(dir string) string {
 }
 
 // RefreshUtilization makes Claude Code refetch the figures, by asking
-// it for them. It is slow and it writes a transcript, so it belongs
-// behind an explicit user action and nowhere else. The caller re-reads
-// the file afterwards.
+// it for them. The caller re-reads the file afterwards. It runs when the
+// u key asks, and on usage_refresh's interval when one is set (item 79),
+// so it is a background helper and held to that budget (item 160).
+//
+// An empty --setting-sources and --strict-mcp-config keep it to Claude
+// Code alone. Without them every refresh loaded the person's settings,
+// hooks and plugins and started every MCP server they have configured:
+// five to seven processes and 800–970 MiB, where alone it is one process
+// and ~420 MiB. /usage goes before the flags, and --tools "" is not
+// among them, because --tools takes several values and would read
+// /usage as a tool name.
+//
+// It waits for the one helper slot it shares with summaries, and gives
+// up when ctx ends.
 //
 // It also clears up after itself. The probe's transcripts are fenced out
 // of the city by where they land, but nothing removed them, so they
@@ -271,7 +282,12 @@ func RefreshUtilization(ctx context.Context, bin string) bool {
 	if bin == "" {
 		bin = "claude"
 	}
-	cmd := exec.CommandContext(ctx, bin, "-p", "/usage")
+	release, err := takeHelperSlot(ctx)
+	if err != nil {
+		return false
+	}
+	defer release()
+	cmd := exec.CommandContext(ctx, bin, "-p", "/usage", "--setting-sources", "", "--strict-mcp-config")
 	cmd.Dir = dir
 	ok := cmd.Run() == nil
 	// After the run, so the transcript this probe just wrote is the one

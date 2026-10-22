@@ -157,6 +157,10 @@ var ErrPrivate = errors.New("this run is not your own city, so it generates no s
 //
 // The excerpt goes on stdin: it is the session's own words, and the
 // command line is visible to every process on the machine.
+//
+// It waits for the one helper slot it shares with the usage probe
+// (item 160), so two summaries asked for at once run one after the
+// other.
 func Summarise(ctx context.Context, bin, excerpt string) (string, error) {
 	if statedir.IsPrivate() {
 		return "", ErrPrivate
@@ -169,13 +173,18 @@ func Summarise(ctx context.Context, bin, excerpt string) (string, error) {
 	if bin == "" {
 		bin = "claude"
 	}
+	release, err := takeHelperSlot(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer release()
 	cmd := exec.CommandContext(ctx, bin, "-p", "--no-session-persistence",
 		"--setting-sources", "", "--strict-mcp-config", "--tools", "", "--model", SummaryModel)
 	cmd.Dir = dir
 	cmd.Stdin = strings.NewReader(summaryPrompt + excerpt)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	err := cmd.Run()
+	err = cmd.Run()
 	removeEmptySummaryFolder()
 	if err != nil {
 		// Claude Code reports some failures on stdout, a prompt too long
