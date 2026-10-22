@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Item 202: main's ci workflow was red for two days because make land ran
+# its gate locally and nothing read CI afterwards. This asks GitHub for the
+# last completed ci run on main, says what it found, and records it in the
+# git common directory, where the Botropolis-City status line reads it,
+# since a status line fetches nothing. It reports and never gates: a red
+# main must not stop the landing that fixes it.
+set -uo pipefail
+
+usage() {
+    cat <<'USAGE'
+ci-status — say and record what the last completed ci run on main concluded
+
+Usage: tools/ci-status [--help]
+
+Prints one line: green, red with the commit and the run's URL, or unknown
+with the reason. Records "<green|red|unknown> <commit|-> <checked UTC>" in
+<git common dir>/botropolis-ci for the status line.
+
+Environment:
+  CI_REPO    the repository to ask (default Botropolis-City/botropolis)
+  CI_BRANCH  the branch (default main)
+
+Always exits 0.
+USAGE
+}
+
+[ "${1:-}" = "--help" ] && { usage; exit 0; }
+
+repo="${CI_REPO:-Botropolis-City/botropolis}"
+branch="${CI_BRANCH:-main}"
+checked="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+state=unknown commit=-
+if ! command -v gh >/dev/null; then
+    said="unknown, gh is not installed"
+elif ! out="$(gh run list --repo "$repo" --branch "$branch" --workflow ci --status completed --limit 1 \
+        --json conclusion,headSha,url --jq '.[] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>&1)"; then
+    said="unknown, gh failed: ${out%%$'\n'*}"
+else
+    read -r conclusion sha url <<<"$out"
+    case "${conclusion:-}" in
+        success) state=green commit="$sha" said="green at $sha" ;;
+        failure | timed_out | startup_failure) state=red commit="$sha" said="RED at $sha, $url" ;;
+        "") said="unknown, no completed ci run" ;;
+        *) said="unknown, the last run at $sha was $conclusion, $url" ;;
+    esac
+fi
+
+echo "CI on $branch: $said"
+
+common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || common=""
+if [ -n "$common" ]; then
+    printf '%s %s %s\n' "$state" "$commit" "$checked" >"$common/botropolis-ci" ||
+        echo "  could not record it in $common/botropolis-ci"
+else
+    echo "  not in a git repository, so it was not recorded"
+fi
+exit 0

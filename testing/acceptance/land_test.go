@@ -53,7 +53,13 @@ func newLandRig(t *testing.T) *landRig {
 		lock:   filepath.Join(dir, "land.lock"),
 		log:    filepath.Join(dir, "probe.log"),
 	}
+	// make land asks gh for main's CI (item 202); a stand-in answers green
+	// so the rig never reaches GitHub.
+	bin := filepath.Join(dir, "bin")
+	require.NoError(t, os.MkdirAll(bin, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "gh"), []byte("#!/usr/bin/env bash\necho success 0000000 https://example.com/run\n"), 0o755))
 	r.env = append(landEnviron(),
+		"PATH="+bin+string(filepath.ListSeparator)+os.Getenv("PATH"),
 		"GOFLAGS=",
 		"GIT_CONFIG_GLOBAL=/dev/null",
 		"GIT_CONFIG_NOSYSTEM=1",
@@ -65,11 +71,13 @@ func newLandRig(t *testing.T) *landRig {
 	r.git(t, dir, "init", "-q", "--bare", "-b", "main", r.remote)
 	seed := filepath.Join(dir, "seed")
 	root := repoRoot(t)
-	for _, name := range []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod"} {
+	for _, name := range []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod", "tools/ci-status"} {
 		data, err := os.ReadFile(filepath.Join(root, name))
 		require.NoError(t, err)
+		info, err := os.Stat(filepath.Join(root, name))
+		require.NoError(t, err)
 		require.NoError(t, os.MkdirAll(filepath.Join(seed, filepath.Dir(name)), 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(seed, name), data, 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(seed, name), data, info.Mode().Perm()))
 	}
 	appendTo(t, filepath.Join(seed, "Makefile"), landProbes)
 	require.NoError(t, os.WriteFile(filepath.Join(seed, "shared.txt"), []byte("base\n"), 0o644))
@@ -289,6 +297,19 @@ func TestLand(t *testing.T) {
 
 		t.Run("it should pipe nothing, so the gate's exit code decides the push", func(t *testing.T) {
 			assert.Empty(t, piped)
+		})
+
+		// Item 202: main's CI was red for two days and no landing said so.
+		t.Run("it should report main's CI after the fetch and before the gate", func(t *testing.T) {
+			var order []string
+			for _, line := range recipes {
+				for _, step := range []string{"git fetch", "tools/ci-status", "${LAND_GATE}"} {
+					if strings.Contains(line, step) {
+						order = append(order, step)
+					}
+				}
+			}
+			assert.Equal(t, []string{"git fetch", "tools/ci-status", "${LAND_GATE}"}, order)
 		})
 	})
 }

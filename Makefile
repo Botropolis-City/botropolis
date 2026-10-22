@@ -238,6 +238,7 @@ land ::
 land-under-lock ::
 	$(LOG) "Landing on ${LAND_REMOTE}/${LAND_BRANCH}, holding ${LAND_LOCK}"
 	@git fetch ${LAND_REMOTE}
+	@tools/ci-status
 	@git rebase ${LAND_REMOTE}/${LAND_BRANCH}
 	@${MAKE} --no-print-directory ${LAND_GATE}
 	@git push ${LAND_REMOTE} HEAD:${LAND_BRANCH}
