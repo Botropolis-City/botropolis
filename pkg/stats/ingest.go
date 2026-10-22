@@ -2,6 +2,7 @@ package stats
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -23,12 +24,24 @@ const (
 // yields.
 const YieldEvery = 1 << 20
 
+// CheckpointEvery is how many bytes of a transcript ingest reads between
+// commits, so a stop part-way through a long one keeps what it read
+// (item 159).
+const CheckpointEvery = 16 << 20
+
 // Ingest reads every main and subagent transcript under projectsDir into
 // the store, each from where the last read stopped. A file that shrank or
 // whose modification time went backwards is read again from the start and
 // its rows rebuilt to match it; a file that is gone keeps its rows.
 // Item 110.
 func (s *Store) Ingest(projectsDir string, now time.Time, yield func()) error {
+	return s.IngestContext(context.Background(), projectsDir, now, yield)
+}
+
+// IngestContext is Ingest, stopping at the next yield once ctx is done
+// and returning its error. What it read up to the last checkpoint is
+// kept, and the next ingest reads on from there (item 159).
+func (s *Store) IngestContext(ctx context.Context, projectsDir string, now time.Time, yield func()) error {
 	mains, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
 	if err != nil {
 		return err
@@ -42,17 +55,25 @@ func (s *Store) Ingest(projectsDir string, now time.Time, yield func()) error {
 	if yield == nil {
 		yield = func() {}
 	}
-	for _, path := range mains {
+	step := func() error {
 		yield()
-		if err := s.ingestFile(path, strings.TrimSuffix(filepath.Base(path), ".jsonl"), mainThread, yield); err != nil {
+		return ctx.Err()
+	}
+	for _, path := range mains {
+		if err := step(); err != nil {
+			return err
+		}
+		if err := s.ingestFile(path, strings.TrimSuffix(filepath.Base(path), ".jsonl"), mainThread, step); err != nil {
 			return err
 		}
 	}
 	for _, path := range agents {
 		session := filepath.Base(filepath.Dir(filepath.Dir(path)))
 		thread := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), agentPrefix), ".jsonl")
-		yield()
-		if err := s.ingestFile(path, session, thread, yield); err != nil {
+		if err := step(); err != nil {
+			return err
+		}
+		if err := s.ingestFile(path, session, thread, step); err != nil {
 			return err
 		}
 	}
@@ -153,7 +174,7 @@ type transcriptRow struct {
 	size, mtime, readTo int64
 }
 
-func (s *Store) ingestFile(path, session, thread string, yield func()) error {
+func (s *Store) ingestFile(path, session, thread string, step func() error) error {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -180,16 +201,31 @@ func (s *Store) ingestFile(path, session, thread string, yield func()) error {
 			return err
 		}
 	}
-	r, err := readFrom(path, from, fallback, yield)
+	rebuild := again
+	save := func(r read) error {
+		if err := s.save(path, session, thread, size, mtime, r, rebuild); err != nil {
+			return err
+		}
+		rebuild = false
+		return nil
+	}
+	r, err := readFrom(path, from, fallback, step, save)
 	if err != nil {
 		return err
 	}
+	return save(r)
+}
+
+// save commits what a read has found so far and how far it got, at the
+// end of a transcript or at a checkpoint inside one. rebuild drops the
+// thread's rows first, for a transcript read again from the start.
+func (s *Store) save(path, session, thread string, size, mtime int64, r read, rebuild bool) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if again {
+	if rebuild {
 		if err := unlink(tx, session, thread); err != nil {
 			return err
 		}
@@ -231,7 +267,10 @@ func (s *Store) lastDir(session, thread string) (string, error) {
 	return dir, err
 }
 
-func readFrom(path string, from int64, cwd string, yield func()) (read, error) {
+// readFrom reads path from the byte from, handing what it has found to
+// checkpoint every CheckpointEvery bytes and starting afresh, and
+// stopping when step does.
+func readFrom(path string, from int64, cwd string, step func() error, checkpoint func(read) error) (read, error) {
 	r := read{to: from}
 	f, err := os.Open(path)
 	if err != nil {
@@ -244,8 +283,14 @@ func readFrom(path string, from int64, cwd string, yield func()) (read, error) {
 	byID := map[string]int{}
 	reader := bufio.NewReader(f)
 	var buf []byte
-	sinceYield := 0
+	sinceYield, sinceCheckpoint := 0, 0
 	for {
+		if sinceCheckpoint >= CheckpointEvery {
+			if err := checkpoint(r); err != nil {
+				return r, err
+			}
+			r.messages, byID, sinceCheckpoint = nil, map[string]int{}, 0
+		}
 		raw, kept, err := nextLine(reader, buf)
 		buf = kept
 		if err == io.EOF {
@@ -255,8 +300,11 @@ func readFrom(path string, from int64, cwd string, yield func()) (read, error) {
 			return r, err
 		}
 		r.to += int64(len(raw))
+		sinceCheckpoint += len(raw)
 		if sinceYield += len(raw); sinceYield >= YieldEvery {
-			yield()
+			if err := step(); err != nil {
+				return r, err
+			}
 			sinceYield = 0
 		}
 		var line lineJSON
