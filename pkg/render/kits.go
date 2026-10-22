@@ -181,8 +181,10 @@ const kitPageSide = 2048
 // stripRows is how many rows of a page go up at once. Ebitengine copies
 // each upload into a buffer from a pool that keeps up to
 // ebitenPooledBuffers released ones however large, so pages sent whole
-// could leave 16 MiB in it for each buffer it kept (item 162).
-const stripRows = 64
+// could leave 16 MiB in it for each buffer it kept (item 162). At 64
+// rows the pool still kept about 20 MB after z2 went up; at 8 it keeps
+// at most 31 × 64 KiB, for 256 uploads of a page instead of 32.
+const stripRows = 8
 
 // ebitenPooledBuffers is how many released upload buffers Ebitengine's
 // pool keeps (internal/graphics/bytes.go, v2.10).

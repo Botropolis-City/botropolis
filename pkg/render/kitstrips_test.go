@@ -76,8 +76,8 @@ func TestKitPageStrips(t *testing.T) {
 	})
 
 	t.Run("when the strip size is set for a full page", func(t *testing.T) {
-		t.Run("it should keep what Ebitengine's pool can hold under 16 MiB", func(t *testing.T) {
-			assert.LessOrEqual(t, ebitenPooledBuffers*4*kitPageSide*stripRows, 16<<20)
+		t.Run("it should keep what Ebitengine's pool can hold under 2 MiB", func(t *testing.T) {
+			assert.LessOrEqual(t, ebitenPooledBuffers*4*kitPageSide*stripRows, 2<<20)
 		})
 	})
 }

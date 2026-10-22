@@ -159,7 +159,22 @@ func (a *KitAtlas) DecodePage(i int) (*image.NRGBA, error) {
 	for _, r := range a.retints {
 		a.retintPage(i, page, r)
 	}
-	return page, nil
+	return page.SubImage(image.Rect(0, 0, page.Rect.Dx(), a.usedRows(i))).(*image.NRGBA), nil
+}
+
+// usedRows is how many rows of page i its sprites reach down to: the
+// packer fills pages from the top, and a texture only as tall as that
+// holds every sprite (item 162).
+func (a *KitAtlas) usedRows(i int) int {
+	rows := 0
+	for _, set := range a.sprites {
+		for _, s := range set {
+			if s.Page == i {
+				rows = max(rows, s.Rect.Max.Y)
+			}
+		}
+	}
+	return rows
 }
 
 // LoadKitManifests reads every atlas's manifest, lowest zoom first, and
