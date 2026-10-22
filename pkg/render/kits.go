@@ -138,6 +138,10 @@ const stripRows = 64
 // pool keeps (internal/graphics/bytes.go, v2.10).
 const ebitenPooledBuffers = 31
 
+// kitsReadFromEbitengine is the Ebitengine that ebitenPooledBuffers and
+// sendPage's reason were read from.
+const kitsReadFromEbitengine = "v2.10.2"
+
 // uploadPage puts a decoded page up as its own texture, a strip at a time.
 func uploadPage(page *image.NRGBA) *ebiten.Image {
 	b := page.Bounds()
@@ -148,8 +152,10 @@ func uploadPage(page *image.NRGBA) *ebiten.Image {
 	return img
 }
 
-// pageSink is what sendPage draws into.
-var pageSink = ebiten.NewImage(1, 1)
+// pageSink is what sendPage draws into. It is its own texture: managed,
+// Ebitengine moves an image it has stopped drawing into onto a shared
+// one, and the copy was a draw command in a settling frame.
+var pageSink = ebiten.NewImageWithOptions(image.Rect(0, 0, 1, 1), &ebiten.NewImageOptions{Unmanaged: true})
 
 // sendPage draws one pixel of a page into a 1-pixel image. Ebitengine
 // keeps the pixels written to an image on the CPU until the image is

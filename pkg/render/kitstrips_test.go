@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	imagedraw "image/draw"
+	"runtime/debug"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,9 +66,34 @@ func TestKitPageStrips(t *testing.T) {
 		})
 	})
 
+	// ebitenPooledBuffers, and sendPage's reason to exist, are read from
+	// this version's source: a move has to read them again, or the 96 MB
+	// can come back with every test green.
+	t.Run("when the city is built", func(t *testing.T) {
+		t.Run("it should use the Ebitengine those facts were read from", func(t *testing.T) {
+			assert.Equal(t, kitsReadFromEbitengine, ebitengineVersion(t))
+		})
+	})
+
 	t.Run("when the strip size is set for a full page", func(t *testing.T) {
 		t.Run("it should keep what Ebitengine's pool can hold under 16 MiB", func(t *testing.T) {
 			assert.LessOrEqual(t, ebitenPooledBuffers*4*kitPageSide*stripRows, 16<<20)
 		})
 	})
+}
+
+func ebitengineVersion(t *testing.T) string {
+	t.Helper()
+	info, ok := debug.ReadBuildInfo()
+	require.True(t, ok)
+	for _, d := range info.Deps {
+		if d.Path == "github.com/hajimehoshi/ebiten/v2" {
+			if d.Replace != nil {
+				return d.Replace.Version
+			}
+			return d.Version
+		}
+	}
+	t.Fatal("no Ebitengine in the build")
+	return ""
 }
