@@ -64,17 +64,20 @@ func TestKitUpload(t *testing.T) {
 			})
 		})
 
-		t.Run("and updates run until every page is up", func(t *testing.T) {
+		t.Run("and updates run until the level its camera picks is up", func(t *testing.T) {
 			d := window(t)
-			for range total {
+			k := d.game.kits
+			level := k.index(d.game.scene.Camera().Zoom)
+			for range k.atlases[level].PageCount() {
 				require.NoError(t, d.Tick())
 			}
-			up := uploaded(d.game.kits)
+			up := uploaded(k)
 			ticksWhileLoading := d.game.ticks
 			require.NoError(t, d.Tick())
 
-			t.Run("it should hold every page of every atlas", func(t *testing.T) {
-				assert.Equal(t, total, up)
+			// Item 162: only that level, not every atlas.
+			t.Run("it should hold every page of that level and no other", func(t *testing.T) {
+				assert.Equal(t, k.atlases[level].PageCount(), up)
 			})
 
 			t.Run("it should start the clock on the next update", func(t *testing.T) {
@@ -96,9 +99,10 @@ func TestKitUpload(t *testing.T) {
 			require.NoError(t, err)
 			sent := map[*ebiten.Image]int{}
 			k.send = func(page *ebiten.Image) { sent[page]++ }
-			for range total {
-				_, err := k.uploadNext()
-				require.NoError(t, err)
+			for i := range k.atlases {
+				for !k.complete(i) {
+					require.NoError(t, k.uploadPage(i))
+				}
 			}
 			want, got := map[*ebiten.Image]int{}, map[*ebiten.Image]int{}
 			for _, a := range k.atlases {

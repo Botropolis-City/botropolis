@@ -527,10 +527,15 @@ func (g *Game) Update() error {
 		}
 		return ebiten.Termination
 	}
-	if g.kits != nil && !g.kits.ready() {
-		// The city's clock starts once the art is up (item 70).
-		_, err := g.kits.uploadNext()
-		return err
+	if g.kits != nil {
+		// Only the level the camera picks is kept up (item 162), and the
+		// city's clock starts once it is (item 70).
+		if err := g.kits.view(g.scene.Camera().Zoom); err != nil {
+			return err
+		}
+		if !g.kits.ready() {
+			return nil
+		}
 	}
 	if !g.startTick() {
 		return nil

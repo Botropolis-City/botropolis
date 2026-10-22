@@ -38,24 +38,37 @@ type kits struct {
 	atlases []kitAtlas
 	// send draws from a page just put up; see sendPage.
 	send func(*ebiten.Image)
+	// keepAll holds every level whatever the zoom, for a drive and the
+	// sheet, which put everything up at once.
+	keepAll bool
+	// updates counts calls to view, and picked is the update each level
+	// was last picked on.
+	updates int
+	picked  []int
 }
 
+// kitHoldUpdates is how long a window keeps a level its camera no longer
+// picks: 5 s of updates, so zooming back and forth across the threshold
+// puts nothing up again (item 162). A throttled window updates less
+// often, which only makes the wait longer in wall time.
+const kitHoldUpdates = 300
+
 // loadKits puts every page up at once, for a drive and the tests, which
-// have no loop to wait for.
+// have no loop to wait for, and keeps them all.
 func loadKits() (*kits, error) {
 	k, err := loadKitsLazily()
 	if err != nil {
 		return nil, err
 	}
-	for {
-		up, err := k.uploadNext()
-		if err != nil {
-			return nil, err
-		}
-		if !up {
-			return k, nil
+	k.keepAll = true
+	for i := range k.atlases {
+		for !k.complete(i) {
+			if err := k.uploadPage(i); err != nil {
+				return nil, err
+			}
 		}
 	}
+	return k, nil
 }
 
 // loadKitsLazily reads the atlases' manifests and puts no page up: the
@@ -75,47 +88,77 @@ func loadKitsLazily() (*kits, error) {
 		a.RetintAmber([]string{kitStack, kitTower}, ui.DefaultPalette.Plant)
 		k.atlases = append(k.atlases, kitAtlas{KitAtlas: a})
 	}
+	k.picked = make([]int, len(k.atlases))
 	return k, nil
 }
 
-// ready reports whether every page is up.
+// ready reports whether a whole level is up to draw with.
 func (k *kits) ready() bool {
-	for _, a := range k.atlases {
-		if len(a.pages) < a.PageCount() {
-			return false
+	for i := range k.atlases {
+		if k.complete(i) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
-// uploadNext decodes the next page, puts it up and drops the decoded
-// copy, reporting whether there was a page left to put up.
-func (k *kits) uploadNext() (bool, error) {
-	for i := range k.atlases {
-		a := &k.atlases[i]
-		if len(a.pages) == a.PageCount() {
-			continue
-		}
-		page, err := a.DecodePage(len(a.pages))
-		if err != nil {
-			return false, err
-		}
-		a.prepareKinds(len(a.pages), page)
-		up := uploadPage(page)
-		if k.send == nil {
-			k.send = sendPage
-		}
-		k.send(up)
-		a.pages = append(a.pages, up)
-		if k.ready() {
-			// Nothing else the city does allocates on this scale, so
-			// without a nudge the collector has no reason to run and the
-			// last page's garbage is what it keeps.
-			debug.FreeOSMemory()
-		}
-		return true, nil
+func (k *kits) complete(i int) bool {
+	return len(k.atlases[i].pages) == k.atlases[i].PageCount()
+}
+
+// view is a window's update: it puts up a page of the level the zoom
+// picks while that level is not all up, and once it is, lets go of any
+// other level not picked for kitHoldUpdates (item 162). Only the level in
+// use is resident: z1 is picked below zoom 1.98, and z2's six pages are
+// 96 MiB that most sessions never draw.
+func (k *kits) view(zoom float64) error {
+	if k.keepAll {
+		return nil
 	}
-	return false, nil
+	want := k.index(zoom)
+	k.updates++
+	k.picked[want] = k.updates
+	if !k.complete(want) {
+		return k.uploadPage(want)
+	}
+	for i := range k.atlases {
+		if i != want && len(k.atlases[i].pages) > 0 && k.updates-k.picked[i] >= kitHoldUpdates {
+			k.letGo(i)
+		}
+	}
+	return nil
+}
+
+// uploadPage decodes level i's next page, puts it up and drops the
+// decoded copy.
+func (k *kits) uploadPage(i int) error {
+	a := &k.atlases[i]
+	page, err := a.DecodePage(len(a.pages))
+	if err != nil {
+		return err
+	}
+	a.prepareKinds(len(a.pages), page)
+	up := uploadPage(page)
+	if k.send == nil {
+		k.send = sendPage
+	}
+	k.send(up)
+	a.pages = append(a.pages, up)
+	if k.complete(i) {
+		// Nothing else the city does allocates on this scale, so
+		// without a nudge the collector has no reason to run and the
+		// last page's garbage is what it keeps.
+		debug.FreeOSMemory()
+	}
+	return nil
+}
+
+// letGo gives level i's textures back.
+func (k *kits) letGo(i int) {
+	for _, p := range k.atlases[i].pages {
+		p.Deallocate()
+	}
+	k.atlases[i].pages = nil
 }
 
 // pageOptions makes each page its own texture. Managed, a 2048-pixel
@@ -182,19 +225,36 @@ func pageStrips(page *image.NRGBA, put func(pix []byte, region image.Rectangle))
 	}
 }
 
-// pick is the atlas for a camera zoom: the largest cut at or below it,
+// index is the level for a camera zoom: the largest cut at or below it,
 // so a sprite is only ever scaled down or up by less than a level.
+func (k *kits) index(zoom float64) int {
+	best := 0
+	for i := range k.atlases {
+		if k.atlases[i].Zoom <= zoom*1.01 {
+			best = i
+		}
+	}
+	return best
+}
+
+// pick is the atlas to draw with at a camera zoom: its level when that is
+// all up, or else the nearest level that is, while it goes up.
 func (k *kits) pick(zoom float64) *kitAtlas {
 	if len(k.atlases) == 0 {
 		return nil
 	}
-	best := &k.atlases[0]
-	for i := range k.atlases {
-		if k.atlases[i].Zoom <= zoom*1.01 {
-			best = &k.atlases[i]
+	want := k.index(zoom)
+	if k.complete(want) {
+		return &k.atlases[want]
+	}
+	for d := 1; d < len(k.atlases); d++ {
+		for _, i := range []int{want - d, want + d} {
+			if i >= 0 && i < len(k.atlases) && k.complete(i) {
+				return &k.atlases[i]
+			}
 		}
 	}
-	return best
+	return &k.atlases[want]
 }
 
 // Colours of the kit render's ground, so the flat ground under the
