@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Each building's walls, windows, sign, flags, scaffold and spire are put together once and reused every frame until its look changes; what moves, such as a pulsing beacon, smoke or a hoist's loads, is still drawn each frame on top.
   On the metropolis demo a settled frame is about 135 draw commands instead of 280, and the pictures take a third of a megabyte at the opening zoom and about 2 MB up close, within a 32 MB cap.
   A building's own sign, scaffold and spire now hide its lit windows behind them at night.
+
+- **A still city is drawn once and kept; only what moves is drawn again.**
+  The ground, every building, tree, lamp, landmark and sign, the group lines and the map's names are put together once and reused until something in them changes, and the cars, drones, boats, trains and the rest are drawn again each frame only where they are, passing in front of and behind buildings as before.
+  Panning with the arrow keys moves the picture and draws only the edge it uncovers.
+  On the metropolis demo a settled frame is about 22 draw commands and 4,900 indices instead of 135 and 34,000, a pan about 29 instead of 138, and the city holds about 30 MB more of pictures at 1600×900.
   A scaffold's lamps, braces and hoist no longer swap corners as the map pans.
 
 ### Deprecated
