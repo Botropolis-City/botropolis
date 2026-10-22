@@ -23,8 +23,7 @@ func Detect(members []Member, memory Memory) Result {
 	return NewDetector().Detect(members, memory)
 }
 
-func (d *detection) detect(memory Memory) Result {
-	edges := d.edges()
+func (d *detection) detect(memory Memory, edges []edge) Result {
 	comps := d.cluster(edges)
 	groups := d.groups(comps, edges, memory)
 	groups = d.placeMoved(groups, memory)
@@ -78,25 +77,42 @@ func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 	return d
 }
 
-func (d *detection) edges() []edge {
+// everyPair scores every pair of sessions, keeping nothing.
+func (d *detection) everyPair() []edge {
 	var edges []edge
 	for i := range d.members {
 		for j := i + 1; j < len(d.members); j++ {
 			if d.blocked[[2]string{d.members[i].ID, d.members[j].ID}] || d.sitsOut(d.members[i].ID) || d.sitsOut(d.members[j].ID) {
 				continue
 			}
-			if e, ok := d.scorePair(i, j); ok {
+			if e, ok := d.pair(i, j); ok {
 				edges = append(edges, e)
 			}
 		}
 	}
-	sort.SliceStable(edges, func(x, y int) bool {
-		if edges[x].tier != edges[y].tier {
-			return edges[x].tier > edges[y].tier
-		}
-		return signalRank[edges[x].reason.Signal] < signalRank[edges[y].reason.Signal]
-	})
+	sortEdges(edges)
 	return edges
+}
+
+// sortEdges orders edges strongest first, then by their sessions'
+// order, which is the order scoring every pair finds them in.
+func sortEdges(edges []edge) {
+	for k := range edges {
+		edges[k].rank = signalRank[edges[k].reason.Signal]
+	}
+	sort.Slice(edges, func(x, y int) bool {
+		ex, ey := &edges[x], &edges[y]
+		if ex.tier != ey.tier {
+			return ex.tier > ey.tier
+		}
+		if ex.rank != ey.rank {
+			return ex.rank < ey.rank
+		}
+		if ex.a != ey.a {
+			return ex.a < ey.a
+		}
+		return ex.b < ey.b
+	})
 }
 
 func (d *detection) pair(i, j int) (edge, bool) {
@@ -398,26 +414,41 @@ func (d *detection) joinStarted(groups []Group, memory Memory) []Group {
 func (d *detection) suggest(groups []Group, edges []edge) []Suggestion {
 	var out []Suggestion
 	seen := map[[2]string]bool{}
+	groupOf := firstGroups(groups)
 	for _, e := range edges {
 		if e.tier != Possible {
 			continue
 		}
 		for _, p := range [][2]int{{e.a, e.b}, {e.b, e.a}} {
 			loose, member := d.members[p[0]].ID, d.members[p[1]].ID
-			if inAny(groups, loose) {
+			if _, in := groupOf[loose]; in {
 				continue
 			}
-			g, ok := Result{Groups: groups}.GroupOf(member)
-			if !ok || seen[[2]string{loose, g.ID}] {
+			gi, ok := groupOf[member]
+			if !ok || seen[[2]string{loose, groups[gi].ID}] {
 				continue
 			}
-			seen[[2]string{loose, g.ID}] = true
+			seen[[2]string{loose, groups[gi].ID}] = true
 			reason := e.reason
 			reason.With = member
-			out = append(out, Suggestion{Session: loose, Group: g.ID, Reason: reason})
+			out = append(out, Suggestion{Session: loose, Group: groups[gi].ID, Reason: reason})
 		}
 	}
 	return out
+}
+
+// firstGroups is, by session, the first of groups it is a member of, as
+// GroupOf finds it, read once rather than searched for every edge.
+func firstGroups(groups []Group) map[string]int {
+	of := map[string]int{}
+	for gi, g := range groups {
+		for _, m := range g.Members {
+			if _, ok := of[m.Session]; !ok {
+				of[m.Session] = gi
+			}
+		}
+	}
+	return of
 }
 
 func inAny(groups []Group, session string) bool {

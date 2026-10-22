@@ -60,3 +60,37 @@ func SyntheticHistory(seed int64, sessions, prompts int, start time.Time) []Hist
 	sort.SliceStable(out, func(i, j int) bool { return out[i].At.Before(out[j].At) })
 	return out
 }
+
+// ManySessions is a heavy user's prompt history made up from a seed, in
+// time order: n small sessions started across the 30 days before end,
+// about one topic for every eight sessions and one directory for every
+// twenty, so that what any one session shares grows with its own work
+// and not with the history's length (item 198).
+func ManySessions(seed int64, n int, end time.Time) []HistoryPrompt {
+	r := rand.New(rand.NewSource(seed))
+	topics, dirs := max(1, n/8), max(1, n/20)
+	span := 29 * 24 * time.Hour
+	start := end.Add(-span)
+	var out []HistoryPrompt
+	for s := 0; s < n; s++ {
+		id := fmt.Sprintf("00000000-0000-4198-8000-%012d", s)
+		dir := fmt.Sprintf("/w/many%03d", r.Intn(dirs))
+		topic := r.Intn(topics)
+		when := start.Add(time.Duration(s) * span / time.Duration(n+1)).Add(time.Duration(r.Intn(600)) * time.Second)
+		prompts := 2 + r.Intn(4)
+		for p := 0; p < prompts; p++ {
+			words := []string{commonWords[r.Intn(len(commonWords))], commonWords[r.Intn(len(commonWords))],
+				fmt.Sprintf("many%dtopic%c", topic, 'a'+r.Intn(4))}
+			if r.Intn(10) == 0 {
+				words = append(words, fmt.Sprintf("MANY-%d", topic))
+			}
+			if r.Intn(4) == 0 {
+				words = append(words, fmt.Sprintf("only%dx%d", s, p))
+			}
+			out = append(out, HistoryPrompt{Session: id, Dir: dir, Text: "please " + strings.Join(words, " "), At: when})
+			when = when.Add(time.Duration(1+r.Intn(5)) * time.Minute)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].At.Before(out[j].At) })
+	return out
+}

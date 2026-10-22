@@ -154,6 +154,8 @@ type edge struct {
 	a, b   int
 	tier   Tier
 	reason Reason
+	// rank is the signal's rank, read once for sorting.
+	rank int
 }
 
 type detection struct {
@@ -170,11 +172,4 @@ type detection struct {
 	// started are the sessions started from a group, by session; like
 	// the moved, they sit out detection and join where they were started.
 	started map[string]string
-	// changed are the sessions whose pairs are scored again rather than
-	// taken from cache, the last run's scores; next collects this run's,
-	// and scored counts the pairs scored (item 158).
-	changed map[string]bool
-	cache   map[[2]string]scored
-	next    map[[2]string]scored
-	scored  int
 }
