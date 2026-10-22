@@ -17,6 +17,21 @@ type Frame struct {
 	// Reading is the footer's reading line, when the frame showed one
 	// (item 159).
 	Reading string
+	// Drawn is whether the city drew the frame, which it says by logging
+	// its standing city's line.
+	Drawn bool
+}
+
+// CityFrames is frames from the first the city drew: those before it are
+// the window putting its art up, and how many there are moves with the
+// art (item 162).
+func CityFrames(frames []Frame) []Frame {
+	for i, f := range frames {
+		if f.Drawn {
+			return frames[i:]
+		}
+	}
+	return nil
 }
 
 // Looks is what the city's look cache did in a frame: looks blitted,
@@ -67,6 +82,7 @@ func ParseFrameLog(r io.Reader) []Frame {
 		if l := stillLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {
 			n := func(i int) int { v, _ := strconv.Atoi(l[i]); return v }
 			frames[len(frames)-1].Still = Still{Composes: n(1), Redos: n(2), Overlays: n(3), Rects: n(4), Ground: n(5), Direct: n(6), Shifts: n(7)}
+			frames[len(frames)-1].Drawn = true
 			continue
 		}
 		m := drawTriangles.FindStringSubmatch(line)

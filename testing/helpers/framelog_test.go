@@ -57,6 +57,29 @@ func TestFrameLog(t *testing.T) {
 		})
 	})
 
+	// Item 162: frames the window spends putting its art up come before
+	// the city's first, and how many there are moves with the art.
+	t.Run("when frames come before the first the city draws", func(t *testing.T) {
+		still := "still: composes=0 redos=0 overlays=0 rects=0 ground=1 direct=1 shifts=0\n"
+		frames := ParseFrameLog(strings.NewReader("----\n" + cmd("3", "6") + "----\n" + cmd("3", "6") +
+			"----\n" + cmd("4", "60") + still + "----\n" + cmd("4", "90")))
+		city := CityFrames(frames)
+
+		t.Run("it should keep the city's frames from its first", func(t *testing.T) {
+			assert.Equal(t, []int{60, 90}, []int{city[0].Indices, city[1].Indices})
+		})
+
+		t.Run("it should drop the frames before it", func(t *testing.T) {
+			assert.Len(t, city, 2)
+		})
+	})
+
+	t.Run("when the city draws no frame", func(t *testing.T) {
+		t.Run("it should keep none", func(t *testing.T) {
+			assert.Empty(t, CityFrames(ParseFrameLog(strings.NewReader("----\n"+cmd("3", "6")))))
+		})
+	})
+
 	t.Run("when the worst of several frames is asked for", func(t *testing.T) {
 		worst := MostWork([]Frame{{Commands: 5, Indices: 10, Switches: 1}, {Commands: 2, Indices: 40, Switches: 3}})
 

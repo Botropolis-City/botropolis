@@ -112,8 +112,11 @@ const withoutMovers = "BOTROPOLIS_FRAME_MOVERS=none"
 // settledFrom is the first frame counted. The buildings' looks and the
 // map's labels are baked by the third frame, onto pages of their own that
 // Ebitengine never moves (items 192 and 193), and the counts hold from
-// then; the margin is the camera's settling.
-const settledFrom = 20
+// then; the margin is the camera's settling. It counts from the city's
+// first frame, as the choreographies' clock does: counted from the first
+// frame logged, it moved with how long the art took to go up, and was the
+// 20th logged when that took three frames (item 162).
+const settledFrom = 17
 
 // frameWork runs the debug city for a second of frames on a staged demo,
 // with the local clock at hour, and returns each count's worst over the
@@ -162,7 +165,7 @@ func frameLog(t *testing.T, demo string, hour int, seconds float64, choreography
 	f, err := os.Open(logPath)
 	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
-	return helpers.ParseFrameLog(f)
+	return helpers.CityFrames(helpers.ParseFrameLog(f))
 }
 
 // Item 192: a still city draws its buildings from looks baked once, so a
