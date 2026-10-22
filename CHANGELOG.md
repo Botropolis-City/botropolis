@@ -67,6 +67,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On the metropolis demo a settled frame is about 22 draw commands and 4,900 indices instead of 135 and 34,000, a pan about 29 instead of 138, and the city holds about 30 MB more of pictures at 1600×900.
   A scaffold's lamps, braces and hoist no longer swap corners as the map pans.
 
+- **An unfocused city keeps up, as a dashboard on another monitor.**
+  It used to show the last frame it drew while it had the focus; it now draws again whenever something changes, such as a session starting, stopping or needing you, and nothing moves in between, so it costs little while it sits there.
+
+- **A city you cannot see costs far less while sessions work.**
+  An update from the daemon is now laid out in milliseconds rather than more than a second on a history of a few hundred sessions, and is laid out at all only when it changes the map.
+  A hidden or minimised city lays out nothing until you bring it back, and looks at the daemon every 5 seconds instead of taking every update, so its window title still says within 5 seconds that a session needs you; on 200 sessions it went from about 6% of a core to under 1%.
+
 ### Deprecated
 
 - These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).
