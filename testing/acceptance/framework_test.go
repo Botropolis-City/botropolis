@@ -48,7 +48,12 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		unmet, unmatched map[int]bool
 	}{
 		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 4_990, 22: 5_860}, nil, nil},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 23, 22: 41}, nil, nil},
+		// The night's 42 is main's own worst, not item 193's one run:
+		// six runs of main at cedcaaf settled at 40, 40, 40, 41, 42 and
+		// 40, because where Ebitengine packs the night's light stamps
+		// varies by run, and each change of texture between cuts is a
+		// command (item 162; the packing is its own item).
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 23, 22: 42}, nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, nil, nil},
 	}
 
