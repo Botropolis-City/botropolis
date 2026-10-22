@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -43,17 +42,14 @@ func (s *Store) Ingest(projectsDir string, now time.Time, yield func()) error {
 // and returning its error. What it read up to the last checkpoint is
 // kept, and the next ingest reads on from there (item 159).
 func (s *Store) IngestContext(ctx context.Context, projectsDir string, now time.Time, yield func()) error {
-	mains, err := filepath.Glob(filepath.Join(projectsDir, "*", "*.jsonl"))
+	s.index.Refresh()
+	mains := s.index.Transcripts(projectsDir)
+	agents := s.index.SubagentTranscripts(projectsDir)
+	rows, err := s.transcripts()
 	if err != nil {
 		return err
 	}
-	agents, err := filepath.Glob(filepath.Join(projectsDir, "*", "*", "subagents", agentPrefix+"*.jsonl"))
-	if err != nil {
-		return err
-	}
-	sort.Strings(mains)
-	sort.Strings(agents)
-	known, err := s.left(mains, agents)
+	known, err := s.left(rows, mains, agents)
 	if err != nil {
 		return err
 	}
@@ -70,7 +66,7 @@ func (s *Store) IngestContext(ctx context.Context, projectsDir string, now time.
 		if err := step(); err != nil {
 			return err
 		}
-		if err := s.ingestFile(path, strings.TrimSuffix(filepath.Base(path), ".jsonl"), mainThread, step); err != nil {
+		if err := s.ingestFile(rows, path, strings.TrimSuffix(filepath.Base(path), ".jsonl"), mainThread, step); err != nil {
 			return err
 		}
 	}
@@ -80,39 +76,51 @@ func (s *Store) IngestContext(ctx context.Context, projectsDir string, now time.
 		if err := step(); err != nil {
 			return err
 		}
-		if err := s.ingestFile(path, session, thread, step); err != nil {
+		if err := s.ingestFile(rows, path, session, thread, step); err != nil {
 			return err
 		}
 	}
 	return s.markGone(mains, now)
 }
 
-// markGone sets transcript_gone_at on every session whose main transcript
-// is no longer on disk, and clears it on every session whose is.
+// markGone sets transcript_gone_at on every session none of whose main
+// transcripts is on disk any more, and clears it on every session one of
+// whose is, writing only the sessions that change (item 196).
 func (s *Store) markGone(mains []string, now time.Time) error {
 	present := map[string]bool{}
 	for _, path := range mains {
 		present[path] = true
 	}
-	rows, err := s.db.Query("SELECT path, session_id FROM transcripts WHERE path NOT LIKE ?", "%"+string(filepath.Separator)+"subagents"+string(filepath.Separator)+"%")
+	rows, err := s.db.Query(`SELECT t.path, t.session_id, s.transcript_gone_at IS NOT NULL FROM transcripts t
+		JOIN sessions s ON s.id = t.session_id WHERE t.path NOT LIKE ?`, "%"+string(filepath.Separator)+"subagents"+string(filepath.Separator)+"%")
 	if err != nil {
 		return err
 	}
-	var gone, back []string
+	there, wasGone := map[string]bool{}, map[string]bool{}
 	for rows.Next() {
 		var path, session string
-		if err := rows.Scan(&path, &session); err != nil {
+		var gone bool
+		if err := rows.Scan(&path, &session, &gone); err != nil {
 			_ = rows.Close()
 			return err
 		}
-		if present[path] {
-			back = append(back, session)
-		} else {
-			gone = append(gone, session)
-		}
+		there[session] = there[session] || present[path]
+		wasGone[session] = gone
 	}
 	if err := rows.Close(); err != nil {
 		return err
+	}
+	var gone, back []string
+	for session, isThere := range there {
+		switch {
+		case isThere && wasGone[session]:
+			back = append(back, session)
+		case !isThere && !wasGone[session]:
+			gone = append(gone, session)
+		}
+	}
+	if len(gone) == 0 && len(back) == 0 {
+		return nil
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -188,7 +196,7 @@ type readPlan struct {
 	again, skip       bool
 }
 
-func (s *Store) plan(path string) (readPlan, error) {
+func (s *Store) plan(rows map[string]transcriptRow, path string) (readPlan, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return readPlan{skip: true}, nil
@@ -197,10 +205,7 @@ func (s *Store) plan(path string) (readPlan, error) {
 		return readPlan{}, err
 	}
 	p := readPlan{size: info.Size(), mtime: info.ModTime().UnixMilli()}
-	row, known, err := s.transcript(path)
-	if err != nil {
-		return p, err
-	}
+	row, known := rows[path]
 	p.again = known && (p.size < row.readTo || p.mtime < row.mtime)
 	p.skip = known && !p.again && p.size == row.readTo && p.mtime == row.mtime
 	if known && !p.again {
@@ -210,11 +215,11 @@ func (s *Store) plan(path string) (readPlan, error) {
 }
 
 // left is how many bytes an ingest of paths has to read.
-func (s *Store) left(paths ...[]string) (int64, error) {
+func (s *Store) left(rows map[string]transcriptRow, paths ...[]string) (int64, error) {
 	var total int64
 	for _, list := range paths {
 		for _, path := range list {
-			p, err := s.plan(path)
+			p, err := s.plan(rows, path)
 			if err != nil {
 				return 0, err
 			}
@@ -232,8 +237,8 @@ func (s *Store) Progress() (done, known int64) {
 	return s.done.Load(), s.known.Load()
 }
 
-func (s *Store) ingestFile(path, session, thread string, step func() error) error {
-	p, err := s.plan(path)
+func (s *Store) ingestFile(rows map[string]transcriptRow, path, session, thread string, step func() error) error {
+	p, err := s.plan(rows, path)
 	if err != nil || p.skip {
 		return err
 	}
@@ -289,13 +294,24 @@ func (s *Store) save(path, session, thread string, size, mtime int64, r read, re
 	return tx.Commit()
 }
 
-func (s *Store) transcript(path string) (transcriptRow, bool, error) {
-	var row transcriptRow
-	err := s.db.QueryRow("SELECT size, mtime, read_to FROM transcripts WHERE path = ?", path).Scan(&row.size, &row.mtime, &row.readTo)
-	if errors.Is(err, sql.ErrNoRows) {
-		return row, false, nil
+// transcripts is every transcript's row, read once a pass rather than
+// once a file (item 196).
+func (s *Store) transcripts() (map[string]transcriptRow, error) {
+	rows, err := s.db.Query("SELECT path, size, mtime, read_to FROM transcripts")
+	if err != nil {
+		return nil, err
 	}
-	return row, err == nil, err
+	defer func() { _ = rows.Close() }()
+	all := map[string]transcriptRow{}
+	for rows.Next() {
+		var path string
+		var row transcriptRow
+		if err := rows.Scan(&path, &row.size, &row.mtime, &row.readTo); err != nil {
+			return nil, err
+		}
+		all[path] = row
+	}
+	return all, rows.Err()
 }
 
 func (s *Store) lastDir(session, thread string) (string, error) {

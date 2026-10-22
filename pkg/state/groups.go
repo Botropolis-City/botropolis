@@ -325,7 +325,7 @@ func groupViews(result group.Result, sessions []Session) []Group {
 	views := make([]Group, 0, len(result.Groups))
 	for _, g := range result.Groups {
 		view := Group{ID: g.ID, Name: g.Name, Short: group.Short(g), Anchor: g.Anchor}
-		var present []Session
+		present := make([]Session, 0, len(g.Members))
 		for _, m := range g.Members {
 			view.Members = append(view.Members, m.Session)
 			view.MemberDirs = append(view.MemberDirs, m.Dir)

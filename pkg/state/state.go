@@ -285,7 +285,7 @@ func Build(src Sources, probes Probes, now time.Time) []Session {
 	for _, t := range src.Transcripts {
 		byID[t.SessionID] = t
 	}
-	sessions := make([]Session, 0, len(src.Records))
+	sessions := make([]Session, 0, len(src.Records)+len(src.Stopped))
 	own := newOwnProjects()
 	for _, r := range src.Records {
 		if own.run(r.CWD) {

@@ -14,6 +14,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/statedir"
 )
 
@@ -141,6 +142,9 @@ type Store struct {
 	db *sql.DB
 	// done and known are the running ingest's progress, in bytes.
 	done, known atomic.Int64
+	// index finds the transcripts without globbing every project on
+	// every pass (item 196).
+	index *claude.Index
 }
 
 // Path is where the statistics database lives: in the state directory,
@@ -167,7 +171,7 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{db: db}
+	s := &Store{db: db, index: claude.NewIndex()}
 	if err := s.migrate(path); err != nil {
 		_ = db.Close()
 		return nil, err

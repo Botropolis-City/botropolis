@@ -41,11 +41,15 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		} else {
 			sample = append(sample, state.SampleOf(snapshot.Sessions)...)
 		}
-		for _, s := range snapshot.Sessions {
-			if s.Harness == "" {
-				s.Harness = h.Name()
+		for i := range snapshot.Sessions {
+			if snapshot.Sessions[i].Harness == "" {
+				snapshot.Sessions[i].Harness = h.Name()
 			}
-			merged.Sessions = append(merged.Sessions, s)
+		}
+		if merged.Sessions == nil {
+			merged.Sessions = snapshot.Sessions
+		} else {
+			merged.Sessions = append(merged.Sessions, snapshot.Sessions...)
 		}
 		merged.Servers = append(merged.Servers, snapshot.Servers...)
 		merged.Skills = append(merged.Skills, snapshot.Skills...)
@@ -120,9 +124,17 @@ func (m *Multi) keepLedger(merged *state.Snapshot, now time.Time) {
 		if !ok {
 			continue
 		}
-		var own, others []state.Session
+		name := h.Name()
+		mine := 0
+		for i := range merged.Sessions {
+			if merged.Sessions[i].Harness == name {
+				mine++
+			}
+		}
+		own := make([]state.Session, 0, len(merged.Sessions))
+		others := make([]state.Session, 0, len(merged.Sessions)-mine)
 		for _, s := range merged.Sessions {
-			if s.Harness == h.Name() {
+			if s.Harness == name {
 				own = append(own, s)
 			} else {
 				others = append(others, s)

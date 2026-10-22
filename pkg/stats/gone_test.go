@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -53,6 +54,33 @@ func TestGone(t *testing.T) {
 		t.Run("it should leave the session's transcript_gone_at empty", func(t *testing.T) {
 			_, gone := f.goneAt(sessionA)
 			assert.False(t, gone)
+		})
+	})
+
+	t.Run("when a session's transcript is in two projects and one of them is deleted", func(t *testing.T) {
+		f := newFixture(t)
+		f.write(filepath.Join(f.projects, "-w-app", sessionA+".jsonl"), reply{session: sessionA, id: "msg_1", at: "2026-10-18T08:00:00.000Z", cwd: lib}.line())
+		f.write(filepath.Join(f.projects, "-w-zed", sessionA+".jsonl"), reply{session: sessionA, id: "msg_1", at: "2026-10-18T08:00:00.000Z", cwd: lib}.line())
+		f.ingest()
+		require.NoError(t, os.Remove(filepath.Join(f.projects, "-w-zed", sessionA+".jsonl")))
+		f.ingest()
+
+		t.Run("it should leave its transcript_gone_at empty", func(t *testing.T) {
+			_, gone := f.goneAt(sessionA)
+			assert.False(t, gone)
+		})
+	})
+
+	t.Run("when a session's main transcript is gone and its subagent's is still there", func(t *testing.T) {
+		f := newFixture(t)
+		main := f.transcript(sessionA, reply{session: sessionA, id: "msg_1", at: "2026-10-18T08:00:00.000Z", cwd: lib}.line())
+		f.ingest()
+		require.NoError(t, os.Remove(main))
+		f.subagent(sessionA, "a1b2c3", reply{session: sessionA, id: "msg_s", at: "2026-10-18T08:01:00.000Z", cwd: lib}.line())
+		f.ingest()
+
+		t.Run("it should still read the subagent", func(t *testing.T) {
+			assert.True(t, f.has("msg_s"))
 		})
 	})
 

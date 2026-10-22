@@ -236,12 +236,12 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 
 func (l *Loader) catalogue(projectsDir string, live map[string]bool, powerSince time.Time) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
 	paths := l.index.Transcripts(projectsDir)
-	var parked []claude.Transcript
+	parked := make([]claude.Transcript, 0, len(paths))
 	var skipped []claude.SkippedFile
-	cache := map[string]cachedTranscript{}
-	subCache := map[string]cachedSubagent{}
+	cache := make(map[string]cachedTranscript, len(l.parked))
+	subCache := make(map[string]cachedSubagent, len(l.parkedSubagents))
 	stoppedSubs := map[string][]claude.Subagent{}
-	files := map[string]stoppedFile{}
+	files := make(map[string]stoppedFile, len(l.stoppedFiles))
 	for _, path := range paths {
 		id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		if live[id] {

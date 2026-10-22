@@ -15,9 +15,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 
 	"botropolis.city/botropolis/testing/helpers"
 )
@@ -98,6 +100,131 @@ func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 			assert.Less(t, dirty, int64(dirtyLimit))
 		})
 	})
+}
+
+// Item 196: a settled daemon read every session's counters again and
+// looked for every transcript by globbing after each change, so its cost
+// grew with the history: r878 used 9-15% of a core on this home with one
+// session writing, and this build 1.2-1.8% on a machine at load 20.
+func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
+	const (
+		stopped       = 200
+		replies       = 300
+		projects      = 30
+		stream        = 30 * time.Second
+		every         = 200 * time.Millisecond
+		maxCoreShare  = 0.02
+		clockTicksSec = 100
+		sid           = "11111111-1111-4111-8111-111111111111"
+		cwd           = "/home/user/src/alpha"
+	)
+	bin, err := botropolisd()
+	require.NoError(t, err)
+
+	t.Run("when the daemon has settled on the synthetic home plus 200 stopped sessions of 300 replies each", func(t *testing.T) {
+		root := t.TempDir()
+		home := helpers.LiveFixtureHome(t, "synthetic")
+		h := helpers.HomeAt(t, home)
+		at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+		dirs := map[string]bool{}
+		for i := range stopped {
+			id := fmt.Sprintf("%08d-0000-4000-8000-000000000196", i)
+			dir := fmt.Sprintf("/home/user/src/stopped%02d", i%projects)
+			lines := []string{helpers.UserPrompt(id, dir, at.Format(time.RFC3339Nano))}
+			for j := range replies {
+				lines = append(lines, helpers.AssistantReply(id, fmt.Sprintf("msg_196_%d_%d", i, j), at.Add(time.Duration(j)*time.Second).Format(time.RFC3339Nano)))
+			}
+			dirs[filepath.Dir(h.Transcript(id, dir, lines...))] = true
+		}
+		sock := shortSocket(t)
+		cmd := exec.Command(bin, "--home", home, "--socket", sock, "--config", filepath.Join(root, "config.toml"))
+		cmd.Env = append(os.Environ(), "XDG_STATE_HOME="+filepath.Join(root, "state"), "PATH=/nonexistent")
+		require.NoError(t, cmd.Start())
+		t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+		require.Eventually(t, func() bool { _, err := os.Stat(sock); return err == nil }, 10*time.Second, 20*time.Millisecond)
+		pid := cmd.Process.Pid
+		settled := false
+		for last, deadline := cpuTicks(t, pid), time.Now().Add(2*time.Minute); !settled && time.Now().Before(deadline); {
+			time.Sleep(2 * time.Second)
+			ticks := cpuTicks(t, pid)
+			settled, last = ticks-last <= 1, ticks
+		}
+		require.True(t, settled, "the daemon never settled")
+
+		t.Run("and one session writes a reply every 200 ms for 30 s", func(t *testing.T) {
+			opens := watchOpens(t, dirs)
+			ticks := cpuTicks(t, pid)
+			start := time.Now()
+			for i := 0; time.Since(start) < stream; i++ {
+				h.AppendTranscript(sid, cwd, helpers.AssistantReply(sid, fmt.Sprintf("msg_196_live_%d", i), at.Add(time.Duration(i)*time.Second).Format(time.RFC3339Nano)))
+				time.Sleep(every)
+			}
+			share := float64(cpuTicks(t, pid)-ticks) / clockTicksSec / time.Since(start).Seconds()
+			opened := opens()
+			t.Logf("%.1f%% of a core; %d opens of transcripts that did not change", share*100, len(opened))
+
+			t.Run("it should use at most 2% of a core", func(t *testing.T) {
+				assert.LessOrEqual(t, share, maxCoreShare)
+			})
+
+			t.Run("it should open no transcript that did not change", func(t *testing.T) {
+				assert.Empty(t, opened)
+			})
+		})
+	})
+}
+
+// watchOpens records every file opened in dirs from now on, and gives
+// their names when called.
+func watchOpens(t *testing.T, dirs map[string]bool) func() []string {
+	t.Helper()
+	fd, err := unix.InotifyInit1(unix.IN_CLOEXEC | unix.IN_NONBLOCK)
+	require.NoError(t, err)
+	for dir := range dirs {
+		_, err := unix.InotifyAddWatch(fd, dir, unix.IN_OPEN)
+		require.NoError(t, err)
+	}
+	var mu sync.Mutex
+	var opened []string
+	stop, done := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		buf := make([]byte, 64<<10)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if _, err := unix.Poll([]unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}, 100); err != nil && err != unix.EINTR {
+				return
+			}
+			n, err := unix.Read(fd, buf)
+			if err == unix.EAGAIN || err == unix.EINTR {
+				continue
+			}
+			if err != nil || n <= 0 {
+				return
+			}
+			for off := 0; off+unix.SizeofInotifyEvent <= n; {
+				ev := (*unix.InotifyEvent)(unsafe.Pointer(&buf[off]))
+				start := off + unix.SizeofInotifyEvent
+				name := strings.TrimRight(string(buf[start:start+int(ev.Len)]), "\x00")
+				if ev.Mask&unix.IN_ISDIR == 0 && strings.HasSuffix(name, ".jsonl") {
+					mu.Lock()
+					opened = append(opened, name)
+					mu.Unlock()
+				}
+				off = start + int(ev.Len)
+			}
+		}
+	}()
+	t.Cleanup(func() { close(stop); <-done; _ = unix.Close(fd) })
+	return func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(opened)
+	}
 }
 
 func shortSocket(t *testing.T) string {

@@ -107,18 +107,7 @@ func (ix *Index) Subagents(transcriptPath string) []string {
 	if !ix.list(project).subdirs[session] {
 		return nil
 	}
-	sessionDir := filepath.Join(project, session)
-	if !ix.list(sessionDir).subdirs["subagents"] {
-		return nil
-	}
-	dir := filepath.Join(sessionDir, "subagents")
-	var paths []string
-	for _, name := range ix.list(dir).files {
-		if strings.HasPrefix(name, agentFilePrefix) && strings.HasSuffix(name, ".jsonl") {
-			paths = append(paths, filepath.Join(dir, name))
-		}
-	}
-	return paths
+	return ix.agents(filepath.Join(project, session))
 }
 
 func (ix *Index) subdirs(dir string) []string {
@@ -178,4 +167,36 @@ func (ix *Index) list(dir string) listing {
 func slicesIndex(sorted []string, name string) (int, bool) {
 	i := sort.SearchStrings(sorted, name)
 	return i, i < len(sorted) && sorted[i] == name
+}
+
+// SubagentTranscripts is every subagent transcript under projectsDir,
+// sorted, as filepath.Glob(projectsDir/*/*/subagents/agent-*.jsonl)
+// gives them: a session's whose main transcript is gone included.
+func (ix *Index) SubagentTranscripts(projectsDir string) []string {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	var paths []string
+	for _, project := range ix.subdirs(projectsDir) {
+		projectDir := filepath.Join(projectsDir, project)
+		for _, session := range ix.subdirs(projectDir) {
+			paths = append(paths, ix.agents(filepath.Join(projectDir, session))...)
+		}
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+// agents is the subagent transcripts in a session's directory.
+func (ix *Index) agents(sessionDir string) []string {
+	if !ix.list(sessionDir).subdirs["subagents"] {
+		return nil
+	}
+	dir := filepath.Join(sessionDir, "subagents")
+	var paths []string
+	for _, name := range ix.list(dir).files {
+		if strings.HasPrefix(name, agentFilePrefix) && strings.HasSuffix(name, ".jsonl") {
+			paths = append(paths, filepath.Join(dir, name))
+		}
+	}
+	return paths
 }

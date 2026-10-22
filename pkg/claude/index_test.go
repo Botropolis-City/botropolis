@@ -20,6 +20,7 @@ func TestIndex(t *testing.T) {
 	const (
 		first  = "aaaaaaaa-0000-4000-8000-000000000001"
 		second = "bbbbbbbb-0000-4000-8000-000000000002"
+		orphan = "cccccccc-0000-4000-8000-000000000003"
 	)
 	hourAgo := time.Now().Add(-time.Hour)
 	quiet := func(t *testing.T, dirs ...string) {
@@ -45,6 +46,7 @@ func TestIndex(t *testing.T) {
 			second + "/subagents/notes.jsonl":        userLine + "\n",
 			second + "/tool-results/r1.txt":          "x\n",
 			"memory.md":                              "x\n",
+			orphan + "/subagents/agent-c3.jsonl":     userLine + "\n",
 		})
 		globbed := func(pattern string) []string {
 			paths, err := filepath.Glob(filepath.Join(projects, pattern))
@@ -56,6 +58,10 @@ func TestIndex(t *testing.T) {
 
 		t.Run("it should list the transcripts a glob of the projects finds", func(t *testing.T) {
 			assert.Equal(t, globbed("*/*.jsonl"), ix.Transcripts(projects))
+		})
+
+		t.Run("it should list every subagent transcript a glob of the projects finds", func(t *testing.T) {
+			assert.Equal(t, globbed("*/*/subagents/agent-*.jsonl"), ix.SubagentTranscripts(projects))
 		})
 
 		t.Run("it should list a session's subagents as SubagentPaths does", func(t *testing.T) {
