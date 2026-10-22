@@ -64,10 +64,26 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		merged.Power.Cached += snapshot.Power.Cached
 		merged.Power.Output += snapshot.Power.Output
 		merged.HeftsRead = merged.HeftsRead && snapshot.HeftsRead
+		if merged.Scan == nil {
+			merged.Scan = snapshot.Scan
+		}
 	}
 	m.keepLedger(&merged, now)
 	m.heights.ApplyOn(merged.Sessions, sample, merged.HeftsRead, now)
 	return merged, nil
+}
+
+// Progress is how far a harness's long read of its history has got,
+// while one runs (item 159).
+func (m *Multi) Progress() *state.ScanProgress {
+	for _, h := range m.harnesses {
+		if p, ok := h.(interface{ Progress() *state.ScanProgress }); ok {
+			if scan := p.Progress(); scan != nil {
+				return scan
+			}
+		}
+	}
+	return nil
 }
 
 func (m *Multi) WatchDirs() []string {

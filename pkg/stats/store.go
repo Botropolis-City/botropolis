@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	_ "modernc.org/sqlite"
 
@@ -138,6 +139,8 @@ UPDATE transcripts SET read_to = 0;`,
 // Store is an open statistics database.
 type Store struct {
 	db *sql.DB
+	// done and known are the running ingest's progress, in bytes.
+	done, known atomic.Int64
 }
 
 // Path is where the statistics database lives: in the state directory,

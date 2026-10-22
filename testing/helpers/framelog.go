@@ -14,6 +14,9 @@ type Frame struct {
 	Commands, Indices, Switches int
 	Looks                       Looks
 	Still                       Still
+	// Reading is the footer's reading line, when the frame showed one
+	// (item 159).
+	Reading string
 }
 
 // Looks is what the city's look cache did in a frame: looks blitted,
@@ -55,6 +58,10 @@ func ParseFrameLog(r io.Reader) []Frame {
 		if l := looksLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {
 			n := func(i int) int { v, _ := strconv.Atoi(l[i]); return v }
 			frames[len(frames)-1].Looks = Looks{Hits: n(1), Misses: n(2), Bakes: n(3), Bytes: n(4)}
+			continue
+		}
+		if r, ok := strings.CutPrefix(line, "reading: "); ok && len(frames) > 0 {
+			frames[len(frames)-1].Reading = r
 			continue
 		}
 		if l := stillLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {

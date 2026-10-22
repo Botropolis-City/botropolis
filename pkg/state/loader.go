@@ -184,6 +184,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	} else {
 		snapshot.HeftsRead = l.applyHefts(snapshot.Sessions, l.stoppedFiles)
 	}
+	snapshot.Scan = l.Progress()
 	snapshot.Servers = Servers(snapshot.Sessions, src.MCP)
 	snapshot.Skills = Skills(snapshot.Sessions)
 	snapshot.Roads = Roads(snapshot.Sessions, src.Teams)

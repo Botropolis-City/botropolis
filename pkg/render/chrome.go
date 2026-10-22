@@ -34,6 +34,12 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		footer = footer.WithWaiting(th, width, line, g.faces.Measure)
 		waitingID = walk[0].Session.ID
 	}
+	if scan := g.scene.Snapshot().Scan; scan != nil && scan.Known > 0 {
+		g.scanRate.Observe(timeNow(), scan.Done)
+		left, settled := g.scanRate.Remaining(scan.Done, scan.Known)
+		footer = footer.WithReading(th, width, ui.ReadingLine(*scan, left, settled), float64(scan.Done)/float64(scan.Known), g.faces.Measure)
+		g.logReading(footer.Reading.Text)
+	}
 	// Kept so a click hit-tests the bar that was actually drawn, the
 	// same way the view key does. Bug 43.
 	g.mu.Lock()
@@ -227,6 +233,13 @@ func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
 	if f.Waiting.Text != "" {
 		g.waitingHovered = f.WaitingRect.Contains(g.pointer())
 		g.button(screen, f.WaitingRect, f.Waiting, g.theme.Palette.NeedsYou, g.waitingHovered)
+	}
+	if f.Reading.Text != "" {
+		g.run(screen, f.Reading, g.theme.Palette.Dim)
+		g.roundRect(screen, f.ReadingBar, f.ReadingBar.Height()/2, g.theme.Palette.Hairline)
+		if f.ReadingFill.Width() > 0 {
+			g.roundRect(screen, f.ReadingFill, f.ReadingFill.Height()/2, g.theme.Palette.Accent)
+		}
 	}
 	g.keyRow(screen, f.Keys, f.Size)
 }

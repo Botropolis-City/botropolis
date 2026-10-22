@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,6 +23,8 @@ import (
 )
 
 const firstLaunchGB = "BOTROPOLIS_FIRST_LAUNCH_GB"
+
+var percentIn = regexp.MustCompile(`(\d+)%`)
 
 // Item 159: 0.2.2's first launch took up to four cores, and 0.2.3's a
 // peak of 414%. The limits are the budget's (performance/budgets.md,
@@ -97,6 +101,130 @@ func TestFirstLaunchResumes(t *testing.T) {
 	})
 }
 
+// Item 159: the budget's "a map within 5 s of opening the city, with
+// what is known so far and a percentage for the rest". The city is the
+// debug build, whose frame log says when each frame is drawn, whether it
+// drew the city, and what the footer's reading line said on it.
+//
+// Wall-clock seconds cannot gate the suite: on a shared machine at a
+// load of 40, a city on an empty home took 12-15 s to draw, so they are
+// asserted only with BOTROPOLIS_FIRST_LAUNCH_TIMED=1, for a report. What
+// gates is work: the CPU-seconds the city spends before it draws the
+// city, which load barely moves. A start that is serial can spend no
+// more CPU than the time it takes, so 5 s on the budget's machine is at
+// most 5 CPU-seconds. BOTROPOLIS_FIRST_LAUNCH_FRAME=path keeps the last
+// frame, for a person to judge.
+func TestFirstLaunchCity(t *testing.T) {
+	helpers.NeedXvfb(t)
+	const (
+		within        = 5 * time.Second
+		maxCPUSeconds = 5.0
+		clockTicksSec = 100
+	)
+	timed := os.Getenv("BOTROPOLIS_FIRST_LAUNCH_TIMED") != ""
+
+	t.Run("when the city opens on a daemon partway through a first launch", func(t *testing.T) {
+		bin, err := debugCity()
+		require.NoError(t, err)
+		keep := os.Getenv("BOTROPOLIS_FIRST_LAUNCH_FRAME")
+		history := int64(256 << 20)
+		if keep != "" {
+			history = 1 << 30
+		}
+		l := newLaunch(t, history, 8<<20)
+		daemon := l.start(t)
+		require.Eventually(t, func() bool { return bytesRead(t, daemon.pid) >= 64<<20 }, time.Minute, 50*time.Millisecond)
+		frames := filepath.Join(t.TempDir(), "frames")
+		require.NoError(t, os.MkdirAll(frames, 0o755))
+		city := exec.Command(bin, "city", "--headless", "--record", frames, "--seconds", "8", "--fps", "2", "--window", "1600x900", "--socket", daemon.socket)
+		city.Env = append(os.Environ(), "HOME="+l.home, "XDG_STATE_HOME="+filepath.Join(l.root, "state"))
+		out, err := city.StdoutPipe()
+		require.NoError(t, err)
+		var stderr syncBuffer
+		city.Stderr = &stderr
+		start := time.Now()
+		require.NoError(t, city.Start())
+		t.Cleanup(func() { _ = city.Process.Kill(); _ = city.Wait() })
+		var log strings.Builder
+		var firstDrawn, firstReading time.Duration
+		cpuToDrawn := -1.0
+		lines := bufio.NewScanner(out)
+		lines.Buffer(make([]byte, 0, 64<<10), 1<<20)
+		for lines.Scan() {
+			line := lines.Text()
+			log.WriteString(line + "\n")
+			if strings.HasPrefix(line, "still: ") && cpuToDrawn < 0 {
+				firstDrawn = time.Since(start)
+				cpuToDrawn = float64(cpuTicks(t, city.Process.Pid)) / clockTicksSec
+			}
+			if strings.HasPrefix(line, "reading: ") && firstReading == 0 {
+				firstReading = time.Since(start)
+			}
+		}
+		_ = city.Wait()
+		var shown []string
+		for _, f := range helpers.ParseFrameLog(strings.NewReader(log.String())) {
+			if f.Reading != "" || len(shown) > 0 {
+				shown = append(shown, f.Reading)
+			}
+		}
+		for len(shown) > 0 && shown[len(shown)-1] == "" {
+			shown = shown[:len(shown)-1]
+		}
+		var percents []int
+		for _, line := range shown {
+			if m := percentIn.FindStringSubmatch(line); m != nil {
+				n, _ := strconv.Atoi(m[1])
+				percents = append(percents, n)
+			}
+		}
+		t.Logf("first city drawn at %s after %.2f CPU-seconds; first reading line at %s; %d frames from it", firstDrawn.Round(time.Millisecond), cpuToDrawn, firstReading.Round(time.Millisecond), len(shown))
+		if len(shown) == 0 {
+			t.Logf("the city wrote: %s", stderr.String())
+		}
+		if keep != "" {
+			pngs, err := filepath.Glob(filepath.Join(frames, "*.png"))
+			require.NoError(t, err)
+			require.NotEmpty(t, pngs)
+			data, err := os.ReadFile(pngs[len(pngs)-1])
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(keep, data, 0o644))
+		}
+
+		t.Run("it should show a percentage", func(t *testing.T) {
+			require.NotEmpty(t, shown)
+			assert.Contains(t, shown[0], "%")
+		})
+
+		t.Run("it should show it on every frame until the read is done", func(t *testing.T) {
+			assert.NotContains(t, shown, "")
+		})
+
+		t.Run("it should move as the read goes on", func(t *testing.T) {
+			require.NotEmpty(t, percents)
+			assert.Less(t, percents[0], percents[len(percents)-1])
+		})
+
+		t.Run("it should never go backwards", func(t *testing.T) {
+			assert.True(t, slices.IsSorted(percents))
+		})
+
+		t.Run("it should spend at most 5 CPU-seconds before it draws the city", func(t *testing.T) {
+			assert.True(t, cpuToDrawn >= 0 && cpuToDrawn <= maxCPUSeconds)
+		})
+
+		if timed {
+			t.Run("it should draw the city within 5 s", func(t *testing.T) {
+				assert.True(t, firstDrawn > 0 && firstDrawn <= within)
+			})
+
+			t.Run("it should show the percentage within 5 s", func(t *testing.T) {
+				assert.True(t, firstReading > 0 && firstReading <= within)
+			})
+		}
+	})
+}
+
 // launch is a home of synthetic history with its own state directory.
 type launch struct {
 	root, home string
@@ -110,9 +238,14 @@ func newLaunch(t *testing.T, history, perSession int64) *launch {
 	return &launch{root: root, home: home, written: syntheticHistory(t, helpers.HomeAt(t, home), history, perSession)}
 }
 
+func (l *launch) env() []string {
+	return append(os.Environ(), "HOME="+l.home, "XDG_STATE_HOME="+filepath.Join(l.root, "state"), "PATH=/nonexistent")
+}
+
 // daemonRun is one daemon started on a launch, and what it was sampled
 // at.
 type daemonRun struct {
+	socket    string
 	cmd       *exec.Cmd
 	pid       int
 	read      int64
@@ -126,10 +259,11 @@ func (l *launch) start(t *testing.T) *daemonRun {
 	t.Helper()
 	bin, err := botropolisd()
 	require.NoError(t, err)
-	cmd := exec.Command(bin, "--socket", shortSocket(t), "--config", filepath.Join(l.root, "config.toml"))
-	cmd.Env = append(os.Environ(), "HOME="+l.home, "XDG_STATE_HOME="+filepath.Join(l.root, "state"), "PATH=/nonexistent")
+	sock := shortSocket(t)
+	cmd := exec.Command(bin, "--socket", sock, "--config", filepath.Join(l.root, "config.toml"))
+	cmd.Env = l.env()
 	require.NoError(t, cmd.Start())
-	r := &daemonRun{cmd: cmd, pid: cmd.Process.Pid}
+	r := &daemonRun{cmd: cmd, pid: cmd.Process.Pid, socket: sock}
 	t.Cleanup(func() {
 		if !r.killed {
 			_ = cmd.Process.Kill()

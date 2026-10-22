@@ -133,6 +133,9 @@ type Daemon struct {
 	settle      *time.Timer
 	// peer is what this daemon tells every client it is (item 149).
 	peer atomic.Pointer[proto.Peer]
+	// progressEvery and progressing pace and guard watchProgress.
+	progressEvery time.Duration
+	progressing   atomic.Bool
 }
 
 // SetPeer replaces the release and protocol the daemon says it is, for
@@ -195,6 +198,8 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		log:         events.NewLog(),
 		release:     debug.FreeOSMemory,
 		settleAfter: SettleAfter,
+
+		progressEvery: ProgressEvery,
 	}
 	d.SetPeer(proto.Self())
 	return d
@@ -233,6 +238,7 @@ func (d *Daemon) Rescan() error {
 	if d.loaded != nil {
 		d.loadOnce.Do(func() { close(d.loaded) })
 	}
+	d.watchProgress()
 	return nil
 }
 

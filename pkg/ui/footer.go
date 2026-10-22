@@ -38,6 +38,10 @@ type Footer struct {
 	// attaches; empty when nothing waits. Item 91.
 	Waiting     Text
 	WaitingRect city.Rect
+	// Reading is the line while the history is read, over ReadingBar,
+	// filled as far as ReadingFill; empty when nothing is. Item 159.
+	Reading                 Text
+	ReadingBar, ReadingFill city.Rect
 }
 
 // Hit finds the footer verb under a screen point, so a verb can be

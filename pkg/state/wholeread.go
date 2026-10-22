@@ -21,6 +21,8 @@ type wholeRead struct {
 	running  bool
 	passed   bool
 	reads    atomic.Int64
+	// readBytes and knownBytes are the running pass's bytes read and to read.
+	readBytes, knownBytes int64
 }
 
 type cachedHeft struct {
@@ -113,11 +115,18 @@ func (w *wholeRead) pass(todo []stoppedFile) {
 	runtime.LockOSThread()
 	backgroundPriority()
 	w.pace.start()
+	w.mu.Lock()
+	w.readBytes, w.knownBytes = 0, 0
+	for _, f := range todo {
+		w.knownBytes += f.key.size
+	}
+	w.mu.Unlock()
 	for _, f := range todo {
 		heft, ok := w.readFile(f.path)
 		w.reads.Add(1)
 		w.mu.Lock()
 		w.hefts[f.path] = cachedHeft{key: f.key, heft: heft, ok: ok}
+		w.readBytes += f.key.size
 		w.mu.Unlock()
 		w.pace.yield(func() {})
 	}

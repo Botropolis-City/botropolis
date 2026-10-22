@@ -87,6 +87,19 @@ func TestFrameLogLooks(t *testing.T) {
 	})
 }
 
+// Item 159: the city's debug build reports the footer's reading line
+// each frame it shows one.
+func TestFrameLogReading(t *testing.T) {
+	t.Run("when the second of two frames reports a reading line", func(t *testing.T) {
+		frames := ParseFrameLog(strings.NewReader("----\n----\nreading: Reading your history · 42% · statistics fill in as it reads\n"))
+		require.Len(t, frames, 2)
+
+		t.Run("it should read the line on that frame and none on the other", func(t *testing.T) {
+			assert.Equal(t, []string{"", "Reading your history · 42% · statistics fill in as it reads"}, []string{frames[0].Reading, frames[1].Reading})
+		})
+	})
+}
+
 // Item 193: the city's debug build reports what its standing city cost
 // each frame: composed whole, composed again in rectangles, the group
 // lines composed, rectangles of movers drawn again, and the ground

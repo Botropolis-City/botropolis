@@ -27,8 +27,11 @@ type Snapshot struct {
 	// ScaleHefts is every stored session's heft, sessions whose
 	// transcripts are gone included, for the scale to be cut from when
 	// statistics are kept. It never leaves the daemon (item 110).
-	ScaleHefts []int64   `json:"-"`
-	At         time.Time `json:"at"`
+	ScaleHefts []int64 `json:"-"`
+	// Scan is how far a long background read of the history has got,
+	// while one runs (item 159).
+	Scan *ScanProgress `json:"scan,omitempty"`
+	At   time.Time     `json:"at"`
 }
 
 func Load(home string, probes Probes, now time.Time) (Snapshot, error) {

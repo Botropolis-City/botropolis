@@ -222,8 +222,11 @@ type Game struct {
 	waitingID string
 	// waitingHovered is whether the line was drawn under the pointer.
 	waitingHovered bool
-	settingsPanel  ui.SettingsPanel
-	searchPlate    city.Rect
+	// scanRate watches a first launch's read, for the time it has left.
+	// Item 159.
+	scanRate      ui.ScanRate
+	settingsPanel ui.SettingsPanel
+	searchPlate   city.Rect
 	// usage is Claude Code's own cached view of the account's limits,
 	// re-read off disk because reading a file is free. u makes Claude
 	// Code refetch. Item 49.

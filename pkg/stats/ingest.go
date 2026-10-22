@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -52,6 +53,12 @@ func (s *Store) IngestContext(ctx context.Context, projectsDir string, now time.
 	}
 	sort.Strings(mains)
 	sort.Strings(agents)
+	known, err := s.left(mains, agents)
+	if err != nil {
+		return err
+	}
+	s.done.Store(0)
+	s.known.Store(known)
 	if yield == nil {
 		yield = func() {}
 	}
@@ -174,27 +181,63 @@ type transcriptRow struct {
 	size, mtime, readTo int64
 }
 
-func (s *Store) ingestFile(path, session, thread string, step func() error) error {
+// readPlan is what an ingest has to read of one transcript: from the
+// byte from to size, after dropping its rows when again.
+type readPlan struct {
+	size, mtime, from int64
+	again, skip       bool
+}
+
+func (s *Store) plan(path string) (readPlan, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil
+		return readPlan{skip: true}, nil
 	}
 	if err != nil {
-		return err
+		return readPlan{}, err
 	}
-	size, mtime := info.Size(), info.ModTime().UnixMilli()
+	p := readPlan{size: info.Size(), mtime: info.ModTime().UnixMilli()}
 	row, known, err := s.transcript(path)
 	if err != nil {
+		return p, err
+	}
+	p.again = known && (p.size < row.readTo || p.mtime < row.mtime)
+	p.skip = known && !p.again && p.size == row.readTo && p.mtime == row.mtime
+	if known && !p.again {
+		p.from = row.readTo
+	}
+	return p, nil
+}
+
+// left is how many bytes an ingest of paths has to read.
+func (s *Store) left(paths ...[]string) (int64, error) {
+	var total int64
+	for _, list := range paths {
+		for _, path := range list {
+			p, err := s.plan(path)
+			if err != nil {
+				return 0, err
+			}
+			if !p.skip {
+				total += max(p.size-p.from, 0)
+			}
+		}
+	}
+	return total, nil
+}
+
+// Progress is how many bytes the running or last ingest has read, of
+// how many it had to (item 159).
+func (s *Store) Progress() (done, known int64) {
+	return s.done.Load(), s.known.Load()
+}
+
+func (s *Store) ingestFile(path, session, thread string, step func() error) error {
+	p, err := s.plan(path)
+	if err != nil || p.skip {
 		return err
 	}
-	again := known && (size < row.readTo || mtime < row.mtime)
-	if known && !again && size == row.readTo && mtime == row.mtime {
-		return nil
-	}
-	from := int64(0)
-	if known && !again {
-		from = row.readTo
-	}
+	size, mtime, from, again := p.size, p.mtime, p.from, p.again
 	fallback := ""
 	if from > 0 {
 		if fallback, err = s.lastDir(session, thread); err != nil {
@@ -209,7 +252,7 @@ func (s *Store) ingestFile(path, session, thread string, step func() error) erro
 		rebuild = false
 		return nil
 	}
-	r, err := readFrom(path, from, fallback, step, save)
+	r, err := readFrom(path, from, fallback, &s.done, step, save)
 	if err != nil {
 		return err
 	}
@@ -267,10 +310,10 @@ func (s *Store) lastDir(session, thread string) (string, error) {
 	return dir, err
 }
 
-// readFrom reads path from the byte from, handing what it has found to
-// checkpoint every CheckpointEvery bytes and starting afresh, and
-// stopping when step does.
-func readFrom(path string, from int64, cwd string, step func() error, checkpoint func(read) error) (read, error) {
+// readFrom reads path from the byte from, counting every byte into
+// done, handing what it has found to checkpoint every CheckpointEvery
+// bytes and starting afresh, and stopping when step does.
+func readFrom(path string, from int64, cwd string, done *atomic.Int64, step func() error, checkpoint func(read) error) (read, error) {
 	r := read{to: from}
 	f, err := os.Open(path)
 	if err != nil {
@@ -300,6 +343,7 @@ func readFrom(path string, from int64, cwd string, step func() error, checkpoint
 			return r, err
 		}
 		r.to += int64(len(raw))
+		done.Add(int64(len(raw)))
 		sinceCheckpoint += len(raw)
 		if sinceYield += len(raw); sinceYield >= YieldEvery {
 			if err := step(); err != nil {

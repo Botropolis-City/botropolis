@@ -26,6 +26,14 @@ func (g *Game) logStill() {
 	fmt.Printf("still: composes=%d redos=%d overlays=%d rects=%d ground=%d direct=%d shifts=%d\n", s.composes, s.redos, s.overlays, s.rects, g.static.composes, s.direct, s.shifts+g.static.shifts)
 }
 
+// logReading writes the footer's reading line, for item 159's first
+// launch test.
+func (g *Game) logReading(line string) {
+	if line != "" {
+		fmt.Printf("reading: %s\n", line)
+	}
+}
+
 // framesWithoutMovers is whether the frame test asked for the city with
 // no activity — no travellers, no building animating for its session —
 // to compare two cities with the same movers (item 193; Aria,
