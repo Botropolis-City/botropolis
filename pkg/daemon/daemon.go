@@ -220,10 +220,6 @@ func (d *Daemon) scheduleRelease() {
 func (d *Daemon) Rescan() error {
 	d.scanMu.Lock()
 	snapshot, err := d.loader.Load(d.clock())
-	// A scan is the only thing that churns the heap; the live set after it
-	// is around a megabyte, so hand the scan's garbage straight back to the
-	// OS instead of leaving it resident until the scavenger gets to it.
-	debug.FreeOSMemory()
 	d.scanMu.Unlock()
 	if err != nil {
 		return err

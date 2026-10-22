@@ -35,6 +35,8 @@ Each milestone ends with tests green, `make lint` and `make format` clean, and a
   Checked again on 2026-09-18 after the hourly usage buckets and the isometric city: 14.7 MB RSS (4.8 MB anonymous) with 75 sessions;
   `botropolis-hook` (cobra+viper, 12 MB on disk) starts, parses and delivers in 2.6 ms median, so its dependencies are not worth trimming.
   The catalogue had pushed an unsplit r35 daemon to 36 MB.
+  Both the cap and the per-rescan release were undone on 2026-10-21 (item 157): by 0.2.2 the collector was most of the daemon's CPU,
+  and the budget had become 64 MiB settled, spent on caches that save CPU rather than on a tight heap.
 
 ### 3 — Control
 

@@ -37,9 +37,21 @@ func DaemonModule(cfg *config.Config, out io.Writer) fx.Option {
 	)
 }
 
-// DefaultMemoryLimit caps the Go heap so the idle daemon stays near the
-// 20 MB target design/what-it-costs.md sets; GOMEMLIMIT overrides it.
-const DefaultMemoryLimit = 16 << 20
+// DefaultMemoryLimit is the first launch's 256 MiB budget in
+// performance/budgets.md, the most the daemon may ever hold, so the
+// collector works hard only near it. Settled, the budget is 64 MiB spent
+// on caches that save CPU, not on a tight heap: a 16 MiB cap kept the
+// collector running continuously (item 157). GOMEMLIMIT overrides it.
+const DefaultMemoryLimit = 256 << 20
+
+// memoryLimit is the limit RunDaemon sets, or -1, which changes nothing,
+// when GOMEMLIMIT has already set it.
+func memoryLimit(env string) int64 {
+	if env != "" {
+		return -1
+	}
+	return DefaultMemoryLimit
+}
 
 const (
 	startTimeout = 10 * time.Second
@@ -47,9 +59,7 @@ const (
 )
 
 func RunDaemon(ctx context.Context, cfg *config.Config, out io.Writer) error {
-	if os.Getenv("GOMEMLIMIT") == "" {
-		debug.SetMemoryLimit(DefaultMemoryLimit)
-	}
+	debug.SetMemoryLimit(memoryLimit(os.Getenv("GOMEMLIMIT")))
 	app := fx.New(
 		DaemonModule(cfg, out),
 		fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
