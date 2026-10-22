@@ -192,6 +192,9 @@ func Run(ctx context.Context, opts Options) error {
 		// searches on the frame, as soon as it is typed.
 		game.dispatch = func(run func()) { run() }
 		game.findAtOnce = true
+		// And it opens on a read history, so its first frame stands on
+		// the heights the rest of it will (item 202).
+		scene.SetOpenOnRead(!framesOpenUnread)
 	}
 	game.screenshot = opts.Screenshot
 	game.script = opts.Keys

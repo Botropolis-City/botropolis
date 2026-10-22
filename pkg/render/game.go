@@ -158,6 +158,11 @@ type Game struct {
 	// lights where they were painted (item 195).
 	paintUncut bool
 
+	// openedEarly is whether a recording opened at openCeiling, on a
+	// history not yet read, and openLogged whether the debug build has
+	// said how it opened (item 202).
+	openedEarly, openLogged bool
+
 	// looks are buildings' looks baked into images, lookFrame counts the
 	// frames they are kept across, and baking is set while one is being
 	// baked, when nothing drawn is noted for the frame (item 192).
@@ -552,6 +557,9 @@ func (g *Game) Update() error {
 			return nil
 		}
 	}
+	if g.holdUnopened(timeNow()) {
+		return nil
+	}
 	if !g.startTick() {
 		return nil
 	}
@@ -571,6 +579,7 @@ func (g *Game) Update() error {
 		g.eventsArrived = true
 	}
 	g.takeSnapshot(pending)
+	g.openAtCeiling(timeNow())
 	g.followUsageInScene()
 	g.scripted, g.scriptedRune, g.scriptedShift, g.scriptedCtrl = -1, 0, false, false
 	g.scriptedAlt, g.scriptedCmd = false, false

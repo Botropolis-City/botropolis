@@ -144,7 +144,9 @@ func TestFirstLaunchCity(t *testing.T) {
 		frames := filepath.Join(t.TempDir(), "frames")
 		require.NoError(t, os.MkdirAll(frames, 0o755))
 		city := exec.Command(bin, "city", "--headless", "--record", frames, "--seconds", "8", "--fps", "2", "--window", "1600x900", "--socket", daemon.socket)
-		city.Env = append(os.Environ(), "HOME="+l.home, "XDG_STATE_HOME="+filepath.Join(l.root, "state"))
+		// The read is what this films, so the recording opens on the
+		// first snapshot rather than waiting for the read (item 202).
+		city.Env = append(os.Environ(), "HOME="+l.home, "XDG_STATE_HOME="+filepath.Join(l.root, "state"), "BOTROPOLIS_FRAME_OPEN_UNREAD=1")
 		out, err := city.StdoutPipe()
 		require.NoError(t, err)
 		var stderr syncBuffer

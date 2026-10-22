@@ -146,6 +146,27 @@ func TestFrameLogStill(t *testing.T) {
 	})
 }
 
+// Item 202: a recording opens on a read history, or at its ceiling on
+// what it holds, and the debug build says which, so a frame test never
+// counts frames from a city that opened early without saying so.
+func TestFrameLogOpened(t *testing.T) {
+	for _, c := range []struct {
+		line string
+		want bool
+	}{
+		{"opened: on a read history", false},
+		{"opened: early, at the ceiling, on a history not yet read", true},
+	} {
+		t.Run("when the log says "+c.line, func(t *testing.T) {
+			frames := ParseFrameLog(strings.NewReader("----\n" + c.line + "\n----\n"))
+
+			t.Run("it should say whether the city opened early", func(t *testing.T) {
+				assert.Equal(t, c.want, OpenedEarly(frames))
+			})
+		})
+	}
+}
+
 // Item 202: the city's debug build names, for each look that missed,
 // which of its key's fields changed, so a settled frame's work says why.
 func TestFrameLogMissed(t *testing.T) {

@@ -10,6 +10,9 @@ func (g *Game) logLooks() {}
 // logStill reports nothing outside the debug build.
 func (g *Game) logStill() {}
 
+// logOpened reports nothing outside the debug build.
+func (g *Game) logOpened() {}
+
 // logMiss reports nothing outside the debug build.
 func (g *Game) logMiss(string, step, lookKey) {}
 
@@ -24,3 +27,7 @@ func (g *Game) keepOpening(*ebiten.Image) {}
 
 // framesWithoutMovers is never so outside the debug build.
 const framesWithoutMovers = false
+
+// framesOpenUnread is never so outside the debug build: a recording
+// always waits for a read history.
+const framesOpenUnread = false

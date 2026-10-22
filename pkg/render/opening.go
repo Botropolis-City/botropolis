@@ -51,6 +51,10 @@ func openingFor(w openingWait) (string, float64, bool) {
 func (g *Game) drawOpening(screen *ebiten.Image, pagesUp, pages int) bool {
 	opened := g.scene.Opened()
 	g.opened.Store(opened)
+	if opened && !g.openLogged {
+		g.openLogged = true
+		g.logOpened()
+	}
 	if pagesUp >= pages && opened {
 		return false
 	}

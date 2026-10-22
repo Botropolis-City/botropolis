@@ -183,7 +183,12 @@ func frameLog(t *testing.T, demo string, hour int, seconds float64, choreography
 	f, err := os.Open(logPath)
 	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
-	return helpers.CityFrames(helpers.ParseFrameLog(f))
+	all := helpers.ParseFrameLog(f)
+	// Item 202: a city that opened at its ceiling, on a history not yet
+	// read, has its heights still to change, so nothing counted from it
+	// says what a settled frame costs.
+	require.False(t, helpers.OpenedEarly(all), "the city opened at its ceiling, on a history not yet read: %s", stderr.String())
+	return helpers.CityFrames(all)
 }
 
 // Item 192: a still city draws its buildings from looks baked once, so a

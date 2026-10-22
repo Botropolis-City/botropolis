@@ -205,6 +205,10 @@ type Scene struct {
 	// start-up re-apply the scene's empty snapshot, and that filled
 	// every such map before the first real one arrived (item 169).
 	opened bool
+	// openOnRead is whether only a snapshot whose history is read opens
+	// the city, as a recording's does, and offered whether any snapshot
+	// has come (item 202).
+	openOnRead, offered bool
 	// known is the last snapshot's live sessions by id and voyages the
 	// tugs on the river for those that came or went since.
 	known   map[string]state.Session
@@ -730,12 +734,29 @@ func (s *Scene) SetLedger(l Ledger) {
 func (s *Scene) Opened() bool { return s.opened }
 
 // SetSnapshot shows a snapshot from outside the scene, and the first
-// one opens the city.
+// one opens the city, or the first whose history is read when the scene
+// opens on a read.
 func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
 	s.real = snapshot
 	s.restate()
-	s.opened = true
+	s.offered = true
+	s.opened = s.opened || !s.openOnRead || snapshot.HeftsRead
 }
+
+// SetOpenOnRead has only a snapshot whose history is read open the city.
+// A recording waits so, because until the history is read every
+// building stands on the starter scale, and the snapshot that finishes
+// the read raises them all at once (item 202).
+func (s *Scene) SetOpenOnRead(on bool) { s.openOnRead = on }
+
+// WaitingForRead is whether the scene holds a snapshot it will not open
+// on, its history not yet read.
+func (s *Scene) WaitingForRead() bool { return s.openOnRead && s.offered && !s.opened }
+
+// OpenAnyway opens the city on the snapshot it holds, read or not, for a
+// recording that has waited as long as it will; with no snapshot yet
+// there is nothing to open on.
+func (s *Scene) OpenAnyway() { s.opened = s.opened || s.offered }
 
 // restate rebuilds the city from the snapshot it already holds, through
 // the veil when there is one, for a change made inside the scene; it

@@ -44,7 +44,7 @@ func (g *Game) takeSnapshot(pending *state.Snapshot) {
 	g.maybeJournal()
 	g.followUsage()
 	g.setTitle(g.scene.Summary().Headline())
-	if g.capturing() && g.shotFrames == 0 {
+	if g.capturing() && g.shotFrames == 0 && g.scene.Opened() {
 		g.shotFrames = 1
 	}
 	g.dashboard = true

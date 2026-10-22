@@ -23,6 +23,20 @@ type Frame struct {
 	// Missed is the frame's look-miss lines, each naming what changed in
 	// a look's key (item 202).
 	Missed []string
+	// Early is whether the city opened in this frame at its ceiling, on
+	// a history not yet read (item 202).
+	Early bool
+}
+
+// OpenedEarly is whether the city opened at its ceiling, on a history
+// not yet read, in any of frames.
+func OpenedEarly(frames []Frame) bool {
+	for _, f := range frames {
+		if f.Early {
+			return true
+		}
+	}
+	return false
 }
 
 // CityFrames is frames from the first the city drew: those before it are
@@ -76,6 +90,10 @@ func ParseFrameLog(r io.Reader) []Frame {
 		if l := looksLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {
 			n := func(i int) int { v, _ := strconv.Atoi(l[i]); return v }
 			frames[len(frames)-1].Looks = Looks{Hits: n(1), Misses: n(2), Bakes: n(3), Bytes: n(4)}
+			continue
+		}
+		if strings.HasPrefix(line, "opened: early") && len(frames) > 0 {
+			frames[len(frames)-1].Early = true
 			continue
 		}
 		if strings.HasPrefix(line, "look-miss: ") && len(frames) > 0 {
