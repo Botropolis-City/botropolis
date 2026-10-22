@@ -172,6 +172,11 @@ type Game struct {
 	notice      ui.Notice
 	shownTitle  string
 	stripLayout ui.Strip
+	// held is the newest snapshot a city nobody can see has not laid out,
+	// and dashboard whether an unfocused city that can be seen owes a
+	// frame for the last snapshot it laid out (item 197).
+	held      *state.Snapshot
+	dashboard bool
 
 	// screenshot mode: frames drawn since the first snapshot, and the result.
 	screenshot string
@@ -555,19 +560,7 @@ func (g *Game) Update() error {
 		g.scene.AddEvents(fresh)
 		g.eventsArrived = true
 	}
-	if pending != nil {
-		g.scene.SetSnapshot(*pending)
-		g.shareSnapshot()
-		g.maybeJournal()
-		g.followUsage()
-		if title := windowTitle + " — " + g.scene.Summary().Headline(); title != g.shownTitle {
-			g.shownTitle = title
-			ebiten.SetWindowTitle(title)
-		}
-		if (g.screenshot != "" || g.record != "") && g.shotFrames == 0 {
-			g.shotFrames = 1
-		}
-	}
+	g.takeSnapshot(pending)
 	g.followUsageInScene()
 	g.scripted, g.scriptedRune, g.scriptedShift, g.scriptedCtrl = -1, 0, false, false
 	g.scriptedAlt, g.scriptedCmd = false, false
@@ -931,11 +924,15 @@ func writePNG(path string, img image.Image) error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if !g.idle() {
-		// Nobody can see this frame. Holding here is what keeps the
-		// rate down: Draw is called once per display refresh, and an
-		// unmapped window has no refresh to wait for.
-		time.Sleep(idleSleep)
-		return
+		if !g.dashboardFrame() {
+			// Nobody is watching this frame. Holding here is what keeps
+			// the rate down: Draw is called once per display refresh,
+			// and an unmapped window has no refresh to wait for.
+			time.Sleep(idleSleep)
+			return
+		}
+	} else {
+		g.dashboard = false
 	}
 	if g.kits != nil && !g.kits.ready() {
 		screen.Fill(colorVoid)

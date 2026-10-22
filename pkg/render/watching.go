@@ -62,6 +62,13 @@ func watching(scripted bool) bool {
 	return false
 }
 
+// shown reports whether the window can be seen at all, focused or not
+// (item 197).
+func shown() bool {
+	_, visible, minimised := seen()
+	return visible && !minimised
+}
+
 // capturing reports whether this run is writing frames to disk.
 func (g *Game) capturing() bool { return g.screenshot != "" || g.record != "" }
 
