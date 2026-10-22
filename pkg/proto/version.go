@@ -10,8 +10,9 @@ import (
 
 // Protocol is the wire format's version: raised only when a change would
 // make one end misread the other, never for a change that only adds a
-// field. Daemons from before the exchange send none, and spoke 1.
-const Protocol = 1
+// field. Daemons from before the exchange send none, and spoke 1; 2
+// streams a subscription as deltas (item 201).
+const Protocol = 2
 
 // Peer is what each end of the socket says it is (item 149).
 type Peer struct {

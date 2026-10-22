@@ -20,6 +20,9 @@ type Client struct {
 	// sock is where this client reached its daemon, which a mismatch
 	// names (item 152).
 	sock string
+	// mirror is the daemon's view as a subscription's deltas build it
+	// (item 201).
+	mirror Mirror
 }
 
 func (c *Client) send(r Request) error {
@@ -131,10 +134,11 @@ func (c *Client) readUpdate() (Update, error) {
 	if err != nil {
 		return Update{}, err
 	}
-	if response.Snapshot == nil {
-		return Update{}, errors.New("response carried no snapshot")
+	snapshot, err := c.mirror.Take(response)
+	if err != nil {
+		return Update{}, err
 	}
-	return Update{Snapshot: *response.Snapshot, Events: response.Events}, nil
+	return Update{Snapshot: snapshot, Events: response.Events}, nil
 }
 
 func (c *Client) readResponse() (Response, error) {

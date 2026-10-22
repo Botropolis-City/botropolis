@@ -13,6 +13,11 @@
 - **`botropolisd`** owns the model.
   It scans once at start, then updates from inotify events and hook pushes.
   It serves snapshots and a subscription stream, and executes actions by shelling out to `claude`.
+  A subscription is sent the whole snapshot once, then deltas (item 201, protocol 2): each against what that connection was last sent,
+  so updates the daemon folds together leave no gap,
+  with the sessions and groups diffed by ID and field by field, and every other section resent whole when it changes.
+  A delta on a base the client does not hold ends the stream, and the city attaches again for a whole snapshot.
+  On item 197's city of 200 sessions this took the stream from 262 KiB/s to 0.5 KiB/s.
 - **`botropolis-hook`** is installed into `~/.claude/settings.json` hooks by `botropolis install-hooks`.
   It forwards the hook's JSON to the socket with a short timeout and exits 0 no matter what,
   so a dead daemon never slows a session.

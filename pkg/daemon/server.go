@@ -133,7 +133,18 @@ func (d *Daemon) respond(conn net.Conn, response proto.Response) error {
 func (d *Daemon) stream(ctx context.Context, conn net.Conn, since time.Time) {
 	first, updates, cancel := d.Attach(since, true)
 	defer cancel()
-	if err := d.respond(conn, proto.Response{Snapshot: &first.Snapshot, Events: first.Events}); err != nil {
+	// Each update is sent as what changed since the one this connection
+	// was last sent, so updates folded together leave no gap (item 201).
+	sender := proto.NewSender()
+	send := func(update proto.Update) error {
+		response, err := sender.Next(update.Snapshot)
+		if err != nil {
+			return err
+		}
+		response.Events = update.Events
+		return d.respond(conn, response)
+	}
+	if err := send(first); err != nil {
 		return
 	}
 	for {
@@ -144,7 +155,7 @@ func (d *Daemon) stream(ctx context.Context, conn net.Conn, since time.Time) {
 			if !ok {
 				return
 			}
-			if err := d.respond(conn, proto.Response{Snapshot: &update.Snapshot, Events: update.Events}); err != nil {
+			if err := send(update); err != nil {
 				return
 			}
 		}

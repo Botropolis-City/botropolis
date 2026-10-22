@@ -78,8 +78,12 @@ type Response struct {
 	// daemon from before the exchange sends none (item 149).
 	Peer     Peer            `json:"peer,omitzero"`
 	Snapshot *state.Snapshot `json:"snapshot,omitempty"`
-	Events   []events.Event  `json:"events,omitempty"`
-	Found    []find.Hit      `json:"found,omitempty"`
+	// Seq numbers a subscription's updates, and Delta is one sent as
+	// what changed since update Delta.Base (item 201).
+	Seq    uint64         `json:"seq,omitempty"`
+	Delta  *Delta         `json:"delta,omitempty"`
+	Events []events.Event `json:"events,omitempty"`
+	Found  []find.Hit     `json:"found,omitempty"`
 	// Loading is a loading request's answer.
 	Loading *state.LoadProgress `json:"loading,omitempty"`
 	Error   string              `json:"error,omitempty"`

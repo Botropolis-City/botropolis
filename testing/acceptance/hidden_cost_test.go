@@ -3,7 +3,6 @@
 package acceptance_test
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,9 +36,6 @@ import (
 // because a window in another state would be measuring something else.
 func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 	const (
-		sessions      = 200
-		projects      = 150
-		live          = 25
 		settle        = 20 * time.Second
 		stream        = 30 * time.Second
 		every         = 200 * time.Millisecond
@@ -47,9 +43,6 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 		metBelow      = 0.008
 		clockTicksSec = 100
 	)
-	daemon, err := botropolisd()
-	require.NoError(t, err)
-
 	for _, way := range []struct {
 		name string
 		do   func(testing.TB, *xvfb.Server)
@@ -63,42 +56,21 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 		// not: the case skips, printing the gap, and fails once it is
 		// met, as item 194's targets do.
 		unmet string
-		// fed is the least it should read of the daemon's snapshots,
-		// about 220 KiB each: one a second while it can be seen, and a
-		// glance every 5 s while it cannot.
+		// fed is the least it should read of the daemon: a glance of
+		// about 220 KiB every 5 s while it cannot be seen, and while it
+		// can, what changed, about a second apart (item 201).
 		fed   int64
 		taken string
 	}{
 		{"hidden", helpers.Hide, "visible=false", false, "", 512 << 10, "at a glance every 5 s"},
-		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true, "item 201", 1 << 20, "about one a second"},
+		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true, "item 201", 4 << 10, "as what changed, about once a second"},
 	} {
 		t.Run("when the city is "+way.name+", and a session of 200 writes a line every 200 ms for 30 s", func(t *testing.T) {
-			root := t.TempDir()
-			home := helpers.NewHome(t)
-			at := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-			for i := range sessions {
-				sid := fmt.Sprintf("%08d-0000-4000-8000-000000000197", i)
-				cwd := fmt.Sprintf("/home/user/src/project-%03d", i%projects)
-				ts := at.Add(-time.Duration(i) * time.Minute).Format("2006-01-02T15:04:05.000Z")
-				home.Transcript(sid, cwd, helpers.UserPrompt(sid, cwd, ts), helpers.AssistantReply(sid, fmt.Sprintf("msg_%06d", i), ts))
-				if i < live {
-					// A live session has a record and a process, and only
-					// a live session's transcript is watched.
-					child := exec.Command("sleep", "600")
-					require.NoError(t, child.Start())
-					t.Cleanup(func() { _ = child.Process.Kill(); _, _ = child.Process.Wait() })
-					home.Session(child.Process.Pid, sid, cwd, "interactive", "busy")
-				}
-			}
-			sock := shortSocket(t)
-			d := exec.Command(daemon, "--home", home.Path, "--socket", sock, "--config", filepath.Join(root, "config.toml"))
-			d.Env = append(os.Environ(), "XDG_STATE_HOME="+filepath.Join(root, "daemon-state"), "PATH=/nonexistent")
-			require.NoError(t, d.Start())
-			t.Cleanup(func() { _ = d.Process.Kill(); _ = d.Wait() })
-			require.Eventually(t, func() bool { _, err := os.Stat(sock); return err == nil }, 10*time.Second, 20*time.Millisecond)
+			b := newBusyCity(t)
+			root := b.root
 
 			display := helpers.Display(t, render.DefaultWidth, render.DefaultHeight)
-			city := exec.Command(botropolis, "city", "--home", home.Path, "--socket", sock, "--config", filepath.Join(root, "config.toml"))
+			city := exec.Command(botropolis, "city", "--home", b.home.Path, "--socket", b.sock, "--config", b.config())
 			city.Env = append(cleanEnv(), "HOME="+filepath.Join(root, "home"), "XDG_STATE_HOME="+filepath.Join(root, "city-state"), "TMPDIR="+root, "BOTROPOLIS_FRAMETIME=1")
 			city.Env = append(city.Env, display.Env()...)
 			var said syncBuffer
@@ -112,13 +84,7 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 			heard := len(said.String())
 			raster, rest := threadTicks(t, city.Process.Pid)
 			read := bytesRead(t, city.Process.Pid)
-			sid, cwd := fmt.Sprintf("%08d-0000-4000-8000-000000000197", 0), "/home/user/src/project-000"
-			start := time.Now()
-			for i := 0; time.Since(start) < stream; i++ {
-				home.AppendTranscript(sid, cwd, helpers.UserPrompt(sid, cwd, at.Add(time.Duration(i)*time.Second).Format(time.RFC3339Nano)))
-				time.Sleep(every)
-			}
-			elapsed := time.Since(start)
+			elapsed := b.write(every, stream)
 			raster1, rest1 := threadTicks(t, city.Process.Pid)
 			share := func(ticks int64) float64 { return float64(ticks) / clockTicksSec / elapsed.Seconds() }
 			rasterShare, restShare := share(raster1-raster), share(rest1-rest)
