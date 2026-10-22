@@ -136,12 +136,14 @@ func stopCity(t *testing.T, cmd *exec.Cmd, done <-chan error) {
 		}
 	}
 	_ = cmd.Process.Signal(os.Interrupt)
+	var err error
 	select {
-	case <-done:
+	case err = <-done:
 	case <-time.After(10 * time.Second):
 		_ = cmd.Process.Kill()
-		<-done
+		err = <-done
 	}
+	t.Logf("the city ended: %v", err)
 }
 
 // gcLive is one gctrace line's live heap after the collection.
