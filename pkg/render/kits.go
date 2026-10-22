@@ -3,6 +3,7 @@ package render
 import (
 	"image"
 	"image/color"
+	imagedraw "image/draw"
 	"math"
 	"runtime/debug"
 
@@ -35,6 +36,8 @@ func (g *Game) kitAtlas(cam *city.Camera) *kitAtlas {
 
 type kits struct {
 	atlases []kitAtlas
+	// send draws from a page just put up; see sendPage.
+	send func(*ebiten.Image)
 }
 
 // loadKits puts every page up at once, for a drive and the tests, which
@@ -98,7 +101,12 @@ func (k *kits) uploadNext() (bool, error) {
 			return false, err
 		}
 		a.prepareKinds(len(a.pages), page)
-		a.pages = append(a.pages, ebiten.NewImageFromImageWithOptions(page, pageOptions()))
+		up := uploadPage(page)
+		if k.send == nil {
+			k.send = sendPage
+		}
+		k.send(up)
+		a.pages = append(a.pages, up)
 		if k.ready() {
 			// Nothing else the city does allocates on this scale, so
 			// without a nudge the collector has no reason to run and the
@@ -113,8 +121,59 @@ func (k *kits) uploadNext() (bool, error) {
 // pageOptions makes each page its own texture. Managed, a 2048-pixel
 // page is padded to 2050 and packed into shared 4096-pixel textures that
 // grow by copying, which held about twice the atlas (item 70).
-func pageOptions() *ebiten.NewImageFromImageOptions {
-	return &ebiten.NewImageFromImageOptions{Unmanaged: true}
+func pageOptions() *ebiten.NewImageOptions {
+	return &ebiten.NewImageOptions{Unmanaged: true}
+}
+
+// kitPageSide is the side of a full kit page, in pixels.
+const kitPageSide = 2048
+
+// stripRows is how many rows of a page go up at once. Ebitengine copies
+// each upload into a buffer from a pool that keeps up to
+// ebitenPooledBuffers released ones however large, so pages sent whole
+// could leave 16 MiB in it for each buffer it kept (item 162).
+const stripRows = 64
+
+// ebitenPooledBuffers is how many released upload buffers Ebitengine's
+// pool keeps (internal/graphics/bytes.go, v2.10).
+const ebitenPooledBuffers = 31
+
+// uploadPage puts a decoded page up as its own texture, a strip at a time.
+func uploadPage(page *image.NRGBA) *ebiten.Image {
+	b := page.Bounds()
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, b.Dx(), b.Dy()), pageOptions())
+	pageStrips(page, func(pix []byte, region image.Rectangle) {
+		img.SubImage(region).(*ebiten.Image).WritePixels(pix)
+	})
+	return img
+}
+
+// pageSink is what sendPage draws into.
+var pageSink = ebiten.NewImage(1, 1)
+
+// sendPage draws one pixel of a page into a 1-pixel image. Ebitengine
+// keeps the pixels written to an image on the CPU until the image is
+// first drawn from, and the z2 pages are not drawn below zoom 1.98, so
+// six of them stayed on the heap whole: 96 MiB at r871 (item 162).
+// Drawing from it sends them to the GPU at the end of the frame and
+// lets them go.
+func sendPage(page *ebiten.Image) {
+	pageSink.DrawImage(page.SubImage(image.Rect(0, 0, 1, 1)).(*ebiten.Image), nil)
+}
+
+// pageStrips hands a page over stripRows rows at a time, premultiplied as
+// Ebitengine wants them, through one buffer it reuses: put must copy what
+// it keeps. Regions are relative to the page's top left.
+func pageStrips(page *image.NRGBA, put func(pix []byte, region image.Rectangle)) {
+	b := page.Bounds()
+	w := b.Dx()
+	buf := make([]byte, 4*w*min(stripRows, b.Dy()))
+	for y := 0; y < b.Dy(); y += stripRows {
+		region := image.Rect(0, y, w, min(y+stripRows, b.Dy()))
+		dst := &image.RGBA{Pix: buf[:4*w*region.Dy()], Stride: 4 * w, Rect: image.Rect(0, 0, w, region.Dy())}
+		imagedraw.Draw(dst, dst.Rect, page, b.Min.Add(region.Min), imagedraw.Src)
+		put(dst.Pix, region)
+	}
 }
 
 // pick is the atlas for a camera zoom: the largest cut at or below it,

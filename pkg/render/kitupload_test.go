@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -85,6 +86,28 @@ func TestKitUpload(t *testing.T) {
 	t.Run("when a page goes up", func(t *testing.T) {
 		t.Run("it should be its own texture, not packed into a shared one", func(t *testing.T) {
 			assert.True(t, pageOptions().Unmanaged)
+		})
+
+		// Item 162: Ebitengine keeps an image's written pixels on the CPU
+		// until it is first drawn from, and the z2 pages are not drawn
+		// below zoom 1.98, so 96 MiB of them stayed on the heap.
+		t.Run("it should be drawn from once, so its pixels are sent and let go", func(t *testing.T) {
+			k, err := loadKitsLazily()
+			require.NoError(t, err)
+			sent := map[*ebiten.Image]int{}
+			k.send = func(page *ebiten.Image) { sent[page]++ }
+			for range total {
+				_, err := k.uploadNext()
+				require.NoError(t, err)
+			}
+			want, got := map[*ebiten.Image]int{}, map[*ebiten.Image]int{}
+			for _, a := range k.atlases {
+				for _, p := range a.pages {
+					want[p] = 1
+					got[p] = sent[p]
+				}
+			}
+			assert.Equal(t, want, got)
 		})
 	})
 
