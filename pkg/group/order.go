@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -42,29 +43,94 @@ type Wait struct {
 
 var (
 	waitWord  = `(?:after|once|until|waits?\s+(?:on|for)|waiting\s+(?:on|for)|blocked\s+(?:on|by)|depends\s+on|needs)`
+	waitHead  = regexp.MustCompile(`(?i)\b` + waitWord + `\s`)
 	version   = regexp.MustCompile(`\bv\d+\.\d+(?:\.\d+)?\b`)
 	releasing = regexp.MustCompile(`(?i)\b(?:tag|release|publish|cut)\b`)
 	bumping   = regexp.MustCompile(`(?i)\b(?:bump|upgrade|update|to)\b`)
 )
 
+// readSite is what Order reads from a site once, rather than once for
+// every other site in its group (item 197).
+type readSite struct {
+	// lines are its words and then its commands; dependsOn and waiting
+	// say which carry a Depends-On footer and which a waiting word.
+	lines     []string
+	dependsOn []bool
+	waiting   []bool
+	// released are the versions its words say were released, and
+	// bumpLines the words that move to a version without releasing one.
+	released  []string
+	bumpLines []string
+	// recapWaits is whether its recap has a waiting word at all.
+	recapWaits bool
+}
+
+func readOf(s OrderSite) readSite {
+	r := readSite{recapWaits: s.Recap != "" && waitHead.MatchString(s.Recap)}
+	r.lines = append(append(r.lines, s.Words...), s.Commands...)
+	for _, line := range r.lines {
+		r.dependsOn = append(r.dependsOn, strings.Contains(strings.ToLower(line), "depends-on:"))
+		r.waiting = append(r.waiting, waitHead.MatchString(line))
+	}
+	for _, line := range s.Words {
+		if releasing.MatchString(line) {
+			r.released = append(r.released, version.FindAllString(line, -1)...)
+		} else if bumping.MatchString(line) {
+			r.bumpLines = append(r.bumpLines, line)
+		}
+	}
+	return r
+}
+
+// bumps is whether a site's words move it to a version.
+func (r readSite) bumps(v string) bool {
+	for _, line := range r.bumpLines {
+		if strings.Contains(line, v) {
+			return true
+		}
+	}
+	return false
+}
+
+// reader compiles each expression Order needs once per reading.
+type reader struct {
+	waits  map[string]*regexp.Regexp
+	tagged map[taggedKey]bool
+}
+
+type taggedKey struct {
+	site    int
+	version string
+}
+
 // waitsFor is whether text has a waiting word followed, within a few
 // words, by what it names.
-func waitsFor(text, name string) bool {
-	re := regexp.MustCompile(`(?i)\b` + waitWord + `\s+(?:\S+\s+){0,3}?` + regexp.QuoteMeta(name) + `(?:\b|$|[^\w])`)
+func (r *reader) waitsFor(text, name string) bool {
+	re, ok := r.waits[name]
+	if !ok {
+		re = regexp.MustCompile(`(?i)\b` + waitWord + `\s+(?:\S+\s+){0,3}?` + regexp.QuoteMeta(name) + `(?:\b|$|[^\w])`)
+		r.waits[name] = re
+	}
 	return re.MatchString(text)
 }
 
-func names(text string, pr SitePR) (string, bool) {
+// names is how text names a pull request whose short reference is
+// ref: by its URL, or by that reference.
+func names(text string, pr SitePR, ref string) (string, bool) {
 	if pr.URL != "" && strings.Contains(text, pr.URL) {
 		return pr.URL, true
 	}
-	if pr.Repository != "" && pr.Number > 0 {
-		ref := fmt.Sprintf("%s#%d", pr.Repository, pr.Number)
-		if strings.Contains(text, ref) {
-			return ref, true
-		}
+	if ref != "" && strings.Contains(text, ref) {
+		return ref, true
 	}
 	return "", false
+}
+
+func shortRef(pr SitePR) string {
+	if pr.Repository == "" || pr.Number <= 0 {
+		return ""
+	}
+	return pr.Repository + "#" + strconv.Itoa(pr.Number)
 }
 
 // Order reads the order a group's sites depend on, and puts them in it,
@@ -72,15 +138,26 @@ func names(text string, pr SitePR) (string, bool) {
 // no order at all.
 func Order(sites []OrderSite) ([]int, []Wait) {
 	var waits []Wait
+	type waitKey struct {
+		site, on int
+		until    string
+	}
+	seen := map[waitKey]bool{}
 	add := func(w Wait) {
-		for _, have := range waits {
-			if have.Site == w.Site && have.On == w.On && have.Until == w.Until {
-				return
-			}
+		k := waitKey{w.Site, w.On, w.Until}
+		if seen[k] {
+			return
 		}
+		seen[k] = true
 		waits = append(waits, w)
 	}
+	read := make([]readSite, len(sites))
+	for i, s := range sites {
+		read[i] = readOf(s)
+	}
+	r := &reader{waits: map[string]*regexp.Regexp{}, tagged: map[taggedKey]bool{}}
 	for b, site := range sites {
+		mine := read[b]
 		for a, up := range sites {
 			if a == b {
 				continue
@@ -88,24 +165,25 @@ func Order(sites []OrderSite) ([]int, []Wait) {
 			for _, pr := range up.PRs {
 				until := fmt.Sprintf("PR #%d merged", pr.Number)
 				w := Wait{Site: b, On: a, Until: until, Done: pr.Merged, Unblocked: up.Name + " " + until}
-				for _, line := range append(append([]string{}, site.Words...), site.Commands...) {
-					ref, ok := names(line, pr)
+				short := shortRef(pr)
+				for i, line := range mine.lines {
+					ref, ok := names(line, pr, short)
 					if !ok {
 						continue
 					}
-					if strings.Contains(strings.ToLower(line), "depends-on:") || waitsFor(line, ref) {
+					if mine.dependsOn[i] || mine.waiting[i] && r.waitsFor(line, ref) {
 						add(w)
 					}
 				}
 			}
-			for _, v := range released(up) {
-				if !bumps(site, v) {
+			for _, v := range read[a].released {
+				if !mine.bumps(v) {
 					continue
 				}
 				until := v + " tagged"
-				add(Wait{Site: b, On: a, Until: until, Done: tagged(up, v), Unblocked: up.Name + " " + until})
+				add(Wait{Site: b, On: a, Until: until, Done: r.isTagged(a, up, v), Unblocked: up.Name + " " + until})
 			}
-			if site.Recap != "" && waitsFor(site.Recap, up.Name) {
+			if mine.recapWaits && r.waitsFor(site.Recap, up.Name) {
 				add(Wait{Site: b, On: a, Until: up.Name + " done", Done: up.Done, Unblocked: up.Name + " done"})
 			}
 		}
@@ -114,31 +192,28 @@ func Order(sites []OrderSite) ([]int, []Wait) {
 	return order(sites, waits), waits
 }
 
-func released(s OrderSite) []string {
-	var out []string
-	for _, line := range s.Words {
-		if releasing.MatchString(line) {
-			out = append(out, version.FindAllString(line, -1)...)
-		}
+func (r *reader) isTagged(i int, s OrderSite, v string) bool {
+	k := taggedKey{i, v}
+	if t, ok := r.tagged[k]; ok {
+		return t
 	}
-	return out
-}
-
-func bumps(s OrderSite, v string) bool {
-	for _, line := range s.Words {
-		if bumping.MatchString(line) && strings.Contains(line, v) && !releasing.MatchString(line) {
-			return true
-		}
-	}
-	return false
+	t := tagged(s, v)
+	r.tagged[k] = t
+	return t
 }
 
 // tagged is whether a site's commands made a version's tag or release:
 // only what was run counts, never what was said.
 func tagged(s OrderSite, v string) bool {
-	q := regexp.QuoteMeta(v)
-	re := regexp.MustCompile(`\bgit\s+tag\s+(?:-\S+\s+)*` + q + `\b|\bgit\s+push\b.*\b` + q + `\b|\bgh\s+release\s+create\s+` + q + `\b`)
+	var re *regexp.Regexp
 	for _, c := range s.Commands {
+		if !strings.Contains(c, v) {
+			continue
+		}
+		if re == nil {
+			q := regexp.QuoteMeta(v)
+			re = regexp.MustCompile(`\bgit\s+tag\s+(?:-\S+\s+)*` + q + `\b|\bgit\s+push\b.*\b` + q + `\b|\bgh\s+release\s+create\s+` + q + `\b`)
+		}
 		if re.MatchString(c) {
 			return true
 		}
