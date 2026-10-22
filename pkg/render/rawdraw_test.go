@@ -38,6 +38,9 @@ var drawsAllowed = map[string]string{
 	"painter.go:CutPath":      "cuts the night's lights image, laid from the record",
 	"painter.go:whitePixel":   "makes the painter's own texture",
 	"painter.go:disc":         "makes the painter's own stamp",
+	// Not the world: a pixel of each kit page into a 1-pixel sink, so
+	// Ebitengine sends the page and lets its pixels go (item 162).
+	"kits.go:sendPage": "sends a kit page to the GPU",
 	// Laying what was recorded: the ground, the standing city, its
 	// lights and the fade.
 	"view.go:blitBase":              "lays the composed ground",
