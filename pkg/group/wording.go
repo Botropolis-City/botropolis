@@ -46,6 +46,14 @@ type Wording struct {
 	// read is every word in each session's prompts, muted or not, so
 	// that the next wording reads only the prompts added since (item 158).
 	read map[string]readTexts
+	// muted is the words muted, as a key, and moved the words whose
+	// rarity the last Next moved, or allMoved when it moved every word's
+	// (item 198).
+	muted    string
+	moved    map[string]bool
+	allMoved bool
+	// touched are the words the last Next counted again, rare or not.
+	touched map[string]bool
 }
 
 func NewWording(prompts map[string][]string, muted []string) *Wording {
@@ -54,44 +62,115 @@ func NewWording(prompts map[string][]string, muted []string) *Wording {
 
 // Next is the wording of prompts, tokenising only the prompts each
 // session added since w; a session whose earlier prompts changed is read
-// again whole.
+// again whole. It updates w in place, counting again only the words of
+// the sessions that changed and weighing again only those words, unless
+// the sessions or the muted words changed, which moves every word's
+// rarity (item 198).
 func (w *Wording) Next(prompts map[string][]string, muted []string) *Wording {
 	mute := map[string]bool{}
 	for _, m := range muted {
 		mute[strings.ToLower(m)] = true
 	}
-	next := &Wording{words: map[string]map[string]bool{}, idf: map[string]float64{}, df: map[string]int{},
-		read: make(map[string]readTexts, len(prompts))}
-	df := next.df
-	for id, ps := range prompts {
-		var r readTexts
-		if w != nil {
-			r = w.read[id]
-		}
-		r = r.next(ps, tokens)
-		next.read[id] = r
-		set := r.found
-		if len(mute) > 0 {
-			set = make(map[string]bool, len(r.found))
-			for tok := range r.found {
-				if !mute[tok] {
-					set[tok] = true
-				}
-			}
-		}
-		next.words[id] = set
-		for tok := range set {
-			df[tok]++
+	key := strings.Join(sortedKeys(mute), "\x00")
+	if w == nil || w.muted != key || len(w.words) != len(prompts) {
+		return fresh(w, prompts, mute, key)
+	}
+	for id := range prompts {
+		if _, ok := w.read[id]; !ok {
+			return fresh(w, prompts, mute, key)
 		}
 	}
-	w = next
+	touched := map[string]bool{}
+	for id, ps := range prompts {
+		last := w.read[id]
+		r := last.next(ps, tokens)
+		if r.same(last) {
+			continue
+		}
+		w.read[id] = r
+		set := unmuted(r.found, mute)
+		for tok := range w.words[id] {
+			if !set[tok] {
+				w.df[tok]--
+				touched[tok] = true
+			}
+		}
+		for tok := range set {
+			if !w.words[id][tok] {
+				w.df[tok]++
+				touched[tok] = true
+			}
+		}
+		w.words[id] = set
+	}
+	w.moved, w.allMoved, w.touched = map[string]bool{}, false, touched
 	n := float64(len(prompts))
-	for tok, d := range df {
-		if float64(d) <= math.Max(2, distinctiveShare*n) {
-			w.idf[tok] = math.Log(n / float64(d))
+	for tok := range touched {
+		was, rare := w.idf[tok]
+		if w.df[tok] == 0 {
+			delete(w.df, tok)
+		}
+		idf, now := weigh(w.df[tok], n)
+		switch {
+		case now:
+			w.idf[tok] = idf
+		case rare:
+			delete(w.idf, tok)
+		}
+		if now != rare || idf != was {
+			w.moved[tok] = true
 		}
 	}
 	return w
+}
+
+// fresh is the wording of prompts counted and weighed from scratch,
+// reading again only the prompts added since last, with every word moved.
+func fresh(last *Wording, prompts map[string][]string, mute map[string]bool, key string) *Wording {
+	w := &Wording{words: make(map[string]map[string]bool, len(prompts)), idf: map[string]float64{}, df: map[string]int{},
+		read: make(map[string]readTexts, len(prompts)), muted: key, allMoved: true}
+	for id, ps := range prompts {
+		var r readTexts
+		if last != nil {
+			r = last.read[id]
+		}
+		r = r.next(ps, tokens)
+		w.read[id] = r
+		set := unmuted(r.found, mute)
+		w.words[id] = set
+		for tok := range set {
+			w.df[tok]++
+		}
+	}
+	n := float64(len(prompts))
+	for tok, d := range w.df {
+		if idf, ok := weigh(d, n); ok {
+			w.idf[tok] = idf
+		}
+	}
+	return w
+}
+
+// weigh is a word's rarity among n sessions, when it is rare enough to
+// weigh at all.
+func weigh(df int, n float64) (float64, bool) {
+	if df == 0 || float64(df) > math.Max(2, distinctiveShare*n) {
+		return 0, false
+	}
+	return math.Log(n / float64(df)), true
+}
+
+func unmuted(found, mute map[string]bool) map[string]bool {
+	if len(mute) == 0 {
+		return found
+	}
+	set := make(map[string]bool, len(found))
+	for tok := range found {
+		if !mute[tok] {
+			set[tok] = true
+		}
+	}
+	return set
 }
 
 func tokens(text string) []string {
@@ -128,8 +207,23 @@ func (w *Wording) Shared(a, b string) ([]string, float64) {
 // what each says, that a long session does not match everything by
 // sheer length.
 func (w *Wording) Related(a, b string) bool {
-	_, score := w.Shared(a, b)
-	return score >= wordingThreshold && w.overlap(a, b) >= wordingOverlap
+	return w.sharedScore(a, b) >= wordingThreshold && w.overlap(a, b) >= wordingOverlap
+}
+
+// sharedScore is what Shared weighs two sessions' words at, without
+// listing them.
+func (w *Wording) sharedScore(a, b string) float64 {
+	wa, wb := w.words[a], w.words[b]
+	if len(wb) < len(wa) {
+		wa, wb = wb, wa
+	}
+	score := 0.0
+	for tok := range wa {
+		if idf, ok := w.idf[tok]; ok && wb[tok] {
+			score += idf
+		}
+	}
+	return score
 }
 
 // overlap is the cosine of the two sessions' distinctive words, each

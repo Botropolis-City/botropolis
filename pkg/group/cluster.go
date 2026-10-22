@@ -1,8 +1,10 @@
 package group
 
 import (
+	"cmp"
 	"fmt"
 	"hash/fnv"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -34,8 +36,8 @@ func (d *detection) detect(memory Memory, edges []edge) Result {
 }
 
 func newDetection(members []Member, memory Memory, prior *Detector) *detection {
-	d := &detection{members: members, index: map[string]int{}, blocked: map[[2]string]bool{},
-		moved: map[string]bool{}, confirmed: map[string]bool{}}
+	d := &detection{members: members, index: make(map[string]int, len(members)), blocked: map[[2]string]bool{},
+		moved: map[string]bool{}, confirmed: map[string]bool{}, refs: make([][]string, 0, len(members))}
 	for _, mv := range memory.Moves {
 		d.moved[mv.Session] = true
 	}
@@ -52,18 +54,23 @@ func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 	for _, id := range memory.Confirmed {
 		d.confirmed[id] = true
 	}
-	prompts := map[string][]string{}
-	d.read = make(map[string]readRefs, len(members))
+	prompts := make(map[string][]string, len(members))
+	if prior != nil && prior.refs != nil {
+		d.read = prior.refs
+	} else {
+		d.read = make(map[string]readRefs, len(members))
+	}
 	for i, m := range members {
 		d.index[m.ID] = i
 		prompts[m.ID] = m.Prompts
-		var r readRefs
-		if prior != nil {
-			r = prior.refs[m.ID]
-		}
-		r = r.next(m)
+		r := d.read[m.ID].next(m)
 		d.read[m.ID] = r
 		d.refs = append(d.refs, r.refs)
+	}
+	for id := range d.read {
+		if _, ok := d.index[id]; !ok {
+			delete(d.read, id)
+		}
 	}
 	var wording *Wording
 	if prior != nil {
@@ -77,42 +84,26 @@ func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 	return d
 }
 
-// everyPair scores every pair of sessions, keeping nothing.
-func (d *detection) everyPair() []edge {
-	var edges []edge
-	for i := range d.members {
-		for j := i + 1; j < len(d.members); j++ {
-			if d.blocked[[2]string{d.members[i].ID, d.members[j].ID}] || d.sitsOut(d.members[i].ID) || d.sitsOut(d.members[j].ID) {
-				continue
-			}
-			if e, ok := d.pair(i, j); ok {
-				edges = append(edges, e)
-			}
-		}
-	}
-	sortEdges(edges)
-	return edges
+type keyedEdge struct {
+	key uint64
+	at  int
 }
 
 // sortEdges orders edges strongest first, then by their sessions'
-// order, which is the order scoring every pair finds them in.
-func sortEdges(edges []edge) {
-	for k := range edges {
-		edges[k].rank = signalRank[edges[k].reason.Signal]
+// order, which is the order scoring every pair finds them in, into out,
+// using keys; both are buffers kept from the last run, and grown.
+func sortEdges(edges []edge, keys []keyedEdge, out []edge) ([]edge, []keyedEdge) {
+	keys = keys[:0]
+	for k, e := range edges {
+		rank := uint64(signalRank[e.reason.Signal] + 1)
+		keys = append(keys, keyedEdge{key: uint64(Sure-e.tier)<<60 | rank<<52 | uint64(e.a)<<26 | uint64(e.b), at: k})
 	}
-	sort.Slice(edges, func(x, y int) bool {
-		ex, ey := &edges[x], &edges[y]
-		if ex.tier != ey.tier {
-			return ex.tier > ey.tier
-		}
-		if ex.rank != ey.rank {
-			return ex.rank < ey.rank
-		}
-		if ex.a != ey.a {
-			return ex.a < ey.a
-		}
-		return ex.b < ey.b
-	})
+	slices.SortFunc(keys, func(x, y keyedEdge) int { return cmp.Compare(x.key, y.key) })
+	out = out[:0]
+	for _, kd := range keys {
+		out = append(out, edges[kd.at])
+	}
+	return out, keys
 }
 
 func (d *detection) pair(i, j int) (edge, bool) {
@@ -232,24 +223,33 @@ func sameBranch(a, b string) (string, bool) {
 // refusing any join that would put a not-related pair in one group.
 func (d *detection) cluster(edges []edge) [][]int {
 	comp := make([]int, len(d.members))
-	sets := map[int][]int{}
+	// sets are each group's sessions by the group's first, nil for a
+	// session on its own.
+	sets := make([][]int, len(d.members))
 	for i := range d.members {
 		comp[i] = i
-		sets[i] = []int{i}
 	}
 	for _, e := range edges {
 		if e.tier < Likely {
 			continue
 		}
 		ca, cb := comp[e.a], comp[e.b]
-		if ca == cb || d.anyBlocked(sets[ca], sets[cb]) {
+		if ca == cb {
+			continue
+		}
+		for _, c := range []int{ca, cb} {
+			if sets[c] == nil {
+				sets[c] = []int{c}
+			}
+		}
+		if d.anyBlocked(sets[ca], sets[cb]) {
 			continue
 		}
 		for _, m := range sets[cb] {
 			comp[m] = ca
 		}
 		sets[ca] = append(sets[ca], sets[cb]...)
-		delete(sets, cb)
+		sets[cb] = nil
 	}
 	var comps [][]int
 	for _, set := range sets {
@@ -263,6 +263,9 @@ func (d *detection) cluster(edges []edge) [][]int {
 }
 
 func (d *detection) anyBlocked(xs, ys []int) bool {
+	if len(d.blocked) == 0 {
+		return false
+	}
 	for _, x := range xs {
 		for _, y := range ys {
 			if d.blocked[[2]string{d.members[x].ID, d.members[y].ID}] {
@@ -276,23 +279,21 @@ func (d *detection) anyBlocked(xs, ys []int) bool {
 func (d *detection) groups(comps [][]int, edges []edge, memory Memory) []Group {
 	taken := map[string]bool{}
 	groups := make([]Group, 0, len(comps))
+	tie := d.strongestTies(comps, edges)
+	stored := storedBySession(memory)
 	for _, comp := range comps {
-		in := map[int]bool{}
+		g := Group{Members: make([]Membership, 0, len(comp))}
 		for _, i := range comp {
-			in[i] = true
+			g.Members = append(g.Members, d.membership(i, tie[i]))
 		}
-		g := Group{}
-		for _, i := range comp {
-			g.Members = append(g.Members, d.membership(i, in, edges))
-		}
-		stored, ok := matchStored(comp, d, memory, taken)
+		stored, ok := matchStored(comp, d, memory, stored, taken)
 		if ok {
 			taken[stored.ID] = true
 			g.ID = stored.ID
 		} else {
 			g.ID = newID(d.members[comp[0]].ID)
 		}
-		d.name(&g)
+		d.names.name(d, &g)
 		if ok && stored.Renamed {
 			g.Name, g.Renamed = stored.Name, true
 		}
@@ -301,24 +302,44 @@ func (d *detection) groups(comps [][]int, edges []edge, memory Memory) []Group {
 	return groups
 }
 
+// strongestTies are, by member, the first edge in order, sure or likely,
+// that ties it to another member of its group, if any.
+func (d *detection) strongestTies(comps [][]int, edges []edge) []*edge {
+	compOf := make([]int, len(d.members))
+	for i := range compOf {
+		compOf[i] = -1
+	}
+	for c, comp := range comps {
+		for _, i := range comp {
+			compOf[i] = c
+		}
+	}
+	tie := make([]*edge, len(d.members))
+	for k := range edges {
+		e := &edges[k]
+		if e.tier < Likely || compOf[e.a] < 0 || compOf[e.a] != compOf[e.b] {
+			continue
+		}
+		for _, i := range []int{e.a, e.b} {
+			if tie[i] == nil {
+				tie[i] = e
+			}
+		}
+	}
+	return tie
+}
+
 // membership takes a member's strongest tie inside its group as its tier
 // and its reason.
-func (d *detection) membership(i int, in map[int]bool, edges []edge) Membership {
+func (d *detection) membership(i int, e *edge) Membership {
 	m := Membership{Session: d.members[i].ID, Dir: d.members[i].Dir, Started: d.members[i].Started}
-	for _, e := range edges {
-		other := -1
-		switch i {
-		case e.a:
+	if e != nil {
+		other := e.a
+		if other == i {
 			other = e.b
-		case e.b:
-			other = e.a
-		}
-		if other < 0 || !in[other] || e.tier < Likely {
-			continue
 		}
 		m.Tier, m.Reason = e.tier, e.reason
 		m.Reason.With = d.members[other].ID
-		break
 	}
 	if m.Tier == Likely && d.confirmed[m.Session] {
 		m.Tier = Sure
@@ -353,23 +374,46 @@ func (d *detection) placeMoved(groups []Group, memory Memory) []Group {
 	return groups
 }
 
-func matchStored(comp []int, d *detection, memory Memory, taken map[string]bool) (Stored, bool) {
-	best, bestOverlap := Stored{}, 0
-	for _, s := range memory.Groups {
-		if taken[s.ID] {
-			continue
-		}
-		overlap := 0
-		for _, i := range comp {
-			if contains(s.Members, d.members[i].ID) {
-				overlap++
+// storedBySession is, by session, the remembered groups it is in, by
+// their place in memory, each once.
+func storedBySession(memory Memory) map[string][]int {
+	of := map[string][]int{}
+	for si, s := range memory.Groups {
+		for _, id := range s.Members {
+			if in := of[id]; len(in) == 0 || in[len(in)-1] != si {
+				of[id] = append(in, si)
 			}
 		}
-		if overlap > bestOverlap {
-			best, bestOverlap = s, overlap
+	}
+	return of
+}
+
+// matchStored is the remembered group not yet taken that holds most of
+// comp's sessions, the first in memory of those holding as many.
+func matchStored(comp []int, d *detection, memory Memory, stored map[string][]int, taken map[string]bool) (Stored, bool) {
+	overlap := map[int]int{}
+	var holding []int
+	for _, i := range comp {
+		for _, si := range stored[d.members[i].ID] {
+			if !taken[memory.Groups[si].ID] {
+				if overlap[si] == 0 {
+					holding = append(holding, si)
+				}
+				overlap[si]++
+			}
 		}
 	}
-	return best, bestOverlap > 0
+	slices.Sort(holding)
+	best, bestOverlap := -1, 0
+	for _, si := range holding {
+		if overlap[si] > bestOverlap {
+			best, bestOverlap = si, overlap[si]
+		}
+	}
+	if best < 0 {
+		return Stored{}, false
+	}
+	return memory.Groups[best], true
 }
 
 // NewGroupID is an id for a group made by hand, from a seed unique to it.
@@ -412,39 +456,47 @@ func (d *detection) joinStarted(groups []Group, memory Memory) []Group {
 }
 
 func (d *detection) suggest(groups []Group, edges []edge) []Suggestion {
+	type suggested struct {
+		loose int
+		group string
+	}
 	var out []Suggestion
-	seen := map[[2]string]bool{}
-	groupOf := firstGroups(groups)
+	seen := map[suggested]bool{}
+	groupOf := d.firstGroups(groups)
 	for _, e := range edges {
 		if e.tier != Possible {
 			continue
 		}
-		for _, p := range [][2]int{{e.a, e.b}, {e.b, e.a}} {
-			loose, member := d.members[p[0]].ID, d.members[p[1]].ID
-			if _, in := groupOf[loose]; in {
+		for _, p := range [2][2]int{{e.a, e.b}, {e.b, e.a}} {
+			loose, member := p[0], p[1]
+			if groupOf[loose] >= 0 {
 				continue
 			}
-			gi, ok := groupOf[member]
-			if !ok || seen[[2]string{loose, groups[gi].ID}] {
+			gi := groupOf[member]
+			if gi < 0 || seen[suggested{loose, groups[gi].ID}] {
 				continue
 			}
-			seen[[2]string{loose, groups[gi].ID}] = true
+			seen[suggested{loose, groups[gi].ID}] = true
 			reason := e.reason
-			reason.With = member
-			out = append(out, Suggestion{Session: loose, Group: groups[gi].ID, Reason: reason})
+			reason.With = d.members[member].ID
+			out = append(out, Suggestion{Session: d.members[loose].ID, Group: groups[gi].ID, Reason: reason})
 		}
 	}
 	return out
 }
 
-// firstGroups is, by session, the first of groups it is a member of, as
-// GroupOf finds it, read once rather than searched for every edge.
-func firstGroups(groups []Group) map[string]int {
-	of := map[string]int{}
+// firstGroups is, by member, the first of groups it is a member of, as
+// GroupOf finds it, or -1: read once rather than searched for every
+// edge.
+func (d *detection) firstGroups(groups []Group) []int {
+	of := make([]int, len(d.members))
+	for i := range of {
+		of[i] = -1
+	}
 	for gi, g := range groups {
 		for _, m := range g.Members {
-			if _, ok := of[m.Session]; !ok {
-				of[m.Session] = gi
+			if i, ok := d.index[m.Session]; ok && of[i] < 0 {
+				of[i] = gi
 			}
 		}
 	}

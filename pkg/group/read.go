@@ -28,6 +28,12 @@ func (r readTexts) next(texts []string, read func(string) []string) readTexts {
 	return readTexts{texts: append([]string(nil), texts...), found: found}
 }
 
+// same is whether r is last unchanged, as next returns it when nothing
+// was added.
+func (r readTexts) same(last readTexts) bool {
+	return r.found != nil && len(r.texts) == len(last.texts) && (len(r.texts) == 0 || &r.texts[0] == &last.texts[0])
+}
+
 func isPrefix(prefix, of []string) bool {
 	if len(prefix) > len(of) {
 		return false
@@ -48,7 +54,11 @@ type readRefs struct {
 }
 
 func (r readRefs) next(m Member) readRefs {
-	r.prompts, r.pasted = r.prompts.next(m.Prompts, References), r.pasted.next(m.Pasted, References)
+	prompts, pasted := r.prompts.next(m.Prompts, References), r.pasted.next(m.Pasted, References)
+	if r.refs != nil && prompts.same(r.prompts) && pasted.same(r.pasted) {
+		return r
+	}
+	r.prompts, r.pasted = prompts, pasted
 	seen := make(map[string]bool, len(r.prompts.found)+len(r.pasted.found))
 	for k := range r.prompts.found {
 		seen[k] = true

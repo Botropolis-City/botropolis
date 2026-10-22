@@ -49,6 +49,7 @@ type groupCache struct {
 	lastPrompts map[string]string
 	// reviewed is whether the first run's proposal has been confirmed.
 	reviewed bool
+	texts    map[string]memberTexts
 }
 
 func lastPrompts(history map[string][]claude.Prompt) map[string]string {
@@ -102,7 +103,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 		if err != nil {
 			return err
 		}
-		if err := c.detect(members(history, snapshot.Sessions, now), history, now); err != nil {
+		if err := c.detect(c.members(history, snapshot.Sessions, now), history, now); err != nil {
 			return err
 		}
 		c.historyKey, c.signature = key, signature
@@ -211,39 +212,59 @@ func boolString(b bool) string {
 	return "0"
 }
 
-func members(history map[string][]claude.Prompt, sessions []Session, now time.Time) []group.Member {
-	byID := map[string]Session{}
-	for _, s := range sessions {
-		byID[s.ID] = s
+// memberTexts are a session's prompts and pastes as detection reads
+// them, kept while the session's history has not changed so that a load
+// does not copy every session's prompts again (item 198).
+type memberTexts struct {
+	from            *claude.Prompt
+	n               int
+	prompts, pasted []string
+}
+
+func (c *groupCache) members(history map[string][]claude.Prompt, sessions []Session, now time.Time) []group.Member {
+	byID := make(map[string]int, len(sessions))
+	for i := range sessions {
+		byID[sessions[i].ID] = i
 	}
-	var ms []group.Member
-	seen := map[string]bool{}
+	texts := make(map[string]memberTexts, len(history))
+	ms := make([]group.Member, 0, len(history)+len(sessions))
+	seen := make(map[string]bool, len(history))
 	for id, prompts := range history {
 		if len(prompts) == 0 || now.Sub(prompts[len(prompts)-1].At) > GroupWindow {
 			continue
 		}
-		m := group.Member{ID: id, Dir: prompts[0].Dir, Started: prompts[0].At}
-		for _, p := range prompts {
-			m.Prompts = append(m.Prompts, p.Text)
-			m.Pasted = append(m.Pasted, p.Pasted...)
+		t, ok := c.texts[id]
+		if !ok || t.n != len(prompts) || t.from != &prompts[0] {
+			t = memberTexts{from: &prompts[0], n: len(prompts), prompts: make([]string, 0, len(prompts))}
+			for _, p := range prompts {
+				t.prompts = append(t.prompts, p.Text)
+				t.pasted = append(t.pasted, p.Pasted...)
+			}
 		}
-		if s, ok := byID[id]; ok {
-			enrich(&m, s)
+		texts[id] = t
+		m := group.Member{ID: id, Dir: prompts[0].Dir, Started: prompts[0].At, Prompts: t.prompts, Pasted: t.pasted}
+		if i, ok := byID[id]; ok {
+			enrich(&m, &sessions[i])
 		}
 		seen[id] = true
 		ms = append(ms, m)
 	}
-	for _, s := range sessions {
-		if !seen[s.ID] {
-			m := group.Member{ID: s.ID, Dir: s.CWD, Started: s.StartedAt}
-			enrich(&m, s)
+	c.texts = texts
+	for i := range sessions {
+		if !seen[sessions[i].ID] {
+			m := group.Member{ID: sessions[i].ID, Dir: sessions[i].CWD, Started: sessions[i].StartedAt}
+			enrich(&m, &sessions[i])
 			ms = append(ms, m)
 		}
 	}
 	return ms
 }
 
-func enrich(m *group.Member, s Session) {
+func members(history map[string][]claude.Prompt, sessions []Session, now time.Time) []group.Member {
+	return (&groupCache{}).members(history, sessions, now)
+}
+
+func enrich(m *group.Member, s *Session) {
 	if s.CWD != "" {
 		m.Dir = s.CWD
 	}

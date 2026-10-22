@@ -75,6 +75,14 @@ func TestDetector(t *testing.T) {
 				members:  withPrompt(base, 7, "please topicaworda topicbwordb topiccwordc"),
 			},
 			{
+				scenario: "and one session sends a prompt using a word too common to weigh that names a group",
+				members:  withPrompt(base, 7, "please build build tests"),
+			},
+			{
+				scenario: "and every session's prompts gain a word, one session at a time",
+				members:  withPrompt(withPrompt(withPrompt(base, 1, "please refactor"), 2, "please refactor"), 3, "please refactor"),
+			},
+			{
 				scenario: "and a session joins",
 				members: append(append([]group.Member(nil), base...), group.Member{ID: "joined", Dir: "/w/repo03",
 					Started: base[len(base)-1].Started, Prompts: []string{"please topicdworda"}}),
@@ -119,6 +127,58 @@ func TestDetector(t *testing.T) {
 
 				t.Run("it should keep the pairs a fresh detector keeps", func(t *testing.T) {
 					assert.Equal(t, keptByAFreshDetector(c.members, c.memory), d.PairsKept())
+				})
+			})
+		}
+	})
+
+	t.Run("when a group named after its first directory has been detected", func(t *testing.T) {
+		pair := func(dir string) []group.Member {
+			return append(fillers(),
+				group.Member{ID: "x", Dir: dir, Started: t0.Add(time.Hour), Prompts: []string{"please"}},
+				group.Member{ID: "y", Dir: "/w/other", Started: t0.Add(time.Hour + 30*time.Second), Prompts: []string{"please"}})
+		}
+		d := group.NewDetector()
+		d.Detect(pair("/w/first"), group.Memory{})
+
+		t.Run("and its first session moves to another directory", func(t *testing.T) {
+			got := d.Detect(pair("/w/moved"), group.Memory{})
+
+			t.Run("it should find the same result as scoring every pair", func(t *testing.T) {
+				assert.Equal(t, group.DetectEveryPair(pair("/w/moved"), group.Memory{}), got)
+			})
+		})
+	})
+
+	t.Run("when memory remembers groups and corrections", func(t *testing.T) {
+		session := func(id, team string, hour int) group.Member {
+			return group.Member{ID: id, Dir: "/w/" + id, Team: team, Started: t0.Add(time.Duration(hour) * 24 * time.Hour),
+				Prompts: []string{"please"}}
+		}
+		two := append(fillers(), session("a", "t1", 1), session("b", "t1", 3))
+		four := append(append([]group.Member(nil), two...), session("c", "t2", 5), session("d", "t2", 7))
+		remembered := func(groups ...group.Stored) group.Memory { return group.Memory{Groups: groups} }
+		scenarios := []struct {
+			scenario string
+			members  []group.Member
+			memory   group.Memory
+		}{
+			{"and two of them hold as many of a group's sessions", two, remembered(
+				group.Stored{ID: "g-first", Members: []string{"b", "z"}},
+				group.Stored{ID: "g-second", Members: []string{"a", "y"}})},
+			{"and one holds the sessions of two groups", four, remembered(
+				group.Stored{ID: "g-both", Members: []string{"a", "b", "c", "d"}})},
+			{"and one names a session twice", two, remembered(
+				group.Stored{ID: "g-twice", Members: []string{"a", "a"}},
+				group.Stored{ID: "g-each", Members: []string{"a", "b"}})},
+			{"and two sessions a third ties together are marked not related",
+				append(append([]group.Member(nil), two...), session("c", "t1", 5)),
+				group.Memory{NotRelated: []group.Pair{{"a", "c"}}}},
+		}
+		for _, s := range scenarios {
+			t.Run(s.scenario, func(t *testing.T) {
+				t.Run("it should find the same result as scoring every pair", func(t *testing.T) {
+					assert.Equal(t, group.DetectEveryPair(s.members, s.memory), group.Detect(s.members, s.memory))
 				})
 			})
 		}

@@ -154,8 +154,6 @@ type edge struct {
 	a, b   int
 	tier   Tier
 	reason Reason
-	// rank is the signal's rank, read once for sorting.
-	rank int
 }
 
 type detection struct {
@@ -172,4 +170,8 @@ type detection struct {
 	// started are the sessions started from a group, by session; like
 	// the moved, they sit out detection and join where they were started.
 	started map[string]string
+	// names are the names the detector gave groups last run, kept for
+	// groups whose words have not moved (item 198); nil names every
+	// group afresh.
+	names *keptNames
 }

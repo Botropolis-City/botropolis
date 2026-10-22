@@ -19,6 +19,7 @@ import (
 type candidates struct {
 	d      *detection
 	seen   []int
+	out    []int
 	idx    [kinds]map[string][]int
 	pastes map[uint64][]int
 	keys   map[string]pasteKeys
@@ -44,8 +45,9 @@ const (
 	kinds
 )
 
-// indexedUnder gives every key member i is indexed under.
-func (d *detection) indexedUnder(i int, key func(kind int, key string)) {
+// indexedUnder gives every key member i is indexed under, its words
+// only when asked to.
+func (d *detection) indexedUnder(i int, words bool, key func(kind int, key string)) {
 	m := d.members[i]
 	key(dirIs, m.Dir)
 	for _, at := range atOrAbove(m.Dir) {
@@ -69,9 +71,11 @@ func (d *detection) indexedUnder(i int, key func(kind int, key string)) {
 	for _, to := range m.Messaged {
 		key(messagedBy, to)
 	}
-	for tok := range d.wording.words[m.ID] {
-		if _, ok := d.wording.idf[tok]; ok {
-			key(wordKey, tok)
+	if words {
+		for tok := range d.wording.words[m.ID] {
+			if _, ok := d.wording.idf[tok]; ok {
+				key(wordKey, tok)
+			}
 		}
 	}
 	for _, b := range branchKeys(m.Branch) {
@@ -130,11 +134,22 @@ func (d *detection) candidates(keys map[string]pasteKeys, changed map[string]boo
 		}
 	}
 	for i, m := range d.members {
-		d.indexedUnder(i, func(kind int, key string) {
+		d.indexedUnder(i, all, func(kind int, key string) {
 			if all || want[kind][key] {
 				c.idx[kind][key] = append(c.idx[kind][key], i)
 			}
 		})
+		if !all {
+			words, wanted := d.wording.words[m.ID], want[wordKey]
+			if len(wanted) < len(words) {
+				words, wanted = wanted, words
+			}
+			for tok := range words {
+				if _, rare := d.wording.idf[tok]; rare && wanted[tok] {
+					c.idx[wordKey][tok] = append(c.idx[wordKey][tok], i)
+				}
+			}
+		}
 		for _, h := range keys[m.ID].prefix {
 			c.pastes[h] = append(c.pastes[h], i)
 		}
@@ -146,11 +161,13 @@ func (d *detection) candidates(keys map[string]pasteKeys, changed map[string]boo
 	return c
 }
 
-// of is member i's candidates, each once, in no particular order.
+// of is member i's candidates, each once, in no particular order, valid
+// until the next call.
 func (c *candidates) of(i int) []int {
 	d, m := c.d, c.d.members[i]
 	stamp := i + 1
-	var out []int
+	out := c.out[:0]
+	defer func() { c.out = out }()
 	add := func(js []int) {
 		for _, j := range js {
 			if j != i && c.seen[j] != stamp {
