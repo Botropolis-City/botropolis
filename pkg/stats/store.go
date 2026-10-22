@@ -87,6 +87,32 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `
 
+// movedSchema records, in the database, every session whose counters a
+// write changed, one row each, so a reader can read again only those —
+// whichever process or build wrote. It changes no table an older build
+// knows, so it is made on every open rather than by a version step.
+// Item 196.
+const movedSchema = `
+CREATE TABLE IF NOT EXISTS moved (
+  session_id TEXT PRIMARY KEY
+) WITHOUT ROWID;
+
+CREATE TRIGGER IF NOT EXISTS moved_on_link AFTER INSERT ON message_sessions BEGIN
+  INSERT INTO moved (session_id) VALUES (NEW.session_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS moved_on_unlink AFTER DELETE ON message_sessions BEGIN
+  INSERT INTO moved (session_id) VALUES (OLD.session_id) ON CONFLICT DO NOTHING;
+END;
+
+CREATE TRIGGER IF NOT EXISTS moved_on_usage AFTER UPDATE OF input, output, cache_create, cache_read ON messages
+WHEN OLD.input IS NOT NEW.input OR OLD.output IS NOT NEW.output
+  OR OLD.cache_create IS NOT NEW.cache_create OR OLD.cache_read IS NOT NEW.cache_read
+BEGIN
+  INSERT INTO moved (session_id) SELECT session_id FROM message_sessions WHERE message_id = NEW.id ON CONFLICT DO NOTHING;
+END;
+`
+
 // steps brings a database from the version before each key to that
 // version. A new database is made at Version by schema directly.
 var steps = map[int]string{
@@ -192,6 +218,9 @@ func (s *Store) migrate(path string) error {
 		}
 	}
 	if err := setMeta(tx, "written_by", Version); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(movedSchema); err != nil {
 		return err
 	}
 	return tx.Commit()

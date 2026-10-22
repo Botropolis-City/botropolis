@@ -82,12 +82,14 @@ type fixture struct {
 	t        *testing.T
 	projects string
 	store    *stats.Store
+	db       string
 	now      time.Time
 }
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
-	return &fixture{t: t, projects: filepath.Join(t.TempDir(), "projects"), store: open(t, filepath.Join(t.TempDir(), "stats.db")), now: time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)}
+	db := filepath.Join(t.TempDir(), "stats.db")
+	return &fixture{t: t, projects: filepath.Join(t.TempDir(), "projects"), store: open(t, db), db: db, now: time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)}
 }
 
 func (f *fixture) transcriptPath(session string) string {

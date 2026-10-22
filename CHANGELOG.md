@@ -95,6 +95,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The daemon no longer compares every pair of sessions again on every prompt.**
   Grouping keeps each pair's score and scores again only the pairs a prompt can have changed, and the prompt history is read from where it was last read, rather than parsed from the start twice on every load; with 100 sessions on the map, a prompt costs the daemon about 20 ms of CPU, not 150 ms.
 
+- **The daemon no longer reads every session's statistics again whenever a transcript changes.**
+  The statistics database now records which sessions' counters a write changed, whichever program wrote it, and the daemon reads only those; on a 3.2 GiB history that was about 85 ms of CPU for every line a session wrote.
+
 - **At night, lit windows no longer show through what stands in front of them.**
   A district's sign, a building's own painted name, its beacon and flags, and a scaffold's tubes and boards now hide the windows behind them, as a building in front always did; something half transparent dims the light behind it rather than hiding it.
 

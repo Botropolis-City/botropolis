@@ -15,22 +15,44 @@ import (
 	"botropolis.city/botropolis/testing/helpers"
 )
 
-// fakeStats is a statistics store: hefts before a refresh, and after.
+// fakeStats is a statistics store: hefts at start-up, and the sessions
+// the next ingest moves, with their counters after it.
 type fakeStats struct {
-	mu        sync.Mutex
-	hefts     map[string]claude.Usage
-	refreshed map[string]claude.Usage
-	ingests   int
+	mu      sync.Mutex
+	hefts   map[string]claude.Usage
+	next    *move
+	moved   *move
+	ingests int
+}
+
+type move struct {
+	hefts map[string]claude.Usage
+	ids   []string
 }
 
 func (f *fakeStats) Ingest(string, time.Time, func()) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.ingests++
-	if f.refreshed != nil {
-		f.hefts = f.refreshed
-	}
+	f.moved, f.next = f.next, nil
 	return nil
+}
+
+func (f *fakeStats) MovedHefts() (map[string]claude.Usage, []string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m := f.moved
+	f.moved = nil
+	if m == nil {
+		return map[string]claude.Usage{}, nil, nil
+	}
+	return m.hefts, m.ids, nil
+}
+
+func (f *fakeStats) ingested() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.ingests
 }
 
 func (f *fakeStats) Hefts() (map[string]claude.Usage, error) {
@@ -111,7 +133,7 @@ func TestStoredHefts(t *testing.T) {
 
 	t.Run("when the store was empty at start-up", func(t *testing.T) {
 		done := make(chan struct{}, 8)
-		src := &fakeStats{hefts: map[string]claude.Usage{}, refreshed: map[string]claude.Usage{sid: stored}}
+		src := &fakeStats{hefts: map[string]claude.Usage{}, next: &move{hefts: map[string]claude.Usage{sid: stored}, ids: []string{sid}}}
 		loader, snapshot := load(t, src, func() { done <- struct{}{} })
 
 		t.Run("it should not report them read", func(t *testing.T) {
@@ -143,6 +165,57 @@ func TestStoredHefts(t *testing.T) {
 			src.mu.Lock()
 			defer src.mu.Unlock()
 			assert.Equal(t, 1, src.ingests)
+		})
+	})
+
+	// Item 196: a pass reads again only the sessions the store says
+	// moved.
+	t.Run("when the store held hefts at start-up", func(t *testing.T) {
+		grown := claude.Usage{Input: 1000, Output: 9000, CacheRead: 50_000}
+		startUp := func() map[string]claude.Usage { return map[string]claude.Usage{sid: stored, gone: {Output: 777}} }
+		scaleAfter := func(t *testing.T, loader *state.Loader) []int64 {
+			t.Helper()
+			after, err := loader.Load(now.Add(time.Second))
+			require.NoError(t, err)
+			got := slices.Clone(after.ScaleHefts)
+			slices.Sort(got)
+			return got
+		}
+
+		t.Run("and a pass finds a session moved", func(t *testing.T) {
+			done := make(chan struct{}, 8)
+			src := &fakeStats{hefts: startUp(), next: &move{hefts: map[string]claude.Usage{sid: grown}, ids: []string{sid}}}
+			loader, _ := load(t, src, func() { done <- struct{}{} })
+			waitFor(t, done)
+
+			t.Run("it should take that session's new heft and keep the others", func(t *testing.T) {
+				assert.Equal(t, []int64{goneHeft, state.Heft(grown)}, scaleAfter(t, loader))
+			})
+		})
+
+		t.Run("and a pass finds a moved session with no counters", func(t *testing.T) {
+			done := make(chan struct{}, 8)
+			src := &fakeStats{hefts: startUp(), next: &move{hefts: map[string]claude.Usage{}, ids: []string{gone}}}
+			loader, _ := load(t, src, func() { done <- struct{}{} })
+			waitFor(t, done)
+
+			t.Run("it should drop its heft", func(t *testing.T) {
+				assert.Equal(t, []int64{storedHeft}, scaleAfter(t, loader))
+			})
+		})
+
+		t.Run("and a pass finds nothing moved", func(t *testing.T) {
+			done := make(chan struct{}, 8)
+			src := &fakeStats{hefts: startUp()}
+			loader, _ := load(t, src, func() { done <- struct{}{} })
+			require.Eventually(t, func() bool {
+				_, err := loader.Load(now.Add(time.Second))
+				return err == nil && src.ingested() >= 2
+			}, 30*time.Second, 10*time.Millisecond)
+
+			t.Run("it should not call done", func(t *testing.T) {
+				assert.Empty(t, done)
+			})
 		})
 	})
 }

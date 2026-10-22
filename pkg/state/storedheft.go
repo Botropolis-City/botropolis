@@ -10,11 +10,14 @@ import (
 )
 
 // StatsSource is the statistics store as the loader needs it: brought up
-// to date from the transcripts, and every stored session's counters.
+// to date from the transcripts, every stored session's counters, and
+// the counters of only the sessions that moved since they were last
+// read, a moved session without counters being one forgotten (item 196).
 // Ingest calls yield often, and yield waits while a load runs.
 type StatsSource interface {
 	Ingest(projectsDir string, now time.Time, yield func()) error
 	Hefts() (map[string]claude.Usage, error)
+	MovedHefts() (map[string]claude.Usage, []string, error)
 }
 
 // storedHefts takes hefts from the statistics store instead of reading
@@ -37,6 +40,7 @@ type storedHefts struct {
 // hefts src already holds are read now, so a restart starts on the
 // user's own scale.
 func (l *Loader) WithStats(src StatsSource, done func()) *Loader {
+	_, _, _ = src.MovedHefts()
 	hefts, err := src.Hefts()
 	if err != nil {
 		hefts = nil
@@ -90,9 +94,28 @@ func (h *storedHefts) pass(projectsDir string, now time.Time) {
 	yield := func() { h.pace.yield(h.yield) }
 	changed := false
 	if err := h.src.Ingest(projectsDir, now, yield); err == nil {
-		if hefts, err := h.src.Hefts(); err == nil {
+		if moved, ids, err := h.src.MovedHefts(); err == nil {
 			h.mu.Lock()
-			changed = !h.read || !maps.Equal(hefts, h.hefts)
+			changed = !h.read
+			hefts := h.hefts
+			if len(ids) > 0 {
+				hefts = maps.Clone(h.hefts)
+			}
+			if hefts == nil {
+				hefts = map[string]claude.Usage{}
+			}
+			for _, id := range ids {
+				u, ok := moved[id]
+				if old, had := hefts[id]; ok == had && u == old {
+					continue
+				}
+				changed = true
+				if ok {
+					hefts[id] = u
+				} else {
+					delete(hefts, id)
+				}
+			}
 			h.hefts, h.read = hefts, true
 			h.mu.Unlock()
 		}

@@ -68,6 +68,10 @@ func (s *slowIngest) Hefts() (map[string]claude.Usage, error) {
 	return map[string]claude.Usage{}, nil
 }
 
+func (s *slowIngest) MovedHefts() (map[string]claude.Usage, []string, error) {
+	return map[string]claude.Usage{}, nil, nil
+}
+
 // Item 138: while the statistics were backfilled on a busy machine, a
 // session's change of state reached the map 6-15 s late.
 func TestStateChangeDuringBackfill(t *testing.T) {

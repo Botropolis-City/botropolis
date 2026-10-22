@@ -29,6 +29,10 @@ func (p *priorityStats) Hefts() (map[string]claude.Usage, error) {
 	return map[string]claude.Usage{}, nil
 }
 
+func (p *priorityStats) MovedHefts() (map[string]claude.Usage, []string, error) {
+	return map[string]claude.Usage{}, nil, nil
+}
+
 // Items 138 and 159.
 func TestStoredHeftsPriority(t *testing.T) {
 	t.Run("when the background pass ingests", func(t *testing.T) {

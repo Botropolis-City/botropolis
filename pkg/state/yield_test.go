@@ -33,6 +33,10 @@ func (y *yieldingStats) Hefts() (map[string]claude.Usage, error) {
 	return map[string]claude.Usage{}, nil
 }
 
+func (y *yieldingStats) MovedHefts() (map[string]claude.Usage, []string, error) {
+	return map[string]claude.Usage{}, nil, nil
+}
+
 // Item 138: the backfill gives way while a load runs.
 func TestStoredHeftsYield(t *testing.T) {
 	t.Run("when a load is running and the pass yields", func(t *testing.T) {

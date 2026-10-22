@@ -28,6 +28,10 @@ func (w *workingStats) Hefts() (map[string]claude.Usage, error) {
 	return map[string]claude.Usage{}, nil
 }
 
+func (w *workingStats) MovedHefts() (map[string]claude.Usage, []string, error) {
+	return map[string]claude.Usage{}, nil, nil
+}
+
 // onOwnThread runs a pass on a goroutine of its own: a pass locks its
 // thread and lowers its priority, and the test's goroutine may be on
 // the main thread, which Go keeps when a locked goroutine exits.
