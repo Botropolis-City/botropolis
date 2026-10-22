@@ -72,6 +72,130 @@ func TestFirstLaunch(t *testing.T) {
 	})
 }
 
+// Item 203: on Aria's history, 3.3 GiB in 195 transcripts, the 30 that
+// were live or active in the last day held 708 MiB, and the daemon's
+// first load read them all, whole or from a day back, at a core for 9 s
+// before the map could draw. The suite's home had none, so its first
+// load was instant. This home has the real one's shape: several hundred
+// stopped sessions, and a day's work held mostly in one very large live
+// session (Aria's largest that day was 482 MiB, the next 116 MiB).
+//
+// The first snapshot is held to what drawing it needs, each
+// transcript's window, in bytes, which load cannot move: 52 MiB here,
+// against 434 MiB before the fix. Its work is logged but gates only at
+// a real size, BOTROPOLIS_FIRST_LAUNCH_GB set for a report, against 2
+// CPU-seconds, the 5 s budget less the city's own second. In the suite
+// no limit in CPU-seconds separates the fix from what it fixed: the
+// same fixed first load measured 0.66-0.87 CPU-seconds at a load of 9
+// and up to 1.65 at a load of 30, and the code before the fix
+// 1.50-2.13, so any limit between them would fail landings at random.
+// Every 1 s sample is held to one core, which the code before the fix
+// broke at 110-118%, and the unpaced first load at 111-115%.
+func TestFirstLaunchLoad(t *testing.T) {
+	const (
+		window        = 2 * 64 << 10
+		slack         = 16 << 20
+		maxCPUSeconds = 2.0
+		clockTicksSec = 100
+		maxCores      = 1.0
+		stopped       = 400
+	)
+	scale := 1.0
+	if gb, err := strconv.ParseFloat(os.Getenv(firstLaunchGB), 64); err == nil && gb > 0 {
+		scale = gb * 1024 / 484
+	}
+	sized := func(n int64) int64 { return int64(float64(n) * scale) }
+	old := sized(256 << 10)
+	liveSizes := []int64{sized(288 << 20), sized(16 << 20)}
+	todaySizes := []int64{sized(64 << 20), sized(16 << 20)}
+	now := time.Now()
+
+	t.Run(fmt.Sprintf("when the daemon starts on an empty state directory over a home shaped like a real one: %d stopped sessions of %d KiB, live sessions of %d and %d MiB, and stopped ones active today of %d and %d MiB", stopped, old>>10, liveSizes[0]>>20, liveSizes[1]>>20, todaySizes[0]>>20, todaySizes[1]>>20), func(t *testing.T) {
+		root := t.TempDir()
+		home := helpers.HomeAt(t, filepath.Join(root, "home"))
+		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		for s := range stopped {
+			syntheticSession(t, home, syntheticSID(s), at.Add(time.Duration(s)*time.Hour), old)
+		}
+		var live []string
+		turns := 0
+		for i, pid := range []int{os.Getpid(), os.Getppid()} {
+			sid := syntheticSID(stopped + i)
+			home.Session(pid, sid, syntheticCWD, "interactive", "idle")
+			_, n := syntheticSession(t, home, sid, now.Add(-3*time.Hour), liveSizes[i])
+			live, turns = append(live, sid), turns+n
+		}
+		for i, size := range todaySizes {
+			_, n := syntheticSession(t, home, syntheticSID(stopped+2+i), now.Add(-20*time.Hour), size)
+			turns += n
+		}
+		l := &launch{root: root, home: home.Path}
+		run := l.start(t)
+		idle := make(chan struct{})
+		go func() {
+			defer close(idle)
+			run.untilIdle(t)
+		}()
+		var client *proto.Client
+		require.Eventually(t, func() bool {
+			c, err := proto.Dial(run.socket)
+			client = c
+			return err == nil
+		}, time.Minute, 10*time.Millisecond)
+		_, err := client.Snapshot()
+		require.NoError(t, err)
+		readFirst := bytesRead(t, run.pid)
+		cpuFirst := float64(cpuTicks(t, run.pid)) / clockTicksSec
+		_ = client.Close()
+		<-idle
+		client, err = proto.Dial(run.socket)
+		require.NoError(t, err)
+		settled, err := client.Snapshot()
+		require.NoError(t, err)
+		_ = client.Close()
+		transcripts := int64(stopped + 4)
+		t.Logf("first snapshot after %d MiB and %.2f CPU-seconds; idle after %s at a peak of %.0f%% of a core",
+			readFirst>>20, cpuFirst, run.took.Round(time.Second), run.peakShare*100)
+
+		t.Run("it should read no more than each transcript's window before its first snapshot", func(t *testing.T) {
+			assert.LessOrEqual(t, readFirst, transcripts*window+slack)
+		})
+
+		if scale != 1 {
+			t.Run("it should send its first snapshot within 2 CPU-seconds", func(t *testing.T) {
+				assert.LessOrEqual(t, cpuFirst, maxCPUSeconds)
+			})
+		}
+
+		t.Run("it should use at most one core in any 1 s sample", func(t *testing.T) {
+			assert.LessOrEqual(t, run.peakShare, maxCores)
+		})
+
+		t.Run("and it has settled", func(t *testing.T) {
+			for _, sid := range live {
+				t.Run("it should hold live session "+sid[:8]+"'s usage whole", func(t *testing.T) {
+					assert.False(t, sessionIn(t, settled, sid).Usage.Partial)
+				})
+			}
+
+			t.Run("it should give the plant the day's whole output", func(t *testing.T) {
+				assert.Equal(t, int64(5*turns), settled.Power.Output)
+			})
+		})
+	})
+}
+
+func sessionIn(t *testing.T, snapshot state.Snapshot, id string) state.Session {
+	t.Helper()
+	for _, s := range snapshot.Sessions {
+		if s.ID == id {
+			return s
+		}
+	}
+	require.FailNow(t, "no session "+id)
+	return state.Session{}
+}
+
 // Item 159: on the 265U, 0.2.2 stopped 6 s into a first launch read
 // 89% of the history again when started on the same state. The
 // transcripts here are longer than a checkpoint, so a stop lands inside
@@ -417,30 +541,43 @@ func (r *daemonRun) untilIdle(t *testing.T) {
 // real transcripts large. It returns how many bytes it wrote.
 func syntheticHistory(t *testing.T, home *helpers.Home, size, perSession int64) int64 {
 	t.Helper()
-	const cwd = "/home/user/src/history"
-	output := strings.Repeat("x", 6<<10)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	var written int64
 	for s := 0; written < size; s++ {
-		sid := fmt.Sprintf("%08x-0000-4000-8000-%012x", s, s)
-		path := home.Transcript(sid, cwd)
-		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
-		require.NoError(t, err)
-		w := bufio.NewWriterSize(f, 1<<20)
-		var inSession int64
-		for turn := 0; inSession < perSession && written+inSession < size; turn++ {
-			ts := at.Add(time.Duration(s)*time.Hour + time.Duration(turn)*time.Second).Format(time.RFC3339Nano)
-			prompt := strings.Replace(helpers.UserPrompt(sid, cwd, ts), `"content":"hi"`, `"content":"`+output+`"`, 1)
-			reply := helpers.AssistantReply(sid, fmt.Sprintf("msg_%d_%d", s, turn), ts)
-			n, err := fmt.Fprintf(w, "%s\n%s\n", prompt, reply)
-			require.NoError(t, err)
-			inSession += int64(n)
-		}
-		require.NoError(t, w.Flush())
-		require.NoError(t, f.Close())
-		written += inSession
+		n, _ := syntheticSession(t, home, syntheticSID(s), at.Add(time.Duration(s)*time.Hour), min(perSession, size-written))
+		written += n
 	}
 	return written
+}
+
+const syntheticCWD = "/home/user/src/history"
+
+func syntheticSID(s int) string {
+	return fmt.Sprintf("%08x-0000-4000-8000-%012x", s, s)
+}
+
+// syntheticSession writes one session of turns a second apart from
+// start until it holds size bytes, and returns the bytes and turns.
+func syntheticSession(t *testing.T, home *helpers.Home, sid string, start time.Time, size int64) (int64, int) {
+	t.Helper()
+	output := strings.Repeat("x", 6<<10)
+	path := home.Transcript(sid, syntheticCWD)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+	require.NoError(t, err)
+	w := bufio.NewWriterSize(f, 1<<20)
+	var written int64
+	turns := 0
+	for ; written < size; turns++ {
+		ts := start.Add(time.Duration(turns) * time.Second).Format(time.RFC3339Nano)
+		prompt := strings.Replace(helpers.UserPrompt(sid, syntheticCWD, ts), `"content":"hi"`, `"content":"`+output+`"`, 1)
+		reply := helpers.AssistantReply(sid, fmt.Sprintf("msg_%s_%d", sid[:8], turns), ts)
+		n, err := fmt.Fprintf(w, "%s\n%s\n", prompt, reply)
+		require.NoError(t, err)
+		written += int64(n)
+	}
+	require.NoError(t, w.Flush())
+	require.NoError(t, f.Close())
+	return written, turns
 }
 
 // bytesRead is what the process has read, from any file, in bytes.

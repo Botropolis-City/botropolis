@@ -22,6 +22,11 @@ func shown(done, known int64) *ScanProgress {
 // Progress is how far the running background read of the history has
 // got, or nil when none worth showing is running.
 func (l *Loader) Progress() *ScanProgress {
+	if l.later != nil {
+		if p := l.later.progress(); p != nil {
+			return p
+		}
+	}
 	switch {
 	case l.stored != nil:
 		return l.stored.progress()

@@ -18,6 +18,7 @@ type wholeRead struct {
 	readFile func(path string) (int64, bool)
 	mu       sync.Mutex
 	hefts    map[string]cachedHeft
+	lane     chan struct{}
 	running  bool
 	passed   bool
 	reads    atomic.Int64
@@ -41,7 +42,8 @@ type stoppedFile struct {
 // so the caller can load again. Without it, stopped sessions' hefts stay
 // lower bounds and the scale stays on the starter lines.
 func (l *Loader) WithWholeRead(done func()) *Loader {
-	l.whole = &wholeRead{done: done, pace: newPace(), readFile: readHeft, hefts: map[string]cachedHeft{}}
+	l.whole = &wholeRead{done: done, pace: newPace(), readFile: readHeft, hefts: map[string]cachedHeft{}, lane: l.lane}
+	l.later = newLaterRead(done, l.gate.yield, l.lane)
 	return l
 }
 
@@ -114,6 +116,7 @@ func (w *wholeRead) start(pending []stoppedFile) bool {
 func (w *wholeRead) pass(todo []stoppedFile) {
 	runtime.LockOSThread()
 	backgroundPriority()
+	takeLane(w.lane)
 	w.pace.start()
 	w.mu.Lock()
 	w.readBytes, w.knownBytes = 0, 0
@@ -133,6 +136,7 @@ func (w *wholeRead) pass(todo []stoppedFile) {
 	w.mu.Lock()
 	w.running, w.passed = false, true
 	w.mu.Unlock()
+	freeLane(w.lane)
 	if w.done != nil {
 		w.done()
 	}

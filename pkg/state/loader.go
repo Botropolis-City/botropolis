@@ -68,6 +68,27 @@ type Loader struct {
 	// loadDone and loadTotal are the running load's sessions read and
 	// found, for a city waiting on the first one (item 159).
 	loadDone, loadTotal atomic.Int64
+	// later reads after the first load what that load read only through
+	// windows, and lane keeps the background passes to one at a time
+	// (item 203).
+	later     *laterRead
+	lane      chan struct{}
+	loaded    bool
+	firstPace *pace
+}
+
+// firstLoadShare is the fraction of the wall clock the first load works
+// for, with a background pass: it is all windows, about a second of
+// parsing on a home of several hundred transcripts, and the collector's
+// threads beside it took a 1 s sample to 111% of a core unpaced. Three
+// quarters keeps it under one, for a quarter more of the wait before
+// the map (item 203).
+const firstLoadShare = 0.75
+
+func (l *Loader) paceFirst() {
+	if l.firstPace != nil {
+		l.firstPace.yield(func() {})
+	}
 }
 
 // LoadProgress is how many sessions a load has read, of how many it
@@ -93,6 +114,7 @@ func NewLoader(home string, probes Probes) *Loader {
 
 		parkedSubagents: map[string]cachedSubagent{},
 		index:           claude.NewIndex(),
+		lane:            make(chan struct{}, 1),
 	}
 }
 
@@ -114,6 +136,13 @@ func (l *Loader) WatchDirs() []string {
 
 func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	defer l.gate.hold()()
+	first := !l.loaded
+	l.loaded = true
+	if first && l.later != nil {
+		l.firstPace = &pace{fraction: firstLoadShare, now: time.Now, sleep: time.Sleep}
+		l.firstPace.start()
+		defer func() { l.firstPace = nil }()
+	}
 	l.index.Refresh()
 	claudeDir := filepath.Join(l.home, ".claude")
 	projectsDir := filepath.Join(claudeDir, "projects")
@@ -150,12 +179,13 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	l.loadTotal.Store(int64(len(src.Records) + len(paths)))
 	for _, r := range src.Records {
 		l.loadDone.Add(1)
+		l.paceFirst()
 		path, ok := l.index.Find(projectsDir, r.SessionID)
 		if !ok {
 			continue
 		}
 		dirs = append(dirs, filepath.Dir(path), strings.TrimSuffix(path, ".jsonl"), claude.SubagentsDir(path))
-		entry, err := l.transcript(path)
+		entry, err := l.transcript(path, first)
 		if err != nil {
 			snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: path, Err: err})
 			continue
@@ -185,7 +215,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	// Every stopped session Claude Code still has a transcript for is
 	// catalogued, however old: time ages a session, it never takes one
 	// off the map (item 86).
-	stopped, stoppedSubs, skipped, err := l.catalogue(paths, live, now.Add(-PowerWindow))
+	stopped, stoppedSubs, skipped, err := l.catalogue(paths, live, now.Add(-PowerWindow), first)
 	if err != nil {
 		return snapshot, err
 	}
@@ -199,6 +229,9 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 			snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: l.ledgerPath, Err: err})
 		}
 		snapshot.Sessions = sessions
+	}
+	if l.later != nil {
+		l.later.start()
 	}
 	if l.stored != nil {
 		snapshot.HeftsRead, snapshot.ScaleHefts = l.stored.apply(snapshot.Sessions, projectsDir, now)
@@ -255,7 +288,7 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 	return l.stats, nil
 }
 
-func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time.Time) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
+func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time.Time, first bool) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
 	parked := make([]claude.Transcript, 0, len(paths))
 	var skipped []claude.SkippedFile
 	cache := make(map[string]cachedTranscript, len(l.parked))
@@ -264,6 +297,7 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 	files := make(map[string]stoppedFile, len(l.stoppedFiles))
 	for _, path := range paths {
 		l.loadDone.Add(1)
+		l.paceFirst()
 		id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		if live[id] {
 			continue
@@ -274,9 +308,13 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 			continue
 		}
 		entry, ok := l.parked[path]
+		if later, read := l.later.take(path); read && later.key == key {
+			later.transcript.Project = filepath.Base(filepath.Dir(path))
+			entry, ok = cachedTranscript{key: key, transcript: later.transcript}, true
+		}
 		if !ok || entry.key != key {
 			l.reads++
-			transcript, err := l.stoppedTranscript(path, powerSince)
+			transcript, err := l.stoppedTranscript(path, key, powerSince, first)
 			if err != nil {
 				skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
 				continue
@@ -309,10 +347,20 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 // from the plant's window on if it was active since that opened,
 // because the plant sums its hours and a window keeps only the head and
 // the tail of them (item 94).
-func (l *Loader) stoppedTranscript(path string, powerSince time.Time) (claude.Transcript, error) {
+//
+// With a background pass, the first load leaves that longer read to the
+// later read, and every load reads the window until it has finished
+// (item 203).
+func (l *Loader) stoppedTranscript(path string, key fileKey, powerSince time.Time, first bool) (claude.Transcript, error) {
 	transcript, err := claude.ReadTranscriptWindow(path, stoppedWindowBytes)
 	if err != nil || !transcript.Partial || transcript.LastAt.Before(powerSince) {
 		return transcript, err
+	}
+	if l.later != nil && first {
+		l.later.hold(laterJob{path: path, size: key.size, since: powerSince})
+	}
+	if l.later.holding(path) {
+		return transcript, nil
 	}
 	l.reads++
 	return claude.ReadTranscriptSince(path, stoppedWindowBytes, powerSince)
@@ -346,14 +394,33 @@ func (l *Loader) stoppedSubagents(path string, next map[string]cachedSubagent) (
 	return subs, skipped
 }
 
-func (l *Loader) transcript(path string) (cachedTranscript, error) {
+// transcript reads a live transcript on from where its reader stopped.
+// With a background pass, the first load reads one longer than a window
+// through the window and leaves the whole read to the later read, whose
+// reader every load after it carries on with (item 203).
+func (l *Loader) transcript(path string, first bool) (cachedTranscript, error) {
 	key, err := stat(path)
 	if err != nil {
 		return cachedTranscript{}, err
 	}
 	entry, ok := l.transcripts[path]
+	if later, read := l.later.take(path); read && later.reader != nil {
+		entry, ok = later, false
+	}
 	if ok && entry.key == key {
 		return entry, nil
+	}
+	if l.later != nil && first && entry.reader == nil && key.size > 2*stoppedWindowBytes {
+		l.later.hold(laterJob{path: path, size: key.size, live: true})
+	}
+	if entry.reader == nil && l.later.holding(path) {
+		l.reads++
+		transcript, err := claude.ReadTranscriptWindow(path, stoppedWindowBytes)
+		if err != nil {
+			return cachedTranscript{}, err
+		}
+		transcript.Project = filepath.Base(filepath.Dir(path))
+		return cachedTranscript{key: key, transcript: transcript}, nil
 	}
 	reader := entry.reader
 	if reader == nil {

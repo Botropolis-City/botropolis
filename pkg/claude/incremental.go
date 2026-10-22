@@ -36,10 +36,21 @@ type TranscriptReader struct {
 	// halted is a scan stopped at a line longer than the cap, as a whole
 	// read stops, so nothing after it is read.
 	halted bool
+	// yield, while a paced read runs, is called after every yieldEvery
+	// bytes read (item 203).
+	yield func()
 }
 
 func NewTranscriptReader(path string) *TranscriptReader {
 	return &TranscriptReader{path: path}
+}
+
+// ReadPaced is Read calling yield after every yieldEvery bytes it reads,
+// so a background pass can pace a long transcript inside it (item 203).
+func (r *TranscriptReader) ReadPaced(yield func()) (Transcript, error) {
+	r.yield = yield
+	defer func() { r.yield = nil }()
+	return r.Read()
 }
 
 func (r *TranscriptReader) Read() (Transcript, error) {
@@ -117,7 +128,7 @@ func (r *TranscriptReader) readOn(f *os.File) (torn bool, err error) {
 	}
 	var advance int
 	var ended bool
-	scanner := bufio.NewScanner(countedReader{f})
+	scanner := bufio.NewScanner(yielding(countedReader{f}, r.yield))
 	scanner.Buffer(nil, maxTranscriptLine)
 	scanner.Split(func(data []byte, atEOF bool) (int, []byte, error) {
 		a, token, err := bufio.ScanLines(data, atEOF)

@@ -21,6 +21,12 @@ const sinceChunk = 64 << 10
 // line, and until it has met a cost-state record, because the cost is
 // the last one's. A walk that reaches the head reads the file whole.
 func ReadTranscriptSince(path string, window int64, since time.Time) (Transcript, error) {
+	return ReadTranscriptSincePaced(path, window, since, nil)
+}
+
+// ReadTranscriptSincePaced is ReadTranscriptSince calling yield after
+// every yieldEvery bytes it scans (item 203).
+func ReadTranscriptSincePaced(path string, window int64, since time.Time, yield func()) (Transcript, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return Transcript{}, err
@@ -49,28 +55,28 @@ func ReadTranscriptSince(path string, window int64, since time.Time) (Transcript
 	hourStart := since.Unix() / 3600 * 3600
 	scan := newTranscriptScan(path, false)
 	if !beganBefore(head, hourStart) {
-		return scanWhole(scan, f)
+		return scanWhole(scan, f, yield)
 	}
 	start, err := walkBack(f, int64(len(head)), info.Size(), hourStart)
 	if err != nil {
 		return Transcript{}, err
 	}
 	if start <= int64(len(head)) {
-		return scanWhole(scan, f)
+		return scanWhole(scan, f, yield)
 	}
 	scan.transcript.Partial = true
 	scanLines(scan, bytes.NewReader(head))
-	scanLines(scan, io.NewSectionReader(f, start, info.Size()-start))
+	scanLines(scan, yielding(io.NewSectionReader(f, start, info.Size()-start), yield))
 	t := scan.finish()
 	t.Usage.Partial = true
 	return t, nil
 }
 
-func scanWhole(scan *transcriptScan, f *os.File) (Transcript, error) {
+func scanWhole(scan *transcriptScan, f *os.File, yield func()) (Transcript, error) {
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return Transcript{}, err
 	}
-	scanLines(scan, f)
+	scanLines(scan, yielding(f, yield))
 	return scan.finish(), nil
 }
 

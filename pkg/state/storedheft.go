@@ -29,6 +29,7 @@ type storedHefts struct {
 	yield   func()
 	pace    *pace
 	done    func()
+	lane    chan struct{}
 	mu      sync.Mutex
 	hefts   map[string]claude.Usage
 	read    bool
@@ -45,7 +46,8 @@ func (l *Loader) WithStats(src StatsSource, done func()) *Loader {
 	if err != nil {
 		hefts = nil
 	}
-	l.stored = &storedHefts{src: src, yield: l.gate.yield, pace: newPace(), done: done, hefts: hefts, read: len(hefts) > 0}
+	l.stored = &storedHefts{src: src, yield: l.gate.yield, pace: newPace(), done: done, hefts: hefts, read: len(hefts) > 0, lane: l.lane}
+	l.later = newLaterRead(done, l.gate.yield, l.lane)
 	return l
 }
 
@@ -90,6 +92,7 @@ func (h *storedHefts) start(projectsDir string, now time.Time) {
 func (h *storedHefts) pass(projectsDir string, now time.Time) {
 	runtime.LockOSThread()
 	backgroundPriority()
+	takeLane(h.lane)
 	h.pace.start()
 	yield := func() { h.pace.yield(h.yield) }
 	changed := false
@@ -123,6 +126,7 @@ func (h *storedHefts) pass(projectsDir string, now time.Time) {
 	h.mu.Lock()
 	h.running = false
 	h.mu.Unlock()
+	freeLane(h.lane)
 	if changed && h.done != nil {
 		h.done()
 	}
