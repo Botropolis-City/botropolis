@@ -88,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The first launch no longer takes the machine.**
   Reading your whole history for the first time used up to four cores; the daemon now reads it at most half the time, at a lower CPU priority on Linux, so it stays under one core in all.
+  On macOS its disk reads now wait behind everyone else's; its CPU priority stays where it was there, because every lower one measured froze the whole daemon on Apple silicon.
   The first read takes about twice as long, and nothing else waits for it.
   Quitting part-way through it now loses at most 16 MiB of one transcript, where it used to start that transcript over, however long.
   While it reads, the footer shows how far it has got on a bar, as in "Reading your history · 42% · about 6 min left", with the time left once its pace has settled.

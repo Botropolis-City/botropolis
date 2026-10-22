@@ -108,7 +108,17 @@ func TestBackgroundPriority(t *testing.T) {
 
 	t.Run("when no policy has been chosen", func(t *testing.T) {
 		r := onFreshThread(t, func() {})
-		t.Logf("the shipped policy is %s", shippedPolicy)
-		assertChange(t, policyChanges[shippedPolicy].from(r.before), r)
+
+		t.Run("it should throttle the thread's disk I/O", func(t *testing.T) {
+			assert.Equal(t, iopolThrottle, r.after.DiskIO)
+		})
+
+		t.Run("it should leave the thread out of PRIO_DARWIN_BG", func(t *testing.T) {
+			assert.False(t, r.after.DarwinBG)
+		})
+
+		t.Run("it should leave the thread's base priority where it was", func(t *testing.T) {
+			assert.Equal(t, r.before.BasePriority, r.after.BasePriority)
+		})
 	})
 }

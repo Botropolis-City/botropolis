@@ -25,14 +25,18 @@ import (
 )
 
 const (
-	backfillChild  = "BOTROPOLIS_BACKFILL_CHILD"
-	matrixEnv      = "BOTROPOLIS_DARWIN_PRIORITY_MATRIX"
-	cellDeadline   = 90 * time.Second
-	debounce       = 100 * time.Millisecond
-	backfillBound  = 500 * time.Millisecond
-	gaveUp         = 15 * time.Second
-	heartbeatEvery = 10 * time.Millisecond
-	stoppingMetric = "/sched/pauses/stopping/gc:seconds"
+	backfillChild = "BOTROPOLIS_BACKFILL_CHILD"
+	matrixEnv     = "BOTROPOLIS_DARWIN_PRIORITY_MATRIX"
+	cellDeadline  = 90 * time.Second
+
+	// shippedCell runs the child with no policy chosen, so it gets what
+	// ships.
+	shippedCell    state.BackgroundPolicy = "shipped"
+	debounce                              = 100 * time.Millisecond
+	backfillBound                         = 500 * time.Millisecond
+	gaveUp                                = 15 * time.Second
+	heartbeatEvery                        = 10 * time.Millisecond
+	stoppingMetric                        = "/sched/pauses/stopping/gc:seconds"
 )
 
 var godebugs = []string{"", "asyncpreemptoff=1"}
@@ -117,20 +121,25 @@ func (s *slowIngest) MovedHefts() (map[string]claude.Usage, []string, error) {
 	return map[string]claude.Usage{}, nil, nil
 }
 
-// Item 200: item 138's inversion test, ported to macOS, over every
-// background policy item 200 weighs. Busy child processes load every
-// core, since busy goroutines would be stopped by the collector too.
-// It runs alone, in its own CI step: beside the other packages' tests,
-// its busy loops held a thread at PRIO_DARWIN_BG off the CPU for 30
-// minutes. A cell whose process froze, or whose ingest never moved, is
-// a result to read, so only whether each policy took effect is asserted.
+// Item 200: item 138's inversion test, ported to macOS. Busy child
+// processes load every core, since busy goroutines would be stopped by
+// the collector too. It runs alone, in its own CI step: beside the other
+// packages' tests, its busy loops held a thread at PRIO_DARWIN_BG off
+// the CPU for 30 minutes.
+//
+// By default it gates the shipped policy. With the variable set to all,
+// it measures every policy item 200 weighed, each with and without
+// asyncpreemptoff; a cell whose process froze, or whose ingest never
+// moved, is a result to read there, so only whether each policy took
+// effect is asserted.
 func TestStateChangeDuringBackfillOnDarwin(t *testing.T) {
 	if os.Getenv(backfillChild) != "" {
 		measureCell(t, state.BackgroundPolicy(os.Getenv(backfillChild)))
 		return
 	}
-	if os.Getenv(matrixEnv) == "" {
-		t.Skipf("set %s=1 to measure every policy; CI's macOS jobs run it in a step of its own", matrixEnv)
+	mode := os.Getenv(matrixEnv)
+	if mode == "" {
+		t.Skipf("set %s=shipped to gate the shipped policy, or =all to measure every one; CI's macOS jobs run it in a step of its own", matrixEnv)
 	}
 	cpus, err := unix.SysctlUint32("hw.logicalcpu")
 	require.NoError(t, err)
@@ -144,35 +153,75 @@ func TestStateChangeDuringBackfillOnDarwin(t *testing.T) {
 				_ = loop.Wait()
 			})
 		}
-		for _, policy := range state.BackgroundPolicies {
-			for _, godebug := range godebugs {
-				t.Run(fmt.Sprintf("and the pass runs under %s with GODEBUG %q", policy, godebug), func(t *testing.T) {
-					m := runCell(t, policy, godebug)
-					if m.Froze {
-						t.Logf("item 200 cell: policy=%s godebug=%q froze: no result within %v", policy, godebug, cellDeadline)
-						return
-					}
-					t.Logf("item 200 cell: policy=%s godebug=%q state-change=%v stopping-max=%v stopping-p99=%v pauses=%d heartbeat-gap=%v yields=%d before=%+v pass=%+v",
-						m.Policy, m.GODEBUG, m.StateChange, m.StoppingMax, m.StoppingP99, m.Pauses, m.HeartbeatGap, m.Yields, m.Before, m.Pass)
-					want := policyPriorities[policy]
-
-					t.Run("it should apply the policy's PRIO_DARWIN_BG flag to the pass's thread", func(t *testing.T) {
-						assert.Equal(t, want.darwinBG, m.Pass.DarwinBG)
-					})
-
-					if want.readsQoS {
-						t.Run("it should apply the policy's QoS class to the pass's thread", func(t *testing.T) {
-							assert.Equal(t, want.qos, m.Pass.QoS)
-						})
-					}
-
-					t.Run("it should apply the policy's disk I/O policy to the pass's thread", func(t *testing.T) {
-						assert.Equal(t, cmp(want.diskIO, m.Before.DiskIO), m.Pass.DiskIO)
-					})
-				})
-			}
+		if mode == "all" {
+			measureEveryPolicy(t)
+			return
 		}
+		gateShippedPolicy(t)
 	})
+}
+
+func logCell(t *testing.T, m measured) {
+	t.Helper()
+	if m.Froze {
+		t.Logf("item 200 cell: policy=%s godebug=%q froze: no result within %v", m.Policy, m.GODEBUG, cellDeadline)
+		return
+	}
+	t.Logf("item 200 cell: policy=%s godebug=%q state-change=%v stopping-max=%v stopping-p99=%v pauses=%d heartbeat-gap=%v yields=%d before=%+v pass=%+v",
+		m.Policy, m.GODEBUG, m.StateChange, m.StoppingMax, m.StoppingP99, m.Pauses, m.HeartbeatGap, m.Yields, m.Before, m.Pass)
+}
+
+func gateShippedPolicy(t *testing.T) {
+	t.Run("and the pass runs under the shipped policy", func(t *testing.T) {
+		m := runCell(t, shippedCell, "")
+		logCell(t, m)
+		require.False(t, m.Froze, "the daemon gave no result within %v", cellDeadline)
+
+		t.Run("it should throttle the pass's disk I/O", func(t *testing.T) {
+			assert.Equal(t, 3, m.Pass.DiskIO)
+		})
+
+		t.Run("it should leave the pass's thread out of PRIO_DARWIN_BG", func(t *testing.T) {
+			assert.False(t, m.Pass.DarwinBG)
+		})
+
+		t.Run("it should make progress in the ingest", func(t *testing.T) {
+			assert.Positive(t, m.Yields)
+		})
+
+		t.Run(fmt.Sprintf("and a session file changes to busy, it should reach the snapshot within the debounce plus %v", backfillBound), func(t *testing.T) {
+			assert.LessOrEqual(t, m.StateChange, debounce+backfillBound)
+		})
+	})
+}
+
+func measureEveryPolicy(t *testing.T) {
+	for _, policy := range state.BackgroundPolicies {
+		for _, godebug := range godebugs {
+			t.Run(fmt.Sprintf("and the pass runs under %s with GODEBUG %q", policy, godebug), func(t *testing.T) {
+				m := runCell(t, policy, godebug)
+				logCell(t, m)
+				if m.Froze {
+					return
+				}
+				want := policyPriorities[policy]
+
+				t.Run("it should apply the policy's PRIO_DARWIN_BG flag to the pass's thread", func(t *testing.T) {
+					assert.Equal(t, want.darwinBG, m.Pass.DarwinBG)
+				})
+
+				if want.readsQoS {
+					t.Run("it should apply the policy's QoS class to the pass's thread", func(t *testing.T) {
+						assert.Equal(t, want.qos, m.Pass.QoS)
+					})
+				}
+
+				t.Run("it should apply the policy's disk I/O policy to the pass's thread", func(t *testing.T) {
+					assert.Equal(t, cmp(want.diskIO, m.Before.DiskIO), m.Pass.DiskIO)
+				})
+			})
+		}
+	}
 }
 
 // cmp is the policy's value, or the thread's own when the policy leaves
@@ -213,7 +262,9 @@ func runCell(t *testing.T, policy state.BackgroundPolicy, godebug string) measur
 // change of state timed against it, the collector's stopping pauses and
 // a heartbeat's largest gap over the same window.
 func measureCell(t *testing.T, policy state.BackgroundPolicy) {
-	state.SetBackgroundPolicy(policy)
+	if policy != shippedCell {
+		state.SetBackgroundPolicy(policy)
+	}
 	m := measured{Policy: policy}
 	m.Before = onOwnThread(state.ThreadPolicy)
 

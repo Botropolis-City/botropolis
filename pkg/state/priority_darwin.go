@@ -29,8 +29,12 @@ var BackgroundPolicies = []BackgroundPolicy{
 }
 
 // shippedPolicy is what a pass gets unless a test chooses otherwise:
-// none, until item 200's measurements choose one.
-const shippedPolicy = PolicyNone
+// its disk reads throttled, and its CPU priority left alone. On CI's
+// Apple-silicon runner every policy in the background band froze the
+// whole daemon, since the collector waits for a thread that never
+// runs, and QoS utility measured the same as none there, because the
+// runners already hold every thread at utility's priority (item 200).
+const shippedPolicy = PolicyIOThrottle
 
 var chosenPolicy atomic.Value
 
