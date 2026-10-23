@@ -23,6 +23,20 @@ type memo struct {
 	// than remembered (item 206).
 	walks       map[walkKey][]Cell
 	walksRouted int
+	// lays are the roads last laid for each heading, and laysDone how
+	// many times road was laid rather than remembered.
+	lays     map[int]laid
+	laysDone int
+}
+
+// laid is what laying road on the corridors made of a plan's walks.
+type laid struct {
+	plan  int
+	paths []Point
+	ends  []int
+	cells []StreetCell
+	lamps []Cell
+	trees []Tree
 }
 
 // walkKey is what a walk along the avenues depends on: the plan, the
@@ -107,6 +121,34 @@ func (m *memo) sweepWalks(planID int) {
 		return
 	}
 	maps.DeleteFunc(m.walks, func(k walkKey, _ []Cell) bool { return k.plan != planID })
+}
+
+// lay lays road on the city's corridors for its walks. Everything else
+// laying reads (the corridors, the bridge, the island, the plan's lamps
+// and trees) comes from the plan, so what was laid last for a heading
+// stands while the plan and every street's path are what they were.
+func (m *memo) lay(c *City) {
+	if m == nil {
+		c.layRoads()
+		return
+	}
+	var paths []Point
+	var ends []int
+	for _, st := range c.Streets {
+		paths = append(paths, st.Path...)
+		ends = append(ends, len(paths))
+	}
+	if l, ok := m.lays[c.heading]; ok && l.plan == c.planID && slices.Equal(l.paths, paths) && slices.Equal(l.ends, ends) {
+		c.StreetCells, c.Lamps, c.Trees = slices.Clone(l.cells), slices.Clone(l.lamps), slices.Clone(l.trees)
+		return
+	}
+	c.layRoads()
+	m.laysDone++
+	if m.lays == nil {
+		m.lays = map[int]laid{}
+	}
+	m.lays[c.heading] = laid{plan: c.planID, paths: paths, ends: ends,
+		cells: slices.Clone(c.StreetCells), lamps: slices.Clone(c.Lamps), trees: slices.Clone(c.Trees)}
 }
 
 // order is group.Order, remembered by group when there is a memo.

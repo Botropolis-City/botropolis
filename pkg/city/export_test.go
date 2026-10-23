@@ -18,6 +18,15 @@ func (s *Scene) StreetsRouted() int {
 	return s.memo.walksRouted
 }
 
+// StreetsLaid is how many times the scene has laid road on the
+// corridors, rather than remembered it (item 206).
+func (s *Scene) StreetsLaid() int {
+	if s.memo == nil {
+		return 0
+	}
+	return s.memo.laysDone
+}
+
 // StaleWalks is how many remembered walks are from a plan other than
 // the one the city stands on.
 func (s *Scene) StaleWalks() int {

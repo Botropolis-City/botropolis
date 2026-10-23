@@ -79,27 +79,31 @@ func TestSnapshotLaysOutOnlyWhatChanged(t *testing.T) {
 	// and orders it read for that second snapshot.
 	shown := func(t *testing.T, change func(*state.Snapshot)) (s *city.Scene, plans, orders int) {
 		t.Helper()
-		s, plans, orders, _ = shownRouting(t, at, change)
-		return s, plans, orders
+		s, d := shownRouting(t, at, change)
+		return s, d.plans, d.orders
 	}
 
 	t.Run("when a city the size of the real history is shown, and the next snapshot moves only activity times (item 206)", func(t *testing.T) {
-		s, plans, orders, routed := shownRouting(t, at, func(snap *state.Snapshot) {
+		s, d := shownRouting(t, at, func(snap *state.Snapshot) {
 			for i := range snap.Sessions {
 				snap.Sessions[i].LastActivity = snap.Sessions[i].LastActivity.Add(time.Second)
 			}
 		})
 
 		t.Run("it should not make the plan again", func(t *testing.T) {
-			assert.Zero(t, plans)
+			assert.Zero(t, d.plans)
 		})
 
 		t.Run("it should not route any street again", func(t *testing.T) {
-			assert.Zero(t, routed)
+			assert.Zero(t, d.routed)
+		})
+
+		t.Run("it should not lay the streets again", func(t *testing.T) {
+			assert.Zero(t, d.laid)
 		})
 
 		t.Run("it should not read any group's order again", func(t *testing.T) {
-			assert.Zero(t, orders)
+			assert.Zero(t, d.orders)
 		})
 
 		t.Run("it should draw the city built from scratch", func(t *testing.T) {
@@ -112,12 +116,16 @@ func TestSnapshotLaysOutOnlyWhatChanged(t *testing.T) {
 		for _, r := range realSized(at).Roads {
 			require.False(t, (r.From == from && r.To == to) || (r.From == to && r.To == from), "the fixture already joins them")
 		}
-		s, _, _, routed := shownRouting(t, at, func(snap *state.Snapshot) {
+		s, d := shownRouting(t, at, func(snap *state.Snapshot) {
 			snap.Roads = append(snap.Roads, state.Road{From: from, To: to, Messages: 1, Sessions: 1})
 		})
 
 		t.Run("it should route that road and no other", func(t *testing.T) {
-			assert.Equal(t, 1, routed)
+			assert.Equal(t, 1, d.routed)
+		})
+
+		t.Run("it should lay the streets again", func(t *testing.T) {
+			assert.Positive(t, d.laid)
 		})
 
 		t.Run("it should draw the city built from scratch", func(t *testing.T) {
@@ -126,12 +134,18 @@ func TestSnapshotLaysOutOnlyWhatChanged(t *testing.T) {
 	})
 
 	t.Run("when the camera is turned a quarter (item 206)", func(t *testing.T) {
-		s, _, _, _ := shownRouting(t, at, func(*state.Snapshot) {})
+		s, _ := shownRouting(t, at, func(*state.Snapshot) {})
 		s.Turn()
+		s.SetSnapshot(realSized(at))
+		laid := s.StreetsLaid()
 		s.SetSnapshot(realSized(at))
 
 		t.Run("it should draw the city built from scratch facing that way", func(t *testing.T) {
 			assert.Equal(t, drawnOf(s.FromScratch()), drawnOf(s.City()))
+		})
+
+		t.Run("and a snapshot comes, it should not lay the streets again", func(t *testing.T) {
+			assert.Equal(t, laid, s.StreetsLaid())
 		})
 
 		t.Run("and it has faced every way, and is turned again", func(t *testing.T) {
@@ -148,18 +162,22 @@ func TestSnapshotLaysOutOnlyWhatChanged(t *testing.T) {
 	})
 
 	t.Run("when a city the size of the real history is shown, and the next snapshot changes only one session's state", func(t *testing.T) {
-		s, plans, orders, routed := shownRouting(t, at, func(snap *state.Snapshot) { snap.Sessions[4].State = state.Waiting })
+		s, d := shownRouting(t, at, func(snap *state.Snapshot) { snap.Sessions[4].State = state.Waiting })
 
 		t.Run("it should not route any street again", func(t *testing.T) {
-			assert.Zero(t, routed)
+			assert.Zero(t, d.routed)
+		})
+
+		t.Run("it should not lay the streets again", func(t *testing.T) {
+			assert.Zero(t, d.laid)
 		})
 
 		t.Run("it should not make the plan again", func(t *testing.T) {
-			assert.Zero(t, plans)
+			assert.Zero(t, d.plans)
 		})
 
 		t.Run("it should not read any group's order again", func(t *testing.T) {
-			assert.Zero(t, orders)
+			assert.Zero(t, d.orders)
 		})
 
 		t.Run("it should draw the city built from scratch", func(t *testing.T) {
@@ -168,18 +186,22 @@ func TestSnapshotLaysOutOnlyWhatChanged(t *testing.T) {
 	})
 
 	t.Run("when the next snapshot shapes nothing new, as one carrying only the first read's progress does (item 159)", func(t *testing.T) {
-		_, plans, orders, routed := shownRouting(t, at, func(*state.Snapshot) {})
+		_, d := shownRouting(t, at, func(*state.Snapshot) {})
 
 		t.Run("it should not route any street again", func(t *testing.T) {
-			assert.Zero(t, routed)
+			assert.Zero(t, d.routed)
+		})
+
+		t.Run("it should not lay the streets again", func(t *testing.T) {
+			assert.Zero(t, d.laid)
 		})
 
 		t.Run("it should not make the plan again", func(t *testing.T) {
-			assert.Zero(t, plans)
+			assert.Zero(t, d.plans)
 		})
 
 		t.Run("it should not read any group's order again", func(t *testing.T) {
-			assert.Zero(t, orders)
+			assert.Zero(t, d.orders)
 		})
 	})
 
@@ -244,21 +266,25 @@ func TestSnapshotLaysOutOnlyWhatChanged(t *testing.T) {
 	})
 }
 
+// done is what a snapshot laid out again: plans made, groups' orders
+// read, streets walked, and times the streets were laid.
+type done struct{ plans, orders, routed, laid int }
+
 // shownRouting is a scene showing a city the size of the real history,
-// then the snapshot change makes of it, with how many plans it made,
-// orders it read and streets it routed for that last snapshot.
-func shownRouting(t *testing.T, at time.Time, change func(*state.Snapshot)) (s *city.Scene, plans, orders, routed int) {
+// then the snapshot change makes of it, with what it laid out again for
+// that last snapshot.
+func shownRouting(t *testing.T, at time.Time, change func(*state.Snapshot)) (*city.Scene, done) {
 	t.Helper()
-	s = city.NewScene(city.NewLayout())
+	s := city.NewScene(city.NewLayout())
 	s.SetClock(func() time.Time { return at }, time.UTC)
 	s.Resize(1600, 900)
 	s.SetSnapshot(realSized(at))
 	s.SetSnapshot(realSized(at))
 	plans0, orders0 := s.LayoutsDone()
-	routed0 := s.StreetsRouted()
+	routed0, laid0 := s.StreetsRouted(), s.StreetsLaid()
 	next := realSized(at)
 	change(&next)
 	s.SetSnapshot(next)
 	plans1, orders1 := s.LayoutsDone()
-	return s, plans1 - plans0, orders1 - orders0, s.StreetsRouted() - routed0
+	return s, done{plans: plans1 - plans0, orders: orders1 - orders0, routed: s.StreetsRouted() - routed0, laid: s.StreetsLaid() - laid0}
 }

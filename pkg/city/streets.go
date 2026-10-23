@@ -57,7 +57,6 @@ func (c *City) placeStreets() {
 	for _, st := range c.plan.Streets {
 		c.Corridors = append(c.Corridors, StreetCell{Cell: toCell(st.Cell), Mask: st.Mask})
 	}
-	defer c.layRoads()
 	c.chooseDriveways()
 	for i := range c.Roads {
 		road := &c.Roads[i]
@@ -66,6 +65,7 @@ func (c *City) placeStreets() {
 		}
 	}
 	c.memo.sweepWalks(c.planID)
+	c.memo.lay(c)
 }
 
 // Face places the streets again for the camera at a heading, so every
