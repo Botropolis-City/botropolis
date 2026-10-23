@@ -142,6 +142,15 @@ func AssistantToolCall(sessionID, id, ts, toolUseID, name string) string {
 		ts, sessionID, id, toolUseID, name)
 }
 
+// AssistantFileEdit is an Edit of a file, which the daemon reads as a
+// road when the file is in another project (item 206).
+func AssistantFileEdit(sessionID, id, ts, toolUseID, path string) string {
+	return fmt.Sprintf(`{"type":"assistant","isSidechain":false,"timestamp":%q,"sessionId":%q,`+
+		`"message":{"id":%q,"model":"claude-opus-5","role":"assistant","stop_reason":"tool_use",`+
+		`"content":[{"type":"tool_use","id":%q,"name":"Edit","input":{"file_path":%q}}],"usage":{"input_tokens":2,"output_tokens":5}}}`,
+		ts, sessionID, id, toolUseID, path)
+}
+
 func ModelAttachment(sessionID, modelID, ts string) string {
 	return fmt.Sprintf(`{"type":"attachment","isSidechain":false,"timestamp":%q,"sessionId":%q,`+
 		`"attachment":{"type":"model","identity":{"modelId":%q}}}`, ts, sessionID, modelID)

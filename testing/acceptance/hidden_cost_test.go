@@ -64,6 +64,7 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 		t.Run("when the city is "+way.name+", and a session of 200 writes a line every 200 ms for 15 s", func(t *testing.T) {
 			b := newBusyCity(t)
 			root := b.root
+			roads := b.roadsSeen(t)
 
 			display := helpers.Display(t, render.DefaultWidth, render.DefaultHeight)
 			city := exec.Command(botropolis, "city", "--home", b.home.Path, "--socket", b.sock, "--config", b.config())
@@ -114,6 +115,12 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 			if way.drawn {
 				measured = own
 			}
+
+			// The city lays out the roads the real history has; a fixture
+			// without them measured a fifth of what laying out costs (item 206).
+			t.Run(fmt.Sprintf("the busy city should have its %d roads", b.roads), func(t *testing.T) {
+				assert.Equal(t, b.roads, roads)
+			})
 
 			if way.drawn {
 				t.Run("the daemon's updates should have reached it", func(t *testing.T) {

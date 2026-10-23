@@ -12,17 +12,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/testing/helpers"
 )
 
 // busyCity is item 197's city: a daemon of 200 sessions in 150
-// projects, 25 of them live, one of which writes a line on demand.
+// projects, 25 of them live, one of which writes a line on demand, with
+// roads between its projects as the real history has (item 206).
 type busyCity struct {
 	root string
 	home *helpers.Home
 	sock string
 	at   time.Time
 	line int
+	// roads is how many roads its sessions' edits into each other's
+	// projects should make.
+	roads int
 }
 
 func newBusyCity(t *testing.T) *busyCity {
@@ -31,15 +36,28 @@ func newBusyCity(t *testing.T) *busyCity {
 		sessions = 200
 		projects = 150
 		live     = 25
+		roads    = 80
 	)
 	daemon, err := botropolisd()
 	require.NoError(t, err)
 	b := &busyCity{root: t.TempDir(), home: helpers.NewHome(t), at: time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)}
+	// Each of 80 sessions edits a file in another project: the 80 pairs,
+	// none repeated, that realSized in pkg/city joins.
+	edits := map[int]int{}
+	for r := range roads {
+		edits[(r*7)%projects] = (r*13 + 5) % projects
+	}
+	b.roads = roads
 	for i := range sessions {
 		sid := fmt.Sprintf("%08d-0000-4000-8000-000000000197", i)
 		cwd := fmt.Sprintf("/home/user/src/project-%03d", i%projects)
 		ts := b.at.Add(-time.Duration(i) * time.Minute).Format("2006-01-02T15:04:05.000Z")
-		b.home.Transcript(sid, cwd, helpers.UserPrompt(sid, cwd, ts), helpers.AssistantReply(sid, fmt.Sprintf("msg_%06d", i), ts))
+		lines := []string{helpers.UserPrompt(sid, cwd, ts), helpers.AssistantReply(sid, fmt.Sprintf("msg_%06d", i), ts)}
+		if to, ok := edits[i]; ok && i < projects {
+			lines = append(lines, helpers.AssistantFileEdit(sid, fmt.Sprintf("msg_edit_%06d", i), ts, fmt.Sprintf("toolu_%06d", i),
+				fmt.Sprintf("/home/user/src/project-%03d/main.go", to)))
+		}
+		b.home.Transcript(sid, cwd, lines...)
 		if i < live {
 			// A live session has a record and a process, and only a live
 			// session's transcript is watched.
@@ -56,6 +74,24 @@ func newBusyCity(t *testing.T) *busyCity {
 	t.Cleanup(func() { _ = d.Process.Kill(); _ = d.Wait() })
 	require.Eventually(t, func() bool { _, err := os.Stat(b.sock); return err == nil }, 10*time.Second, 20*time.Millisecond)
 	return b
+}
+
+// roadsSeen is how many roads the daemon's snapshot holds, once it has
+// as many as the city should have or a minute has passed.
+func (b *busyCity) roadsSeen(t *testing.T) int {
+	t.Helper()
+	seen := 0
+	for deadline := time.Now().Add(time.Minute); seen < b.roads && time.Now().Before(deadline); time.Sleep(200 * time.Millisecond) {
+		client, err := proto.Dial(b.sock)
+		if err != nil {
+			continue
+		}
+		if snap, err := client.Snapshot(); err == nil {
+			seen = len(snap.Roads)
+		}
+		_ = client.Close()
+	}
+	return seen
 }
 
 func (b *busyCity) config() string {
