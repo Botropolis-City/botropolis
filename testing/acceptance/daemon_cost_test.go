@@ -44,6 +44,9 @@ var botropolisd = sync.OnceValues(func() (string, error) {
 // as the process's own CPU time so the machine's load cannot move it,
 // and memory settled under 64 MiB of Private_Dirty. 0.1.7 made 19
 // collections a minute with sessions working, so 30 leaves headroom.
+//
+// It runs the daemon as a person's own, with the statistics store and
+// the ledger, and from when it has settled (item 205).
 func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 	const (
 		stream        = 30 * time.Second
@@ -59,19 +62,12 @@ func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("when the daemon serves a home and a session writes a line every 200 ms for 30 s", func(t *testing.T) {
-		root := t.TempDir()
 		home := helpers.LiveFixtureHome(t, "synthetic")
-		sock := shortSocket(t)
-		cmd := exec.Command(bin, "--home", home, "--socket", sock, "--config", filepath.Join(root, "config.toml"))
-		cmd.Env = append(os.Environ(), "GODEBUG=gctrace=1", "XDG_STATE_HOME="+filepath.Join(root, "state"), "PATH=/nonexistent")
-		var trace syncBuffer
-		cmd.Stderr = &trace
-		require.NoError(t, cmd.Start())
-		t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-		require.Eventually(t, func() bool { _, err := os.Stat(sock); return err == nil }, 10*time.Second, 20*time.Millisecond)
-		time.Sleep(2 * time.Second)
+		d := startOwnDaemon(t, bin, home, "GODEBUG=gctrace=1")
+		d.settle(t, 3*time.Minute)
+		trace := d.trace
 
-		pid := cmd.Process.Pid
+		pid := d.pid
 		collections, ticks := countCollections(trace.String()), cpuTicks(t, pid)
 		h := helpers.HomeAt(t, home)
 		at := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
@@ -99,6 +95,8 @@ func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 		t.Run("it should settle under 64 MiB of Private_Dirty", func(t *testing.T) {
 			assert.Less(t, dirty, int64(dirtyLimit))
 		})
+
+		d.assertProduction(t, start)
 	})
 }
 
@@ -122,7 +120,6 @@ func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("when the daemon has settled on the synthetic home plus 200 stopped sessions of 300 replies each", func(t *testing.T) {
-		root := t.TempDir()
 		home := helpers.LiveFixtureHome(t, "synthetic")
 		h := helpers.HomeAt(t, home)
 		at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
@@ -136,22 +133,12 @@ func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
 			}
 			dirs[filepath.Dir(h.Transcript(id, dir, lines...))] = true
 		}
-		sock := shortSocket(t)
-		cmd := exec.Command(bin, "--home", home, "--socket", sock, "--config", filepath.Join(root, "config.toml"))
-		cmd.Env = append(os.Environ(), "XDG_STATE_HOME="+filepath.Join(root, "state"), "PATH=/nonexistent")
-		require.NoError(t, cmd.Start())
-		t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-		require.Eventually(t, func() bool { _, err := os.Stat(sock); return err == nil }, 10*time.Second, 20*time.Millisecond)
-		pid := cmd.Process.Pid
-		settled := false
-		for last, deadline := cpuTicks(t, pid), time.Now().Add(2*time.Minute); !settled && time.Now().Before(deadline); {
-			time.Sleep(2 * time.Second)
-			ticks := cpuTicks(t, pid)
-			settled, last = ticks-last <= 1, ticks
-		}
-		require.True(t, settled, "the daemon never settled")
+		d := startOwnDaemon(t, bin, home)
+		d.settle(t, 3*time.Minute)
+		pid := d.pid
 
 		t.Run("and one session writes a reply every 200 ms for two windows of 30 s", func(t *testing.T) {
+			measured := time.Now()
 			opens := watchOpens(t, dirs)
 			written := 0
 			window := func() float64 {
@@ -180,6 +167,8 @@ func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
 			t.Run("it should open no transcript that did not change", func(t *testing.T) {
 				assert.Empty(t, opened)
 			})
+
+			d.assertProduction(t, measured)
 		})
 	})
 }
