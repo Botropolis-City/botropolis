@@ -40,9 +40,12 @@ type frameTimer struct {
 	snapshots int
 	layout    time.Duration
 	reading   func() time.Duration
+	// received is the bytes read from the daemon, which a hidden city is
+	// gated on apart from everything else it reads (item 209).
+	received func() int64
 }
 
-var frames = &frameTimer{on: os.Getenv("BOTROPOLIS_FRAMETIME") != "", reading: proto.Reading}
+var frames = &frameTimer{on: os.Getenv("BOTROPOLIS_FRAMETIME") != "", reading: proto.Reading, received: proto.Received}
 
 func (f *frameTimer) writer() io.Writer {
 	if f.out == nil {
@@ -79,8 +82,8 @@ func (f *frameTimer) quiet(focused, visible, minimised bool) {
 	}
 	if now := time.Now(); now.Sub(f.lastQuiet) >= time.Second {
 		f.lastQuiet = now
-		fmt.Fprintf(f.writer(), "QUIET no frames: focused=%v visible=%v minimised=%v snapshots=%d decoding=%.1fms layout=%.1fms\n",
-			focused, visible, minimised, f.snapshots, ms(f.reading()), ms(f.layout))
+		fmt.Fprintf(f.writer(), "QUIET no frames: focused=%v visible=%v minimised=%v snapshots=%d decoding=%.1fms layout=%.1fms received=%dB\n",
+			focused, visible, minimised, f.snapshots, ms(f.reading()), ms(f.layout), f.received())
 	}
 }
 

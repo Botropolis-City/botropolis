@@ -14,13 +14,13 @@ import (
 func TestQuietLine(t *testing.T) {
 	t.Run("when the frame timer is on and snapshots have been laid out", func(t *testing.T) {
 		var out bytes.Buffer
-		f := &frameTimer{on: true, out: &out, reading: func() time.Duration { return 30 * time.Millisecond }}
+		f := &frameTimer{on: true, out: &out, reading: func() time.Duration { return 30 * time.Millisecond }, received: func() int64 { return 7168 }}
 		f.laidOut(12 * time.Millisecond)
 		f.laidOut(12 * time.Millisecond)
 		f.quiet(false, true, false)
 
-		t.Run("it should say how many, and the time spent decoding and laying them out", func(t *testing.T) {
-			assert.Contains(t, out.String(), "QUIET no frames: focused=false visible=true minimised=false snapshots=2 decoding=30.0ms layout=24.0ms\n")
+		t.Run("it should say how many, the time spent decoding and laying them out, and the bytes read from the daemon", func(t *testing.T) {
+			assert.Contains(t, out.String(), "QUIET no frames: focused=false visible=true minimised=false snapshots=2 decoding=30.0ms layout=24.0ms received=7168B\n")
 		})
 	})
 }

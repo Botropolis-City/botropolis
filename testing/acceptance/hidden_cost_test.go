@@ -99,16 +99,17 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 			read := bytesRead(t, city.Process.Pid)
 			elapsed := b.write(every, stream)
 			raster1, rest1 := threadTicks(t, city.Process.Pid)
-			fed := bytesRead(t, city.Process.Pid) - read
+			read = bytesRead(t, city.Process.Pid) - read
 			time.Sleep(1500 * time.Millisecond)
 			counted1, _ := lastQuiet(said.String())
+			fed := counted1.received - counted.received
 			share := func(ticks int64) float64 { return float64(ticks) / clockTicksSec / elapsed.Seconds() }
 			rasterShare, restShare := share(raster1-raster), share(rest1-rest)
 			own := (counted1.decoding + counted1.layout - counted.decoding - counted.layout).Seconds() / elapsed.Seconds()
 			during := said.String()[heard:]
-			t.Logf("city %s: decoding and laying out %d snapshots %.2f%% of a core over %.0f s (decoding %.0f ms, laying out %.0f ms); process %.2f%% outside the software rasteriser, %.2f%% in it; %d KiB read",
+			t.Logf("city %s: decoding and laying out %d snapshots %.2f%% of a core over %.0f s (decoding %.0f ms, laying out %.0f ms); process %.2f%% outside the software rasteriser, %.2f%% in it; %d KiB from the daemon, %d KiB read in all",
 				way.name, counted1.snapshots-counted.snapshots, 100*own, elapsed.Seconds(),
-				ms(counted1.decoding-counted.decoding), ms(counted1.layout-counted.layout), 100*restShare, 100*rasterShare, fed>>10)
+				ms(counted1.decoding-counted.decoding), ms(counted1.layout-counted.layout), 100*restShare, 100*rasterShare, fed>>10, read>>10)
 			measured := restShare + rasterShare
 			if way.drawn {
 				measured = own
@@ -120,8 +121,10 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 				})
 			} else {
 				// Hidden, it holds what it is sent without laying it out, so
-				// what it read says it was streamed: some, and no whole
-				// snapshot of about 220 KiB.
+				// what it read from the daemon says it was streamed: some,
+				// and no whole snapshot of about 220 KiB. What it reads in
+				// all, from the X server and its files too, a busy machine
+				// moves (item 209).
 				t.Run("the daemon should have streamed it what changed", func(t *testing.T) {
 					assert.Greater(t, fed, int64(1<<10))
 				})
@@ -161,6 +164,8 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 type quietCount struct {
 	snapshots        int
 	decoding, layout time.Duration
+	// received is the bytes read from the daemon.
+	received int64
 }
 
 func ms(d time.Duration) float64 {
@@ -176,7 +181,7 @@ func lastQuiet(said string) (quietCount, bool) {
 		}
 		var c quietCount
 		var decoding, layout float64
-		if _, err := fmt.Sscanf(lines[i][at:], " snapshots=%d decoding=%fms layout=%fms", &c.snapshots, &decoding, &layout); err != nil {
+		if _, err := fmt.Sscanf(lines[i][at:], " snapshots=%d decoding=%fms layout=%fms received=%dB", &c.snapshots, &decoding, &layout, &c.received); err != nil {
 			continue
 		}
 		c.decoding = time.Duration(decoding * float64(time.Millisecond))

@@ -156,10 +156,21 @@ func Reading() time.Duration {
 	return time.Duration(reading.Load())
 }
 
+// received is the bytes every client in this process has read from the
+// daemon, which a hidden city is gated on apart from everything else it
+// reads (item 209).
+var received atomic.Int64
+
+// Received is the bytes this process has read from the daemon.
+func Received() int64 {
+	return received.Load()
+}
+
 // decode reads one response, a line, and decodes it, timing only the
 // decoding.
 func (c *Client) decode(v any) error {
 	line, err := c.reader.ReadBytes('\n')
+	received.Add(int64(len(line)))
 	if err != nil {
 		return err
 	}
