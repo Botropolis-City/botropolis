@@ -1,6 +1,7 @@
 package render
 
 import (
+	"hash/maphash"
 	"image"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -33,18 +34,28 @@ type layerKey struct {
 	width      int
 	height     int
 	night      bool
-	labels     bool
 	projection city.Projection
 	// hover moves the highlight on a street, a district and a tower
 	// beam, all of which are painted into this layer.
 	hoverDistrict *city.District
 	hoverTower    *city.Tower
-	hoverLine     *city.PowerLine
+	// hoverRoad and hoverBeam are the road and the beam under the
+	// pointer, each painted lit (item 207).
+	hoverRoad     *city.RoadLine
+	hoverBeamFrom *city.Building
+	hoverBeamTo   *city.Tower
 	// hoverCar is the road of the car under the pointer, which recedes
 	// every other lot and road (item 108).
 	hoverCar *city.RoadLine
 	// roads is the session whose roads are shown (item 88).
 	roads string
+	// lit is what the highlight lights and fades on the ground: the
+	// roads it holds, the districts it fades and whether it recedes the
+	// ground, asked as composeStatic asks them (item 207).
+	lit uint64
+	// atlas is the kit atlas the ground is drawn from, which changes as
+	// its pages finish going up (item 207).
+	atlas *kitAtlas
 }
 
 // staticLayer is the composed image and the key it was composed for.
@@ -70,7 +81,7 @@ type staticLayer struct {
 
 // keyFor is the key this frame would compose under.
 func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layerKey {
-	return layerKey{
+	key := layerKey{
 		generation:    g.scene.Generation(),
 		offset:        cam.Offset,
 		zoom:          cam.Zoom,
@@ -79,14 +90,50 @@ func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layer
 		width:         width,
 		height:        height,
 		night:         g.scene.City().Night,
-		labels:        g.labelsVisible(),
 		projection:    cam.Projection,
 		hoverDistrict: hover.District,
 		hoverTower:    hover.Tower,
-		hoverLine:     hover.Line,
+		hoverRoad:     hover.Road,
 		hoverCar:      carRoad(hover),
 		roads:         g.scene.RoadsShown(),
+		lit:           g.litOnGround(g.scene.City()),
 	}
+	if hover.Beam != nil {
+		key.hoverBeamFrom, key.hoverBeamTo = hover.Beam.Building, hover.Beam.Tower
+	}
+	if g.kits != nil {
+		key.atlas = g.kits.pick(cam.Zoom)
+	}
+	return key
+}
+
+// litOnGround is a fingerprint of what the highlight lights and fades
+// in the ground layer, asked of it as composeStatic asks.
+func (g *Game) litOnGround(c *city.City) uint64 {
+	if !g.lit.Active {
+		return 0
+	}
+	var h maphash.Hash
+	h.SetSeed(inkSeed)
+	var b [1]byte
+	put := func(v bool) {
+		b[0] = 0
+		if v {
+			b[0] = 1
+		}
+		h.Write(b[:])
+	}
+	put(g.lit.RecedesGround())
+	for i := range c.Roads {
+		put(g.lit.HasRoad(&c.Roads[i]))
+	}
+	for _, st := range c.Streets {
+		put(g.lit.HasRoad(st.Road))
+	}
+	for _, d := range c.Districts {
+		put(g.lit.FadesDistrict(d))
+	}
+	return h.Sum64() | 1
 }
 
 // groundLayer is the city under the traffic this frame draws over: the
@@ -192,6 +239,9 @@ func (g *Game) staticCity(c *city.City, cam *city.Camera, hover city.Hit, width,
 }
 
 // composeStatic paints the layers that sit under the sorted list.
+// Anything it reads must be in layerKey, or the layer kept shows what
+// it read before: TestTheGroundKey walks the pointer, the view and the
+// selection at random to catch an input left out (item 207).
 func (g *Game) composeStatic(dst *ebiten.Image, c *city.City, cam *city.Camera, hover city.Hit, width, height float64) {
 	g.isoGround(dst, cam, c, width, height)
 	// The roads' tags are laid out with the other labels each frame,
