@@ -24,3 +24,19 @@ func TestQuietLine(t *testing.T) {
 		})
 	})
 }
+
+// Item 209: a city that draws says so at its first frame, so a test can
+// tell it is running without waiting for 120 frames, which a virtual
+// display draws in software and a busy machine stretches past a minute.
+func TestFirstFrame(t *testing.T) {
+	t.Run("when the frame timer is on and two frames are drawn", func(t *testing.T) {
+		var out bytes.Buffer
+		f := &frameTimer{on: true, out: &out}
+		f.start()()
+		f.start()()
+
+		t.Run("it should say once that the first frame was drawn", func(t *testing.T) {
+			assert.Equal(t, "DRAWN the first frame\n", out.String())
+		})
+	})
+}

@@ -129,6 +129,9 @@ func (f *frameTimer) start() func() {
 	return func() {
 		f.draw += time.Since(at)
 		f.frames++
+		if f.frames == 1 {
+			fmt.Fprintln(f.writer(), "DRAWN the first frame")
+		}
 		if f.frames%reportEvery != 0 {
 			return
 		}

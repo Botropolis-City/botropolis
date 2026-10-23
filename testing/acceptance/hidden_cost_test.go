@@ -73,17 +73,24 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 			city.Stderr = &said
 			require.NoError(t, city.Start())
 			t.Cleanup(func() { _ = city.Process.Kill(); _ = city.Wait() })
-			// The city is running once its frame timer speaks, which it
-			// does whether it draws or not.
+			// The city is running once it has drawn its first frame. Its
+			// frame timer's first report comes after 120, which a virtual
+			// display draws in software and a busy machine stretched past
+			// a minute (item 209).
 			require.Eventually(t, func() bool {
 				s := said.String()
-				return strings.Contains(s, "QUIET ") || strings.Contains(s, "FRAME ")
+				return strings.Contains(s, "DRAWN ") || strings.Contains(s, "QUIET ")
 			}, 60*time.Second, 100*time.Millisecond)
 			time.Sleep(3 * time.Second)
 			way.do(t, display)
-			if way.drawn {
-				require.Eventually(t, func() bool { c, ok := lastQuiet(said.String()); return ok && c.snapshots > 0 }, 30*time.Second, 100*time.Millisecond)
-			}
+			// Its first frames are slow in software, and a busy machine
+			// slower, so the window's state counts once the city says it
+			// is in it, with a snapshot laid out if it draws.
+			require.Eventually(t, func() bool {
+				lines := strings.Split(strings.TrimSpace(said.String()), "\n")
+				c, ok := lastQuiet(said.String())
+				return ok && strings.Contains(lines[len(lines)-1], way.said) && (!way.drawn || c.snapshots > 0)
+			}, 60*time.Second, 100*time.Millisecond, "the city never said its window was %s", way.name)
 			time.Sleep(2 * time.Second)
 
 			heard := len(said.String())
