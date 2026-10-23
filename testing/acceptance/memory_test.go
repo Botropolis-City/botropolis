@@ -215,6 +215,41 @@ func children(parent int) []int {
 	return out
 }
 
+// releasedPrivateDirty is privateDirty once two reads 500 ms apart agree,
+// and false if they never do within limit. A forced collection prints
+// its gctrace line before FreeOSMemory has handed the pages back, and
+// a read taken there was up to 11 MiB high (item 211).
+// lastRelease waits until a gctrace has gone quiet for quiet with no
+// further forced collection, and is false if it never does within
+// limit. A daemon's first release can come while loading is still
+// finishing, and the next, once it has, is the one that settles it
+// (item 211).
+func lastRelease(trace *syncBuffer, quiet, limit time.Duration) bool {
+	count, since := strings.Count(trace.String(), "(forced)"), time.Now()
+	for deadline := time.Now().Add(limit); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
+		if n := strings.Count(trace.String(), "(forced)"); n != count {
+			count, since = n, time.Now()
+		}
+		if time.Since(since) >= quiet {
+			return true
+		}
+	}
+	return false
+}
+
+func releasedPrivateDirty(pid int, limit time.Duration) (int64, bool) {
+	last := privateDirty(pid)
+	for deadline := time.Now().Add(limit); time.Now().Before(deadline); {
+		time.Sleep(500 * time.Millisecond)
+		now := privateDirty(pid)
+		if now == last {
+			return now, true
+		}
+		last = now
+	}
+	return last, false
+}
+
 func privateDirty(pid int) int64 {
 	f, err := os.Open(filepath.Join("/proc", strconv.Itoa(pid), "smaps_rollup"))
 	if err != nil {

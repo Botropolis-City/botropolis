@@ -67,6 +67,25 @@ func columns(t *testing.T, db *sql.DB, table string) []string {
 }
 
 func TestOpen(t *testing.T) {
+	t.Run("when a store is opened", func(t *testing.T) {
+		t.Run("and the pool opens three connections at once", func(t *testing.T) {
+			db := open(t, filepath.Join(t.TempDir(), "stats.db")).DB()
+			caches := make([]int, 3)
+			for i := range caches {
+				conn, err := db.Conn(t.Context())
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = conn.Close() })
+				require.NoError(t, conn.QueryRowContext(t.Context(), "PRAGMA cache_size").Scan(&caches[i]))
+			}
+
+			for i, cache := range caches {
+				t.Run(fmt.Sprintf("it should give connection %d a cache of CacheKiB", i+1), func(t *testing.T) {
+					assert.Equal(t, -stats.CacheKiB, cache)
+				})
+			}
+		})
+	})
+
 	t.Run("when no database exists", func(t *testing.T) {
 		t.Run("and its directory does not exist either", func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "state", "botropolis")

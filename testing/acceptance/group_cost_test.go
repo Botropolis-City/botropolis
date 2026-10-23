@@ -137,7 +137,6 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 		promptEvery   = 5 * time.Second
 		maxCoreShare  = 0.02
 		dirtyLimit    = 64 << 20
-		dirtyCeiling  = 80 << 20
 		coreCeiling   = 0.04
 		liveLimitMB   = 256 * 1024 * 1024 / 1_000_000
 		clockTicksSec = 100
@@ -166,7 +165,9 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 		pid, trace := d.pid, d.trace
 		released := assert.Eventually(t, func() bool { return strings.Contains(trace.String(), "(forced)") },
 			daemon.SettleAfter+30*time.Second, 100*time.Millisecond)
-		live, peak, dirty := lastLiveMB(trace.String()), peakHeapMB(trace.String()), privateDirty(pid)
+		last := lastRelease(trace, daemon.SettleAfter+time.Second, time.Minute)
+		dirty, steady := releasedPrivateDirty(pid, 10*time.Second)
+		live, peak := lastLiveMB(trace.String()), peakHeapMB(trace.String())
 		t.Logf("settled: Go heap live %d MB, peak %d MB; %d MiB Private_Dirty, %d MiB under the budget",
 			live, peak, dirty>>20, (dirtyLimit-dirty)>>20)
 
@@ -178,17 +179,17 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 			assert.Less(t, live, liveLimitMB)
 		})
 
-		// With the statistics store open, as a person's own daemon has
-		// it, this reads 63 MiB against 64 since item 208 returned the
-		// start-up peak: the store's SQLite adds about 21 MiB at 2,000
-		// sessions (item 211). That is too close to the budget for a
-		// gate, so it skips while over 64, and fails over 80, a ceiling
-		// that a regression still trips.
+		// The store open costs about 4 MiB of SQLite's own memory here,
+		// halved by its smaller cache. The 63 MiB this once read was a
+		// read after the daemon's first release, which can come while
+		// loading is still finishing; a second one, a second later,
+		// took it to 50 (item 211). About 10–13 MiB of what remains is
+		// the daemon's own code, dirty only because the test builds it
+		// on tmpfs.
 		t.Run("it should settle under 64 MiB of Private_Dirty", func(t *testing.T) {
-			if dirty >= int64(dirtyLimit) {
-				require.Less(t, dirty, int64(dirtyCeiling), "over the %d MiB ceiling", dirtyCeiling>>20)
-				t.Skipf("unmet: %d MiB against 64 with the store open; the store's memory, item 211", dirty>>20)
-			}
+			require.True(t, last, "the daemon kept releasing memory for a minute")
+			require.True(t, steady, "Private_Dirty never stopped moving after the release, last %d MiB", dirty>>20)
+			assert.Less(t, dirty, int64(dirtyLimit))
 		})
 
 		t.Run("and one session writes a reply every 200 ms and a prompt every 5 s for two windows of 30 s", func(t *testing.T) {

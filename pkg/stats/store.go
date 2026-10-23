@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 
 	_ "modernc.org/sqlite"
@@ -27,6 +28,10 @@ const (
 	// step that only adds nullable columns leaves it alone; a step that
 	// changes what a column means raises it to Version.
 	ReadableFrom = 1
+	// CacheKiB is each connection's page cache. SQLite's default, 2,000
+	// KiB, cost the daemon about 4 MiB at 2,000 sessions, and a quarter
+	// of it ingests as fast (item 211).
+	CacheKiB = 512
 )
 
 const schema = `
@@ -167,7 +172,7 @@ func Open(path string) (*Store, error) {
 	if err := f.Close(); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=cache_size(-"+strconv.Itoa(CacheKiB)+")")
 	if err != nil {
 		return nil, err
 	}
