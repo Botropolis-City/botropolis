@@ -63,3 +63,37 @@ func TestMultiFlush(t *testing.T) {
 		})
 	})
 }
+
+type listening struct {
+	plain
+	changed, watched []string
+	unwatched        int
+}
+
+func (l *listening) Changed(path string)          { l.changed = append(l.changed, path) }
+func (l *listening) Watching(dir string, ok bool) { l.watched = append(l.watched, dir) }
+func (l *listening) Unwatched()                   { l.unwatched++ }
+
+// Item 205: the daemon's watcher tells the harnesses what changed, so
+// the Claude loader looks only at what did.
+func TestMultiPassesOnWhatTheWatcherSays(t *testing.T) {
+	t.Run("when the watcher reports a change, a watch and an overflow", func(t *testing.T) {
+		heard := &listening{}
+		m := harness.NewMulti(plain{}, heard)
+		m.Changed("/p/a.jsonl")
+		m.Watching("/p", true)
+		m.Unwatched()
+
+		t.Run("it should pass on the change", func(t *testing.T) {
+			assert.Equal(t, []string{"/p/a.jsonl"}, heard.changed)
+		})
+
+		t.Run("it should pass on the watch", func(t *testing.T) {
+			assert.Equal(t, []string{"/p"}, heard.watched)
+		})
+
+		t.Run("it should pass on the overflow", func(t *testing.T) {
+			assert.Equal(t, 1, heard.unwatched)
+		})
+	})
+}

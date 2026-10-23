@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"github.com/fsnotify/fsnotify"
+
 	"context"
 	"errors"
 	"runtime/debug"
@@ -127,6 +129,10 @@ type Daemon struct {
 	scanMu    sync.Mutex
 	watching  chan struct{}
 	watchOnce sync.Once
+	// unwatchable are the directories a watch could not be added for,
+	// each logged once (item 205).
+	unwatchable map[string]bool
+	addWatch    func(*fsnotify.Watcher, string) error
 	// loaded, when not nil, is closed by the first scan to finish; until
 	// then every request but a hook event waits for it (item 143).
 	loaded   chan struct{}
@@ -214,6 +220,7 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		subscribers: map[chan proto.Update]struct{}{},
 		log:         events.NewLog(),
 		release:     debug.FreeOSMemory,
+		addWatch:    (*fsnotify.Watcher).Add,
 		settleAfter: SettleAfter,
 
 		progressEvery: ProgressEvery,

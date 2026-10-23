@@ -23,6 +23,11 @@ type cachedTranscript struct {
 	// reader reads a live transcript on from where it last stopped
 	// (item 141).
 	reader *claude.TranscriptReader
+	// subagents are a stopped transcript's subagent files as last
+	// looked at, and subagentsSkipped whether any could not be read,
+	// so a load that trusts the watcher can reuse them (item 205).
+	subagents        []string
+	subagentsSkipped bool
 }
 
 type cachedSubagent struct {
@@ -75,10 +80,16 @@ type Loader struct {
 	// later reads after the first load what that load read only through
 	// windows, and lane keeps the background passes to one at a time
 	// (item 203).
-	later     *laterRead
-	lane      chan struct{}
-	loaded    bool
-	firstPace *pace
+	later *laterRead
+	lane  chan struct{}
+	// watch is what the daemon's watcher has said, and auditTick which
+	// share of the trusted transcripts this load looks at anyway
+	// (item 205).
+	watch           watchState
+	auditTick       int
+	transcriptStats int
+	loaded          bool
+	firstPace       *pace
 }
 
 // firstLoadShare is the fraction of the wall clock the first load works
@@ -210,7 +221,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 			src.Subagents[r.SessionID] = append(src.Subagents[r.SessionID], sub.subagent)
 		}
 	}
-	l.transcripts, l.subagents, l.dirs = transcripts, subagents, dirs
+	l.transcripts, l.subagents, l.dirs = transcripts, subagents, append(dirs, projectDirs(paths)...)
 
 	live := map[string]bool{}
 	for _, r := range src.Records {
@@ -299,13 +310,36 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 	subCache := make(map[string]cachedSubagent, len(l.parkedSubagents))
 	stoppedSubs := map[string][]claude.Subagent{}
 	files := make(map[string]stoppedFile, len(l.stoppedFiles))
-	for _, path := range paths {
+	view := l.watch.take()
+	tick := l.auditTick % auditEvery
+	l.auditTick++
+	laterBusy := l.later.busy()
+	for i, path := range paths {
 		l.loadDone.Add(1)
 		l.paceFirst()
 		id := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 		if live[id] {
 			continue
 		}
+		if entry, ok := l.parked[path]; ok && i%auditEvery != tick && view.trusts(path) && !entry.subagentsSkipped && (!laterBusy || !l.later.pending(path)) {
+			cache[path] = entry
+			if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
+				continue
+			}
+			parked = append(parked, entry.transcript)
+			files[entry.transcript.SessionID] = stoppedFile{path: path, key: entry.key}
+			var subs []claude.Subagent
+			for _, subPath := range entry.subagents {
+				sub := l.parkedSubagents[subPath]
+				subCache[subPath] = sub
+				subs = append(subs, sub.subagent)
+			}
+			if len(subs) > 0 {
+				stoppedSubs[entry.transcript.SessionID] = subs
+			}
+			continue
+		}
+		l.transcriptStats++
 		key, err := stat(path)
 		if err != nil {
 			skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
@@ -326,8 +360,8 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 			transcript.Project = filepath.Base(filepath.Dir(path))
 			entry = cachedTranscript{key: key, transcript: transcript}
 		}
-		cache[path] = entry
 		if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
+			cache[path] = entry
 			continue
 		}
 		// The usage probe's transcripts used to be fenced out here.
@@ -337,8 +371,10 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 		// running came through Records instead. Bug 54.
 		parked = append(parked, entry.transcript)
 		files[entry.transcript.SessionID] = stoppedFile{path: path, key: key}
-		subs, subSkipped := l.stoppedSubagents(path, subCache)
+		subs, subPaths, subSkipped := l.stoppedSubagents(path, subCache)
 		skipped = append(skipped, subSkipped...)
+		entry.subagents, entry.subagentsSkipped = subPaths, len(subSkipped) > 0
+		cache[path] = entry
 		if len(subs) > 0 {
 			stoppedSubs[entry.transcript.SessionID] = subs
 		}
@@ -372,9 +408,10 @@ func (l *Loader) stoppedTranscript(path string, key fileKey, powerSince time.Tim
 
 // stoppedSubagents are a stopped session's subagents, from the cache
 // unless a file changed, kept into next for the following load.
-func (l *Loader) stoppedSubagents(path string, next map[string]cachedSubagent) ([]claude.Subagent, []claude.SkippedFile) {
+func (l *Loader) stoppedSubagents(path string, next map[string]cachedSubagent) ([]claude.Subagent, []string, []claude.SkippedFile) {
 	paths := l.index.Subagents(path)
 	var subs []claude.Subagent
+	var kept []string
 	var skipped []claude.SkippedFile
 	for _, subPath := range paths {
 		key, err := stat(subPath)
@@ -394,8 +431,21 @@ func (l *Loader) stoppedSubagents(path string, next map[string]cachedSubagent) (
 		}
 		next[subPath] = entry
 		subs = append(subs, entry.subagent)
+		kept = append(kept, subPath)
 	}
-	return subs, skipped
+	return subs, kept, skipped
+}
+
+// projectDirs are the directories that hold paths, each once, so the
+// watcher holds a stopped session's as well as a live one's (item 205).
+func projectDirs(paths []string) []string {
+	var dirs []string
+	for _, path := range paths {
+		if dir := filepath.Dir(path); len(dirs) == 0 || dirs[len(dirs)-1] != dir {
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
 }
 
 // transcript reads a live transcript on from where its reader stopped.

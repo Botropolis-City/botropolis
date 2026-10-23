@@ -83,6 +83,28 @@ func (r *laterRead) take(path string) (cachedTranscript, bool) {
 	return entry, ok
 }
 
+// busy is whether any transcript is held for the pass or read and not
+// taken yet.
+func (r *laterRead) busy() bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.held) > 0 || len(r.ready) > 0
+}
+
+// pending is whether path is held for the pass or read and not taken.
+func (r *laterRead) pending(path string) bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ready := r.ready[path]
+	return r.held[path] || ready
+}
+
 // start begins the pass over what was held, taking the lane before it
 // returns, so no other background pass starts ahead of it.
 func (r *laterRead) start() {

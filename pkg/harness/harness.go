@@ -215,6 +215,43 @@ func (m *Multi) Flush() error {
 	return errors.Join(errs...)
 }
 
+// ChangeWatcher is a harness the daemon's watcher tells what changed, so
+// a rescan need not look at every file to find out (item 205).
+type ChangeWatcher interface {
+	Changed(path string)
+	Watching(dir string, ok bool)
+	Unwatched()
+}
+
+// Changed tells every harness that listens that a file changed.
+func (m *Multi) Changed(path string) {
+	for _, h := range m.harnesses {
+		if w, ok := h.(ChangeWatcher); ok {
+			w.Changed(path)
+		}
+	}
+}
+
+// Watching tells every harness that listens whether a directory is
+// watched.
+func (m *Multi) Watching(dir string, watched bool) {
+	for _, h := range m.harnesses {
+		if w, ok := h.(ChangeWatcher); ok {
+			w.Watching(dir, watched)
+		}
+	}
+}
+
+// Unwatched tells every harness that listens that changes may have been
+// missed.
+func (m *Multi) Unwatched() {
+	for _, h := range m.harnesses {
+		if w, ok := h.(ChangeWatcher); ok {
+			w.Unwatched()
+		}
+	}
+}
+
 // CloseUpper is a harness that can record a close-up (item 86).
 type CloseUpper interface {
 	CloseUp(open, pinned []string, at time.Time) error
