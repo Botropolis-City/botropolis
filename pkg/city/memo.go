@@ -16,6 +16,20 @@ type memo struct {
 	plans     []planned
 	orders    group.Orders
 	plansMade int
+	// planID is the id of the plan last handed out.
+	planID int
+	// walks are the avenues' walks between driveways, kept for the plan
+	// the city stands on, and walksRouted how many were walked rather
+	// than remembered (item 206).
+	walks       map[walkKey][]Cell
+	walksRouted int
+}
+
+// walkKey is what a walk along the avenues depends on: the plan, the
+// heading its ties break toward, and its two ends.
+type walkKey struct {
+	plan, heading int
+	from, to      Cell
 }
 
 // planned is a plan and what it was made from: its input, and the
@@ -24,6 +38,7 @@ type planned struct {
 	in    plan.Input
 	slots map[string]plan.Slot
 	p     plan.Plan
+	id    int
 }
 
 // keptPlans is how many plans are remembered: a city with a depot makes
@@ -40,13 +55,15 @@ func (m *memo) plan(in plan.Input, mem *plan.Memory) plan.Plan {
 	}
 	for _, e := range m.plans {
 		if sameInput(e.in, in) && maps.Equal(e.slots, mem.Slots) {
+			m.planID = e.id
 			return e.p
 		}
 	}
 	p := plan.Make(in, mem)
 	m.plansMade++
+	m.planID = m.plansMade
 	in.Districts = slices.Clone(in.Districts)
-	m.plans = append(m.plans, planned{in: in, slots: maps.Clone(mem.Slots), p: p})
+	m.plans = append(m.plans, planned{in: in, slots: maps.Clone(mem.Slots), p: p, id: m.planID})
 	if len(m.plans) > keptPlans {
 		m.plans = m.plans[len(m.plans)-keptPlans:]
 	}
@@ -55,6 +72,41 @@ func (m *memo) plan(in plan.Input, mem *plan.Memory) plan.Plan {
 
 func sameInput(a, b plan.Input) bool {
 	return a.Towers == b.Towers && a.DepotRows == b.DepotRows && a.DepotCols == b.DepotCols && slices.Equal(a.Districts, b.Districts)
+}
+
+// current is the id of the plan last handed out, or none without a memo.
+func (m *memo) current() int {
+	if m == nil {
+		return 0
+	}
+	return m.planID
+}
+
+// walk is a walk along the avenues from one cell to another.
+// A walk depends only on the plan's avenues and the heading, so one is
+// remembered for as long as the city stands on the plan it was walked on.
+func (m *memo) walk(k walkKey, walk func(from, to map[Cell]bool) []Cell) []Cell {
+	if m == nil {
+		return walk(map[Cell]bool{k.from: true}, map[Cell]bool{k.to: true})
+	}
+	if cells, ok := m.walks[k]; ok {
+		return cells
+	}
+	if m.walks == nil {
+		m.walks = map[walkKey][]Cell{}
+	}
+	cells := walk(map[Cell]bool{k.from: true}, map[Cell]bool{k.to: true})
+	m.walksRouted++
+	m.walks[k] = cells
+	return cells
+}
+
+// sweepWalks lets go of every walk on a plan other than the city's.
+func (m *memo) sweepWalks(planID int) {
+	if m == nil {
+		return
+	}
+	maps.DeleteFunc(m.walks, func(k walkKey, _ []Cell) bool { return k.plan != planID })
 }
 
 // order is group.Order, remembered by group when there is a memo.

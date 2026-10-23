@@ -20,6 +20,7 @@ func realSized(at time.Time) state.Snapshot {
 		projects = 150
 		groups   = 8
 		lines    = 40
+		roads    = 80
 	)
 	snap := state.Snapshot{At: at}
 	members := map[string][]string{}
@@ -57,6 +58,18 @@ func realSized(at time.Time) state.Snapshot {
 		id := fmt.Sprintf("g%d", g)
 		snap.Groups = append(snap.Groups, state.Group{ID: id, Name: "group " + id, Short: id, Members: members[id]})
 	}
+	// Roads between projects, as the real history has and item 206 found
+	// this fixture had not: routing them was most of what a snapshot cost.
+	for r := range roads {
+		from, to := (r*7)%projects, (r*13+5)%projects
+		if from == to {
+			continue
+		}
+		snap.Roads = append(snap.Roads, state.Road{
+			From: fmt.Sprintf("/home/user/src/project-%03d", from), To: fmt.Sprintf("/home/user/src/project-%03d", to),
+			Messages: 1 + r%5, Sessions: 1,
+		})
+	}
 	return snap
 }
 
@@ -81,6 +94,21 @@ func BenchmarkSetSnapshot(b *testing.B) {
 		s.Resize(1600, 900)
 		snaps := [2]state.Snapshot{realSized(at), realSized(at)}
 		snaps[1].Sessions[1].State = state.NeedsYou
+		s.SetSnapshot(snaps[0])
+		b.ReportAllocs()
+		i := 0
+		for b.Loop() {
+			i++
+			s.SetSnapshot(snaps[i%2])
+		}
+	})
+	// Item 206: what most of a busy city's snapshots are.
+	b.Run("activity-only", func(b *testing.B) {
+		s := city.NewScene(city.NewLayout())
+		s.SetClock(func() time.Time { return at }, time.UTC)
+		s.Resize(1600, 900)
+		snaps := [2]state.Snapshot{realSized(at), realSized(at)}
+		snaps[1].Sessions[0].LastActivity = at.Add(time.Second)
 		s.SetSnapshot(snaps[0])
 		b.ReportAllocs()
 		i := 0

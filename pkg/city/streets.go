@@ -65,6 +65,7 @@ func (c *City) placeStreets() {
 			c.Streets = append(c.Streets, Street{Road: road, Path: path})
 		}
 	}
+	c.memo.sweepWalks(c.planID)
 }
 
 // Face places the streets again for the camera at a heading, so every
@@ -432,7 +433,7 @@ func (c *City) routeStreets(road *RoadLine) []Point {
 	if !ok || !ok2 {
 		return nil
 	}
-	cells := c.walkStreets(map[Cell]bool{from.Cell: true}, map[Cell]bool{to.Cell: true})
+	cells := c.memo.walk(walkKey{plan: c.planID, heading: c.heading, from: from.Cell, to: to.Cell}, c.walkStreets)
 	if len(cells) == 0 {
 		return nil
 	}

@@ -127,6 +127,8 @@ type City struct {
 	// memo is what the scene remembers between snapshots, or nil for a
 	// city built from nothing (item 197).
 	memo *memo
+	// planID is which of the memo's plans the city stands on (item 206).
+	planID int
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.
@@ -367,6 +369,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		p = m.plan(in, layout.memory())
 	}
 	city.plan = p
+	city.planID = m.current()
 	city.bounds = cellRect(p.Bounds)
 	for _, d := range city.Districts {
 		d.placeOn(cellRect(p.Blocks[d.Root]))
