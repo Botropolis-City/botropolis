@@ -1089,7 +1089,7 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 		g.drawBreakdown(screen, width, height)
 	}
 	if g.timeline {
-		g.drawTimeline(screen, width, height)
+		g.baked(bakeTimeline, screen, func(dst *ebiten.Image) { g.drawTimeline(dst, width, height) })
 	}
 	g.drawOverlays(screen, width, height, false)
 }

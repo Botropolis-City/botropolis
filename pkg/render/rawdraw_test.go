@@ -68,7 +68,7 @@ var drawsAllowed = map[string]string{
 	"framecheck.go:worldFrame":             "the check of the standing city",
 	"framecheck.go:panelFrame":             "the check of the baked panels",
 	"framecheck.go:checkShutters":          "the check of the boarded shutters drawn in one mesh a plank",
-	"panelbake.go:drawPanel":               "blits a panel baked from its record (item 161)",
+	"panelbake.go:baked":                   "blits a panel or a region of the chrome baked from its record (item 161)",
 	"lookcheck.go:lookFrameOf":             "item 192's check",
 	"lookcheck_night.go:nightFrame":        "item 192's check",
 	"lookcheck_night.go:alone":             "item 192's check",

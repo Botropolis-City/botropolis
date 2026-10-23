@@ -193,15 +193,17 @@ func (g *Game) checkShutters(each, batched *ebiten.Image, dump string) []string 
 // lookTolerance (item 161).
 func (g *Game) checkPanels(straight, composed *ebiten.Image, dump, write string) ([]string, error) {
 	var problems []string
+	panels := func(img *ebiten.Image, w, h float64) { g.drawOverlays(img, w, h, false) }
 	for _, p := range []struct {
 		name, slug string
 		open       func() bool
+		draw       func(img *ebiten.Image, w, h float64)
 	}{
 		{"the journal", "journal", func() bool {
 			g.openJournal()
 			_, ok := g.overlays.top().(*journal)
 			return ok
-		}},
+		}, panels},
 		{"the group review", "group-review", func() bool {
 			snap := g.scene.Snapshot()
 			if len(snap.Sessions) < 2 {
@@ -212,16 +214,26 @@ func (g *Game) checkPanels(straight, composed *ebiten.Image, dump, write string)
 			snap.GroupsReviewed = false
 			g.scene.SetSnapshot(snap)
 			return g.openFirstRun()
-		}},
+		}, panels},
+		// The strip, the stream column and the timeline, each
+		// baked while it holds: the chrome drawn whole.
+		{"the chrome", "chrome", func() bool {
+			g.timeline = true
+			return true
+		}, g.overlay},
 	} {
 		g.overlays = g.overlays[:0]
 		if !p.open() {
 			problems = append(problems, p.name+" did not open")
 			continue
 		}
-		want := g.panelFrame(straight, true)
+		// The first frame lays the chrome out for the next, which then
+		// shows what that leaves room for, the legend among it: the
+		// reference is the second.
+		g.panelFrame(straight, true, p.draw)
+		want := g.panelFrame(straight, true, p.draw)
 		for i, way := range []string{"played straight", "baked", "blitted"} {
-			got := g.panelFrame(composed, false)
+			got := g.panelFrame(composed, false, p.draw)
 			if i == 2 && g.panels.stats.blits == 0 {
 				problems = append(problems, p.name+" was never blitted from its bake")
 			}
@@ -244,13 +256,13 @@ func (g *Game) checkPanels(straight, composed *ebiten.Image, dump, write string)
 
 // panelFrame is the open panels drawn onto img, filled first with a
 // colour nothing is, straight or through their bakes, read back.
-func (g *Game) panelFrame(img *ebiten.Image, straight bool) *image.NRGBA {
+func (g *Game) panelFrame(img *ebiten.Image, straight bool, draw func(img *ebiten.Image, w, h float64)) *image.NRGBA {
 	img.Fill(colorCheckFill)
 	g.panels.straight = straight
 	defer func() { g.panels.straight = false }()
 	g.panels.stats = panelStats{}
 	b := img.Bounds()
-	g.drawOverlays(img, float64(b.Dx()), float64(b.Dy()), false)
+	draw(img, float64(b.Dx()), float64(b.Dy()))
 	out := image.NewNRGBA(b)
 	img.ReadPixels(out.Pix)
 	return out

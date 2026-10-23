@@ -141,7 +141,7 @@ func TestPanelsAreBakedWhileTheyHold(t *testing.T) {
 		settled(t, d)
 
 		t.Run("it should keep no bake of it", func(t *testing.T) {
-			assert.Empty(t, d.game.panels.held)
+			assert.NotContains(t, d.game.panels.held, any(d.game.board()))
 		})
 	})
 }

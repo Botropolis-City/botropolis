@@ -46,7 +46,8 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	g.footerBar, g.waitingID = footer, waitingID
 	g.mu.Unlock()
 	legend := ui.LayoutLegend(th, width, footer.Rect.Min.Y, g.scene.Legend(), g.faces.Measure)
-	top := g.strip(screen, width)
+	var top float64
+	g.baked(bakeStrip, screen, func(dst *ebiten.Image) { top = g.strip(dst, width) })
 	g.scene.SetTopChrome(top)
 	bottom := footer.KeyRow.Height() + legend.Rect.Height()
 	g.scene.SetBottomChrome(bottom)
@@ -64,7 +65,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	g.mu.Unlock()
 	pointer := g.pointer()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
-	bounds.Max.X = g.drawStream(screen, width, height, top, streamFoot)
+	g.baked(bakeStream, screen, func(dst *ebiten.Image) { bounds.Max.X = g.drawStream(dst, width, height, top, streamFoot) })
 	hint := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
 	g.pinnedKinds = nil
