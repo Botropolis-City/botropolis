@@ -135,6 +135,9 @@ type Daemon struct {
 	// each logged once (item 205).
 	unwatchable map[string]bool
 	addWatch    func(*fsnotify.Watcher, string) error
+	// threadCPU is the CPU time the calling thread has used, which paces
+	// the watcher's rescans (item 205).
+	threadCPU func() time.Duration
 	// loaded, when not nil, is closed by the first scan to finish; until
 	// then every request but a hook event waits for it (item 143).
 	loaded   chan struct{}
@@ -232,6 +235,7 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		log:         events.NewLog(),
 		release:     debug.FreeOSMemory,
 		addWatch:    (*fsnotify.Watcher).Add,
+		threadCPU:   threadCPU,
 		settleAfter: SettleAfter,
 		ceiling:     ReleaseCeiling,
 

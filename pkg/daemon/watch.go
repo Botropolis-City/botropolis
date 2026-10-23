@@ -28,7 +28,9 @@ type ChangeWatcher interface {
 
 // Watch rescans after a change: within the debounce after a quiet spell,
 // and otherwise a pace after the last rescan, coalescing every change in
-// between into one, so the last of a burst is always read.
+// between into one, so the last of a burst is always read. The pace is
+// at least a second, and long enough that the rescans take at most their
+// share of a core, up to maxPace (item 205).
 func (d *Daemon) Watch(ctx context.Context) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -44,9 +46,10 @@ func (d *Daemon) Watch(ctx context.Context) error {
 
 	var fire <-chan time.Time
 	var last time.Time
+	wait := pace
 	schedule := func() {
 		if fire == nil {
-			fire = time.After(max(debounce, time.Until(last.Add(pace))))
+			fire = time.After(max(debounce, time.Until(last.Add(wait))))
 		}
 	}
 	for {
@@ -73,7 +76,9 @@ func (d *Daemon) Watch(ctx context.Context) error {
 			}
 		case <-fire:
 			fire, last = nil, time.Now()
-			if err := d.Rescan(); err != nil {
+			cost, err := d.timedRescan()
+			wait = paceAfter(cost)
+			if err != nil {
 				continue
 			}
 			d.addWatches(watcher)
