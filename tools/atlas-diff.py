@@ -16,6 +16,7 @@ five PNG filters are the whole decoder.
 """
 
 import argparse
+import json
 import struct
 import subprocess
 import sys
@@ -119,6 +120,47 @@ def changed_paths(repo, folder):
     return [p for p in done.stdout.split() if p]
 
 
+PLACEMENT = ("page", "x", "y")
+
+
+def unplaced(manifest):
+    """A manifest without where its sprites sit: what a repack may move."""
+    m = dict(manifest)
+    m.pop("pages", None)
+    m["sprites"] = {
+        name: {h: {k: v for k, v in e.items() if k not in PLACEMENT} for h, e in headings.items()}
+        for name, headings in manifest["sprites"].items()
+    }
+    return m
+
+
+def cut(page, x, y, w, h):
+    """A sprite's rows of a decoded page (width, height, pixels)."""
+    width, _, pixels = page
+    stride = width * 4
+    return b"".join(pixels[(y + r) * stride + x * 4 : (y + r) * stride + (x + w) * 4] for r in range(h))
+
+
+def compare_sprites(old, new, old_pages, new_pages, tolerance):
+    """Compare two layouts of one level sprite by sprite (item 162): the
+    pages may be laid differently, so the manifests must agree on
+    everything but placement, and each sprite's pixels, wherever it now
+    sits, must match within tolerance bytes in all. Returns (problems,
+    bytes moved)."""
+    if unplaced(old) != unplaced(new):
+        return ["the manifest differs in more than where its sprites sit"], 0
+    moved = 0
+    for name, headings in old["sprites"].items():
+        for h, a in headings.items():
+            b = new["sprites"][name][h]
+            pa = cut(old_pages[a["page"]], a["x"], a["y"], a["w"], a["h"])
+            pb = cut(new_pages[b["page"]], b["x"], b["y"], b["w"], b["h"])
+            moved += differing(pa, pb)
+    if moved > tolerance:
+        return [f"{moved} bytes of sprite pixels moved"], moved
+    return [], moved
+
+
 def compare(repo, folder, tolerance, out=sys.stdout):
     """Report every atlas file that differs. Returns the exit status."""
     paths = changed_paths(repo, folder)
@@ -126,7 +168,30 @@ def compare(repo, folder, tolerance, out=sys.stdout):
         print("atlas-diff: the re-render is byte-identical", file=out)
         return 0
     status, worst = 0, 0
+    relaid = set()
+    for path in sorted(p for p in paths if p.endswith(".json")):
+        old_raw = committed(repo, path)
+        if old_raw is None:
+            continue
+        old, new = json.loads(old_raw), json.load(open(f"{repo}/{path}"))
+        directory = path.rsplit("/", 1)[0]
+        old_pages = [decode(committed(repo, f"{directory}/{n}")) for n in old["pages"]]
+        new_pages = [decode(open(f"{repo}/{directory}/{n}", "rb").read()) for n in new["pages"]]
+        problems, moved = compare_sprites(old, new, old_pages, new_pages, tolerance)
+        worst = max(worst, moved)
+        stem = path[: -len(".json")]
+        relaid.add(stem)
+        for p in problems:
+            print(f"  {path}: {p}", file=out)
+            status = 1
+        if not problems:
+            print(f"  {path}: re-laid; {moved} bytes of sprite pixels moved, within the noise floor", file=out)
     for path in sorted(paths):
+        if path.endswith(".json") or any(path.startswith(stem + "-") for stem in relaid):
+            if path.endswith(".json") and committed(repo, path) is None:
+                print(f"  {path}: not committed — a new file is a change", file=out)
+                status = 1
+            continue
         old = committed(repo, path)
         new = open(f"{repo}/{path}", "rb").read()
         if old is None:
@@ -160,7 +225,7 @@ def compare(repo, folder, tolerance, out=sys.stdout):
     if status == 0:
         print(
             f"atlas-diff: every page is within {tolerance} bytes "
-            f"(worst {worst}); the manifests are identical",
+            f"(worst {worst}); the manifests agree on everything but where sprites sit",
             file=out,
         )
     return status
@@ -241,6 +306,40 @@ def self_test():
     cases.append(("a different page counts many", differing(pixels, other) > 100))
 
     cases.append(("a truncated buffer is not silently equal", differing(pixels, pixels[:-4]) > 0))
+
+    # Item 162: a repack moves sprites between pages and positions, and
+    # only their pixels and the rest of the manifest have to hold.
+    def layout(pages_px, placement):
+        p, x, y = placement
+        return {
+            "pages": [f"p{i}" for i in range(len(pages_px))],
+            "zoom": 1,
+            "sprites": {"s": {"0": {"page": p, "x": x, "y": y, "w": 4, "h": 4, "ax": 1.0, "ay": 2.0}}},
+        }, [(width, height, px) for px in pages_px]
+
+    def place(sprite, x, y, pages=1):
+        blank = [bytearray(width * height * 4) for _ in range(pages)]
+        page = blank[-1]
+        for r in range(4):
+            page[(y + r) * width * 4 + x * 4 : (y + r) * width * 4 + (x + 4) * 4] = sprite[r * 16 : (r + 1) * 16]
+        return [bytes(b) for b in blank]
+
+    sprite = bytes(random.randrange(256) for _ in range(4 * 4 * 4))
+    old_m, old_p = layout(place(sprite, 1, 1), (0, 1, 1))
+    new_m, new_p = layout(place(sprite, 9, 6, pages=2), (1, 9, 6))
+    problems, moved = compare_sprites(old_m, new_m, old_p, new_p, 0)
+    cases.append(("a sprite moved to another page and place compares as no change", not problems and moved == 0))
+
+    changed = bytearray(sprite)
+    changed[5] ^= 0xFF
+    _, changed_p = layout(place(bytes(changed), 9, 6, pages=2), (1, 9, 6))
+    problems, moved = compare_sprites(old_m, new_m, old_p, changed_p, 0)
+    cases.append(("a moved sprite with a changed byte counts it", moved == 1 and problems))
+
+    other_m = json.loads(json.dumps(new_m))
+    other_m["sprites"]["s"]["0"]["ax"] = 3.0
+    problems, _ = compare_sprites(old_m, other_m, old_p, new_p, 0)
+    cases.append(("a moved anchor is a change, not a move", bool(problems)))
 
     try:
         decode(b"not a png at all")

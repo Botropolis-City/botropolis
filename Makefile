@@ -418,6 +418,7 @@ atlas-shrunk ::
 
 sprites-check :: sprites atlas-shrunk
 	$(LOG) "Checking the re-render against the committed atlases"
+	@python3 tools/render-sprites/pack.py --self-test
 	@python3 tools/atlas-diff.py --self-test
 	@python3 tools/atlas-diff.py
 

@@ -10,7 +10,7 @@ import (
 )
 
 // Item 159: the opening panel fills as the pages of the level in use go
-// up; item 162 puts up only that level, 2 pages at the usual zoom and 6
+// up; item 162 puts up only that level, 2 pages at the usual zoom and 5
 // from zoom 1.98.
 func TestKitProgress(t *testing.T) {
 	for _, tc := range []struct {
@@ -18,7 +18,7 @@ func TestKitProgress(t *testing.T) {
 		pages int
 	}{
 		{1, 2},
-		{2, 6},
+		{2, 5},
 	} {
 		t.Run(fmt.Sprintf("when the city opens at zoom %v", tc.zoom), func(t *testing.T) {
 			k, err := loadKitsLazily()

@@ -116,8 +116,8 @@ func (k *kits) complete(i int) bool {
 // view is a window's update: it puts up a page of the level the zoom
 // picks while that level is not all up, and once it is, lets go of any
 // other level not picked for kitHoldUpdates (item 162). Only the level in
-// use is resident: z1 is picked below zoom 1.98, and z2's six pages are
-// 96 MiB that most sessions never draw.
+// use is resident: z1 is picked below zoom 1.98, and z2's pages are
+// 66 MiB of texture that most sessions never draw.
 func (k *kits) view(zoom float64) error {
 	if k.keepAll {
 		return nil

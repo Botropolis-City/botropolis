@@ -33,6 +33,7 @@ from mathutils import Vector
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import buildings  # noqa: E402
+import pack  # noqa: E402
 
 KITS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "kits")
 REPO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
@@ -791,42 +792,49 @@ def faces(pixels):
 
 
 class Pages:
-    """A shelf packer over PAGE-square pages."""
+    """A level's sprites, laid on pages by pack.py once all are cut.
+
+    Shelved in the order they were cut, z2 took five full pages and a
+    part; pack.py fills a page at a time and keeps the cheapest of a few
+    orderings, at Ebitengine's power-of-two texture sizes (item 162). A
+    page is only as tall as its lowest sprite needs.
+    """
 
     def __init__(self):
+        self.cuts = []
+        self.entries = []
         self.pages = []
-        self.shelf_y = 0
-        self.shelf_h = 0
-        self.x = 0
 
-    def new_page(self):
-        self.pages.append(np.zeros((PAGE, PAGE, 4), dtype=np.uint8))
-        self.shelf_y = self.shelf_h = self.x = 0
-
-    def put(self, rgba):
+    def put(self, rgba, entry, key):
+        """Keep a cut; entry, its manifest entry, gets its page, x and y
+        when the level is laid out. key is (piece, heading as a string),
+        the order tools/repack-atlas lays them in too, so both lay the
+        same sprites in the same places."""
         h, w = rgba.shape[:2]
         if w + 2 * PAD > PAGE or h + 2 * PAD > PAGE:
             raise ValueError(f"a sprite of {w}x{h} does not fit a {PAGE} page; lower the zoom or split the piece")
-        if not self.pages:
-            self.new_page()
-        if self.x + w + PAD > PAGE:
-            self.shelf_y += self.shelf_h + PAD
-            self.shelf_h = 0
-            self.x = 0
-        if self.shelf_y + h + PAD > PAGE:
-            self.new_page()
-        page = len(self.pages) - 1
-        x, y = self.x + PAD, self.shelf_y + PAD
-        self.pages[page][y : y + h, x : x + w] = rgba
-        self.x += w + PAD
-        self.shelf_h = max(self.shelf_h, h)
-        return page, x, y
+        self.cuts.append((key, rgba))
+        self.entries.append((key, entry))
+
+    def lay(self):
+        self.cuts.sort(key=lambda c: c[0])
+        self.entries.sort(key=lambda e: e[0])
+        self.cuts = [c for _, c in self.cuts]
+        self.entries = [e for _, e in self.entries]
+        sizes = [(c.shape[1], c.shape[0]) for c in self.cuts]
+        placed, heights = pack.pack(sizes, page=PAGE, pad=PAD)
+        self.pages = [np.zeros((h, PAGE, 4), dtype=np.uint8) for h in heights]
+        for i, cut in enumerate(self.cuts):
+            page, x, y = placed[i]
+            self.pages[page][y : y + cut.shape[0], x : x + cut.shape[1]] = cut
+            self.entries[i].update({"page": page, "x": int(x), "y": int(y)})
 
     def save(self, out, stem):
+        self.lay()
         names = []
         for i, page in enumerate(self.pages):
             name = f"{stem}-{i}.png"
-            img = bpy.data.images.new(name, PAGE, PAGE, alpha=True)
+            img = bpy.data.images.new(name, PAGE, page.shape[0], alpha=True)
             img.pixels.foreach_set((page[::-1].astype(np.float32) / 255).ravel())
             img.filepath_raw = os.path.join(out, name)
             img.file_format = "PNG"
@@ -891,11 +899,11 @@ def atlas(args):
                     px, (ax, ay) = frame_piece(root, heading, zoom, ground)
                     rgba = render_pixels(tmp)
                     cut, (x0, y0) = crop(rgba)
-                    page, x, y = pages.put(cut)
                     sprites[key][str(heading)] = {
-                        "page": page, "x": int(x), "y": int(y), "w": int(cut.shape[1]), "h": int(cut.shape[0]),
+                        "w": int(cut.shape[1]), "h": int(cut.shape[0]),
                         "ax": round(float(ax - x0), 2), "ay": round(float(ay - y0), 2),
                     }
+                    pages.put(cut, sprites[key][str(heading)], (key, str(heading)))
                     if (kit, name) in LANDMARKS:
                         sprites[key][str(heading)]["panes"] = panes(cut, kit_glass, kit_core)
                     if kit == "botropolis" and buildings.is_kind(name):
