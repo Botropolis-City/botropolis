@@ -103,6 +103,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   While it reads, the footer shows how far it has got on a bar, as in "Reading your history · 42% · about 6 min left", with the time left once its pace has settled.
   A city opened while the daemon is still reading your sessions no longer shows an empty island: it shows "Reading your sessions · 40 of 120" on a bar until the map is ready.
 
+- **The map comes up within about a second of the daemon starting, on a large history too.**
+  Every start used to read your live sessions and the last day's whole before the map could draw, which on a 3 GB history took about 5 to 9 seconds at a full core.
+  The map now draws first, from the start and end of each session, and the rest of the day is read behind it at half a core, with "Reading your history" in the footer until it is done, so a session's usage and the power plant are marked as still filling in rather than shown low.
+
 - **Refreshing usage no longer starts your MCP servers, settings, hooks or plugins.**
   Each refresh used to start Claude Code with everything you have configured, up to seven processes and about 900 MiB; it now starts Claude Code alone, at under half that.
   A refresh and a summary also never run at the same time any more, and two summaries run one after the other.
