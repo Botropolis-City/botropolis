@@ -15,13 +15,13 @@ Measured on a laptop's integrated graphics (Intel Core Ultra 7 265U) with a real
 | | before | 0.3.0 |
 | --- | --- | --- |
 | drawing a frame, focused | 17–48 ms | about 10–11 ms |
-| the city's memory, settled (own and GPU) | 715–817 MiB (4.6 GiB in 0.2.2) | about 475 MiB, 580 fully zoomed in |
+| the city's memory, settled (own and GPU) | 715–817 MiB (4.6 GiB in 0.2.2) | about 450 MiB, 550 fully zoomed in |
 | the city's heap in its first seconds | up to 3.1 GB | about 400 MB |
 | a hidden city | 7.9% of a core and 462 MiB | under 1% and under 200 MiB |
 | the daemon, settled | up to 24% of a core, in bursts of several cores | under 1% |
 | the first launch | up to four cores, about 9 s to a map | under one core, a map in about a second |
 
-Some budgets are still missed, and 0.3.x continues on them: a focused city uses about half a core where the budget is a tenth, and fully zoomed in it holds about 70 MiB more than its 512.
+Some budgets are still missed, and 0.3.x continues on them: a focused city uses about half a core where the budget is a tenth, and fully zoomed in it holds about 35 MiB more than its 512.
 
 **Before you upgrade:**
 - **Restart the daemon after installing** (`botropolis setup`, or the city's Restart Daemon dialog): a 0.3.0 city and daemon talk a new version of their protocol, and a city meeting an older daemon says so and offers to restart it.
@@ -68,7 +68,7 @@ Some budgets are still missed, and 0.3.x continues on them: a focused city uses 
   The journal, the group review, the top strip, the event stream and the timeline are redrawn only when what they show changes, not every frame.
 
 - **The city holds less in memory, most of all zoomed in.**
-  Zooming in and back out no longer leaves the city holding pictures of buildings it has stopped drawing, the sprites load in smaller pieces and sit in less memory, the picture kept for panning is let go once you stop, and the coast has its own texture rather than growing a shared one: about 120 MiB less at full zoom on a large history than early in this release, which is still about 70 MiB over the 512 MiB budget there.
+  Zooming in and back out no longer leaves the city holding pictures of buildings it has stopped drawing, the sprites load in smaller pieces, are packed onto fewer and smaller pages and sit in less memory, the picture kept for panning is let go once you stop, and the coast has its own texture rather than growing a shared one: about 150 MiB less at full zoom on a large history than early in this release, which is still about 35 MiB over the 512 MiB budget there.
 
 - **An unfocused city keeps up, as a dashboard on another monitor.**
   It used to show the last frame it drew while it had the focus; it now draws again whenever something changes, such as a session starting, stopping or needing you, and nothing moves in between, so it costs little while it sits there.
