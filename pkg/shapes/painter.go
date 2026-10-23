@@ -181,6 +181,17 @@ func (p *Painter) AddLine(a, b city.Point, width float64, c color.NRGBA) {
 	p.mesh.Stroke(p.line[:], width, false, c)
 }
 
+// AddFill adds a filled ring to what the next Flush draws, so many
+// fills go down in one draw (item 161). A ring the mesh cannot fill
+// has its inside drawn at once, as Fill does, and its edge with the
+// rest.
+func (p *Painter) AddFill(dst *ebiten.Image, pts []city.Point, c color.NRGBA) {
+	p.shape(1, pts, 0, true, c)
+	if !p.mesh.Fill(pts, c) {
+		p.fallback(dst, pts, c, ebiten.BlendSourceOver)
+	}
+}
+
 // Flush draws everything added since the last draw.
 func (p *Painter) Flush(dst *ebiten.Image) {
 	p.flush(dst, ebiten.BlendSourceOver)

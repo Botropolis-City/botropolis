@@ -171,11 +171,17 @@ func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building,
 			origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
 		}
 	}
+	if !boarded {
+		// Panes never overlap, so one mesh draws them as one draw each
+		// would (item 161).
+		for _, pane := range panes {
+			g.paint.AddFill(screen, pane[:], colorDarkGlass)
+		}
+		g.paint.Flush(screen)
+		return
+	}
 	for i, pane := range panes {
 		g.fillQuad(screen, pane, colorDarkGlass)
-		if !boarded {
-			continue
-		}
 		planks := planksFor(pane, seed+uint32(i)*2654435761)
 		nail(planks, rows, origin, scale)
 		for _, plank := range planks {

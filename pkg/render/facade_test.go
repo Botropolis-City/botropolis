@@ -87,3 +87,38 @@ func TestPlanks(t *testing.T) {
 		})
 	})
 }
+
+// Item 161: at full zoom a resting building's shutters were a mesh, a
+// record and a draw for every pane; they are one mesh for the building.
+func TestShuttersAreOneMesh(t *testing.T) {
+	d := fullZoom(t, DriveOptions{})
+	g := d.game
+	cam := g.scene.Camera()
+	var b *city.Building
+	var panes int
+	for _, c := range g.scene.City().Buildings() {
+		if n := len(g.facadePanes(cam, buildingPiece(c), g.footOf(cam, c))); n >= 2 {
+			b, panes = c, n
+			break
+		}
+	}
+	require.NotNil(t, b, "no building with two panes to shutter")
+	l := g.recorder()
+	m := l.mark()
+	l.begin()
+	g.shutter(l.dry, cam, b, buildingPiece(b), false)
+	in := l.end()
+	meshes := 0
+	for i := in.from; i < in.to; i++ {
+		if l.cmds[i].kind == cmdMesh {
+			meshes++
+		}
+	}
+	l.truncate(m)
+
+	t.Run("when a resting building's shutters are drawn", func(t *testing.T) {
+		t.Run("it should draw all its panes as one mesh", func(t *testing.T) {
+			assert.Equal(t, 1, meshes, "%d panes", panes)
+		})
+	})
+}
