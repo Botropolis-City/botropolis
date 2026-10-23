@@ -281,11 +281,16 @@ func (o ownProjects) project(project string) bool {
 }
 
 func Build(src Sources, probes Probes, now time.Time) []Session {
-	byID := map[string]claude.Transcript{}
+	return mergeSessions(buildLive(src, probes, now), buildParked(src.Stopped, src.StoppedSubagents))
+}
+
+// buildLive is the sessions Claude Code has records for, sorted.
+func buildLive(src Sources, probes Probes, now time.Time) []Session {
+	byID := make(map[string]claude.Transcript, len(src.Transcripts))
 	for _, t := range src.Transcripts {
 		byID[t.SessionID] = t
 	}
-	sessions := make([]Session, 0, len(src.Records)+len(src.Stopped))
+	sessions := make([]Session, 0, len(src.Records))
 	own := newOwnProjects()
 	for _, r := range src.Records {
 		if own.run(r.CWD) {
@@ -299,24 +304,59 @@ func Build(src Sources, probes Probes, now time.Time) []Session {
 		}
 		sessions = append(sessions, buildSession(r, transcript, hasTranscript, src.Subagents[r.SessionID], isAlive, isAttached, now))
 	}
-	for _, t := range src.Stopped {
+	sortSessions(sessions)
+	return sessions
+}
+
+// buildParked is the stopped sessions, sorted. It reads nothing but the
+// transcripts, not even the time, so a loader keeps it while none of
+// them changes (item 205).
+func buildParked(stopped []claude.Transcript, subagents map[string][]claude.Subagent) []Session {
+	sessions := make([]Session, 0, len(stopped))
+	own := newOwnProjects()
+	for _, t := range stopped {
 		if own.run(t.CWD) || own.project(t.Project) {
 			continue
 		}
 		s := parkedSession(t)
-		for _, sub := range src.StoppedSubagents[t.SessionID] {
+		for _, sub := range subagents[t.SessionID] {
 			visit(&s, sub.Transcript)
 		}
 		sessions = append(sessions, s)
 	}
-	dropSoloTeams(sessions)
-	sort.SliceStable(sessions, func(i, j int) bool {
-		if sessions[i].CWD != sessions[j].CWD {
-			return sessions[i].CWD < sessions[j].CWD
-		}
-		return sessions[i].StartedAt.Before(sessions[j].StartedAt)
-	})
+	sortSessions(sessions)
 	return sessions
+}
+
+// mergeSessions is the live and the stopped sessions in one order, the
+// live first where two tie, as one stable sort of both, live first,
+// would give: by directory, then by when each started.
+func mergeSessions(live, parked []Session) []Session {
+	sessions := make([]Session, 0, len(live)+len(parked))
+	i, j := 0, 0
+	for i < len(live) && j < len(parked) {
+		if sessionBefore(&parked[j], &live[i]) {
+			sessions = append(sessions, parked[j])
+			j++
+		} else {
+			sessions = append(sessions, live[i])
+			i++
+		}
+	}
+	sessions = append(append(sessions, live[i:]...), parked[j:]...)
+	dropSoloTeams(sessions)
+	return sessions
+}
+
+func sortSessions(sessions []Session) {
+	sort.SliceStable(sessions, func(i, j int) bool { return sessionBefore(&sessions[i], &sessions[j]) })
+}
+
+func sessionBefore(a, b *Session) bool {
+	if a.CWD != b.CWD {
+		return a.CWD < b.CWD
+	}
+	return a.StartedAt.Before(b.StartedAt)
 }
 
 // dropSoloTeams clears the team of a session that is alone in a team

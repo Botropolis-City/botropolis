@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -28,6 +29,8 @@ type cachedTranscript struct {
 	// so a load that trusts the watcher can reuse them (item 205).
 	subagents        []string
 	subagentsSkipped bool
+	// gen is the last load that catalogued this stopped transcript.
+	gen int
 }
 
 type cachedSubagent struct {
@@ -37,6 +40,7 @@ type cachedSubagent struct {
 	// reader reads a live session's subagent on from where it last
 	// stopped (item 141).
 	reader *claude.SubagentReader
+	gen    int
 }
 
 const stoppedWindowBytes = 64 << 10
@@ -46,31 +50,39 @@ type Loader struct {
 	probes      Probes
 	transcripts map[string]cachedTranscript
 	subagents   map[string]cachedSubagent
-	parked      map[string]cachedTranscript
+	parked      map[string]*cachedTranscript
 	// parkedSubagents are stopped sessions' subagents, each read once
 	// and again only when its file changes (item 90).
-	parkedSubagents map[string]cachedSubagent
-	mcp             claude.MCPConfig
-	mcpKey          fileKey
-	stats           *claude.Stats
-	statsKey        fileKey
-	dirs            []string
-	reads           int
-	groups          groupCache
-	ledgerPath      string
-	closeUpPath     string
-	ledger          Ledger
-	ledgerReads     int
-	ledgerWrote     ledgerWrite
-	ledgerSavedAt   time.Time
-	ledgerPending   bool
-	historyKey      fileKey
-	historyReader   *claude.HistoryReader
-	history         map[string][]claude.Prompt
-	whole           *wholeRead
-	stored          *storedHefts
-	stoppedFiles    map[string]stoppedFile
-	gate            loadGate
+	parkedSubagents map[string]*cachedSubagent
+	// stoppedGen counts the catalogue's loads; stoppedOut and
+	// stoppedSubsOut are what it last gathered, and builtParked the
+	// stopped sessions built from them, all kept while no stopped
+	// transcript changes (item 205).
+	stoppedGen     int
+	stoppedOut     []claude.Transcript
+	stoppedSubsOut map[string][]claude.Subagent
+	builtParked    []Session
+	mcp            claude.MCPConfig
+	mcpKey         fileKey
+	stats          *claude.Stats
+	statsKey       fileKey
+	dirs           []string
+	reads          int
+	groups         groupCache
+	ledgerPath     string
+	closeUpPath    string
+	ledger         Ledger
+	ledgerReads    int
+	ledgerWrote    ledgerWrite
+	ledgerSavedAt  time.Time
+	ledgerPending  bool
+	historyKey     fileKey
+	historyReader  *claude.HistoryReader
+	history        map[string][]claude.Prompt
+	whole          *wholeRead
+	stored         *storedHefts
+	stoppedFiles   map[string]stoppedFile
+	gate           loadGate
 	// index locates transcripts without globbing every project on
 	// every load (item 196).
 	index *claude.Index
@@ -125,9 +137,9 @@ func NewLoader(home string, probes Probes) *Loader {
 		probes:      probes,
 		transcripts: map[string]cachedTranscript{},
 		subagents:   map[string]cachedSubagent{},
-		parked:      map[string]cachedTranscript{},
+		parked:      map[string]*cachedTranscript{},
 
-		parkedSubagents: map[string]cachedSubagent{},
+		parkedSubagents: map[string]*cachedSubagent{},
 		index:           claude.NewIndex(),
 		lane:            make(chan struct{}, 1),
 	}
@@ -237,7 +249,10 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	snapshot.Skipped = append(snapshot.Skipped, skipped...)
 	src.Stopped, src.StoppedSubagents = stopped, stoppedSubs
 
-	snapshot.Sessions = Build(src, l.probes, now)
+	if l.builtParked == nil {
+		l.builtParked = buildParked(src.Stopped, src.StoppedSubagents)
+	}
+	snapshot.Sessions = mergeSessions(buildLive(src, l.probes, now), l.builtParked)
 	if l.ledgerPath != "" {
 		sessions, err := l.keepLedger(snapshot.Sessions, claudeDir, now)
 		if err != nil {
@@ -304,16 +319,14 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 }
 
 func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time.Time, first bool) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
-	parked := make([]claude.Transcript, 0, len(paths))
 	var skipped []claude.SkippedFile
-	cache := make(map[string]cachedTranscript, len(l.parked))
-	subCache := make(map[string]cachedSubagent, len(l.parkedSubagents))
-	stoppedSubs := map[string][]claude.Subagent{}
-	files := make(map[string]stoppedFile, len(l.stoppedFiles))
 	view := l.watch.take()
 	tick := l.auditTick % auditEvery
 	l.auditTick++
+	l.stoppedGen++
+	gen := l.stoppedGen
 	laterBusy := l.later.busy()
+	changed := l.stoppedOut == nil
 	for i, path := range paths {
 		l.loadDone.Add(1)
 		l.paceFirst()
@@ -321,21 +334,10 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 		if live[id] {
 			continue
 		}
-		if entry, ok := l.parked[path]; ok && i%auditEvery != tick && view.trusts(path) && !entry.subagentsSkipped && (!laterBusy || !l.later.pending(path)) {
-			cache[path] = entry
-			if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
-				continue
-			}
-			parked = append(parked, entry.transcript)
-			files[entry.transcript.SessionID] = stoppedFile{path: path, key: entry.key}
-			var subs []claude.Subagent
+		if entry := l.parked[path]; entry != nil && i%auditEvery != tick && view.trusts(path) && !entry.subagentsSkipped && (!laterBusy || !l.later.pending(path)) {
+			entry.gen = gen
 			for _, subPath := range entry.subagents {
-				sub := l.parkedSubagents[subPath]
-				subCache[subPath] = sub
-				subs = append(subs, sub.subagent)
-			}
-			if len(subs) > 0 {
-				stoppedSubs[entry.transcript.SessionID] = subs
+				l.parkedSubagents[subPath].gen = gen
 			}
 			continue
 		}
@@ -345,12 +347,12 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 			skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
 			continue
 		}
-		entry, ok := l.parked[path]
+		entry := l.parked[path]
 		if later, read := l.later.take(path); read && later.key == key {
 			later.transcript.Project = filepath.Base(filepath.Dir(path))
-			entry, ok = cachedTranscript{key: key, transcript: later.transcript}, true
+			entry, changed = &cachedTranscript{key: key, transcript: later.transcript}, true
 		}
-		if !ok || entry.key != key {
+		if entry == nil || entry.key != key {
 			l.reads++
 			transcript, err := l.stoppedTranscript(path, key, powerSince, first)
 			if err != nil {
@@ -358,10 +360,45 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 				continue
 			}
 			transcript.Project = filepath.Base(filepath.Dir(path))
-			entry = cachedTranscript{key: key, transcript: transcript}
+			entry, changed = &cachedTranscript{key: key, transcript: transcript}, true
 		}
+		entry.gen = gen
+		l.parked[path] = entry
 		if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
-			cache[path] = entry
+			continue
+		}
+		subPaths, subSkipped, subChanged := l.stoppedSubagents(path, entry.subagents, gen)
+		skipped = append(skipped, subSkipped...)
+		entry.subagents, entry.subagentsSkipped = subPaths, len(subSkipped) > 0
+		changed = changed || subChanged
+	}
+	for path, entry := range l.parked {
+		if entry.gen != gen {
+			delete(l.parked, path)
+			changed = true
+		}
+	}
+	for path, entry := range l.parkedSubagents {
+		if entry.gen != gen {
+			delete(l.parkedSubagents, path)
+		}
+	}
+	if changed {
+		l.stoppedOut, l.stoppedSubsOut = l.gather(paths, gen)
+		l.builtParked = nil
+	}
+	return l.stoppedOut, l.stoppedSubsOut, skipped, nil
+}
+
+// gather is the stopped sessions catalogued in this load, in the order
+// of their paths, with their subagents, and the files they came from.
+func (l *Loader) gather(paths []string, gen int) ([]claude.Transcript, map[string][]claude.Subagent) {
+	parked := make([]claude.Transcript, 0, len(l.parked))
+	subs := map[string][]claude.Subagent{}
+	files := make(map[string]stoppedFile, len(l.parked))
+	for _, path := range paths {
+		entry := l.parked[path]
+		if entry == nil || entry.gen != gen || entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
 			continue
 		}
 		// The usage probe's transcripts used to be fenced out here.
@@ -370,17 +407,13 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 		// one only ever saw the parked half, and a probe that was still
 		// running came through Records instead. Bug 54.
 		parked = append(parked, entry.transcript)
-		files[entry.transcript.SessionID] = stoppedFile{path: path, key: key}
-		subs, subPaths, subSkipped := l.stoppedSubagents(path, subCache)
-		skipped = append(skipped, subSkipped...)
-		entry.subagents, entry.subagentsSkipped = subPaths, len(subSkipped) > 0
-		cache[path] = entry
-		if len(subs) > 0 {
-			stoppedSubs[entry.transcript.SessionID] = subs
+		files[entry.transcript.SessionID] = stoppedFile{path: path, key: entry.key}
+		for _, subPath := range entry.subagents {
+			subs[entry.transcript.SessionID] = append(subs[entry.transcript.SessionID], l.parkedSubagents[subPath].subagent)
 		}
 	}
-	l.parked, l.parkedSubagents, l.stoppedFiles = cache, subCache, files
-	return parked, stoppedSubs, skipped, nil
+	l.stoppedFiles = files
+	return parked, subs
 }
 
 // stoppedTranscript reads a stopped transcript through the window, and
@@ -406,34 +439,35 @@ func (l *Loader) stoppedTranscript(path string, key fileKey, powerSince time.Tim
 	return claude.ReadTranscriptSince(path, stoppedWindowBytes, powerSince)
 }
 
-// stoppedSubagents are a stopped session's subagents, from the cache
-// unless a file changed, kept into next for the following load.
-func (l *Loader) stoppedSubagents(path string, next map[string]cachedSubagent) ([]claude.Subagent, []string, []claude.SkippedFile) {
+// stoppedSubagents are a stopped session's subagent files, each read
+// again only when it changed, and whether any is new, changed or gone
+// since was the last list.
+func (l *Loader) stoppedSubagents(path string, was []string, gen int) ([]string, []claude.SkippedFile, bool) {
 	paths := l.index.Subagents(path)
-	var subs []claude.Subagent
 	var kept []string
 	var skipped []claude.SkippedFile
+	changed := false
 	for _, subPath := range paths {
 		key, err := stat(subPath)
 		if err != nil {
 			skipped = append(skipped, claude.SkippedFile{Path: subPath, Err: err})
 			continue
 		}
-		entry, ok := l.parkedSubagents[subPath]
-		if !ok || entry.key != key {
+		entry := l.parkedSubagents[subPath]
+		if entry == nil || entry.key != key {
 			l.reads++
 			subagent, subSkipped, err := claude.ReadSubagent(subPath)
 			if err != nil {
 				skipped = append(skipped, claude.SkippedFile{Path: subPath, Err: err})
 				continue
 			}
-			entry = cachedSubagent{key: key, subagent: subagent, skipped: subSkipped}
+			entry, changed = &cachedSubagent{key: key, subagent: subagent, skipped: subSkipped}, true
+			l.parkedSubagents[subPath] = entry
 		}
-		next[subPath] = entry
-		subs = append(subs, entry.subagent)
+		entry.gen = gen
 		kept = append(kept, subPath)
 	}
-	return subs, kept, skipped
+	return kept, skipped, changed || !slices.Equal(kept, was)
 }
 
 // projectDirs are the directories that hold paths, each once, so the
