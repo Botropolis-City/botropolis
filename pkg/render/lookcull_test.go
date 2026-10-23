@@ -44,6 +44,26 @@ func TestFullZoomDrawsWhatIsOnScreen(t *testing.T) {
 			assert.Less(t, d.game.buildingsDrawn, len(d.game.scene.City().Buildings())/2)
 		})
 
+		t.Run("and 10 frames pass", func(t *testing.T) {
+			bakes, misses := 0, 0
+			for _, s := range frames {
+				bakes += s.bakes
+				misses += s.misses
+			}
+
+			t.Run("it should bake no look on any of them", func(t *testing.T) {
+				assert.Zero(t, bakes)
+			})
+
+			// A ceiling against regressions, not a target: the visible
+			// looks are about 27 MB in a 32 MiB cap, and shelf packing
+			// leaves no room for the last 8 of 46; the target is the
+			// frame budget, measured on the real history.
+			t.Run("it should draw no more looks straight than at slice 2 (8 a frame)", func(t *testing.T) {
+				assert.LessOrEqual(t, misses, 8*len(frames))
+			})
+		})
+
 		t.Run("it should count every look it draws as a hit, a bake or a miss", func(t *testing.T) {
 			var uncounted []lookStats
 			for _, s := range frames {

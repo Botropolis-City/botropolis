@@ -23,6 +23,8 @@ type bakedLook struct {
 	// paged is whether img is part of a look page, whose room comes
 	// back when the page starts again rather than when the look goes.
 	paged bool
+	// onPage is which look page it is part of, when it is paged.
+	onPage int
 }
 
 func (l *bakedLook) Deallocate() {
@@ -475,6 +477,9 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	switch {
 	case ok:
 		g.lookStats.hits++
+		if look.paged {
+			g.lookPages.use(look.onPage, g.lookFrame)
+		}
 		if g.textSeen != nil {
 			for _, w := range look.words {
 				g.textSeen(w)
@@ -523,6 +528,8 @@ func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point)
 	}
 	if room, page, ok := g.lookPages.place(size, g.keyOf(cam, f, r)); ok {
 		look.img, look.page, look.paged, at = g.lookPages.image(page).SubImage(room).(*ebiten.Image), g.lookPages.image(page), true, room.Min
+		look.onPage = page
+		g.lookPages.use(page, g.lookFrame)
 		look.img.Clear()
 	} else if g.lookPages.full {
 		return nil
@@ -580,7 +587,7 @@ func (g *Game) nextLookFrame() {
 	g.lookFrame++
 	g.lookStats = lookStats{}
 	if g.lookPages != nil {
-		g.lookPages.next(g.looks.remove)
+		g.lookPages.next(g.lookFrame, g.looks.remove)
 	}
 	if g.lookFrame%lookForget == 0 {
 		g.looks.forget(g.lookFrame - lookForget)
