@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Item 209: the cost gates count instructions and turn them into time at
+# measure.CoreRate, the rate one core retires them. This measures that
+# rate on each kind of core, for writing into pkg/measure/thread.go.
+set -euo pipefail
+
+usage() {
+    cat <<'USAGE'
+calibrate-core-rate — measure the instructions a second one core retires
+
+Usage: tools/calibrate-core-rate [--wait] [--help]
+
+Runs the daemon's load of 2,000 small sessions as the daemon runs it, a
+burst every 200 ms with sleeps between, unpinned, and prints the
+instructions it retired over its thread CPU: BurstCoreRate, which is
+CoreRate (Aria, 2026-10-23). Then, for the record, it runs the same load
+sustained on one thread pinned to the first core of each kind (cpu_core
+and cpu_atom on a hybrid chip), with each core's clock.
+
+It must run on an unloaded machine: a busy package lowers every clock.
+
+  --wait   wait for the machine to be quiet first: the 1-minute load
+           average under QUIET_LOAD (default 2) for 30 s, and no landing
+           running, which it holds off by taking the landing lock only
+           once it is quiet. Gives up after WAIT_HOURS (default 6).
+
+Write the rates into BurstCoreRate, PerformanceCoreRate and
+EfficiencyCoreRate in pkg/measure/thread.go, with the machine, the load
+and the clocks.
+
+Needs Linux with hardware counters (perf_event_paranoid at most 2).
+
+Environment:
+  LAND_LOCK    the landing lock (default /tmp/botropolis-land.lock)
+  QUIET_LOAD   the load average that counts as quiet (default 2)
+  WAIT_HOURS   how long --wait waits (default 6)
+USAGE
+}
+
+wait=false
+case "${1:-}" in
+    --help) usage; exit 0 ;;
+    --wait) wait=true ;;
+    "") ;;
+    *) usage >&2; exit 2 ;;
+esac
+
+cd "$(dirname "$0")/.."
+lock="${LAND_LOCK:-/tmp/botropolis-land.lock}"
+quiet="${QUIET_LOAD:-2}"
+hours="${WAIT_HOURS:-6}"
+
+measure() {
+    BOTROPOLIS_CALIBRATE=1 go test -count=1 -run '^TestCalibrateCoreRate$' -v ./testing/acceptance/
+}
+
+if ! "${wait}"; then
+    measure
+    exit
+fi
+
+go test -count=1 -run '^$' ./testing/acceptance/ >/dev/null
+
+load() { cut -d' ' -f1 /proc/loadavg; }
+is_quiet() { awk -v l="$(load)" -v q="${quiet}" 'BEGIN { exit !(l < q) }'; }
+
+# quiet_for waits until the load has stayed quiet for 30 s, or says no.
+quiet_for() {
+    for _ in 1 2 3 4 5 6; do
+        is_quiet || return 1
+        sleep 5
+    done
+}
+
+deadline=$(( $(date +%s) + hours * 3600 ))
+echo "waiting for a load under ${quiet} for 30 s, and no landing, for up to ${hours} h"
+while [ "$(date +%s)" -lt "${deadline}" ]; do
+    if quiet_for; then
+        exec 9>>"${lock}"
+        if flock -n 9; then
+            if quiet_for; then
+                echo "quiet at $(date -u +%FT%TZ), load $(cut -d' ' -f1-3 /proc/loadavg), holding ${lock}"
+                measure
+                exit
+            fi
+            flock -u 9
+        fi
+        exec 9>&-
+    fi
+    sleep 30
+done
+echo "calibrate-core-rate: the machine was never quiet for 30 s in ${hours} h; nothing was measured" >&2
+exit 1

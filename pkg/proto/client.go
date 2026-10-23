@@ -11,6 +11,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/find"
+	"botropolis.city/botropolis/pkg/measure"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -136,24 +137,24 @@ func (c *Client) readUpdate() (Update, error) {
 	if err != nil {
 		return Update{}, err
 	}
-	at := time.Now()
-	snapshot, err := c.mirror.Take(response)
-	reading.Add(int64(time.Since(at)))
+	var snapshot state.Snapshot
+	reading.Add(measure.Thread(func() { snapshot, err = c.mirror.Take(response) }))
 	if err != nil {
 		return Update{}, err
 	}
 	return Update{Snapshot: snapshot, Events: response.Events}, nil
 }
 
-// reading is the time every client in this process has spent decoding
-// what the daemon sent, waiting for it aside (item 201).
-var reading atomic.Int64
+// reading is what every client in this process has spent decoding what
+// the daemon sent, waiting for it aside (item 201), counted on the
+// thread that decoded it (item 209).
+var reading measure.Total
 
-// Reading is the time this process has spent decoding the daemon's
+// Reading is what this process has spent decoding the daemon's
 // responses and applying its deltas, which a city that draws nothing
 // is gated on.
-func Reading() time.Duration {
-	return time.Duration(reading.Load())
+func Reading() measure.Cost {
+	return reading.Cost()
 }
 
 // received is the bytes every client in this process has read from the
@@ -174,9 +175,7 @@ func (c *Client) decode(v any) error {
 	if err != nil {
 		return err
 	}
-	at := time.Now()
-	err = json.Unmarshal(line, v)
-	reading.Add(int64(time.Since(at)))
+	reading.Add(measure.Thread(func() { err = json.Unmarshal(line, v) }))
 	return err
 }
 

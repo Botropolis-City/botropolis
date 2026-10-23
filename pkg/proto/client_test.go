@@ -118,7 +118,7 @@ func TestSubscribeWithDeltas(t *testing.T) {
 		got := take(t, updates, len(views))
 
 		t.Run("it should count the time spent reading them", func(t *testing.T) {
-			assert.Greater(t, proto.Reading(), reading)
+			assert.Greater(t, proto.Reading().CPU, reading.CPU)
 		})
 
 		t.Run("it should count the bytes it read from the daemon", func(t *testing.T) {

@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
+	"botropolis.city/botropolis/pkg/measure"
 	"botropolis.city/botropolis/testing/helpers"
 )
 
@@ -49,14 +50,13 @@ var botropolisd = sync.OnceValues(func() (string, error) {
 // the ledger, and from when it has settled (item 205).
 func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 	const (
-		stream        = 30 * time.Second
-		every         = 200 * time.Millisecond
-		maxPerMinute  = 30
-		maxCoreShare  = 0.02
-		dirtyLimit    = 64 << 20
-		clockTicksSec = 100
-		sid           = "11111111-1111-4111-8111-111111111111"
-		cwd           = "/home/user/src/alpha"
+		stream       = 30 * time.Second
+		every        = 200 * time.Millisecond
+		maxPerMinute = 30
+		maxCoreShare = 0.02
+		dirtyLimit   = 64 << 20
+		sid          = "11111111-1111-4111-8111-111111111111"
+		cwd          = "/home/user/src/alpha"
 	)
 	bin, err := botropolisd()
 	require.NoError(t, err)
@@ -68,7 +68,8 @@ func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 		trace := d.trace
 
 		pid := d.pid
-		collections, ticks := countCollections(trace.String()), cpuTicks(t, pid)
+		meter := meterCore(t, pid)
+		collections, done := countCollections(trace.String()), meter.window(t)
 		h := helpers.HomeAt(t, home)
 		at := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
 		start := time.Now()
@@ -78,11 +79,13 @@ func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 		}
 		elapsed := time.Since(start)
 		collections = countCollections(trace.String()) - collections
-		share := float64(cpuTicks(t, pid)-ticks) / clockTicksSec / elapsed.Seconds()
+		share, ticked := done()
 		perMinute := float64(collections) / elapsed.Minutes()
 		time.Sleep(time.Second)
 		dirty := privateDirty(pid)
-		t.Logf("%d collections in %s (%.0f a minute), %.1f%% of a core, %d MiB Private_Dirty", collections, elapsed.Round(time.Second), perMinute, share*100, dirty>>20)
+		t.Logf("%d collections in %s (%.0f a minute), %.2f%% of a core (%.2f%% by its CPU ticks), %d MiB Private_Dirty", collections, elapsed.Round(time.Second), perMinute, share*100, ticked*100, dirty>>20)
+
+		meter.counted(t)
 
 		t.Run("it should use at most 2% of a core", func(t *testing.T) {
 			assert.LessOrEqual(t, share, maxCoreShare)
@@ -106,15 +109,14 @@ func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 // session writing, and this build 1.2-1.8% on a machine at load 20.
 func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
 	const (
-		stopped       = 200
-		replies       = 300
-		projects      = 30
-		stream        = 30 * time.Second
-		every         = 200 * time.Millisecond
-		maxCoreShare  = 0.02
-		clockTicksSec = 100
-		sid           = "11111111-1111-4111-8111-111111111111"
-		cwd           = "/home/user/src/alpha"
+		stopped      = 200
+		replies      = 300
+		projects     = 30
+		stream       = 30 * time.Second
+		every        = 200 * time.Millisecond
+		maxCoreShare = 0.02
+		sid          = "11111111-1111-4111-8111-111111111111"
+		cwd          = "/home/user/src/alpha"
 	)
 	bin, err := botropolisd()
 	require.NoError(t, err)
@@ -135,31 +137,33 @@ func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
 		}
 		d := startOwnDaemon(t, bin, home)
 		d.settle(t, 3*time.Minute)
-		pid := d.pid
+		meter := meterCore(t, d.pid)
 
 		t.Run("and one session writes a reply every 200 ms for two windows of 30 s", func(t *testing.T) {
 			measured := time.Now()
 			opens := watchOpens(t, dirs)
 			written := 0
-			window := func() float64 {
-				ticks := cpuTicks(t, pid)
+			window := func() (float64, float64) {
+				done := meter.window(t)
 				start := time.Now()
 				for ; time.Since(start) < stream; written++ {
 					h.AppendTranscript(sid, cwd, helpers.AssistantReply(sid, fmt.Sprintf("msg_196_live_%d", written), at.Add(time.Duration(written)*time.Second).Format(time.RFC3339Nano)))
 					time.Sleep(every)
 				}
-				return float64(cpuTicks(t, pid)-ticks) / clockTicksSec / time.Since(start).Seconds()
+				return done()
 			}
-			first, second := window(), window()
+			first, firstTicked := window()
+			second, secondTicked := window()
 			opened := opens()
-			t.Logf("%.1f%% then %.1f%% of a core; %d opens of transcripts that did not change", first*100, second*100, len(opened))
+			t.Logf("%.2f%% then %.2f%% of a core (%.2f%% then %.2f%% by its CPU ticks); %d opens of transcripts that did not change",
+				first*100, second*100, firstTicked*100, secondTicked*100, len(opened))
 
-			// The budget is judged on the quieter window. Other work on a
-			// busy machine only ever adds to the daemon's own CPU time,
-			// through shared cores, caches and clock speed, so the lower of
-			// two windows is the closer reading of what the daemon costs;
-			// a regression fails both, as r878 would at 9-15% in each. Both
-			// are logged, so a cost creeping towards the limit shows first.
+			meter.counted(t)
+
+			// The budget is judged on the quieter window, so one burst of
+			// work landing in a window does not decide it; a regression
+			// fails both, as r878 would at 9-15% in each. Both are logged,
+			// so a cost creeping towards the limit shows first.
 			t.Run("it should use at most 2% of a core", func(t *testing.T) {
 				assert.LessOrEqual(t, min(first, second), maxCoreShare)
 			})
@@ -243,15 +247,84 @@ func countCollections(trace string) int {
 // cpuTicks is the process's user and system time, in clock ticks.
 func cpuTicks(t *testing.T, pid int) int64 {
 	t.Helper()
+	user, system := cpuTicksSplit(t, pid)
+	return user + system
+}
+
+// cpuTicksSplit is the process's user time and its system time, in the
+// kernel, in clock ticks.
+func cpuTicksSplit(t *testing.T, pid int) (user, system int64) {
+	t.Helper()
 	stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
 	require.NoError(t, err)
 	s := string(stat)
 	fields := strings.Fields(s[strings.LastIndexByte(s, ')')+1:])
-	user, err := strconv.ParseInt(fields[11], 10, 64)
+	user, err = strconv.ParseInt(fields[11], 10, 64)
 	require.NoError(t, err)
-	system, err := strconv.ParseInt(fields[12], 10, 64)
+	system, err = strconv.ParseInt(fields[12], 10, 64)
 	require.NoError(t, err)
-	return user + system
+	return user, system
+}
+
+// coreMeter measures what a child process costs over a window as a share
+// of one core: the user-space instructions it retires, at
+// measure.CoreRate, which a busy machine's clocks cannot move, plus its
+// time in the kernel, which the counters cannot see and the budget
+// includes. The kernel's ticks still move with the clocks, but they are
+// a small part, 0.2-0.3% of a core on a quiet machine. CPU ticks as a
+// whole moved with the clocks on a laptop's hybrid chip and failed
+// landings at random (item 209), so they are only the fallback where
+// instructions cannot be counted, and are logged beside the count
+// otherwise.
+type coreMeter struct {
+	pid         int
+	counter     *measure.ProcessCounter
+	uncountable error
+}
+
+func meterCore(t *testing.T, pid int) *coreMeter {
+	t.Helper()
+	counter, err := measure.Process(pid)
+	m := &coreMeter{pid: pid, counter: counter, uncountable: err}
+	if err == nil {
+		t.Cleanup(func() { _ = counter.Close() })
+	}
+	return m
+}
+
+// window starts a window; the function it returns ends it, returning
+// the share of a core it was gated on, and its ticks' share beside.
+func (m *coreMeter) window(t *testing.T) func() (share, ticked float64) {
+	t.Helper()
+	const clockTicksSec = 100
+	user, system := cpuTicksSplit(t, m.pid)
+	start := time.Now()
+	var retired uint64
+	if m.uncountable == nil {
+		retired = m.counter.Instructions()
+	}
+	return func() (float64, float64) {
+		elapsed := time.Since(start).Seconds()
+		user1, system1 := cpuTicksSplit(t, m.pid)
+		ticked := float64(user1+system1-user-system) / clockTicksSec / elapsed
+		t.Logf("by its CPU ticks: %.2f%% of a core in user space, %.2f%% in the kernel",
+			100*float64(user1-user)/clockTicksSec/elapsed, 100*float64(system1-system)/clockTicksSec/elapsed)
+		if m.uncountable != nil {
+			return ticked, ticked
+		}
+		kernel := float64(system1-system) / clockTicksSec / elapsed
+		return float64(m.counter.Instructions()-retired)/measure.CoreRate/elapsed + kernel, ticked
+	}
+}
+
+// counted says whether the gate counted instructions, and skips saying
+// why when it fell back to ticks.
+func (m *coreMeter) counted(t *testing.T) {
+	t.Run("it should count its cost in instructions", func(t *testing.T) {
+		if m.uncountable != nil {
+			t.Skipf("skipped: no hardware instruction counters (%v), so its CPU ticks gate instead, which a busy machine moves", m.uncountable)
+		}
+	})
 }
 
 type syncBuffer struct {

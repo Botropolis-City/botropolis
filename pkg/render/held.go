@@ -1,10 +1,9 @@
 package render
 
 import (
-	"time"
-
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"botropolis.city/botropolis/pkg/measure"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -37,13 +36,13 @@ func (g *Game) takeSnapshot(pending *state.Snapshot) {
 	}
 	snapshot := *g.held
 	g.held = nil
-	at := time.Now()
-	g.scene.SetSnapshot(snapshot)
-	g.shareSnapshot()
-	g.maybeJournal()
-	g.followUsage()
-	g.setTitle(g.scene.Summary().Headline())
-	frames.laidOut(time.Since(at))
+	frames.laidOut(measure.Thread(func() {
+		g.scene.SetSnapshot(snapshot)
+		g.shareSnapshot()
+		g.maybeJournal()
+		g.followUsage()
+		g.setTitle(g.scene.Summary().Headline())
+	}))
 	if g.capturing() && g.shotFrames == 0 && g.scene.Opened() {
 		g.shotFrames = 1
 	}

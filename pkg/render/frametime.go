@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"botropolis.city/botropolis/pkg/measure"
 	"botropolis.city/botropolis/pkg/proto"
 )
 
@@ -38,14 +39,22 @@ type frameTimer struct {
 	// a city that draws nothing can be gated on them apart from drawing,
 	// which a virtual display does in software (item 201).
 	snapshots int
-	layout    time.Duration
-	reading   func() time.Duration
+	layout    measure.Total
+	reading   func() measure.Cost
 	// received is the bytes read from the daemon, which a hidden city is
 	// gated on apart from everything else it reads (item 209).
 	received func() int64
 }
 
 var frames = &frameTimer{on: os.Getenv("BOTROPOLIS_FRAMETIME") != "", reading: proto.Reading, received: proto.Received}
+
+// A run that reports its costs counts the instructions they retire,
+// which a busy machine cannot move (item 209).
+func init() {
+	if frames.on {
+		measure.CountInstructions.Store(true)
+	}
+}
 
 func (f *frameTimer) writer() io.Writer {
 	if f.out == nil {
@@ -54,10 +63,10 @@ func (f *frameTimer) writer() io.Writer {
 	return f.out
 }
 
-// laidOut records a snapshot laid out, and how long it took.
-func (f *frameTimer) laidOut(took time.Duration) {
+// laidOut records a snapshot laid out, and what it cost.
+func (f *frameTimer) laidOut(cost measure.Cost) {
 	f.snapshots++
-	f.layout += took
+	f.layout.Add(cost)
 }
 
 func ms(d time.Duration) float64 {
@@ -82,8 +91,13 @@ func (f *frameTimer) quiet(focused, visible, minimised bool) {
 	}
 	if now := time.Now(); now.Sub(f.lastQuiet) >= time.Second {
 		f.lastQuiet = now
-		fmt.Fprintf(f.writer(), "QUIET no frames: focused=%v visible=%v minimised=%v snapshots=%d decoding=%.1fms layout=%.1fms received=%dB\n",
-			focused, visible, minimised, f.snapshots, ms(f.reading()), ms(f.layout), f.received())
+		decoding, layout := f.reading(), f.layout.Cost()
+		counted := "thread-cpu"
+		if decoding.Counted && layout.Counted {
+			counted = "instructions"
+		}
+		fmt.Fprintf(f.writer(), "QUIET no frames: focused=%v visible=%v minimised=%v snapshots=%d decoding=%.1fms layout=%.1fms received=%dB counted=%s\n",
+			focused, visible, minimised, f.snapshots, ms(decoding.Core()), ms(layout.Core()), f.received(), counted)
 	}
 }
 
