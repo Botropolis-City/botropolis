@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/daemon"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/testing/helpers"
 )
@@ -176,8 +178,15 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 			settled, last = ticks-last <= 1, ticks
 		}
 		require.True(t, settled, "the daemon never settled")
+		released := assert.Eventually(t, func() bool { return strings.Contains(trace.String(), "(forced)") },
+			daemon.SettleAfter+30*time.Second, 100*time.Millisecond)
 		live, peak, dirty := lastLiveMB(trace.String()), peakHeapMB(trace.String()), privateDirty(pid)
-		t.Logf("settled: Go heap live %d MB, peak %d MB; %d MiB Private_Dirty", live, peak, dirty>>20)
+		t.Logf("settled: Go heap live %d MB, peak %d MB; %d MiB Private_Dirty, %d MiB under the budget",
+			live, peak, dirty>>20, (dirtyLimit-dirty)>>20)
+
+		t.Run("it should hand its start-up peak back with no hook event", func(t *testing.T) {
+			assert.True(t, released)
+		})
 
 		t.Run("it should hold its live heap under the 256 MiB memory limit", func(t *testing.T) {
 			assert.Less(t, live, liveLimitMB)

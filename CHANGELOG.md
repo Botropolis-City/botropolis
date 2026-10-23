@@ -91,6 +91,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The daemon gives back the memory it used to start up, even when no session is working.**
+  It used to return freed memory only after a hook event, so a daemon that read your history and then saw no hook kept its start-up peak; it now returns it once the reading has been quiet for 5 seconds, and at least once a minute while sessions keep it busy.
+  On a home with 2,000 sessions it settles at about 42 MiB, where it held about 60.
+
 - **The first launch no longer takes the machine.**
   Reading your whole history for the first time used up to four cores; the daemon now reads it at most half the time, at a lower CPU priority on Linux, so it stays under one core in all.
   On macOS its disk reads now wait behind everyone else's; its CPU priority stays where it was there, because every lower one measured froze the whole daemon on Apple silicon.

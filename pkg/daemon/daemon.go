@@ -148,11 +148,15 @@ type Daemon struct {
 	// log is what happened, as each view differs from the last; the
 	// daemon keeps it so a client sees what it missed while closed.
 	log *events.Log
-	// release hands the heap's garbage back to the OS once a burst of
-	// hook events has settled for settleAfter; only rescans did before,
-	// so a storm left the daemon sitting at its ceiling.
+	// release hands the heap's garbage back to the OS once hook events
+	// and rescans have settled for settleAfter, or once ceiling has
+	// passed since the first of them, so a daemon that loads and sees
+	// no hook still returns its start-up peak, and one that never goes
+	// quiet returns memory once a ceiling (items 157 and 208).
 	release     func()
 	settleAfter time.Duration
+	ceiling     time.Duration
+	unreleased  time.Time
 	settle      *time.Timer
 	// peer is what this daemon tells every client it is (item 149).
 	peer atomic.Pointer[proto.Peer]
@@ -165,9 +169,13 @@ type Daemon struct {
 // tests.
 func (d *Daemon) SetPeer(p proto.Peer) { d.peer.Store(&p) }
 
-// SettleAfter is how long after the last hook event the daemon returns
-// memory to the OS.
+// SettleAfter is how long after the last hook event or rescan the
+// daemon returns memory to the OS.
 const SettleAfter = 5 * time.Second
+
+// ReleaseCeiling is the longest the daemon goes without returning memory
+// while hook events or rescans keep it from settling.
+const ReleaseCeiling = time.Minute
 
 func New(home string, probes state.Probes, clock func() time.Time, options ...Option) *Daemon {
 	loader := state.NewLoader(home, probes)
@@ -222,6 +230,7 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		release:     debug.FreeOSMemory,
 		addWatch:    (*fsnotify.Watcher).Add,
 		settleAfter: SettleAfter,
+		ceiling:     ReleaseCeiling,
 
 		progressEvery: ProgressEvery,
 	}
@@ -230,20 +239,41 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 }
 
 // SetRelease replaces how and how soon memory is returned after a burst
-// of hook events, for tests and tuning.
+// of hook events or rescans, for tests and tuning.
 func (d *Daemon) SetRelease(after time.Duration, release func()) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.settleAfter, d.release = after, release
 }
 
-// scheduleRelease (re)arms the settle timer; the burst is over when it
-// fires.
+// SetReleaseCeiling replaces the longest the daemon goes without
+// returning memory while it never settles, for tests and tuning.
+func (d *Daemon) SetReleaseCeiling(ceiling time.Duration) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.ceiling = ceiling
+}
+
+// scheduleRelease (re)arms the settle timer, but never past the ceiling
+// counted from the first activity since the last release. Call it with
+// mu held.
 func (d *Daemon) scheduleRelease() {
 	if d.settle != nil {
 		d.settle.Stop()
 	}
-	d.settle = time.AfterFunc(d.settleAfter, d.release)
+	if d.unreleased.IsZero() {
+		d.unreleased = time.Now()
+	}
+	after := min(d.settleAfter, time.Until(d.unreleased.Add(d.ceiling)))
+	d.settle = time.AfterFunc(max(after, 0), d.settled)
+}
+
+func (d *Daemon) settled() {
+	d.mu.Lock()
+	d.unreleased = time.Time{}
+	release := d.release
+	d.mu.Unlock()
+	release()
 }
 
 func (d *Daemon) Rescan() error {
@@ -257,6 +287,7 @@ func (d *Daemon) Rescan() error {
 	d.base = snapshot
 	d.pruneOverlays()
 	view := d.view()
+	d.scheduleRelease()
 	d.mu.Unlock()
 	d.notify(view)
 	if d.loaded != nil {

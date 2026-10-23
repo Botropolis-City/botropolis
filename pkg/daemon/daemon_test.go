@@ -288,6 +288,73 @@ func TestDaemon(t *testing.T) {
 		})
 	})
 
+	releases := func(t *testing.T, d *daemon.Daemon, after, ceiling time.Duration) func() int {
+		var mu sync.Mutex
+		released := 0
+		d.SetRelease(after, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			released++
+		})
+		d.SetReleaseCeiling(ceiling)
+		return func() int { mu.Lock(); defer mu.Unlock(); return released }
+	}
+
+	t.Run("when the first load finishes, and no hook event follows", func(t *testing.T) {
+		d := daemon.New(idleHome(t, "interactive").Path, probes, func() time.Time { return now })
+		count := releases(t, d, 30*time.Millisecond, time.Minute)
+		require.NoError(t, d.Rescan())
+
+		t.Run("it should release memory once it settles", func(t *testing.T) {
+			assert.Eventually(t, func() bool { return count() == 1 }, time.Second, 5*time.Millisecond)
+		})
+	})
+
+	t.Run("when rescans arrive in a burst, closer together than the settle time", func(t *testing.T) {
+		d := newDaemon(t, idleHome(t, "interactive"))
+		count := releases(t, d, 100*time.Millisecond, time.Minute)
+		for i := 0; i < 10; i++ {
+			require.NoError(t, d.Rescan())
+			time.Sleep(10 * time.Millisecond)
+		}
+		during := count()
+
+		t.Run("it should not release memory during the burst", func(t *testing.T) {
+			assert.Equal(t, 0, during)
+		})
+
+		t.Run("it should release memory once they settle", func(t *testing.T) {
+			assert.Eventually(t, func() bool { return count() == 1 }, time.Second, 5*time.Millisecond)
+		})
+
+		t.Run("it should not keep releasing after that", func(t *testing.T) {
+			time.Sleep(250 * time.Millisecond)
+			assert.Equal(t, 1, count())
+		})
+	})
+
+	t.Run("when rescans arrive steadily for longer than the ceiling", func(t *testing.T) {
+		const (
+			settle  = 150 * time.Millisecond
+			ceiling = 300 * time.Millisecond
+			stream  = time.Second
+		)
+		d := newDaemon(t, idleHome(t, "interactive"))
+		count := releases(t, d, settle, ceiling)
+		for start := time.Now(); time.Since(start) < stream; time.Sleep(10 * time.Millisecond) {
+			require.NoError(t, d.Rescan())
+		}
+		during := count()
+
+		t.Run("it should release while they continue", func(t *testing.T) {
+			assert.GreaterOrEqual(t, during, 1)
+		})
+
+		t.Run("it should release no more than once per ceiling", func(t *testing.T) {
+			assert.LessOrEqual(t, during, int(stream/ceiling))
+		})
+	})
+
 	t.Run("when a subscriber cancels", func(t *testing.T) {
 		d := newDaemon(t, idleHome(t, "interactive"))
 		updates, cancel := d.Subscribe()
