@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On the metropolis demo that is about 75,000 indices a frame instead of 766,000, and a live heap of about 125 MB instead of 255 MB.
   Filled shapes read about half a pixel larger at their edges, and two of one colour that meet leave no seam between them.
 
+- **Zoomed all the way in on a large history, the city draws a frame in about half the time it did, with about half the CPU.**
+  Buildings off the screen are no longer drawn at all, and those on it stay drawn as one picture each instead of being redrawn piece by piece once the city had more of them than it kept.
+  The journal, the group review, the top strip, the event stream and the timeline are redrawn only when what they show changes, not every frame.
+
 - **A still building is drawn as one picture instead of a dozen pieces.**
   Each building's walls, windows, sign, flags, scaffold and spire are put together once and reused every frame until its look changes; what moves, such as a pulsing beacon, smoke or a hoist's loads, is still drawn each frame on top.
   On the metropolis demo a settled frame is about 135 draw commands instead of 280, and the pictures take a third of a megabyte at the opening zoom and about 2 MB up close, within a 32 MB cap.
