@@ -81,22 +81,32 @@ func (g *Game) drawPanel(o overlay, screen *ebiten.Image, width, height float64)
 		p = &panelBake{}
 		g.panels.held[o] = p
 	}
-	box := in.box.Intersect(screen.Bounds())
-	if box.Empty() {
-		return
+	// The scrim a panel lays over the city first covers the whole frame,
+	// and baked with it each bake was a frame-sized texture: 16 MiB at
+	// 1920×1200, rounded to a power of two. It is one draw, so it is
+	// drawn each frame and only what lies on it is baked.
+	frame := screen.Bounds()
+	under, on := in, in
+	for under.to = in.from; under.to < in.to && l.cmdBox(under.to).Intersect(frame) == frame; under.to++ {
 	}
+	on.from, on.box = under.to, image.Rectangle{}
+	for i := on.from; i < on.to; i++ {
+		on.box = on.box.Union(l.cmdBox(i))
+	}
+	box := on.box.Intersect(frame)
 	held := p.held == in.hash
 	p.held = in.hash
+	if !held || box.Empty() {
+		p.ok = false
+		l.play(screen, in, nil)
+		g.panels.stats.straight++
+		return
+	}
+	l.play(screen, under, nil)
 	if !p.ok || p.hash != in.hash || p.box != box {
-		if !held {
-			p.ok = false
-			l.play(screen, in, nil)
-			g.panels.stats.straight++
-			return
-		}
 		p.img = sizedImage(p.img, box.Size())
 		p.img.Clear()
-		l.playShifted(p.img, in, box.Min.Mul(-1))
+		l.playShifted(p.img, on, box.Min.Mul(-1))
 		p.hash, p.box, p.ok = in.hash, box, true
 		g.panels.stats.bakes++
 	}

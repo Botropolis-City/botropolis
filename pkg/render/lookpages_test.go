@@ -162,3 +162,45 @@ func TestLookPagesKeepWhatIsDrawn(t *testing.T) {
 		})
 	})
 }
+
+// Item 161: the look pages became two of 2048 pixels, so the city at
+// fit, whose looks fill a fraction of one, held a 16 MiB page where it
+// had held 4 MiB. The pages open small, and the large one opens last.
+func TestLookPagesOpenSmallFirst(t *testing.T) {
+	key := func(id string) lookKey { return lookKey{id: id} }
+	sizes := []int{10, 10, 10, 10, 20}
+
+	t.Run("when the city's pages are all open", func(t *testing.T) {
+		total := 0
+		for _, s := range lookPageSizes {
+			total += s * s * 4
+		}
+
+		t.Run("it should hold the look cache's cap and no more", func(t *testing.T) {
+			assert.Equal(t, lookCacheCap, total)
+		})
+	})
+
+	t.Run("when the pages are four small and one large", func(t *testing.T) {
+		t.Run("and the first look is placed", func(t *testing.T) {
+			p := newLookPageSizes(sizes...)
+			_, page, _ := p.place(image.Pt(8, 8), key("a"))
+
+			t.Run("it should open a small page for it", func(t *testing.T) {
+				assert.Equal(t, 10, p.image(page).Bounds().Dx())
+			})
+		})
+
+		t.Run("and the four small pages are full", func(t *testing.T) {
+			p := newLookPageSizes(sizes...)
+			for _, id := range []string{"a", "b", "c", "d"} {
+				p.place(image.Pt(8, 8), key(id))
+			}
+			_, page, _ := p.place(image.Pt(8, 8), key("e"))
+
+			t.Run("it should open the large page", func(t *testing.T) {
+				assert.Equal(t, 20, p.image(page).Bounds().Dx())
+			})
+		})
+	})
+}

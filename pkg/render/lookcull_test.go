@@ -50,18 +50,19 @@ func TestFullZoomDrawsWhatIsOnScreen(t *testing.T) {
 				bakes += s.bakes
 				misses += s.misses
 			}
-
 			t.Run("it should bake no look on any of them", func(t *testing.T) {
 				assert.Zero(t, bakes)
 			})
 
 			// A ceiling against regressions, not a target: the visible
 			// looks are about 27 MB in a 32 MiB cap, and shelf packing
-			// leaves no room for the last 8 or 9 of 46, by how the looks
-			// happened to pack, which varies from run to run; the target
-			// is the frame budget, measured on the real history.
-			t.Run("it should draw no more looks straight than at slice 2 (9 a frame)", func(t *testing.T) {
-				assert.LessOrEqual(t, misses, 9*len(frames))
+			// leaves no room for the last 7 or 11 of 46 or 47. Which, is
+			// the layout's, and the layout follows the path of the test's
+			// temporary home, so it varies from run to run. The pages
+			// open small so that a city at fit holds 4 MiB of them (slice
+			// 3); the target is the frame budget, on the real history.
+			t.Run("it should draw no more looks straight than at slice 3 (11 a frame)", func(t *testing.T) {
+				assert.LessOrEqual(t, misses, 11*len(frames))
 			})
 		})
 

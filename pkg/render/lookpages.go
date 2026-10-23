@@ -2,6 +2,7 @@ package render
 
 import (
 	"image"
+	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -13,16 +14,19 @@ import (
 // in a frame where nothing changed, for every look baked. A page is
 // drawn into only when a look is baked on it, and never moved.
 
-// lookPageSize is a look page's width and height: lookCacheCap holds
-// lookCacheCap / (lookPageSize² × 4) of them.
-const lookPageSize = 2048
+// lookPageSizes are the look pages' widths and heights, in the order
+// they open, lookCacheCap in all (item 161). Four small pages are
+// lookCacheCap's at r905, so a city at fit, whose looks fill a fraction
+// of one, holds 4 MiB of them; at full zoom shelves on small pages
+// wasted enough that the looks on screen found no room, and the large
+// page, opened last, holds them closer.
+var lookPageSizes = []int{1024, 1024, 1024, 1024, 2048}
 
 // lookPages places looks on pages in shelves, a page opened as the last
 // fills, up to a number of them; when all are full, the one drawn from
 // longest ago starts again at the next frame, its looks forgotten.
 type lookPages struct {
-	size  int
-	most  int
+	sizes []int
 	pages []shelfPage
 	keys  [][]lookKey
 	// used is the frame each page last had a look drawn from (item 161).
@@ -32,14 +36,23 @@ type lookPages struct {
 }
 
 func newLookPages(most, size int) *lookPages {
-	return &lookPages{most: most, size: size}
+	sizes := make([]int, most)
+	for i := range sizes {
+		sizes[i] = size
+	}
+	return newLookPageSizes(sizes...)
+}
+
+// newLookPageSizes is pages of these sizes, opened in this order.
+func newLookPageSizes(sizes ...int) *lookPages {
+	return &lookPages{sizes: sizes}
 }
 
 // place is a look's room on a page, its page and whether it found one.
-// A look bigger than a page finds none, and the pages are not full for
-// it.
+// A look bigger than the page it would open finds none, and the pages
+// are not full for it.
 func (p *lookPages) place(size image.Point, key lookKey) (image.Rectangle, int, bool) {
-	if size.X > p.size || size.Y > p.size {
+	if side := slices.Max(p.sizes); size.X > side || size.Y > side {
 		return image.Rectangle{}, 0, false
 	}
 	for i := range p.pages {
@@ -48,8 +61,12 @@ func (p *lookPages) place(size image.Point, key lookKey) (image.Rectangle, int, 
 			return r, i, true
 		}
 	}
-	if len(p.pages) < p.most {
-		p.pages = append(p.pages, shelfPage{w: p.size, h: p.size})
+	if len(p.pages) < len(p.sizes) {
+		side := p.sizes[len(p.pages)]
+		if size.X > side || size.Y > side {
+			return image.Rectangle{}, 0, false
+		}
+		p.pages = append(p.pages, shelfPage{w: side, h: side})
 		p.keys = append(p.keys, nil)
 		p.used = append(p.used, 0)
 		i := len(p.pages) - 1
@@ -92,7 +109,7 @@ func (p *lookPages) next(frame int, forget func(lookKey)) {
 // image is page i's image, made the first time it is drawn into.
 func (p *lookPages) image(i int) *ebiten.Image {
 	if p.pages[i].img == nil {
-		p.pages[i].img = sizedImage(nil, image.Pt(p.size, p.size))
+		p.pages[i].img = sizedImage(nil, image.Pt(p.pages[i].w, p.pages[i].h))
 	}
 	return p.pages[i].img
 }

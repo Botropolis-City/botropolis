@@ -63,10 +63,20 @@ func TestPanelsAreBakedWhileTheyHold(t *testing.T) {
 
 	t.Run("when the journal is open over a settled city", func(t *testing.T) {
 		t.Run("and 10 frames pass with nothing changing", func(t *testing.T) {
-			d, _ := journalOpen(t)
+			d, j := journalOpen(t)
 
 			t.Run("it should draw its words on none of them", func(t *testing.T) {
 				assert.Zero(t, drawn(t, d, 10, nil))
+			})
+
+			// The scrim over the city is the whole frame, and baked with
+			// the panel it made each bake a frame-sized texture, 16 MiB at
+			// 1920×1200 once Ebitengine rounds it to a power of two.
+			t.Run("it should bake the panel, not the scrim over the whole frame", func(t *testing.T) {
+				p := d.game.panels.held[j]
+				require.NotNil(t, p, "the journal was not baked")
+				plate, _, _ := j.plate(d.game, float64(DefaultWidth), float64(DefaultHeight))
+				assert.LessOrEqual(t, float64(p.box.Dx()), plate.Width()+2*inkPad+2)
 			})
 		})
 

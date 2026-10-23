@@ -524,7 +524,7 @@ func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point)
 	look := &bakedLook{at: lo.Sub(cell)}
 	at := image.Point{}
 	if g.lookPages == nil {
-		g.lookPages = newLookPages(lookCacheCap/(lookPageSize*lookPageSize*4), lookPageSize)
+		g.lookPages = newLookPageSizes(lookPageSizes...)
 	}
 	if room, page, ok := g.lookPages.place(size, g.keyOf(cam, f, r)); ok {
 		look.img, look.page, look.paged, at = g.lookPages.image(page).SubImage(room).(*ebiten.Image), g.lookPages.image(page), true, room.Min
