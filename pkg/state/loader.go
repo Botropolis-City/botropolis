@@ -55,6 +55,10 @@ type Loader struct {
 	ledgerPath      string
 	closeUpPath     string
 	ledger          Ledger
+	ledgerReads     int
+	ledgerWrote     ledgerWrite
+	ledgerSavedAt   time.Time
+	ledgerPending   bool
 	historyKey      fileKey
 	historyReader   *claude.HistoryReader
 	history         map[string][]claude.Prompt
@@ -477,7 +481,7 @@ func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time)
 	for _, s := range sessions {
 		shown[s.ID] = true
 	}
-	sessions, changed := l.recordShown(sessions)
+	sessions, changed, more := l.recordShown(sessions)
 	var missing []string
 	for id, e := range l.ledger {
 		if !shown[id] && !e.Demolished() && e.Harness == "" {
@@ -494,10 +498,7 @@ func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time)
 			sessions = append(sessions, goneSession(id, l.ledger[id], history[id]))
 		}
 	}
-	if l.markPacks(sessions, now) || changed {
-		return sessions, l.ledger.Save(l.ledgerPath)
-	}
-	return sessions, nil
+	return sessions, l.settleLedger(changed, l.markPacks(sessions, now) || more, now)
 }
 
 // KeepLedger is the ledger's pass over another harness's sessions: each
@@ -512,19 +513,17 @@ func (l *Loader) KeepLedger(sessions []Session, now time.Time) ([]Session, []cla
 	if err := l.loadLedger(); err != nil {
 		return sessions, []claude.SkippedFile{{Path: l.ledgerPath, Err: err}}
 	}
-	sessions, changed := l.recordShown(sessions)
-	if l.markPacks(sessions, now) || changed {
-		if err := l.ledger.Save(l.ledgerPath); err != nil {
-			return sessions, []claude.SkippedFile{{Path: l.ledgerPath, Err: err}}
-		}
+	sessions, changed, more := l.recordShown(sessions)
+	if err := l.settleLedger(changed, l.markPacks(sessions, now) || more, now); err != nil {
+		return sessions, []claude.SkippedFile{{Path: l.ledgerPath, Err: err}}
 	}
 	return sessions, nil
 }
 
 // recordShown records each session shown, and drops each you demolished
 // that has done nothing since.
-func (l *Loader) recordShown(sessions []Session) ([]Session, bool) {
-	changed := false
+func (l *Loader) recordShown(sessions []Session) ([]Session, bool, bool) {
+	changed, more := false, false
 	kept := sessions[:0]
 	for _, s := range sessions {
 		if e := l.ledger[s.ID]; e.Demolished() {
@@ -533,14 +532,13 @@ func (l *Loader) recordShown(sessions []Session) ([]Session, bool) {
 			}
 			e.DemolishedAt = time.Time{}
 			l.ledger[s.ID] = e
-			changed = true
+			changed, more = true, true
 		}
-		if l.ledger.Record(s) {
-			changed = true
-		}
+		c, m := l.ledger.record(s)
+		changed, more = changed || c, more || m
 		kept = append(kept, s)
 	}
-	return kept, changed
+	return kept, changed, more
 }
 
 // markPacks packs up and unpacks what has merged or moved on, and marks
@@ -637,5 +635,5 @@ func (l *Loader) Pack(id string, packed bool, at time.Time) error {
 	} else {
 		l.ledger.Unpack(id, at)
 	}
-	return l.ledger.Save(l.ledgerPath)
+	return l.saveLedger()
 }

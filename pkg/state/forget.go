@@ -59,7 +59,7 @@ func (l *Loader) Forget(id string) error {
 	if !l.ledger.Forget(id, time.Now().UTC()) {
 		return nil
 	}
-	return l.ledger.Save(l.ledgerPath)
+	return l.saveLedger()
 }
 
 // loadLedger reads the ledger once, forgetting what was demolished while
@@ -68,6 +68,7 @@ func (l *Loader) loadLedger() error {
 	if l.ledger != nil {
 		return nil
 	}
+	l.ledgerReads++
 	ledger, err := LoadLedger(l.ledgerPath)
 	if err != nil {
 		return err
@@ -88,12 +89,13 @@ func (l *Loader) loadLedger() error {
 			changed = true
 		}
 	}
+	l.ledger = ledger
 	if changed {
-		if err := ledger.Save(l.ledgerPath); err != nil {
+		if err := l.saveLedger(); err != nil {
+			l.ledger = nil
 			return err
 		}
 	}
-	l.ledger = ledger
 	return os.Remove(notes)
 }
 

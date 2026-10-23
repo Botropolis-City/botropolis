@@ -223,6 +223,9 @@ func runDaemon(lc fx.Lifecycle, shutdowner fx.Shutdowner, d *daemon.Daemon, list
 			_ = listener.Close()
 			<-done
 			_ = os.Remove(cfg.Socket)
+			if err := d.Flush(); err != nil {
+				fmt.Fprintf(out, "botropolisd: saving the ledger: %v\n", err)
+			}
 			return nil
 		},
 	})

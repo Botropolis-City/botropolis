@@ -83,16 +83,24 @@ func LedgerPath() string {
 // Record notes a session and reports whether the ledger changed. An
 // empty session is never recorded: prune clears it on purpose.
 func (l Ledger) Record(s Session) bool {
+	changed, _ := l.record(s)
+	return changed
+}
+
+// record notes a session and reports whether the ledger changed, and
+// whether by more than the session's last activity (item 205).
+func (l Ledger) record(s Session) (changed, more bool) {
 	if s.State == Empty || s.ID == "" {
-		return false
+		return false, false
 	}
 	was, ok := l[s.ID]
 	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt, DemolishedAt: was.DemolishedAt, Harness: ledgerHarness(s.Harness)}
-	if ok && was.CWD == entry.CWD && was.StartedAt.Equal(entry.StartedAt) && was.LastActivity.Equal(entry.LastActivity) && was.Harness == entry.Harness {
-		return false
+	more = !ok || was.CWD != entry.CWD || !was.StartedAt.Equal(entry.StartedAt) || was.Harness != entry.Harness
+	if !more && was.LastActivity.Equal(entry.LastActivity) {
+		return false, false
 	}
 	l[s.ID] = entry
-	return true
+	return true, more
 }
 
 func LoadLedger(path string) (Ledger, error) {
@@ -152,6 +160,13 @@ func (l Ledger) Save(path string) error {
 		return err
 	}
 	version, readableFrom := onDisk(path)
+	return l.write(path, version, readableFrom)
+}
+
+func (l Ledger) write(path string, version, readableFrom int) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
 	data, err := json.MarshalIndent(ledgerFileShape{Version: version, ReadableFrom: readableFrom, Sessions: l}, "", "  ")
 	if err != nil {
 		return err
@@ -195,4 +210,68 @@ func promptTitle(text string) string {
 		return string(r[:promptTitleRunes-1]) + "…"
 	}
 	return line
+}
+
+// activitySaveEvery is how often a change that only moves sessions' last
+// activity is saved: a session working moves it on every rescan, and it
+// only places a session whose transcript is gone (item 205).
+const activitySaveEvery = time.Minute
+
+// ledgerWrite is what the loader last wrote, so a save over the file it
+// wrote need not read it again for its version.
+type ledgerWrite struct {
+	key                   fileKey
+	version, readableFrom int
+	ok                    bool
+}
+
+// saveLedger writes the ledger, keeping the version a newer build left
+// unless the file is still the one this loader wrote.
+func (l *Loader) saveLedger() error {
+	version, readableFrom := ledgerVersion, ledgerReadableFrom
+	if key, err := stat(l.ledgerPath); err == nil {
+		if l.ledgerWrote.ok && key == l.ledgerWrote.key {
+			version, readableFrom = l.ledgerWrote.version, l.ledgerWrote.readableFrom
+		} else {
+			l.ledgerReads++
+			version, readableFrom = onDisk(l.ledgerPath)
+		}
+	}
+	if err := l.ledger.write(l.ledgerPath, version, readableFrom); err != nil {
+		l.ledgerWrote = ledgerWrite{}
+		return err
+	}
+	key, err := stat(l.ledgerPath)
+	l.ledgerWrote = ledgerWrite{key: key, version: version, readableFrom: readableFrom, ok: err == nil}
+	l.ledgerPending = false
+	return nil
+}
+
+// settleLedger saves a change to more than last activity at once, and
+// one to last activity alone at most once a minute.
+func (l *Loader) settleLedger(changed, more bool, now time.Time) error {
+	l.ledgerPending = l.ledgerPending || changed
+	if !more && (!l.ledgerPending || now.Sub(l.ledgerSavedAt) < activitySaveEvery) {
+		return nil
+	}
+	l.ledgerSavedAt = now
+	return l.saveLedger()
+}
+
+// LedgerReads is how many times the loader has read its ledger file.
+func (l *Loader) LedgerReads() int {
+	return l.ledgerReads
+}
+
+// Flush saves what the ledger holds and has not saved yet; the daemon
+// calls it on shutdown.
+func (l *Loader) Flush() error {
+	if l.ledgerPath == "" {
+		return nil
+	}
+	defer l.gate.hold()()
+	if !l.ledgerPending {
+		return nil
+	}
+	return l.saveLedger()
 }

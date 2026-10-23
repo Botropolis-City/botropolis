@@ -88,6 +88,23 @@ func (d *Daemon) Forget(id string) error {
 	return d.Rescan()
 }
 
+// Flusher is a loader holding state it has not saved yet (item 205).
+type Flusher interface {
+	Flush() error
+}
+
+// Flush has the loader save what it holds and has not saved: the daemon
+// calls it when it stops.
+func (d *Daemon) Flush() error {
+	f, ok := d.loader.(Flusher)
+	if !ok {
+		return nil
+	}
+	d.scanMu.Lock()
+	defer d.scanMu.Unlock()
+	return f.Flush()
+}
+
 type overlay struct {
 	at      time.Time
 	state   state.State

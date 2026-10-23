@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"errors"
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
@@ -195,6 +196,23 @@ func (m *Multi) Forget(id string) error {
 		}
 	}
 	return nil
+}
+
+// Flusher is a harness holding state it has not saved yet (item 205).
+type Flusher interface {
+	Flush() error
+}
+
+// Flush asks every harness that holds unsaved state to save it, and
+// reports every failure.
+func (m *Multi) Flush() error {
+	var errs []error
+	for _, h := range m.harnesses {
+		if f, ok := h.(Flusher); ok {
+			errs = append(errs, f.Flush())
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // CloseUpper is a harness that can record a close-up (item 86).
