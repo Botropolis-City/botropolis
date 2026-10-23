@@ -122,6 +122,73 @@ BEGIN
 END;
 `
 
+// changeSchema logs, in the database, every message and every session a
+// write changed, one row each under the latest seq from one counter, so
+// a reader in another process can bring what it read up to date from
+// the rows past the seq it last read. One row each bounds it whatever
+// writes, an older build that never reads it included. Like movedSchema
+// it changes no table an older build knows, so it is made on every
+// open. Item 215.
+const changeSchema = `
+CREATE TABLE IF NOT EXISTS changed_messages (
+  message_id TEXT PRIMARY KEY,
+  seq        INTEGER NOT NULL
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS changed_messages_by_seq ON changed_messages (seq);
+
+CREATE TABLE IF NOT EXISTS changed_sessions (
+  session_id TEXT PRIMARY KEY,
+  seq        INTEGER NOT NULL
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS changed_sessions_by_seq ON changed_sessions (seq);
+
+INSERT INTO meta (key, value) VALUES ('change_seq', 0) ON CONFLICT (key) DO NOTHING;
+
+CREATE TRIGGER IF NOT EXISTS changed_on_insert AFTER INSERT ON messages BEGIN
+  UPDATE meta SET value = value + 1 WHERE key = 'change_seq';
+  INSERT INTO changed_messages (message_id, seq) SELECT NEW.id, value FROM meta WHERE key = 'change_seq'
+    ON CONFLICT (message_id) DO UPDATE SET seq = excluded.seq;
+END;
+
+CREATE TRIGGER IF NOT EXISTS changed_on_update AFTER UPDATE ON messages
+WHEN OLD.at IS NOT NEW.at OR OLD.model IS NOT NEW.model OR OLD.speed IS NOT NEW.speed OR OLD.dir_id IS NOT NEW.dir_id
+  OR OLD.thread IS NOT NEW.thread OR OLD.input IS NOT NEW.input OR OLD.output IS NOT NEW.output
+  OR OLD.cache_create IS NOT NEW.cache_create OR OLD.cache_read IS NOT NEW.cache_read
+  OR OLD.cache_create_5m IS NOT NEW.cache_create_5m OR OLD.cache_create_1h IS NOT NEW.cache_create_1h OR OLD.geo IS NOT NEW.geo
+  OR OLD.web_search_requests IS NOT NEW.web_search_requests OR OLD.web_fetch_requests IS NOT NEW.web_fetch_requests
+  OR OLD.service_tier IS NOT NEW.service_tier
+BEGIN
+  UPDATE meta SET value = value + 1 WHERE key = 'change_seq';
+  INSERT INTO changed_messages (message_id, seq) SELECT NEW.id, value FROM meta WHERE key = 'change_seq'
+    ON CONFLICT (message_id) DO UPDATE SET seq = excluded.seq;
+  INSERT INTO changed_sessions (session_id, seq)
+    SELECT ms.session_id, (SELECT value FROM meta WHERE key = 'change_seq') FROM message_sessions ms WHERE ms.message_id = NEW.id
+    ON CONFLICT (session_id) DO UPDATE SET seq = excluded.seq;
+END;
+
+CREATE TRIGGER IF NOT EXISTS changed_on_delete AFTER DELETE ON messages BEGIN
+  UPDATE meta SET value = value + 1 WHERE key = 'change_seq';
+  INSERT INTO changed_messages (message_id, seq) SELECT OLD.id, value FROM meta WHERE key = 'change_seq'
+    ON CONFLICT (message_id) DO UPDATE SET seq = excluded.seq;
+END;
+
+CREATE TRIGGER IF NOT EXISTS changed_on_link AFTER INSERT ON message_sessions BEGIN
+  UPDATE meta SET value = value + 1 WHERE key = 'change_seq';
+  INSERT INTO changed_messages (message_id, seq) SELECT NEW.message_id, value FROM meta WHERE key = 'change_seq'
+    ON CONFLICT (message_id) DO UPDATE SET seq = excluded.seq;
+  INSERT INTO changed_sessions (session_id, seq) SELECT NEW.session_id, value FROM meta WHERE key = 'change_seq'
+    ON CONFLICT (session_id) DO UPDATE SET seq = excluded.seq;
+END;
+
+CREATE TRIGGER IF NOT EXISTS changed_on_unlink AFTER DELETE ON message_sessions BEGIN
+  UPDATE meta SET value = value + 1 WHERE key = 'change_seq';
+  INSERT INTO changed_messages (message_id, seq) SELECT OLD.message_id, value FROM meta WHERE key = 'change_seq'
+    ON CONFLICT (message_id) DO UPDATE SET seq = excluded.seq;
+  INSERT INTO changed_sessions (session_id, seq) SELECT OLD.session_id, value FROM meta WHERE key = 'change_seq'
+    ON CONFLICT (session_id) DO UPDATE SET seq = excluded.seq;
+END;
+`
+
 // steps brings a database from the version before each key to that
 // version. A new database is made at Version by schema directly.
 var steps = map[int]string{
@@ -257,6 +324,9 @@ func (s *Store) migrate(path string) error {
 		return err
 	}
 	if _, err := tx.Exec(movedSchema); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(changeSchema); err != nil {
 		return err
 	}
 	return tx.Commit()

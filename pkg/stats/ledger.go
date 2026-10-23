@@ -22,12 +22,6 @@ const (
 // ReasonOff is a nil ledger's reason: statistics are turned off.
 const ReasonOff = "statistics are off"
 
-type cachedWindow struct {
-	at      time.Time
-	version int64
-	window  Window
-}
-
 // Ledger is the statistics store as a reader in another process sees
 // it: opened read-only, tried again while it will not open, and with
 // each window's answer reused for a moment, since the panels that show
@@ -40,11 +34,14 @@ type Ledger struct {
 	store *Store
 	err   error
 	tried time.Time
-	cache map[int]cachedWindow
-	// sessions is every session's cost as last read, at sessionsAt.
-	sessions        map[string]Cost
-	sessionsAt      time.Time
-	sessionsVersion int64
+	// live is each window as last read, by its hours, and costs every
+	// session's cost, each brought up to date from the store's change
+	// log (item 215).
+	live  map[int]*liveWindow
+	costs *liveCosts
+	// priced and messageReads count the sessions priced and the reads
+	// of messages, for the tests.
+	priced, messageReads int
 }
 
 // fresh is whether an answer read at from, when the store's data
@@ -67,7 +64,7 @@ func fresh(s *Store, from, at time.Time, version int64, cache, ageing time.Durat
 
 // NewLedger is a ledger over the store at path, opened when first asked.
 func NewLedger(path string) *Ledger {
-	return &Ledger{path: path, cache: map[int]cachedWindow{}}
+	return &Ledger{path: path, live: map[int]*liveWindow{}}
 }
 
 // Store is the open store, opening it if it is due a try.
@@ -124,19 +121,39 @@ func (l *Ledger) Window(at time.Time, hours int, root func(string) string) (Wind
 		}
 		return Window{}, l.err
 	}
-	if c, ok := l.cache[hours]; ok && fresh(s, c.at, at, c.version, LedgerCache, LedgerAging) {
-		return c.window, nil
+	if w, ok := l.live[hours]; ok && fresh(s, w.at, at, w.version, LedgerCache, LedgerAging) {
+		return w.window, nil
+	}
+	return l.windowLocked(at, hours, root)
+}
+
+// windowLocked reads the window now, from what changed since it was
+// last read.
+func (l *Ledger) windowLocked(at time.Time, hours int, root func(string) string) (Window, error) {
+	s, ok := l.storeLocked(at)
+	if !ok {
+		if l.err == nil {
+			return Window{}, ErrNoStore
+		}
+		return Window{}, l.err
 	}
 	version, err := s.DataVersion()
 	if err != nil {
 		return Window{}, err
 	}
-	w, err := s.Window(at.Add(-time.Duration(hours)*time.Hour), at, hours, root)
+	w, err := s.refresh(l.live[hours], at, hours, &l.messageReads)
 	if err != nil {
-		return w, err
+		delete(l.live, hours)
+		return Window{}, err
 	}
-	l.cache[hours] = cachedWindow{at: at, version: version, window: w}
-	return w, nil
+	answer, err := w.answer(at, hours, root)
+	if err != nil {
+		delete(l.live, hours)
+		return Window{}, err
+	}
+	w.at, w.version, w.window = at, version, answer
+	l.live[hours] = w
+	return answer, nil
 }
 
 // Close closes the store, if it was opened.

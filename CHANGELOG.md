@@ -21,7 +21,7 @@ Measured on a laptop's integrated graphics (Intel Core Ultra 7 265U) with a real
 | the daemon, settled | up to 24% of a core, in bursts of several cores | under 1% |
 | the first launch | up to four cores, about 9 s to a map | under one core, a map in about a second |
 
-Some budgets are still missed, and 0.3.x continues on them: a focused city uses about half a core where the budget is a tenth, fully zoomed in it holds about 70 MiB more than its 512, and a city left open on another monitor while sessions work spends about 3% of a core reading your statistics where the budget is 1%.
+Some budgets are still missed, and 0.3.x continues on them: a focused city uses about half a core where the budget is a tenth, and fully zoomed in it holds about 70 MiB more than its 512.
 
 **Before you upgrade:**
 - **Restart the daemon after installing** (`botropolis setup`, or the city's Restart Daemon dialog): a 0.3.0 city and daemon talk a new version of their protocol, and a city meeting an older daemon says so and offers to restart it.
@@ -90,9 +90,10 @@ Some budgets are still missed, and 0.3.x continues on them: a focused city uses 
   The cracks and wear on long-quiet lots are worked out once rather than every frame, and the ground under the city is no longer redrawn for an update that changes nothing on it.
   On a real history of about 200 sessions with two working, drawing fell from about 1% of a core to 0.3%.
 
-- **With statistics on, a city left open while sessions work spends about a fifth of what it did reading your costs.**
-  Its 24 h cost was read from the statistics store every 2 seconds, and each building's every 30, which on a history of 30,000 messages took about 16% of a core and now takes about 3%.
-  The 24 h cost is read at most every 30 s while sessions work, and every 5 minutes when nothing changes, so it can lag by up to 30 s (or 5 minutes for messages leaving the 24 h window); a building's cost is read again only when something was written.
+- **With statistics on, a city left open while sessions work no longer spends a sixth of a core reading your costs.**
+  Its 24 h cost was read from the statistics store every 2 seconds, and each building's every 30, which on a history of 30,000 messages kept the city at about 16% of a core; it now stays under 1%.
+  The store keeps a note of what each write changed, so the city reads again only those messages and prices again only those sessions, rather than reading the whole day and every session's history.
+  The 24 h cost is brought up to date at most every 30 s while sessions work, and every 5 minutes when nothing changes, so it can lag by up to 30 s (or 5 minutes for messages leaving the 24 h window); a building's cost is brought up to date only when something was written.
 
 - **The command line is smaller: 13 commands in four groups, and four global flags.**
   `botropolis --help` groups the commands as sessions, the city, setting up and checking, and those other programs run.

@@ -45,7 +45,10 @@ import (
 // measuring something else.
 func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 	const (
-		stream        = 15 * time.Second
+		stream = 15 * time.Second
+		// storeStream is long enough to hold two of the ledger's 30 s
+		// refreshes, which a 15 s stream can fall between (item 215).
+		storeStream   = 65 * time.Second
 		every         = 200 * time.Millisecond
 		maxCoreShare  = 0.01
 		unmetCeiling  = 0.02
@@ -59,18 +62,31 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 		// drawn is whether the city paints while so; when it does, the
 		// time it counts decoding and laying out is what is gated.
 		drawn bool
+		// store is whether the daemon keeps, and the city reads, a
+		// statistics store holding a history the real one's size: the
+		// city's cost breakdown reads it while it lays out (item 215).
+		store bool
 	}{
-		{"hidden", helpers.Hide, "visible=false", false},
-		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true},
+		{"hidden", helpers.Hide, "visible=false", false, false},
+		{"unfocused, and visible", helpers.Unfocus, "focused=false visible=true minimised=false", true, false},
+		{"unfocused, and visible, over a statistics store the real history's size", helpers.Unfocus, "focused=false visible=true minimised=false", true, true},
 	} {
-		t.Run("when the city is "+way.name+", and a session of 200 writes a line every 200 ms for 15 s", func(t *testing.T) {
-			b := newBusyCity(t)
-			root := b.root
-			roads := b.roadsSeen(t)
+		over := stream
+		if way.store {
+			over = storeStream
+		}
+		t.Run(fmt.Sprintf("when the city is %s, and a session of 200 writes a line every 200 ms for %.0f s", way.name, over.Seconds()), func(t *testing.T) {
+			b := newBusyCity
+			if way.store {
+				b = newBusyCityWithStore
+			}
+			busy := b(t)
+			root := busy.root
+			roads := busy.roadsSeen(t)
 
 			display := helpers.Display(t, render.DefaultWidth, render.DefaultHeight)
-			city := exec.Command(botropolis, "city", "--home", b.home.Path, "--socket", b.sock, "--config", b.config())
-			city.Env = append(cleanEnv(), "HOME="+filepath.Join(root, "home"), "XDG_STATE_HOME="+filepath.Join(root, "city-state"), "TMPDIR="+root, "BOTROPOLIS_FRAMETIME=1")
+			city := exec.Command(botropolis, busy.cityArgs()...)
+			city.Env = append(append(cleanEnv(), busy.cityEnv()...), "TMPDIR="+root, "BOTROPOLIS_FRAMETIME=1")
 			city.Env = append(city.Env, display.Env()...)
 			var said syncBuffer
 			city.Stderr = &said
@@ -102,7 +118,7 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 			read := bytesRead(t, city.Process.Pid)
 			process, uncountable := measure.Process(city.Process.Pid)
 			_, system := cpuTicksSplit(t, city.Process.Pid)
-			elapsed := b.write(every, stream)
+			elapsed := busy.write(every, over)
 			raster1, rest1 := threadTicks(t, city.Process.Pid)
 			_, system1 := cpuTicksSplit(t, city.Process.Pid)
 			var retired uint64
@@ -138,9 +154,17 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 
 			// The city lays out the roads the real history has; a fixture
 			// without them measured a fifth of what laying out costs (item 206).
-			t.Run(fmt.Sprintf("the busy city should have its %d roads", b.roads), func(t *testing.T) {
-				assert.Equal(t, b.roads, roads)
+			t.Run(fmt.Sprintf("the busy city should have its %d roads", busy.roads), func(t *testing.T) {
+				assert.Equal(t, busy.roads, roads)
 			})
+
+			// A city that cannot read the store counts its breakdown from
+			// memory, which costs nothing like reading it (item 215).
+			if way.store {
+				t.Run("the city should have read the statistics store", func(t *testing.T) {
+					assert.True(t, holdsOpen(t, city.Process.Pid, filepath.Join(busy.state, "botropolis", "stats.db")))
+				})
+			}
 
 			if way.drawn {
 				t.Run("the daemon's updates should have reached it", func(t *testing.T) {
@@ -258,6 +282,20 @@ func threadTicks(t *testing.T, pid int) (raster, rest int64) {
 		}
 	}
 	return raster, rest
+}
+
+// holdsOpen is whether a process holds the file at path open.
+func holdsOpen(t *testing.T, pid int, path string) bool {
+	t.Helper()
+	dir := filepath.Join("/proc", strconv.Itoa(pid), "fd")
+	fds, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	for _, fd := range fds {
+		if to, err := os.Readlink(filepath.Join(dir, fd.Name())); err == nil && to == path {
+			return true
+		}
+	}
+	return false
 }
 
 // cleanEnv is the test's environment without anything naming a display

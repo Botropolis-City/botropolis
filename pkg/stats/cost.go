@@ -47,12 +47,17 @@ type keyed struct {
 // pricedBy runs a query whose columns are a key, then pricedSelect, and
 // gives each group with its key.
 func (s *Store) pricedBy(rates Rates, with, key, from, where string, args ...any) ([]keyed, error) {
+	return pricedOn(s.db, rates, with, key, from, where, args...)
+}
+
+// pricedOn is pricedBy on a database or a transaction.
+func pricedOn(q querier, rates Rates, with, key, from, where string, args ...any) ([]keyed, error) {
 	cols, starts := pricedSelect(rates)
 	group := " GROUP BY 1, 2, 3, 4, 5, 6, 7"
 	if key == "" {
 		key = "''"
 	}
-	rows, err := s.db.Query(with+"SELECT "+key+", "+cols+" FROM "+from+" WHERE 1"+where+group, args...)
+	rows, err := q.Query(with+"SELECT "+key+", "+cols+" FROM "+from+" WHERE 1"+where+group, args...)
 	if err != nil {
 		return nil, err
 	}

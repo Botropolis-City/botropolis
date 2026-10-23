@@ -38,17 +38,32 @@ func (l *Ledger) SessionCosts(at time.Time) (map[string]Cost, error) {
 		}
 		return nil, l.err
 	}
-	if l.sessions != nil && fresh(s, l.sessionsAt, at, l.sessionsVersion, LedgerSessions, 0) {
-		return l.sessions, nil
+	if l.costs != nil && fresh(s, l.costs.at, at, l.costs.version, LedgerSessions, 0) {
+		return l.costs.costs, nil
+	}
+	return l.sessionCostsLocked(at)
+}
+
+// sessionCostsLocked reads every session's cost now, pricing again only
+// the sessions that changed since they were last read.
+func (l *Ledger) sessionCostsLocked(at time.Time) (map[string]Cost, error) {
+	s, ok := l.storeLocked(at)
+	if !ok {
+		if l.err == nil {
+			return nil, ErrNoStore
+		}
+		return nil, l.err
 	}
 	version, err := s.DataVersion()
 	if err != nil {
 		return nil, err
 	}
-	costs, err := s.SessionCosts()
+	c, err := s.refreshCosts(l.costs, &l.priced)
 	if err != nil {
+		l.costs = nil
 		return nil, err
 	}
-	l.sessions, l.sessionsAt, l.sessionsVersion = costs, at, version
-	return costs, nil
+	c.at, c.version = at, version
+	l.costs = c
+	return c.costs, nil
 }

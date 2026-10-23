@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/stats"
 	"botropolis.city/botropolis/testing/helpers"
 )
 
@@ -28,9 +29,36 @@ type busyCity struct {
 	// roads is how many roads its sessions' edits into each other's
 	// projects should make.
 	roads int
+	// state is the state directory the daemon and a city share when
+	// they run on the home as a person's own, keeping the statistics
+	// store, or "" when they run with --home and keep none (item 215).
+	state string
 }
 
+// A busy city's history is the real one's size: about 31,600 replies
+// in all and 4,200 in the last day (item 215).
+const (
+	historyReplies = 150
+	historyDays    = 7
+)
+
 func newBusyCity(t *testing.T) *busyCity {
+	t.Helper()
+	return newBusyCityOf(t, false)
+}
+
+// newBusyCityWithStore is the busy city run as a person's own, so its
+// daemon keeps the statistics store and a city reads it, with 150
+// replies behind each session spread over the last 7 days. A city that
+// opens no store never pays for reading it, which is how item 215's
+// 3.6% of a core went unmeasured. It returns once the daemon has stored
+// the whole history.
+func newBusyCityWithStore(t *testing.T) *busyCity {
+	t.Helper()
+	return newBusyCityOf(t, true)
+}
+
+func newBusyCityOf(t *testing.T, store bool) *busyCity {
 	t.Helper()
 	const (
 		sessions = 200
@@ -57,6 +85,9 @@ func newBusyCity(t *testing.T) *busyCity {
 			lines = append(lines, helpers.AssistantFileEdit(sid, fmt.Sprintf("msg_edit_%06d", i), ts, fmt.Sprintf("toolu_%06d", i),
 				fmt.Sprintf("/home/user/src/project-%03d/main.go", to)))
 		}
+		if store {
+			lines = append(lines, history(sid, i, sessions)...)
+		}
 		b.home.Transcript(sid, cwd, lines...)
 		if i < live {
 			// A live session has a record and a process, and only a live
@@ -70,10 +101,65 @@ func newBusyCity(t *testing.T) *busyCity {
 	b.sock = shortSocket(t)
 	d := exec.Command(daemon, "--home", b.home.Path, "--socket", b.sock, "--config", b.config())
 	d.Env = append(os.Environ(), "XDG_STATE_HOME="+filepath.Join(b.root, "daemon-state"), "PATH=/nonexistent")
+	if store {
+		b.state = filepath.Join(b.root, "state")
+		d = exec.Command(daemon, "--socket", b.sock, "--config", b.config())
+		d.Env = append(os.Environ(), "HOME="+b.home.Path, "XDG_STATE_HOME="+b.state, "PATH=/nonexistent")
+	}
 	require.NoError(t, d.Start())
 	t.Cleanup(func() { _ = d.Process.Kill(); _ = d.Wait() })
 	require.Eventually(t, func() bool { _, err := os.Stat(b.sock); return err == nil }, 10*time.Second, 20*time.Millisecond)
+	if store {
+		want := sessions * historyReplies
+		require.Eventually(t, func() bool { return b.stored(t) >= want }, 5*time.Minute, time.Second,
+			"the daemon never stored the %d replies of history", want)
+	}
 	return b
+}
+
+// history is session i's 150 replies, the sessions' together falling
+// one after another over the last 7 days, newest first.
+func history(sid string, i, sessions int) []string {
+	step := historyDays * 24 * time.Hour / time.Duration(sessions*historyReplies)
+	now := time.Now().UTC()
+	lines := make([]string, 0, historyReplies)
+	for j := historyReplies - 1; j >= 0; j-- {
+		at := now.Add(-time.Duration(i*historyReplies+j+1) * step).Format("2006-01-02T15:04:05.000Z")
+		lines = append(lines, helpers.AssistantReply(sid, fmt.Sprintf("msg_history_%03d_%03d", i, j), at))
+	}
+	return lines
+}
+
+// stored is how many messages the daemon's statistics store holds.
+func (b *busyCity) stored(t *testing.T) int {
+	t.Helper()
+	s, err := stats.OpenReader(filepath.Join(b.state, "botropolis", "stats.db"))
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = s.Close() }()
+	var n int
+	if err := s.DB().QueryRow("SELECT count(*) FROM messages").Scan(&n); err != nil {
+		return 0
+	}
+	return n
+}
+
+// cityArgs and cityEnv are how a city is run against the busy city: on the same home
+// and state directory as the daemon when it keeps the store, and with
+// --home and its own state otherwise.
+func (b *busyCity) cityArgs() []string {
+	if b.state != "" {
+		return []string{"city", "--socket", b.sock, "--config", b.config()}
+	}
+	return []string{"city", "--home", b.home.Path, "--socket", b.sock, "--config", b.config()}
+}
+
+func (b *busyCity) cityEnv() []string {
+	if b.state != "" {
+		return []string{"HOME=" + b.home.Path, "XDG_STATE_HOME=" + b.state}
+	}
+	return []string{"HOME=" + filepath.Join(b.root, "home"), "XDG_STATE_HOME=" + filepath.Join(b.root, "city-state")}
 }
 
 // roadsSeen is how many roads the daemon's snapshot holds, once it has
