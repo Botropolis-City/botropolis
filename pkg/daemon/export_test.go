@@ -18,6 +18,23 @@ func SetThreadCPU(d *Daemon, cpu func() time.Duration) {
 	d.threadCPU = cpu
 }
 
+// ReleaseClock is a clock for the release timer that a test moves.
+type ReleaseClock = releaseClock
+
+// Stopper is a timer that can be stopped.
+type Stopper = stopper
+
+// SetReleaseClock replaces the clock the release timer reads and arms,
+// dropping what the old one had armed.
+func SetReleaseClock(d *Daemon, clock ReleaseClock) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.settle != nil {
+		d.settle.Stop()
+	}
+	d.releaseClock, d.settle, d.unreleased = clock, nil, time.Time{}
+}
+
 // PaceAfter is how long the watcher waits after a rescan that cost cost.
 func PaceAfter(cost time.Duration) time.Duration {
 	return paceAfter(cost)

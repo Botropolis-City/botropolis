@@ -1,7 +1,9 @@
 package daemon_test
 
 import (
+	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -310,12 +312,17 @@ func TestDaemon(t *testing.T) {
 		})
 	})
 
+	// The release timer runs on a clock the test moves, so however long a
+	// rescan takes on a loaded machine it cannot open a gap the test did
+	// not make (item 205).
 	t.Run("when rescans arrive in a burst, closer together than the settle time", func(t *testing.T) {
 		d := newDaemon(t, idleHome(t, "interactive"))
 		count := releases(t, d, 100*time.Millisecond, time.Minute)
+		clock := &fakeReleaseClock{now: now}
+		daemon.SetReleaseClock(d, clock)
 		for i := 0; i < 10; i++ {
 			require.NoError(t, d.Rescan())
-			time.Sleep(10 * time.Millisecond)
+			clock.advance(10 * time.Millisecond)
 		}
 		during := count()
 
@@ -324,11 +331,12 @@ func TestDaemon(t *testing.T) {
 		})
 
 		t.Run("it should release memory once they settle", func(t *testing.T) {
-			assert.Eventually(t, func() bool { return count() == 1 }, time.Second, 5*time.Millisecond)
+			clock.advance(100 * time.Millisecond)
+			assert.Equal(t, 1, count())
 		})
 
 		t.Run("it should not keep releasing after that", func(t *testing.T) {
-			time.Sleep(250 * time.Millisecond)
+			clock.advance(250 * time.Millisecond)
 			assert.Equal(t, 1, count())
 		})
 	})
@@ -338,11 +346,15 @@ func TestDaemon(t *testing.T) {
 			settle  = 150 * time.Millisecond
 			ceiling = 300 * time.Millisecond
 			stream  = time.Second
+			every   = 10 * time.Millisecond
 		)
 		d := newDaemon(t, idleHome(t, "interactive"))
 		count := releases(t, d, settle, ceiling)
-		for start := time.Now(); time.Since(start) < stream; time.Sleep(10 * time.Millisecond) {
+		clock := &fakeReleaseClock{now: now}
+		daemon.SetReleaseClock(d, clock)
+		for elapsed := time.Duration(0); elapsed < stream; elapsed += every {
 			require.NoError(t, d.Rescan())
+			clock.advance(every)
 		}
 		during := count()
 
@@ -366,4 +378,57 @@ func TestDaemon(t *testing.T) {
 			assert.False(t, open)
 		})
 	})
+}
+
+// fakeReleaseClock is a clock for the release timer that only moves when
+// the test advances it, firing each timer that comes due on the way.
+type fakeReleaseClock struct {
+	mu     sync.Mutex
+	now    time.Time
+	timers []*fakeTimer
+}
+
+type fakeTimer struct {
+	at      time.Time
+	f       func()
+	stopped atomic.Bool
+}
+
+func (t *fakeTimer) Stop() bool { return !t.stopped.Swap(true) }
+
+func (c *fakeReleaseClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *fakeReleaseClock) AfterFunc(d time.Duration, f func()) daemon.Stopper {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	t := &fakeTimer{at: c.now.Add(d), f: f}
+	c.timers = append(c.timers, t)
+	return t
+}
+
+func (c *fakeReleaseClock) advance(by time.Duration) {
+	c.mu.Lock()
+	c.now = c.now.Add(by)
+	var due, kept []*fakeTimer
+	for _, t := range c.timers {
+		switch {
+		case t.stopped.Load():
+		case !t.at.After(c.now):
+			due = append(due, t)
+		default:
+			kept = append(kept, t)
+		}
+	}
+	c.timers = kept
+	c.mu.Unlock()
+	sort.Slice(due, func(i, j int) bool { return due[i].at.Before(due[j].at) })
+	for _, t := range due {
+		if !t.stopped.Swap(true) {
+			t.f()
+		}
+	}
 }

@@ -162,7 +162,10 @@ type Daemon struct {
 	settleAfter time.Duration
 	ceiling     time.Duration
 	unreleased  time.Time
-	settle      *time.Timer
+	settle      stopper
+	// releaseClock is what the release timer reads and arms, the real
+	// clock but in tests (item 205).
+	releaseClock releaseClock
 	// peer is what this daemon tells every client it is (item 149).
 	peer atomic.Pointer[proto.Peer]
 	// progressEvery and progressing pace and guard watchProgress.
@@ -239,6 +242,8 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		settleAfter: SettleAfter,
 		ceiling:     ReleaseCeiling,
 
+		releaseClock: realClock{},
+
 		progressEvery: ProgressEvery,
 	}
 	d.SetPeer(proto.Self())
@@ -252,6 +257,21 @@ func (d *Daemon) SetRelease(after time.Duration, release func()) {
 	defer d.mu.Unlock()
 	d.settleAfter, d.release = after, release
 }
+
+// stopper is a timer that can be stopped.
+type stopper interface{ Stop() bool }
+
+// releaseClock is the time the release timer reads, and how it arms.
+type releaseClock interface {
+	Now() time.Time
+	AfterFunc(d time.Duration, f func()) stopper
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time { return time.Now() }
+
+func (realClock) AfterFunc(d time.Duration, f func()) stopper { return time.AfterFunc(d, f) }
 
 // SetReleaseCeiling replaces the longest the daemon goes without
 // returning memory while it never settles, for tests and tuning.
@@ -268,11 +288,12 @@ func (d *Daemon) scheduleRelease() {
 	if d.settle != nil {
 		d.settle.Stop()
 	}
+	now := d.releaseClock.Now()
 	if d.unreleased.IsZero() {
-		d.unreleased = time.Now()
+		d.unreleased = now
 	}
-	after := min(d.settleAfter, time.Until(d.unreleased.Add(d.ceiling)))
-	d.settle = time.AfterFunc(max(after, 0), d.settled)
+	after := min(d.settleAfter, d.unreleased.Add(d.ceiling).Sub(now))
+	d.settle = d.releaseClock.AfterFunc(max(after, 0), d.settled)
 }
 
 func (d *Daemon) settled() {
