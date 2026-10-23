@@ -6,11 +6,13 @@
 package stats
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"sync/atomic"
 
 	_ "modernc.org/sqlite"
@@ -150,6 +152,28 @@ type Store struct {
 	// index finds the transcripts without globbing every project on
 	// every pass (item 196).
 	index *claude.Index
+	// watch is a connection kept open to ask whether another has
+	// written since it last asked (item 215).
+	watchMu sync.Mutex
+	watch   *sql.Conn
+}
+
+// DataVersion is a number that moves whenever another connection, in
+// this process or another, commits a write to the store, read on a
+// connection kept for it. Item 215.
+func (s *Store) DataVersion() (int64, error) {
+	s.watchMu.Lock()
+	defer s.watchMu.Unlock()
+	if s.watch == nil {
+		c, err := s.db.Conn(context.Background())
+		if err != nil {
+			return 0, err
+		}
+		s.watch = c
+	}
+	var v int64
+	err := s.watch.QueryRowContext(context.Background(), "PRAGMA data_version").Scan(&v)
+	return v, err
 }
 
 // Path is where the statistics database lives: in the state directory,
@@ -247,4 +271,12 @@ func setMeta(tx *sql.Tx, key string, value int) error {
 func (s *Store) DB() *sql.DB { return s.db }
 
 // Close closes the database.
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	s.watchMu.Lock()
+	if s.watch != nil {
+		_ = s.watch.Close()
+		s.watch = nil
+	}
+	s.watchMu.Unlock()
+	return s.db.Close()
+}

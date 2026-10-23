@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -60,6 +61,23 @@ func TestLedgerSessionCosts(t *testing.T) {
 		costs, err := l.SessionCosts(t0.Add(stats.LedgerSessions))
 		require.NoError(t, err)
 		assert.InDelta(t, 40, costs[sessionA].Low, 1e-9)
+	})
+
+	// Item 215: costs do not age, so an unchanged store is not read again.
+	t.Run("when the store did not change, and costs are asked again after the cache's life", func(t *testing.T) {
+		g := newFixture(t)
+		other := filepath.Join(t.TempDir(), "stats.db")
+		g.store = open(t, other)
+		g.seed(modelMsg("msg_1", "2026-10-19T11:00:00.000Z", "claude-opus-5-5", usage{Output: million}))
+		quiet := newLedger(t, other)
+		first, err := quiet.SessionCosts(t0)
+		require.NoError(t, err)
+		again, err := quiet.SessionCosts(t0.Add(stats.LedgerSessions))
+		require.NoError(t, err)
+
+		t.Run("it should not read them again", func(t *testing.T) {
+			assert.Equal(t, reflect.ValueOf(first).Pointer(), reflect.ValueOf(again).Pointer())
+		})
 	})
 
 	t.Run("when there is no ledger, it should refuse", func(t *testing.T) {

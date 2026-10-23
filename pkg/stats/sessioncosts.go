@@ -23,16 +23,14 @@ func (s *Store) SessionCosts() (map[string]Cost, error) {
 	return out, nil
 }
 
-// SessionCosts is every session's cost, reused for LedgerSessions.
+// SessionCosts is every session's cost, reused for LedgerSessions, and
+// for as long as nothing is written, since costs do not age (item 215).
 func (l *Ledger) SessionCosts(at time.Time) (map[string]Cost, error) {
 	if l == nil {
 		return nil, errors.New(ReasonOff)
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.sessions != nil && at.Sub(l.sessionsAt) < LedgerSessions && !at.Before(l.sessionsAt) {
-		return l.sessions, nil
-	}
 	s, ok := l.storeLocked(at)
 	if !ok {
 		if l.err == nil {
@@ -40,10 +38,17 @@ func (l *Ledger) SessionCosts(at time.Time) (map[string]Cost, error) {
 		}
 		return nil, l.err
 	}
+	if l.sessions != nil && fresh(s, l.sessionsAt, at, l.sessionsVersion, LedgerSessions, 0) {
+		return l.sessions, nil
+	}
+	version, err := s.DataVersion()
+	if err != nil {
+		return nil, err
+	}
 	costs, err := s.SessionCosts()
 	if err != nil {
 		return nil, err
 	}
-	l.sessions, l.sessionsAt = costs, at
+	l.sessions, l.sessionsAt, l.sessionsVersion = costs, at, version
 	return costs, nil
 }

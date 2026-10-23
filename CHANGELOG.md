@@ -87,6 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every update from the daemon used to lay out every street between projects again, which on 200 sessions in 150 projects with 80 streets between them took about a quarter of a second, and kept an unfocused city at over a fifth of a core while one session worked.
   The city now lays out a street again only when the plan, the camera's heading or the projects it joins change, and an update that moves only what sessions are doing takes a few milliseconds: under 1% of a core.
 
+- **With statistics on, a city left open while sessions work spends about a fifth of what it did reading your costs.**
+  Its 24 h cost was read from the statistics store every 2 seconds, and each building's every 30, which on a history of 30,000 messages took about 16% of a core and now takes about 3%.
+  The 24 h cost is read at most every 30 s while sessions work, and every 5 minutes when nothing changes, so it can lag by up to 30 s (or 5 minutes for messages leaving the 24 h window); a building's cost is read again only when something was written.
+
 ### Deprecated
 
 - These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).

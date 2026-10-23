@@ -61,33 +61,68 @@ func TestLedger(t *testing.T) {
 		})
 	})
 
-	t.Run("when a window is asked for twice", func(t *testing.T) {
-		f := newFixture(t)
-		path := filepath.Join(t.TempDir(), "stats.db")
-		f.store = open(t, path)
-		f.seed(msg("msg_1", "2026-10-19T11:00:00.000Z", lib, usage{Output: 1}))
-		l := newLedger(t, path)
-		first, err := l.Window(t0, 24, nil)
-		require.NoError(t, err)
-		f.transcript(sessionB, reply{session: sessionB, id: "msg_2", at: "2026-10-19T11:30:00.000Z", cwd: lib, usage: usage{Output: 2}}.line())
-		f.ingest()
-
-		t.Run("and the second is within the cache's life", func(t *testing.T) {
-			again, err := l.Window(t0.Add(stats.LedgerCache-time.Millisecond), 24, nil)
+	// Item 215: a re-read costs about 300 ms on the real history, so a
+	// window is read again only when the store changed, at most every
+	// LedgerCache, and every LedgerAging all the same, because messages
+	// leave the window while nothing is written.
+	t.Run("when a window was read", func(t *testing.T) {
+		const aged = "2026-10-18T12:01:00.000Z"
+		read := func(t *testing.T) (*fixture, *stats.Ledger) {
+			f := newFixture(t)
+			path := filepath.Join(t.TempDir(), "stats.db")
+			f.store = open(t, path)
+			f.seed(
+				msg("msg_aged", aged, lib, usage{Output: 1}),
+				msg("msg_1", "2026-10-19T11:00:00.000Z", lib, usage{Output: 2}),
+			)
+			l := newLedger(t, path)
+			_, err := l.Window(t0, 24, nil)
 			require.NoError(t, err)
+			return f, l
+		}
+		output := func(t *testing.T, l *stats.Ledger, at time.Time) int64 {
+			w, err := l.Window(at, 24, nil)
+			require.NoError(t, err)
+			return w.Counters.Output
+		}
 
-			t.Run("it should give the first answer", func(t *testing.T) {
-				assert.Equal(t, first.Counters.Output, again.Counters.Output)
+		t.Run("and the store then changed", func(t *testing.T) {
+			changed := func(t *testing.T) *stats.Ledger {
+				f, l := read(t)
+				f.transcript(sessionB, reply{session: sessionB, id: "msg_2", at: "2026-10-19T11:30:00.000Z", cwd: lib, usage: usage{Output: 4}}.line())
+				f.ingest()
+				return l
+			}
+
+			t.Run("and it is asked again just inside LedgerCache, it should give the first answer", func(t *testing.T) {
+				assert.Equal(t, int64(3), output(t, changed(t), t0.Add(stats.LedgerCache-time.Millisecond)))
+			})
+
+			t.Run("and it is asked again LedgerCache later, it should read the store again", func(t *testing.T) {
+				assert.Equal(t, int64(7), output(t, changed(t), t0.Add(stats.LedgerCache)))
 			})
 		})
 
-		t.Run("and the second is after it", func(t *testing.T) {
-			again, err := l.Window(t0.Add(stats.LedgerCache), 24, nil)
-			require.NoError(t, err)
-
-			t.Run("it should read the store again", func(t *testing.T) {
-				assert.Equal(t, int64(3), again.Counters.Output)
+		t.Run("and the store did not change", func(t *testing.T) {
+			t.Run("and it is asked again 2 minutes later, it should give the first answer, the aged message still counted", func(t *testing.T) {
+				_, l := read(t)
+				assert.Equal(t, int64(3), output(t, l, t0.Add(2*time.Minute)))
 			})
+
+			t.Run("and it is asked again LedgerAging later, it should read the store again, the aged message gone", func(t *testing.T) {
+				_, l := read(t)
+				assert.Equal(t, int64(2), output(t, l, t0.Add(stats.LedgerAging)))
+			})
+		})
+	})
+
+	t.Run("when LedgerCache and LedgerAging are set", func(t *testing.T) {
+		t.Run("a window should be read at most every 30 s", func(t *testing.T) {
+			assert.Equal(t, 30*time.Second, stats.LedgerCache)
+		})
+
+		t.Run("an unchanged window should be read again every 5 minutes", func(t *testing.T) {
+			assert.Equal(t, 5*time.Minute, stats.LedgerAging)
 		})
 	})
 

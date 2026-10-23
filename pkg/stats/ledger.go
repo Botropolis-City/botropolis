@@ -10,16 +10,22 @@ const (
 	// LedgerRetry is how long a ledger waits before trying a store that
 	// would not open again.
 	LedgerRetry = 5 * time.Second
-	// LedgerCache is how long a window's answer is reused.
-	LedgerCache = 2 * time.Second
+	// LedgerCache is how long a window's answer is reused whatever is
+	// written. A window over the real history costs about 300 ms to
+	// read, and read every 2 s it was 3.6% of a core (item 215).
+	LedgerCache = 30 * time.Second
+	// LedgerAging is how long a window is reused while nothing is
+	// written, since messages still leave it as the clock moves.
+	LedgerAging = 5 * time.Minute
 )
 
 // ReasonOff is a nil ledger's reason: statistics are turned off.
 const ReasonOff = "statistics are off"
 
 type cachedWindow struct {
-	at     time.Time
-	window Window
+	at      time.Time
+	version int64
+	window  Window
 }
 
 // Ledger is the statistics store as a reader in another process sees
@@ -36,8 +42,27 @@ type Ledger struct {
 	tried time.Time
 	cache map[int]cachedWindow
 	// sessions is every session's cost as last read, at sessionsAt.
-	sessions   map[string]Cost
-	sessionsAt time.Time
+	sessions        map[string]Cost
+	sessionsAt      time.Time
+	sessionsVersion int64
+}
+
+// fresh is whether an answer read at from, when the store's data
+// version was version, still stands at at: always within cache, and
+// while nothing was written within ageing, if it is not zero.
+func fresh(s *Store, from, at time.Time, version int64, cache, ageing time.Duration) bool {
+	if at.Before(from) {
+		return false
+	}
+	age := at.Sub(from)
+	if age < cache {
+		return true
+	}
+	if ageing > 0 && age >= ageing {
+		return false
+	}
+	now, err := s.DataVersion()
+	return err == nil && now == version
 }
 
 // NewLedger is a ledger over the store at path, opened when first asked.
@@ -84,16 +109,14 @@ func (l *Ledger) Reason() string {
 	return Reason(l.err)
 }
 
-// Window is the last hours up to at, reused for LedgerCache.
+// Window is the last hours up to at, reused for LedgerCache, and for
+// LedgerAging while nothing is written.
 func (l *Ledger) Window(at time.Time, hours int, root func(string) string) (Window, error) {
 	if l == nil {
 		return Window{}, errors.New(ReasonOff)
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if c, ok := l.cache[hours]; ok && at.Sub(c.at) < LedgerCache && !at.Before(c.at) {
-		return c.window, nil
-	}
 	s, ok := l.storeLocked(at)
 	if !ok {
 		if l.err == nil {
@@ -101,11 +124,18 @@ func (l *Ledger) Window(at time.Time, hours int, root func(string) string) (Wind
 		}
 		return Window{}, l.err
 	}
+	if c, ok := l.cache[hours]; ok && fresh(s, c.at, at, c.version, LedgerCache, LedgerAging) {
+		return c.window, nil
+	}
+	version, err := s.DataVersion()
+	if err != nil {
+		return Window{}, err
+	}
 	w, err := s.Window(at.Add(-time.Duration(hours)*time.Hour), at, hours, root)
 	if err != nil {
 		return w, err
 	}
-	l.cache[hours] = cachedWindow{at: at, window: w}
+	l.cache[hours] = cachedWindow{at: at, version: version, window: w}
 	return w, nil
 }
 
