@@ -18,6 +18,7 @@ type cutLog struct {
 	ringPoints           int
 	discAlpha, ringAlpha float32
 	stamps               []*ebiten.Image
+	geoms                []ebiten.GeoM
 }
 
 func (c *cutLog) CutMesh(vertices []ebiten.Vertex, indices []uint32) {
@@ -28,6 +29,7 @@ func (c *cutLog) CutMesh(vertices []ebiten.Vertex, indices []uint32) {
 func (c *cutLog) CutImage(stamp *ebiten.Image, op *ebiten.DrawImageOptions) {
 	c.discs++
 	c.stamps = append(c.stamps, stamp)
+	c.geoms = append(c.geoms, op.GeoM)
 	c.discAlpha = op.ColorScale.A()
 }
 

@@ -204,12 +204,32 @@ func (p *Painter) Line(dst *ebiten.Image, x0, y0, x1, y1, width float64, c color
 	p.Cut = nil
 	p.Stroke(dst, p.line[:], width, false, c)
 	p.Cut = cut
+	p.cutLine(x0, y0, x1, y1, width, c)
+}
+
+// Lines strokes each pair of points as a straight line width wide, in
+// one mesh: what Line paints and cuts for each pair in turn (item 207).
+func (p *Painter) Lines(dst *ebiten.Image, pairs []city.Point, width float64, c color.NRGBA) {
+	cut := p.Cut
+	p.Cut = nil
+	for i := 0; i+1 < len(pairs); i += 2 {
+		p.AddLine(pairs[i], pairs[i+1], width, c)
+	}
+	p.Flush(dst)
+	p.Cut = cut
+	for i := 0; i+1 < len(pairs); i += 2 {
+		p.cutLine(pairs[i].X, pairs[i].Y, pairs[i+1].X, pairs[i+1].Y, width, c)
+	}
+}
+
+// cutLine tells the cutter of a line as a hard-edged bar a pixel wider
+// and longer, over its soft edge: a third of its mesh's indices, and
+// the city strokes a scaffold's every tube and board as one (item 195).
+func (p *Painter) cutLine(x0, y0, x1, y1, width float64, c color.NRGBA) {
+	cut := p.Cut
 	if cut == nil {
 		return
 	}
-	// A line is cut as a hard-edged bar a pixel wider and longer, over
-	// its soft edge: a third of its mesh's indices, and the city strokes a
-	// scaffold's every tube and board as one (item 195).
 	p.img = ebiten.DrawImageOptions{}
 	p.img.GeoM.Scale(math.Hypot(x1-x0, y1-y0)+1, width+1)
 	p.img.GeoM.Translate(-0.5, -(width+1)/2)

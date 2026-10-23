@@ -99,3 +99,21 @@ func BenchmarkTheStandingCity(b *testing.B) {
 		}
 	}
 }
+
+// Item 207: the CPU of a frame an unfocused city paints for a snapshot,
+// the largest demo's own snapshot handed it again and the frame drawn,
+// as a dashboard on another monitor does for each. It reports and never
+// gates.
+func BenchmarkADashboardFrame(b *testing.B) {
+	home := stageDemo(b, "metropolis")
+	d, err := render.NewDrive(render.DriveOptions{Home: home, Width: 1600, Height: 900})
+	require.NoError(b, err)
+	require.NoError(b, d.Run(settleTicks))
+	b.ReportAllocs()
+	for b.Loop() {
+		b.StopTimer()
+		require.NoError(b, d.Feed(home))
+		b.StartTimer()
+		require.NoError(b, d.Tick())
+	}
+}

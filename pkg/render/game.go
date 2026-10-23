@@ -173,6 +173,10 @@ type Game struct {
 	// buildingsDrawn is how many buildings the frame drew (item 161).
 	buildingsDrawn int
 	noLookCache    bool
+	// dresser keeps each district's aged floor while it holds (item 207).
+	dresser districtDresser
+	// linePairs is a buffer of segments drawn as one mesh (item 207).
+	linePairs []city.Point
 
 	mu          sync.Mutex
 	pending     *state.Snapshot

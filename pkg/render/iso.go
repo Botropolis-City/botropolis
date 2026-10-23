@@ -1140,10 +1140,26 @@ func (g *Game) dashed(screen *ebiten.Image, a, b city.Point, width, dash float64
 		return
 	}
 	ux, uy := (b.X-a.X)/length, (b.Y-a.Y)/length
+	pairs := g.linePairs[:0]
 	for d := 0.0; d < length; d += 2 * dash {
 		end := math.Min(length, d+dash)
-		g.paint.Line(screen, a.X+ux*d, a.Y+uy*d, a.X+ux*end, a.Y+uy*end, width, col)
+		pairs = append(pairs, city.Point{X: a.X + ux*d, Y: a.Y + uy*d}, city.Point{X: a.X + ux*end, Y: a.Y + uy*end})
 	}
+	g.paint.Lines(screen, pairs, width, col)
+	g.linePairs = pairs[:0]
+}
+
+// cracks strokes polylines in world points, width wide at zoom 1, as one
+// mesh (item 207): what g.line drew for each segment in turn.
+func (g *Game) cracks(screen *ebiten.Image, cam *city.Camera, cracks [][]city.Point, width float32, col color.NRGBA) {
+	pairs := g.linePairs[:0]
+	for _, crack := range cracks {
+		for i := 1; i < len(crack); i++ {
+			pairs = append(pairs, cam.WorldToScreen(crack[i-1]), cam.WorldToScreen(crack[i]))
+		}
+	}
+	g.paint.Lines(screen, pairs, float64(width)*cam.Zoom, col)
+	g.linePairs = pairs[:0]
 }
 
 // celebrate is the one-shot show for a merge: a green ring swelling
@@ -1419,7 +1435,7 @@ func (g *Game) dressing(b *city.Building) lot {
 func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	width := float32(math.Max(1, 1.2*cam.Zoom))
 	for _, d := range c.Districts {
-		ground := dressDistrict(d)
+		ground := g.dresser.dress(d)
 		if ground.Wear == 0 {
 			continue
 		}
@@ -1429,11 +1445,7 @@ func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 		}
 		stain.A = uint8(255 * ground.Wear)
 		g.poly(screen, cam, d.Rect, stain)
-		for _, crack := range ground.Cracks {
-			for i := 1; i < len(crack); i++ {
-				g.line(screen, cam, crack[i-1], crack[i], width, colorLotCrack)
-			}
-		}
+		g.cracks(screen, cam, ground.Cracks, width, colorLotCrack)
 		for _, w := range ground.Weeds {
 			g.kit(screen, cam, w.Piece, 0, w.At, nil)
 		}
@@ -1452,11 +1464,7 @@ func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 			g.poly(screen, cam, lotRect(b), stain)
 		}
 		width := float32(math.Max(1, 1.2*cam.Zoom))
-		for _, crack := range d.Cracks {
-			for i := 1; i < len(crack); i++ {
-				g.line(screen, cam, crack[i-1], crack[i], width, colorLotCrack)
-			}
-		}
+		g.cracks(screen, cam, d.Cracks, width, colorLotCrack)
 		if len(d.Weeds) == 0 {
 			continue
 		}

@@ -228,3 +228,49 @@ func dressDistrict(d *city.District) districtGround {
 	}
 	return g
 }
+
+// districtDresser keeps each district's floor while everything
+// dressDistrict reads of it holds — its root, rung, depot, rect and
+// its buildings' rects — so a snapshot's new but equal district is not
+// dressed again (item 207). dressed counts the dressings it did.
+type districtDresser struct {
+	by      map[string]dressedDistrict
+	dressed int
+}
+
+type dressedDistrict struct {
+	rung   state.Rung
+	depot  bool
+	rect   city.Rect
+	lots   []city.Rect
+	ground districtGround
+}
+
+func (m *districtDresser) dress(d *city.District) districtGround {
+	if m.by == nil {
+		m.by = map[string]dressedDistrict{}
+	}
+	kept, ok := m.by[d.Root]
+	if ok && kept.rung == d.Rung && kept.depot == d.Depot && kept.rect == d.Rect && sameLots(kept.lots, d.Buildings) {
+		return kept.ground
+	}
+	m.dressed++
+	kept = dressedDistrict{rung: d.Rung, depot: d.Depot, rect: d.Rect, lots: kept.lots[:0], ground: dressDistrict(d)}
+	for _, b := range d.Buildings {
+		kept.lots = append(kept.lots, b.Rect)
+	}
+	m.by[d.Root] = kept
+	return kept.ground
+}
+
+func sameLots(lots []city.Rect, buildings []*city.Building) bool {
+	if len(lots) != len(buildings) {
+		return false
+	}
+	for i, b := range buildings {
+		if lots[i] != b.Rect {
+			return false
+		}
+	}
+	return true
+}
