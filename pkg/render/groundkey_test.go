@@ -308,28 +308,40 @@ func TestTheGroundKey(t *testing.T) {
 			return out
 		}
 		// changes are the small things a snapshot moves, what the ground
-		// draws and what it does not.
+		// draws and what it does not, each always changing something:
+		// a change that changes nothing exercises nothing.
 		changes := []func(s *state.Snapshot){
 			func(s *state.Snapshot) {
 				s.At = s.At.Add(time.Second)
 				s.Sessions[rnd.IntN(len(s.Sessions))].LastActivity = s.At
 			},
 			func(s *state.Snapshot) {
+				// Calls move to another count below where a beam's width
+				// stops growing; a count of nought takes the beam away.
 				sess := &s.Sessions[rnd.IntN(len(s.Sessions))]
 				if sess.MCPCalls == nil {
 					sess.MCPCalls = map[string]int{}
 				}
-				if server, n := []string{"files", "search"}[rnd.IntN(2)], rnd.IntN(4); n == 0 {
+				server := []string{"files", "search"}[rnd.IntN(2)]
+				if n := (sess.MCPCalls[server] + 1 + rnd.IntN(3)) % 4; n == 0 {
 					delete(sess.MCPCalls, server)
 				} else {
 					sess.MCPCalls[server] = n
 				}
 			},
-			func(s *state.Snapshot) { s.Roads[rnd.IntN(len(s.Roads))].Files += rnd.IntN(3) - 1 },
+			func(s *state.Snapshot) { s.Roads[rnd.IntN(len(s.Roads))].Files += []int{-1, 1, 2}[rnd.IntN(3)] },
 			func(s *state.Snapshot) { s.Roads[rnd.IntN(len(s.Roads))].Messages++ },
 			func(s *state.Snapshot) {
 				sess := &s.Sessions[rnd.IntN(len(s.Sessions))]
-				sess.State = []state.State{state.Working, state.Resting, state.NeedsYou}[rnd.IntN(3)]
+				states := []state.State{state.Working, state.Resting, state.NeedsYou}
+				states = slices.DeleteFunc(states, func(st state.State) bool { return st == sess.State })
+				sess.State = states[rnd.IntN(len(states))]
+			},
+			func(s *state.Snapshot) {
+				name := fmt.Sprintf("crew%d", len(s.Teams))
+				lead, member := &s.Sessions[rnd.IntN(len(s.Sessions))], &s.Sessions[rnd.IntN(len(s.Sessions))]
+				lead.Team, member.Team = name, name
+				s.Teams = append(s.Teams, claude.Team{Name: name, LeadSessionID: lead.ID})
 			},
 			func(s *state.Snapshot) {
 				if len(s.Sessions) > 5 && rnd.IntN(2) == 0 {
@@ -348,18 +360,38 @@ func TestTheGroundKey(t *testing.T) {
 		for i := range games {
 			games[i] = gc.game(t, true)
 		}
+		// Every kind of change comes once, in a shuffled order, before
+		// the random steps, so each walk exercises all of them.
+		first := rnd.Perm(len(changes))
+		// each composes every view's ground with the pointer on hover.
+		each := func(hover city.Hit) {
+			for i, v := range groundViews {
+				gc.scene.SetView(v)
+				gc.ground(games[i], hover)
+			}
+		}
 		stale := 0
 		for step := range 150 {
-			switch rnd.IntN(3) {
-			case 0:
+			// The pointer's targets are pointers into the city, so one on
+			// anything moves the key with every rebuild and hides a
+			// snapshot's change. A snapshot is taken with it on bare
+			// ground before and after, where only the snapshot can move
+			// the ground.
+			hover := city.Hit{}
+			switch {
+			case step < len(first):
+				each(hover)
+				gc.snap(t, changes[first[step]])
+			case rnd.IntN(3) == 0:
 				if id := ids[rnd.IntN(len(ids))]; gc.scene.Select(id) && rnd.IntN(2) == 0 {
 					gc.scene.Act(city.ActionShowRoad)
 				}
+				all := hits()
+				hover = all[rnd.IntN(len(all))]
 			default:
+				each(hover)
 				gc.snap(t, changes[rnd.IntN(len(changes))])
 			}
-			all := hits()
-			hover := all[rnd.IntN(len(all))]
 			for i, v := range groundViews {
 				gc.scene.SetView(v)
 				kept := gc.ground(games[i], hover)
