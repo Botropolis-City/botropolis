@@ -2,7 +2,6 @@ package render
 
 import (
 	"image"
-	"reflect"
 	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -55,17 +54,26 @@ func batch(out []streamPlay, plays []streamPlay, box func(cmd int) image.Rectang
 	if n == 0 {
 		return out
 	}
+	// Each draw's box and source are asked for once: asking again on
+	// every comparison was most of the cost (item 161).
+	boxes, srcs := make([]image.Rectangle, n), make([]int, n)
+	inRect := map[int][]int{}
+	for j, p := range plays {
+		boxes[j], srcs[j] = box(p.cmd), src(p.cmd)
+		inRect[p.rect] = append(inRect[p.rect], j)
+	}
 	// waits[j] counts the earlier draws into j's rectangle that j
 	// overlaps and that have not gone down; after lists whom each
-	// releases.
+	// releases. Only draws into one rectangle are compared.
 	waits := make([]int, n)
 	after := make([][]int, n)
-	for j := range plays {
-		bj := box(plays[j].cmd)
-		for i := 0; i < j; i++ {
-			if plays[i].rect == plays[j].rect && box(plays[i].cmd).Overlaps(bj) {
-				waits[j]++
-				after[i] = append(after[i], j)
+	for _, js := range inRect {
+		for b, j := range js {
+			for _, i := range js[:b] {
+				if boxes[i].Overlaps(boxes[j]) {
+					waits[j]++
+					after[i] = append(after[i], j)
+				}
 			}
 		}
 	}
@@ -77,7 +85,7 @@ func batch(out []streamPlay, plays []streamPlay, box func(cmd int) image.Rectang
 			if done[j] || waits[j] > 0 {
 				continue
 			}
-			if have && src(plays[j].cmd) == current {
+			if have && srcs[j] == current {
 				pick = j
 				break
 			}
@@ -89,7 +97,7 @@ func batch(out []streamPlay, plays []streamPlay, box func(cmd int) image.Rectang
 			}
 		}
 		done[pick] = true
-		current, have = src(plays[pick].cmd), true
+		current, have = srcs[pick], true
 		for _, j := range after[pick] {
 			waits[j]--
 		}
@@ -116,11 +124,11 @@ func (l *drawList) batchKey(i int) int {
 	k := batchSource{kind: c.kind}
 	switch c.kind {
 	case cmdImage:
-		k.page, k.filter, k.blend = pageOf(c.src), c.img.Filter, c.img.Blend
+		k.page, k.filter, k.blend = l.pageKey(i), c.img.Filter, c.img.Blend
 	case cmdColorM:
-		k.page, k.filter, k.blend = pageOf(c.src), c.cmImg.Filter, c.cmImg.Blend
+		k.page, k.filter, k.blend = l.pageKey(i), c.cmImg.Filter, c.cmImg.Blend
 	case cmdMesh:
-		k.page, k.filter, k.blend = pageOf(c.src), c.tri.Filter, c.tri.Blend
+		k.page, k.filter, k.blend = l.pageKey(i), c.tri.Filter, c.tri.Blend
 	case cmdWords:
 		k.face = faceID(c.face)
 	}
@@ -135,15 +143,14 @@ func (l *drawList) batchKey(i int) int {
 	return id
 }
 
-// pageOf is the image a sub-image was cut from, or the image itself: the
-// texture a draw reads. Ebitengine keeps it unexported as original; if it
-// stops, draws are only grouped less well.
-func pageOf(img *ebiten.Image) uintptr {
-	if img == nil {
-		return 0
+// pageKey is the texture recorded draw i reads: the page its caller cut
+// it from, or its own image. It was found by reflecting on Ebitengine's
+// private field for the image a sub-image was cut from, on every draw
+// of every frame; the caller that cuts a sub-image now says (item 161).
+func (l *drawList) pageKey(i int) uintptr {
+	c := &l.cmds[i]
+	if c.page != nil {
+		return uintptr(unsafe.Pointer(c.page))
 	}
-	if f := reflect.ValueOf(img).Elem().FieldByName("original"); f.IsValid() && !f.IsNil() {
-		return f.Pointer()
-	}
-	return uintptr(unsafe.Pointer(img))
+	return uintptr(unsafe.Pointer(c.src))
 }

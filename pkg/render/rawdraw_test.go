@@ -21,7 +21,7 @@ import (
 var drawsAllowed = map[string]string{
 	// The recorder itself, drawing when the image is not the dry one,
 	// and playing what it recorded.
-	"ink.go:Image":       "the recorder",
+	"ink.go:ImageOn":     "the recorder",
 	"ink.go:colorm":      "the recorder",
 	"ink.go:Mesh":        "the recorder",
 	"ink.go:triangles16": "the recorder",

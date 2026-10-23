@@ -2,6 +2,7 @@ package render
 
 import (
 	"image"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
@@ -12,7 +13,13 @@ import (
 
 type atlas struct {
 	sheet *ebiten.Image
+	tiles sync.Map
 }
+
+// tileSheets is the sheet each tile an atlas cut was cut from, so a draw
+// of it batches by the sheet it reads (item 161). Tiles are cut once
+// each, so it holds one entry a tile.
+var tileSheets sync.Map
 
 func loadAtlas(pack assets.Pack) (*atlas, error) {
 	img, err := assets.Tilemap(pack)
@@ -23,8 +30,23 @@ func loadAtlas(pack assets.Pack) (*atlas, error) {
 }
 
 func (a *atlas) tile(col, row int) *ebiten.Image {
+	if t, ok := a.tiles.Load([2]int{col, row}); ok {
+		return t.(*ebiten.Image)
+	}
 	r := image.Rect(col*assets.TileSize, row*assets.TileSize, (col+1)*assets.TileSize, (row+1)*assets.TileSize)
-	return a.sheet.SubImage(r).(*ebiten.Image)
+	t := a.sheet.SubImage(r).(*ebiten.Image)
+	tileSheets.Store(t, a.sheet)
+	got, _ := a.tiles.LoadOrStore([2]int{col, row}, t)
+	return got.(*ebiten.Image)
+}
+
+// tileSheet is the sheet a tile was cut from, or nil for an image no
+// atlas cut.
+func tileSheet(t *ebiten.Image) *ebiten.Image {
+	if s, ok := tileSheets.Load(t); ok {
+		return s.(*ebiten.Image)
+	}
+	return nil
 }
 
 type sprites struct {
@@ -112,7 +134,7 @@ func (g *Game) drawTileScaled(screen *ebiten.Image, cam *city.Camera, t *ebiten.
 		op.ColorScale = *scale
 	}
 	op.Filter = ebiten.FilterNearest
-	g.recorder().Image(screen, t, op)
+	g.recorder().ImageOn(screen, t, tileSheet(t), op)
 }
 
 func (g *Game) drawTileMatrix(screen *ebiten.Image, cam *city.Camera, t *ebiten.Image, r city.Rect, m colorm.ColorM) {
@@ -122,7 +144,7 @@ func (g *Game) drawTileMatrix(screen *ebiten.Image, cam *city.Camera, t *ebiten.
 	op.GeoM.Scale((max.X-min.X)/assets.TileSize, (max.Y-min.Y)/assets.TileSize)
 	op.GeoM.Translate(min.X, min.Y)
 	op.Filter = ebiten.FilterNearest
-	g.recorder().colorm(screen, t, m, op)
+	g.recorder().colorm(screen, t, tileSheet(t), m, op)
 }
 
 func cell(r city.Rect, cols, rows, col, row int) city.Rect {

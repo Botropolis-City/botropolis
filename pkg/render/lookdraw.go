@@ -503,7 +503,7 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(cell.X+look.at.X), float64(cell.Y+look.at.Y))
 	g.drawing.world()
-	g.recorder().Image(screen, look.img, op)
+	g.recorder().ImageOn(screen, look.img, look.page, op)
 	g.punch(look.img, look.page, op.GeoM)
 }
 

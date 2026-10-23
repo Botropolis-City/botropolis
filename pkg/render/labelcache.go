@@ -38,8 +38,8 @@ type labelKey struct {
 // only when the page fills and starts again, so dropping one frees
 // nothing.
 type bakedLabel struct {
-	img *ebiten.Image
-	at  image.Point
+	img, page *ebiten.Image
+	at        image.Point
 }
 
 func (b *bakedLabel) Deallocate() {}
@@ -193,7 +193,7 @@ func (g *Game) drawLabel(dst *ebiten.Image, draw func(*ebiten.Image, city.Rect),
 		}
 		sub := lc.page.img.SubImage(r).(*ebiten.Image)
 		l.playShifted(sub, in, r.Min.Sub(box.Min))
-		b := &bakedLabel{img: sub, at: box.Min.Sub(cell)}
+		b := &bakedLabel{img: sub, page: lc.page.img, at: box.Min.Sub(cell)}
 		lc.keep(key, b, box.Dx()*box.Dy()*4)
 		l.truncate(m)
 		g.blitLabel(dst, b, cell)
@@ -208,5 +208,5 @@ func (g *Game) drawLabel(dst *ebiten.Image, draw func(*ebiten.Image, city.Rect),
 func (g *Game) blitLabel(dst *ebiten.Image, b *bakedLabel, cell image.Point) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(cell.X+b.at.X), float64(cell.Y+b.at.Y))
-	g.recorder().Image(dst, b.img, op)
+	g.recorder().ImageOn(dst, b.img, b.page, op)
 }

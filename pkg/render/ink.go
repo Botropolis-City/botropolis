@@ -47,8 +47,11 @@ const (
 
 // drawCmd is one recorded draw.
 type drawCmd struct {
-	kind  cmdKind
-	src   *ebiten.Image
+	kind cmdKind
+	src  *ebiten.Image
+	// page is the image src was cut from, when its caller cut it: the
+	// texture the draw reads, and batches by (item 161).
+	page  *ebiten.Image
 	img   ebiten.DrawImageOptions
 	cm    colorm.ColorM
 	cmImg colorm.DrawImageOptions
@@ -179,11 +182,17 @@ func (l *drawList) push(c drawCmd, box image.Rectangle) {
 
 // Image draws img onto dst, or records it.
 func (l *drawList) Image(dst, img *ebiten.Image, op *ebiten.DrawImageOptions) {
+	l.ImageOn(dst, img, nil, op)
+}
+
+// ImageOn draws img, cut from page, onto dst, or records it with the
+// page its draws are batched by; a nil page is img itself (item 161).
+func (l *drawList) ImageOn(dst, img, page *ebiten.Image, op *ebiten.DrawImageOptions) {
 	if !l.records(dst) {
 		dst.DrawImage(img, op)
 		return
 	}
-	l.push(drawCmd{kind: cmdImage, src: img, img: *op}, imageBox(img, op.GeoM))
+	l.push(drawCmd{kind: cmdImage, src: img, page: page, img: *op}, imageBox(img, op.GeoM))
 	l.hashImage(img)
 	l.hashGeoM(op.GeoM)
 	l.hashScale(op.ColorScale)
@@ -191,13 +200,14 @@ func (l *drawList) Image(dst, img *ebiten.Image, op *ebiten.DrawImageOptions) {
 	l.seal()
 }
 
-// colorm draws img through a colour matrix, or records it.
-func (l *drawList) colorm(dst, img *ebiten.Image, m colorm.ColorM, op *colorm.DrawImageOptions) {
+// colorm draws img, cut from page, through a colour matrix, or records
+// it; a nil page is img itself.
+func (l *drawList) colorm(dst, img, page *ebiten.Image, m colorm.ColorM, op *colorm.DrawImageOptions) {
 	if !l.records(dst) {
 		colorm.DrawImage(dst, img, m, op)
 		return
 	}
-	l.push(drawCmd{kind: cmdColorM, src: img, cm: m, cmImg: *op}, imageBox(img, op.GeoM))
+	l.push(drawCmd{kind: cmdColorM, src: img, page: page, cm: m, cmImg: *op}, imageBox(img, op.GeoM))
 	l.hashImage(img)
 	l.hashGeoM(op.GeoM)
 	for i := range 4 {

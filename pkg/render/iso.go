@@ -67,7 +67,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, s pagedSprite, at city.Point, sc
 		op.GeoM.Scale(scale, scale)
 		op.GeoM.Translate(at.X, at.Y)
 		op.Filter = ebiten.FilterLinear
-		g.recorder().colorm(screen, img, recedeMatrix(), op)
+		g.recorder().colorm(screen, img, s.page, recedeMatrix(), op)
 		g.punch(img, s.page, op.GeoM)
 		return
 	}
@@ -78,7 +78,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, s pagedSprite, at city.Point, sc
 		op.ColorScale = *tint
 	}
 	op.Filter = ebiten.FilterLinear
-	g.recorder().Image(screen, img, op)
+	g.recorder().ImageOn(screen, img, s.page, op)
 	g.punch(img, s.page, op.GeoM)
 }
 

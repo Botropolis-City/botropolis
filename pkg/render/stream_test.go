@@ -2,9 +2,16 @@ package render
 
 import (
 	"image"
+	"reflect"
 	"testing"
+	"time"
+	"unsafe"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // Item 193: what is drawn again inside the rectangles something moves
@@ -104,4 +111,117 @@ func TestDirtyBatch(t *testing.T) {
 			})
 		})
 	}
+}
+
+// Item 161: a draw's page was found by reflecting on Ebitengine's
+// private field for the image a sub-image was cut from, on every draw
+// of every frame. The page is now kept beside the draw by whoever cut
+// the sub-image. The reflection stays here only, as the reference: two
+// draws must share a batch key exactly when they read the same page.
+func TestRecordedDrawsKeyByTheirPage(t *testing.T) {
+	cutFrom := func(img *ebiten.Image) uintptr {
+		if img == nil {
+			return 0
+		}
+		if f := reflect.ValueOf(img).Elem().FieldByName("original"); f.IsValid() && !f.IsNil() {
+			return f.Pointer()
+		}
+		return uintptr(unsafe.Pointer(img))
+	}
+	day := time.Now()
+	for _, c := range []struct {
+		name string
+		open func(t *testing.T) *Drive
+	}{
+		{"the metropolis by day", func(t *testing.T) *Drive {
+			d, err := NewDrive(DriveOptions{Home: stageMetropolis(t, day), Now: atHour(day, 14)})
+			require.NoError(t, err)
+			require.NoError(t, d.Run(60))
+			return d
+		}},
+		{"the metropolis by night", func(t *testing.T) *Drive {
+			d, err := NewDrive(DriveOptions{Home: stageMetropolis(t, day), Now: atHour(day, 22)})
+			require.NoError(t, err)
+			require.NoError(t, d.Run(60))
+			return d
+		}},
+		{"the metropolis with a view up", func(t *testing.T) *Drive {
+			d, err := NewDrive(DriveOptions{Home: stageMetropolis(t, day), Now: atHour(day, 14)})
+			require.NoError(t, err)
+			d.game.scene.SetView(city.ViewSpend)
+			require.NoError(t, d.Run(60))
+			return d
+		}},
+		{"217 sessions at full zoom", func(t *testing.T) *Drive { return fullZoom(t, DriveOptions{}) }},
+	} {
+		t.Run("when "+c.name+" is recorded", func(t *testing.T) {
+			l := c.open(t).game.rec
+			keys := map[uintptr]map[uintptr]bool{}
+			pages := map[uintptr]map[uintptr]bool{}
+			for i := range l.cmds {
+				switch l.cmds[i].kind {
+				case cmdImage, cmdColorM, cmdMesh:
+				default:
+					continue
+				}
+				k, p := l.pageKey(i), cutFrom(l.cmds[i].src)
+				if keys[k] == nil {
+					keys[k] = map[uintptr]bool{}
+				}
+				if pages[p] == nil {
+					pages[p] = map[uintptr]bool{}
+				}
+				keys[k][p], pages[p][k] = true, true
+			}
+			var split, merged int
+			for _, ps := range keys {
+				if len(ps) > 1 {
+					merged++
+				}
+			}
+			for _, ks := range pages {
+				if len(ks) > 1 {
+					split++
+				}
+			}
+			require.NotEmpty(t, keys, "nothing was recorded")
+
+			t.Run("it should key apart no two draws that read one page, nor key together two that read two", func(t *testing.T) {
+				assert.Equal(t, [2]int{0, 0}, [2]int{split, merged})
+			})
+		})
+	}
+}
+
+// Item 161: ordering a frame's redrawn draws asked for each draw's
+// source again on every comparison, and each ask went through a map; at
+// fit on the real history it was more than half of laying the standing
+// city.
+func TestDirtyBatchAsksOnce(t *testing.T) {
+	const n = 60
+	plays := make([]streamPlay, n)
+	for i := range plays {
+		plays[i] = streamPlay{cmd: i, rect: i % 3}
+	}
+	boxAsks, srcAsks := map[int]int{}, map[int]int{}
+	batch(nil, plays,
+		func(i int) image.Rectangle { boxAsks[i]++; return image.Rect(i, 0, i+1, 1) },
+		func(i int) int { srcAsks[i]++; return i % 4 })
+	most := func(asks map[int]int) int {
+		m := 0
+		for _, k := range asks {
+			m = max(m, k)
+		}
+		return m
+	}
+
+	t.Run("when draws in several rectangles are batched", func(t *testing.T) {
+		t.Run("it should ask for each draw's source once", func(t *testing.T) {
+			assert.Equal(t, 1, most(srcAsks))
+		})
+
+		t.Run("it should ask for each draw's box once", func(t *testing.T) {
+			assert.Equal(t, 1, most(boxAsks))
+		})
+	})
 }
