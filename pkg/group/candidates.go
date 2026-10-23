@@ -2,29 +2,24 @@ package group
 
 import (
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 )
 
-// candidates index the members by every signal pair reads, so that a
-// session's candidates, the sessions it shares at least one signal
-// with, are found without enumerating every pair (item 198). A pair
-// that is not a candidate cannot score: pair needs a shared directory,
-// reference, team, parent, message, paste, rare word, branch or file,
-// or two starts, or a close and a start, close enough together.
-//
-// Only the keys the changed sessions look up are indexed, so a prompt in
-// one session indexes what that session says and not the whole history.
+// candidates are a run's view of the detector's candidate index, which
+// holds every member under every signal pair reads, so that a session's
+// candidates, the sessions it shares at least one signal with, are found
+// without enumerating every pair (item 198). A pair that is not a
+// candidate cannot score: pair needs a shared directory, reference,
+// team, parent, message, paste, rare word, branch or file, or two
+// starts, or a close and a start, close enough together.
 type candidates struct {
-	d      *detection
-	seen   []int
-	out    []int
-	idx    [kinds]map[string][]int
-	pastes map[uint64][]int
-	keys   map[string]pasteKeys
-	// ends are the members that closed, by when they closed.
-	ends []int
+	d    *detection
+	ix   *candidateIndex
+	seen []int
+	out  []int
 }
 
 // The kinds of key a member is indexed under. dirAt and visitAt are a
@@ -45,9 +40,37 @@ const (
 	kinds
 )
 
-// indexedUnder gives every key member i is indexed under, its words
-// only when asked to.
-func (d *detection) indexedUnder(i int, words bool, key func(kind int, key string)) {
+type indexKey struct {
+	kind int
+	key  string
+}
+
+// candidateIndex is kept from run to run and patched for the sessions
+// that changed, so that a prompt in one session indexes what that
+// session says and not the whole history (item 210). It holds every
+// word, rare or not, and a lookup takes only the rare ones, since a
+// word's rarity can move without the sessions using it changing.
+type candidateIndex struct {
+	keys   map[indexKey][]string
+	pastes map[uint64][]string
+	// ends are the members that closed, by when they closed.
+	ends  []string
+	under map[string]indexed
+}
+
+// indexed is what a member was indexed under, to take it out again.
+type indexed struct {
+	keys   []indexKey
+	pastes pasteKeys
+	ended  time.Time
+}
+
+func newCandidateIndex() *candidateIndex {
+	return &candidateIndex{keys: map[indexKey][]string{}, pastes: map[uint64][]string{}, under: map[string]indexed{}}
+}
+
+// indexedUnder gives every key member i is indexed under.
+func (d *detection) indexedUnder(i int, key func(kind int, key string)) {
 	m := d.members[i]
 	key(dirIs, m.Dir)
 	for _, at := range atOrAbove(m.Dir) {
@@ -71,12 +94,8 @@ func (d *detection) indexedUnder(i int, words bool, key func(kind int, key strin
 	for _, to := range m.Messaged {
 		key(messagedBy, to)
 	}
-	if words {
-		for tok := range d.wording.words[m.ID] {
-			if _, ok := d.wording.idf[tok]; ok {
-				key(wordKey, tok)
-			}
-		}
+	for tok := range d.wording.words[m.ID] {
+		key(wordKey, tok)
 	}
 	for _, b := range branchKeys(m.Branch) {
 		key(branchKey, b)
@@ -118,47 +137,94 @@ func (d *detection) looksUp(i int, key func(kind int, key string)) {
 	}
 }
 
-func (d *detection) candidates(keys map[string]pasteKeys, changed map[string]bool) *candidates {
-	c := &candidates{d: d, seen: make([]int, len(d.members)), keys: keys, pastes: map[uint64][]int{}}
-	for k := range c.idx {
-		c.idx[k] = map[string][]int{}
-	}
-	all := len(changed) >= len(d.members)
-	var want [kinds]map[string]bool
-	if !all {
-		for k := range want {
-			want[k] = map[string]bool{}
+// update brings the index to d's members: all of them indexed again when
+// rebuild, otherwise only the sessions differing from the last run, and
+// those that left taken out.
+func (ix *candidateIndex) update(d *detection, differs map[string]bool, rebuild bool) {
+	if rebuild {
+		last := ix.under
+		*ix = *newCandidateIndex()
+		for i, m := range d.members {
+			ix.add(d, i, last[m.ID].pastes)
 		}
-		for id := range changed {
-			d.looksUp(d.index[id], func(kind int, key string) { want[kind][key] = true })
+		return
+	}
+	for id := range ix.under {
+		if _, ok := d.index[id]; !ok {
+			ix.remove(id)
 		}
 	}
-	for i, m := range d.members {
-		d.indexedUnder(i, all, func(kind int, key string) {
-			if all || want[kind][key] {
-				c.idx[kind][key] = append(c.idx[kind][key], i)
-			}
+	for id := range differs {
+		last := ix.under[id].pastes
+		ix.remove(id)
+		ix.add(d, d.index[id], last)
+	}
+}
+
+func (ix *candidateIndex) add(d *detection, i int, last pasteKeys) {
+	m := d.members[i]
+	var in indexed
+	d.indexedUnder(i, func(kind int, key string) {
+		k := indexKey{kind, key}
+		ix.keys[k] = append(ix.keys[k], m.ID)
+		in.keys = append(in.keys, k)
+	})
+	if len(m.Pasted) > 0 {
+		in.pastes = last
+		if !slices.Equal(last.pasted, m.Pasted) {
+			in.pastes = readPasteKeys(m.Pasted)
+		}
+		for _, h := range in.pastes.prefix {
+			ix.pastes[h] = append(ix.pastes[h], m.ID)
+		}
+	}
+	if in.ended = m.Ended; !in.ended.IsZero() {
+		at, _ := slices.BinarySearchFunc(ix.ends, in.ended, func(id string, t time.Time) int {
+			return ix.under[id].ended.Compare(t)
 		})
-		if !all {
-			words, wanted := d.wording.words[m.ID], want[wordKey]
-			if len(wanted) < len(words) {
-				words, wanted = wanted, words
-			}
-			for tok := range words {
-				if _, rare := d.wording.idf[tok]; rare && wanted[tok] {
-					c.idx[wordKey][tok] = append(c.idx[wordKey][tok], i)
-				}
-			}
-		}
-		for _, h := range keys[m.ID].prefix {
-			c.pastes[h] = append(c.pastes[h], i)
-		}
-		if !m.Ended.IsZero() {
-			c.ends = append(c.ends, i)
+		ix.ends = slices.Insert(ix.ends, at, m.ID)
+	}
+	ix.under[m.ID] = in
+}
+
+func (ix *candidateIndex) remove(id string) {
+	in, ok := ix.under[id]
+	if !ok {
+		return
+	}
+	for _, k := range in.keys {
+		if ids := without(ix.keys[k], id); len(ids) > 0 {
+			ix.keys[k] = ids
+		} else {
+			delete(ix.keys, k)
 		}
 	}
-	sort.SliceStable(c.ends, func(x, y int) bool { return d.members[c.ends[x]].Ended.Before(d.members[c.ends[y]].Ended) })
-	return c
+	for _, h := range in.pastes.prefix {
+		if ids := without(ix.pastes[h], id); len(ids) > 0 {
+			ix.pastes[h] = ids
+		} else {
+			delete(ix.pastes, h)
+		}
+	}
+	if !in.ended.IsZero() {
+		ix.ends = slices.DeleteFunc(ix.ends, func(e string) bool { return e == id })
+	}
+	delete(ix.under, id)
+}
+
+// without is ids with id taken out, once.
+func without(ids []string, id string) []string {
+	for k, x := range ids {
+		if x == id {
+			ids[k] = ids[len(ids)-1]
+			return ids[:len(ids)-1]
+		}
+	}
+	return ids
+}
+
+func (d *detection) candidates(ix *candidateIndex) *candidates {
+	return &candidates{d: d, ix: ix, seen: make([]int, len(d.members))}
 }
 
 // of is member i's candidates, each once, in no particular order, valid
@@ -168,60 +234,61 @@ func (c *candidates) of(i int) []int {
 	stamp := i + 1
 	out := c.out[:0]
 	defer func() { c.out = out }()
-	add := func(js []int) {
-		for _, j := range js {
-			if j != i && c.seen[j] != stamp {
-				c.seen[j] = stamp
-				out = append(out, j)
+	addAt := func(j int) {
+		if j != i && c.seen[j] != stamp {
+			c.seen[j] = stamp
+			out = append(out, j)
+		}
+	}
+	add := func(ids []string) {
+		for _, id := range ids {
+			if j, ok := d.index[id]; ok {
+				addAt(j)
 			}
 		}
 	}
-	d.looksUp(i, func(kind int, key string) { add(c.idx[kind][key]) })
-	if j, ok := d.index[m.Parent]; ok {
-		add([]int{j})
-	}
-	for _, to := range m.Messaged {
-		if j, ok := d.index[to]; ok {
-			add([]int{j})
+	d.looksUp(i, func(kind int, key string) {
+		if kind == wordKey {
+			if _, rare := d.wording.idf[key]; !rare {
+				return
+			}
 		}
+		add(c.ix.keys[indexKey{kind, key}])
+	})
+	if j, ok := d.index[m.Parent]; ok {
+		addAt(j)
 	}
-	for _, h := range c.keys[m.ID].prefix {
-		add(c.pastes[h])
+	add(m.Messaged)
+	for _, h := range c.ix.under[m.ID].pastes.prefix {
+		add(c.ix.pastes[h])
 	}
-	add(c.startedWithin(m.Started.Add(-burst), m.Started.Add(burst)))
+	c.startedWithin(m.Started.Add(-burst), m.Started.Add(burst), addAt)
 	if !m.Ended.IsZero() {
-		add(c.startedWithin(m.Ended, m.Ended.Add(continuing)))
+		c.startedWithin(m.Ended, m.Ended.Add(continuing), addAt)
 	}
-	add(c.endedWithin(m.Started.Add(-continuing), m.Started))
+	add(c.ix.endedWithin(m.Started.Add(-continuing), m.Started))
 	return out
 }
 
-// startedWithin are the members started from one moment to another,
+// startedWithin gives the members started from one moment to another,
 // both included.
-func (c *candidates) startedWithin(from, to time.Time) []int {
+func (c *candidates) startedWithin(from, to time.Time, add func(int)) {
 	ms := c.d.members
 	lo := sort.Search(len(ms), func(k int) bool { return !ms[k].Started.Before(from) })
-	hi := sort.Search(len(ms), func(k int) bool { return ms[k].Started.After(to) })
-	if lo >= hi {
-		return nil
+	for k := lo; k < len(ms) && !ms[k].Started.After(to); k++ {
+		add(k)
 	}
-	out := make([]int, 0, hi-lo)
-	for k := lo; k < hi; k++ {
-		out = append(out, k)
-	}
-	return out
 }
 
 // endedWithin are the members closed from one moment to another, both
 // included.
-func (c *candidates) endedWithin(from, to time.Time) []int {
-	ms := c.d.members
-	lo := sort.Search(len(c.ends), func(k int) bool { return !ms[c.ends[k]].Ended.Before(from) })
-	hi := sort.Search(len(c.ends), func(k int) bool { return ms[c.ends[k]].Ended.After(to) })
+func (ix *candidateIndex) endedWithin(from, to time.Time) []string {
+	lo := sort.Search(len(ix.ends), func(k int) bool { return !ix.under[ix.ends[k]].ended.Before(from) })
+	hi := sort.Search(len(ix.ends), func(k int) bool { return ix.under[ix.ends[k]].ended.After(to) })
 	if lo >= hi {
 		return nil
 	}
-	return c.ends[lo:hi]
+	return ix.ends[lo:hi]
 }
 
 // above are the paths a directory lies under, as coordinates matches

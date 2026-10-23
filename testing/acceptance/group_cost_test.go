@@ -45,7 +45,10 @@ func processCPU(t *testing.T) time.Duration {
 // the load around grouping has grown past its half on its own, so what
 // the prompt adds to a load, which is grouping's half, is held to 50 ms
 // as well, at both sizes: the load after it less a load with nothing
-// changed, each the median of five.
+// changed, each the median of five. Item 210 patched the candidate index
+// and the edges for the sessions a prompt changes, rather than going over
+// every session, so the whole load after a prompt is held to 50 ms at
+// 2,000 sessions too.
 func TestGroupingCostPerPrompt(t *testing.T) {
 	const limit = 50 * time.Millisecond
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
@@ -53,19 +56,11 @@ func TestGroupingCostPerPrompt(t *testing.T) {
 		scenario string
 		sessions int
 		history  []helpers.HistoryPrompt
-		// unmet names what holds the whole load over its limit, while
-		// grouping's half is met, and ceiling is what it read at worst
-		// with a margin, so a regression still fails while the reading
-		// moves with the machine's load (item 205, as item 194 does).
-		unmet   string
-		ceiling time.Duration
 	}{
 		{scenario: "when 100 sessions are on the map", sessions: 100,
 			history: helpers.SyntheticHistory(158, 100, 40, now.Add(-20*24*time.Hour))},
 		{scenario: "when 2,000 small sessions are on the map", sessions: 2000,
-			history: helpers.ManySessions(198, 2000, now),
-			unmet:   "grouping's 40-45 ms a prompt at 2,000 sessions, on a load of about 15 ms; item 210",
-			ceiling: 90 * time.Millisecond},
+			history: helpers.ManySessions(198, 2000, now)},
 	}
 	for _, h := range homes {
 		t.Run(h.scenario+", and one sends a prompt", func(t *testing.T) {
@@ -114,21 +109,8 @@ func TestGroupingCostPerPrompt(t *testing.T) {
 			t.Logf("CPU per prompt, sorted: %v; with nothing changed %v; added by the prompt %v", costs, settled, added)
 
 			t.Run("it should spend under 50 ms of CPU on the next load", func(t *testing.T) {
-				// It reads 42-60 ms with the machine's load, either side
-				// of the limit, so it skips only while over it, and passes
-				// under it, until item 210 or 209's instruction counts
-				// settle it.
-				if median := costs[len(costs)/2]; h.unmet != "" && median >= limit {
-					t.Skipf("unmet: %v against %v; %s", median, limit, h.unmet)
-				}
 				assert.Less(t, costs[len(costs)/2], limit, "costs %v", costs)
 			})
-
-			if h.ceiling > 0 {
-				t.Run(fmt.Sprintf("it should spend no more than its ceiling of %v on the next load", h.ceiling), func(t *testing.T) {
-					assert.LessOrEqual(t, costs[len(costs)/2], h.ceiling, "costs %v", costs)
-				})
-			}
 
 			t.Run("it should add under 50 ms of CPU to the load", func(t *testing.T) {
 				assert.Less(t, added[len(added)/2], limit, "added %v", added)

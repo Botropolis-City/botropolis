@@ -1,6 +1,7 @@
 package group
 
 import (
+	"maps"
 	"slices"
 )
 
@@ -18,13 +19,17 @@ type Detector struct {
 	// ties are the pairs that scored, under both sessions, each scored
 	// with the earlier of the two first.
 	ties   map[string]map[string]scored
-	pastes map[string]pasteKeys
+	index  *candidateIndex
 	scored int
 	kept   int
 	// taken, keys and sorted are the last run's edges, kept to take the
-	// next run's into rather than to allocate them again.
-	taken, sorted []edge
-	keys          []keyedEdge
+	// next run's into rather than to allocate them again; sorted is
+	// patched in place when the next run's sessions are in the same
+	// order and sit out and are kept apart as before (item 210).
+	taken, sorted, spare []edge
+	keys                 []keyedEdge
+	order                []string
+	apart                apart
 	// names are the groups' names from the last Detect, by their
 	// sessions; a run that is not followed by naming forgets them.
 	names map[string]named
@@ -37,7 +42,7 @@ type scored struct {
 }
 
 func NewDetector() *Detector {
-	return &Detector{ties: map[string]map[string]scored{}, pastes: map[string]pasteKeys{}, members: map[string]Member{}}
+	return &Detector{ties: map[string]map[string]scored{}, index: newCandidateIndex(), members: map[string]Member{}}
 }
 
 // PairsScored is how many pairs of sessions the detector has compared.
@@ -79,23 +84,24 @@ func sortedMembers(members []Member) []Member {
 func (dt *Detector) run(members []Member, memory Memory) (*detection, []edge) {
 	members = sortedMembers(members)
 	d := newDetection(members, memory, dt)
-	changed := dt.changed(members, d.wording)
-	d.names = &keptNames{last: dt.names, next: map[string]named{}, changed: changed}
-	dt.names = nil
+	differs := dt.differs(members)
 	for id := range dt.members {
 		if _, ok := d.index[id]; !ok {
 			dt.untieAll(id)
-			delete(dt.pastes, id)
 			delete(dt.members, id)
 		}
 	}
+	dt.index.update(d, differs, d.wording.allMoved || len(dt.index.under) == 0)
+	changed := dt.changed(differs, members, d.wording)
+	d.names = &keptNames{last: dt.names, next: map[string]named{}, changed: changed}
+	dt.names = nil
 	for id := range changed {
 		dt.untieAll(id)
 	}
 	if len(changed) > 0 {
 		dt.scoreChanged(d, changed)
 	}
-	edges := dt.edges(d)
+	edges := dt.edges(d, memory, changed)
 	dt.wording, dt.refs = d.wording, d.read
 	for id := range changed {
 		dt.members[id] = members[d.index[id]]
@@ -106,7 +112,7 @@ func (dt *Detector) run(members []Member, memory Memory) (*detection, []edge) {
 // scoreChanged scores each changed session against its candidates, each
 // pair once, and ties those that score.
 func (dt *Detector) scoreChanged(d *detection, changed map[string]bool) {
-	c := d.candidates(dt.pasteKeys(d.members), changed)
+	c := d.candidates(dt.index)
 	for id := range changed {
 		i := d.index[id]
 		for _, j := range c.of(i) {
@@ -122,41 +128,121 @@ func (dt *Detector) scoreChanged(d *detection, changed map[string]bool) {
 	}
 }
 
+// apart is what decides which sessions sit out and which pairs are
+// kept apart, besides the sessions themselves.
+type apart struct {
+	moves       []Move
+	notRelated  []Pair
+	startedFrom map[string]string
+}
+
+func apartOf(memory Memory) apart {
+	return apart{moves: slices.Clone(memory.Moves), notRelated: slices.Clone(memory.NotRelated), startedFrom: maps.Clone(memory.StartedFrom)}
+}
+
+func (a apart) same(memory Memory) bool {
+	return slices.Equal(a.moves, memory.Moves) && slices.Equal(a.notRelated, memory.NotRelated) &&
+		maps.Equal(a.startedFrom, memory.StartedFrom)
+}
+
 // edges are the ties between the members, in the order detection takes
 // them, leaving out pairs marked not related and sessions that sit out.
-// A tie scored the other way round, which only sessions started at the
-// same moment can be, is scored again.
-func (dt *Detector) edges(d *detection) []edge {
-	edges := dt.taken[:0]
-	sitsOut := make([]bool, len(d.members))
-	for i, m := range d.members {
-		sitsOut[i] = d.sitsOut(m.ID)
+// When the sessions are in the order they were last run and nothing
+// sits out or is kept apart anew, the last run's edges are kept but for
+// the changed sessions', whose ties are taken again and merged in.
+func (dt *Detector) edges(d *detection, memory Memory, changed map[string]bool) []edge {
+	patch := dt.order != nil && dt.apart.same(memory) && slices.EqualFunc(dt.order, d.members, func(id string, m Member) bool { return id == m.ID })
+	dt.apart = apartOf(memory)
+	dt.order = dt.order[:0]
+	for _, m := range d.members {
+		dt.order = append(dt.order, m.ID)
 	}
+	if !patch {
+		return dt.allEdges(d)
+	}
+	if len(changed) == 0 {
+		return dt.sorted
+	}
+	moved := make([]bool, len(d.members))
+	for id := range changed {
+		moved[d.index[id]] = true
+	}
+	fresh := dt.taken[:0]
+	for id := range changed {
+		i := d.index[id]
+		for other := range dt.ties[id] {
+			j := d.index[other]
+			if moved[j] && j < i {
+				continue
+			}
+			if e, ok := dt.taken2(d, min(i, j), max(i, j)); ok {
+				fresh = append(fresh, e)
+			}
+		}
+	}
+	dt.taken = fresh
+	var sortedFresh []edge
+	sortedFresh, dt.keys = sortEdges(fresh, dt.keys, nil)
+	merged := dt.spare[:0]
+	k := 0
+	for _, e := range dt.sorted {
+		if moved[e.a] || moved[e.b] {
+			continue
+		}
+		for k < len(sortedFresh) && edgeKey(sortedFresh[k]) < edgeKey(e) {
+			merged = append(merged, sortedFresh[k])
+			k++
+		}
+		merged = append(merged, e)
+	}
+	merged = append(merged, sortedFresh[k:]...)
+	dt.spare, dt.sorted = dt.sorted, merged
+	return dt.sorted
+}
+
+// allEdges takes every tie again and sorts them.
+func (dt *Detector) allEdges(d *detection) []edge {
+	edges := dt.taken[:0]
 	for i, m := range d.members {
-		for other, s := range dt.ties[m.ID] {
+		for other := range dt.ties[m.ID] {
 			j := d.index[other]
 			if j < i {
 				continue
 			}
-			if s.first != m.ID {
-				dt.scored++
-				e, ok := d.pair(i, j)
-				if !ok {
-					dt.untie(m.ID, other)
-					continue
-				}
-				s = scored{first: m.ID, tier: e.tier, reason: e.reason}
-				dt.tie(m.ID, other, s)
+			if e, ok := dt.taken2(d, i, j); ok {
+				edges = append(edges, e)
 			}
-			if sitsOut[i] || sitsOut[j] || (len(d.blocked) > 0 && d.blocked[[2]string{m.ID, other}]) {
-				continue
-			}
-			edges = append(edges, edge{a: i, b: j, tier: s.tier, reason: s.reason})
 		}
 	}
 	dt.taken = edges
 	dt.sorted, dt.keys = sortEdges(edges, dt.keys, dt.sorted)
 	return dt.sorted
+}
+
+// taken2 is the tie between members i and j, i first, as an edge, unless
+// either sits out or the pair is marked not related. A tie scored the
+// other way round, which only sessions started at the same moment can
+// be, is scored again.
+func (dt *Detector) taken2(d *detection, i, j int) (edge, bool) {
+	a, b := d.members[i].ID, d.members[j].ID
+	s, ok := dt.ties[a][b]
+	if !ok {
+		return edge{}, false
+	}
+	if s.first != a {
+		dt.scored++
+		e, ok := d.pair(i, j)
+		if !ok {
+			dt.untie(a, b)
+			return edge{}, false
+		}
+		s = scored{first: a, tier: e.tier, reason: e.reason}
+		dt.tie(a, b, s)
+	}
+	if d.sitsOut(a) || d.sitsOut(b) || (len(d.blocked) > 0 && d.blocked[[2]string{a, b}]) {
+		return edge{}, false
+	}
+	return edge{a: i, b: j, tier: s.tier, reason: s.reason}, true
 }
 
 func (dt *Detector) tie(a, b string, s scored) {
@@ -194,31 +280,24 @@ func (dt *Detector) untieAll(id string) {
 	delete(dt.ties, id)
 }
 
-// pasteKeys are each member's paste keys, read again only for a
-// session whose pastes changed.
-func (dt *Detector) pasteKeys(members []Member) map[string]pasteKeys {
-	for _, m := range members {
-		if len(m.Pasted) == 0 {
-			delete(dt.pastes, m.ID)
-			continue
-		}
-		if k, ok := dt.pastes[m.ID]; ok && slices.Equal(k.pasted, m.Pasted) {
-			continue
-		}
-		dt.pastes[m.ID] = readPasteKeys(m.Pasted)
-	}
-	return dt.pastes
-}
-
-// changed is the sessions whose pairs must be scored again: those new or
-// different since the last run, and those using a word whose rarity
-// moved.
-func (dt *Detector) changed(members []Member, wording *Wording) map[string]bool {
-	changed := map[string]bool{}
+// differs is the sessions new or different since the last run.
+func (dt *Detector) differs(members []Member) map[string]bool {
+	differs := map[string]bool{}
 	for _, m := range members {
 		if last, ok := dt.members[m.ID]; !ok || !sameMember(last, m) {
-			changed[m.ID] = true
+			differs[m.ID] = true
 		}
+	}
+	return differs
+}
+
+// changed is the sessions whose pairs must be scored again: those that
+// differ, and those using a word whose rarity moved, found through the
+// candidate index's words.
+func (dt *Detector) changed(differs map[string]bool, members []Member, wording *Wording) map[string]bool {
+	changed := make(map[string]bool, len(differs))
+	for id := range differs {
+		changed[id] = true
 	}
 	if wording.allMoved {
 		for _, m := range members {
@@ -226,11 +305,8 @@ func (dt *Detector) changed(members []Member, wording *Wording) map[string]bool 
 		}
 		return changed
 	}
-	if len(wording.moved) == 0 {
-		return changed
-	}
-	for id, words := range wording.words {
-		if !changed[id] && usesAny(words, wording.moved) {
+	for tok := range wording.moved {
+		for _, id := range dt.index.keys[indexKey{wordKey, tok}] {
 			changed[id] = true
 		}
 	}

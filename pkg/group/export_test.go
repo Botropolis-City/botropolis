@@ -1,5 +1,11 @@
 package group
 
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
+
 // DetectEveryPair is item 158's detector from scratch, scoring every
 // pair of sessions: the oracle the incremental detector is held to.
 var DetectEveryPair = detectEveryPair
@@ -30,6 +36,33 @@ func EdgesEveryPair(members []Member, memory Memory) []EdgeView {
 func DetectEdges(dt *Detector, members []Member, memory Memory) []EdgeView {
 	d, edges := dt.run(members, memory)
 	return viewEdges(d, edges)
+}
+
+// CandidateIndex is the candidate index the detector keeps between runs:
+// each key's sessions, sorted, and the closed sessions in order.
+func (dt *Detector) CandidateIndex() map[string][]string {
+	return dt.index.view()
+}
+
+func (ix *candidateIndex) view() map[string][]string {
+	out := map[string][]string{}
+	for k, ids := range ix.keys {
+		out[fmt.Sprintf("%d %s", k.kind, k.key)] = slices.Sorted(slices.Values(ids))
+	}
+	for h, ids := range ix.pastes {
+		out[fmt.Sprintf("paste %x", h)] = slices.Sorted(slices.Values(ids))
+	}
+	ends := slices.Clone(ix.ends)
+	slices.SortFunc(ends, func(a, b string) int {
+		if c := ix.under[a].ended.Compare(ix.under[b].ended); c != 0 {
+			return c
+		}
+		return strings.Compare(a, b)
+	})
+	if len(ends) > 0 {
+		out["ends"] = ends
+	}
+	return out
 }
 
 // Rarities are the words rare enough to weigh, and their weight.

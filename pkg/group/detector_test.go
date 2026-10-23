@@ -308,7 +308,111 @@ func TestDetector(t *testing.T) {
 		t.Run("it should find the edges scoring every pair finds at every step", func(t *testing.T) {
 			assert.Equal(t, -1, firstDiffering)
 		})
+
+		t.Run("it should hold the candidate index a fresh detector holds at every step", func(t *testing.T) {
+			assert.Equal(t, -1, firstIndexDiffering(t, members, memory, 198))
+		})
 	})
+
+	t.Run("when one detector runs on a history mixing every signal while memory changes between runs", func(t *testing.T) {
+		members, base := mixedHistory(210)
+		ids := make([]string, len(members))
+		for i, m := range members {
+			ids[i] = m.ID
+		}
+		r := rand.New(rand.NewSource(210))
+		pick := func() string { return ids[r.Intn(len(ids))] }
+		memories := []group.Memory{base}
+		memory := base
+		for step := 0; step < 40; step++ {
+			next := memory
+			switch step % 5 {
+			case 0:
+				next.NotRelated = append(append([]group.Pair(nil), memory.NotRelated...), group.Pair{pick(), pick()})
+			case 1:
+				next = memory.WithMove(pick(), "")
+			case 2:
+				next.NotRelated = nil
+			case 3:
+				next.Moves = nil
+			case 4:
+				next.StartedFrom = map[string]string{"job-" + pick(): "g-" + pick()}
+			}
+			memory = next
+			memories = append(memories, memory)
+		}
+		for i := range members {
+			if i%7 == 0 {
+				members[i].Job = "job-" + members[i].ID
+			}
+		}
+		d := group.NewDetector()
+		firstDiffering := -1
+		for step, memory := range memories {
+			if !assert.ObjectsAreEqual(group.EdgesEveryPair(members, memory), group.DetectEdges(d, members, memory)) {
+				firstDiffering = step
+				break
+			}
+		}
+
+		t.Run("it should find the edges scoring every pair finds at every step", func(t *testing.T) {
+			assert.Equal(t, -1, firstDiffering)
+		})
+	})
+
+	t.Run("when a history mixing every signal gains and loses sessions one at a time", func(t *testing.T) {
+		members, memory := mixedHistory(2100)
+		d := group.NewDetector()
+		d.Detect(members, memory)
+		r := rand.New(rand.NewSource(2100))
+		firstDiffering := -1
+		for step := 0; step < 60 && firstDiffering < 0; step++ {
+			members = append([]group.Member(nil), members...)
+			if step%2 == 0 {
+				others, _ := mixedHistory(int64(3000 + step))
+				o := others[r.Intn(len(others))]
+				o.ID = fmt.Sprintf("n%02d", step)
+				members = append(members, o)
+			} else {
+				i := r.Intn(len(members))
+				members = append(members[:i], members[i+1:]...)
+			}
+			if !assert.ObjectsAreEqual(group.EdgesEveryPair(members, memory), group.DetectEdges(d, members, memory)) {
+				firstDiffering = step
+			}
+		}
+
+		t.Run("it should find the edges scoring every pair finds at every step", func(t *testing.T) {
+			assert.Equal(t, -1, firstDiffering)
+		})
+	})
+}
+
+// firstIndexDiffering changes one session at a time, as the case above
+// does, and gives the first step at which the detector's patched
+// candidate index differs from a fresh detector's, or -1.
+func firstIndexDiffering(t *testing.T, members []group.Member, memory group.Memory, seed int64) int {
+	t.Helper()
+	d := group.NewDetector()
+	d.Detect(members, memory)
+	r := rand.New(rand.NewSource(seed))
+	for step := 0; step < 60; step++ {
+		others, _ := mixedHistory(int64(1000 + step))
+		i := r.Intn(len(members))
+		members = append([]group.Member(nil), members...)
+		for _, o := range others {
+			if o.ID == members[i].ID {
+				members[i] = o
+			}
+		}
+		d.Detect(members, memory)
+		fresh := group.NewDetector()
+		fresh.Detect(members, memory)
+		if len(fresh.CandidateIndex()) == 0 || !assert.ObjectsAreEqual(fresh.CandidateIndex(), d.CandidateIndex()) {
+			return step
+		}
+	}
+	return -1
 }
 
 // mixedHistory is forty sessions drawn from small pools of directories,

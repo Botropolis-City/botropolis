@@ -95,8 +95,7 @@ type keyedEdge struct {
 func sortEdges(edges []edge, keys []keyedEdge, out []edge) ([]edge, []keyedEdge) {
 	keys = keys[:0]
 	for k, e := range edges {
-		rank := uint64(signalRank[e.reason.Signal] + 1)
-		keys = append(keys, keyedEdge{key: uint64(Sure-e.tier)<<60 | rank<<52 | uint64(e.a)<<26 | uint64(e.b), at: k})
+		keys = append(keys, keyedEdge{key: edgeKey(e), at: k})
 	}
 	slices.SortFunc(keys, func(x, y keyedEdge) int { return cmp.Compare(x.key, y.key) })
 	out = out[:0]
@@ -104,6 +103,11 @@ func sortEdges(edges []edge, keys []keyedEdge, out []edge) ([]edge, []keyedEdge)
 		out = append(out, edges[kd.at])
 	}
 	return out, keys
+}
+
+func edgeKey(e edge) uint64 {
+	rank := uint64(signalRank[e.reason.Signal] + 1)
+	return uint64(Sure-e.tier)<<60 | rank<<52 | uint64(e.a)<<26 | uint64(e.b)
 }
 
 func (d *detection) pair(i, j int) (edge, bool) {
