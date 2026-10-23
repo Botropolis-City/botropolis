@@ -36,8 +36,10 @@ type stillFrame struct {
 	// heldOrigin the last frame's (item 193).
 	origin, heldOrigin city.Point
 	// scratch is a frame-sized image a layer is shifted through; it
-	// then takes the layer's old pixels' place.
-	scratch *ebiten.Image
+	// then takes the layer's old pixels' place. unshifted counts the
+	// frames since the last shift through it.
+	scratch   *ebiten.Image
+	unshifted int
 	// overlayOrigin is the origin the group lines were composed at.
 	overlayOrigin city.Point
 	// set is the still drawables the layer holds, changed what differs
@@ -175,6 +177,7 @@ func padded(r image.Rectangle) image.Rectangle {
 // rectangles where a still drawable would paint differently. Then it
 // draws again every rectangle something moves in.
 func (g *Game) paintStill(real, under *ebiten.Image, key stillKey) {
+	g.restScratch()
 	s := &g.still
 	size := real.Bounds().Size()
 	if s.set == nil {
@@ -487,11 +490,32 @@ func (g *Game) paintOverlay(real *ebiten.Image, in inked) {
 	real.DrawImage(s.overlay, nil)
 }
 
+// scratchHold is how many frames the pan scratch is kept after the last
+// shift through it (item 162): a frame-sized texture, 16 MiB at
+// 1920×1200, that a city at rest has no use for. Frames rather than
+// seconds on purpose, as the look cache counts them.
+const scratchHold = 300
+
+// restScratch counts a frame towards letting the scratch go; a shift
+// through it starts the count again.
+func (g *Game) restScratch() {
+	s := &g.still
+	if s.scratch == nil {
+		return
+	}
+	s.unshifted++
+	if s.unshifted >= scratchHold {
+		s.scratch.Deallocate()
+		s.scratch = nil
+	}
+}
+
 // shiftLayer moves *img by k through the scratch image, which then
 // takes *img's old pixels' place as the scratch. What the move uncovers
 // keeps whatever the scratch held, for the caller to compose.
 func (g *Game) shiftLayer(img **ebiten.Image, k image.Point) {
 	s := &g.still
+	s.unshifted = 0
 	s.scratch = sizedImage(s.scratch, (*img).Bounds().Size())
 	op := &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy}
 	op.GeoM.Translate(float64(k.X), float64(k.Y))
