@@ -1,8 +1,11 @@
 package render
 
 import (
+	"fmt"
 	"maps"
 	"math/rand/v2"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,46 +13,66 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
-// groundCity is a city with two roads and two servers' beams, and
-// what composes its ground.
+// groundCity is a city with two roads and two servers' beams, the
+// snapshot it was built from, and what composes its ground.
 type groundCity struct {
-	scene *city.Scene
-	c     *city.City
+	scene    *city.Scene
+	c        *city.City
+	snapshot state.Snapshot
 }
 
-func newGroundCity(t testing.TB) groundCity {
+func newGroundCity(t testing.TB) *groundCity {
 	t.Helper()
 	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	var sessions []state.Session
 	for _, name := range []string{"a", "b", "c", "d"} {
 		sessions = append(sessions, state.Session{ID: name, CWD: "/p/" + name, State: state.Working, StartedAt: at,
-			MCPCalls: map[string]int{"files": 3, "search": 5}})
+			LastActivity: at.Add(-time.Minute), MCPCalls: map[string]int{"files": 1, "search": 2}})
 	}
 	// a2 shares a's district, so pointing from one to the other moves
 	// no district under the pointer.
-	sessions = append(sessions, state.Session{ID: "a2", CWD: "/p/a", State: state.Working, StartedAt: at})
+	sessions = append(sessions, state.Session{ID: "a2", CWD: "/p/a", State: state.Working, StartedAt: at, LastActivity: at.Add(-time.Minute)})
 	scene := city.NewScene(city.NewLayout())
 	scene.SetClock(func() time.Time { return at }, time.UTC)
 	scene.Resize(1600, 1000)
-	scene.SetSnapshot(state.Snapshot{At: at, Sessions: sessions,
-		Servers: []state.Server{{Name: "files", Configured: true, Calls: 12, Sessions: 4}, {Name: "search", Configured: true, Calls: 20, Sessions: 4}},
-		Roads: []state.Road{
-			{From: "/p/a", To: "/p/b", Files: 1, Sessions: 1, Active: 1},
-			{From: "/p/c", To: "/p/d", Files: 1, Sessions: 1, Active: 1},
-		}})
-	c := scene.City()
-	require.Len(t, c.Roads, 2, "precondition: two roads")
-	require.GreaterOrEqual(t, len(c.Beams()), 2, "precondition: two beams")
-	return groundCity{scene: scene, c: c}
+	gc := &groundCity{scene: scene}
+	gc.snap(t, func(s *state.Snapshot) {
+		*s = state.Snapshot{At: at, Sessions: sessions,
+			Servers: []state.Server{{Name: "files", Configured: true, Calls: 12, Sessions: 4}, {Name: "search", Configured: true, Calls: 20, Sessions: 4}},
+			Roads: []state.Road{
+				{From: "/p/a", To: "/p/b", Files: 1, Sessions: 1, Active: 1},
+				{From: "/p/c", To: "/p/d", Files: 1, Sessions: 1, Active: 1},
+			}}
+	})
+	require.Len(t, gc.c.Roads, 2, "precondition: two roads")
+	require.GreaterOrEqual(t, len(gc.c.Beams()), 2, "precondition: two beams")
+	return gc
+}
+
+// snap hands the scene the snapshot change makes of the last one, as
+// the daemon does, and rebuilds the city from it.
+func (gc *groundCity) snap(t testing.TB, change func(s *state.Snapshot)) {
+	t.Helper()
+	s := gc.snapshot
+	s.Sessions = slices.Clone(s.Sessions)
+	for i := range s.Sessions {
+		s.Sessions[i].MCPCalls = maps.Clone(s.Sessions[i].MCPCalls)
+	}
+	s.Roads, s.Servers, s.Teams = slices.Clone(s.Roads), slices.Clone(s.Servers), slices.Clone(s.Teams)
+	change(&s)
+	gc.snapshot = s
+	gc.scene.SetSnapshot(s)
+	gc.c = gc.scene.City()
 }
 
 // ground composes the ground for hover, as the frame does, and returns
 // what its draws are and where.
-func (gc groundCity) ground(g *Game, hover city.Hit) map[uint64]stillMark {
+func (gc *groundCity) ground(g *Game, hover city.Hit) map[uint64]stillMark {
 	gc.scene.SetHover(hover)
 	g.lit = gc.scene.Highlight()
 	g.staticCity(gc.c, gc.scene.Camera(), hover, 1600, 1000)
@@ -57,9 +80,136 @@ func (gc groundCity) ground(g *Game, hover city.Hit) map[uint64]stillMark {
 }
 
 // fresh is the same ground composed again with nothing kept.
-func (gc groundCity) fresh(g *Game, hover city.Hit) map[uint64]stillMark {
+func (gc *groundCity) fresh(g *Game, hover city.Hit) map[uint64]stillMark {
 	g.static.ok = false
 	return gc.ground(g, hover)
+}
+
+// groundKits is the kits with every level up, loaded once: the ground
+// draws its streets and their traffic's tint from them, and without
+// them only plain road lines.
+var groundKits = sync.OnceValues(func() (*kits, error) {
+	k, err := loadKitsLazily()
+	if err != nil {
+		return nil, err
+	}
+	for i := range k.atlases {
+		for !k.complete(i) {
+			if err := k.uploadPage(i); err != nil {
+				return nil, err
+			}
+		}
+	}
+	k.keepAll = true
+	return k, nil
+})
+
+// game is a game drawing gc's city, from the kits or without them.
+func (gc *groundCity) game(t testing.TB, kitted bool) *Game {
+	t.Helper()
+	g := &Game{scene: gc.scene, theme: ui.NewTheme(1)}
+	if kitted {
+		k, err := groundKits()
+		require.NoError(t, err)
+		g.kits = k
+	}
+	return g
+}
+
+// groundViews are the views that draw the ground's networks differently.
+var groundViews = []city.View{city.ViewAttention, city.ViewServers, city.ViewTraffic}
+
+// session is the snapshot's session id.
+func session(s *state.Snapshot, id string) *state.Session {
+	for i := range s.Sessions {
+		if s.Sessions[i].ID == id {
+			return &s.Sessions[i]
+		}
+	}
+	return nil
+}
+
+// Item 207: the ground is keyed on what it draws from the city, item
+// 206's GroundGeneration, not on every snapshot the city is built from.
+// A snapshot that changes nothing it draws records nothing; one that
+// changes what it draws, or a city whose ground noted a hover target
+// that would point into the old city, composes it again.
+func TestTheGroundOnASnapshot(t *testing.T) {
+	t.Run("when a snapshot changes only activity times", func(t *testing.T) {
+		gc := newGroundCity(t)
+		gc.scene.SetView(city.ViewTraffic)
+		g := gc.game(t, true)
+		gc.ground(g, city.Hit{})
+		before := g.static.records
+		gc.snap(t, func(s *state.Snapshot) {
+			s.At = s.At.Add(time.Second)
+			session(s, "a").LastActivity = s.At
+		})
+		gc.ground(g, city.Hit{})
+
+		t.Run("it should record the ground on no frame", func(t *testing.T) {
+			assert.Equal(t, before, g.static.records)
+		})
+	})
+
+	for _, c := range []struct {
+		name   string
+		change func(s *state.Snapshot)
+		turn   bool
+	}{
+		{"when a session calls a server again", func(s *state.Snapshot) { session(s, "b").MCPCalls["files"]++ }, false},
+		{"when a road carries another file", func(s *state.Snapshot) { s.Roads[0].Files++ }, false},
+		{"when a new project starts", func(s *state.Snapshot) {
+			s.Sessions = append(s.Sessions, state.Session{ID: "e", CWD: "/p/e", State: state.Working, StartedAt: s.At, LastActivity: s.At})
+		}, false},
+		{"when two sessions form a team", func(s *state.Snapshot) {
+			session(s, "b").Team, session(s, "c").Team = "crew", "crew"
+			s.Teams = append(s.Teams, claude.Team{Name: "crew", LeadSessionID: "b"})
+		}, false},
+		{"when the camera turns", func(*state.Snapshot) {}, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			gc := newGroundCity(t)
+			games := make([]*Game, len(groundViews))
+			for i, v := range groundViews {
+				gc.scene.SetView(v)
+				games[i] = gc.game(t, true)
+				gc.ground(games[i], city.Hit{})
+			}
+			gc.snap(t, c.change)
+			if c.turn {
+				gc.scene.Turn()
+				gc.c = gc.scene.City()
+			}
+			for i, v := range groundViews {
+				gc.scene.SetView(v)
+				kept := gc.ground(games[i], city.Hit{})
+
+				t.Run("and it is seen in the "+v.Name()+" view", func(t *testing.T) {
+					t.Run("it should keep the ground composed afresh", func(t *testing.T) {
+						assert.Equal(t, gc.fresh(games[i], city.Hit{}), kept)
+					})
+				})
+			}
+		})
+	}
+
+	t.Run("when the ground noted a hover target, and a snapshot rebuilds the city", func(t *testing.T) {
+		gc := newGroundCity(t)
+		g := &Game{scene: gc.scene, theme: ui.NewTheme(1)}
+		gc.ground(g, city.Hit{})
+		g.static.hits = append(g.static.hits, spriteHit{hit: city.Hit{District: gc.c.Districts[0]}})
+		before := g.static.records
+		gc.snap(t, func(s *state.Snapshot) {
+			s.At = s.At.Add(time.Second)
+			session(s, "a").LastActivity = s.At
+		})
+		gc.ground(g, city.Hit{})
+
+		t.Run("it should record it again, for the new city's targets", func(t *testing.T) {
+			assert.Equal(t, before+1, g.static.records)
+		})
+	})
 }
 
 // Item 207: the ground under the traffic is kept while its key holds,
@@ -87,13 +237,21 @@ func TestTheGroundKey(t *testing.T) {
 		t.Run(move.name, func(t *testing.T) {
 			gc.scene.SetView(move.view)
 			t.Cleanup(func() { gc.scene.SetView(city.ViewAttention) })
-			g := &Game{scene: gc.scene, theme: ui.NewTheme(1)}
-			gc.ground(g, move.from)
-			kept := gc.ground(g, move.to)
+			// Without kits the roads are lines; with them, streets.
+			for _, drawn := range []struct {
+				name   string
+				kitted bool
+			}{{"as plain lines", false}, {"from the kits", true}} {
+				t.Run("and the city is drawn "+drawn.name, func(t *testing.T) {
+					g := gc.game(t, drawn.kitted)
+					gc.ground(g, move.from)
+					kept := gc.ground(g, move.to)
 
-			t.Run("it should keep the ground composed afresh for where it is", func(t *testing.T) {
-				assert.Equal(t, gc.fresh(g, move.to), kept)
-			})
+					t.Run("it should keep the ground composed afresh for where it is", func(t *testing.T) {
+						assert.Equal(t, gc.fresh(g, move.to), kept)
+					})
+				})
+			}
 		})
 	}
 
@@ -130,39 +288,85 @@ func TestTheGroundKey(t *testing.T) {
 		seed := time.Now().UnixNano()
 		t.Logf("seed %d", seed)
 		rnd := rand.New(rand.NewPCG(uint64(seed), 207))
-		views := []city.View{city.ViewAttention, city.ViewServers, city.ViewTraffic}
-		var hits []city.Hit
-		hits = append(hits, city.Hit{})
-		for i := range gc.c.Roads {
-			hits = append(hits, city.Hit{Road: &gc.c.Roads[i]})
+		// hits is everything the pointer can be on in the city as built
+		// now: a snapshot rebuilds it, and its targets with it.
+		hits := func() []city.Hit {
+			out := []city.Hit{{}}
+			for i := range gc.c.Roads {
+				out = append(out, city.Hit{Road: &gc.c.Roads[i]})
+			}
+			beams := gc.c.Beams()
+			for i := range beams {
+				out = append(out, city.Hit{Beam: &beams[i]})
+			}
+			for _, b := range gc.c.Buildings() {
+				out = append(out, city.Hit{Building: b})
+			}
+			for _, d := range gc.c.Districts {
+				out = append(out, city.Hit{District: d})
+			}
+			return out
 		}
-		for i := range gc.c.Beams() {
-			hits = append(hits, city.Hit{Beam: &gc.c.Beams()[i]})
-		}
-		for _, b := range gc.c.Buildings() {
-			hits = append(hits, city.Hit{Building: b})
-		}
-		for _, d := range gc.c.Districts {
-			hits = append(hits, city.Hit{District: d})
+		// changes are the small things a snapshot moves, what the ground
+		// draws and what it does not.
+		changes := []func(s *state.Snapshot){
+			func(s *state.Snapshot) {
+				s.At = s.At.Add(time.Second)
+				s.Sessions[rnd.IntN(len(s.Sessions))].LastActivity = s.At
+			},
+			func(s *state.Snapshot) {
+				sess := &s.Sessions[rnd.IntN(len(s.Sessions))]
+				if sess.MCPCalls == nil {
+					sess.MCPCalls = map[string]int{}
+				}
+				if server, n := []string{"files", "search"}[rnd.IntN(2)], rnd.IntN(4); n == 0 {
+					delete(sess.MCPCalls, server)
+				} else {
+					sess.MCPCalls[server] = n
+				}
+			},
+			func(s *state.Snapshot) { s.Roads[rnd.IntN(len(s.Roads))].Files += rnd.IntN(3) - 1 },
+			func(s *state.Snapshot) { s.Roads[rnd.IntN(len(s.Roads))].Messages++ },
+			func(s *state.Snapshot) {
+				sess := &s.Sessions[rnd.IntN(len(s.Sessions))]
+				sess.State = []state.State{state.Working, state.Resting, state.NeedsYou}[rnd.IntN(3)]
+			},
+			func(s *state.Snapshot) {
+				if len(s.Sessions) > 5 && rnd.IntN(2) == 0 {
+					s.Sessions = s.Sessions[:len(s.Sessions)-1]
+					return
+				}
+				id := fmt.Sprintf("n%d", rnd.IntN(1000))
+				s.Sessions = append(s.Sessions, state.Session{ID: id, CWD: "/p/" + []string{"a", "b", "new"}[rnd.IntN(3)], State: state.Working, StartedAt: s.At, LastActivity: s.At})
+			},
 		}
 		ids := []string{"", "a", "a2", "c"}
 		t.Cleanup(func() { gc.scene.SetView(city.ViewAttention); gc.scene.Select("") })
-		g := &Game{scene: gc.scene, theme: ui.NewTheme(1)}
+		// Each view keeps a ground of its own, as each draws different
+		// networks, and every step asks each of them.
+		games := make([]*Game, len(groundViews))
+		for i := range games {
+			games[i] = gc.game(t, true)
+		}
 		stale := 0
-		for step := range 200 {
-			switch rnd.IntN(4) {
+		for step := range 150 {
+			switch rnd.IntN(3) {
 			case 0:
-				gc.scene.SetView(views[rnd.IntN(len(views))])
-			case 1:
 				if id := ids[rnd.IntN(len(ids))]; gc.scene.Select(id) && rnd.IntN(2) == 0 {
 					gc.scene.Act(city.ActionShowRoad)
 				}
+			default:
+				gc.snap(t, changes[rnd.IntN(len(changes))])
 			}
-			hover := hits[rnd.IntN(len(hits))]
-			kept := gc.ground(g, hover)
-			if !maps.Equal(gc.fresh(g, hover), kept) {
-				stale++
-				t.Logf("step %d: the kept ground is stale", step)
+			all := hits()
+			hover := all[rnd.IntN(len(all))]
+			for i, v := range groundViews {
+				gc.scene.SetView(v)
+				kept := gc.ground(games[i], hover)
+				if !maps.Equal(gc.fresh(games[i], hover), kept) {
+					stale++
+					t.Logf("step %d: the kept ground is stale in view %v", step, v)
+				}
 			}
 		}
 

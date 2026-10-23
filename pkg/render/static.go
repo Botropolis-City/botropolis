@@ -26,6 +26,10 @@ import (
 // layerKey is everything the static layer depends on. When it changes
 // the layer is composed again; while it holds, the layer is a blit.
 type layerKey struct {
+	// ground moves when what the layer draws from the city does (item
+	// 206), and generation, with every snapshot, only while the layer
+	// holds hover targets noted in the city it was composed from.
+	ground     int
 	generation int
 	offset     city.Point
 	zoom       float64
@@ -77,12 +81,15 @@ type staticLayer struct {
 	// painted at.
 	composes, shifts int
 	origin           city.Point
+	// records counts the times composeStatic ran for it, painted or
+	// only recorded (item 207).
+	records int
 }
 
 // keyFor is the key this frame would compose under.
 func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layerKey {
 	key := layerKey{
-		generation:    g.scene.Generation(),
+		ground:        g.scene.GroundGeneration(),
 		offset:        cam.Offset,
 		zoom:          cam.Zoom,
 		heading:       cam.Heading,
@@ -103,6 +110,11 @@ func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layer
 	}
 	if g.kits != nil {
 		key.atlas = g.kits.pick(cam.Zoom)
+	}
+	if len(g.groundLayer().hits) > 0 {
+		// Its hover targets point into the city they were noted in, so
+		// a layer that noted any is kept no longer than that city.
+		key.generation = g.scene.Generation()
 	}
 	return key
 }
@@ -170,6 +182,7 @@ func (g *Game) staticCity(c *city.City, cam *city.Camera, hover city.Hit, width,
 	g.mu.Lock()
 	g.frameHits = g.frameHits[:0]
 	g.mu.Unlock()
+	st.records++
 	if g.noStill {
 		st.img.Clear()
 		g.composeStatic(st.img, c, cam, hover, width, height)
