@@ -91,6 +91,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The daemon no longer costs more the more sessions you have ever had.**
+  With statistics on, a home of 2,000 sessions with one of them working used about 45% of a core; it now uses about 2%, because each time something changes it reads only what changed rather than every session again.
+  On a home that large, token counts and the power plant can now trail a session's work by a few seconds, never more than 5; a session's state still changes the moment Claude Code says so.
+
 - **The daemon gives back the memory it used to start up, even when no session is working.**
   It used to return freed memory only after a hook event, so a daemon that read your history and then saw no hook kept its start-up peak; it now returns it once the reading has been quiet for 5 seconds, and at least once a minute while sessions keep it busy.
   On a home with 2,000 sessions it settles at about 42 MiB, where it held about 60.
