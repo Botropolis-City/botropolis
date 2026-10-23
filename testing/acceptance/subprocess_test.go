@@ -190,8 +190,11 @@ func TestScriptsAreInTheCacheKey(t *testing.T) {
 		},
 		{
 			name: "the acceptance tests' TestAssetSources", pkg: "./testing/acceptance", run: "^TestAssetSources$",
-			extra:  []string{"tools"},
-			probes: []probe{appendProbe("in tools/check-asset-sources", "tools/check-asset-sources")},
+			extra: []string{"tools"},
+			probes: []probe{
+				appendProbe("in tools/check-asset-sources", "tools/check-asset-sources"),
+				sameSizeProbe("by the same size in tools/check-asset-sources", "tools/check-asset-sources"),
+			},
 		},
 		{
 			name: "the packaging tests' TestShellIntegration", pkg: "./testing/integration/packaging", run: "^TestShellIntegration$",
