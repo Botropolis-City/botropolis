@@ -134,11 +134,56 @@ func CheckFrames(home string, at time.Time, frames int, dump, write string) ([]s
 				}
 			}
 		}
+		problems = append(problems, g.checkShutters(straight, composed, dump)...)
 		more, err := g.checkPanels(straight, composed, dump, write)
 		problems = append(problems, more...)
 		return err
 	})
 	return problems, err
+}
+
+// checkShutters boards up to five buildings on the frame, as the check
+// leaves it, with their glass, planks and edges in one mesh and with a
+// draw for each, and reports each whose two drawings differ by more
+// than lookTolerance (item 161).
+func (g *Game) checkShutters(each, batched *ebiten.Image, dump string) []string {
+	var problems []string
+	cam := g.scene.Camera()
+	frame := city.RectAt(0, 0, float64(frameCheckSize.X), float64(frameCheckSize.Y))
+	checked := 0
+	for _, b := range g.scene.City().Buildings() {
+		if checked == 5 {
+			break
+		}
+		name := buildingPiece(b)
+		if len(g.facadePanes(cam, name, g.footOf(cam, b))) < 2 {
+			continue
+		}
+		if r, ok := g.cullBound(cam, b, false, true, g.clock()); !ok || !r.Overlaps(frame) {
+			continue
+		}
+		checked++
+		read := func(img *ebiten.Image, draw func(*ebiten.Image)) *image.NRGBA {
+			img.Fill(colorCheckFill)
+			draw(img)
+			out := image.NewNRGBA(img.Bounds())
+			img.ReadPixels(out.Pix)
+			return out
+		}
+		want := read(each, func(img *ebiten.Image) { g.shutterEach(img, cam, b, name) })
+		got := read(batched, func(img *ebiten.Image) { g.shutter(img, cam, b, name, true) })
+		if off, box, most := framesApart(want, got); off > 0 {
+			problems = append(problems, fmt.Sprintf("the boarded shutters of %s: %d pixels in %v differ from a draw each, by up to %d", b.Session.ID, off, box, most))
+			if dump != "" {
+				dumpPNG(filepath.Join(dump, "shutters-"+b.Session.ID+"-each.png"), want)
+				dumpPNG(filepath.Join(dump, "shutters-"+b.Session.ID+"-batched.png"), got)
+			}
+		}
+	}
+	if checked == 0 {
+		problems = append(problems, "no building with panes was on the frame to board")
+	}
+	return problems
 }
 
 // checkPanels opens each panel that is baked while it holds and draws

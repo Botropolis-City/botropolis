@@ -89,7 +89,10 @@ func TestPlanks(t *testing.T) {
 }
 
 // Item 161: at full zoom a resting building's shutters were a mesh, a
-// record and a draw for every pane; they are one mesh for the building.
+// record and a draw for every pane, and a boarded one's two for every
+// plank, its fill and its edge. A resting building's are one mesh; a
+// boarded one's are one for each plank, the glass with the first, so
+// that each plank still covers the nails of the planks under it.
 func TestShuttersAreOneMesh(t *testing.T) {
 	d := fullZoom(t, DriveOptions{})
 	g := d.game
@@ -103,22 +106,40 @@ func TestShuttersAreOneMesh(t *testing.T) {
 		}
 	}
 	require.NotNil(t, b, "no building with two panes to shutter")
-	l := g.recorder()
-	m := l.mark()
-	l.begin()
-	g.shutter(l.dry, cam, b, buildingPiece(b), false)
-	in := l.end()
-	meshes := 0
-	for i := in.from; i < in.to; i++ {
-		if l.cmds[i].kind == cmdMesh {
-			meshes++
+	// drawn records the building's shutters and counts its meshes and
+	// its stamps, which are its nails, two a plank.
+	drawn := func(boarded bool) (meshes, stamps int) {
+		l := g.recorder()
+		m := l.mark()
+		defer l.truncate(m)
+		l.begin()
+		g.shutter(l.dry, cam, b, buildingPiece(b), boarded)
+		in := l.end()
+		for i := in.from; i < in.to; i++ {
+			switch l.cmds[i].kind {
+			case cmdMesh:
+				meshes++
+			case cmdImage:
+				stamps++
+			}
 		}
+		return meshes, stamps
 	}
-	l.truncate(m)
 
 	t.Run("when a resting building's shutters are drawn", func(t *testing.T) {
+		meshes, _ := drawn(false)
+
 		t.Run("it should draw all its panes as one mesh", func(t *testing.T) {
 			assert.Equal(t, 1, meshes, "%d panes", panes)
+		})
+	})
+
+	t.Run("when a boarded building's shutters are drawn", func(t *testing.T) {
+		meshes, stamps := drawn(true)
+		require.Positive(t, stamps, "no plank was nailed")
+
+		t.Run("it should draw each plank, with its edge, as one mesh", func(t *testing.T) {
+			assert.Equal(t, stamps/2, meshes)
 		})
 	})
 }

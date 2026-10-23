@@ -180,6 +180,45 @@ func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building,
 		g.paint.Flush(screen)
 		return
 	}
+	// A plank covers the nails of the planks under it, and nails are
+	// stamps, not mesh, so each plank goes down as one mesh with its edge,
+	// and the glass under it with the first, before its own nails: the
+	// order they were drawn in one at a time. Stamping every nail after
+	// one mesh for the building showed the covered ones (item 161).
+	edge := math.Max(1, 0.6*cam.Zoom)
+	radius := float32(math.Max(0.8, 0.9*cam.Zoom))
+	for i, pane := range panes {
+		g.paint.AddFill(screen, pane[:], colorDarkGlass)
+		planks := planksFor(pane, seed+uint32(i)*2654435761)
+		nail(planks, rows, origin, scale)
+		for _, plank := range planks {
+			g.paint.AddFill(screen, plank[:], colorPlankWood)
+			g.paint.AddStroke(plank[:], edge, true, colorPlankEdge)
+			g.paint.Flush(screen)
+			for _, n := range plankNails(plank) {
+				g.fillCircle(screen, float32(n.X), float32(n.Y), radius, colorNail)
+			}
+		}
+		g.paint.Flush(screen)
+	}
+}
+
+// shutterEach is shutter drawn a draw at a time, as it was before item
+// 161, for the check that the one mesh draws the same.
+func (g *Game) shutterEach(screen *ebiten.Image, cam *city.Camera, b *city.Building, name string) {
+	foot := g.footOf(cam, b)
+	panes := g.facadePanes(cam, name, foot)
+	seed := hashID(b.Session.ID)
+	var rows []span
+	var origin city.Point
+	scale := 1.0
+	if atlas := g.kitAtlas(cam); atlas != nil {
+		if sprite, ok := atlas.Sprite(name, cam.Heading); ok {
+			rows = atlas.walls[name][headingIndex(cam.Heading)]
+			scale = cam.Zoom / atlas.Zoom
+			origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
+		}
+	}
 	for i, pane := range panes {
 		g.fillQuad(screen, pane, colorDarkGlass)
 		planks := planksFor(pane, seed+uint32(i)*2654435761)
@@ -188,12 +227,20 @@ func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building,
 			g.fillQuad(screen, plank, colorPlankWood)
 			g.strokeQuad(screen, plank, float32(math.Max(1, 0.6*cam.Zoom)), colorPlankEdge)
 			radius := float32(math.Max(0.8, 0.9*cam.Zoom))
-			for _, end := range []city.Point{lerp(plank[0], plank[3], 0.5), lerp(plank[1], plank[2], 0.5)} {
-				nail := lerp(end, lerp(plank[0], plank[2], 0.5), 0.12)
-				g.fillCircle(screen, float32(nail.X), float32(nail.Y), radius, colorNail)
+			for _, n := range plankNails(plank) {
+				g.fillCircle(screen, float32(n.X), float32(n.Y), radius, colorNail)
 			}
 		}
 	}
+}
+
+// plankNails are where a plank is nailed: near each end, a little in.
+func plankNails(plank [4]city.Point) [2]city.Point {
+	var out [2]city.Point
+	for i, end := range []city.Point{lerp(plank[0], plank[3], 0.5), lerp(plank[1], plank[2], 0.5)} {
+		out[i] = lerp(end, lerp(plank[0], plank[2], 0.5), 0.12)
+	}
+	return out
 }
 
 func (g *Game) fillQuad(screen *ebiten.Image, q [4]city.Point, c color.NRGBA) {
