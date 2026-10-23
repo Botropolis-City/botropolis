@@ -166,11 +166,13 @@ type Game struct {
 	// looks are buildings' looks baked into images, lookFrame counts the
 	// frames they are kept across, and baking is set while one is being
 	// baked, when nothing drawn is noted for the frame (item 192).
-	looks       *lookCache[lookKey, *bakedLook]
-	lookFrame   int
-	baking      bool
-	lookStats   lookStats
-	noLookCache bool
+	looks     *lookCache[lookKey, *bakedLook]
+	lookFrame int
+	baking    bool
+	lookStats lookStats
+	// buildingsDrawn is how many buildings the frame drew (item 161).
+	buildingsDrawn int
+	noLookCache    bool
 
 	mu          sync.Mutex
 	pending     *state.Snapshot

@@ -609,13 +609,18 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.lamp(screen, cam, l, c.Night)
 		}))
 	}
+	frame := city.RectAt(0, 0, width, height)
 	for _, d := range c.Districts {
 		for _, b := range d.Buildings {
 			b := b
+			if g.culled(cam, b, b == selected, detailed, seconds, frame) {
+				continue
+			}
 			// The building's own work, its scaffold and hoist, is drawn
 			// with it, so it takes the building's place in the sort
 			// (item 89).
 			items = append(items, footprintAt(cam, b.Rect, func() {
+				g.buildingsDrawn++
 				g.drawBuilding(screen, cam, b, b == selected, detailed, seconds)
 			}))
 			items[len(items)-1].kept = g.keeps(d)
@@ -829,7 +834,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 	}
 	fade := g.fadeUnkept(&screen, items, airborne)
-	g.windowDraws, g.landmarkDraws, g.punches, g.glows = 0, 0, 0, g.glows[:0]
+	g.windowDraws, g.landmarkDraws, g.punches, g.glows, g.buildingsDrawn = 0, 0, 0, g.glows[:0], 0
 	if c.Night {
 		g.beginLights(int(width), int(height))
 	}

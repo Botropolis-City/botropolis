@@ -62,6 +62,24 @@ func frameVariants() []frameVariant {
 		{"panned by part of a pixel", "pan-part", nil, func(d *Drive) {
 			d.game.scene.Pan(city.Point{X: 0.5, Y: -0.25})
 		}},
+		// Item 161: at full zoom what is off the frame is not drawn, and
+		// the straight drawing draws it all; a building is put across
+		// the frame's right edge, a third of its bound on the frame.
+		{"at full zoom, a building across the edge", "full-zoom-edge", func(d *Drive) {
+			g := d.game
+			g.scene.Wheel(city.Point{X: float64(frameCheckSize.X) / 2, Y: float64(frameCheckSize.Y) / 2}, 40)
+			_ = d.Run(240)
+			cam := g.scene.Camera()
+			for _, b := range g.scene.City().Buildings() {
+				r, ok := g.cullBound(cam, b, false, g.scene.Detailed(), g.clock())
+				if !ok || r.Max.Y < 0 || r.Min.Y > float64(frameCheckSize.Y) {
+					continue
+				}
+				g.scene.Pan(city.Point{X: float64(frameCheckSize.X) - r.Width()/3 - r.Min.X})
+				break
+			}
+			_ = d.Run(60)
+		}, nil},
 	}
 }
 
