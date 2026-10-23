@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-23
+
+0.3.0 is a performance release.
+Measured on a laptop's integrated graphics (Intel Core Ultra 7 265U) with a real history of about 200 sessions in 150 projects, against 0.2.2 and the first builds of this release, measured the same week:
+
+| | before | 0.3.0 |
+| --- | --- | --- |
+| drawing a frame, focused | 17–48 ms | about 10–11 ms |
+| the city's memory, settled (own and GPU) | 715–817 MiB (4.6 GiB in 0.2.2) | about 475 MiB, 580 fully zoomed in |
+| the city's heap in its first seconds | up to 3.1 GB | about 400 MB |
+| a hidden city | 7.9% of a core and 462 MiB | under 1% and under 200 MiB |
+| the daemon, settled | up to 24% of a core, in bursts of several cores | under 1% |
+| the first launch | up to four cores, about 9 s to a map | under one core, a map in about a second |
+
+Some budgets are still missed, and 0.3.x continues on them: a focused city uses about half a core where the budget is a tenth, fully zoomed in it holds about 70 MiB more than its 512, and a city left open on another monitor while sessions work spends about 3% of a core reading your statistics where the budget is 1%.
+
+**Before you upgrade:**
+- **Restart the daemon after installing** (`botropolis setup`, or the city's Restart Daemon dialog): a 0.3.0 city and daemon talk a new version of their protocol, and a city meeting an older daemon says so and offers to restart it.
+- **Some commands moved**, and the old names still work through 0.x with a note on stderr: `tui` is `status --live`, `resume` is `attach`, `prune` is `rm --older-than`, `install-hooks` is `setup`, and per-setting flags such as `--daily_budget_usd` are `--set daily_budget_usd=5`.
+- **`usage_refresh` is at least 15 minutes**: a config asking for less is read as `15m`.
+- **Release builds no longer have the city's filming flags** (`--screenshot`, `--record` and the rest); `p` still saves a picture, and sharing mode records GIFs and clips.
+
 ### Added
 
 - **[docs/compatibility.md](docs/compatibility.md) says what 1.0.0 promises not to break**, and `make version-check` now fails when any of it is removed without an entry here under *Removed* and, from 1.0.0 on, a new major version:
@@ -19,57 +41,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The city wears neutral names while it is shared, such as District A and Session 3, and `esc` brings everything back as it was.
   A clip needs ffmpeg, which the deb and rpm suggest; the city says so when it is missing.
 
+- **The reading pane (`o`) shows Claude's replies as formatted text, not raw Markdown.**
+  Bold is bold, code and tables are set in Go Mono on a faint tint, a table with its columns lined up and its header in bold, lists have bullets and indent as they nest, quotes are indented, paragraphs have room between them, and a link shows its URL after its text.
+  Your prompts and tool calls are shown as typed, and HTML in a reply is shown as text, never run.
+
 ### Changed
-
-- **`usage_refresh` fetches usage at most every 15 minutes, and only while you can see the city.**
-  Each fetch runs Claude Code, which takes up to 45 seconds and a few hundred MiB, so the old `5m` spent up to a sixth of the time on it; `5m` and anything else under 15 minutes now means `15m`, and the settings menu offers manual, 15m, 30m and 1h.
-  A hidden or minimised city fetches nothing on its schedule, and `u` still fetches whenever you press it.
-
-- **`botropolis bar` leaves out the sessions you set aside in triage.**
-  A session marked done with `d` and quiet since, or snoozed until a time still to come, is no longer named, listed in the tooltip, or counted as needing you; the bar counts it as "set aside" instead, as in "○ 1 working · 2 set aside", and the line moves on to the next session the way the city's footer does.
-
-- **The city counts set-aside sessions the way the bar does.**
-  The top strip, the window title, the needs-you chip's card and the Attention lens no longer count a session you marked done or snoozed as needing you; the strip shows it in a plain "1 set aside" chip, and clicking "needs you" skips it.
-  When the snooze runs out it needs you again everywhere at once (the window title at the next update from the daemon).
-  Its counts now read as the city's do, "2 need you" rather than "2 needs-you".
-  The JSON's keys and classes are unchanged.
-
-- **The command line is smaller: 13 commands in four groups, and four global flags.**
-  `botropolis --help` groups the commands as sessions, the city, setting up and checking, and those other programs run.
-  `attach` attaches in the terminal you are in, and opens one only when run from elsewhere or with `--new-window`; given a resting session it resumes it first, so a plain `claude` no longer drops to `claude attach`.
-  `rm` takes several ids, or `--older-than` for every resting session quiet that long.
-  `status --live` is the live table.
-  `setup` registers the hooks, starts the daemon with systemd or Homebrew and says exactly what it ran, and prints the line for your shell's startup file.
-  `shell-init` loads completions too.
-  `--set key=value` sets any config key for one run, including those that never had a flag, so `--help` on every command no longer lists two dozen city settings.
-
-- **Release builds leave out the city's frame tooling**: `--screenshot`, `--record`, `--fps`, `--seconds`, `--keys`, `--hover`, `--script`, `--headless`, `--window` and `--signage`, which exist to film the city and test it.
-  `p` still saves a screenshot.
-  `make build-dev` builds them in, with the `devtools` tag.
-
-- **At night the landmarks light their windows too.**
-  The library and City Hall are lit all night, and the power plant while any session is working, each from its own windows, warmed a little yellow; by day they look as they did.
-  The power plant's round glow at night is gone: its spend is on the strip's "$… 24h" chip and in the Cost lens.
 
 - **A frame of a large city takes a tenth of the drawing it did, and about half the memory.**
   Lines, lots, scaffolding, beacons, wires and glows are drawn as small meshes with a soft one-pixel edge instead of anti-aliased paths.
   On the metropolis demo that is about 75,000 indices a frame instead of 766,000, and a live heap of about 125 MB instead of 255 MB.
   Filled shapes read about half a pixel larger at their edges, and two of one colour that meet leave no seam between them.
 
-- **Zoomed all the way in on a large history, the city draws a frame in about half the time it did, with about half the CPU.**
-  Buildings off the screen are no longer drawn at all, and those on it stay drawn as one picture each instead of being redrawn piece by piece once the city had more of them than it kept.
-  The journal, the group review, the top strip, the event stream and the timeline are redrawn only when what they show changes, not every frame.
+- **A still city is drawn once and kept; only what moves is drawn again.**
+  The ground, every building, tree, lamp, landmark and sign, the group lines and the map's names are put together once and reused until something in them changes, and the cars, drones, boats, trains and the rest are drawn again each frame only where they are, passing in front of and behind buildings as before.
+  Panning with the arrow keys moves the picture and draws only the edge it uncovers.
+  On the metropolis demo a settled frame is about 22 draw commands and 4,900 indices instead of 135 and 34,000, a pan about 29 instead of 138, and the city holds about 30 MB more of pictures at 1600×900.
+  A scaffold's lamps, braces and hoist no longer swap corners as the map pans.
 
 - **A still building is drawn as one picture instead of a dozen pieces.**
   Each building's walls, windows, sign, flags, scaffold and spire are put together once and reused every frame until its look changes; what moves, such as a pulsing beacon, smoke or a hoist's loads, is still drawn each frame on top.
   On the metropolis demo a settled frame is about 135 draw commands instead of 280, and the pictures take a third of a megabyte at the opening zoom and about 2 MB up close, within a 32 MB cap.
   A building's own sign, scaffold and spire now hide its lit windows behind them at night.
 
-- **A still city is drawn once and kept; only what moves is drawn again.**
-  The ground, every building, tree, lamp, landmark and sign, the group lines and the map's names are put together once and reused until something in them changes, and the cars, drones, boats, trains and the rest are drawn again each frame only where they are, passing in front of and behind buildings as before.
-  Panning with the arrow keys moves the picture and draws only the edge it uncovers.
-  On the metropolis demo a settled frame is about 22 draw commands and 4,900 indices instead of 135 and 34,000, a pan about 29 instead of 138, and the city holds about 30 MB more of pictures at 1600×900.
-  A scaffold's lamps, braces and hoist no longer swap corners as the map pans.
+- **Zoomed all the way in on a large history, the city draws a frame in about half the time it did, with about half the CPU.**
+  Buildings off the screen are no longer drawn at all, and those on it stay drawn as one picture each instead of being redrawn piece by piece once the city had more of them than it kept.
+  The journal, the group review, the top strip, the event stream and the timeline are redrawn only when what they show changes, not every frame.
+
+- **The city holds less in memory, most of all zoomed in.**
+  Zooming in and back out no longer leaves the city holding pictures of buildings it has stopped drawing, the sprites load in smaller pieces and sit in less memory, the picture kept for panning is let go once you stop, and the coast has its own texture rather than growing a shared one: about 120 MiB less at full zoom on a large history than early in this release, which is still about 70 MiB over the 512 MiB budget there.
 
 - **An unfocused city keeps up, as a dashboard on another monitor.**
   It used to show the last frame it drew while it had the focus; it now draws again whenever something changes, such as a session starting, stopping or needing you, and nothing moves in between, so it costs little while it sits there.
@@ -87,13 +86,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every update from the daemon used to lay out every street between projects again, which on 200 sessions in 150 projects with 80 streets between them took about a quarter of a second, and kept an unfocused city at over a fifth of a core while one session worked.
   The city now lays out a street again only when the plan, the camera's heading or the projects it joins change, and an update that moves only what sessions are doing takes a few milliseconds: under 1% of a core.
 
+- **A city on another monitor draws each change for a third of the CPU it did.**
+  The cracks and wear on long-quiet lots are worked out once rather than every frame, and the ground under the city is no longer redrawn for an update that changes nothing on it.
+  On a real history of about 200 sessions with two working, drawing fell from about 1% of a core to 0.3%.
+
 - **With statistics on, a city left open while sessions work spends about a fifth of what it did reading your costs.**
   Its 24 h cost was read from the statistics store every 2 seconds, and each building's every 30, which on a history of 30,000 messages took about 16% of a core and now takes about 3%.
   The 24 h cost is read at most every 30 s while sessions work, and every 5 minutes when nothing changes, so it can lag by up to 30 s (or 5 minutes for messages leaving the 24 h window); a building's cost is read again only when something was written.
 
-- **A city on another monitor draws each change for a third of the CPU it did.**
-  The cracks and wear on long-quiet lots are worked out once rather than every frame, and the ground under the city is no longer redrawn for an update that changes nothing on it.
-  On a real history of about 200 sessions with two working, drawing fell from about 1% of a core to 0.3%.
+- **The command line is smaller: 13 commands in four groups, and four global flags.**
+  `botropolis --help` groups the commands as sessions, the city, setting up and checking, and those other programs run.
+  `attach` attaches in the terminal you are in, and opens one only when run from elsewhere or with `--new-window`; given a resting session it resumes it first, so a plain `claude` no longer drops to `claude attach`.
+  `rm` takes several ids, or `--older-than` for every resting session quiet that long.
+  `status --live` is the live table.
+  `setup` registers the hooks, starts the daemon with systemd or Homebrew and says exactly what it ran, and prints the line for your shell's startup file.
+  `shell-init` loads completions too.
+  `--set key=value` sets any config key for one run, including those that never had a flag, so `--help` on every command no longer lists two dozen city settings.
+
+- **Release builds leave out the city's frame tooling**: `--screenshot`, `--record`, `--fps`, `--seconds`, `--keys`, `--hover`, `--script`, `--headless`, `--window` and `--signage`, which exist to film the city and test it.
+  `p` still saves a screenshot.
+  `make build-dev` builds them in, with the `devtools` tag.
+
+- **`usage_refresh` fetches usage at most every 15 minutes, and only while you can see the city.**
+  Each fetch runs Claude Code, which takes up to 45 seconds and a few hundred MiB, so the old `5m` spent up to a sixth of the time on it; `5m` and anything else under 15 minutes now means `15m`, and the settings menu offers manual, 15m, 30m and 1h.
+  A hidden or minimised city fetches nothing on its schedule, and `u` still fetches whenever you press it.
+
+- **`botropolis bar` leaves out the sessions you set aside in triage.**
+  A session marked done with `d` and quiet since, or snoozed until a time still to come, is no longer named, listed in the tooltip, or counted as needing you; the bar counts it as "set aside" instead, as in "○ 1 working · 2 set aside", and the line moves on to the next session the way the city's footer does.
+
+- **The city counts set-aside sessions the way the bar does.**
+  The top strip, the window title, the needs-you chip's card and the Attention lens no longer count a session you marked done or snoozed as needing you; the strip shows it in a plain "1 set aside" chip, and clicking "needs you" skips it.
+  When the snooze runs out it needs you again everywhere at once (the window title at the next update from the daemon).
+  Its counts now read as the city's do, "2 need you" rather than "2 needs-you".
+  The JSON's keys and classes are unchanged.
+
+- **At night the landmarks light their windows too.**
+  The library and City Hall are lit all night, and the power plant while any session is working, each from its own windows, warmed a little yellow; by day they look as they did.
+  The power plant's round glow at night is gone: its spend is on the strip's "$… 24h" chip and in the Cost lens.
 
 ### Deprecated
 
@@ -107,17 +136,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A road or a tower's beam you point at no longer stays highlighted after the pointer moves off it.**
-  Moving from one road or beam to another, onto bare ground, or from a selected building to its neighbour while its roads are shown now lights only what the pointer is on.
-
-- **The daemon no longer costs more the more sessions you have ever had.**
-  With statistics on, a home of 2,000 sessions with one of them working used about 45% of a core; it now uses about 2%, because each time something changes it reads only what changed rather than every session again.
-  On a home that large, token counts and the power plant can now trail a session's work by a few seconds, never more than 5; a session's state still changes the moment Claude Code says so.
-
-- **The daemon gives back the memory it used to start up, even when no session is working.**
-  It used to return freed memory only after a hook event, so a daemon that read your history and then saw no hook kept its start-up peak; it now returns it once the reading has been quiet for 5 seconds, and at least once a minute while sessions keep it busy.
-  On a home with 2,000 sessions it settles at about 42 MiB, where it held about 60.
-
 - **The first launch no longer takes the machine.**
   Reading your whole history for the first time used up to four cores; the daemon now reads it at most half the time, at a lower CPU priority on Linux, so it stays under one core in all.
   On macOS its disk reads now wait behind everyone else's; its CPU priority stays where it was there, because every lower one measured froze the whole daemon on Apple silicon.
@@ -130,13 +148,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every start used to read your live sessions and the last day's whole before the map could draw, which on a 3 GB history took about 5 to 9 seconds at a full core.
   The map now draws first, from the start and end of each session, and the rest of the day is read behind it at half a core, with "Reading your history" in the footer until it is done, so a session's usage and the power plant are marked as still filling in rather than shown low.
 
-- **Refreshing usage no longer starts your MCP servers, settings, hooks or plugins.**
-  Each refresh used to start Claude Code with everything you have configured, up to seven processes and about 900 MiB; it now starts Claude Code alone, at under half that.
-  A refresh and a summary also never run at the same time any more, and two summaries run one after the other.
+- **The daemon no longer costs more the more sessions you have ever had.**
+  With statistics on, a home of 2,000 sessions with one of them working used about 45% of a core; it now uses about 2%, because each time something changes it reads only what changed rather than every session again.
+  On a home that large, token counts and the power plant can now trail a session's work by a few seconds, never more than 5; a session's state still changes the moment Claude Code says so.
+
+- **The daemon gives back the memory it used to start up, even when no session is working.**
+  It used to return freed memory only after a hook event, so a daemon that read your history and then saw no hook kept its start-up peak; it now returns it once the reading has been quiet for 5 seconds, and at least once a minute while sessions keep it busy.
+  On a home with 2,000 sessions it settles at about 42 MiB, where it held about 60.
 
 - **The daemon no longer spends most of its CPU collecting garbage.**
   It capped its own heap at 16 MiB and forced a collection after every rescan, so a session writing steadily cost it about 290 collections a minute; it now makes about 20, and uses about half the CPU.
   Its heap limit is now 256 MiB, and `GOMEMLIMIT` still overrides it.
+
+- **The daemon no longer reads every session's statistics again whenever a transcript changes.**
+  The statistics database now records which sessions' counters a write changed, whichever program wrote it, and the daemon reads only those; on a 3.2 GiB history that was about 85 ms of CPU for every line a session wrote.
+
+- **The daemon rescans at most once a second, and no longer looks for every transcript again each time.**
+  Each line a session wrote was its own rescan, and every rescan globbed every project; now changes within a second are read together, the first after a quiet spell still within a tenth of a second, and directories are listed again only when they change.
+  Hooks still change a building at once; only token counts and the power plant can lag by up to a second.
 
 - **The daemon no longer compares every pair of sessions again on every prompt.**
   Grouping keeps each pair's score and scores again only the pairs a prompt can have changed, and the prompt history is read from where it was last read, rather than parsed from the start twice on every load; with 100 sessions on the map, a prompt costs the daemon about 20 ms of CPU, not 150 ms.
@@ -148,56 +177,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Grouping kept a score for every pair of sessions from the last 30 days, about 415 MB with 2,000 sessions, past the daemon's 256 MiB limit; it now keeps only the pairs that have something in common, about 3 KB a session.
   A prompt among 2,000 sessions now costs grouping a few milliseconds rather than more than a second.
 
-- **The daemon no longer reads every session's statistics again whenever a transcript changes.**
-  The statistics database now records which sessions' counters a write changed, whichever program wrote it, and the daemon reads only those; on a 3.2 GiB history that was about 85 ms of CPU for every line a session wrote.
-
-- **The daemon rescans at most once a second, and no longer looks for every transcript again each time.**
-  Each line a session wrote was its own rescan, and every rescan globbed every project; now changes within a second are read together, the first after a quiet spell still within a tenth of a second, and directories are listed again only when they change.
-  Hooks still change a building at once; only token counts and the power plant can lag by up to a second.
-
-- **At night, lit windows no longer show through what stands in front of them.**
-  A district's sign, a building's own painted name, its beacon and flags, and a scaffold's tubes and boards now hide the windows behind them, as a building in front always did; something half transparent dims the light behind it rather than hiding it.
-
-- **The reading pane (`o`) shows Claude's replies as formatted text, not raw Markdown.**
-  Bold is bold, code and tables are set in Go Mono on a faint tint, a table with its columns lined up and its header in bold, lists have bullets and indent as they nest, quotes are indented, paragraphs have room between them, and a link shows its URL after its text.
-  Your prompts and tool calls are shown as typed, and HTML in a reply is shown as text, never run.
-
-- **The live table (`status --live`) scrolls when there are more sessions than lines.**
-  Its column names and the selected row stay on screen, and a line under the rows says how many lie above and below.
-
-- **Three lens panels no longer read as wrong beside the strip.**
-  Attention no longer tells you to press tab when nobody is waiting, and tab then says "nobody needs you right now".
-  Tab and the footer say "needs you" rather than "needs-you".
-  Work counts groups in the cards' words, such as "1 of 2 groups are your move".
-  Cost says its total is since the sessions started, and "up to" when any spend is a range.
-
-- **The live table (`status --live`) no longer breaks text with accents, dashes or non-Latin scripts.**
-  A shortened title, folder or tool line could end in a replacement mark, lines stopped short of the terminal's edge, and a title in a wide script such as Chinese or Japanese pushed the columns after it out of line.
-
-- New session names the session its group guess is based on by its title, as the board does, rather than by its id.
-
-- **Your statistics hold only your own sessions.**
-  A daemon started with `--home` on another Claude home no longer records that home's sessions into your statistics, as it already kept out of your ledger and groups.
-  Running Botropolis's own tests no longer adds a test session to them either.
-
-- **`botropolis bar` names the session that has waited longest, not the one first in the alphabet.**
-  Its tooltip lists who needs you in the same order, longest-waiting first, which is the order triage (`w`) walks them.
-
-- Counts agree with their numbers: the strip, the window title, the sidebar and the City Plan say "1 needs you", "1 PR", "1 error" and "1 subagent" instead of "1 need you", "1 prs", "1 errors" and "1 subagents".
-
-- **The key reference (`?`) lists `u`, and names every key as you have set it.**
-  It left out `u`, which fetches the plan's usage again, and always showed triage, the journal, the stream, New session and explain at their default keys, however they were rebound.
-
-- Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
-
-- **The minimap stays in its panel after the camera turns, and turns with the city.**
-  After pressing `r`, the minimap's map was drawn off its panel and down over the footer, and it showed even when the whole city was already in view.
-  Now it sits in its panel at every heading, facing the way the city does, and stays hidden while the whole city is on screen.
+- **Refreshing usage no longer starts your MCP servers, settings, hooks or plugins.**
+  Each refresh used to start Claude Code with everything you have configured, up to seven processes and about 900 MiB; it now starts Claude Code alone, at under half that.
+  A refresh and a summary also never run at the same time any more, and two summaries run one after the other.
 
 - **The city opens on the sessions already running, standing, instead of sailing them in.**
   With statistics on, which is the default, every live session arrived by tug when the city opened and stood as a bare lot for its first seven seconds before being built.
   The same start-up replayed what had already happened: subagent drones took off, every open pull request's flag was hoisted, every merged one was celebrated, and a van went out for every message already sent between projects.
   Now only what changes after the city opens is shown happening.
+
+- **At night a building's own windows are lit, not round halos over them.**
+  Each lived-in building keeps its windows at their daytime brightness while the rest of it goes dark, so a lit building reads as its windows rather than a grid of discs.
+  Boarded-up windows fit every building too: an industrial building's planks no longer hang off its corners.
 
 - **A new building's windows light floor by floor as it rises.**
   At night, a session still arriving by tug lit every window of its finished building over its empty lot, as rows of floating discs, and a building going up glowed above its own rising roof.
@@ -205,9 +196,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A building's lit windows also sit on its own storeys now, so a new storey lights as soon as the building gains it.
   Under reduced motion they fade in with the building.
 
-- **At night a building's own windows are lit, not round halos over them.**
-  Each lived-in building keeps its windows at their daytime brightness while the rest of it goes dark, so a lit building reads as its windows rather than a grid of discs.
-  Boarded-up windows fit every building too: an industrial building's planks no longer hang off its corners.
+- **At night, lit windows no longer show through what stands in front of them.**
+  A district's sign, a building's own painted name, its beacon and flags, and a scaffold's tubes and boards now hide the windows behind them, as a building in front always did; something half transparent dims the light behind it rather than hiding it.
+
+- **A road or a tower's beam you point at no longer stays highlighted after the pointer moves off it.**
+  Moving from one road or beam to another, onto bare ground, or from a selected building to its neighbour while its roads are shown now lights only what the pointer is on.
+
+- **The minimap stays in its panel after the camera turns, and turns with the city.**
+  After pressing `r`, the minimap's map was drawn off its panel and down over the footer, and it showed even when the whole city was already in view.
+  Now it sits in its panel at every heading, facing the way the city does, and stays hidden while the whole city is on screen.
+
+- **The live table (`status --live`) scrolls when there are more sessions than lines.**
+  Its column names and the selected row stay on screen, and a line under the rows says how many lie above and below.
+
+- **The live table (`status --live`) no longer breaks text with accents, dashes or non-Latin scripts.**
+  A shortened title, folder or tool line could end in a replacement mark, lines stopped short of the terminal's edge, and a title in a wide script such as Chinese or Japanese pushed the columns after it out of line.
+
+- **Three lens panels no longer read as wrong beside the strip.**
+  Attention no longer tells you to press tab when nobody is waiting, and tab then says "nobody needs you right now".
+  Tab and the footer say "needs you" rather than "needs-you".
+  Work counts groups in the cards' words, such as "1 of 2 groups are your move".
+  Cost says its total is since the sessions started, and "up to" when any spend is a range.
+
+- Counts agree with their numbers: the strip, the window title, the sidebar and the City Plan say "1 needs you", "1 PR", "1 error" and "1 subagent" instead of "1 need you", "1 prs", "1 errors" and "1 subagents".
+
+- **`botropolis bar` names the session that has waited longest, not the one first in the alphabet.**
+  Its tooltip lists who needs you in the same order, longest-waiting first, which is the order triage (`w`) walks them.
+
+- **The key reference (`?`) lists `u`, and names every key as you have set it.**
+  It left out `u`, which fetches the plan's usage again, and always showed triage, the journal, the stream, New session and explain at their default keys, however they were rebound.
+
+- New session names the session its group guess is based on by its title, as the board does, rather than by its id.
+
+- **Your statistics hold only your own sessions.**
+  A daemon started with `--home` on another Claude home no longer records that home's sessions into your statistics, as it already kept out of your ledger and groups.
+  Running Botropolis's own tests no longer adds a test session to them either.
+
+- Codex sessions can be packed up and unpacked like Claude's, and packing one no longer leaves a ghost in the depot.
 
 ## [0.2.3] - 2026-10-19
 
@@ -747,7 +772,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Botropolis-City/botropolis/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/Botropolis-City/botropolis/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Botropolis-City/botropolis/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Botropolis-City/botropolis/compare/v0.2.0...v0.2.1
