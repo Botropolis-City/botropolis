@@ -126,6 +126,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The daemon no longer compares every pair of sessions again on every prompt.**
   Grouping keeps each pair's score and scores again only the pairs a prompt can have changed, and the prompt history is read from where it was last read, rather than parsed from the start twice on every load; with 100 sessions on the map, a prompt costs the daemon about 20 ms of CPU, not 150 ms.
 
+- **A prompt costs the daemon less on a long history.**
+  With 2,000 sessions in the last 30 days, the daemon's work after a prompt takes about 15–20 ms of CPU, where it took up to about 50, because grouping now goes back over only the sessions the prompt changed.
+
 - **A long history no longer fills the daemon's memory with grouping.**
   Grouping kept a score for every pair of sessions from the last 30 days, about 415 MB with 2,000 sessions, past the daemon's 256 MiB limit; it now keeps only the pairs that have something in common, about 3 KB a session.
   A prompt among 2,000 sessions now costs grouping a few milliseconds rather than more than a second.
