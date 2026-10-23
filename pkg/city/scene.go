@@ -284,6 +284,10 @@ type Scene struct {
 	// the snapshots taken, so the renderer can tell one city from the next.
 	view       View
 	generation int
+	// ground is what the standing layer last drew from, and
+	// groundGeneration counts the times it moved (item 206).
+	ground           ground
+	groundGeneration int
 	// detail is how much scenery is drawn; see detail.go.
 	detail Detail
 	// viewTop is the largest value each ramped view found in the city,
@@ -364,6 +368,7 @@ func (s *Scene) face() {
 	was := s.city.StreetCells
 	s.city.Face(s.camera.Heading)
 	s.noteOvergrowth(was, s.now())
+	s.noteGround()
 }
 
 // ToggleNight forces night on or off regardless of what is running, to
@@ -797,6 +802,7 @@ func (s *Scene) apply(snapshot state.Snapshot) {
 	s.selected = s.reselect()
 	s.hover = Hit{}
 	s.fit()
+	s.noteGround()
 }
 
 func (s *Scene) reselect() *Building {

@@ -33,6 +33,12 @@ func (s *Scene) StaleWalks() int {
 	return stale
 }
 
+// GroundOf is the ground a city's standing layer draws (item 206).
+func GroundOf(c *City) any { return groundOf(c) }
+
+// Ground is the ground the scene last compared.
+func (s *Scene) Ground() any { return s.ground }
+
 // FromScratch is the scene's snapshot built from nothing, facing the
 // way the scene does.
 func (s *Scene) FromScratch() *City {

@@ -63,6 +63,7 @@ func (s *Scene) SetDetail(d Detail) {
 	}
 	s.detail = d
 	s.generation++
+	s.groundGeneration++
 }
 
 // Scenery reports whether the things that mean nothing are drawn.

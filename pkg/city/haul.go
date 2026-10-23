@@ -158,4 +158,5 @@ func (s *Scene) releaseDepot() {
 	s.city = build(s.snapshot, s.layout, s.ladder, false, s.ledger, s.memo)
 	s.city.Face(s.camera.Heading)
 	s.generation++
+	s.noteGround()
 }
