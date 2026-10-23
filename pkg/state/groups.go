@@ -50,6 +50,7 @@ type groupCache struct {
 	// reviewed is whether the first run's proposal has been confirmed.
 	reviewed bool
 	texts    map[string]memberTexts
+	parts    signatureParts
 }
 
 func lastPrompts(history map[string][]claude.Prompt) map[string]string {
@@ -90,8 +91,8 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 		return err
 	}
 	resolveMessaged(snapshot.Sessions)
-	signature := groupSignature(snapshot.Sessions)
 	c := &l.groups
+	signature := c.parts.signature(snapshot.Sessions)
 	var storeKey fileKey
 	if c.path != "" {
 		if storeKey, err = stat(c.path); err != nil && !os.IsNotExist(err) {
@@ -186,13 +187,7 @@ func confirmLikely(memory *group.Memory, result group.Result, history map[string
 func groupSignature(sessions []Session) [sha256.Size]byte {
 	parts := make([]string, 0, len(sessions))
 	for _, s := range sessions {
-		visits := make([]string, 0, len(s.Visits))
-		for dir := range s.Visits {
-			visits = append(visits, dir)
-		}
-		sort.Strings(visits)
-		parts = append(parts, strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, boolString(s.State == Resting),
-			strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00"))
+		parts = append(parts, signatureLine(s))
 	}
 	sort.Strings(parts)
 	// A digest rather than the parts joined: the joined string was the
@@ -203,6 +198,17 @@ func groupSignature(sessions []Session) [sha256.Size]byte {
 		_, _ = io.WriteString(h, "\x01")
 	}
 	return [sha256.Size]byte(h.Sum(nil))
+}
+
+// signatureLine is one session's part of the signature.
+func signatureLine(s Session) string {
+	visits := make([]string, 0, len(s.Visits))
+	for dir := range s.Visits {
+		visits = append(visits, dir)
+	}
+	sort.Strings(visits)
+	return strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, boolString(s.State == Resting),
+		strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00")
 }
 
 func boolString(b bool) string {
@@ -344,9 +350,12 @@ func groupViews(result group.Result, sessions []Session) []Group {
 	}
 	titleOf := TitleOf(sessions)
 	views := make([]Group, 0, len(result.Groups))
+	// present is one buffer for every group, since a copy of each member
+	// per group was most of what this allocated (item 205).
+	var present []Session
 	for _, g := range result.Groups {
 		view := Group{ID: g.ID, Name: g.Name, Short: group.Short(g), Anchor: g.Anchor}
-		present := make([]Session, 0, len(g.Members))
+		present = present[:0]
 		for _, m := range g.Members {
 			view.Members = append(view.Members, m.Session)
 			view.MemberDirs = append(view.MemberDirs, m.Dir)

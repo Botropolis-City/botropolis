@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -39,7 +40,21 @@ const Keep = 500
 // one and the next; the first snapshot only sets the baseline.
 type Log struct {
 	events []Event
-	seen   map[string]state.Session
+	seen   map[string]seenSession
+}
+
+// seenSession is what Observe compares of a session from one snapshot to
+// the next. It keeps only that, since a copy of every session was most of
+// what a rescan among 2,000 sessions allocated here (item 205).
+type seenSession struct {
+	state                  state.State
+	apiErrors, compactions int
+	prs                    []claude.PR
+	title                  string
+}
+
+func seenOf(s *state.Session) seenSession {
+	return seenSession{state: s.State, apiErrors: s.APIErrors, compactions: s.Compactions, prs: s.PRs, title: titleOf(*s)}
 }
 
 func NewLog() *Log {
@@ -48,48 +63,50 @@ func NewLog() *Log {
 
 // Observe diffs a snapshot against the last and returns what is new.
 func (l *Log) Observe(snapshot state.Snapshot, at time.Time) []Event {
-	current := map[string]state.Session{}
-	for _, s := range snapshot.Sessions {
-		current[s.ID] = s
+	current := make(map[string]seenSession, len(snapshot.Sessions))
+	for i := range snapshot.Sessions {
+		current[snapshot.Sessions[i].ID] = seenOf(&snapshot.Sessions[i])
 	}
 	if l.seen == nil {
 		l.seen = current
 		return nil
 	}
 	var fresh []Event
-	add := func(kind Kind, s state.Session, detail string) {
-		fresh = append(fresh, Event{At: at, Kind: kind, SessionID: s.ID, Title: titleOf(s), Detail: detail})
+	add := func(kind Kind, id, title, detail string) {
+		fresh = append(fresh, Event{At: at, Kind: kind, SessionID: id, Title: title, Detail: detail})
 	}
-	for id, s := range current {
+	for i := range snapshot.Sessions {
+		s := &snapshot.Sessions[i]
+		id := s.ID
 		was, known := l.seen[id]
 		if !known {
 			if s.State != state.Resting {
-				add(Started, s, string(s.State))
+				add(Started, id, titleOf(*s), string(s.State))
 			}
 			continue
 		}
-		if s.State == state.NeedsYou && was.State != state.NeedsYou {
-			add(NeedsYou, s, s.Note)
+		if s.State == state.NeedsYou && was.state != state.NeedsYou {
+			add(NeedsYou, id, titleOf(*s), s.Note)
 		}
-		if s.APIErrors > was.APIErrors {
-			add(Error, s, fmt.Sprintf("%d api errors", s.APIErrors))
+		if s.APIErrors > was.apiErrors {
+			add(Error, id, titleOf(*s), fmt.Sprintf("%d api errors", s.APIErrors))
 		}
-		if s.Compactions > was.Compactions {
-			add(Compaction, s, fmt.Sprintf("compacted %dx", s.Compactions))
+		if s.Compactions > was.compactions {
+			add(Compaction, id, titleOf(*s), fmt.Sprintf("compacted %dx", s.Compactions))
 		}
 		for _, pr := range s.PRs {
-			old, had := findPR(was, pr.Number)
+			old, had := findPR(was.prs, pr.Number)
 			switch {
 			case !had:
-				add(PR, s, fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
+				add(PR, id, titleOf(*s), fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
 			case pr.Merged() && !old.Merged():
-				add(Merged, s, fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
+				add(Merged, id, titleOf(*s), fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
 			}
 		}
 	}
 	for id, was := range l.seen {
-		if _, still := current[id]; !still && was.State != state.Resting {
-			add(Ended, was, string(was.State))
+		if _, still := current[id]; !still && was.state != state.Resting {
+			add(Ended, id, was.title, string(was.state))
 		}
 	}
 	l.seen = current
@@ -140,8 +157,8 @@ func hasKind(kinds []Kind, k Kind) bool {
 	return false
 }
 
-func findPR(s state.Session, number int) (found interface{ Merged() bool }, ok bool) {
-	for _, pr := range s.PRs {
+func findPR(prs []claude.PR, number int) (found interface{ Merged() bool }, ok bool) {
+	for _, pr := range prs {
 		if pr.Number == number {
 			return pr, true
 		}

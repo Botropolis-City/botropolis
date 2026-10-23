@@ -880,8 +880,21 @@ func recentHours(hourly map[int64]claude.Usage, n int) map[int64]claude.Usage {
 // store, each message priced under its own model (item 116). ByModel
 // stays the lifetime split.
 func PowerSince(transcripts []claude.Transcript, since time.Time) Power {
+	return powerSince(since, transcripts)
+}
+
+// powerSince is PowerSince over several lists, so a load need not copy
+// every stopped transcript into one (item 205).
+func powerSince(since time.Time, lists ...[]claude.Transcript) Power {
 	power := Power{Since: since, ByModel: map[string]claude.Usage{}}
 	sinceHour := since.Unix() / 3600
+	for _, transcripts := range lists {
+		power.add(transcripts, since, sinceHour)
+	}
+	return power
+}
+
+func (power *Power) add(transcripts []claude.Transcript, since time.Time, sinceHour int64) {
 	for _, t := range transcripts {
 		if t.LastAt.Before(since) {
 			continue
@@ -899,7 +912,6 @@ func PowerSince(transcripts []claude.Transcript, since time.Time) Power {
 		power.Cached += window.CacheRead
 		power.Output += window.Output
 	}
-	return power
 }
 
 // derive picks a live session's state. The record's own status is the

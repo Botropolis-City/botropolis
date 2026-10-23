@@ -100,7 +100,7 @@ func newDaemon(cfg *config.Config, probes state.Probes) *daemon.Daemon {
 	var d *daemon.Daemon
 	// Each pass of the whole read ends in a rescan, so the storeys it
 	// measured reach the map (item 109).
-	rescan := func() { _ = d.Rescan() }
+	rescan := func() { d.RequestRescan() }
 	d = daemon.NewWith(harnesses(cfg, probes, ledgerPath(cfg), rescan), time.Now)
 	d.SetIndex(find.New(cfg.Home))
 	return d

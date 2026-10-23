@@ -62,27 +62,31 @@ type Loader struct {
 	stoppedOut     []claude.Transcript
 	stoppedSubsOut map[string][]claude.Subagent
 	builtParked    []Session
-	mcp            claude.MCPConfig
-	mcpKey         fileKey
-	stats          *claude.Stats
-	statsKey       fileKey
-	dirs           []string
-	reads          int
-	groups         groupCache
-	ledgerPath     string
-	closeUpPath    string
-	ledger         Ledger
-	ledgerReads    int
-	ledgerWrote    ledgerWrite
-	ledgerSavedAt  time.Time
-	ledgerPending  bool
-	historyKey     fileKey
-	historyReader  *claude.HistoryReader
-	history        map[string][]claude.Prompt
-	whole          *wholeRead
-	stored         *storedHefts
-	stoppedFiles   map[string]stoppedFile
-	gate           loadGate
+	// dirsOf is the index's last list of transcripts, shared from load
+	// to load while no listing changes, and projectDirsOut the
+	// directories that hold them.
+	dirsOf, projectDirsOut []string
+	mcp                    claude.MCPConfig
+	mcpKey                 fileKey
+	stats                  *claude.Stats
+	statsKey               fileKey
+	dirs                   []string
+	reads                  int
+	groups                 groupCache
+	ledgerPath             string
+	closeUpPath            string
+	ledger                 Ledger
+	ledgerReads            int
+	ledgerWrote            ledgerWrite
+	ledgerSavedAt          time.Time
+	ledgerPending          bool
+	historyKey             fileKey
+	historyReader          *claude.HistoryReader
+	history                map[string][]claude.Prompt
+	whole                  *wholeRead
+	stored                 *storedHefts
+	stoppedFiles           map[string]stoppedFile
+	gate                   loadGate
 	// index locates transcripts without globbing every project on
 	// every load (item 196).
 	index *claude.Index
@@ -233,7 +237,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 			src.Subagents[r.SessionID] = append(src.Subagents[r.SessionID], sub.subagent)
 		}
 	}
-	l.transcripts, l.subagents, l.dirs = transcripts, subagents, append(dirs, projectDirs(paths)...)
+	l.transcripts, l.subagents, l.dirs = transcripts, subagents, append(dirs, l.projectDirs(paths)...)
 
 	live := map[string]bool{}
 	for _, r := range src.Records {
@@ -276,7 +280,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	if err := l.applyGroups(&snapshot, claudeDir, now); err != nil {
 		snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: filepath.Join(claudeDir, "history.jsonl"), Err: err})
 	}
-	snapshot.Power = PowerSince(append(append([]claude.Transcript{}, src.Transcripts...), src.Stopped...), now.Add(-PowerWindow))
+	snapshot.Power = powerSince(now.Add(-PowerWindow), src.Transcripts, src.Stopped)
 	return snapshot, nil
 }
 
@@ -472,7 +476,16 @@ func (l *Loader) stoppedSubagents(path string, was []string, gen int) ([]string,
 
 // projectDirs are the directories that hold paths, each once, so the
 // watcher holds a stopped session's as well as a live one's (item 205).
-func projectDirs(paths []string) []string {
+func (l *Loader) projectDirs(paths []string) []string {
+	if len(paths) > 0 && len(l.dirsOf) == len(paths) && &l.dirsOf[0] == &paths[0] {
+		return l.projectDirsOut
+	}
+	l.dirsOf, l.projectDirsOut = paths, projectDirsOf(paths)
+	return l.projectDirsOut
+}
+
+// projectDirsOf is the directories that hold paths, sorted as they are.
+func projectDirsOf(paths []string) []string {
 	var dirs []string
 	for _, path := range paths {
 		if dir := filepath.Dir(path); len(dirs) == 0 || dirs[len(dirs)-1] != dir {

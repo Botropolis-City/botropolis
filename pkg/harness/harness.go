@@ -146,6 +146,15 @@ func (m *Multi) keepLedger(merged *state.Snapshot, now time.Time) {
 				mine++
 			}
 		}
+		if mine == len(merged.Sessions) {
+			// Every session is the keeper's own, so there is nothing to
+			// split, and copying them all twice was a rescan's largest
+			// allocation among 2,000 sessions (item 205).
+			kept, skipped := keeper.KeepLedger(nil, now)
+			merged.Skipped = append(merged.Skipped, skipped...)
+			merged.Sessions = append(merged.Sessions, kept...)
+			return
+		}
 		own := make([]state.Session, 0, len(merged.Sessions))
 		others := make([]state.Session, 0, len(merged.Sessions)-mine)
 		for _, s := range merged.Sessions {

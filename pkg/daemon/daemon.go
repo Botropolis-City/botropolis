@@ -124,10 +124,12 @@ type Daemon struct {
 	loader Snapshotter
 	// index is what was said in every session, for the find op; nil when
 	// the daemon was made without a home. Item 82.
-	index     *find.Index
-	clock     func() time.Time
-	scanMu    sync.Mutex
-	watching  chan struct{}
+	index    *find.Index
+	clock    func() time.Time
+	scanMu   sync.Mutex
+	watching chan struct{}
+	// wake asks the watcher for a rescan on its own pace (item 205).
+	wake      chan struct{}
 	watchOnce sync.Once
 	// unwatchable are the directories a watch could not be added for,
 	// each logged once (item 205).
@@ -223,6 +225,7 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		loader:      loader,
 		clock:       clock,
 		watching:    make(chan struct{}),
+		wake:        make(chan struct{}, 1),
 		overlays:    map[string]overlay{},
 		hooked:      map[string]bool{},
 		subscribers: map[chan proto.Update]struct{}{},

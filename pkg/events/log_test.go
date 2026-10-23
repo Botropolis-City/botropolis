@@ -118,6 +118,11 @@ func TestEventLog(t *testing.T) {
 			assert.Equal(t, "a", ended[0].SessionID)
 		})
 
+		t.Run("it should name the session that ended by its title", func(t *testing.T) {
+			require.Len(t, ended, 1)
+			assert.Equal(t, "Fix the CI queue", ended[0].Title)
+		})
+
 		t.Run("it should list newest first", func(t *testing.T) {
 			logged := log.Events()
 			require.Len(t, logged, 2)

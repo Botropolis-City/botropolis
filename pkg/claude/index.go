@@ -3,6 +3,7 @@ package claude
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -27,18 +28,29 @@ type Index struct {
 	// gen is the current load's; a directory looked at in it is not
 	// looked at again until Refresh.
 	gen int
+	// versions counts listings read, and found is the last answer of
+	// Transcripts with the version of each listing it came from, kept
+	// while none of them is read again (item 205).
+	versions int
+	found    map[string]foundTranscripts
+}
+
+type foundTranscripts struct {
+	versions []int
+	paths    []string
 }
 
 type listing struct {
 	mtime   time.Time
 	trusted bool
 	seen    int
+	version int
 	files   []string
 	subdirs map[string]bool
 }
 
 func NewIndex() *Index {
-	return &Index{dirs: map[string]listing{}}
+	return &Index{dirs: map[string]listing{}, found: map[string]foundTranscripts{}}
 }
 
 // Refresh starts a new load: from now on each directory is looked at
@@ -67,11 +79,22 @@ func (ix *Index) Stats() int {
 
 // Transcripts is every main transcript under projectsDir, sorted, as
 // filepath.Glob(projectsDir/*/*.jsonl) gives them.
+// The answer is shared from one call to the next while no directory
+// it came from has changed, so a caller must not change it.
 func (ix *Index) Transcripts(projectsDir string) []string {
 	ix.mu.Lock()
 	defer ix.mu.Unlock()
+	projects := ix.subdirs(projectsDir)
+	versions := make([]int, 0, len(projects)+1)
+	versions = append(versions, ix.dirs[projectsDir].version)
+	for _, project := range projects {
+		versions = append(versions, ix.list(filepath.Join(projectsDir, project)).version)
+	}
+	if found, ok := ix.found[projectsDir]; ok && slices.Equal(found.versions, versions) {
+		return found.paths
+	}
 	var paths []string
-	for _, project := range ix.subdirs(projectsDir) {
+	for _, project := range projects {
 		dir := filepath.Join(projectsDir, project)
 		for _, name := range ix.list(dir).files {
 			if strings.HasSuffix(name, ".jsonl") {
@@ -80,6 +103,7 @@ func (ix *Index) Transcripts(projectsDir string) []string {
 		}
 	}
 	sort.Strings(paths)
+	ix.found[projectsDir] = foundTranscripts{versions: versions, paths: paths}
 	return paths
 }
 
@@ -146,7 +170,8 @@ func (ix *Index) list(dir string) listing {
 		delete(ix.dirs, dir)
 		return listing{}
 	}
-	l = listing{mtime: info.ModTime(), trusted: listedAt.Sub(info.ModTime()) > tick, seen: ix.gen, subdirs: map[string]bool{}}
+	ix.versions++
+	l = listing{mtime: info.ModTime(), trusted: listedAt.Sub(info.ModTime()) > tick, seen: ix.gen, version: ix.versions, subdirs: map[string]bool{}}
 	for _, e := range entries {
 		isDir := e.IsDir()
 		if e.Type()&os.ModeSymlink != 0 {

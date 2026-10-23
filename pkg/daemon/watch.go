@@ -61,6 +61,8 @@ func (d *Daemon) Watch(ctx context.Context) error {
 				told.Changed(event.Name)
 			}
 			schedule()
+		case <-d.wake:
+			schedule()
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return nil
@@ -76,6 +78,24 @@ func (d *Daemon) Watch(ctx context.Context) error {
 			}
 			d.addWatches(watcher)
 		}
+	}
+}
+
+// RequestRescan asks for a rescan on the watcher's pace, coalesced with
+// any change it is waiting to read: a background pass that found
+// something calls it, where calling Rescan at once let each pass start
+// the next and the rescans outrun the pace (item 205). Until the watcher
+// is up there is no pace to keep, so it rescans at once.
+func (d *Daemon) RequestRescan() {
+	select {
+	case <-d.watching:
+	default:
+		_ = d.Rescan()
+		return
+	}
+	select {
+	case d.wake <- struct{}{}:
+	default:
 	}
 }
 
