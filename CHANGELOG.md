@@ -91,6 +91,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Its 24 h cost was read from the statistics store every 2 seconds, and each building's every 30, which on a history of 30,000 messages took about 16% of a core and now takes about 3%.
   The 24 h cost is read at most every 30 s while sessions work, and every 5 minutes when nothing changes, so it can lag by up to 30 s (or 5 minutes for messages leaving the 24 h window); a building's cost is read again only when something was written.
 
+- **A city on another monitor draws each change for a third of the CPU it did.**
+  The cracks and wear on long-quiet lots are worked out once rather than every frame, and the ground under the city is no longer redrawn for an update that changes nothing on it.
+  On a real history of about 200 sessions with two working, drawing fell from about 1% of a core to 0.3%.
+
 ### Deprecated
 
 - These keep working through 0.x, each naming its replacement on stderr, and are removed at 1.0.0: `tui` and `--tui` (use `status --live`), `resume` (use `attach`), `prune` (use `rm --older-than`), `install-hooks` (use `setup`), `version` (use `--version`), and every per-setting flag such as `--daily_budget_usd` (use `--set daily_budget_usd=5`).
@@ -102,6 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A config file that still sets it loads as before, and the key is ignored.
 
 ### Fixed
+
+- **A road or a tower's beam you point at no longer stays highlighted after the pointer moves off it.**
+  Moving from one road or beam to another, onto bare ground, or from a selected building to its neighbour while its roads are shown now lights only what the pointer is on.
 
 - **The daemon no longer costs more the more sessions you have ever had.**
   With statistics on, a home of 2,000 sessions with one of them working used about 45% of a core; it now uses about 2%, because each time something changes it reads only what changed rather than every session again.
