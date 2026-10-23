@@ -1,6 +1,7 @@
 package render
 
 import (
+	"image"
 	"image/color"
 	"math"
 
@@ -118,13 +119,20 @@ func (g *Game) shoreImage(c *city.City, flat bool) *shoreLayer {
 			pix[i], pix[i+1], pix[i+2], pix[i+3] = col.R, col.G, col.B, 0xff
 		}
 	}
-	img := ebiten.NewImage(w, h)
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), shoreOptions())
 	img.WritePixels(pix)
 	if g.shoreLayer != nil {
 		g.shoreLayer.img.Deallocate()
 	}
 	g.shoreLayer = &shoreLayer{island: island, night: c.Night, flat: flat, receded: receded, sea: sea, img: img}
 	return g.shoreLayer
+}
+
+// shoreOptions makes the shore its own texture (item 162). On
+// Ebitengine's shared atlas the real history's shore, 1464×1416, grew the
+// atlas to 4096×2048, which never shrinks: 32 MiB for 9.4 MiB of pixels.
+func shoreOptions() *ebiten.NewImageOptions {
+	return &ebiten.NewImageOptions{Unmanaged: true}
 }
 
 // shore draws the island's ground and the sea under the plan.

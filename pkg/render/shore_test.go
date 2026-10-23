@@ -52,3 +52,14 @@ func TestShorePaint(t *testing.T) {
 		})
 	}
 }
+
+// Item 162: the shore was made on Ebitengine's shared atlas, and on the
+// real history it is 1464×1416, which grew the atlas to 4096×2048: 32 MiB
+// of texture holding 9.4 MiB of pixels, 7.9 of them the shore's.
+func TestShoreTexture(t *testing.T) {
+	t.Run("when the shore is made", func(t *testing.T) {
+		t.Run("it should be its own texture, not packed into the shared atlas", func(t *testing.T) {
+			assert.True(t, shoreOptions().Unmanaged)
+		})
+	})
+}
