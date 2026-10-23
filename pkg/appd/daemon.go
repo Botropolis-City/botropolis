@@ -261,6 +261,10 @@ func closeUpPath(ledger string) string {
 // so a private run's directory is never made again after it is removed.
 // Item 110. A home the run was pointed at keeps none, like the ledger
 // and the groups (item 165).
+// The store ingests only what changed when the loader says what did
+// (item 205).
+var _ state.PathIngester = (*stats.Store)(nil)
+
 func statsSource(cfg *config.Config) *stats.Store {
 	if cfg.HomeSet && !statedir.IsPrivate() {
 		return nil

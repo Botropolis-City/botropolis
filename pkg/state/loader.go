@@ -101,7 +101,12 @@ type Loader struct {
 	// watch is what the daemon's watcher has said, and auditTick which
 	// share of the trusted transcripts this load looks at anyway
 	// (item 205).
-	watch           watchState
+	watch watchState
+	// touched are the transcripts this load found changed, new or gone,
+	// and touchedListed whether any appeared or went, for the stats pass
+	// (item 205).
+	touched         []string
+	touchedListed   bool
 	auditTick       int
 	transcriptStats int
 	loaded          bool
@@ -201,6 +206,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	}
 	snapshot.Skipped = append(snapshot.Skipped, skipped...)
 
+	l.touched, l.touchedListed = l.touched[:0], false
 	transcripts := map[string]cachedTranscript{}
 	subagents := map[string]cachedSubagent{}
 	src.Subagents = map[string][]claude.Subagent{}
@@ -268,7 +274,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 		l.later.start()
 	}
 	if l.stored != nil {
-		snapshot.HeftsRead, snapshot.ScaleHefts = l.stored.apply(snapshot.Sessions, projectsDir, now)
+		snapshot.HeftsRead, snapshot.ScaleHefts = l.stored.apply(snapshot.Sessions, projectsDir, now, l.touched, l.touchedListed)
 	} else {
 		snapshot.HeftsRead = l.applyHefts(snapshot.Sessions, l.stoppedFiles)
 	}
@@ -355,6 +361,7 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 		if later, read := l.later.take(path); read && later.key == key {
 			later.transcript.Project = filepath.Base(filepath.Dir(path))
 			entry, changed = &cachedTranscript{key: key, transcript: later.transcript}, true
+			l.touch(path, l.parked[path] == nil)
 		}
 		if entry == nil || entry.key != key {
 			l.reads++
@@ -364,6 +371,7 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 				continue
 			}
 			transcript.Project = filepath.Base(filepath.Dir(path))
+			l.touch(path, entry == nil)
 			entry, changed = &cachedTranscript{key: key, transcript: transcript}, true
 		}
 		entry.gen = gen
@@ -379,7 +387,7 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 	for path, entry := range l.parked {
 		if entry.gen != gen {
 			delete(l.parked, path)
-			changed = true
+			changed, l.touchedListed = true, true
 		}
 	}
 	for path, entry := range l.parkedSubagents {
@@ -467,11 +475,19 @@ func (l *Loader) stoppedSubagents(path string, was []string, gen int) ([]string,
 			}
 			entry, changed = &cachedSubagent{key: key, subagent: subagent, skipped: subSkipped}, true
 			l.parkedSubagents[subPath] = entry
+			l.touch(subPath, false)
 		}
 		entry.gen = gen
 		kept = append(kept, subPath)
 	}
 	return kept, skipped, changed || !slices.Equal(kept, was)
+}
+
+// touch notes a transcript that changed for the stats pass, and that
+// the set of transcripts did too when it is new.
+func (l *Loader) touch(path string, added bool) {
+	l.touched = append(l.touched, path)
+	l.touchedListed = l.touchedListed || added
 }
 
 // projectDirs are the directories that hold paths, each once, so the
@@ -511,6 +527,7 @@ func (l *Loader) transcript(path string, first bool) (cachedTranscript, error) {
 	if ok && entry.key == key {
 		return entry, nil
 	}
+	l.touch(path, !ok && l.parked[path] == nil)
 	if l.later != nil && first && entry.reader == nil && key.size > 2*stoppedWindowBytes {
 		l.later.hold(laterJob{path: path, size: key.size, live: true})
 	}
@@ -545,6 +562,7 @@ func (l *Loader) subagent(path string) (cachedSubagent, error) {
 	if ok && entry.key == key {
 		return entry, nil
 	}
+	l.touch(path, false)
 	reader := entry.reader
 	if reader == nil {
 		reader = claude.NewSubagentReader(path)

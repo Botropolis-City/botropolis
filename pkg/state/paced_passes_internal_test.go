@@ -50,7 +50,7 @@ func TestPacedPasses(t *testing.T) {
 		c := &fakeClock{at: time.Unix(0, 0)}
 		h := &storedHefts{src: &workingStats{clock: c, yields: 3}, yield: func() {}, pace: c.pace(0.5), running: true}
 		dir := t.TempDir()
-		onOwnThread(func() { h.pass(dir, time.Unix(0, 0)) })
+		onOwnThread(func() { h.pass(dir, time.Unix(0, 0), true, nil, false) })
 
 		t.Run("it should pace at every yield", func(t *testing.T) {
 			assert.Len(t, c.slept, 3)
