@@ -136,21 +136,44 @@ func wallSpans(page *image.NRGBA, s assets.KitSprite) []span {
 	return rows
 }
 
+// boardsOf is the planks over each pane of a sprite drawn with its foot
+// on a screen point at scale, nailed to its walls' rows. They are laid
+// and nailed in the sprite's own pixels and only then put on screen, so
+// a camera that pans tips no tie: not a square pane between ribbon and
+// window, nor a corner on a row's edge between two rows (item 237).
+func boardsOf(sprite assets.KitSprite, rows []span, foot city.Point, scale float64, seed uint32) [][][4]city.Point {
+	origin := city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
+	out := make([][][4]city.Point, len(sprite.Panes))
+	for i, p := range sprite.Panes {
+		var pane [4]city.Point
+		for j, c := range p {
+			pane[j] = city.Point{X: float64(c.X), Y: float64(c.Y)}
+		}
+		out[i] = planksFor(pane, seed+uint32(i)*2654435761)
+		nail(out[i], rows)
+		for p := range out[i] {
+			for j, c := range out[i][p] {
+				out[i][p][j] = origin.Add(c.Scale(scale))
+			}
+		}
+	}
+	return out
+}
+
 // nail holds each corner of each plank to the building's own span on
 // its row, so a plank stops at the wall's edge rather than hanging off
-// it. The planks are on a sprite drawn from origin at scale.
-func nail(planks [][4]city.Point, rows []span, origin city.Point, scale float64) {
+// it. The planks are in the sprite's own pixels.
+func nail(planks [][4]city.Point, rows []span) {
 	if len(rows) == 0 {
 		return
 	}
 	for i := range planks {
 		for j, c := range planks[i] {
-			row := rows[min(len(rows)-1, max(0, int((c.Y-origin.Y)/scale)))]
+			row := rows[min(len(rows)-1, max(0, int(c.Y)))]
 			if row.hi <= row.lo {
 				continue
 			}
-			lo, hi := origin.X+float64(row.lo)*scale, origin.X+float64(row.hi)*scale
-			planks[i][j].X = min(hi, max(lo, c.X))
+			planks[i][j].X = min(float64(row.hi), max(float64(row.lo), c.X))
 		}
 	}
 }
@@ -160,15 +183,10 @@ func nail(planks [][4]city.Point, rows []span, origin city.Point, scale float64)
 func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building, name string, boarded bool) {
 	foot := g.footOf(cam, b)
 	panes := g.facadePanes(cam, name, foot)
-	seed := hashID(b.Session.ID)
-	var rows []span
-	var origin city.Point
-	scale := 1.0
+	var boards [][][4]city.Point
 	if atlas := g.kitAtlas(cam); atlas != nil {
 		if sprite, ok := atlas.Sprite(name, cam.Heading); ok {
-			rows = atlas.walls[name][headingIndex(cam.Heading)]
-			scale = cam.Zoom / atlas.Zoom
-			origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
+			boards = boardsOf(sprite, atlas.walls[name][headingIndex(cam.Heading)], foot, cam.Zoom/atlas.Zoom, hashID(b.Session.ID))
 		}
 	}
 	if !boarded {
@@ -189,9 +207,7 @@ func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building,
 	radius := float32(math.Max(0.8, 0.9*cam.Zoom))
 	for i, pane := range panes {
 		g.paint.AddFill(screen, pane[:], colorDarkGlass)
-		planks := planksFor(pane, seed+uint32(i)*2654435761)
-		nail(planks, rows, origin, scale)
-		for _, plank := range planks {
+		for _, plank := range boards[i] {
 			g.paint.AddFill(screen, plank[:], colorPlankWood)
 			g.paint.AddStroke(plank[:], edge, true, colorPlankEdge)
 			g.paint.Flush(screen)
@@ -208,22 +224,15 @@ func (g *Game) shutter(screen *ebiten.Image, cam *city.Camera, b *city.Building,
 func (g *Game) shutterEach(screen *ebiten.Image, cam *city.Camera, b *city.Building, name string) {
 	foot := g.footOf(cam, b)
 	panes := g.facadePanes(cam, name, foot)
-	seed := hashID(b.Session.ID)
-	var rows []span
-	var origin city.Point
-	scale := 1.0
+	var boards [][][4]city.Point
 	if atlas := g.kitAtlas(cam); atlas != nil {
 		if sprite, ok := atlas.Sprite(name, cam.Heading); ok {
-			rows = atlas.walls[name][headingIndex(cam.Heading)]
-			scale = cam.Zoom / atlas.Zoom
-			origin = city.Point{X: foot.X - float64(sprite.Anchor.X)*scale, Y: foot.Y - float64(sprite.Anchor.Y)*scale}
+			boards = boardsOf(sprite, atlas.walls[name][headingIndex(cam.Heading)], foot, cam.Zoom/atlas.Zoom, hashID(b.Session.ID))
 		}
 	}
 	for i, pane := range panes {
 		g.fillQuad(screen, pane, colorDarkGlass)
-		planks := planksFor(pane, seed+uint32(i)*2654435761)
-		nail(planks, rows, origin, scale)
-		for _, plank := range planks {
+		for _, plank := range boards[i] {
 			g.fillQuad(screen, plank, colorPlankWood)
 			g.strokeQuad(screen, plank, float32(math.Max(1, 0.6*cam.Zoom)), colorPlankEdge)
 			radius := float32(math.Max(0.8, 0.9*cam.Zoom))

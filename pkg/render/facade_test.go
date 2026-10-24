@@ -1,12 +1,15 @@
 package render
 
 import (
+	"fmt"
+	"image"
 	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
 )
 
@@ -142,4 +145,59 @@ func TestShuttersAreOneMesh(t *testing.T) {
 			assert.Equal(t, stamps/2, meshes)
 		})
 	})
+}
+
+// Item 237: a panning camera moves a building's foot by whole and
+// fractional pixels, which must move its planks with it and change
+// nothing else: no wall row, and no square pane turning ribbon.
+func TestBoardsHoldStillWhileTheCameraPans(t *testing.T) {
+	loaded, err := assets.LoadKits()
+	require.NoError(t, err)
+	k := &kits{}
+	for _, a := range loaded {
+		k.atlases = append(k.atlases, kitAtlas{KitAtlas: a})
+	}
+	// moved is every plank corner that does not simply follow the pan, as
+	// the camera pans by whole and fractional pixels across both axes.
+	moved := func(sprite assets.KitSprite, rows []span, scale float64, seed uint32) []string {
+		start := city.Point{X: 517.3, Y: 211.9}
+		still := boardsOf(sprite, rows, start, scale, seed)
+		var out []string
+		steps := []float64{0, 0.1, 0.2, 0.25, 0.3, 0.5, 0.7, 0.9, 1, 1.3, 1.5, 2, 2.6, 3}
+		for _, across := range steps {
+			for _, down := range steps {
+				pan := city.Point{X: across, Y: down}
+				for i, planks := range boardsOf(sprite, rows, start.Add(pan), scale, seed) {
+					for p, plank := range planks {
+						for c, corner := range plank {
+							want := still[i][p][c].Add(pan)
+							if math.Abs(corner.X-want.X) > 1e-6 || math.Abs(corner.Y-want.Y) > 1e-6 {
+								out = append(out, fmt.Sprintf("pan (%g, %g): pane %d plank %d corner %d", pan.X, pan.Y, i, p, c))
+							}
+						}
+					}
+				}
+			}
+		}
+		return out
+	}
+	for _, zoom := range city.ZoomSteps {
+		atlas := k.atlases[k.index(zoom)]
+		scale := zoom / atlas.Zoom
+		for _, column := range kinds {
+			for _, name := range column {
+				for _, heading := range assets.Headings {
+					sprite, _ := atlas.Sprite(name, heading)
+					rows := wallSpans(atlas.Pages[sprite.Page].(*image.NRGBA), sprite)
+					got := moved(sprite, rows, scale, 7)
+
+					t.Run(fmt.Sprintf("when %s seen from %d at zoom %g is panned across", name, heading, zoom), func(t *testing.T) {
+						t.Run("it should board every pane with the same planks, moved by the pan", func(t *testing.T) {
+							assert.Empty(t, got)
+						})
+					})
+				}
+			}
+		}
+	}
 }

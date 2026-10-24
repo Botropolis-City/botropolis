@@ -48,7 +48,7 @@ func TestPlanksStayOnTheBuilding(t *testing.T) {
 							pane[j] = city.Point{X: float64(c.X), Y: float64(c.Y)}
 						}
 						planks := planksFor(pane, uint32(i)*2654435761)
-						nail(planks, rows, city.Point{}, 1)
+						nail(planks, rows)
 						for _, plank := range planks {
 							for _, corner := range plank {
 								if !opaque(corner) {
