@@ -91,7 +91,8 @@ func (r stateRun) interrupt(t *testing.T, how interruption, args ...string) inte
 		args = append(args, "--headless")
 	}
 	cmd := r.command(t, how.headless, args...)
-	var out strings.Builder
+	cmd.Env = append(cmd.Env, "BOTROPOLIS_FRAMETIME=1")
+	var out syncBuffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	require.NoError(t, cmd.Start())
@@ -130,9 +131,12 @@ func (r stateRun) interrupt(t *testing.T, how interruption, args ...string) inte
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	// The window must be up before the signal, or it lands before the
-	// loop that answers it has started.
-	time.Sleep(2 * time.Second)
+	// The signal is for a city whose loop is running, which says so with
+	// its first FRAME line (item 226). The city also stops cleanly on a
+	// signal that comes before its loop, so no delay makes this wait's
+	// absence fail; it keeps the test on the path it is named for.
+	require.Eventually(t, func() bool { return strings.Contains(out.String(), "FRAME ") }, time.Minute, 50*time.Millisecond,
+		"the city's loop never reported a frame\n%s", out.String())
 	require.NoError(t, syscall.Kill(how.to(cmd.Process.Pid, city), how.sig))
 
 	var left interrupted

@@ -36,13 +36,36 @@ func TestAnUnfocusedCityUnderAStreamOfChanges(t *testing.T) {
 	require.NoError(t, city.Start())
 	t.Cleanup(func() { _ = city.Process.Kill(); _ = city.Wait() })
 	require.Eventually(t, func() bool { return strings.Contains(said.String(), "FRAME ") }, 60*time.Second, 100*time.Millisecond)
-	time.Sleep(5 * time.Second)
+	// Item 226: the city has opened once it has composed its standing
+	// city and then drawn a frame that reuses it whole (it says "opened:"
+	// only while capturing), and the writes' frames have all been drawn
+	// once the frames it draws hold still.
+	require.Eventually(t, func() bool {
+		composed := false
+		for _, f := range helpers.ParseFrameLog(strings.NewReader(out.String())) {
+			switch {
+			case !f.Drawn:
+			case f.Still.Composes+f.Still.Ground > 0:
+				composed = true
+			case composed:
+				return true
+			}
+		}
+		return false
+	}, time.Minute, 100*time.Millisecond, "the city never composed its standing city and then reused it")
 	helpers.Unfocus(t, display)
 	require.Eventually(t, func() bool { return strings.Contains(said.String(), "focused=false visible=true") }, 30*time.Second, 100*time.Millisecond)
-	time.Sleep(2 * time.Second)
 	from := len(out.String())
 	b.write(200*time.Millisecond, 6*time.Second)
-	time.Sleep(time.Second)
+	untilStill(t, "the frames the city draws", func() int64 {
+		n := int64(0)
+		for _, f := range helpers.ParseFrameLog(strings.NewReader(out.String()[from:])) {
+			if f.Drawn {
+				n++
+			}
+		}
+		return n
+	}, time.Second, time.Minute)
 	var drawn []helpers.Frame
 	for _, f := range helpers.ParseFrameLog(strings.NewReader(out.String()[from:])) {
 		if f.Drawn {

@@ -76,7 +76,9 @@ func TestTheStreamOnABusyCity(t *testing.T) {
 		}
 		wire.n.Store(0)
 		elapsed := b.write(every, stream)
-		time.Sleep(2 * time.Second)
+		// The last writes' updates arrive after the stream ends; the
+		// subscription going still is when they have all come (item 226).
+		untilStill(t, "the subscription", wire.n.Load, time.Second, time.Minute)
 		sent := wire.n.Load()
 		_ = conn.Close()
 		<-done
