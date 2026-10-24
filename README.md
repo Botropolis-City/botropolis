@@ -10,8 +10,7 @@ Districts are projects, buildings are sessions, and everything on the map means 
 ## Start here
 
 ```
-systemctl --user enable --now botropolisd   # the daemon: inotify on ~/.claude plus hook pushes, on a unix socket
-botropolis install-hooks                    # botropolis-hook into ~/.claude/settings.json (backup kept)
+botropolis setup                            # the hooks, the daemon, and the line for your shell (safe to run again)
 botropolis doctor                           # the daemon, the hooks, a terminal, the claude CLI, the display
 botropolis                                  # the city
 botropolis find -n 5 "words"                # sessions by what was said in them, daemon or not
@@ -35,15 +34,15 @@ bash completion needs the bash-completion package, which most Linux desktops hav
 From a source build, `botropolis completion bash|zsh|fish` prints the script.
 
 That line is the one that changes how you work.
-Every session becomes a `claude --bg` job you can close, reopen, park and wake from the map, and the terminal is only ever a view of it.
+Every session becomes a `claude --bg` job you can close, reopen, stop and resume from the map, and the terminal is only ever a view of it.
 
 Sessions live in Claude Code's own background daemon;
-Botropolis starts them, opens them in a terminal, parks them and wakes them, and never writes to `~/.claude` itself.
+Botropolis starts them, opens them in a terminal, stops them and resumes them, and never writes to `~/.claude` itself.
 
 ## What you see
 
 One district per project, one building per session, and every object stands for one datum.
-A building's height is its context window used and its beacon is its state — needs-you amber, working blue, waiting teal, unattended violet, resting slate.
+A building's height is how much work its session has done, one to five storeys on your own scale, and its beacon is its state — needs-you amber, working blue, waiting teal, unattended violet, resting slate.
 While a session is mid-turn its roof is scaffolded with work lights, and each tool call runs a load up a hoist on the building's corner.
 A drone works on the building for each subagent in flight and flies to the project it works in, and smoke rises per API error.
 A flag flies per PR, an inspector's car parks outside while one is open, and a merge sends a truck off the island by the bridge.
@@ -181,7 +180,7 @@ Everything else is different, and the differences are choices rather than improv
 | --- | --- | --- |
 | runs as | a browser app on a local HTTP server | a native binary |
 | covers | Claude Code, Codex and Cursor | Claude Code only |
-| a session is | a thread it reads and opens through the desktop app | a `claude --bg` job it starts, parks and wakes; terminals are views of it |
+| a session is | a thread it reads and opens through the desktop app | a `claude --bg` job it starts, stops and resumes; terminals are views of it |
 | size means | transcript bytes, on a log scale | nothing — every object stands for one datum you can hover |
 | drawn with | three.js at runtime, in 3D | 2D sprites pre-rendered from 3D kits, Factorio-style |
 

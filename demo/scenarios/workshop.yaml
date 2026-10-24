@@ -43,7 +43,7 @@ sessions:
 shots:
   - name: overview
     title: A working afternoon
-    description: Four projects; sessions working, waiting, running unattended and parked, with the plan's usage on the river.
+    description: Four projects; sessions working, waiting, running unattended and resting, with the plan's usage on the river.
   - name: needs-you
     title: The session that needs you
     description: Tab jumps to the next session waiting on an answer and opens its card.

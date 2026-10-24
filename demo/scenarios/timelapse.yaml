@@ -1,5 +1,5 @@
 name: timelapse
-description: A day on two projects in under a minute. Sessions start, their buildings rise as they work, and finished ones leave for the storage yard.
+description: A day on two projects in under a minute. Sessions start, their buildings rise as they work, and finished ones go dark on their own lots.
 clock: "11:00"
 mcp: [tracker]
 usage: {session: 4, weekly: 22}
@@ -52,7 +52,7 @@ sessions:
 shots:
   - name: day
     title: A day on two projects
-    description: Sessions arrive by boat, their buildings rise as they work, pull requests merge, and finished sessions leave for the storage yard.
+    description: Sessions arrive by boat, their buildings rise as they work, pull requests merge, and finished sessions rest on their own lots.
     record: {seconds: 54, fps: 30}
     timeline: true
     script:
@@ -64,4 +64,4 @@ shots:
       - {at: 32.0, point_at: "district:kiln", over: 2}
   - name: start
     title: Before the day begins
-    description: Two projects with yesterday's sessions parked in the storage yard.
+    description: Two projects with yesterday's sessions resting on their own lots.

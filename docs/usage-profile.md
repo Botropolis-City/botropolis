@@ -22,7 +22,7 @@ Running the tool locally reproduces the full output for whoever runs it, which i
 
     >30d: 1    7-30d: 89    3-7d: 8    1-3d: 33    <1d: 30
 
-The long tail is why "done" cannot be inferred from a transcript existing, and why parked sessions need their own state and their own district.
+The long tail is why "done" cannot be inferred from a transcript existing, and why a stopped session needs its own state: resting, then shuttered and overgrown as it stays quiet.
 
 ## How sessions ended, by last main-thread record
 

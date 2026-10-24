@@ -53,7 +53,7 @@ sessions:
 shots:
   - name: morning
     title: A morning in forty seconds
-    description: Sessions arrive by boat, wait on answers, merge pull requests and leave for the storage yard.
+    description: Sessions arrive by boat, wait on answers, merge pull requests and rest on their own lots when they finish.
     record: {seconds: 40, fps: 30}
     timeline: true
   - name: start

@@ -14,7 +14,7 @@ This directory is the way around that.
 
 `botropolis-demo stage` builds a disposable home from the corpus for one scenario.
 It moves every transcript so it ends as long ago as the scenario says,
-because the power plant, the trains and the storage yard only see the last day or week.
+because the power plant and the trains only see the last day or week, and a resting lot ages by how long it has been quiet.
 It writes a session record for each live session, pointed at a detached `sleep`,
 because the city decides a session is live by whether its pid answers.
 
@@ -86,7 +86,7 @@ clock: "22:30"          # the light follows this; 14:00 when unset
 mcp: [tracker, weather] # radio towers
 sessions:
   - ref: tidepool/6f1d  # <project>/<session id or a prefix of it>
-    state: working      # working, needs-you, unattended, parked
+    state: working      # working, needs-you, unattended, resting
     ago: 2m             # how long before now its last line sits
   - project: beacon     # an empty plot needs no recording
     state: empty
@@ -133,14 +133,14 @@ usage_changes:
 ## Growing a building
 
 `replay:` stages only a session's opening prompt and reveals the rest of its recording over the span, at its own pacing,
-with its usage scaled so the building rises to the context asked for:
+with its usage scaled so its context window fills to the share asked for:
 
 ```yaml
   - ref: tidepool/fix-table-timezone
     state: working
     arrive: 2s                       # a tug brings it in
     replay: {over: 18s, context: 74%}
-    leave: 27s                       # then it parks
+    leave: 27s                       # then it rests on its lot
 ```
 
 ## Choreography
@@ -172,7 +172,7 @@ A clip with `timeline: true` plays the scenario's arrivals, departures and chang
     arrive: 3s                   # a tug brings it in
   - ref: lanternfish/snapshots
     state: working
-    leave: 9s                    # its process ends; it parks
+    leave: 9s                    # its process ends; it rests on its lot
   - ref: tidepool/fix-leap-day
     state: working
     prs: [open]

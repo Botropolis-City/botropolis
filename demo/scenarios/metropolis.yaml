@@ -1,5 +1,5 @@
 name: metropolis
-description: A heavy user's city in the early evening, a dozen districts, a team at work and a full storage yard.
+description: A heavy user's city in the early evening, a dozen districts, a team at work and the day's finished sessions resting on their lots.
 clock: "18:30"
 mcp: [tracker, weather]
 usage: {session: 71, weekly: 83, models: {Opus: 64}}
@@ -35,7 +35,7 @@ sessions:
 shots:
   - name: overview
     title: A busy metropolis
-    description: Twelve districts in the early evening, a team camp, trains for every model, and a full storage yard.
+    description: Twelve districts in the early evening, a team camp, trains for every model, and the day's finished sessions resting on their lots.
   - name: hero
     title: The metropolis, without the chrome
     description: A dozen districts, interface hidden.
