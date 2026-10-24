@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -49,6 +48,7 @@ var botropolisd = sync.OnceValues(func() (string, error) {
 // It runs the daemon as a person's own, with the statistics store and
 // the ledger, and from when it has settled (item 205).
 func TestDaemonUnderAStreamOfChanges(t *testing.T) {
+	performanceTier(t)
 	const (
 		stream       = 30 * time.Second
 		every        = 200 * time.Millisecond
@@ -108,6 +108,7 @@ func TestDaemonUnderAStreamOfChanges(t *testing.T) {
 // grew with the history: r878 used 9-15% of a core on this home with one
 // session writing, and this build 1.2-1.8% on a machine at load 20.
 func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
+	performanceTier(t)
 	const (
 		stopped      = 200
 		replies      = 300
@@ -242,28 +243,6 @@ var gcLine = regexp.MustCompile(`(?m)^gc \d+ `)
 
 func countCollections(trace string) int {
 	return len(gcLine.FindAllStringIndex(trace, -1))
-}
-
-// cpuTicks is the process's user and system time, in clock ticks.
-func cpuTicks(t *testing.T, pid int) int64 {
-	t.Helper()
-	user, system := cpuTicksSplit(t, pid)
-	return user + system
-}
-
-// cpuTicksSplit is the process's user time and its system time, in the
-// kernel, in clock ticks.
-func cpuTicksSplit(t *testing.T, pid int) (user, system int64) {
-	t.Helper()
-	stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
-	require.NoError(t, err)
-	s := string(stat)
-	fields := strings.Fields(s[strings.LastIndexByte(s, ')')+1:])
-	user, err = strconv.ParseInt(fields[11], 10, 64)
-	require.NoError(t, err)
-	system, err = strconv.ParseInt(fields[12], 10, 64)
-	require.NoError(t, err)
-	return user, system
 }
 
 // coreMeter measures what a child process costs over a window as a share

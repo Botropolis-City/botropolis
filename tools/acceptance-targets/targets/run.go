@@ -12,16 +12,24 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
-const usage = `Usage: go run ./tools/acceptance-targets <map|changed> [flags]
+const usage = `Usage: go run ./tools/acceptance-targets <run|map|changed|tier NAME> [flags]
 
+  run       run every test but the performance tier, each in a process of
+            its own, -p at a time (item 226)
   map       run every acceptance test on its own, under coverage, and record
             which packages each one executed, in the map
   changed   run only the tests that executed a package changed since the map
             was made; fall back to map, saying why, when the map cannot say
+  tier      print the go test -run pattern for one tier's tests, behaviour
+            or performance; fail if any test's marker disagrees with what it
+            measures
 
 Flags:
 `
@@ -31,6 +39,7 @@ type options struct {
 	mapFile  string
 	universe string
 	parallel int
+	timeout  time.Duration
 }
 
 func Main(args []string, stdout, stderr io.Writer) int {
@@ -41,7 +50,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&o.pkg, "pkg", "./testing/acceptance", "the acceptance test package")
 	fs.StringVar(&o.mapFile, "map", filepath.Join(".cache", "acceptance-map.json"), "where the map is kept")
 	fs.StringVar(&o.universe, "run", "", "only consider tests matching this pattern")
-	fs.IntVar(&o.parallel, "p", 4, "how many tests to map at once")
+	fs.IntVar(&o.parallel, "p", DefaultParallel(runtime.NumCPU()), "how many tests to run or map at once")
+	fs.DurationVar(&o.timeout, "timeout", 40*time.Minute, "each test's timeout, in run")
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
 		fs.Usage()
 		if len(args) == 0 {
@@ -49,18 +59,35 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		}
 		return 0
 	}
-	cmd := args[0]
-	if err := fs.Parse(args[1:]); err != nil {
+	cmd, rest := args[0], args[1:]
+	tierName := ""
+	if cmd == "tier" {
+		if len(rest) == 0 {
+			fs.Usage()
+			return 2
+		}
+		tierName, rest = rest[0], rest[1:]
+	}
+	if err := fs.Parse(rest); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
 		return 2
 	}
 	switch cmd {
+	case "run":
+		mod, err := module()
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return RunPackage(o.pkg, mod+"/pkg/measure", o.universe, o.parallel, o.timeout, stdout)
 	case "map":
 		return mapAll(o, stdout, stderr)
 	case "changed":
 		return changed(o, stdout, stderr)
+	case "tier":
+		return printTier(o, tierName, stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "unknown command %q\n", cmd)
 	fs.Usage()
@@ -96,6 +123,50 @@ func listTests(o options) ([]string, error) {
 		if strings.HasPrefix(line, "Test") && (match == nil || match.MatchString(line)) {
 			tests = append(tests, line)
 		}
+	}
+	return tests, nil
+}
+
+func printTier(o options, name string, stdout, stderr io.Writer) int {
+	want, known := Behaviour, false
+	for _, tier := range []Tier{Behaviour, Performance} {
+		if tier.String() == name {
+			want, known = tier, true
+		}
+	}
+	if !known {
+		fmt.Fprintf(stderr, "unknown tier %q: behaviour or performance\n", name)
+		return 2
+	}
+	tests, err := readTiers(o)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	fmt.Fprintln(stdout, RunPattern(InTier(tests, want)))
+	return 0
+}
+
+// readTiers reads the package's tiers and refuses any test whose marker
+// disagrees with what it reaches, which the guard in the package also fails.
+func readTiers(o options) (map[string]Test, error) {
+	mod, err := module()
+	if err != nil {
+		return nil, err
+	}
+	tests, err := ReadTiers(o.pkg, mod+"/pkg/measure")
+	if err != nil {
+		return nil, err
+	}
+	var wrong []string
+	for name, test := range tests {
+		if test.Tier != test.Reaches {
+			wrong = append(wrong, fmt.Sprintf("%s is marked %s but reaches %s", name, test.Tier, test.Reaches))
+		}
+	}
+	if len(wrong) > 0 {
+		sort.Strings(wrong)
+		return nil, fmt.Errorf("tiers disagree: %s", strings.Join(wrong, "; "))
 	}
 	return tests, nil
 }

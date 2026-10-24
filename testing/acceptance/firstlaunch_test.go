@@ -41,26 +41,37 @@ var percentIn = regexp.MustCompile(`(\d+)%`)
 // BOTROPOLIS_FIRST_LAUNCH_GB=3 to run it at the item's size for a
 // report.
 func TestFirstLaunch(t *testing.T) {
-	const (
-		maxCores   = 1.0
-		dirtyLimit = 256 << 20
-	)
-	history := int64(256 << 20)
-	if gb, err := strconv.ParseFloat(os.Getenv(firstLaunchGB), 64); err == nil && gb > 0 {
-		history = int64(gb * (1 << 30))
-	}
+	history := firstLaunchHistory()
 
 	t.Run(fmt.Sprintf("when the daemon starts on an empty state directory over %d MiB of history", history>>20), func(t *testing.T) {
 		l := newLaunch(t, history, 8<<20)
 		run := l.start(t)
 		run.untilIdle(t)
 		read := bytesRead(t, run.pid)
-		t.Logf("%d MiB of history in %s: peak %.0f%% of a core, peak %d MiB Private_Dirty, %d MiB read",
-			l.written>>20, run.took.Round(time.Second), run.peakShare*100, run.peakDirty>>20, read>>20)
 
 		t.Run("it should read the whole history", func(t *testing.T) {
 			assert.GreaterOrEqual(t, read, l.written)
 		})
+	})
+}
+
+// TestFirstLaunchCost is TestFirstLaunch's limits on a core and on
+// Private_Dirty, which need a quiet machine, so they run in the
+// performance tier (item 226).
+func TestFirstLaunchCost(t *testing.T) {
+	performanceTier(t)
+	const (
+		maxCores   = 1.0
+		dirtyLimit = 256 << 20
+	)
+	history := firstLaunchHistory()
+
+	t.Run(fmt.Sprintf("when the daemon starts on an empty state directory over %d MiB of history", history>>20), func(t *testing.T) {
+		l := newLaunch(t, history, 8<<20)
+		run := l.start(t)
+		run.untilIdleMeasured(t)
+		t.Logf("%d MiB of history in %s: peak %.0f%% of a core, peak %d MiB Private_Dirty",
+			l.written>>20, run.took.Round(time.Second), run.peakShare*100, run.peakDirty>>20)
 
 		t.Run("it should use at most one core in any 1 s sample", func(t *testing.T) {
 			assert.LessOrEqual(t, run.peakShare, maxCores)
@@ -70,6 +81,15 @@ func TestFirstLaunch(t *testing.T) {
 			assert.Less(t, run.peakDirty, int64(dirtyLimit))
 		})
 	})
+}
+
+// firstLaunchHistory is the history a first launch reads: 256 MiB, or
+// BOTROPOLIS_FIRST_LAUNCH_GB for a report.
+func firstLaunchHistory() int64 {
+	if gb, err := strconv.ParseFloat(os.Getenv(firstLaunchGB), 64); err == nil && gb > 0 {
+		return int64(gb * (1 << 30))
+	}
+	return 256 << 20
 }
 
 // Item 203: on Aria's history, 3.3 GiB in 195 transcripts, the 30 that
@@ -93,96 +113,150 @@ func TestFirstLaunch(t *testing.T) {
 // broke at 110-118%, and the unpaced first load at 111-115%.
 func TestFirstLaunchLoad(t *testing.T) {
 	const (
-		window        = 2 * 64 << 10
-		slack         = 16 << 20
+		window = 2 * 64 << 10
+		slack  = 16 << 20
+	)
+	shape := newRealShape()
+
+	t.Run(shape.when(), func(t *testing.T) {
+		load := shape.load(t, (*daemonRun).untilIdle, nil)
+
+		t.Run("it should read no more than each transcript's window before its first snapshot", func(t *testing.T) {
+			assert.LessOrEqual(t, load.readFirst, load.transcripts*window+slack)
+		})
+
+		t.Run("and it has settled", func(t *testing.T) {
+			for _, sid := range load.live {
+				t.Run("it should hold live session "+sid[:8]+"'s usage whole", func(t *testing.T) {
+					assert.False(t, sessionIn(t, load.settled, sid).Usage.Partial)
+				})
+			}
+
+			t.Run("it should give the plant the day's whole output", func(t *testing.T) {
+				assert.Equal(t, int64(5*load.turns), load.settled.Power.Output)
+			})
+		})
+	})
+}
+
+// TestFirstLaunchLoadCost is TestFirstLaunchLoad's limits in CPU, which
+// need a quiet machine, so they run in the performance tier (item 226).
+func TestFirstLaunchLoadCost(t *testing.T) {
+	performanceTier(t)
+	const (
 		maxCPUSeconds = 2.0
 		clockTicksSec = 100
 		maxCores      = 1.0
-		stopped       = 400
 	)
-	scale := 1.0
-	if gb, err := strconv.ParseFloat(os.Getenv(firstLaunchGB), 64); err == nil && gb > 0 {
-		scale = gb * 1024 / 484
-	}
-	sized := func(n int64) int64 { return int64(float64(n) * scale) }
-	old := sized(256 << 10)
-	liveSizes := []int64{sized(288 << 20), sized(16 << 20)}
-	todaySizes := []int64{sized(64 << 20), sized(16 << 20)}
-	now := time.Now()
+	shape := newRealShape()
 
-	t.Run(fmt.Sprintf("when the daemon starts on an empty state directory over a home shaped like a real one: %d stopped sessions of %d KiB, live sessions of %d and %d MiB, and stopped ones active today of %d and %d MiB", stopped, old>>10, liveSizes[0]>>20, liveSizes[1]>>20, todaySizes[0]>>20, todaySizes[1]>>20), func(t *testing.T) {
-		root := t.TempDir()
-		home := helpers.HomeAt(t, filepath.Join(root, "home"))
-		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-		for s := range stopped {
-			syntheticSession(t, home, syntheticSID(s), at.Add(time.Duration(s)*time.Hour), old)
-		}
-		var live []string
-		turns := 0
-		for i, pid := range []int{os.Getpid(), os.Getppid()} {
-			sid := syntheticSID(stopped + i)
-			home.Session(pid, sid, syntheticCWD, "interactive", "idle")
-			_, n := syntheticSession(t, home, sid, now.Add(-3*time.Hour), liveSizes[i])
-			live, turns = append(live, sid), turns+n
-		}
-		for i, size := range todaySizes {
-			_, n := syntheticSession(t, home, syntheticSID(stopped+2+i), now.Add(-20*time.Hour), size)
-			turns += n
-		}
-		l := &launch{root: root, home: home.Path}
-		run := l.start(t)
-		idle := make(chan struct{})
-		go func() {
-			defer close(idle)
-			run.untilIdle(t)
-		}()
-		var client *proto.Client
-		require.Eventually(t, func() bool {
-			c, err := proto.Dial(run.socket)
-			client = c
-			return err == nil
-		}, time.Minute, 10*time.Millisecond)
-		_, err := client.Snapshot()
-		require.NoError(t, err)
-		readFirst := bytesRead(t, run.pid)
-		cpuFirst := float64(cpuTicks(t, run.pid)) / clockTicksSec
-		_ = client.Close()
-		<-idle
-		client, err = proto.Dial(run.socket)
-		require.NoError(t, err)
-		settled, err := client.Snapshot()
-		require.NoError(t, err)
-		_ = client.Close()
-		transcripts := int64(stopped + 4)
-		t.Logf("first snapshot after %d MiB and %.2f CPU-seconds; idle after %s at a peak of %.0f%% of a core",
-			readFirst>>20, cpuFirst, run.took.Round(time.Second), run.peakShare*100)
+	t.Run(shape.when(), func(t *testing.T) {
+		cpuFirst := -1.0
+		load := shape.load(t, (*daemonRun).untilIdleMeasured, func(pid int) { cpuFirst = float64(cpuTicks(t, pid)) / clockTicksSec })
+		t.Logf("first snapshot after %.2f CPU-seconds; idle after %s at a peak of %.0f%% of a core",
+			cpuFirst, load.run.took.Round(time.Second), load.run.peakShare*100)
 
-		t.Run("it should read no more than each transcript's window before its first snapshot", func(t *testing.T) {
-			assert.LessOrEqual(t, readFirst, transcripts*window+slack)
-		})
-
-		if scale != 1 {
+		if shape.scale != 1 {
 			t.Run("it should send its first snapshot within 2 CPU-seconds", func(t *testing.T) {
 				assert.LessOrEqual(t, cpuFirst, maxCPUSeconds)
 			})
 		}
 
 		t.Run("it should use at most one core in any 1 s sample", func(t *testing.T) {
-			assert.LessOrEqual(t, run.peakShare, maxCores)
-		})
-
-		t.Run("and it has settled", func(t *testing.T) {
-			for _, sid := range live {
-				t.Run("it should hold live session "+sid[:8]+"'s usage whole", func(t *testing.T) {
-					assert.False(t, sessionIn(t, settled, sid).Usage.Partial)
-				})
-			}
-
-			t.Run("it should give the plant the day's whole output", func(t *testing.T) {
-				assert.Equal(t, int64(5*turns), settled.Power.Output)
-			})
+			assert.LessOrEqual(t, load.run.peakShare, maxCores)
 		})
 	})
+}
+
+// realShape is a home shaped like a real one: several hundred stopped
+// sessions, and a day's work held mostly in one very large live session.
+type realShape struct {
+	scale                 float64
+	stopped               int
+	old                   int64
+	liveSizes, todaySizes []int64
+}
+
+func newRealShape() realShape {
+	scale := 1.0
+	if gb, err := strconv.ParseFloat(os.Getenv(firstLaunchGB), 64); err == nil && gb > 0 {
+		scale = gb * 1024 / 484
+	}
+	sized := func(n int64) int64 { return int64(float64(n) * scale) }
+	return realShape{
+		scale:      scale,
+		stopped:    400,
+		old:        sized(256 << 10),
+		liveSizes:  []int64{sized(288 << 20), sized(16 << 20)},
+		todaySizes: []int64{sized(64 << 20), sized(16 << 20)},
+	}
+}
+
+func (s realShape) when() string {
+	return fmt.Sprintf("when the daemon starts on an empty state directory over a home shaped like a real one: %d stopped sessions of %d KiB, live sessions of %d and %d MiB, and stopped ones active today of %d and %d MiB", s.stopped, s.old>>10, s.liveSizes[0]>>20, s.liveSizes[1]>>20, s.todaySizes[0]>>20, s.todaySizes[1]>>20)
+}
+
+type firstLoad struct {
+	run         *daemonRun
+	readFirst   int64
+	transcripts int64
+	live        []string
+	turns       int
+	settled     state.Snapshot
+}
+
+// load starts a daemon on the shape, reads its first snapshot and, once
+// idle says it is idle, the settled one. first, when not nil, is called
+// with the daemon's pid as the first snapshot arrives.
+func (s realShape) load(t *testing.T, idle func(*daemonRun, *testing.T), first func(pid int)) firstLoad {
+	t.Helper()
+	root := t.TempDir()
+	home := helpers.HomeAt(t, filepath.Join(root, "home"))
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := time.Now()
+	for i := range s.stopped {
+		syntheticSession(t, home, syntheticSID(i), at.Add(time.Duration(i)*time.Hour), s.old)
+	}
+	var load firstLoad
+	for i, pid := range []int{os.Getpid(), os.Getppid()} {
+		sid := syntheticSID(s.stopped + i)
+		home.Session(pid, sid, syntheticCWD, "interactive", "idle")
+		_, n := syntheticSession(t, home, sid, now.Add(-3*time.Hour), s.liveSizes[i])
+		load.live, load.turns = append(load.live, sid), load.turns+n
+	}
+	for i, size := range s.todaySizes {
+		_, n := syntheticSession(t, home, syntheticSID(s.stopped+2+i), now.Add(-20*time.Hour), size)
+		load.turns += n
+	}
+	l := &launch{root: root, home: home.Path}
+	load.run = l.start(t)
+	quiet := make(chan struct{})
+	go func() {
+		defer close(quiet)
+		idle(load.run, t)
+	}()
+	var client *proto.Client
+	require.Eventually(t, func() bool {
+		c, err := proto.Dial(load.run.socket)
+		client = c
+		return err == nil
+	}, time.Minute, 10*time.Millisecond)
+	_, err := client.Snapshot()
+	require.NoError(t, err)
+	load.readFirst = bytesRead(t, load.run.pid)
+	if first != nil {
+		first(load.run.pid)
+	}
+	_ = client.Close()
+	<-quiet
+	client, err = proto.Dial(load.run.socket)
+	require.NoError(t, err)
+	load.settled, err = client.Snapshot()
+	require.NoError(t, err)
+	_ = client.Close()
+	load.transcripts = int64(s.stopped + 4)
+	t.Logf("first snapshot after %d MiB", load.readFirst>>20)
+	return load
 }
 
 func sessionIn(t *testing.T, snapshot state.Snapshot, id string) state.Session {
@@ -247,115 +321,144 @@ func TestFirstLaunchResumes(t *testing.T) {
 // keeps the last frame, for a person to judge.
 func TestFirstLaunchCity(t *testing.T) {
 	helpers.NeedXvfb(t)
-	const (
-		within        = 5 * time.Second
-		maxCPUSeconds = 1.0
-		clockTicksSec = 100
-	)
+	const within = 5 * time.Second
 	timed := os.Getenv("BOTROPOLIS_FIRST_LAUNCH_TIMED") != ""
 
 	t.Run("when the city opens on a daemon partway through a first launch", func(t *testing.T) {
-		bin, err := debugCity()
-		require.NoError(t, err)
-		keep := os.Getenv("BOTROPOLIS_FIRST_LAUNCH_FRAME")
-		history := int64(256 << 20)
-		if keep != "" {
-			history = 1 << 30
-		}
-		l := newLaunch(t, history, 8<<20)
-		daemon := l.start(t)
-		require.Eventually(t, func() bool { return bytesRead(t, daemon.pid) >= 64<<20 }, time.Minute, 50*time.Millisecond)
-		frames := filepath.Join(t.TempDir(), "frames")
-		require.NoError(t, os.MkdirAll(frames, 0o755))
-		city := exec.Command(bin, "city", "--headless", "--record", frames, "--seconds", "8", "--fps", "2", "--window", "1600x900", "--socket", daemon.socket)
-		// The read is what this films, so the recording opens on the
-		// first snapshot rather than waiting for the read (item 202).
-		city.Env = append(os.Environ(), "HOME="+l.home, "XDG_STATE_HOME="+filepath.Join(l.root, "state"), "BOTROPOLIS_FRAME_OPEN_UNREAD=1")
-		out, err := city.StdoutPipe()
-		require.NoError(t, err)
-		var stderr syncBuffer
-		city.Stderr = &stderr
-		start := time.Now()
-		require.NoError(t, city.Start())
-		t.Cleanup(func() { _ = city.Process.Kill(); _ = city.Wait() })
-		var log strings.Builder
-		var firstDrawn, firstReading time.Duration
-		cpuToDrawn := -1.0
-		lines := bufio.NewScanner(out)
-		lines.Buffer(make([]byte, 0, 64<<10), 1<<20)
-		for lines.Scan() {
-			line := lines.Text()
-			log.WriteString(line + "\n")
-			if strings.HasPrefix(line, "still: ") && cpuToDrawn < 0 {
-				firstDrawn = time.Since(start)
-				cpuToDrawn = float64(cpuTicks(t, city.Process.Pid)) / clockTicksSec
-			}
-			if strings.HasPrefix(line, "reading: ") && firstReading == 0 {
-				firstReading = time.Since(start)
-			}
-		}
-		_ = city.Wait()
-		var shown []string
-		for _, f := range helpers.ParseFrameLog(strings.NewReader(log.String())) {
-			if f.Reading != "" || len(shown) > 0 {
-				shown = append(shown, f.Reading)
-			}
-		}
-		for len(shown) > 0 && shown[len(shown)-1] == "" {
-			shown = shown[:len(shown)-1]
-		}
-		var percents []int
-		for _, line := range shown {
-			if m := percentIn.FindStringSubmatch(line); m != nil {
-				n, _ := strconv.Atoi(m[1])
-				percents = append(percents, n)
-			}
-		}
-		t.Logf("first city drawn at %s after %.2f CPU-seconds; first reading line at %s; %d frames from it", firstDrawn.Round(time.Millisecond), cpuToDrawn, firstReading.Round(time.Millisecond), len(shown))
-		if len(shown) == 0 {
-			t.Logf("the city wrote: %s", stderr.String())
-		}
-		if keep != "" {
-			pngs, err := filepath.Glob(filepath.Join(frames, "*.png"))
-			require.NoError(t, err)
-			require.NotEmpty(t, pngs)
-			data, err := os.ReadFile(pngs[len(pngs)-1])
-			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(keep, data, 0o644))
-		}
+		run := openFirstLaunchCity(t, nil)
 
 		t.Run("it should show a percentage", func(t *testing.T) {
-			require.NotEmpty(t, shown)
-			assert.Contains(t, shown[0], "%")
+			require.NotEmpty(t, run.shown)
+			assert.Contains(t, run.shown[0], "%")
 		})
 
 		t.Run("it should show it on every frame until the read is done", func(t *testing.T) {
-			assert.NotContains(t, shown, "")
+			assert.NotContains(t, run.shown, "")
 		})
 
 		t.Run("it should move as the read goes on", func(t *testing.T) {
-			require.NotEmpty(t, percents)
-			assert.Less(t, percents[0], percents[len(percents)-1])
+			require.NotEmpty(t, run.percents)
+			assert.Less(t, run.percents[0], run.percents[len(run.percents)-1])
 		})
 
 		t.Run("it should never go backwards", func(t *testing.T) {
-			assert.True(t, slices.IsSorted(percents))
-		})
-
-		t.Run("it should spend at most 1 CPU-second before it draws the city", func(t *testing.T) {
-			assert.True(t, cpuToDrawn >= 0 && cpuToDrawn <= maxCPUSeconds)
+			assert.True(t, slices.IsSorted(run.percents))
 		})
 
 		if timed {
 			t.Run("it should draw the city within 5 s", func(t *testing.T) {
-				assert.True(t, firstDrawn > 0 && firstDrawn <= within)
+				assert.True(t, run.firstDrawn > 0 && run.firstDrawn <= within)
 			})
 
 			t.Run("it should show the percentage within 5 s", func(t *testing.T) {
-				assert.True(t, firstReading > 0 && firstReading <= within)
+				assert.True(t, run.firstReading > 0 && run.firstReading <= within)
 			})
 		}
 	})
+}
+
+// TestFirstLaunchCityCPU is TestFirstLaunchCity's limit in CPU-seconds,
+// which needs a quiet machine, so it runs in the performance tier (item
+// 226) while the percentage it checks runs on every landing.
+func TestFirstLaunchCityCPU(t *testing.T) {
+	performanceTier(t)
+	helpers.NeedXvfb(t)
+	const (
+		maxCPUSeconds = 1.0
+		clockTicksSec = 100
+	)
+
+	t.Run("when the city opens on a daemon partway through a first launch", func(t *testing.T) {
+		cpuToDrawn := -1.0
+		openFirstLaunchCity(t, func(pid int) { cpuToDrawn = float64(cpuTicks(t, pid)) / clockTicksSec })
+		t.Logf("first city drawn after %.2f CPU-seconds", cpuToDrawn)
+
+		t.Run("it should spend at most 1 CPU-second before it draws the city", func(t *testing.T) {
+			assert.True(t, cpuToDrawn >= 0 && cpuToDrawn <= maxCPUSeconds)
+		})
+	})
+}
+
+type firstLaunchCity struct {
+	shown                    []string
+	percents                 []int
+	firstDrawn, firstReading time.Duration
+}
+
+// openFirstLaunchCity films a debug city opened on a daemon partway
+// through a first launch, and reads what its footer said on each frame.
+// drawn, when not nil, is called with the city's pid as it first draws the
+// city.
+func openFirstLaunchCity(t *testing.T, drawn func(pid int)) firstLaunchCity {
+	t.Helper()
+	bin, err := debugCity()
+	require.NoError(t, err)
+	keep := os.Getenv("BOTROPOLIS_FIRST_LAUNCH_FRAME")
+	history := int64(256 << 20)
+	if keep != "" {
+		history = 1 << 30
+	}
+	l := newLaunch(t, history, 8<<20)
+	daemon := l.start(t)
+	require.Eventually(t, func() bool { return bytesRead(t, daemon.pid) >= 64<<20 }, time.Minute, 50*time.Millisecond)
+	frames := filepath.Join(t.TempDir(), "frames")
+	require.NoError(t, os.MkdirAll(frames, 0o755))
+	city := exec.Command(bin, "city", "--headless", "--record", frames, "--seconds", "8", "--fps", "2", "--window", "1600x900", "--socket", daemon.socket)
+	// The read is what this films, so the recording opens on the
+	// first snapshot rather than waiting for the read (item 202).
+	city.Env = append(os.Environ(), "HOME="+l.home, "XDG_STATE_HOME="+filepath.Join(l.root, "state"), "BOTROPOLIS_FRAME_OPEN_UNREAD=1")
+	out, err := city.StdoutPipe()
+	require.NoError(t, err)
+	var stderr syncBuffer
+	city.Stderr = &stderr
+	start := time.Now()
+	require.NoError(t, city.Start())
+	t.Cleanup(func() { _ = city.Process.Kill(); _ = city.Wait() })
+	var run firstLaunchCity
+	var log strings.Builder
+	lines := bufio.NewScanner(out)
+	lines.Buffer(make([]byte, 0, 64<<10), 1<<20)
+	for lines.Scan() {
+		line := lines.Text()
+		log.WriteString(line + "\n")
+		if strings.HasPrefix(line, "still: ") && run.firstDrawn == 0 {
+			run.firstDrawn = time.Since(start)
+			if drawn != nil {
+				drawn(city.Process.Pid)
+			}
+		}
+		if strings.HasPrefix(line, "reading: ") && run.firstReading == 0 {
+			run.firstReading = time.Since(start)
+		}
+	}
+	_ = city.Wait()
+	for _, f := range helpers.ParseFrameLog(strings.NewReader(log.String())) {
+		if f.Reading != "" || len(run.shown) > 0 {
+			run.shown = append(run.shown, f.Reading)
+		}
+	}
+	for len(run.shown) > 0 && run.shown[len(run.shown)-1] == "" {
+		run.shown = run.shown[:len(run.shown)-1]
+	}
+	for _, line := range run.shown {
+		if m := percentIn.FindStringSubmatch(line); m != nil {
+			n, _ := strconv.Atoi(m[1])
+			run.percents = append(run.percents, n)
+		}
+	}
+	t.Logf("first city drawn at %s; first reading line at %s; %d frames from it", run.firstDrawn.Round(time.Millisecond), run.firstReading.Round(time.Millisecond), len(run.shown))
+	if len(run.shown) == 0 {
+		t.Logf("the city wrote: %s", stderr.String())
+	}
+	if keep != "" {
+		pngs, err := filepath.Glob(filepath.Join(frames, "*.png"))
+		require.NoError(t, err)
+		require.NotEmpty(t, pngs)
+		data, err := os.ReadFile(pngs[len(pngs)-1])
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(keep, data, 0o644))
+	}
+	return run
 }
 
 // Item 159: a city opened while the daemon's first load runs waited on
@@ -507,8 +610,11 @@ func (r *daemonRun) kill(t *testing.T) {
 }
 
 // untilIdle samples the daemon each second until it has used under 5%
-// of a core for three samples running.
-func (r *daemonRun) untilIdle(t *testing.T) {
+// of a core for three samples running. It is a wait: a test that asserts
+// on what the samples saw calls untilIdleMeasured (item 226).
+func (r *daemonRun) untilIdle(t *testing.T) { r.untilQuiet(t, nil) }
+
+func (r *daemonRun) untilQuiet(t *testing.T, sampled func(share float64)) {
 	t.Helper()
 	const (
 		clockTicksSec = 100
@@ -516,16 +622,18 @@ func (r *daemonRun) untilIdle(t *testing.T) {
 		idleSamples   = 3
 		gaveUp        = 10 * time.Minute
 	)
+	ticks := func() int64 { user, system := procTicks(t, r.pid); return user + system }
 	quiet := 0
 	start := time.Now()
-	last, at := cpuTicks(t, r.pid), time.Now()
+	last, at := ticks(), time.Now()
 	for quiet < idleSamples && time.Since(start) < gaveUp {
 		time.Sleep(time.Second)
-		ticks, now := cpuTicks(t, r.pid), time.Now()
-		share := float64(ticks-last) / clockTicksSec / now.Sub(at).Seconds()
-		last, at = ticks, now
-		r.peakShare = max(r.peakShare, share)
-		r.peakDirty = max(r.peakDirty, privateDirty(r.pid))
+		n, now := ticks(), time.Now()
+		share := float64(n-last) / clockTicksSec / now.Sub(at).Seconds()
+		last, at = n, now
+		if sampled != nil {
+			sampled(share)
+		}
 		if share < idleShare {
 			quiet++
 		} else {
@@ -533,6 +641,22 @@ func (r *daemonRun) untilIdle(t *testing.T) {
 		}
 	}
 	r.took = time.Since(start)
+}
+
+// procTicks reads a process's user and system time, in clock ticks, from
+// /proc/<pid>/stat. Waits use it directly; a reading a test asserts on goes
+// through meters_test.go, which is how the performance tier is found.
+func procTicks(t *testing.T, pid int) (user, system int64) {
+	t.Helper()
+	stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	require.NoError(t, err)
+	s := string(stat)
+	fields := strings.Fields(s[strings.LastIndexByte(s, ')')+1:])
+	user, err = strconv.ParseInt(fields[11], 10, 64)
+	require.NoError(t, err)
+	system, err = strconv.ParseInt(fields[12], 10, 64)
+	require.NoError(t, err)
+	return user, system
 }
 
 // syntheticHistory writes stopped sessions under home until they hold

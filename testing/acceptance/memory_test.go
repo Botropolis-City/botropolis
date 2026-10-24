@@ -3,7 +3,6 @@
 package acceptance_test
 
 import (
-	"bufio"
 	"bytes"
 	"os"
 	"os/exec"
@@ -33,6 +32,7 @@ import (
 // its largest size when a collection starts was 346 MB before, 274 MB
 // with pages put up before the loop, and 205 MB with the fix.
 func TestStartUpPeak(t *testing.T) {
+	performanceTier(t)
 	helpers.NeedXvfb(t)
 	const (
 		dirtyLimit = 800 << 20
@@ -71,6 +71,7 @@ func TestStartUpPeak(t *testing.T) {
 // city's own figures. A settled metropolis at r871 held 689 MiB on the
 // real GPU and 528 MiB here; at r889, 355 and 250.
 func TestSettledMemory(t *testing.T) {
+	performanceTier(t)
 	helpers.NeedXvfb(t)
 	const (
 		budget = 512 << 20
@@ -101,30 +102,6 @@ func TestSettledMemory(t *testing.T) {
 			assert.Less(t, settled, int64(budget), "settled at %d MiB", settled>>20)
 		})
 	})
-}
-
-// settledPrivateDirty is the largest Private_Dirty of a headless city's
-// drawing child over the window before settle.
-func settledPrivateDirty(parent int, done chan error, settle, window time.Duration) int64 {
-	var peak int64
-	start := time.Now()
-	tick := time.NewTicker(100 * time.Millisecond)
-	defer tick.Stop()
-	for time.Since(start) < settle {
-		select {
-		case err := <-done:
-			go func() { done <- err }()
-			return peak
-		case <-tick.C:
-			if time.Since(start) < settle-window {
-				continue
-			}
-			for _, pid := range children(parent) {
-				peak = max(peak, privateDirty(pid))
-			}
-		}
-	}
-	return peak
 }
 
 // stopCity ends a city that runs until told to, and its drawing child.
@@ -173,27 +150,6 @@ func peakHeapMB(trace string) int {
 	return peak
 }
 
-// peakPrivateDirty samples the drawing child of a headless city, which
-// --headless starts under its own virtual display, until the city ends.
-func peakPrivateDirty(t *testing.T, parent int, done <-chan error) int64 {
-	t.Helper()
-	var peak int64
-	tick := time.NewTicker(5 * time.Millisecond)
-	defer tick.Stop()
-	for {
-		select {
-		case err := <-done:
-			require.NoError(t, err)
-			require.Positive(t, peak, "never saw the drawing process")
-			return peak
-		case <-tick.C:
-			for _, pid := range children(parent) {
-				peak = max(peak, privateDirty(pid))
-			}
-		}
-	}
-}
-
 func children(parent int) []int {
 	entries, _ := os.ReadDir("/proc")
 	var out []int
@@ -235,33 +191,4 @@ func lastRelease(trace *syncBuffer, quiet, limit time.Duration) bool {
 		}
 	}
 	return false
-}
-
-func releasedPrivateDirty(pid int, limit time.Duration) (int64, bool) {
-	last := privateDirty(pid)
-	for deadline := time.Now().Add(limit); time.Now().Before(deadline); {
-		time.Sleep(500 * time.Millisecond)
-		now := privateDirty(pid)
-		if now == last {
-			return now, true
-		}
-		last = now
-	}
-	return last, false
-}
-
-func privateDirty(pid int) int64 {
-	f, err := os.Open(filepath.Join("/proc", strconv.Itoa(pid), "smaps_rollup"))
-	if err != nil {
-		return 0
-	}
-	defer func() { _ = f.Close() }()
-	scan := bufio.NewScanner(f)
-	for scan.Scan() {
-		if v, ok := strings.CutPrefix(scan.Text(), "Private_Dirty:"); ok {
-			kb, _ := strconv.ParseInt(strings.TrimSuffix(strings.TrimSpace(v), " kB"), 10, 64)
-			return kb << 10
-		}
-	}
-	return 0
 }

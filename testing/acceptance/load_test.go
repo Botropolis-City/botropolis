@@ -27,7 +27,9 @@ func TestTestTimeouts(t *testing.T) {
 		require.NoError(t, err, string(out))
 		var runs []string
 		for _, line := range strings.Split(string(out), "\n") {
-			if strings.Contains(line, "go test") {
+			// The acceptance tests run through tools/acceptance-targets, one
+			// process each (item 226), which passes the timeout to each.
+			if strings.Contains(line, "go test") || strings.Contains(line, "acceptance-targets run") {
 				runs = append(runs, line)
 			}
 		}

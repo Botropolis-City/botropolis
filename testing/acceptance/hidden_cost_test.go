@@ -44,6 +44,7 @@ import (
 // the window manager said, because a window in another state would be
 // measuring something else.
 func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
+	performanceTier(t)
 	const (
 		stream = 15 * time.Second
 		// storeStream is long enough to hold two of the ledger's 30 s
@@ -253,35 +254,6 @@ func lastQuiet(said string) (quietCount, bool) {
 		return c, true
 	}
 	return quietCount{}, false
-}
-
-// threadTicks is the CPU a process's threads have spent, in clock
-// ticks: the software rasteriser's (Mesa's llvmpipe threads), and the
-// rest.
-func threadTicks(t *testing.T, pid int) (raster, rest int64) {
-	t.Helper()
-	dir := filepath.Join("/proc", strconv.Itoa(pid), "task")
-	tasks, err := os.ReadDir(dir)
-	require.NoError(t, err)
-	for _, task := range tasks {
-		stat, err := os.ReadFile(filepath.Join(dir, task.Name(), "stat"))
-		if err != nil {
-			continue
-		}
-		s := string(stat)
-		open, end := strings.IndexByte(s, '('), strings.LastIndexByte(s, ')')
-		fields := strings.Fields(s[end+1:])
-		user, err := strconv.ParseInt(fields[11], 10, 64)
-		require.NoError(t, err)
-		system, err := strconv.ParseInt(fields[12], 10, 64)
-		require.NoError(t, err)
-		if strings.HasPrefix(s[open+1:end], "llvmpipe") {
-			raster += user + system
-		} else {
-			rest += user + system
-		}
-	}
-	return raster, rest
 }
 
 // holdsOpen is whether a process holds the file at path open.

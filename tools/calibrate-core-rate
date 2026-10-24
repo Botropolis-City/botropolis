@@ -51,7 +51,7 @@ quiet="${QUIET_LOAD:-2}"
 hours="${WAIT_HOURS:-6}"
 
 measure() {
-    BOTROPOLIS_CALIBRATE=1 go test -count=1 -run '^TestCalibrateCoreRate$' -v ./testing/acceptance/
+    BOTROPOLIS_CALIBRATE=1 BOTROPOLIS_PERFORMANCE=1 go test -count=1 -run '^TestCalibrateCoreRate$' -v ./testing/acceptance/
 }
 
 if ! "${wait}"; then

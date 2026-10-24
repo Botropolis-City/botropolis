@@ -66,6 +66,12 @@ Tests are idempotent, clean up after themselves, and never depend on machine sta
 Unit tests sit beside the code;
 anything crossing packages goes in `testing/`.
 
+`make test-acceptance` runs each acceptance test in a process of its own, several at a time (`ACCEPTANCE_PARALLEL`), so each gets the isolated home `TestMain` gives a run.
+An acceptance test that measures CPU or memory starts with `performanceTier(t)`.
+It skips there and runs in `make test-performance`, which needs a quiet machine.
+Every function that reads a process's CPU or memory lives in `testing/acceptance/meters_test.go`.
+That is how a test checks that exactly the tests reaching one are marked.
+
 **A green test is not a guard until it has been made to fail.**
 Before trusting a new test, change the code it covers so that it *should* fail, and check that it does, with the plausible wrong implementation rather than an absurd one.
 [rules/a-green-test-is-not-a-guard.md](rules/a-green-test-is-not-a-guard.md) has the five times this repository shipped a test that could not fail.

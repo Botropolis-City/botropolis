@@ -26,6 +26,13 @@ type built struct{ *testing.M }
 
 func (b *built) Run() int {
 	m := b.M
+	// make test-acceptance runs each test in a process of its own (item
+	// 226), so it builds the binary once and names it here. A map run
+	// builds its own, under coverage.
+	if prebuilt := os.Getenv("BOTROPOLIS_ACCEPTANCE_BINARY"); prebuilt != "" && os.Getenv("BOTROPOLIS_ACCEPTANCE_COVER") == "" {
+		botropolis = prebuilt
+		return m.Run()
+	}
 	dir, err := os.MkdirTemp("", "botropolis-acceptance")
 	if err != nil {
 		panic(err)

@@ -47,6 +47,7 @@ import (
 // every session, so the whole load after a prompt is held to 50 ms at
 // 2,000 sessions too.
 func TestGroupingCostPerPrompt(t *testing.T) {
+	performanceTier(t)
 	const limit = 50 * time.Millisecond
 	uncountable := measure.Available()
 	if uncountable == nil {
@@ -139,6 +140,7 @@ func TestGroupingCostPerPrompt(t *testing.T) {
 // session working and a prompt every 5 s, judged on the quieter of two
 // windows as item 196's test is.
 func TestDaemonWithTwoThousandSessions(t *testing.T) {
+	performanceTier(t)
 	const (
 		sessions     = 2000
 		stream       = 30 * time.Second

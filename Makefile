@@ -171,9 +171,32 @@ test-integration ::
 	$(LOG) "Running integration tests"
 	@go test -timeout ${TEST_TIMEOUT} ./testing/helpers/... ./testing/integration/...
 
+# Item 226: test-acceptance runs each acceptance test in a process of its
+# own, so each has the isolated home TestMain gives a run, ACCEPTANCE_PARALLEL
+# at a time: by default half the cores and at most six, since fourteen at once
+# is what took the load to 178 (item 186). The binary is built once and named
+# to every process. The tests that measure CPU or memory call
+# performanceTier(t) and run only in test-performance, on a quiet machine:
+# the performance manager runs it on demand and before each release, and the
+# release workflow runs it before the tag.
+ACCEPTANCE_PARALLEL ?=
+ACCEPTANCE_BINARY := .cache/acceptance/botropolis
+
 test-acceptance ::
 	$(LOG) "Running acceptance tests"
-	@go test -timeout ${ACCEPTANCE_TIMEOUT} ./testing/acceptance/...
+	@${MAKE} --no-print-directory test-acceptance-run RUN=
+
+# The performance tier holds the landing lock, so no landing's gate runs
+# beside what it measures.
+test-performance ::
+	$(LOG) "Running the acceptance tests that measure CPU and memory"
+	@command -v flock >/dev/null || { echo "make test-performance needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
+	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
+	@flock ${LAND_LOCK} ${MAKE} --no-print-directory test-performance-run
+
+test-performance-run ::
+	@pattern=$$(go run ./tools/acceptance-targets tier performance) && \
+		BOTROPOLIS_PERFORMANCE=1 go test -count=1 -v -timeout ${ACCEPTANCE_TIMEOUT} -run "$$pattern" ./testing/acceptance/
 
 # Item 128: 40 city starts while the input devices are busy and the main
 # thread is signalled, each of which must exit 0, and item 230: 40 building
@@ -254,7 +277,8 @@ test-acceptance-locked ::
 	@flock ${LAND_LOCK} ${MAKE} --no-print-directory ${LOCKED_GATE} RUN='${RUN}'
 
 test-acceptance-run ::
-	@go test -count=1 -v -timeout ${ACCEPTANCE_TIMEOUT} -run '${RUN}' ./testing/acceptance/
+	@go build -tags devtools -o ${ACCEPTANCE_BINARY} ./cmd/botropolis
+	@BOTROPOLIS_ACCEPTANCE_BINARY=${CURDIR}/${ACCEPTANCE_BINARY} go run ./tools/acceptance-targets run -timeout ${ACCEPTANCE_TIMEOUT} -run '${RUN}' $(if ${ACCEPTANCE_PARALLEL},-p ${ACCEPTANCE_PARALLEL})
 
 land-under-lock ::
 	$(LOG) "Landing on ${LAND_REMOTE}/${LAND_BRANCH}, holding ${LAND_LOCK}"

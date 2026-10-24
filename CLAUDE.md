@@ -32,7 +32,8 @@ Verified by removing the Makefile dependency and orphaning a file at the same ti
 A comment would not have been enough, and this repo is the proof: `tools/shrink-pngs` sat in the Makefile for fourteen revisions while the path that actually ran bypassed it, at 6.6 MB of binary, with the Makefile entry right there the whole time.
 
 The same sentence caught that second caller too: **a cached test is a test that did not run.**
-Go keys the test cache on files the test binary itself opens, and `check-docs` reads the documentation in a subprocess, which the cache cannot see — so with an orphaned file present the test reported `ok (cached)` while the script failed on the same tree, and `make test-acceptance` passes no `-count=1`.
+Go keys the test cache on files the test binary itself opens, and `check-docs` reads the documentation in a subprocess, which the cache cannot see — so with an orphaned file present the test reported `ok (cached)` while the script failed on the same tree, and `make test-acceptance` then passed no `-count=1`.
+It now runs the built test binary once per test (item 226), which never caches, but a plain `go test ./testing/acceptance/` still does.
 `docs_test.go` now opens every file the script inspects, which puts them in the key: identical runs still cache, and any documentation change re-runs it.
 
 **And `DESIGN.md`'s index is load-bearing as a guard, not only as navigation.**

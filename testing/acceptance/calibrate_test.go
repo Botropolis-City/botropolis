@@ -23,6 +23,7 @@ import (
 // daemon's load of 2,000 small sessions, on one thread pinned to the
 // first core of each kind, instructions retired over thread CPU.
 func TestCalibrateCoreRate(t *testing.T) {
+	performanceTier(t)
 	if os.Getenv("BOTROPOLIS_CALIBRATE") == "" {
 		t.Skip("run by tools/calibrate-core-rate")
 	}
