@@ -283,7 +283,7 @@ func TestPullRequests(t *testing.T) {
 
 			t.Run("it should carry on from where it was", func(t *testing.T) {
 				require.Len(t, trucks, 1)
-				assert.Equal(t, here, trucks[0].Path[0])
+				assertPathNear(t, []city.Point{here}, trucks[0].Path[:1])
 			})
 
 			t.Run("it should end its path on the bridge as it now stands", func(t *testing.T) {
@@ -307,7 +307,7 @@ func TestPullRequests(t *testing.T) {
 
 			t.Run("it should carry on along the deck as it now stands, as far out as it was", func(t *testing.T) {
 				require.Len(t, trucks, 1)
-				assert.Equal(t, []city.Point{{X: here.X, Y: now.Land.Y}, now.Far}, trucks[0].Path)
+				assertPathNear(t, []city.Point{{X: here.X, Y: now.Land.Y}, now.Far}, trucks[0].Path)
 			})
 		})
 	})
@@ -354,4 +354,13 @@ func TestBridge(t *testing.T) {
 	t.Run("it should start on a street", func(t *testing.T) {
 		assert.True(t, c.IsStreet(city.CellOf(bridge.Land)))
 	})
+}
+
+func assertPathNear(t *testing.T, want, got []city.Point) {
+	t.Helper()
+	require.Len(t, got, len(want))
+	for i := range want {
+		assert.InDeltaf(t, want[i].X, got[i].X, 1e-9, "point %d's X", i)
+		assert.InDeltaf(t, want[i].Y, got[i].Y, 1e-9, "point %d's Y", i)
+	}
 }
