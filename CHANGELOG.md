@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The power breakdown's model mix drops the date too.
 - **The strip's MCP chip says it counts calls**, as "6 mcp calls", so it no longer reads as six servers beside a map of two radio towers.
 - **The help lists `f` and `0` on one row**, "f or 0: Skyline, the whole city", since both do the same thing.
+- **Zoomed out, buildings and vehicles are drawn sharper.**
+  Below half size they are drawn from their full-size pictures rather than smaller, softened copies, so rooftop details and trim stay crisp, and the night's lit windows still end exactly at each building's edge.
 
 - **The bridge runs off into the haze.**
   The deck no longer stops in open water: it runs on a few cells past where it ended and fades into the sea, and a delivery truck fades with it and is gone at the far end.
