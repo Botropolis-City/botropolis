@@ -790,6 +790,7 @@ func (s *Scene) apply(snapshot state.Snapshot) {
 	s.noteHauls(s.now())
 	s.finishBuilds(s.now())
 	s.noteDrones(s.now())
+	s.rerouteDeliveries(s.now())
 	s.notePRs(s.now())
 	s.noteMessages(s.now())
 	s.holdDepot()

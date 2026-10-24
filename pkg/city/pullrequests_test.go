@@ -2,6 +2,8 @@ package city_test
 
 import (
 	"fmt"
+	"math"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -213,6 +215,99 @@ func TestPullRequests(t *testing.T) {
 				trucks := sc.s.Deliveries()
 				require.Len(t, trucks, 1)
 				assert.True(t, trucks[0].Fades)
+			})
+		})
+	})
+
+	// Item 217: from the landing out, a truck drives the deck as it is
+	// drawn now, whatever the city did since the merge.
+	offDeck := func(path []city.Point, b city.Bridge) []city.Point {
+		var off []city.Point
+		out := math.Copysign(1, b.Far.X-b.Land.X)
+		for _, p := range path {
+			if (p.X-b.Land.X)*out > 0 && math.Abs(p.Y-b.Land.Y) > city.CellSize/2 {
+				off = append(off, p)
+			}
+		}
+		return off
+	}
+
+	for _, root := range []string{cinders, mullet, botropolis} {
+		t.Run("when a PR merges in the district "+filepath.Base(root), func(t *testing.T) {
+			others := []state.Session{with("x", cinders, ""), with("y", mullet, ""), with("z", botropolis, "")}
+			sc := open(t, city.Lively,
+				append([]state.Session{with("a", root, "", pr(1, claude.PROpen))}, others...),
+				append([]state.Session{with("a", root, "", pr(1, claude.PRMerged))}, others...))
+			trucks := sc.s.Deliveries()
+
+			t.Run("it should keep every point of the truck's path from the landing on within the deck's width", func(t *testing.T) {
+				require.Len(t, trucks, 1)
+				assert.Empty(t, offDeck(trucks[0].Path, sc.s.City().Bridge()))
+			})
+		})
+	}
+
+	t.Run("when the island grows a row while a truck is on its way, so the bridge moves", func(t *testing.T) {
+		with4 := func(n int, prs ...claude.PR) []state.Session {
+			out := []state.Session{with("a", mullet, "", prs...)}
+			for i := 0; i < n; i++ {
+				out = append(out, with(fmt.Sprintf("c%d", i), cinders, ""))
+			}
+			return out
+		}
+		grow := func(t *testing.T, until func(sc scene, at city.Point, b city.Bridge) bool) (scene, city.Point, city.Bridge) {
+			t.Helper()
+			sc := open(t, city.Lively, with4(3, pr(1, claude.PROpen)), with4(3, pr(1, claude.PRMerged)))
+			was := sc.s.City().Bridge()
+			var here city.Point
+			for d := time.Duration(0); ; d += 50 * time.Millisecond {
+				at(sc, d)
+				trucks := sc.s.Deliveries()
+				require.Len(t, trucks, 1)
+				here = trucks[0].At(start.Add(d))
+				if until(sc, here, was) {
+					break
+				}
+			}
+			sc.s.SetSnapshot(snapshot(with4(4, pr(1, claude.PRMerged))...))
+			require.NotEqual(t, was.Land, sc.s.City().Bridge().Land, "the fixture should move the bridge")
+			return sc, here, was
+		}
+
+		t.Run("and the truck has not reached the landing", func(t *testing.T) {
+			sc, here, _ := grow(t, func(_ scene, p city.Point, b city.Bridge) bool {
+				return p.Y <= b.Land.Y-2*city.CellSize && p.X <= b.Land.X+2*city.CellSize
+			})
+			trucks := sc.s.Deliveries()
+			now := sc.s.City().Bridge()
+
+			t.Run("it should carry on from where it was", func(t *testing.T) {
+				require.Len(t, trucks, 1)
+				assert.Equal(t, here, trucks[0].Path[0])
+			})
+
+			t.Run("it should end its path on the bridge as it now stands", func(t *testing.T) {
+				require.Len(t, trucks, 1)
+				path := trucks[0].Path
+				assert.Equal(t, []city.Point{now.Land, now.Far}, path[len(path)-2:])
+			})
+
+			t.Run("it should keep every point of its path from the landing on within the deck's width", func(t *testing.T) {
+				require.Len(t, trucks, 1)
+				assert.Empty(t, offDeck(trucks[0].Path, now))
+			})
+		})
+
+		t.Run("and the truck is already on the deck", func(t *testing.T) {
+			sc, here, _ := grow(t, func(_ scene, p city.Point, b city.Bridge) bool {
+				return p.Y == b.Land.Y && math.Abs(p.X-b.Land.X) > 2*city.CellSize
+			})
+			trucks := sc.s.Deliveries()
+			now := sc.s.City().Bridge()
+
+			t.Run("it should carry on along the deck as it now stands, as far out as it was", func(t *testing.T) {
+				require.Len(t, trucks, 1)
+				assert.Equal(t, []city.Point{{X: here.X, Y: now.Land.Y}, now.Far}, trucks[0].Path)
 			})
 		})
 	})

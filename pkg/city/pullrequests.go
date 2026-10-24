@@ -164,6 +164,63 @@ func (c *City) toBridge(b *Building) []Point {
 	return append(path, bridge.Land, bridge.Far)
 }
 
+// rerouteDeliveries sends every truck on its way by the bridge as it now
+// stands. A truck's path is laid at the merge, and the bridge stands on
+// the middlemost street at the coast, so a city that grows a row while
+// the truck drives moves the bridge out from under it. Item 217.
+func (s *Scene) rerouteDeliveries(now time.Time) {
+	bridge := s.city.Bridge()
+	if bridge.Land == bridge.Far {
+		return
+	}
+	for i, d := range s.deliveries {
+		n := len(d.Path)
+		if d.Fades || n < 2 || (d.Path[n-2] == bridge.Land && d.Path[n-1] == bridge.Far) {
+			continue
+		}
+		s.deliveries[i].Path = s.city.reroute(d.Path, d.Progress(now), bridge)
+		s.deliveries[i].Since = now
+	}
+}
+
+// reroute is the rest of a truck's way from p of the way along path,
+// whose last two points are the bridge it was laid for: along the deck
+// as far out as it was, or on to the first avenue ahead and from there
+// by the avenues to the landing.
+func (c *City) reroute(path []Point, p float64, bridge Bridge) []Point {
+	was := Bridge{Land: path[len(path)-2], Far: path[len(path)-1]}
+	here := alongPath(path, p)
+	if out := (here.X - was.Land.X) * math.Copysign(1, was.Far.X-was.Land.X); out > 0 && math.Abs(here.Y-was.Land.Y) <= CellSize/2 {
+		dir := math.Copysign(1, bridge.Far.X-bridge.Land.X)
+		return []Point{{X: bridge.Land.X + dir*out, Y: bridge.Land.Y}, bridge.Far}
+	}
+	land, _ := c.bridgeCell()
+	route := []Point{here}
+	for _, pt := range ahead(path[:len(path)-2], p*pathLength(path)) {
+		if !c.IsStreet(CellOf(pt)) {
+			route = append(route, pt)
+			continue
+		}
+		for _, cell := range c.walkStreets(map[Cell]bool{CellOf(pt): true}, map[Cell]bool{land: true}) {
+			route = append(route, cell.Center())
+		}
+		break
+	}
+	return append(route, bridge.Land, bridge.Far)
+}
+
+// ahead is every point of path further along than dist.
+func ahead(path []Point, dist float64) []Point {
+	walked := 0.0
+	for i := 1; i < len(path); i++ {
+		walked += math.Hypot(path[i].X-path[i-1].X, path[i].Y-path[i-1].Y)
+		if walked > dist {
+			return path[i:]
+		}
+	}
+	return nil
+}
+
 // InspectorRun is how far the inspector's car drives in along +x to
 // park.
 const InspectorRun = 3 * Tile
