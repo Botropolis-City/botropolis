@@ -357,10 +357,11 @@ func orderCutsBy[T any](cuts []T, op func(*T) *lightOp) {
 	})
 }
 
-// punchSize is how much a punch's geo scales its sprite's area, which
-// picks the mipmap Ebitengine draws it from, each a texture of its own:
-// a page's punches are laid largest first, so each mipmap is one draw.
-// Any other cut is drawn without mipmaps, and has none.
+// punchSize is how much a punch's geo scales its sprite's area. A
+// page's punches are laid largest first, so that each mipmap Ebitengine
+// drew them from was one draw; since item 236 punches are drawn without
+// mipmaps, like every other cut, and the order no longer splits them,
+// but nothing pins it, so it stays until something does.
 func punchSize(op lightOp) float64 {
 	if !op.punch {
 		return 0

@@ -417,6 +417,22 @@ func TestNoDrawSamplesAMipmap(t *testing.T) {
 				}
 			}
 			require.NotEmpty(t, l.cmds, "nothing was recorded")
+			var punches, mipmappedPunches int
+			for _, op := range g.lightOps {
+				if op.punch {
+					punches++
+					if !punchOptions(op).DisableMipmaps {
+						mipmappedPunches++
+					}
+				}
+			}
+			if c.name == "the metropolis by night" {
+				require.NotZero(t, punches, "no sprite was cut out of the lights")
+			}
+
+			t.Run("it should cut every sprite's silhouette out of the lights with its mipmaps disabled", func(t *testing.T) {
+				assert.Zero(t, mipmappedPunches, "of %d cut-outs", punches)
+			})
 
 			t.Run("it should record every kit sprite draw with its mipmaps disabled", func(t *testing.T) {
 				assert.Zero(t, mipmapped, "of %d kit sprite draws", sprites)

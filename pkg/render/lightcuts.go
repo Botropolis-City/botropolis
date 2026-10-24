@@ -148,10 +148,17 @@ func (g *Game) cutWords(words string, face text.Face, geo ebiten.GeoM, alpha flo
 	g.cuts++
 }
 
+// punchOptions is how a sprite's silhouette is cut out of the lights:
+// sampled as the sprite is, without mipmaps (item 236), so the cut
+// matches the sprite's edge.
+func punchOptions(op lightOp) *ebiten.DrawImageOptions {
+	return &ebiten.DrawImageOptions{GeoM: op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear, DisableMipmaps: true}
+}
+
 // layCut cuts one op's sprite or shapes out of the lights.
 func (g *Game) layCut(dst *ebiten.Image, op lightOp) {
 	if op.punch {
-		dst.DrawImage(op.src, &ebiten.DrawImageOptions{GeoM: op.geo, Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+		dst.DrawImage(op.src, punchOptions(op))
 		return
 	}
 	switch op.cut {

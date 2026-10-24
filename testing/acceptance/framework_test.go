@@ -61,8 +61,9 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// set them to 24 and 41, as item 236 measured it: a vehicle's new
 		// place in the depth sort splits one batch by day and one by night.
 		// Item 236 then drew sprites without mipmaps (Aria, 2026-10-24),
-		// and they are 21 and 38.
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 21, 22: 38}, "item 236", nil, nil},
+		// and cut their silhouettes out of the lights the same way, and
+		// they are 21 and 37.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 21, 22: 37}, "item 236", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
@@ -91,7 +92,7 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 			// settled frames, and where one stood once decided which
 			// mipmap level a redrawn rectangle pulled in, so the count
 			// moved from frame to frame. With mipmaps off it still moves
-			// by one, 20 to 21 by day and 37 to 38 by night, for a
+			// by one, 20 to 21 by day and 36 to 37 by night, for a
 			// cause not yet found; the goal is none, and item 236 stays
 			// open on it.
 			const wobble = 1
