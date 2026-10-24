@@ -21,9 +21,15 @@ import (
 // of its own, as item 191 measured (within 3).
 const lookTolerance = 3
 
+// lookCellSize is the side of the frame the check draws each look on:
+// big enough to hold the tallest tower's look box at the closest zoom,
+// since a look is baked exactly only where it lies wholly on the frame
+// (item 233).
+const lookCellSize = 1024
+
 // lookFoot is where the check stands each building: off the pixel grid,
 // so the bake has a sub-pixel phase to keep.
-var lookFoot = city.Point{X: sheetCellSize/2 + 0.3, Y: sheetCellSize - 120.7}
+var lookFoot = city.Point{X: lookCellSize/2 + 0.3, Y: lookCellSize/2 + 135.3}
 
 // checkLook is one way a building can look, and how it changes after it
 // was baked, for the check that the cache serves the new look.
@@ -152,7 +158,7 @@ func (g *Game) checkLook(zoom float64, heading int, look checkLook) []string {
 // Each frame draws twice, directly and through the cache, so only the
 // second counts as the cache's frame.
 func (g *Game) lookFrameOf(cam *city.Camera, b *city.Building, selected bool) *image.NRGBA {
-	img := ebiten.NewImageWithOptions(image.Rect(0, 0, sheetCellSize, sheetCellSize), &ebiten.NewImageOptions{Unmanaged: true})
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, lookCellSize, lookCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
 	img.Fill(colorVoid)
 	if !g.noLookCache {

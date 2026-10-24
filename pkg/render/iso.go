@@ -439,16 +439,7 @@ const (
 // for either. Nothing under seven pixels — the hover plate has the
 // name then, as it does for a tower.
 func (g *Game) buildingSign(screen *ebiten.Image, r city.Rect, foot city.Point, name string) {
-	if r.Area() == 0 || name == "" {
-		return
-	}
-	cell := r.Width()
-	centre := r.Min.X + cell/2
-	fascia := city.RectAt(foot.X-cell*fasciaWidth/2, foot.Y-cell*(fasciaAbove+fasciaHeight), cell*fasciaWidth, cell*fasciaHeight)
-	flankTop := r.Min.Y + cell*flankHead
-	flank := city.RectAt(r.Min.X+cell*flankInset-cell*flankWidth/2, flankTop, cell*flankWidth, math.Max(0, foot.Y-cell*flankFoot-flankTop))
-	board := city.RectAt(centre-cell*boardWidth/2, r.Min.Y-cell*boardHeight, cell*boardWidth, cell*boardHeight)
-	sign, ok := ui.LayoutBuildingSign(name, fascia, flank, board, g.faces.Measure)
+	sign, ok := g.buildingSignLayout(r, foot, name)
 	if !ok {
 		return
 	}
@@ -468,6 +459,22 @@ func (g *Game) buildingSign(screen *ebiten.Image, r city.Rect, foot city.Point, 
 	for _, line := range sign.Lines {
 		g.sign(screen, line, ink)
 	}
+}
+
+// buildingSignLayout is where a session's title goes on its building, or
+// false when it goes nowhere: no building, no title, or nowhere it would
+// stand ui.MinSignPx tall.
+func (g *Game) buildingSignLayout(r city.Rect, foot city.Point, name string) (ui.BuildingSign, bool) {
+	if r.Area() == 0 || name == "" {
+		return ui.BuildingSign{}, false
+	}
+	cell := r.Width()
+	centre := r.Min.X + cell/2
+	fascia := city.RectAt(foot.X-cell*fasciaWidth/2, foot.Y-cell*(fasciaAbove+fasciaHeight), cell*fasciaWidth, cell*fasciaHeight)
+	flankTop := r.Min.Y + cell*flankHead
+	flank := city.RectAt(r.Min.X+cell*flankInset-cell*flankWidth/2, flankTop, cell*flankWidth, math.Max(0, foot.Y-cell*flankFoot-flankTop))
+	board := city.RectAt(centre-cell*boardWidth/2, r.Min.Y-cell*boardHeight, cell*boardWidth, cell*boardHeight)
+	return ui.LayoutBuildingSign(name, fascia, flank, board, g.faces.Measure)
 }
 
 // droneHover is how far above the roofline a subagent's drone flies, in
@@ -578,6 +585,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	// which records what it would draw, and the standing city is put on
 	// the frame from that once the depth sort has run (item 193).
 	real := screen
+	g.frameBounds = real.Bounds()
 	defer g.logStill()
 	if g.noStill {
 		g.blitBase(screen, under)

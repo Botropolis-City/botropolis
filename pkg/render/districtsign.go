@@ -13,9 +13,7 @@ import (
 // to read, and the floating plate carries the name instead.
 func (g *Game) districtSign(screen *ebiten.Image, cam *city.Camera, d *city.District) bool {
 	sign := d.Sign()
-	foot := cam.WorldToScreen(sign.At)
-	board := ui.DistrictSignBoard(sign.Name, sign.Move, foot, cam.Zoom, g.faces.Measure)
-	laid, ok := ui.LayoutDistrictSign(sign.Name, sign.Move, board, g.faces.Measure)
+	foot, board, laid, ok := g.districtSignLayout(cam, d)
 	if !ok {
 		return false
 	}
@@ -28,4 +26,15 @@ func (g *Game) districtSign(screen *ebiten.Image, cam *city.Camera, d *city.Dist
 	g.sign(screen, laid.Name, colorKitFloor)
 	g.sign(screen, laid.Move, th.Color(ui.MoveTone(sign.Tone)))
 	return true
+}
+
+// districtSignLayout is where a district's sign stands, its board, and
+// its words on the board, or false when they would not stand
+// ui.MinSignPx tall.
+func (g *Game) districtSignLayout(cam *city.Camera, d *city.District) (city.Point, city.Rect, ui.DistrictSign, bool) {
+	sign := d.Sign()
+	foot := cam.WorldToScreen(sign.At)
+	board := ui.DistrictSignBoard(sign.Name, sign.Move, foot, cam.Zoom, g.faces.Measure)
+	laid, ok := ui.LayoutDistrictSign(sign.Name, sign.Move, board, g.faces.Measure)
+	return foot, board, laid, ok
 }

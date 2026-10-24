@@ -60,9 +60,12 @@ func sheetCommand() *cobra.Command {
 					return nil
 				}
 				if check {
-					problems, err := render.CheckLights(zoom)
+					problems, notes, err := render.CheckLights(zoom)
 					if err != nil {
 						return err
+					}
+					for _, n := range notes {
+						fmt.Fprintln(cmd.OutOrStdout(), "not checked:", n)
 					}
 					for _, p := range problems {
 						fmt.Fprintln(cmd.ErrOrStderr(), p)

@@ -9,6 +9,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // inFront is something the map draws in front of a lit tower, by the
@@ -24,6 +25,18 @@ type inFront struct {
 	// half is whether it is half transparent, and should leave half the
 	// light behind it rather than none.
 	half bool
+	// placed is, for a thing that stands only where its words are
+	// legible, whether the layout the drawing code uses places it in
+	// front of the tower at this zoom (item 233).
+	placed func(g *Game, cam *city.Camera, r city.Rect, foot city.Point) bool
+}
+
+// paintedTitle is the title painted on the tower in front of its lights.
+const paintedTitle = "orchard works and the long lane"
+
+// frontDistrict is the district whose sign stands in front of the tower.
+func frontDistrict(cam *city.Camera, foot city.Point, zoom float64) *city.District {
+	return signedDistrict(cam, city.Point{X: foot.X + 14*zoom, Y: foot.Y + 6*zoom})
 }
 
 // inFronts is every kind of thing the map draws in front of a lit
@@ -33,10 +46,16 @@ func inFronts(zoom float64) []inFront {
 	half := color.NRGBA{R: 30, G: 30, B: 40, A: 128}
 	return []inFront{
 		{name: "a district sign", sorted: func(g *Game, img *ebiten.Image, cam *city.Camera, r city.Rect, foot city.Point) {
-			g.districtSign(img, cam, signedDistrict(cam, city.Point{X: foot.X + 14*zoom, Y: foot.Y + 6*zoom}))
+			g.districtSign(img, cam, frontDistrict(cam, foot, zoom))
+		}, placed: func(g *Game, cam *city.Camera, r city.Rect, foot city.Point) bool {
+			_, _, _, ok := g.districtSignLayout(cam, frontDistrict(cam, foot, zoom))
+			return ok
 		}},
 		{name: "its own painted sign", sorted: func(g *Game, img *ebiten.Image, cam *city.Camera, r city.Rect, foot city.Point) {
-			g.buildingSign(img, r, foot, "orchard works and the long lane")
+			g.buildingSign(img, r, foot, paintedTitle)
+		}, placed: func(g *Game, cam *city.Camera, r city.Rect, foot city.Point) bool {
+			_, ok := g.buildingSignLayout(r, foot, paintedTitle)
+			return ok
 		}},
 		{name: "painted shapes: a fill, a line and a disc", sorted: func(g *Game, img *ebiten.Image, cam *city.Camera, r city.Rect, foot city.Point) {
 			mid := r.Center()
@@ -85,6 +104,16 @@ const (
 func (g *Game) checkInFront(zoom float64) []string {
 	var problems []string
 	for _, f := range inFronts(zoom) {
+		if !g.placedInFront(zoom, &f) {
+			// Its own layout leaves it off below ui.MinSignPx; left off
+			// even at the closest zoom, it would never be drawn.
+			if zoom >= city.MaxZoom {
+				problems = append(problems, fmt.Sprintf("a lit tower behind %s: its layout leaves it off even at zoom %g, the closest", f.name, zoom))
+			} else {
+				g.checkNotes = append(g.checkNotes, fmt.Sprintf("%s is not drawn at zoom %g: its layout leaves it off below %g px", f.name, zoom, ui.MinSignPx))
+			}
+			continue
+		}
 		on, off := g.frontScene(zoom, true, &f), g.frontScene(zoom, false, &f)
 		bare, bareOff := g.frontScene(zoom, true, nil), g.frontScene(zoom, false, nil)
 		cover := g.frontAlone(zoom, &f)
@@ -105,7 +134,16 @@ func (g *Game) checkInFront(zoom float64) []string {
 				if brighter(bare.NRGBAAt(x, y), bareOff.NRGBAAt(x, y)) < readable {
 					continue
 				}
+				// A thing in the depth sort has the lights cut by it, and
+				// is measured against them as cut; one laid over the
+				// frame covers the light whole, so its share is of the
+				// light itself. Against the cut lights, a pale label
+				// left a denominator of a few levels, and a level of
+				// rounding read as half the light (item 233).
 				full := brighter(bare.NRGBAAt(x, y), off.NRGBAAt(x, y))
+				if f.over != nil {
+					full = brighter(bare.NRGBAAt(x, y), bareOff.NRGBAAt(x, y))
+				}
 				if full <= 0 {
 					continue
 				}
@@ -203,4 +241,31 @@ func readSheet(img *ebiten.Image) *image.NRGBA {
 	out := image.NewNRGBA(img.Bounds())
 	img.ReadPixels(out.Pix)
 	return out
+}
+
+// unplacedInFront names each thing that stands in front of the tower
+// only where its words are legible, and that its layout leaves off at
+// this zoom.
+func (g *Game) unplacedInFront(zoom float64) []string {
+	var out []string
+	for _, f := range inFronts(zoom) {
+		if !g.placedInFront(zoom, &f) {
+			out = append(out, f.name)
+		}
+	}
+	return out
+}
+
+// placedInFront is whether a thing's layout puts it in front of the
+// tower at this zoom.
+func (g *Game) placedInFront(zoom float64, f *inFront) bool {
+	if f.placed == nil {
+		return true
+	}
+	b, cam := sheetTower(zoom, true)
+	frame, ok := g.buildingFrame(cam, b, false, true, 0)
+	if !ok {
+		return false
+	}
+	return f.placed(g, cam, g.spriteRect(cam, &frame), g.footOf(cam, b))
 }

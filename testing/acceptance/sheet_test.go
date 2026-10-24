@@ -3,13 +3,26 @@ package acceptance_test
 import (
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/testing/helpers"
 )
+
+// wheelZooms is every zoom a wheel step lands on, as the flag takes it:
+// from the ladder itself, so a step added to it is checked too, drawn
+// up or not (item 233).
+func wheelZooms() []string {
+	var out []string
+	for _, z := range city.ZoomSteps {
+		out = append(out, strconv.FormatFloat(z, 'g', -1, 64))
+	}
+	return out
+}
 
 // Item 166: at night a building's lit windows are its own window panes,
 // lit, and not round halos over them. Every kind at every tier, and its
@@ -23,7 +36,7 @@ func TestBuildingSheetLights(t *testing.T) {
 	out, err := build.CombinedOutput()
 	require.NoError(t, err, "%s", out)
 
-	for _, zoom := range []string{"1", "2"} {
+	for _, zoom := range wheelZooms() {
 		t.Run("when the sheet's buildings are lit at night at zoom "+zoom, func(t *testing.T) {
 			out, err := exec.Command(demo, "sheet", "--check-lights", "--zoom", zoom).CombinedOutput()
 
@@ -45,7 +58,7 @@ func TestBuildingLooksCached(t *testing.T) {
 	out, err := build.CombinedOutput()
 	require.NoError(t, err, "%s", out)
 
-	for _, zoom := range []string{"1", "2"} {
+	for _, zoom := range wheelZooms() {
 		t.Run("when each look is drawn through the cache at zoom "+zoom, func(t *testing.T) {
 			out, err := exec.Command(demo, "sheet", "--check-looks", "--zoom", zoom).CombinedOutput()
 

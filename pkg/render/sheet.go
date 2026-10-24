@@ -204,10 +204,11 @@ const litMargin = 1
 // CheckLights draws every building the sheet does, at night, with its
 // lights on and off, and reports each one whose lights changed a pixel
 // further than litMargin from its panes, or that lit at all when it is
-// boarded up or ruins. Item 166.
-func CheckLights(zoom float64) ([]string, error) {
-	var problems []string
-	err := runSheet(func(g *Game) error {
+// boarded up or ruins. Item 166. Its notes are what it could not check
+// at this zoom, and why (item 233).
+func CheckLights(zoom float64) (problems, notes []string, err error) {
+	err = runSheet(func(g *Game) error {
+		defer func() { notes = g.checkNotes }()
 		for _, k := range sheetKinds {
 			for tier := 0; tier <= state.MaxStoreys; tier++ {
 				for _, boarded := range []bool{false, true} {
@@ -248,7 +249,7 @@ func CheckLights(zoom float64) ([]string, error) {
 		problems = append(problems, g.checkLandmarks(zoom)...)
 		return nil
 	})
-	return problems, err
+	return problems, notes, err
 }
 
 // checkOcclusion draws a lit tower with a dark building standing in

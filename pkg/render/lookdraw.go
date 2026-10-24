@@ -25,6 +25,10 @@ type bakedLook struct {
 	paged bool
 	// onPage is which look page it is part of, when it is paged.
 	onPage int
+	// inexact is whether it was baked with its box off the frame, with
+	// the camera moved rather than at the frame's own coordinates, so a
+	// tie may have gone the other way in it (item 233).
+	inexact bool
 }
 
 func (l *bakedLook) Deallocate() {
@@ -475,6 +479,16 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	cell := lookCell(g.footOf(cam, f.b))
 	look, ok := g.looks.get(key)
 	switch {
+	case ok && look.inexact && g.wholeOnFrame(cam, f, screen):
+		// Baked while it ran off the frame, it is baked again, exactly,
+		// the first time it is drawn wholly on it.
+		if exact := g.bake(cam, f, r, cell, g.bakeFrame(screen)); exact != nil {
+			look = exact
+			g.lookStats.bakes++
+			g.looks.put(key, look, look.img.Bounds().Dx()*look.img.Bounds().Dy()*4)
+			break
+		}
+		g.lookStats.hits++
 	case ok:
 		g.lookStats.hits++
 		if look.paged {
@@ -486,7 +500,7 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 			}
 		}
 	case g.looks.steady(runID{id: f.b.Session.ID, run: r.from}, key, g.lookFrame):
-		look = g.bake(cam, f, r, cell)
+		look = g.bake(cam, f, r, cell, g.bakeFrame(screen))
 		if look == nil {
 			g.lookStats.misses++
 			g.drawSteps(screen, cam, f, r.from, r.to)
@@ -507,21 +521,26 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	g.punch(look.img, look.page, op.GeoM)
 }
 
-// bake draws a run of a building's steps into an image of its own, with
-// the camera moved by whole pixels so the building lands inside it, and
-// the frame's notes of what was drawn left as they were.
-func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point) *bakedLook {
-	box := g.lookBounds(cam, f)
-	lo := image.Point{X: int(math.Floor(box.Min.X)) - lookPad, Y: int(math.Floor(box.Min.Y)) - lookPad}
-	hi := image.Point{X: int(math.Ceil(box.Max.X)) + lookPad, Y: int(math.Ceil(box.Max.Y)) + lookPad}
-	size := hi.Sub(lo)
-	if size.X <= 0 || size.Y <= 0 {
+// bake draws a run of a building's steps where the building stands on
+// the frame, with the frame's own camera, into the scratch a pan shifts
+// layers through, and copies it from there onto a look page by whole
+// pixels, the frame's notes of what was drawn left as they were. Baked
+// with the camera moved instead, every screen value carried float noise
+// of its own, and whatever sat exactly on a tie came out the other way
+// in the look (item 233). A texture has no pixels left of or above its
+// corner, so a look whose box runs off the frame is baked as it was
+// before, with the camera moved by whole pixels into an image of the
+// look's own, and marked inexact until it is baked again on the frame.
+func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point, frame image.Rectangle) *bakedLook {
+	region, onFrame := bakeRegion(g.lookBounds(cam, f), frame)
+	if region.Empty() {
 		return nil
 	}
+	size := region.Size()
 	// On a page of looks when it fits one, so Ebitengine never moves
 	// it (item 193); bigger than a page, in an image of its own; and
 	// with every page full this frame, not baked until one starts again.
-	look := &bakedLook{at: lo.Sub(cell)}
+	look := &bakedLook{at: region.Min.Sub(cell), inexact: !onFrame}
 	at := image.Point{}
 	if g.lookPages == nil {
 		g.lookPages = newLookPageSizes(lookPageSizes...)
@@ -530,15 +549,15 @@ func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point)
 		look.img, look.page, look.paged, at = g.lookPages.image(page).SubImage(room).(*ebiten.Image), g.lookPages.image(page), true, room.Min
 		look.onPage = page
 		g.lookPages.use(page, g.lookFrame)
-		look.img.Clear()
 	} else if g.lookPages.full {
 		return nil
 	} else {
 		look.img = sizedImage(nil, size)
 		look.page = look.img
 	}
-	moved := *cam
-	moved.Offset = cam.Offset.Sub(city.Point{X: float64(lo.X - at.X), Y: float64(lo.Y - at.Y)}.Scale(1 / cam.Zoom))
+	if !onFrame {
+		look.img.Clear()
+	}
 	seen, drawing := g.textSeen, g.drawing
 	g.textSeen = func(s string) {
 		look.words = append(look.words, s)
@@ -548,10 +567,64 @@ func (g *Game) bake(cam *city.Camera, f *buildingFrame, r run, cell image.Point)
 	}
 	uncut := g.paintUncut
 	g.baking, g.paintUncut = true, true
-	g.drawSteps(look.img, &moved, f, r.from, r.to)
+	if onFrame {
+		scratch := g.lookScratch(frame).SubImage(region).(*ebiten.Image)
+		scratch.Clear()
+		g.drawSteps(scratch, cam, f, r.from, r.to)
+		op := &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy}
+		op.GeoM.Translate(float64(at.X), float64(at.Y))
+		look.img.DrawImage(scratch, op)
+	} else {
+		moved := *cam
+		moved.Offset = cam.Offset.Sub(city.Point{X: float64(region.Min.X - at.X), Y: float64(region.Min.Y - at.Y)}.Scale(1 / cam.Zoom))
+		g.drawSteps(look.img, &moved, f, r.from, r.to)
+	}
 	g.baking, g.paintUncut = false, uncut
 	g.textSeen, g.drawing = seen, drawing
 	return look
+}
+
+// wholeOnFrame is whether a building's look box lies wholly on the frame
+// a run is drawn onto, so its look can be baked there.
+func (g *Game) wholeOnFrame(cam *city.Camera, f *buildingFrame, dst *ebiten.Image) bool {
+	_, ok := bakeRegion(g.lookBounds(cam, f), g.bakeFrame(dst))
+	return ok
+}
+
+// bakeRegion is the box on the frame a run's look is baked from: its
+// look box, rounded out to whole pixels and padded, and whether that
+// lies wholly on the frame, as a box drawn at the frame's own
+// coordinates must.
+func bakeRegion(box city.Rect, frame image.Rectangle) (image.Rectangle, bool) {
+	region := image.Rect(
+		int(math.Floor(box.Min.X))-lookPad, int(math.Floor(box.Min.Y))-lookPad,
+		int(math.Ceil(box.Max.X))+lookPad, int(math.Ceil(box.Max.Y))+lookPad,
+	)
+	return region, !region.Empty() && region.In(frame)
+}
+
+// lookScratch is the scratch a pan shifts layers through, at least the
+// frame's size, for a look to be baked in; using it holds it another
+// scratchHold frames. Looks are baked in the dry pass, before any layer
+// is shifted, and what a bake leaves in it is under what the shift
+// copies over it or in the strips the shift exposes, which the frame
+// composes again, so the two share it.
+func (g *Game) lookScratch(frame image.Rectangle) *ebiten.Image {
+	s := &g.still
+	s.unshifted = 0
+	if s.scratch == nil || !frame.In(s.scratch.Bounds()) {
+		s.scratch = sizedImage(s.scratch, frame.Max)
+	}
+	return s.scratch
+}
+
+// bakeFrame is the frame a run drawn onto dst stands on: the frame the
+// dry pass records for, or dst itself.
+func (g *Game) bakeFrame(dst *ebiten.Image) image.Rectangle {
+	if g.rec != nil && dst == g.rec.dry {
+		return g.frameBounds
+	}
+	return dst.Bounds()
 }
 
 // runID is one run of one building, for telling whether its key held.

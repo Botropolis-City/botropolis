@@ -42,6 +42,9 @@ var drawsAllowed = map[string]string{
 	// Not the world: a pixel of each kit page into a 1-pixel sink, so
 	// Ebitengine sends the page and lets its pixels go (item 162).
 	"kits.go:sendPage": "sends a kit page to the GPU",
+	// Not the world: a look baked at the frame's coordinates, copied
+	// onto its page by whole pixels (item 233).
+	"lookdraw.go:bake": "copies a baked look onto its page",
 	// Laying what was recorded: the ground, the standing city, its
 	// lights and the fade.
 	"view.go:blitBase":              "lays the composed ground",

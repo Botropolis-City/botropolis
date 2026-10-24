@@ -298,6 +298,12 @@ type Game struct {
 	rec     *drawList
 	still   stillFrame
 	noStill bool
+	// frameBounds is the frame the dry pass records for, which a look
+	// is baked at the coordinates of (item 233).
+	frameBounds image.Rectangle
+	// checkNotes is what a sheet check left unchecked at its zoom, and
+	// why, for it to say beside its verdict (item 233).
+	checkNotes []string
 	// panels are the overlays baked while they hold (item 161).
 	panels panelBakes
 	// labelLooks keeps each map label baked once it holds, and

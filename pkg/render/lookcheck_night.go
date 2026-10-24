@@ -44,7 +44,7 @@ func (g *Game) nightPair(zoom float64, heading int, frontLit bool) nightPair {
 // front, the wash, then the lights. A frame through the cache is counted
 // as a frame of it.
 func (g *Game) nightFrame(p nightPair, cached, lit bool) *image.NRGBA {
-	img := ebiten.NewImageWithOptions(image.Rect(0, 0, sheetCellSize, sheetCellSize), &ebiten.NewImageOptions{Unmanaged: true})
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, lookCellSize, lookCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
 	img.Fill(colorVoid)
 	g.noLookCache = !cached
@@ -53,10 +53,10 @@ func (g *Game) nightFrame(p nightPair, cached, lit bool) *image.NRGBA {
 	}
 	back := *p.back
 	back.Lit = p.back.Lit && lit
-	g.beginLights(sheetCellSize, sheetCellSize)
+	g.beginLights(lookCellSize, lookCellSize)
 	g.drawBuilding(img, p.cams[0], &back, false, true, 0)
 	g.drawBuilding(img, p.cams[1], p.front, false, true, 0)
-	wash(img, 0, 0, sheetCellSize, sheetCellSize)
+	wash(img, 0, 0, lookCellSize, lookCellSize)
 	g.endLights(img)
 	g.noLookCache = false
 	out := image.NewNRGBA(img.Bounds())
@@ -67,7 +67,7 @@ func (g *Game) nightFrame(p nightPair, cached, lit bool) *image.NRGBA {
 // alone is a building drawn on its own at night, directly, or the night
 // with no building in it.
 func (g *Game) alone(cam *city.Camera, b *city.Building) *image.NRGBA {
-	img := ebiten.NewImageWithOptions(image.Rect(0, 0, sheetCellSize, sheetCellSize), &ebiten.NewImageOptions{Unmanaged: true})
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, lookCellSize, lookCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
 	img.Fill(colorVoid)
 	if b != nil {
@@ -75,7 +75,7 @@ func (g *Game) alone(cam *city.Camera, b *city.Building) *image.NRGBA {
 		g.drawBuilding(img, cam, b, false, true, 0)
 		g.noLookCache = false
 	}
-	wash(img, 0, 0, sheetCellSize, sheetCellSize)
+	wash(img, 0, 0, lookCellSize, lookCellSize)
 	out := image.NewNRGBA(img.Bounds())
 	img.ReadPixels(out.Pix)
 	return out
@@ -88,7 +88,7 @@ func (g *Game) alone(cam *city.Camera, b *city.Building) *image.NRGBA {
 // light behind them, a pixel of edge apart, so the night check does not
 // hold those pixels to the frame drawn straight.
 func (g *Game) afterLights(cam *city.Camera, b *city.Building) *image.NRGBA {
-	img := ebiten.NewImageWithOptions(image.Rect(0, 0, sheetCellSize, sheetCellSize), &ebiten.NewImageOptions{Unmanaged: true})
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, lookCellSize, lookCellSize), &ebiten.NewImageOptions{Unmanaged: true})
 	defer img.Deallocate()
 	out := image.NewNRGBA(img.Bounds())
 	f, ok := g.buildingFrame(cam, b, false, true, 0)

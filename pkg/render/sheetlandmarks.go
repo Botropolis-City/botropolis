@@ -10,6 +10,7 @@ import (
 	"botropolis.city/botropolis/pkg/assets"
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // landmarkCellSize is the picture each landmark is checked in: City Hall
@@ -72,8 +73,13 @@ func (g *Game) checkLandmarks(zoom float64) []string {
 			}
 		}
 	}
-	if names == 0 {
+	// A name is lettered only where its layout finds it legible; left off
+	// at every landmark even at the closest zoom, none is ever painted.
+	switch {
+	case names == 0 && zoom >= city.MaxZoom:
 		problems = append(problems, "no landmark's name was painted, so nothing checked the lights keep off it")
+	case names == 0:
+		g.checkNotes = append(g.checkNotes, fmt.Sprintf("no landmark's name is painted at zoom %g: its layout leaves it off below %g px, so nothing checked the lights keep off it", zoom, ui.MinSignPx))
 	}
 	return append(problems, g.checkLandmarkOcclusion(zoom)...)
 }
