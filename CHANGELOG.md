@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The bridge runs off into the haze.**
   The deck no longer stops in open water: it runs on a few cells past where it ended and fades into the sea, and a delivery truck fades with it and is gone at the far end.
+- **The bridge fades into fog.**
+  A still bank of fog stands where the deck fades, with a thin mist along that coast, so the deck and its trucks vanish into something, by day and by night.
 
 ### Fixed
 

@@ -699,6 +699,10 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 		return func() { g.drawSpan(screen, cam, bridge, p.Cell) }
 	})...)
+	// The fog the deck fades into (item 239).
+	if fog, ok := fogItem(cam, c, func() { g.drawFog(screen, cam, c.Fog(), c.Night) }); ok {
+		items = append(items, fog)
+	}
 	for _, d := range g.scene.Deliveries() {
 		d := d
 		at, _ := deliveryPlace(d, g.scene.Clock(), c.InBlock)

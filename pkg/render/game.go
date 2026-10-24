@@ -491,6 +491,7 @@ type Game struct {
 	weedFade float64
 	// shoreLayer is the island and the sea, painted once per plan.
 	shoreLayer *shoreLayer
+	fogPuff    *ebiten.Image
 	started    time.Time
 	// driven is a city run a tick at a time by Drive; inject is this
 	// tick's input and shown what the last frame drew. Item 91.
