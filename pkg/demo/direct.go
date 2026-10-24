@@ -58,7 +58,7 @@ func NewDirector(corpus Corpus, scenario Scenario, dir string, now time.Time, sp
 		if p.Arrive > 0 {
 			continue
 		}
-		at, err := place(corpus, scenario.Name, i, p, dir, now, spawn)
+		at, err := place(corpus, scenario, i, p, dir, now, spawn)
 		if err != nil {
 			return nil, fmt.Errorf("session %d: %w", i, err)
 		}
@@ -145,7 +145,7 @@ func (d *Director) Apply(e Event, now time.Time) error {
 	p := d.scenario.Sessions[e.Index]
 	switch e.kind {
 	case "arrive":
-		at, err := place(d.corpus, d.scenario.Name, e.Index, p, d.dir, now, d.spawn)
+		at, err := place(d.corpus, d.scenario, e.Index, p, d.dir, now, d.spawn)
 		if err != nil {
 			return err
 		}

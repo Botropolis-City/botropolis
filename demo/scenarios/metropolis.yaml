@@ -3,6 +3,7 @@ description: A heavy user's city in the early evening, a dozen districts, a team
 clock: "18:30"
 mcp: [tracker, weather]
 usage: {session: 71, weekly: 83, models: {Opus: 64}}
+pace: 45s
 sessions:
   - {ref: tidepool/units-from-tracker, state: working, ago: 20s, started: 2h10m, prs: [open], context: 38%}
   - {ref: tidepool/review-loader-and-docs, state: working, ago: 1m, started: 3h25m, context: 66%}

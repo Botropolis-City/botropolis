@@ -22,6 +22,7 @@ func TestScenarioValidate(t *testing.T) {
 		"places no sessions":      {Shots: []Shot{{Name: "a"}}},
 		"has a shot with no name": {Sessions: placed, Shots: []Shot{{}}},
 		"names two shots alike":   {Sessions: placed, Shots: []Shot{{Name: "a"}, {Name: "a"}}},
+		"sets a pace below zero":  {Sessions: placed, Pace: Duration(-time.Second)},
 	} {
 		t.Run("when a scenario "+name, func(t *testing.T) {
 			t.Run("it should refuse it, rather than film an empty city or overwrite a file", func(t *testing.T) {
@@ -55,7 +56,14 @@ sessions:
   - {ref: tidepool/what-is-phase, state: working, ago: 1m, started: 3h}
 groups:
   - [Driftwood ingest, Saltmarsh API]
+pace: 30s
 `), &s))
+
+	t.Run("when a scenario sets pace", func(t *testing.T) {
+		t.Run("it should parse it as a duration", func(t *testing.T) {
+			assert.Equal(t, 30*time.Second, time.Duration(s.Pace))
+		})
+	})
 
 	t.Run("when a placement gives started", func(t *testing.T) {
 		t.Run("it should parse it as a duration", func(t *testing.T) {

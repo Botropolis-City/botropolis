@@ -47,7 +47,7 @@ type stagedTranscript struct {
 	pending   []pendingLine
 }
 
-func place(corpus Corpus, scenario string, i int, p Placement, dir string, now time.Time, spawn Spawner) (placed, error) {
+func place(corpus Corpus, scenario Scenario, i int, p Placement, dir string, now time.Time, spawn Spawner) (placed, error) {
 	end := now.Add(-time.Duration(p.Ago))
 	var begin time.Time
 	if p.Started > 0 {
@@ -64,10 +64,10 @@ func place(corpus Corpus, scenario string, i int, p Placement, dir string, now t
 		if err != nil {
 			return at, err
 		}
-		o := overlay{Placement: p, id: rec.ID, project: rec.Project}
+		o := overlay{Placement: p, id: rec.ID, project: rec.Project, pace: time.Duration(scenario.Pace)}
 		if p.Project != "" {
 			o.project = p.Project
-			o.id = plotID(scenario, i)
+			o.id = plotID(scenario.Name, i)
 			o.replace = [][2]string{
 				{filepath.Join(Root, rec.Project), filepath.Join(Root, p.Project)},
 				{rec.ID, o.id},
@@ -80,7 +80,7 @@ func place(corpus Corpus, scenario string, i int, p Placement, dir string, now t
 		at = placed{id: o.id, project: o.project, transcript: st.path, pending: st.pending}
 		record["sessionId"], record["cwd"], record["startedAt"] = o.id, st.cwd, st.started.UnixMilli()
 	case p.Project != "":
-		at = placed{id: plotID(scenario, i), project: p.Project}
+		at = placed{id: plotID(scenario.Name, i), project: p.Project}
 		if p.Title != "" {
 			record["name"] = p.Title
 		}
@@ -178,7 +178,11 @@ func stageTranscript(rec Recorded, dir string, end, begin time.Time, o overlay) 
 		if begin.After(started) {
 			return stagedTranscript{}, fmt.Errorf("%s: started is sooner than ago plus the recording's %s", rec.Path, end.Sub(started).Round(time.Second))
 		}
-		if moved, err = openAt(moved, begin); err != nil {
+		var opened int
+		if moved, opened, err = openAt(moved, begin); err != nil {
+			return stagedTranscript{}, err
+		}
+		if moved, err = fillHours(moved, opened, o.pace, o.id, cwd); err != nil {
 			return stagedTranscript{}, err
 		}
 		started = begin
@@ -217,7 +221,8 @@ func stageTranscript(rec Recorded, dir string, end, begin time.Time, o overlay) 
 
 // openAt moves a transcript's opening, the lines at its earliest
 // timestamp and any untimed lines among them, back to begin.
-func openAt(lines [][]byte, begin time.Time) ([][]byte, error) {
+// It returns how many lines the opening is.
+func openAt(lines [][]byte, begin time.Time) ([][]byte, int, error) {
 	first := earliest(lines)
 	n := 0
 	for ; n < len(lines); n++ {
@@ -227,9 +232,9 @@ func openAt(lines [][]byte, begin time.Time) ([][]byte, error) {
 	}
 	head, err := Shift(lines[:n], begin.Sub(first))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return append(head, lines[n:]...), nil
+	return append(head, lines[n:]...), n, nil
 }
 
 // overlay is what a placement adds to a recording: a new identity for a
@@ -238,6 +243,9 @@ type overlay struct {
 	Placement
 	id, project string
 	replace     [][2]string
+	// pace is the scenario's: how often its started sessions took a turn
+	// before their recordings (item 240).
+	pace time.Duration
 }
 
 func (o overlay) rewrite(lines [][]byte) [][]byte {

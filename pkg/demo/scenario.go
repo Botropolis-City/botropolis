@@ -26,7 +26,12 @@ type Scenario struct {
 	// Groups are the groups the city is expected to find once the
 	// scenario is staged, each named by its members' titles (item 223).
 	Groups [][]string `yaml:"groups"`
-	Shots  []Shot     `yaml:"shots"`
+	// Pace is how often a heavy user's session takes a turn: each session
+	// with a started gets its hours before the recording filled with
+	// turns this far apart, so its rates read as hours of work rather
+	// than a few minutes spread thin (item 240). Unset adds none.
+	Pace  Duration `yaml:"pace"`
+	Shots []Shot   `yaml:"shots"`
 	// Usage floats the boats; UsageChanges moves them during a clip.
 	Usage        *Usage        `yaml:"usage"`
 	UsageChanges []UsageChange `yaml:"usage_changes"`
@@ -95,6 +100,9 @@ type Change struct {
 func (s Scenario) Validate() error {
 	if len(s.Sessions) == 0 {
 		return fmt.Errorf("scenario %q places no sessions", s.Name)
+	}
+	if s.Pace < 0 {
+		return fmt.Errorf("scenario %q: pace %s is below zero", s.Name, time.Duration(s.Pace))
 	}
 	seen := map[string]bool{}
 	for i, shot := range s.Shots {

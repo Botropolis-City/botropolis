@@ -95,6 +95,7 @@ sessions:
   - project: beacon     # an empty plot needs no recording
     state: empty
 groups: []              # the groups the city should find, each as its members' titles
+pace: 30s               # a heavy user: fill each started session's hours with a turn this often; none when unset
 shots:
   - name: overview
     title: A quiet hamlet
@@ -118,6 +119,17 @@ Give each live session a `started:` that reads like a real day, spaced more than
 
 `groups:` lists every group the scenario means to show, its teams and any group it means the city to infer.
 `testing/integration/demo/scenarios_test.go` stages every scenario and fails when the city finds a group not listed, or misses one that is.
+
+## A heavy user's hours
+
+A session's rates are its tokens over the time since it opened,
+so a minutes-long recording opened hours ago reads as a light user (item 240).
+A scenario's `pace:` fills the hours between each started session's opening and its recording with a turn that often.
+Each reads its context from cache, growing to the context the session ends at,
+writes the recording's mean to cache and what its tool-only turns write out,
+and says nothing, so no card, prompt or group changes.
+The metropolis takes a turn every 45s, and the same test file holds its top bar within half to twice 5M/h fresh, 100M/h cached and 500k/h out, round figures for a heavy user.
+The day's spend and messages rise with the tokens, as a heavy user's would.
 
 ## What a recording cannot cheaply produce
 

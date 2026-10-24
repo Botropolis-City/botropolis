@@ -1,6 +1,7 @@
 package demo_test
 
 import (
+	"math"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -72,6 +73,52 @@ func TestStagedScenariosFormTheGroupsTheyExpect(t *testing.T) {
 			})
 		})
 	}
+}
+
+// topBarRates is what the city's top bar sums: each live session's
+// fresh, cached and output tokens an hour.
+func topBarRates(t *testing.T, scenario demo.Scenario) (fresh, cached, output float64) {
+	t.Helper()
+	home := t.TempDir()
+	now := time.Now()
+	_, err := demo.NewDirector(demo.Corpus{Dir: corpusDir}, scenario, home, now, demo.Sleepers(home, 10*time.Minute))
+	t.Cleanup(func() { _ = demo.Unstage(home) })
+	require.NoError(t, err)
+	snapshot, err := state.NewLoader(home, probes).Load(now)
+	require.NoError(t, err)
+	for _, s := range snapshot.Sessions {
+		if state.Live(s.State) {
+			fresh += s.FreshTokensPerHour
+			cached += s.CacheReadPerHour
+			output += s.OutputPerHour
+		}
+	}
+	return fresh, cached, output
+}
+
+// A heavy user's top bar, in round figures (item 240): each staged rate
+// should land within half to twice its target.
+func TestStagedMetropolisReadsAsAHeavyUser(t *testing.T) {
+	scenario, err := demo.LoadScenario(filepath.Join(scenariosDir, "metropolis.yaml"))
+	require.NoError(t, err)
+
+	t.Run("when the metropolis is staged and loaded", func(t *testing.T) {
+		fresh, cached, output := topBarRates(t, scenario)
+
+		for _, tc := range []struct {
+			name   string
+			got    float64
+			target float64
+		}{
+			{"burn fresh tokens within half to twice 5M/h", fresh, 5e6},
+			{"read cached tokens within half to twice 100M/h", cached, 100e6},
+			{"write output within half to twice 500k/h", output, 500e3},
+		} {
+			t.Run("it should "+tc.name, func(t *testing.T) {
+				assert.InDelta(t, 0, math.Log2(tc.got/tc.target), 1, "%.0f/h against %.0f/h", tc.got, tc.target)
+			})
+		}
+	})
 }
 
 func TestStagedMetropolisKeepsItsTeam(t *testing.T) {
