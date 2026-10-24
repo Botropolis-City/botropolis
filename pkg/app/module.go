@@ -249,10 +249,24 @@ func (s *services) Sessions(cfg *config.Config) cli.SessionsRunner {
 }
 
 func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
+	return s.sourceAt(cfg, appd.Paced)
+}
+
+func (s *services) sourceAt(cfg *config.Config, speed appd.Speed) commands.DaemonOrDirect {
 	return commands.DaemonOrDirect{
 		Home: cfg.Home, Socket: cfg.Socket, Probes: s.probes,
-		Direct: appd.Harnesses(cfg, s.probes).Load, Now: time.Now, Notice: os.Stderr,
+		Direct: appd.Harnesses(cfg, s.probes, speed).Load, Now: time.Now, Notice: os.Stderr,
 	}
+}
+
+// readSpeed is how fast a city reads its history: a capture at full
+// speed, since it waits on the read and leaves nothing else waiting
+// (item 240), and an open city at half a core.
+func readSpeed(screenshot, record string) appd.Speed {
+	if screenshot != "" || record != "" {
+		return appd.FullSpeed
+	}
+	return appd.Paced
 }
 
 func (s *services) Bar(cfg *config.Config) cli.BarRunner {
@@ -460,9 +474,10 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	layout.SetTyping(typingFor(c.config.DistrictType, cmd.ErrOrStderr()))
 	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config), socket: c.config.Socket, demolished: demolisher(c.config)}
 	actor.terminal.Store(c.config.Terminal)
+	recording, _ := cli.Record(cmd)
 	feed := commands.Feed{
 		Socket:  c.config.Socket,
-		Source:  c.services.source(c.config),
+		Source:  c.services.sourceAt(c.config, readSpeed(cli.Screenshot(cmd), recording)),
 		Poll:    2 * time.Second,
 		Retry:   5 * time.Second,
 		OnError: func(err error) { fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v\n", err) },

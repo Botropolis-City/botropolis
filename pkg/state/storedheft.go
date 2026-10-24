@@ -71,6 +71,22 @@ func (l *Loader) WithStats(src StatsSource, done func()) *Loader {
 	return l
 }
 
+// WithFullSpeed has the background passes read for the whole clock
+// rather than half a core: a capture waits on the history's read and
+// nothing else does (item 240). It follows WithStats or WithWholeRead.
+func (l *Loader) WithFullSpeed() *Loader {
+	if l.stored != nil {
+		l.stored.pace.fraction = 1
+	}
+	if l.whole != nil {
+		l.whole.pace.fraction = 1
+	}
+	if l.later != nil {
+		l.later.pace.fraction = 1
+	}
+	return l
+}
+
 // apply sets every session's heft, from the store for a session read
 // through a window, and starts a refresh. It reports whether the hefts
 // are the user's whole history, and gives every stored heft for the

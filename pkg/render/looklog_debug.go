@@ -31,15 +31,11 @@ func (g *Game) logStill() {
 	fmt.Printf("still: composes=%d redos=%d overlays=%d rects=%d ground=%d direct=%d shifts=%d\n", s.composes, s.redos, s.overlays, s.rects, g.static.composes, s.direct, s.shifts+g.static.shifts)
 }
 
-// logOpened writes how a recording's city opened: on a read history, or
-// early, at its ceiling, so a frame test can refuse to count from a city
-// whose heights were still to change (item 202).
+// logOpened writes that a recording's city opened, on a read history,
+// for a frame test to count from (item 202). One that reaches the
+// ceiling unread fails rather than opening (item 240).
 func (g *Game) logOpened() {
 	if !g.capturing() {
-		return
-	}
-	if g.openedEarly {
-		fmt.Printf("opened: early, at the ceiling, on a history not yet read\n")
 		return
 	}
 	fmt.Printf("opened: on a read history\n")

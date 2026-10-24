@@ -38,7 +38,7 @@ func TestPrivateRunsKeepTheirLedger(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { _ = cleanup() }()
 		}
-		snapshot, err := Harnesses(&config.Config{Home: home.Path, HomeSet: true}, dead).Load(now)
+		snapshot, err := Harnesses(&config.Config{Home: home.Path, HomeSet: true}, dead, Paced).Load(now)
 		require.NoError(t, err)
 		for _, s := range snapshot.Sessions {
 			if s.ID == gone && s.ConversationGone {

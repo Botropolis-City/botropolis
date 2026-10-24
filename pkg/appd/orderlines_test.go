@@ -37,7 +37,7 @@ func TestOrderLinesAreNeverWritten(t *testing.T) {
 	}
 	stateDir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", stateDir)
-	snapshot, err := Harnesses(&config.Config{Home: home.Path}, dead).Load(now)
+	snapshot, err := Harnesses(&config.Config{Home: home.Path}, dead, Paced).Load(now)
 	require.NoError(t, err)
 
 	t.Run("when a home whose sessions carry order lines is loaded", func(t *testing.T) {

@@ -127,10 +127,21 @@ func GroupsPath(cfg *config.Config) string {
 	return group.Path()
 }
 
+// Speed is how fast a direct load reads the history in the background.
+type Speed int
+
+const (
+	// Paced keeps the background read to half a core (item 159).
+	Paced Speed = iota
+	// FullSpeed reads for the whole clock, for a capture, which waits on
+	// the read and leaves nothing else waiting (item 240).
+	FullSpeed
+)
+
 // Harnesses loads directly, without a daemon, and keeps no ledger: only
 // the daemon writes the person's own. A private run keeps the one in its
 // private state, seeded from the home it was pointed at (item 111).
-func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
+func Harnesses(cfg *config.Config, probes state.Probes, speed Speed) *harness.Multi {
 	ledger := ""
 	if statedir.IsPrivate() {
 		ledger = state.LedgerPath()
@@ -139,13 +150,17 @@ func Harnesses(cfg *config.Config, probes state.Probes) *harness.Multi {
 	// every few seconds, so it reads stopped sessions whole in the
 	// background too, and the next load picks up what a pass found
 	// (item 109).
-	return harnesses(cfg, probes, ledger, func() {})
+	return harnessesAt(cfg, probes, ledger, func() {}, speed)
 }
 
 // harnesses reads every session; wholeRead, when not nil, has the Claude
 // loader read stopped transcripts whole in the background for their
 // heft and calls it after each pass. Only the daemon does that.
 func harnesses(cfg *config.Config, probes state.Probes, ledger string, wholeRead func()) *harness.Multi {
+	return harnessesAt(cfg, probes, ledger, wholeRead, Paced)
+}
+
+func harnessesAt(cfg *config.Config, probes state.Probes, ledger string, wholeRead func(), speed Speed) *harness.Multi {
 	loader := state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger).WithCloseUp(closeUpPath(ledger))
 	if wholeRead != nil {
 		if src := statsSource(cfg); src != nil {
@@ -153,6 +168,9 @@ func harnesses(cfg *config.Config, probes state.Probes, ledger string, wholeRead
 		} else {
 			loader = loader.WithWholeRead(wholeRead)
 		}
+	}
+	if speed == FullSpeed {
+		loader = loader.WithFullSpeed()
 	}
 	claudeLoader := harness.NewClaude(loader)
 	harnesses := []harness.Snapshotter{claudeLoader}

@@ -36,7 +36,7 @@ func TestGroupsStayWithTheDefaultHome(t *testing.T) {
 		t.Helper()
 		stateDir := t.TempDir()
 		t.Setenv("XDG_STATE_HOME", stateDir)
-		_, err := Harnesses(cfg, dead).Load(now)
+		_, err := Harnesses(cfg, dead, Paced).Load(now)
 		require.NoError(t, err)
 		entries, _ := os.ReadDir(filepath.Join(stateDir, "botropolis"))
 		return entries
