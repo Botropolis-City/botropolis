@@ -2,6 +2,7 @@ package render
 
 import (
 	"image"
+	"math"
 	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -106,11 +107,13 @@ func batch(out []streamPlay, plays []streamPlay, box func(cmd int) image.Rectang
 	return out
 }
 
-// batchSource is what Ebitengine merges draws on: the page they read,
-// how they filter and blend, and whether they go through a colour
-// matrix. Words are told apart by their face.
+// batchSource is what Ebitengine merges draws on: the page they read
+// and the mipmap level of it they sample, each a texture of its own
+// (item 236), how they filter and blend, and whether they go through a
+// colour matrix. Words are told apart by their face.
 type batchSource struct {
 	page   uintptr
+	level  int
 	kind   cmdKind
 	filter ebiten.Filter
 	blend  ebiten.Blend
@@ -132,6 +135,7 @@ func (l *drawList) batchKey(i int) int {
 	case cmdWords:
 		k.face = faceID(c.face)
 	}
+	k.level = l.mipLevel(i)
 	if l.batchKeys == nil {
 		l.batchKeys = map[batchSource]int{}
 	}
@@ -153,4 +157,164 @@ func (l *drawList) pageKey(i int) uintptr {
 		return uintptr(unsafe.Pointer(c.page))
 	}
 	return uintptr(unsafe.Pointer(c.src))
+}
+
+// mipRuleEbitengine is the Ebitengine whose private rule for which
+// mipmap level a draw samples imageMipLevel and meshMipLevel copy:
+// canSkipMipmap in image.go and internal/mipmap/mipmap.go (item 236).
+const mipRuleEbitengine = "v2.10.2"
+
+// mipLevel is the mipmap level of its page recorded draw i samples.
+// A colour-matrix draw goes through DrawRectShader, which samples none.
+func (l *drawList) mipLevel(i int) int {
+	c := &l.cmds[i]
+	switch c.kind {
+	case cmdImage:
+		return imageMipLevel(&c.img, c.src.Bounds(), l.pageSize(i))
+	case cmdMesh:
+		return meshMipLevel(l.vertices[c.v[0]:c.v[1]], l.indices[c.i[0]:c.i[1]], &c.tri, l.pageSize(i))
+	}
+	return 0
+}
+
+// pageSize is the size of the texture recorded draw i reads, whose
+// mipmaps Ebitengine makes.
+func (l *drawList) pageSize(i int) image.Point {
+	c := &l.cmds[i]
+	if c.page != nil {
+		return c.page.Bounds().Size()
+	}
+	return c.src.Bounds().Size()
+}
+
+// imageMipLevel is the level of page an image of bounds src drawn with
+// op samples: none unless filtered linear with mipmaps on and shrunk,
+// and then the lowest any edge of its two triangles asks for, from its
+// corners snapped as Ebitengine snaps them.
+func imageMipLevel(op *ebiten.DrawImageOptions, src image.Rectangle, page image.Point) int {
+	if op.Filter != ebiten.FilterLinear || op.DisableMipmaps {
+		return 0
+	}
+	g := op.GeoM
+	// GeoM keeps a and d less one, and Ebitengine adds the one back
+	// after narrowing to float32.
+	a, b := float32(g.Element(0, 0)-1)+1, float32(g.Element(0, 1))
+	c, d := float32(g.Element(1, 0)), float32(g.Element(1, 1)-1)+1
+	tx, ty := float32(g.Element(0, 2)), float32(g.Element(1, 2))
+	if math.Abs(float64(a*d-b*c)) >= 0.999 {
+		return 0
+	}
+	sx0, sy0, sx1, sy1 := float32(src.Min.X), float32(src.Min.Y), float32(src.Max.X), float32(src.Max.Y)
+	x, y := sx1-sx0, sy1-sy0
+	ax, by, cx, dy := a*x, b*y, c*x, d*y
+	vs := [4][4]float32{
+		{snapThird(tx), snapThird(ty), sx0, sy0},
+		{snapThird(ax + tx), snapThird(cx + ty), sx1, sy0},
+		{snapThird(by + tx), snapThird(dy + ty), sx0, sy1},
+		{snapThird(ax + by + tx), snapThird(cx + dy + ty), sx1, sy1},
+	}
+	level := math.MaxInt32
+	for _, t := range [2][3]int{{0, 1, 2}, {1, 2, 3}} {
+		level = min(level, triangleMipLevel(vs[t[0]], vs[t[1]], vs[t[2]]))
+	}
+	return pageHasLevel(page, level)
+}
+
+// meshMipLevel is the level of page triangles drawn with op sample:
+// none unless filtered linear with mipmaps on, and then the lowest any
+// edge of any triangle asks for.
+func meshMipLevel(vertices []ebiten.Vertex, indices []uint32, op *ebiten.DrawTrianglesOptions, page image.Point) int {
+	if op.Filter != ebiten.FilterLinear || op.DisableMipmaps || len(indices) < 3 {
+		return 0
+	}
+	at := func(i uint32) [4]float32 {
+		v := vertices[i]
+		return [4]float32{v.DstX, v.DstY, v.SrcX, v.SrcY}
+	}
+	level := math.MaxInt32
+	for i := 0; i+2 < len(indices); i += 3 {
+		level = min(level, triangleMipLevel(at(indices[i]), at(indices[i+1]), at(indices[i+2])))
+	}
+	return pageHasLevel(page, level)
+}
+
+func triangleMipLevel(p0, p1, p2 [4]float32) int {
+	return min(edgeMipLevel(p0, p1), edgeMipLevel(p1, p2), edgeMipLevel(p2, p0))
+}
+
+// edgeMipLevel is Ebitengine's mipmapLevelFromDistance for the edge
+// from p to q, each {dstX, dstY, srcX, srcY}: one level each time the
+// edge is drawn below half its length, short of halving it to nothing.
+func edgeMipLevel(p, q [4]float32) int {
+	const maxLevel = 6
+	d := (q[0]-p[0])*(q[0]-p[0]) + (q[1]-p[1])*(q[1]-p[1])
+	s := (q[2]-p[2])*(q[2]-p[2]) + (q[3]-p[3])*(q[3]-p[3])
+	if s == 0 {
+		return 0
+	}
+	scale := d / s
+	if math.IsInf(float64(scale), 0) || scale == 0 {
+		return 0
+	}
+	level := 0
+	for scale < 0.25 {
+		level++
+		scale *= 4
+	}
+	if level > 0 {
+		w, h := int(q[2]-p[2]), int(q[3]-p[3])
+		for level >= 0 {
+			if (w > 0 && halved(w, level) == 0) || (h > 0 && halved(h, level) == 0) {
+				level--
+				continue
+			}
+			break
+		}
+		if level < 0 {
+			return 0
+		}
+	}
+	return min(level, maxLevel)
+}
+
+// pageHasLevel is level, or 0 where Ebitengine makes no image for that
+// level of page, too small or too big, and draws from the page itself.
+func pageHasLevel(page image.Point, level int) int {
+	if level <= 0 {
+		return 0
+	}
+	if halved(page.X, level) == 0 || halved(page.Y, level) == 0 || halved(page.X, 1) > 4096 || halved(page.Y, 1) > 4096 {
+		return 0
+	}
+	return level
+}
+
+// halved is x halved level times, as Ebitengine sizes a mipmap level.
+func halved(x, level int) int {
+	for range level {
+		x /= 2
+		if x == 0 {
+			return 0
+		}
+	}
+	return x
+}
+
+// snapThird is Ebitengine's adjustDestinationPixel: a quad's corners
+// are moved off the centres of pixels, to about a third of one.
+func snapThird(x float32) float32 {
+	ix := float32(int(x))
+	if x < 0 && x != ix {
+		ix--
+	}
+	switch frac := x - ix; {
+	case frac < 3.0/16.0:
+		return ix
+	case frac < 8.0/16.0:
+		return ix + 5.0/16.0
+	case frac < 13.0/16.0:
+		return ix + 11.0/16.0
+	default:
+		return ix + 1
+	}
 }

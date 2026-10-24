@@ -1,13 +1,16 @@
 package render
 
 import (
+	"fmt"
 	"image"
 	"reflect"
+	"runtime/debug"
 	"testing"
 	"time"
 	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -222,6 +225,140 @@ func TestDirtyBatchAsksOnce(t *testing.T) {
 
 		t.Run("it should ask for each draw's box once", func(t *testing.T) {
 			assert.Equal(t, 1, most(boxAsks))
+		})
+	})
+}
+
+// Item 236: Ebitengine draws a shrunk sprite from a mipmap level of its
+// page, and each level is a texture of its own, so draws from one page
+// at two levels cannot share a batch. The level is Ebitengine's own,
+// worked out as it works it out.
+func TestTheMipmapLevelADrawSamples(t *testing.T) {
+	page := image.Pt(1024, 1024)
+	scaled := func(sx, sy float64) ebiten.GeoM {
+		var g ebiten.GeoM
+		g.Scale(sx, sy)
+		return g
+	}
+	t.Run("when an image draw is recorded", func(t *testing.T) {
+		for _, c := range []struct {
+			name   string
+			size   int
+			page   image.Point
+			geo    ebiten.GeoM
+			filter ebiten.Filter
+			nomip  bool
+			want   int
+		}{
+			{"and it is drawn at full size", 64, page, scaled(1, 1), ebiten.FilterLinear, false, 0},
+			{"and it is filtered nearest and shrunk to a quarter", 64, page, scaled(0.25, 0.25), ebiten.FilterNearest, false, 0},
+			{"and its mipmaps are disabled and it is shrunk to a quarter", 64, page, scaled(0.25, 0.25), ebiten.FilterLinear, true, 0},
+			{"and it is shrunk to exactly half", 64, page, scaled(0.5, 0.5), ebiten.FilterLinear, false, 0},
+			{"and it is shrunk to 0.45", 64, page, scaled(0.45, 0.45), ebiten.FilterLinear, false, 1},
+			{"and it is shrunk to 0.2", 64, page, scaled(0.2, 0.2), ebiten.FilterLinear, false, 2},
+			{"and it is shrunk to 0.45 and flipped", 64, page, scaled(-0.45, 0.45), ebiten.FilterLinear, false, 1},
+			{"and it is squashed below half along one axis only", 64, page, scaled(0.3, 1), ebiten.FilterLinear, false, 0},
+			{"and it shrinks to 0.49 but its snapped corners land at exactly half", 10, page, scaled(0.49, 0.49), ebiten.FilterLinear, false, 0},
+			{"and a level would halve it to nothing", 4, page, scaled(0.1, 0.1), ebiten.FilterLinear, false, 2},
+			{"and its page is too big to have that level", 64, image.Pt(9000, 9000), scaled(0.45, 0.45), ebiten.FilterLinear, false, 0},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				op := &ebiten.DrawImageOptions{GeoM: c.geo, Filter: c.filter, DisableMipmaps: c.nomip}
+				got := imageMipLevel(op, image.Rect(0, 0, c.size, c.size), c.page)
+				t.Run(fmt.Sprintf("it should sample level %d", c.want), func(t *testing.T) {
+					assert.Equal(t, c.want, got)
+				})
+			})
+		}
+	})
+	t.Run("when a mesh draw is recorded", func(t *testing.T) {
+		tri := func(scale float32, at float32) []ebiten.Vertex {
+			return []ebiten.Vertex{
+				{DstX: at, DstY: 0, SrcX: 0, SrcY: 0},
+				{DstX: at + 64*scale, DstY: 0, SrcX: 64, SrcY: 0},
+				{DstX: at, DstY: 64 * scale, SrcX: 0, SrcY: 64},
+			}
+		}
+		for _, c := range []struct {
+			name     string
+			vertices []ebiten.Vertex
+			filter   ebiten.Filter
+			want     int
+		}{
+			{"and it is filtered linear with every triangle at 0.2", append(tri(0.2, 0), tri(0.2, 100)...), ebiten.FilterLinear, 2},
+			{"and it is filtered nearest", append(tri(0.2, 0), tri(0.2, 100)...), ebiten.FilterNearest, 0},
+			{"and one triangle is at full size and another at 0.2", append(tri(1, 0), tri(0.2, 100)...), ebiten.FilterLinear, 0},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				op := &ebiten.DrawTrianglesOptions{Filter: c.filter}
+				got := meshMipLevel(c.vertices, []uint32{0, 1, 2, 3, 4, 5}, op, page)
+				t.Run(fmt.Sprintf("it should sample level %d", c.want), func(t *testing.T) {
+					assert.Equal(t, c.want, got)
+				})
+			})
+		}
+	})
+	t.Run("when a colour-matrix draw is shrunk to a quarter", func(t *testing.T) {
+		l := newDrawList()
+		src := ebiten.NewImage(64, 64)
+		op := &colorm.DrawImageOptions{GeoM: scaled(0.2, 0.2), Filter: ebiten.FilterLinear}
+		l.colorm(l.dry, src, nil, colorm.ColorM{}, op)
+		t.Run("it should sample level 0", func(t *testing.T) {
+			assert.Equal(t, 0, l.mipLevel(0))
+		})
+	})
+}
+
+// Item 236: two draws from one page key together exactly when they
+// sample the same level of it.
+func TestRecordedDrawsKeyByTheirLevel(t *testing.T) {
+	page := ebiten.NewImage(256, 256)
+	sprite := page.SubImage(image.Rect(0, 0, 64, 64)).(*ebiten.Image)
+	draw := func(l *drawList, scale float64) {
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+		op.GeoM.Scale(scale, scale)
+		l.ImageOn(l.dry, sprite, page, op)
+	}
+	for _, c := range []struct {
+		name        string
+		first, then float64
+		together    bool
+	}{
+		{"and one samples level 1 and the other level 0", 0.45, 1, false},
+		{"and both sample level 1", 0.45, 0.4, true},
+	} {
+		t.Run("when two draws read one page, "+c.name, func(t *testing.T) {
+			l := newDrawList()
+			draw(l, c.first)
+			draw(l, c.then)
+			name := "it should key them apart"
+			if c.together {
+				name = "it should key them together"
+			}
+			t.Run(name, func(t *testing.T) {
+				assert.Equal(t, c.together, l.batchKey(0) == l.batchKey(1))
+			})
+		})
+	}
+}
+
+// Item 236: imageMipLevel and meshMipLevel copy a rule private to
+// Ebitengine, so an upgrade must re-check the copy.
+func TestTheMipmapRuleIsCopiedFromTheEbitengineBuilt(t *testing.T) {
+	info, ok := debug.ReadBuildInfo()
+	require.True(t, ok, "no build info")
+	got := ""
+	for _, m := range info.Deps {
+		if m.Path == "github.com/hajimehoshi/ebiten/v2" {
+			got = m.Version
+			if m.Replace != nil {
+				got = m.Replace.Version
+			}
+		}
+	}
+	t.Run("when the city is built against Ebitengine", func(t *testing.T) {
+		t.Run("it should be the version the mipmap rule was copied from", func(t *testing.T) {
+			assert.Equal(t, mipRuleEbitengine, got, "Ebitengine moved: re-check internal/mipmap/mipmap.go and canSkipMipmap in image.go against imageMipLevel and meshMipLevel, then update mipRuleEbitengine")
 		})
 	})
 }
