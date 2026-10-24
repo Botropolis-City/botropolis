@@ -47,7 +47,12 @@ func (g *Game) explainCaptions(held, drawing bool, width, height float64) []ui.C
 	if !held && !g.scene.Labels() {
 		return nil
 	}
-	seen := g.seen(drawing)
+	top := g.scene.TopChrome()
+	window := city.RectAt(0, top, width, height-top-g.scene.Insets().Bottom)
+	// Only what is on the window is seen: a straight drawing draws what
+	// is off the frame too, and a caption for that was clamped onto the
+	// window's edge, naming a thing nobody could see (item 243).
+	seen := slices.DeleteFunc(g.seen(drawing), func(s ui.Seen) bool { return !s.Rect.Overlaps(window) })
 	kinds := make([]city.Kind, 0, len(seen))
 	for _, s := range seen {
 		if !slices.Contains(kinds, s.Kind) {
@@ -59,8 +64,6 @@ func (g *Game) explainCaptions(held, drawing bool, width, height float64) []ui.C
 		up := g.scene.Sightings()
 		seen = slices.DeleteFunc(seen, func(s ui.Seen) bool { return !slices.Contains(up, s.Kind) })
 	}
-	top := g.scene.TopChrome()
-	window := city.RectAt(0, top, width, height-top-g.scene.Insets().Bottom)
 	return ui.LayoutExplain(g.theme, seen, window, held || len(seen) > 0, g.faces.Measure)
 }
 
