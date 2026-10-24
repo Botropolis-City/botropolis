@@ -13,9 +13,15 @@ func (d *District) Route(b *Building) []Point {
 		return []Point{door}
 	}
 	lane := clampTo(b.Rect.Max.X+BuildingGap/2, d.Rect.Min.X+DoorInset, d.Rect.Max.X-DoorInset)
-	kerb := math.Max(door.Y, d.Rect.Max.Y-DoorInset)
+	kerb := math.Max(door.Y, d.Rect.Max.Y-FrontLane)
 	return []Point{door, {X: lane, Y: door.Y}, {X: lane, Y: kerb}}
 }
+
+// FrontLane is how far in from its lot's edge a vehicle drives along the
+// lot's front: far enough that a truck turning off it, or the inspector
+// turning back on it, keeps its nose on the lot rather than over the
+// kerb (item 222).
+const FrontLane = Tile
 
 func hypot(a, b Point) float64 { return math.Hypot(a.X-b.X, a.Y-b.Y) }
 

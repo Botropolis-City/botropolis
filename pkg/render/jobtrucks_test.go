@@ -49,7 +49,7 @@ func TestJobTrucksUseTheDriveway(t *testing.T) {
 				require.NotEmpty(t, out)
 
 				t.Run("it should come in off the street at the lot's driveway", func(t *testing.T) {
-					assert.Equal(t, dw.Cell, city.CellOf(in[0]))
+					assert.True(t, has(in, dw.Cell.Center()))
 				})
 
 				t.Run("it should come in through the lot end", func(t *testing.T) {
@@ -65,7 +65,11 @@ func TestJobTrucksUseTheDriveway(t *testing.T) {
 				})
 
 				t.Run("it should leave onto the street at the driveway", func(t *testing.T) {
-					assert.Equal(t, dw.Cell, city.CellOf(out[len(out)-1]))
+					assert.True(t, has(out, dw.Cell.Center()))
+				})
+
+				t.Run("it should leave the way it came", func(t *testing.T) {
+					assert.Equal(t, in[0], out[len(out)-1])
 				})
 
 				t.Run("it should not drive through any building in the lot", func(t *testing.T) {

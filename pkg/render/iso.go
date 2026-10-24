@@ -683,7 +683,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	for _, m := range g.scene.Messages() {
 		m := m
-		at, _ := messagePlace(m, g.scene.Clock())
+		at, _ := messagePlace(m, g.scene.Clock(), c.InBlock)
 		items = append(items, standingAt(cam, at, func() {
 			g.drawMessage(screen, cam, m)
 		}))
@@ -701,7 +701,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	})...)
 	for _, d := range g.scene.Deliveries() {
 		d := d
-		at, _ := deliveryPlace(d, g.scene.Clock())
+		at, _ := deliveryPlace(d, g.scene.Clock(), c.InBlock)
 		items = append(items, deliveryAt(cam, bridge, at, func() {
 			g.drawDelivery(screen, cam, bridge, d)
 		}))
@@ -1119,7 +1119,7 @@ func (g *Game) cars(c *city.City, seconds float64) []car {
 			// Cars go there and back along the path, each way in the
 			// lane on its right (item 153).
 			phase := math.Mod(seconds*carSpeed/(2*length)+float64(k)/float64(count)+float64(i)*0.37, 1)
-			at, dir := carPlace(street.Path, phase)
+			at, dir := carPlace(street.Path, phase, c.InBlock)
 			out = append(out, car{at: at, model: kitCars[(i*len(kitCars)/2+k)%len(kitCars)], turn: vehicleTurn(dir), road: street.Road})
 		}
 	}

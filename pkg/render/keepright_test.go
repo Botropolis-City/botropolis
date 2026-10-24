@@ -27,21 +27,21 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 	type placed struct{ at, dir city.Point }
 	vehicles := map[string]func(from, to city.Point) placed{
 		"a traffic car on its way there": func(from, to city.Point) placed {
-			at, dir := carPlace([]city.Point{from, to}, 0.25)
+			at, dir := carPlace([]city.Point{from, to}, 0.25, nil)
 			return placed{at, dir}
 		},
 		"a traffic car on its way back": func(from, to city.Point) placed {
-			at, dir := carPlace([]city.Point{to, from}, 0.75)
+			at, dir := carPlace([]city.Point{to, from}, 0.75, nil)
 			return placed{at, dir}
 		},
 		"a message van": func(from, to city.Point) placed {
 			m := city.Message{Path: []city.Point{from, to}, Since: t0}
-			at, dir := messagePlace(m, t0.Add(m.For()/2))
+			at, dir := messagePlace(m, t0.Add(m.For()/2), nil)
 			return placed{at, dir}
 		},
 		"the delivery truck": func(from, to city.Point) placed {
 			d := city.Delivery{Path: []city.Point{from, to}, Since: t0}
-			at, dir := deliveryPlace(d, t0.Add(d.For()/2))
+			at, dir := deliveryPlace(d, t0.Add(d.For()/2), nil)
 			return placed{at, dir}
 		},
 		"the depot's haul truck": func(from, to city.Point) placed {
@@ -51,12 +51,12 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 		},
 		"a site truck on its way in": func(from, to city.Point) placed {
 			in := []city.Point{from, to}
-			at, dir := jobPlace(in, reversed(in), 0.5)
+			at, dir := jobPlace(in, reversed(in), 0.5, nil)
 			return placed{at, dir}
 		},
 		"a site truck on its way out": func(from, to city.Point) placed {
 			in := []city.Point{to, from}
-			at, dir := jobPlace(in, reversed(in), 1.5)
+			at, dir := jobPlace(in, reversed(in), 1.5, nil)
 			return placed{at, dir}
 		},
 	}
@@ -81,9 +81,9 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 		in := []city.Point{{X: 0, Y: 0}, {X: run, Y: 0}, {X: run, Y: run}}
 		const n = 400
 		longest, drove := 0.0, 0.0
-		prev, _ := jobPlace(in, reversed(in), 0)
+		prev, _ := jobPlace(in, reversed(in), 0, nil)
 		for i := 1; i <= n; i++ {
-			at, _ := jobPlace(in, reversed(in), 2*float64(i)/n)
+			at, _ := jobPlace(in, reversed(in), 2*float64(i)/n, nil)
 			longest = math.Max(longest, math.Hypot(at.X-prev.X, at.Y-prev.Y))
 			prev = at
 		}
@@ -102,8 +102,8 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 		park := city.Point{X: 20 * city.CellSize, Y: 4 * city.CellSize}
 		at, dir := inspectorPlace(city.Inspector{Park: park, Parked: 0.5})
 
-		t.Run("it should sit half a lane right of the centre line", func(t *testing.T) {
-			assert.InDelta(t, laneOffset, sideOf(park, city.Point{X: 1}, at), 1e-6)
+		t.Run("it should sit half a lot lane right of the centre line", func(t *testing.T) {
+			assert.InDelta(t, lotLaneOffset, sideOf(park, city.Point{X: 1}, at), 1e-6)
 		})
 		t.Run("it should face its travel", func(t *testing.T) {
 			assert.Equal(t, vehicleTurn(city.Point{X: 1}), vehicleTurn(dir))
@@ -128,10 +128,10 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 			}
 			prev, pdir = next, ndir
 		}
-		drove := (city.InspectorRun + 2*laneOffset) / n
+		drove := (city.InspectorRun + 2*lotLaneOffset) / n
 
-		t.Run("it should sit half a lane right of the centre line, heading out", func(t *testing.T) {
-			assert.InDelta(t, laneOffset, sideOf(park, city.Point{X: -1}, at), 1e-6)
+		t.Run("it should sit half a lot lane right of the centre line, heading out", func(t *testing.T) {
+			assert.InDelta(t, lotLaneOffset, sideOf(park, city.Point{X: -1}, at), 1e-6)
 		})
 		t.Run("it should face its travel", func(t *testing.T) {
 			assert.Equal(t, vehicleTurn(city.Point{X: -1}), vehicleTurn(dir))
@@ -152,7 +152,7 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 		}
 		d := city.Delivery{Path: []city.Point{bridge.Land, bridge.Far}, Since: t0}
 		now := t0.Add(d.For() / 5)
-		at, _ := deliveryPlace(d, now)
+		at, _ := deliveryPlace(d, now, nil)
 
 		t.Run("it should keep its lane on the deck", func(t *testing.T) {
 			assert.InDelta(t, laneOffset, sideOf(bridge.Land, city.Point{X: 1}, at), 1e-6)
@@ -165,7 +165,7 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 	t.Run("when a message rides the rails", func(t *testing.T) {
 		m := city.Message{Path: []city.Point{{}, {X: run}}, Since: t0, Train: true}
 		now := t0.Add(m.For() / 2)
-		at, _ := messagePlace(m, now)
+		at, _ := messagePlace(m, now, nil)
 
 		t.Run("it should stay on the rails' centre line", func(t *testing.T) {
 			assert.Equal(t, m.At(now), at)

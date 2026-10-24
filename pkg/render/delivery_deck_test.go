@@ -44,7 +44,7 @@ func TestDeliveryOnTheDeck(t *testing.T) {
 				return low
 			}
 			b := s.City().Bridge()
-			at, _ := deliveryPlace(trucks[0], *clock)
+			at, _ := deliveryPlace(trucks[0], *clock, s.City().InBlock)
 			past := (at.X - b.Land.X) * math.Copysign(1, b.Far.X-b.Land.X)
 			if past > b.RampRun() && b.Rise(at) < 1 {
 				low = append(low, at)

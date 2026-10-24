@@ -1,6 +1,8 @@
 package render
 
 import (
+	"math"
+
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -65,9 +67,10 @@ func (g *Game) skipAt(cam *city.Camera, b *city.Building) city.Point {
 }
 
 // jobPaths is a truck's way in to a stop at a building and back out:
-// off the street by the lot's driveway, along the strip inside the
-// lot's front to the service lane on the stop's side of the building,
-// up the lane, and across to the stop; out the same way. Item 108.
+// along the avenue and off it by the lot's driveway, along the strip
+// inside the lot's front to the service lane on the stop's side of the
+// building, up the lane, and across to the stop; out the same way.
+// Items 108 and 222.
 func (g *Game) jobPaths(c *city.City, b *city.Building, stop city.Point) (in, out []city.Point) {
 	d := c.DistrictOf(b)
 	dw, ok := c.Driveway(d)
@@ -77,6 +80,9 @@ func (g *Game) jobPaths(c *city.City, b *city.Building, stop city.Point) (in, ou
 	street, lot := dw.Cell.Center(), dw.Lot
 	r, gap := b.Rect, city.BuildingGap/2
 	in = []city.Point{street, lot}
+	if from, ok := approach(c, dw); ok {
+		in = []city.Point{from, street, lot}
+	}
 	if lot.X == street.X {
 		lane := r.Max.X + gap
 		if stop.X < r.Center().X {
@@ -96,6 +102,34 @@ func (g *Game) jobPaths(c *city.City, b *city.Building, stop city.Point) (in, ou
 		out[len(in)-1-i] = p
 	}
 	return in, out
+}
+
+// approach is the road cell a site truck comes to a driveway from: one
+// the driveway's road joins, other than the lot, so it turns in round
+// the bend rather than starting nose-on to the kerb (item 222). A
+// driveway whose road joins nothing else has none.
+func approach(c *city.City, dw city.Driveway) (city.Point, bool) {
+	laid := map[city.Cell]int{}
+	for _, sc := range c.StreetCells {
+		laid[sc.Cell] = sc.Mask
+	}
+	mask, ok := laid[dw.Cell]
+	if !ok {
+		return city.Point{}, false
+	}
+	in := dw.Lot.Sub(dw.Cell.Center())
+	toward := [2]int{int(math.Copysign(1, in.X)), 0}
+	if math.Abs(in.Y) > math.Abs(in.X) {
+		toward = [2]int{0, int(math.Copysign(1, in.Y))}
+	}
+	dirs := map[[2]int]int{{0, -1}: city.DirN, {1, 0}: city.DirE, {0, 1}: city.DirS, {-1, 0}: city.DirW}
+	for _, s := range [][2]int{{toward[1], toward[0]}, {-toward[1], -toward[0]}, {-toward[0], -toward[1]}} {
+		cell := city.Cell{Col: dw.Cell.Col + s[0], Row: dw.Cell.Row + s[1]}
+		if _, road := laid[cell]; road && mask&dirs[s] != 0 {
+			return cell.Center(), true
+		}
+	}
+	return city.Point{}, false
 }
 
 // drawSkip draws the skip at a building's kerb and the trucks of any
@@ -130,7 +164,7 @@ func (g *Game) drawSkipTrucks(screen *ebiten.Image, cam *city.Camera, b *city.Bu
 	c := g.scene.City()
 	if t := job.SkipTruck; t.Present {
 		in, out := g.jobPaths(c, b, skip)
-		at, dir := jobPlace(in, out, t.Along)
+		at, dir := jobPlace(in, out, t.Along, c.InBlock)
 		piece := kitSkipTruck
 		if t.Loaded {
 			piece = kitSkipTruckLoaded
@@ -139,7 +173,7 @@ func (g *Game) drawSkipTrucks(screen *ebiten.Image, cam *city.Camera, b *city.Bu
 	}
 	if t := job.Mixer; t.Present {
 		in, out := g.jobPaths(c, b, pour)
-		at, dir := jobPlace(in, out, t.Along)
+		at, dir := jobPlace(in, out, t.Along, c.InBlock)
 		g.kit(screen, cam, kitMixer, vehicleTurn(dir), at, tint)
 	}
 }

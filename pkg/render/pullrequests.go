@@ -44,7 +44,7 @@ func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, bridge city.
 	now := g.scene.Clock()
 	tint := &ebiten.ColorScale{}
 	tint.ScaleAlpha(float32(deliveryAlpha(d, bridge, now)))
-	at, dir := deliveryPlace(d, now)
+	at, dir := deliveryPlace(d, now, g.scene.City().InBlock)
 	turn := vehicleTurn(dir)
 	// On the bridge it rides at the deck's height (item 132).
 	lift := bridge.Rise(at) * g.deckLift(cam)
@@ -72,7 +72,7 @@ func (g *Game) drawMessage(screen *ebiten.Image, cam *city.Camera, m city.Messag
 		tint = &ebiten.ColorScale{}
 		tint.ScaleAlpha(float32(m.Progress(now)))
 	}
-	at, dir := messagePlace(m, now)
+	at, dir := messagePlace(m, now, g.scene.City().InBlock)
 	turn := vehicleTurn(dir)
 	model, shrink := kitVan, 0.9
 	if m.Train {

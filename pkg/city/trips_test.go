@@ -39,7 +39,7 @@ func TestRoute(t *testing.T) {
 		})
 
 		t.Run("it should end at the block's kerb", func(t *testing.T) {
-			assert.Equal(t, d.Rect.Max.Y-city.DoorInset, route[2].Y)
+			assert.Equal(t, d.Rect.Max.Y-city.FrontLane, route[2].Y)
 		})
 
 		t.Run("it should keep every point inside the block", func(t *testing.T) {

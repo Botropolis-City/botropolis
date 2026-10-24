@@ -279,13 +279,13 @@ func (c *City) drivewayNear(d *District, dc, dr, at int) (Driveway, bool) {
 		lot := cell.Center()
 		switch {
 		case dr > 0:
-			lot.Y = d.Rect.Max.Y - DoorInset
+			lot.Y = d.Rect.Max.Y - FrontLane
 		case dr < 0:
-			lot.Y = d.Rect.Min.Y + DoorInset
+			lot.Y = d.Rect.Min.Y + FrontLane
 		case dc > 0:
-			lot.X = d.Rect.Max.X - DoorInset
+			lot.X = d.Rect.Max.X - FrontLane
 		default:
-			lot.X = d.Rect.Min.X + DoorInset
+			lot.X = d.Rect.Min.X + FrontLane
 		}
 		return Driveway{Cell: cell, Lot: lot, side: [2]int{dc, dr}, at: index[cell]}, true
 	}
@@ -582,8 +582,14 @@ func padInto(cell Cell, dc, dr int) Rect {
 
 // inLot is whether a cell is inside a district's block.
 func (c *City) inLot(cell Cell) bool {
+	return c.InBlock(cell.Center())
+}
+
+// InBlock is whether a world point is inside a district's block, on its
+// lot's floor rather than on an avenue. Item 222.
+func (c *City) InBlock(p Point) bool {
 	for _, d := range c.Districts {
-		if d.Rect.Contains(cell.Center()) {
+		if d.Rect.Contains(p) {
 			return true
 		}
 	}
