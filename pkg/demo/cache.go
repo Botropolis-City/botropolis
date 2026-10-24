@@ -19,10 +19,14 @@ const cacheDir = ".film-cache"
 // shotKey is what a shot was made from: the shot, the city it films --
 // its scenario without the other shots, which a change to one must not
 // refilm the rest for -- and the inputs every shot shares, the corpus
-// and the binaries. The same key means the same media.
+// and the binaries. The same key means the same pixels, so the words
+// that caption them are left out: they draw nothing, and recall and
+// adopt bring them up to date (item 235).
 func shotKey(scenario Scenario, shot Shot, inputs string) string {
 	city := scenario
 	city.Shots = nil
+	city.Description = ""
+	shot.Title, shot.Description = "", ""
 	data, _ := json.Marshal(struct {
 		City   Scenario
 		Shot   Shot
@@ -80,27 +84,38 @@ func cachePath(out, scenario, shot string) string {
 
 // recall is a shot's media from an earlier run, if it was made from the
 // same key and every file it made is still there.
-func recall(out, scenario, shot, key string) ([]Media, bool) {
-	c, ok := cachedShot(out, scenario, shot)
+func recall(out, scenario string, shot Shot, key string) ([]Media, bool) {
+	c, ok := cachedShot(out, scenario, shot.Name)
 	if !ok || c.Key != key {
 		return nil, false
 	}
-	return c.Media, true
+	return captioned(c.Media, shot), true
+}
+
+// captioned is a shot's media under the shot's caption as it now reads.
+func captioned(media []Media, shot Shot) []Media {
+	out := make([]Media, len(media))
+	for i, m := range media {
+		m.Title, m.Description = shot.Title, shot.Description
+		out[i] = m
+	}
+	return out
 }
 
 // adopt takes a shot's media from an earlier run whatever key it was
 // made under, and files it under this one: for when the key changed but
 // the picture cannot have, such as the key's own recipe changing. It is
 // a claim only a person can make, so only --adopt makes it.
-func adopt(out, scenario, shot, key string) ([]Media, bool) {
-	c, ok := cachedShot(out, scenario, shot)
+func adopt(out, scenario string, shot Shot, key string) ([]Media, bool) {
+	c, ok := cachedShot(out, scenario, shot.Name)
 	if !ok {
 		return nil, false
 	}
-	if remember(out, scenario, shot, key, c.Media) != nil {
+	media := captioned(c.Media, shot)
+	if remember(out, scenario, shot.Name, key, media) != nil {
 		return nil, false
 	}
-	return c.Media, true
+	return media, true
 }
 
 // cachedShot is what the cache holds for a shot, if all its files are

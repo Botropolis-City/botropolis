@@ -30,6 +30,26 @@ func TestShotKey(t *testing.T) {
 	})
 
 	for name, change := range map[string]func() string{
+		"only the shot's title changes": func() string {
+			return shotKey(scenario, Shot{Name: "a", Title: "A new title"}, "inputs-1")
+		},
+		"only the shot's description changes": func() string {
+			return shotKey(scenario, Shot{Name: "a", Description: "New words for the same pixels."}, "inputs-1")
+		},
+		"only the scenario's description changes": func() string {
+			changed := scenario
+			changed.Description = "A city described afresh."
+			return shotKey(changed, scenario.Shots[0], "inputs-1")
+		},
+	} {
+		t.Run("when "+name, func(t *testing.T) {
+			t.Run("it should keep the key, since the words draw nothing", func(t *testing.T) {
+				assert.Equal(t, base, change())
+			})
+		})
+	}
+
+	for name, change := range map[string]func() string{
 		"the shot itself changes": func() string {
 			return shotKey(scenario, Shot{Name: "a", Keys: []string{"H"}}, "inputs-1")
 		},
@@ -52,23 +72,32 @@ func TestShotKey(t *testing.T) {
 
 func TestFilmCache(t *testing.T) {
 	out := t.TempDir()
-	media := []Media{{File: "s/a.png"}, {File: "s/a.mp4"}}
+	media := []Media{{File: "s/a.png", Title: "Old", Description: "Old words."}, {File: "s/a.mp4", Title: "Old", Description: "Old words."}}
 	for _, m := range media {
 		writeFile(t, filepath.Join(out, m.File), "x")
 	}
 	require.NoError(t, remember(out, "s", "a", "key-1", media))
+	shot := Shot{Name: "a", Title: "Old", Description: "Old words."}
 
 	t.Run("when a shot's key matches and its files are there", func(t *testing.T) {
-		got, ok := recall(out, "s", "a", "key-1")
+		got, ok := recall(out, "s", shot, "key-1")
 		require.True(t, ok)
 
 		t.Run("it should reuse the media", func(t *testing.T) {
 			assert.Equal(t, media, got)
 		})
+
+		t.Run("and the shot's caption has changed since it was filmed", func(t *testing.T) {
+			got, _ := recall(out, "s", Shot{Name: "a", Title: "New", Description: "New words."}, "key-1")
+
+			t.Run("it should carry the shot's current title and description", func(t *testing.T) {
+				assert.Equal(t, [][2]string{{"New", "New words."}, {"New", "New words."}}, captions(got))
+			})
+		})
 	})
 
 	t.Run("when the key differs", func(t *testing.T) {
-		_, ok := recall(out, "s", "a", "key-2")
+		_, ok := recall(out, "s", shot, "key-2")
 
 		t.Run("it should film it again", func(t *testing.T) {
 			assert.False(t, ok)
@@ -77,7 +106,7 @@ func TestFilmCache(t *testing.T) {
 
 	t.Run("when one of its files has gone", func(t *testing.T) {
 		require.NoError(t, os.Remove(filepath.Join(out, "s/a.mp4")))
-		_, ok := recall(out, "s", "a", "key-1")
+		_, ok := recall(out, "s", shot, "key-1")
 
 		t.Run("it should film it again", func(t *testing.T) {
 			assert.False(t, ok)
@@ -159,17 +188,24 @@ func TestInputsKey(t *testing.T) {
 
 func TestAdopt(t *testing.T) {
 	out := t.TempDir()
-	media := []Media{{File: "s/a.png"}}
+	media := []Media{{File: "s/a.png", Title: "Old", Description: "Old words."}}
 	writeFile(t, filepath.Join(out, "s/a.png"), "x")
 	require.NoError(t, remember(out, "s", "a", "old-key", media))
+	shot := Shot{Name: "a", Title: "New", Description: "New words."}
 
 	t.Run("when a shot filmed under an old key is adopted", func(t *testing.T) {
-		got, ok := adopt(out, "s", "a", "new-key")
+		got, ok := adopt(out, "s", shot, "new-key")
 		require.True(t, ok)
-		_, now := recall(out, "s", "a", "new-key")
+		_, now := recall(out, "s", shot, "new-key")
 
-		t.Run("it should keep the media it already has", func(t *testing.T) {
-			assert.Equal(t, media, got)
+		t.Run("it should keep the media files it already has", func(t *testing.T) {
+			assert.Equal(t, []string{"s/a.png"}, files(got))
+		})
+
+		t.Run("and the shot's caption has changed", func(t *testing.T) {
+			t.Run("it should carry the shot's current title and description", func(t *testing.T) {
+				assert.Equal(t, [][2]string{{"New", "New words."}}, captions(got))
+			})
 		})
 
 		t.Run("it should answer to the new key from then on", func(t *testing.T) {
@@ -178,10 +214,26 @@ func TestAdopt(t *testing.T) {
 	})
 
 	t.Run("when a shot was never filmed", func(t *testing.T) {
-		_, ok := adopt(out, "s", "never", "new-key")
+		_, ok := adopt(out, "s", Shot{Name: "never"}, "new-key")
 
 		t.Run("it should have nothing to adopt", func(t *testing.T) {
 			assert.False(t, ok)
 		})
 	})
+}
+
+func captions(media []Media) [][2]string {
+	var out [][2]string
+	for _, m := range media {
+		out = append(out, [2]string{m.Title, m.Description})
+	}
+	return out
+}
+
+func files(media []Media) []string {
+	var out []string
+	for _, m := range media {
+		out = append(out, m.File)
+	}
+	return out
 }

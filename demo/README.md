@@ -42,6 +42,8 @@ A clip is slow to film: software GL renders 1080p at a few frames a second, so a
 
 A run only films the shots that changed.
 Each shot is keyed on itself, its scenario, the corpus and both binaries; a shot with the same key as last time, whose files are all still there, is reused from `dist/demo/.film-cache`.
+The key leaves out the shot's `title` and `description` and the scenario's `description`, because they draw nothing:
+a reused shot takes its caption from the scenario as it reads now, so a caption change reaches `manifest.json` with no filming.
 Editing one clip refilms that clip.
 Changing the code refilms everything, since the city may draw differently.
 `DEMO_FRESH=1 make demo-media` films everything regardless.
@@ -58,6 +60,7 @@ Then `make demo-media` there films only what that commit changed.
 Test files are not in the hash, so editing a test refilms nothing.
 
 `make demo-adopt` files every cached shot under the current key without filming, for when the key's recipe changes and the pictures cannot have.
+Adopted shots take their captions from the scenario too.
 It refuses, naming the shot, if anything has nothing cached, rather than start filming.
 
 ## Recording

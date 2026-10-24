@@ -253,9 +253,9 @@ func (f Filmer) Film(paths []string) (Manifest, error) {
 			n++
 			name := fmt.Sprintf("%d/%d %s/%s", n, shots, scenario.Name, shot.Name)
 			key := shotKey(scenario, shot, inputs)
-			media, ok := recall(f.Out, scenario.Name, shot.Name, key)
+			media, ok := recall(f.Out, scenario.Name, shot, key)
 			if !ok && f.Adopt {
-				if media, ok = adopt(f.Out, scenario.Name, shot.Name, key); !ok {
+				if media, ok = adopt(f.Out, scenario.Name, shot, key); !ok {
 					return manifest, fmt.Errorf("%s/%s: nothing cached to adopt; film it without --adopt", scenario.Name, shot.Name)
 				}
 			}
