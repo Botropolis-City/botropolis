@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Cars, vans and trucks keep their wheels on the road.**
+  Zoomed in, the inspector's car could park on the kerb outside a lot, cars cut across the kerb on every bend, and the site trucks and delivery truck clipped the kerb or a building as they turned in a lot. Every vehicle now drives its lane round the curve of each bend, and keeps to the lot's floor inside a lot.
 - **A finder row that is too long for the panel ends with "…"**, as the card and the sidebar do, rather than stopping mid-word at the edge.
 - **The railway no longer shows through the trees.**
   Where the freight loop runs behind a tree, the tree now hides it; the trees look as they did over the grass.
