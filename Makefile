@@ -240,6 +240,22 @@ land ::
 	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
 	@flock ${LAND_LOCK} ${MAKE} --no-print-directory land-under-lock
 
+# Item 226: acceptance tests run beside a landing's gate slow it and fail it,
+# so a session runs them holding the same lock. A worktree session cannot run
+# flock around go test itself, since the worktree guard cannot see what flock
+# runs, so make takes the lock, as it does for make land.
+# make test-acceptance-locked RUN='^TestName$'
+LOCKED_GATE ?= test-acceptance-run
+
+test-acceptance-locked ::
+	@test -n "${RUN}" || { echo "make test-acceptance-locked needs the tests to run: RUN='^TestName\$$'"; exit 2; }
+	@command -v flock >/dev/null || { echo "make test-acceptance-locked needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
+	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
+	@flock ${LAND_LOCK} ${MAKE} --no-print-directory ${LOCKED_GATE} RUN='${RUN}'
+
+test-acceptance-run ::
+	@go test -count=1 -v -timeout ${ACCEPTANCE_TIMEOUT} -run '${RUN}' ./testing/acceptance/
+
 land-under-lock ::
 	$(LOG) "Landing on ${LAND_REMOTE}/${LAND_BRANCH}, holding ${LAND_LOCK}"
 	@git fetch ${LAND_REMOTE}

@@ -34,6 +34,9 @@ land-probe-fail ::
 land-probe-hang ::
 	@echo "${PROBE_NAME} start" >> ${PROBE_LOG}
 	@sleep 600
+
+land-probe-run ::
+	@echo "${PROBE_NAME} ran ${RUN}" >> ${PROBE_LOG}
 `
 
 type landRig struct {
@@ -310,6 +313,106 @@ func TestLand(t *testing.T) {
 				}
 			}
 			assert.Equal(t, []string{"git fetch", "tools/ci-status", "${LAND_GATE}"}, order)
+		})
+	})
+}
+
+func (r *landRig) locked(dir, name, gate string, extra ...string) *exec.Cmd {
+	cmd := exec.Command("make", "-s", "-C", dir, "test-acceptance-locked", "LOCKED_GATE="+gate)
+	// RUN is cleared first: run through this very target, the test inherits
+	// its own RUN from the outer make.
+	cmd.Env = append(append(append([]string{}, r.env...), "PROBE_NAME="+name, "RUN="), extra...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return cmd
+}
+
+// Item 226: a worktree session cannot run flock around go test, since the
+// worktree guard cannot see what flock runs, so make takes the landing lock
+// itself to run named acceptance tests, as make land does for its gate.
+func TestAcceptanceLocked(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs make in scratch repositories")
+	}
+	if _, err := exec.LookPath("flock"); err != nil {
+		t.Skip("flock is not installed, so make test-acceptance-locked went untested")
+	}
+	t.Parallel()
+
+	t.Run("when another session holds the landing lock", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		holder := r.land(a, "a", "land-probe-slow")
+		holderOut, holderErr := runAsync(holder)
+		r.waitForStart(t, "a")
+		out, err := r.locked(a, "b", "land-probe-run", "RUN=^TestOne$").CombinedOutput()
+		require.NoError(t, err, string(out))
+		require.NoError(t, <-holderErr, holderOut.String())
+
+		t.Run("it should wait for it to be released before it starts the tests", func(t *testing.T) {
+			assert.Equal(t, []string{"a_start", "a_end", "b_ran_^TestOne$"}, r.probeLog(t))
+		})
+
+		t.Run("it should say it is waiting", func(t *testing.T) {
+			assert.Contains(t, string(out), "Waiting for the landing in progress")
+		})
+	})
+
+	t.Run("when RUN names tests", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		out, err := r.locked(a, "a", "land-probe-run", "RUN=^(TestOne|TestTwo)$").CombinedOutput()
+		require.NoError(t, err, string(out))
+
+		t.Run("it should pass RUN to the test run unchanged", func(t *testing.T) {
+			assert.Equal(t, []string{"a_ran_^(TestOne|TestTwo)$"}, r.probeLog(t))
+		})
+	})
+
+	t.Run("when the tests fail", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		out, err := r.locked(a, "a", "land-probe-fail", "RUN=^TestOne$").CombinedOutput()
+
+		t.Run("it should exit non-zero", func(t *testing.T) {
+			assert.Error(t, err, string(out))
+		})
+	})
+
+	t.Run("when RUN is not given", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		out, err := r.locked(a, "a", "land-probe-run").CombinedOutput()
+
+		t.Run("it should exit non-zero", func(t *testing.T) {
+			assert.Error(t, err, string(out))
+		})
+
+		t.Run("it should say how to name the tests", func(t *testing.T) {
+			assert.Contains(t, string(out), "RUN='^TestName$'")
+		})
+
+		t.Run("it should run nothing", func(t *testing.T) {
+			assert.Empty(t, r.probeLog(t))
+		})
+	})
+
+	t.Run("when the recipes are read from the Makefile", func(t *testing.T) {
+		recipes := makeRecipes(t, filepath.Join(repoRoot(t), "Makefile"), "test-acceptance-locked", "test-acceptance-run")
+		require.NotEmpty(t, recipes)
+		pipe := regexp.MustCompile(`(^|[^|])\|([^|]|$)`)
+		var piped []string
+		for _, line := range recipes {
+			if pipe.MatchString(line) {
+				piped = append(piped, line)
+			}
+		}
+
+		t.Run("it should pipe nothing, so the tests' exit code is make's", func(t *testing.T) {
+			assert.Empty(t, piped)
 		})
 	})
 }
