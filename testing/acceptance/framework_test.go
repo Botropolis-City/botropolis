@@ -37,19 +37,24 @@ import (
 // so the skip cannot outlive the fix that removes it.
 func TestTheWorkAFrameTakes(t *testing.T) {
 	helpers.NeedXvfb(t)
-	const ceilingAt = "item 193"
 	counts := []struct {
 		name    string
 		of      func(helpers.Frame) int
 		target  int
 		ceiling map[int]int
+		// ceilingAt is the item the ceiling was last measured at.
+		ceilingAt string
 		// unmet is, by hour, whether the target is not met yet, and
 		// unmatched whether the count is over 1.25× the hamlet's.
 		unmet, unmatched map[int]bool
 	}{
-		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 4_990, 22: 5_860}, nil, nil},
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 23, 22: 39}, nil, nil},
-		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, nil, nil},
+		{"indices", func(f helpers.Frame) int { return f.Indices }, 20_000, map[int]int{14: 4_990, 22: 5_860}, "item 193", nil, nil},
+		// Item 221 raised these from 23 and 39: a ground tree is drawn
+		// through a colour matrix, which cannot share a batch with the
+		// plain sprites beside it, and costs 2 commands by day and 3 by
+		// night where movers are drawn again.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 25, 22: 42}, "item 221", nil, nil},
+		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
 	for _, light := range []struct {
@@ -81,7 +86,7 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 				got := c.of(worst)
 				t.Logf("%s: %d a frame; ceiling %d, target %d", c.name, got, c.ceiling[light.hour], c.target)
 
-				t.Run(fmt.Sprintf("it should issue no more %s a frame than it did at %s", c.name, ceilingAt), func(t *testing.T) {
+				t.Run(fmt.Sprintf("it should issue no more %s a frame than it did at %s", c.name, c.ceilingAt), func(t *testing.T) {
 					assert.LessOrEqual(t, got, c.ceiling[light.hour])
 				})
 
