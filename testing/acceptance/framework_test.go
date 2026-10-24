@@ -65,8 +65,8 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// they are 21 and 37. Item 236 then batched the night's lights
 		// laid again where movers are, and judged the worst of every
 		// settled frame rather than the first second's, which had ended
-		// just before a run of 40s: 21 and 36.
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 21, 22: 36}, "item 236", nil, nil},
+		// just before a run of 40s: 20 and 37, on item 240's scene.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 20, 22: 37}, "item 236", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
@@ -81,12 +81,14 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// frames, as measured (item 236).
 		wobble int
 	}{
+		// 20 to 20 over 104 settled frames, held to 1: a slower machine
+		// logs fewer frames, and so samples other places along the lanes.
 		{"day", 14, 1, 1},
-		// 33 to 36 over 416 settled frames: the night's lights laid
+		// 35 to 37 over 416 settled frames: the night's lights laid
 		// again alternate where a window, a sprite in front of it and a
 		// window in front of that must keep their order, which is depth
 		// and not batching, so fewer would change pixels.
-		{"night", 22, 4, 3},
+		{"night", 22, 4, 2},
 	} {
 		t.Run("when the metropolis demo is drawn at 1600×900 by "+light.name+", and it has settled", func(t *testing.T) {
 			t.Parallel()
@@ -106,11 +108,8 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 			// mipmap level a redrawn rectangle pulled in, so the count
 			// moved from frame to frame. With mipmaps off, and the
 			// night's lights batched, it moves with how many rectangles
-			// a mover is drawn again in and what they hold: 20 to 21 by
-			// day over 104 settled frames, and 33 to 36 by night over
-			// 416, the lights alternating where a window, a sprite in
-			// front of it and a window in front of that must keep their
-			// order.
+			// a mover is drawn again in and what they hold, by as much as
+			// each light's wobble.
 			spread := slices.Max(each) - slices.Min(each)
 			t.Logf("draw commands in the %d settled frames: %d to %d", len(each), slices.Min(each), slices.Max(each))
 			t.Run(fmt.Sprintf("it should vary by no more than %d draw commands between settled frames, as the vehicles move along their lanes", light.wobble), func(t *testing.T) {
