@@ -129,6 +129,10 @@ type City struct {
 	memo *memo
 	// planID is which of the memo's plans the city stands on (item 206).
 	planID int
+	// bridgeAt is the street cell the bridge lands on, if bridged
+	// (item 218).
+	bridgeAt Cell
+	bridged  bool
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.
@@ -399,6 +403,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	city.placeLandmarks(snapshot)
 	city.placeRoads(snapshot.Roads)
 	city.placeRiver()
+	city.placeBridge()
 	city.placeStreets()
 	city.placeCamps(snapshot.Teams)
 	city.placeGroups(snapshot.Groups)

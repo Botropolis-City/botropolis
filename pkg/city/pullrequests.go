@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/plan"
 )
 
 // Pull requests on the map. Item 89.
@@ -103,11 +104,38 @@ func (c *City) bridgeEast() bool {
 	return ok && from.X < c.bounds.Center().X
 }
 
-// bridgeCell is the street cell nearest the coast on the bridge's side,
-// the middlemost of those that reach it most directly.
-func (c *City) bridgeCell() (Cell, bool) {
+// bridgeCell is where the bridge lands, as placeBridge placed it.
+func (c *City) bridgeCell() (Cell, bool) { return c.bridgeAt, c.bridged }
+
+// placeBridge lands the bridge on the street cell nearest the coast on
+// its side, among those that reach it most directly: on the row the
+// layout remembers while that row is one of them, else the one nearest
+// it, and for a layout that remembers none the middlemost. The row is
+// remembered by its place among the plan's slot rows, so the bridge
+// stays beside the same blocks as the island grows, and across a
+// restart (Aria, 2026-10-24: "It should stay where it is"). Item 218.
+func (c *City) placeBridge() {
+	var kept *plan.RowMark
+	if c.layout != nil {
+		kept = c.layout.Bridge
+	}
+	c.bridgeAt, c.bridged = c.coastalStreet(kept)
+	if c.bridged && c.layout != nil {
+		mark := c.plan.MarkRow(fromCell(c.bridgeAt).Row)
+		c.layout.Bridge = &mark
+	}
+}
+
+// coastalStreet is the street cell nearest the coast on the bridge's
+// side, of those that reach it most directly: the one nearest the kept
+// row, or with none kept the middlemost.
+func (c *City) coastalStreet(kept *plan.RowMark) (Cell, bool) {
 	lo, hi := CellOf(c.bounds.Min), CellOf(Point{X: c.bounds.Max.X - 1, Y: c.bounds.Max.Y - 1})
 	mid := float64(lo.Row+hi.Row) / 2
+	target := mid
+	if kept != nil {
+		target = float64(c.plan.RowOf(*kept))
+	}
 	east := c.bridgeEast()
 	var best Cell
 	found := false
@@ -117,6 +145,9 @@ func (c *City) bridgeCell() (Cell, bool) {
 				return a.Col > b.Col
 			}
 			return a.Col < b.Col
+		}
+		if da, db := math.Abs(float64(a.Row)-target), math.Abs(float64(b.Row)-target); da != db {
+			return da < db
 		}
 		return math.Abs(float64(a.Row)-mid) < math.Abs(float64(b.Row)-mid)
 	}

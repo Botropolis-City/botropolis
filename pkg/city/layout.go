@@ -71,6 +71,10 @@ type Layout struct {
 	ReadableFrom int                        `json:"readableFrom"`
 	Districts    map[string]*districtLayout `json:"districts"`
 	Plan         *plan.Memory               `json:"plan,omitempty"`
+	// Bridge is the row the bridge lands on, by its place among the
+	// plan's slot rows, chosen when the island first had one and kept
+	// while it is a street (item 218).
+	Bridge *plan.RowMark `json:"bridge,omitempty"`
 	// Hidden and Starred are map-only marks on projects, never written
 	// anywhere near ~/.claude.
 	Hidden  map[string]bool `json:"hidden,omitempty"`

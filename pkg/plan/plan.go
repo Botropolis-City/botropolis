@@ -685,6 +685,39 @@ func (p Plan) BlockAt(s Slot) Block {
 	return Block{Min: Cell{Col: p.colX[s.Col], Row: p.rowY[s.Row]}, Cols: p.width[s.Col], Rows: p.height[s.Row]}
 }
 
+// RowMark is a row of a plan told by its place among the slot rows: the
+// band of slots it falls in, or the road past it, and how many rows
+// into that band it is. A band growing or shrinking elsewhere, or a ring
+// more, leaves it the same stretch of road beside the same blocks.
+type RowMark struct {
+	Band   int `json:"band"`
+	Offset int `json:"offset"`
+}
+
+// MarkRow is row's mark on this plan.
+func (p Plan) MarkRow(row int) RowMark {
+	band := -p.rings
+	for r := -p.rings; r <= p.rings; r++ {
+		if p.rowY[r] <= row {
+			band = r
+		}
+	}
+	return RowMark{Band: band, Offset: row - p.rowY[band]}
+}
+
+// RowOf is the row a mark stands for on this plan. A band the plan no
+// longer has stands for the road nearest it: the north road for a band
+// north of the rings, the south road for one south of them.
+func (p Plan) RowOf(m RowMark) int {
+	switch {
+	case m.Band > p.rings:
+		return p.rowY[p.rings] + p.height[p.rings]
+	case m.Band < -p.rings:
+		return p.rowY[-p.rings] - 1
+	}
+	return p.rowY[m.Band] + m.Offset
+}
+
 // SlotBlock is the ground a slot covers, on the plan's rings or on the
 // ring just past them, which has no column or row yet: a slot there is
 // as wide as the smallest block, across the avenue from the outer ring.

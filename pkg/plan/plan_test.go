@@ -459,3 +459,73 @@ func TestPlanting(t *testing.T) {
 		})
 	})
 }
+
+// Item 218: a row of the plan marked so a later plan, grown or shrunk,
+// finds the same stretch of road beside the same blocks.
+func TestRowMark(t *testing.T) {
+	grown := func(rows map[string]int, n int) plan.Plan {
+		districts := live(n)
+		for i := range districts {
+			if r, ok := rows[districts[i].Root]; ok {
+				districts[i].Rows = r
+			}
+		}
+		return plan.Make(plan.Input{Districts: districts}, plan.NewMemory())
+	}
+	base := grown(nil, 5)
+	inPlaza := plan.Slot{}
+	rowIn := func(p plan.Plan, s plan.Slot) int { return p.BlockAt(s).Min.Row + 1 }
+
+	t.Run("when a row of a plan is marked", func(t *testing.T) {
+		t.Run("and the same plan reads the mark back", func(t *testing.T) {
+			for row := 0; row < base.Bounds.Rows; row++ {
+				t.Run(fmt.Sprintf("it should be row %d again", row), func(t *testing.T) {
+					assert.Equal(t, row, base.RowOf(base.MarkRow(row)))
+				})
+			}
+		})
+
+		t.Run("and a slot row north of it grows", func(t *testing.T) {
+			later := grown(map[string]int{"/p0": 7}, 5)
+			require.NotEqual(t, rowIn(base, inPlaza), rowIn(later, inPlaza), "the fixture should move the plaza")
+
+			t.Run("it should be the row the same distance into its band", func(t *testing.T) {
+				assert.Equal(t, rowIn(later, inPlaza), later.RowOf(base.MarkRow(rowIn(base, inPlaza))))
+			})
+		})
+
+		t.Run("and a slot row south of it grows", func(t *testing.T) {
+			north := plan.Slot{Col: -1, Row: -1}
+			later := grown(map[string]int{"/p3": 9}, 5)
+			require.NotEqual(t, base.Bounds.Rows, later.Bounds.Rows, "the fixture should grow the plan")
+
+			t.Run("it should be the same row", func(t *testing.T) {
+				assert.Equal(t, rowIn(base, north), later.RowOf(base.MarkRow(rowIn(base, north))))
+			})
+		})
+
+		t.Run("and a ring is added", func(t *testing.T) {
+			later := grown(nil, 9)
+			require.NotEqual(t, rowIn(base, inPlaza), rowIn(later, inPlaza), "the fixture should move the plaza")
+
+			t.Run("it should be the row the same distance into its band", func(t *testing.T) {
+				assert.Equal(t, rowIn(later, inPlaza), later.RowOf(base.MarkRow(rowIn(base, inPlaza))))
+			})
+		})
+
+		t.Run("and its band is gone, because a ring went", func(t *testing.T) {
+			wide := grown(nil, 9)
+			mark := wide.MarkRow(rowIn(wide, plan.Slot{Row: 2}))
+			southRoad := -1
+			for row := 0; row < base.Bounds.Rows; row++ {
+				if base.IsStreet(plan.Cell{Col: base.Plaza.Center().Col, Row: row}) {
+					southRoad = row
+				}
+			}
+
+			t.Run("it should be the south road, the nearest road to where it was", func(t *testing.T) {
+				assert.Equal(t, southRoad, base.RowOf(mark))
+			})
+		})
+	})
+}

@@ -1,8 +1,10 @@
 package city_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -353,6 +355,104 @@ func TestBridge(t *testing.T) {
 
 	t.Run("it should start on a street", func(t *testing.T) {
 		assert.True(t, c.IsStreet(city.CellOf(bridge.Land)))
+	})
+}
+
+// Item 218: the bridge is placed once and kept, while the island grows
+// and across a restart, and moves only when its row stops being a street.
+func TestBridgeStays(t *testing.T) {
+	cityOf := func(layout *city.Layout, sessions, packed int) *city.City {
+		all := sessionsIn(cinders, sessions)
+		all = append(all, session("m", mullet, state.Working))
+		for i := 0; i < packed; i++ {
+			s := session(fmt.Sprintf("p%02d", i), fmt.Sprintf("/home/avesta/packed/p%02d", i), state.Resting)
+			s.Packed = true
+			all = append(all, s)
+		}
+		return city.Build(snapshot(all...), layout)
+	}
+	landing := func(c *city.City) city.Point { return c.Bridge().Land }
+	fromPlaza := func(c *city.City) float64 { return landing(c).Y - c.Plaza.Min.Y }
+
+	t.Run("when the island grows rows south of the bridge, as a depot arrives", func(t *testing.T) {
+		layout := city.NewLayout()
+		was := cityOf(layout, 1, 0)
+		now := cityOf(layout, 1, 12)
+		require.NotEqual(t, landing(was).Y, landing(cityOf(city.NewLayout(), 1, 12)).Y, "the middle rule should move it")
+
+		t.Run("it should keep the landing where it was", func(t *testing.T) {
+			assert.Equal(t, landing(was).Y, landing(now).Y)
+		})
+	})
+
+	t.Run("when the island grows rows north of the bridge, as a district grows", func(t *testing.T) {
+		layout := city.NewLayout()
+		was := cityOf(layout, 1, 0)
+		now := cityOf(layout, 8, 0)
+		require.NotEqual(t, fromPlaza(was), fromPlaza(cityOf(city.NewLayout(), 8, 0)), "the middle rule should move it")
+
+		t.Run("it should keep the landing the same distance from the plaza", func(t *testing.T) {
+			assert.Equal(t, fromPlaza(was), fromPlaza(now))
+		})
+	})
+
+	t.Run("when the bridge's row stops being a street, as the depot it stood beside goes", func(t *testing.T) {
+		layout := city.NewLayout()
+		cityOf(layout, 1, 30)
+		now := cityOf(layout, 1, 0)
+		col := city.CellOf(landing(now)).Col
+		southmost := -1
+		for row := 0; float64(row)*city.CellSize < now.Bounds().Max.Y; row++ {
+			if now.IsStreet(city.Cell{Col: col, Row: row}) {
+				southmost = row
+			}
+		}
+		require.NotEqual(t, landing(now), landing(cityOf(city.NewLayout(), 1, 0)), "the nearest street row should not be the middle")
+
+		t.Run("it should land on the coastal street row nearest where it was", func(t *testing.T) {
+			assert.Equal(t, southmost, city.CellOf(landing(now)).Row)
+		})
+
+		t.Run("it should start on a street", func(t *testing.T) {
+			assert.True(t, now.IsStreet(city.CellOf(landing(now))))
+		})
+	})
+
+	t.Run("when the layout is saved and loaded again, as on a restart", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "layout.json")
+		layout := city.NewLayout()
+		cityOf(layout, 1, 0)
+		before := cityOf(layout, 1, 12)
+		require.NoError(t, layout.Save(path))
+		loaded, err := city.LoadLayout(path)
+		require.NoError(t, err)
+		require.NotEqual(t, landing(before), landing(cityOf(city.NewLayout(), 1, 12)), "the middle rule should put it elsewhere")
+
+		t.Run("it should place the bridge where it was before the restart", func(t *testing.T) {
+			assert.Equal(t, landing(before), landing(cityOf(loaded, 1, 12)))
+		})
+	})
+
+	t.Run("when a layout from before the bridge mark is loaded", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "layout.json")
+		layout := city.NewLayout()
+		cityOf(layout, 1, 0)
+		require.NoError(t, layout.Save(path))
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		var file map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(data, &file))
+		require.Contains(t, file, "bridge", "the fixture should have a mark to take out")
+		delete(file, "bridge")
+		data, err = json.Marshal(file)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, data, 0o600))
+		older, err := city.LoadLayout(path)
+		require.NoError(t, err)
+
+		t.Run("it should place the bridge by the middle rule", func(t *testing.T) {
+			assert.Equal(t, landing(cityOf(city.NewLayout(), 1, 12)), landing(cityOf(older, 1, 12)))
+		})
 	})
 }
 
