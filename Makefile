@@ -188,14 +188,18 @@ test-acceptance ::
 
 # The performance tier holds the landing lock, so no landing's gate runs
 # beside what it measures.
+# RUN='^TestName$' narrows it to tests within the tier, and refuses a
+# pattern that matches none of them.
+PERFORMANCE_GATE ?= test-performance-run
+
 test-performance ::
 	$(LOG) "Running the acceptance tests that measure CPU and memory"
 	@command -v flock >/dev/null || { echo "make test-performance needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
 	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
-	@flock ${LAND_LOCK} ${MAKE} --no-print-directory test-performance-run
+	@flock ${LAND_LOCK} ${MAKE} --no-print-directory ${PERFORMANCE_GATE} RUN='${RUN}'
 
 test-performance-run ::
-	@pattern=$$(go run ./tools/acceptance-targets tier performance) && \
+	@pattern=$$(go run ./tools/acceptance-targets tier performance -run '${RUN}') && \
 		BOTROPOLIS_PERFORMANCE=1 go test -count=1 -v -timeout ${ACCEPTANCE_TIMEOUT} -run "$$pattern" ./testing/acceptance/
 
 # Item 128: 40 city starts while the input devices are busy and the main

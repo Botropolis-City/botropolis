@@ -150,6 +150,32 @@ func TestInTier(t *testing.T) {
 			assert.Equal(t, "^$", RunPattern(nil))
 		})
 	})
+
+	t.Run("when RUN matches a performance test", func(t *testing.T) {
+		names, err := Matching(InTier(tests, Performance), "^TestB$")
+		require.NoError(t, err)
+
+		t.Run("it should run that test alone", func(t *testing.T) {
+			assert.Equal(t, []string{"TestB"}, names)
+		})
+	})
+
+	t.Run("when RUN matches only tests outside the tier", func(t *testing.T) {
+		_, err := Matching(InTier(tests, Performance), "^TestC$")
+
+		t.Run("it should refuse, saying nothing in the tier matches", func(t *testing.T) {
+			assert.ErrorContains(t, err, "matches no test")
+		})
+	})
+
+	t.Run("when RUN is empty", func(t *testing.T) {
+		names, err := Matching(InTier(tests, Performance), "")
+		require.NoError(t, err)
+
+		t.Run("it should run the whole tier", func(t *testing.T) {
+			assert.Equal(t, []string{"TestA", "TestB"}, names)
+		})
+	})
 }
 
 func keys[V any](m map[string]V) []string {

@@ -1,12 +1,14 @@
 package targets
 
 import (
+	"fmt"
 	"go/ast"
 	"go/build"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -166,6 +168,29 @@ func InTier(tests map[string]Test, tier Tier) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// Matching narrows names to those pattern matches, all of them when it is
+// empty, and refuses when it matches none, so a mistyped pattern cannot
+// pass on nothing.
+func Matching(names []string, pattern string) ([]string, error) {
+	if pattern == "" {
+		return names, nil
+	}
+	match, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, name := range names {
+		if match.MatchString(name) {
+			out = append(out, name)
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%q matches no test in the tier", pattern)
+	}
+	return out, nil
 }
 
 // RunPattern is the go test -run pattern that matches exactly these tests:

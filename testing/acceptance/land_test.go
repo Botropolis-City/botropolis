@@ -417,6 +417,68 @@ func TestAcceptanceLocked(t *testing.T) {
 	})
 }
 
+func (r *landRig) performance(dir, name, gate string, extra ...string) *exec.Cmd {
+	cmd := exec.Command("make", "-s", "-C", dir, "test-performance", "PERFORMANCE_GATE="+gate)
+	cmd.Env = append(append(append([]string{}, r.env...), "PROBE_NAME="+name, "RUN="), extra...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return cmd
+}
+
+// Item 226: the performance tier measures, so it holds the landing lock,
+// and RUN narrows it to one test, so rechecking one is not the whole tier.
+func TestPerformanceLocked(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs make in scratch repositories")
+	}
+	if _, err := exec.LookPath("flock"); err != nil {
+		t.Skip("flock is not installed, so make test-performance's lock went untested")
+	}
+	t.Parallel()
+
+	t.Run("when another session holds the landing lock", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		holder := r.land(a, "a", "land-probe-slow")
+		holderOut, holderErr := runAsync(holder)
+		r.waitForStart(t, "a")
+		out, err := r.performance(a, "b", "land-probe-run", "RUN=^TestCost$").CombinedOutput()
+		require.NoError(t, err, string(out))
+		require.NoError(t, <-holderErr, holderOut.String())
+
+		t.Run("it should wait for it to be released before it measures", func(t *testing.T) {
+			assert.Equal(t, []string{"a_start", "a_end", "b_ran_^TestCost$"}, r.probeLog(t))
+		})
+
+		t.Run("it should say it is waiting", func(t *testing.T) {
+			assert.Contains(t, string(out), "Waiting for the landing in progress")
+		})
+	})
+
+	t.Run("when RUN is given", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		out, err := r.performance(a, "a", "land-probe-run", "RUN=^(TestOne|TestTwo)$").CombinedOutput()
+		require.NoError(t, err, string(out))
+
+		t.Run("it should pass it to the run unchanged", func(t *testing.T) {
+			assert.Equal(t, []string{"a_ran_^(TestOne|TestTwo)$"}, r.probeLog(t))
+		})
+	})
+
+	t.Run("when the run fails", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		out, err := r.performance(a, "a", "land-probe-fail").CombinedOutput()
+
+		t.Run("it should exit non-zero", func(t *testing.T) {
+			assert.Error(t, err, string(out))
+		})
+	})
+}
+
 type lockedBuffer struct {
 	mu sync.Mutex
 	b  strings.Builder
