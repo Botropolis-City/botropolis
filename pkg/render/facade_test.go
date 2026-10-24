@@ -82,6 +82,22 @@ func TestPlanks(t *testing.T) {
 		})
 	})
 
+	// Item 237: a pane exactly as long as it is tall is a window, not a
+	// ribbon, whichever way a camera's float noise would have tipped it.
+	t.Run("when a pane exactly as long as it is tall is boarded", func(t *testing.T) {
+		pane := [4]city.Point{{X: 100, Y: 200}, {X: 120, Y: 200}, {X: 120, Y: 220}, {X: 100, Y: 220}}
+		left := math.Inf(1)
+		for _, p := range planksFor(pane, 5) {
+			for _, corner := range p {
+				left = math.Min(left, corner.X)
+			}
+		}
+
+		t.Run("it should cover its frame as a window's", func(t *testing.T) {
+			assert.Less(t, left, 100-0.25*20)
+		})
+	})
+
 	t.Run("when the same pane is boarded twice", func(t *testing.T) {
 		pane := [4]city.Point{{X: 0, Y: 0}, {X: 20, Y: 10}, {X: 20, Y: 40}, {X: 0, Y: 30}}
 

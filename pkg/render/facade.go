@@ -59,7 +59,7 @@ func planksFor(pane [4]city.Point, seed uint32) [][4]city.Point {
 	side, ribbon := frameSide, false
 	if length := math.Hypot(run.X, run.Y); length > 0 {
 		side = min(frameSide, height/length)
-		ribbon = length >= ribbonRatio*height
+		ribbon = length > ribbonRatio*height
 	}
 	if ribbon {
 		side = 0
