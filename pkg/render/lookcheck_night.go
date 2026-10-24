@@ -123,7 +123,7 @@ func (g *Game) checkLooksAtNight(zoom float64, heading int) []string {
 	if g.lookStats.hits == 0 {
 		problems = append(problems, name+": the building in front was not drawn from the cache")
 	}
-	problems = append(problems, seenThroughFront(name, on, off, mask, blank)...)
+	problems = append(problems, seenThroughFront(name, on, off, mask, blank, g.solidMargin(zoom))...)
 
 	lit := g.nightPair(zoom, heading, true)
 	g.looks, g.lookFrame = nil, 0

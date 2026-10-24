@@ -91,7 +91,7 @@ func (g *Game) checkLandmarkOcclusion(zoom float64) []string {
 	on, off := g.sheetLandmark(zoom, cam, lot, kitHall, 1, front, at), g.sheetLandmark(zoom, cam, lot, kitHall, 0, front, at)
 	mask := g.sheetLandmark(zoom, nil, lot, kitHall, 0, front, at)
 	blank := g.sheetLandmark(zoom, nil, lot, kitHall, 0, nil, at)
-	return seenThroughFront("a lit city hall behind a dark building", on, off, mask, blank)
+	return seenThroughFront("a lit city hall behind a dark building", on, off, mask, blank, g.solidMargin(zoom))
 }
 
 // litWarmer is how much warmer, on average, a landmark's lit glass must

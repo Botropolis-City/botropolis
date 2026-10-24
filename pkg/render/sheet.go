@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -269,19 +270,46 @@ func (g *Game) checkOcclusion(zoom float64) []string {
 	on, off := scene(true), scene(false)
 	mask := g.sheetScene(zoom, []*city.Building{front}, []city.Point{frontFoot})
 	blank := g.sheetScene(zoom, nil, nil)
-	return seenThroughFront("a lit tower behind a dark building", on, off, mask, blank)
+	return seenThroughFront("a lit tower behind a dark building", on, off, mask, blank, g.solidMargin(zoom))
+}
+
+// solidMarginFor is how many pixels in from a building's soft edge the
+// occlusion checks take it as solid, for a sprite drawn up drawnUp times
+// its cut. A cut's rim is 2 px at every level; drawn up, filtering widens
+// it, and at zoom 2 with z1.5 (1.33x) a pixel 3 in is only about 60%
+// opaque, which read as a window showing through. The checks had only
+// run at zoom 1 and 2, where nothing was drawn up, until item 162's
+// slice 14 replaced z2 with z1.5; zoom 1.5, z1 drawn up, failed the same
+// way before it.
+func solidMarginFor(drawnUp float64) int {
+	if drawnUp <= 1.001 {
+		return 2
+	}
+	return int(math.Ceil(2*drawnUp)) + 1
+}
+
+// solidMargin is solidMarginFor the kit level the camera draws at zoom.
+func (g *Game) solidMargin(zoom float64) int {
+	if g.kits == nil {
+		return solidMarginFor(1)
+	}
+	atlas := g.kits.pick(zoom)
+	if atlas == nil {
+		return solidMarginFor(1)
+	}
+	return solidMarginFor(zoom / atlas.Zoom)
 }
 
 // seenThroughFront reports any pixel the lights changed, between on and
 // off, that lies solidly inside the dark building in front, which mask
 // draws alone over blank: a window behind it must not show through it.
-func seenThroughFront(name string, on, off, mask, blank *image.NRGBA) []string {
-	// Inside the building in front, two pixels in from its soft edge, where
-	// it is solid: at the edge, filtered, it is part see-through, and was
-	// before.
+// margin is how far in from that building's soft edge it is solid
+// (solidMargin): at the edge, filtered, it is part see-through, and was
+// before.
+func seenThroughFront(name string, on, off, mask, blank *image.NRGBA, margin int) []string {
 	solid := func(x, y int) bool {
-		for dy := -2; dy <= 2; dy++ {
-			for dx := -2; dx <= 2; dx++ {
+		for dy := -margin; dy <= margin; dy++ {
+			for dx := -margin; dx <= margin; dx++ {
 				if mask.NRGBAAt(x+dx, y+dy) == blank.NRGBAAt(x+dx, y+dy) {
 					return false
 				}
