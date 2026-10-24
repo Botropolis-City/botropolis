@@ -79,6 +79,33 @@ func TestLayoutFinderResults(t *testing.T) {
 		})
 	})
 
+	t.Run("when a row's lines run past the row's width (item 181)", func(t *testing.T) {
+		long := inReply
+		long.FirstPrompt = "pick up the kiln " + strings.Repeat("and its heights ", 30)
+		long.Dir = "/src/" + strings.Repeat("deep/", 60) + "kiln"
+		long.Passage = "The kiln " + strings.Repeat("thermocouple is loose ", 30)
+		p := layout([]ui.FinderResult{long}, 0, 800)
+		require.Len(t, p.Rows, 1)
+		r := p.Rows[0]
+
+		t.Run("it should end the head with an ellipsis", func(t *testing.T) {
+			assert.True(t, strings.HasSuffix(r.Head.Text, "…"), r.Head.Text)
+		})
+
+		t.Run("it should fit the head within the field's width", func(t *testing.T) {
+			w, _ := measure7(r.Head.Text, ui.Body)
+			assert.LessOrEqual(t, w, p.Field.Width())
+		})
+
+		t.Run("it should end the where line with an ellipsis", func(t *testing.T) {
+			assert.True(t, strings.HasSuffix(r.Where.Text, "…"), r.Where.Text)
+		})
+
+		t.Run("it should end the passage with an ellipsis", func(t *testing.T) {
+			assert.True(t, strings.HasSuffix(r.Passage.Text, "…"), r.Passage.Text)
+		})
+	})
+
 	t.Run("when there are more rows than fit the window", func(t *testing.T) {
 		var many []ui.FinderResult
 		for i := range 40 {

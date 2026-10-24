@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/stats"
 )
 
@@ -429,7 +430,7 @@ const (
 func weight(c stats.Cost) float64 { return (c.Low + c.High) / 2 }
 
 func mixName(s stats.Share) string {
-	name := strings.TrimPrefix(s.Model, "claude-")
+	name := format.Model(s.Model)
 	switch s.Speed {
 	case "standard":
 	case stats.Unrecorded:

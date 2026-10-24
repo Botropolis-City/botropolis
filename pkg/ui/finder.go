@@ -133,7 +133,7 @@ func (p *FinderPanel) layoutResults(th Theme, height float64, in FinderInput, me
 	if r := in.Results[selected]; r.Recap != "" || r.LastPrompt != "" {
 		preview = wrapPara(r.Recap, width, finderPreviewRows, measure)
 		if r.LastPrompt != "" {
-			preview = append(preview, clipTo("left at: "+strings.Join(strings.Fields(r.LastPrompt), " "), width, Small, measure))
+			preview = append(preview, Fit("left at: "+strings.Join(strings.Fields(r.LastPrompt), " "), width, Small, measure))
 		}
 	}
 	previewH := 0.0
@@ -187,7 +187,7 @@ func (p *FinderPanel) layoutResults(th Theme, height float64, in FinderInput, me
 		if r.Packed {
 			where = append(where, "packed up, enter unpacks")
 		}
-		row.Where = Text{Text: clipTo(strings.Join(where, "  "), width, Small, measure), At: city.Point{X: x, Y: row.Head.At.Y + bodyH}, Size: Small}
+		row.Where = Text{Text: Fit(strings.Join(where, "  "), width, Small, measure), At: city.Point{X: x, Y: row.Head.At.Y + bodyH}, Size: Small}
 		row.Marks = marks(row.Head, in.Words, measure)
 		if !r.InPrompt {
 			row.Passage = Text{Text: around(oneLine(r.Passage), in.Words, width, Small, measure), At: city.Point{X: x, Y: row.Where.At.Y + smallH}, Size: Small}
@@ -218,10 +218,10 @@ func around(text string, words []string, width float64, size Size, measure Measu
 		}
 	}
 	if at < 0 {
-		return clipTo(text, width, size, measure)
+		return Fit(text, width, size, measure)
 	}
 	if upto, _ := measure(text[:end], size); upto <= width {
-		return clipTo(text, width, size, measure)
+		return Fit(text, width, size, measure)
 	}
 	start := at
 	for start > 0 {
@@ -234,7 +234,7 @@ func around(text string, words []string, width float64, size Size, measure Measu
 	if i := strings.IndexByte(text[start:at], ' '); i >= 0 && start > 0 {
 		start += i + 1
 	}
-	return clipTo("…"+text[start:], width, size, measure)
+	return Fit("…"+text[start:], width, size, measure)
 }
 
 // oneLine folds a passage's whitespace, newlines included, to spaces.

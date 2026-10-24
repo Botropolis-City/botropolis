@@ -14,17 +14,32 @@ import (
 // Item 89: f is Skyline, and at Skyline the buildings and their drones
 // are drawn.
 func TestSkylineKey(t *testing.T) {
-	for name, keys := range map[string][]ui.Key{"help": bindings, "footer": footerKeys} {
-		t.Run("the "+name+"'s f row should say Skyline", func(t *testing.T) {
-			var action string
-			for _, k := range keys {
-				if k.Key == "f" {
-					action = k.Action
-				}
+	keyFor := func(keys []ui.Key, action string) string {
+		for _, k := range keys {
+			if k.Action == action {
+				return k.Key
 			}
-			assert.Equal(t, "Skyline", action)
-		})
+		}
+		return ""
 	}
+
+	t.Run("the help's Skyline row should list f and 0 as one key (item 181)", func(t *testing.T) {
+		assert.Equal(t, "f or 0", keyFor(bindings, "Skyline, the whole city"))
+	})
+
+	t.Run("the help should list 0 on no other row (item 181)", func(t *testing.T) {
+		var zeros []string
+		for _, k := range bindings {
+			if k.Key == "0" {
+				zeros = append(zeros, k.Action)
+			}
+		}
+		assert.Empty(t, zeros)
+	})
+
+	t.Run("the footer's f row should say Skyline", func(t *testing.T) {
+		assert.Equal(t, "f", keyFor(footerKeys, "Skyline"))
+	})
 
 	t.Run("when a drone works on a building at Skyline", func(t *testing.T) {
 		at := time.Date(2026, 10, 17, 18, 0, 0, 0, time.UTC)

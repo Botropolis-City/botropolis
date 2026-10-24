@@ -73,7 +73,7 @@ func someRangeData() ui.RangeData {
 		Coverage: stats.Coverage{Earliest: day(time.July, 31), HasData: true, StartsBeforeData: true, TouchesGap: true},
 		Cost:     cost, Counters: counters,
 		Mix: []stats.Share{
-			share("claude-opus-5", "standard", 5), share("claude-sonnet-5", "fast", 3),
+			share("claude-opus-5-20260101", "standard", 5), share("claude-sonnet-5", "fast", 3),
 			share("claude-haiku-5", stats.Unrecorded, 1.9), share("claude-tiny-1", "standard", 0.1),
 		},
 		Districts: []ui.DistrictFigure{
@@ -526,6 +526,10 @@ func TestLayoutRanges(t *testing.T) {
 	t.Run("when the model mix is laid", func(t *testing.T) {
 		t.Run("it should name each share with its part of the cost, dearest first", func(t *testing.T) {
 			assert.Equal(t, "opus-5 50%  ·  sonnet-5 fast 30%  ·  haiku-5 (speed unrecorded) 19%  ·  other 1%", p.MixLine.Text)
+		})
+
+		t.Run("it should use format.Model's short name, without the release date (item 181)", func(t *testing.T) {
+			assert.True(t, strings.HasPrefix(p.MixLine.Text, "opus-5 50%"), p.MixLine.Text)
 		})
 
 		t.Run("it should split the bar by cost", func(t *testing.T) {

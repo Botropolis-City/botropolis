@@ -40,6 +40,11 @@ func TestStripChips(t *testing.T) {
 			assert.True(t, ok)
 		})
 
+		t.Run("it should call the mcp chip a count of calls (item 181)", func(t *testing.T) {
+			_, ok := findChip(chips, "3 mcp calls")
+			assert.True(t, ok, chipTexts(chips))
+		})
+
 		t.Run("it should lead with the working chip", func(t *testing.T) {
 			assert.Equal(t, "2 working", chips[0].Text)
 		})
@@ -58,7 +63,7 @@ func TestStripChips(t *testing.T) {
 			})
 		}
 
-		for _, plain := range []string{"2k/h fresh", "20k/h cached", "$1.50 24h", "hit 90%", "3 mcp"} {
+		for _, plain := range []string{"2k/h fresh", "20k/h cached", "$1.50 24h", "hit 90%", "3 mcp calls"} {
 			t.Run("it should leave "+plain+" without a tone", func(t *testing.T) {
 				chip, ok := findChip(chips, plain)
 				require.True(t, ok, chipTexts(chips))

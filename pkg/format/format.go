@@ -2,6 +2,7 @@ package format
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -61,4 +62,30 @@ func Age(d time.Duration) string {
 		return fmt.Sprintf("%dh%02dm", int(d.Hours()), int(d.Minutes())%60)
 	}
 	return fmt.Sprintf("%dd%dh", int(d.Hours())/24, int(d.Hours())%24)
+}
+
+// Model is a Claude model id as the city says it, without the "claude-"
+// prefix or a release date: "claude-haiku-4-5-20251001" is "haiku-4-5".
+// Any other id is left as it is.
+func Model(id string) string {
+	name, ok := strings.CutPrefix(id, "claude-")
+	if !ok {
+		return id
+	}
+	if i := strings.LastIndexByte(name, '-'); i >= 0 && isDate(name[i+1:]) {
+		name = name[:i]
+	}
+	return name
+}
+
+func isDate(s string) bool {
+	if len(s) != 8 {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }

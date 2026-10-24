@@ -120,7 +120,7 @@ func TestStatus(t *testing.T) {
 		})
 
 		t.Run("it should render every column, ending with how long the session has been idle", func(t *testing.T) {
-			assert.Regexp(t, `^needs-you\s+Bash\s+cinders\s+Fix the CI queue\s+main\s+claude-opus-5\[1m\]\s+25%\s+152k\s+8\.9M\s+1/4\s+6m$`, lines[1])
+			assert.Regexp(t, `^needs-you\s+Bash\s+cinders\s+Fix the CI queue\s+main\s+opus-5\[1m\]\s+25%\s+152k\s+8\.9M\s+1/4\s+6m$`, lines[1])
 		})
 
 		t.Run("it should head the last column IDLE", func(t *testing.T) {

@@ -50,6 +50,14 @@ func TestRender(t *testing.T) {
 		})
 	})
 
+	t.Run("when a session runs on a dated model id", func(t *testing.T) {
+		line := row(t, state.Session{ID: "a", CWD: cwd, State: state.Resting, Model: "claude-haiku-4-5-20251001", StartedAt: now})
+
+		t.Run("it should print the short name in the MODEL column (item 181)", func(t *testing.T) {
+			assert.Equal(t, [2]bool{true, false}, [2]bool{strings.Contains(line, " haiku-4-5 "), strings.Contains(line, "20251001")}, line)
+		})
+	})
+
 	t.Run("when there are no sessions", func(t *testing.T) {
 		var out bytes.Buffer
 		commands.Render(&out, state.Snapshot{At: now})
@@ -97,6 +105,14 @@ func TestRenderJSON(t *testing.T) {
 			t.Run("it should carry every session's pid", func(t *testing.T) {
 				assert.Equal(t, []any{float64(1165254), float64(1698050)}, []any{rows[0]["pid"], rows[1]["pid"]})
 			})
+		})
+	})
+
+	t.Run("when a session runs on a dated model id", func(t *testing.T) {
+		rows := decode(t, state.Snapshot{At: now, Sessions: []state.Session{{ID: "a", Model: "claude-haiku-4-5-20251001"}}})
+
+		t.Run("it should keep the full id (item 181)", func(t *testing.T) {
+			assert.Equal(t, "claude-haiku-4-5-20251001", rows[0]["model"])
 		})
 	})
 

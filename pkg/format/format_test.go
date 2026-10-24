@@ -36,3 +36,19 @@ func TestUSD(t *testing.T) {
 		})
 	})
 }
+
+func TestModel(t *testing.T) {
+	for _, c := range []struct {
+		name, id, want string
+	}{
+		{"when the id is claude-<name>-<date>, it should drop both", "claude-haiku-4-5-20251001", "haiku-4-5"},
+		{"when the id has no date, it should drop only the prefix", "claude-opus-4-7", "opus-4-7"},
+		{"when the id is not Claude's, it should leave it alone", "gpt-x-20250101", "gpt-x-20250101"},
+		{"when the id ends in a number that is not a date, it should keep it", "claude-tiny-1", "tiny-1"},
+		{"when the id is empty, it should stay empty", "", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, format.Model(c.id))
+		})
+	}
+}

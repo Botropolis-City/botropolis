@@ -94,7 +94,7 @@ func Render(out io.Writer, snapshot state.Snapshot) {
 	fmt.Fprintln(w, "STATE\tDOING\tPROJECT\tTITLE\tBRANCH\tMODEL\tCTX\tFRESH/H\tCACHED/H\tSUBS\tIDLE")
 	for _, s := range snapshot.Sessions {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d/%d\t%s\n",
-			s.State, format.Dash(format.Clip(s.Doing(), DoingWidth)), filepath.Base(s.CWD), s.Title, s.Branch, s.Model,
+			s.State, format.Dash(format.Clip(s.Doing(), DoingWidth)), filepath.Base(s.CWD), s.Title, s.Branch, format.Model(s.Model),
 			format.Percent(s.ContextPercent), format.Tokens(s.FreshTokensPerHour), format.Tokens(s.CacheReadPerHour),
 			s.SubagentsInFlight, s.Subagents, format.Age(snapshot.At.Sub(s.LastActivity)))
 	}
