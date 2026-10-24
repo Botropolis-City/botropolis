@@ -29,7 +29,7 @@ sessions:
     state: working
     context: 41%
     ago: 1m
-    started: 20m
+    started: 50m
     leave: 30s
   - ref: quillmark/drafts-and-changelog
     state: working
@@ -53,6 +53,8 @@ sessions:
   - ref: kiln/empty-log-from-tracker
     state: resting
     ago: 2d
+groups:
+  - [Tide table in station time, Hold time ignores the sample rate]
 shots:
   - name: morning
     title: A morning in forty seconds

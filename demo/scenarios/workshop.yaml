@@ -29,7 +29,7 @@ sessions:
     state: working
     context: 48%
     ago: 1m
-    started: 2h25m
+    started: 1h15m
   - ref: kiln/empty-log-from-tracker
     state: resting
     ago: 26h
@@ -46,6 +46,8 @@ sessions:
     state: empty
     started: 4h10m
     title: Theme gallery
+groups:
+  - [Heights in feet, Line numbers in reader errors]
 shots:
   - name: overview
     title: A working afternoon
