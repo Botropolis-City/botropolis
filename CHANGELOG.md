@@ -11,12 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The city holds about 38 MiB less graphics memory fully zoomed in, and 12 MiB less at every zoom.**
   The island's shore is painted coarser as the island grows, so its texture stays 1024 pixels a side, and the closest zoom draws a new middle level of the kit art in place of the largest one.
+- **`status` names models short, as the city does.**
+  The MODEL column reads `haiku-4-5` rather than `claude-haiku-4-5-20251001`, so one model no longer widens every row; `status --json` still gives the full id.
+  The power breakdown's model mix drops the date too.
+- **The strip's MCP chip says it counts calls**, as "6 mcp calls", so it no longer reads as six servers beside a map of two radio towers.
+- **The help lists `f` and `0` on one row**, "f or 0: Skyline, the whole city", since both do the same thing.
 
 - **The bridge runs off into the haze.**
   The deck no longer stops in open water: it runs on a few cells past where it ended and fades into the sea, and a delivery truck fades with it and is gone at the far end.
 
 ### Fixed
 
+- **A finder row that is too long for the panel ends with "…"**, as the card and the sidebar do, rather than stopping mid-word at the edge.
 - **The railway no longer shows through the trees.**
   Where the freight loop runs behind a tree, the tree now hides it; the trees look as they did over the grass.
 - **A building looks the same at every zoom, however often it is drawn.**
