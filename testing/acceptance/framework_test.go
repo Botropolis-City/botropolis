@@ -52,8 +52,11 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// Item 221 raised these from 23 and 39: a ground tree is drawn
 		// through a colour matrix, which cannot share a batch with the
 		// plain sprites beside it, and costs 2 commands by day and 3 by
-		// night where movers are drawn again.
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 25, 22: 42}, "item 221", nil, nil},
+		// night where movers are drawn again. Item 223 re-measured them at
+		// 26 and 43 on a changed scene, not changed code: the metropolis
+		// stopped staging every session as opened together, and lost its
+		// false groups. Item 236 brings them back down.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 26, 22: 43}, "item 223", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
