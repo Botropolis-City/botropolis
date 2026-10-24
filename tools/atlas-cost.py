@@ -17,6 +17,8 @@ them — there is no runtime construction of piece names.
 """
 import argparse, glob, importlib.util, json, os, subprocess, sys, types
 
+sys.dont_write_bytecode = True
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BLENDER_ONLY = ("bpy", "bpy_extras", "bpy_extras.object_utils", "mathutils", "numpy")
 

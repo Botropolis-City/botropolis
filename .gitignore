@@ -13,8 +13,8 @@ tools/kits/
 # The sprite pipeline's scratch frame, written once per piece per heading
 pkg/assets/kits/.render.png
 
-# Python bytecode from the tools
-tools/__pycache__/
+# Python bytecode, wherever a tool imports a module
+__pycache__/
 
 # The employer names this repository is kept clear of. Untracked on purpose:
 # the list is the thing being kept out.

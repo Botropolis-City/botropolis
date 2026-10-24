@@ -60,6 +60,31 @@ func runAtlasCost(t *testing.T, args ...string) (string, error) {
 	return string(out), err
 }
 
+func scratchAtlasCopy(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join("..", "..")
+	scratch := t.TempDir()
+	sources := []string{"tools/atlas-cost.py"}
+	for _, pattern := range []string{"tools/render-sprites/*.py", "pkg/assets/kits/kits-z*.json"} {
+		matches, err := filepath.Glob(filepath.Join(root, pattern))
+		require.NoError(t, err)
+		require.NotEmpty(t, matches, pattern)
+		for _, m := range matches {
+			rel, err := filepath.Rel(root, m)
+			require.NoError(t, err)
+			sources = append(sources, rel)
+		}
+	}
+	for _, rel := range sources {
+		data, err := os.ReadFile(filepath.Join(root, rel))
+		require.NoError(t, err)
+		dst := filepath.Join(scratch, rel)
+		require.NoError(t, os.MkdirAll(filepath.Dir(dst), 0o755))
+		require.NoError(t, os.WriteFile(dst, data, 0o644))
+	}
+	return scratch
+}
+
 func TestAtlasCost(t *testing.T) {
 	zooms := readAtlasInputs(t)
 
@@ -92,6 +117,27 @@ func TestAtlasCost(t *testing.T) {
 				priced, _ = strconv.Atoi(m[1])
 			}
 			assert.Equal(t, shipped, priced, out)
+		})
+	})
+
+	t.Run("when atlas-cost runs in a scratch copy of its inputs", func(t *testing.T) {
+		scratch := scratchAtlasCopy(t)
+		cmd := exec.Command("python3", filepath.Join(scratch, "tools", "atlas-cost.py"))
+		out, err := cmd.CombinedOutput()
+
+		t.Run("it should exit 0", func(t *testing.T) {
+			assert.NoError(t, err, string(out))
+		})
+
+		t.Run("it should leave no __pycache__ anywhere in the copy", func(t *testing.T) {
+			var caches []string
+			require.NoError(t, filepath.WalkDir(scratch, func(path string, d os.DirEntry, err error) error {
+				if err == nil && d.IsDir() && d.Name() == "__pycache__" {
+					caches = append(caches, path)
+				}
+				return err
+			}))
+			assert.Empty(t, caches)
 		})
 	})
 
