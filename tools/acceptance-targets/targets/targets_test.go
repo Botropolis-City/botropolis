@@ -49,7 +49,18 @@ func TestChoose(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Join(root, filepath.Dir(f)), 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(root, f), nil, 0o644))
 	}
-	pkgOf := func(file string) (string, bool) { return PackageOf(root, mod, file) }
+	resolve := Resolver{
+		PackageOf: func(file string) (string, bool) { return PackageOf(root, mod, file) },
+		Acceptance: func(file string) ([]string, string) {
+			switch file {
+			case "testing/acceptance/drive_test.go":
+				return []string{"TestDrive", "TestFind"}, ""
+			case "testing/acceptance/status_test.go":
+				return nil, "TestMain changed"
+			}
+			return nil, file + " is not Go"
+		},
+	}
 	m := &Map{Rev: "abc", Tests: map[string][]string{
 		"TestStatus": {mod + "/pkg/state", mod + "/pkg/cli"},
 		"TestDrive":  {mod + "/pkg/render"},
@@ -57,37 +68,35 @@ func TestChoose(t *testing.T) {
 		"TestFind":   {mod + "/pkg/find"},
 	}}
 	tests := []string{"TestDocs", "TestDrive", "TestFind", "TestStatus"}
+	at := func(changed ...string) Situation {
+		return Situation{CI: "green", Map: m, Behind: 3, Tests: tests, Changed: changed}
+	}
 
-	t.Run("when there is no map", func(t *testing.T) {
-		c := Choose(nil, tests, []string{"pkg/state/state.go"}, pkgOf)
+	for _, c := range []struct {
+		when     string
+		s        Situation
+		fallback string
+	}{
+		{"when there is no map", Situation{CI: "green", Tests: tests, Changed: []string{"pkg/state/state.go"}}, "no map"},
+		{"when main's CI is red", Situation{CI: "red", Map: m, Behind: 3, Tests: tests, Changed: []string{"pkg/state/state.go"}}, "main's CI is red"},
+		{"when main's CI is unknown", Situation{CI: "unknown", Map: m, Behind: 3, Tests: tests, Changed: []string{"pkg/state/state.go"}}, "main's CI is unknown"},
+		{"when the map is more than 30 commits behind HEAD", Situation{CI: "green", Map: m, Behind: 31, Tests: tests, Changed: []string{"pkg/state/state.go"}}, "31 commits behind"},
+		{"when the map's revision is not an ancestor of HEAD", Situation{CI: "green", Map: m, Behind: -1, Tests: tests, Changed: []string{"pkg/state/state.go"}}, "not an ancestor"},
+		{"when a test was added since the map", Situation{CI: "green", Map: m, Behind: 3, Tests: append(tests, "TestNew"), Changed: []string{"pkg/state/state.go"}}, "TestNew"},
+		{"when a changed file is unmapped", at("pkg/state/state.go", "Makefile"), "Makefile"},
+		{"when TestMain changed", at("testing/acceptance/status_test.go"), "TestMain changed"},
+	} {
+		t.Run(c.when, func(t *testing.T) {
+			got := Choose(c.s, resolve)
 
-		t.Run("it should fall back, saying the map is missing", func(t *testing.T) {
-			assert.Contains(t, c.Fallback, "no map")
+			t.Run("it should run the full suite, saying why", func(t *testing.T) {
+				assert.Contains(t, got.Fallback, c.fallback)
+			})
 		})
-	})
-
-	t.Run("when the test list differs from the map's", func(t *testing.T) {
-		c := Choose(m, []string{"TestDocs", "TestDrive", "TestFind", "TestNew"}, []string{"pkg/state/state.go"}, pkgOf)
-
-		t.Run("it should name the added test", func(t *testing.T) {
-			assert.Contains(t, c.Fallback, "TestNew")
-		})
-
-		t.Run("it should name the removed test", func(t *testing.T) {
-			assert.Contains(t, c.Fallback, "TestStatus")
-		})
-	})
-
-	t.Run("when a changed file is unmapped", func(t *testing.T) {
-		c := Choose(m, tests, []string{"pkg/state/state.go", "Makefile"}, pkgOf)
-
-		t.Run("it should fall back, naming the file", func(t *testing.T) {
-			assert.Contains(t, c.Fallback, "Makefile")
-		})
-	})
+	}
 
 	t.Run("when the changed packages are mapped", func(t *testing.T) {
-		c := Choose(m, tests, []string{"pkg/state/state.go"}, pkgOf)
+		c := Choose(at("pkg/state/state.go"), resolve)
 
 		t.Run("it should not fall back", func(t *testing.T) {
 			assert.Empty(t, c.Fallback)
@@ -98,8 +107,16 @@ func TestChoose(t *testing.T) {
 		})
 	})
 
+	t.Run("when only an acceptance test file changed", func(t *testing.T) {
+		c := Choose(at("testing/acceptance/drive_test.go"), resolve)
+
+		t.Run("it should select the tests that reach what changed, and every test whose package list is empty", func(t *testing.T) {
+			assert.Equal(t, []string{"TestDocs", "TestDrive", "TestFind"}, c.Tests)
+		})
+	})
+
 	t.Run("when nothing changed", func(t *testing.T) {
-		c := Choose(m, tests, nil, pkgOf)
+		c := Choose(at(), resolve)
 
 		t.Run("it should select no tests", func(t *testing.T) {
 			assert.Empty(t, c.Tests)

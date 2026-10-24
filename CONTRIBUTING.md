@@ -72,6 +72,9 @@ It skips there and runs in `make test-performance`, which needs a quiet machine.
 Every function that reads a process's CPU or memory lives in `testing/acceptance/meters_test.go`.
 That is how a test checks that exactly the tests reaching one are marked.
 
+`make land` runs only the acceptance tests a change can reach (`make test-acceptance-changed`), from a map of the packages each test runs, kept per revision under `~/.cache/botropolis/acceptance-map/`.
+It runs them all, and saves a new map, whenever main's last CI run was not green, the nearest map is more than 30 commits back, or a change cannot be traced; CI runs them all on every push.
+
 **A green test is not a guard until it has been made to fail.**
 Before trusting a new test, change the code it covers so that it *should* fail, and check that it does, with the plausible wrong implementation rather than an absurd one.
 [rules/a-green-test-is-not-a-guard.md](rules/a-green-test-is-not-a-guard.md) has the five times this repository shipped a test that could not fail.

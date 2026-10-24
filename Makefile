@@ -216,18 +216,27 @@ soak-teardown ::
 	$(LOG) "Soaking the city's teardown"
 	@BOTROPOLIS_SOAK=1 go test -count=1 -timeout 40m -run TestTeardownSoak ./testing/acceptance/
 
-# Targeted acceptance runs, item 117. test-acceptance-map runs each test on its
-# own under coverage and records the packages it executed in .cache/; a run of
-# test-acceptance-changed then runs only the tests a change since the map can
-# reach, and falls back to a full run that refreshes the map, saying why, when
-# the map cannot say.
+# Targeted acceptance runs, items 117 and 226. test-acceptance-map runs each
+# test on its own under coverage and records the packages it executed, one map
+# per revision under ${XDG_CACHE_HOME:-~/.cache}/botropolis/acceptance-map,
+# shared by every checkout and worktree. test-acceptance-changed runs only the
+# tests a change since the nearest map can reach, a change inside
+# testing/acceptance through its own call graph, and runs everything, saving a
+# new map, saying why, whenever main's last CI run was not green, the map is
+# more than 30 commits back, or the change cannot be traced. make land's gate
+# runs it; CI runs the whole suite on every push.
 test-acceptance-map ::
 	$(LOG) "Mapping the acceptance tests to the packages they run"
 	@go run ./tools/acceptance-targets map
 
 test-acceptance-changed ::
 	$(LOG) "Running the acceptance tests a change can reach"
-	@GOFLAGS="${GOFLAGS} -timeout=${ACCEPTANCE_TIMEOUT}" go run ./tools/acceptance-targets changed
+	@go build -tags devtools -o ${ACCEPTANCE_BINARY} ./cmd/botropolis
+	@BOTROPOLIS_ACCEPTANCE_BINARY=${CURDIR}/${ACCEPTANCE_BINARY} go run ./tools/acceptance-targets changed -timeout ${ACCEPTANCE_TIMEOUT} $(if ${ACCEPTANCE_PARALLEL},-p ${ACCEPTANCE_PARALLEL})
+
+# What make land runs: everything make test does, but only the acceptance
+# tests a change can reach.
+test-landing :: test-unit test-integration test-acceptance-changed
 
 # Wall time for the bar's tasks, item 91. It reports and never gates: the
 # acceptance tests gate on steps, ticks and work instead. CI runs it once per
@@ -256,7 +265,7 @@ lint-golangci ::
 LAND_LOCK ?= /tmp/botropolis-land.lock
 LAND_REMOTE ?= github
 LAND_BRANCH ?= main
-LAND_GATE ?= lint test
+LAND_GATE ?= lint test-landing
 
 land ::
 	@command -v flock >/dev/null || { echo "make land needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }

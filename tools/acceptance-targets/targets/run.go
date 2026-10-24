@@ -3,7 +3,6 @@ package targets
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,7 +36,7 @@ Flags:
 
 type options struct {
 	pkg      string
-	mapFile  string
+	maps     string
 	universe string
 	parallel int
 	timeout  time.Duration
@@ -48,7 +48,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	fs.Usage = func() { fmt.Fprint(stderr, usage); fs.PrintDefaults() }
 	var o options
 	fs.StringVar(&o.pkg, "pkg", "./testing/acceptance", "the acceptance test package")
-	fs.StringVar(&o.mapFile, "map", filepath.Join(".cache", "acceptance-map.json"), "where the map is kept")
+	home, _ := os.UserHomeDir()
+	fs.StringVar(&o.maps, "maps", MapDir(os.Getenv, home), "where the maps are kept, one per revision")
 	fs.StringVar(&o.universe, "run", "", "only consider tests matching this pattern")
 	fs.IntVar(&o.parallel, "p", DefaultParallel(runtime.NumCPU()), "how many tests to run or map at once")
 	fs.DurationVar(&o.timeout, "timeout", 40*time.Minute, "each test's timeout, in run")
@@ -181,7 +182,7 @@ func mapOne(o options, mod, test string) ([]string, []byte, error) {
 		return nil, nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	cmd := exec.Command("go", "test", "-count=1", "-cover", "-coverpkg="+coverPkg(mod), o.pkg, "-run", "^"+test+"$", "-args", "-test.gocoverdir="+dir)
+	cmd := exec.Command("go", "test", "-count=1", "-timeout", o.timeout.String(), "-cover", "-coverpkg="+coverPkg(mod), o.pkg, "-run", "^"+test+"$", "-args", "-test.gocoverdir="+dir)
 	cmd.Env = append(os.Environ(), "BOTROPOLIS_ACCEPTANCE_COVER="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -241,40 +242,65 @@ func mapAll(o options, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "%d of %d tests failed; the map is not updated\n", failed, len(tests))
 		return 1
 	}
-	if rev, err := exec.Command("git", "rev-parse", "HEAD").Output(); err == nil {
-		m.Rev = strings.TrimSpace(string(rev))
-	}
-	data, err := json.MarshalIndent(m, "", "  ")
-	if err == nil {
-		err = os.MkdirAll(filepath.Dir(o.mapFile), 0o755)
-	}
-	if err == nil {
-		err = os.WriteFile(o.mapFile, append(data, '\n'), 0o644)
-	}
+	rev, err := git("rev-parse", "HEAD")
 	if err != nil {
+		fmt.Fprintln(stdout, "the map is not saved: git does not know HEAD")
+		return 0
+	}
+	if dirty, err := git("status", "--porcelain"); err != nil || dirty != "" {
+		fmt.Fprintf(stdout, "the map is not saved: the tree has changes %s does not, so it would be the wrong key\n", rev)
+		return 0
+	}
+	m.Rev = rev
+	if err := SaveMap(o.maps, &m); err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "mapped %d tests to %s at %s\n", len(tests), o.mapFile, m.Rev)
+	fmt.Fprintf(stdout, "mapped %d tests to %s at %s\n", len(tests), o.maps, m.Rev)
 	return 0
 }
 
-func loadMap(file string) *Map {
-	data, err := os.ReadFile(file)
+func git(args ...string) (string, error) {
+	out, err := exec.Command("git", args...).Output()
+	return strings.TrimSpace(string(out)), err
+}
+
+// behindHEAD counts the commits from rev to HEAD, or -1 when rev is not an
+// ancestor of HEAD or git does not know it.
+func behindHEAD(rev string) int {
+	if exec.Command("git", "merge-base", "--is-ancestor", rev, "HEAD").Run() != nil {
+		return -1
+	}
+	out, err := git("rev-list", "--count", rev+"..HEAD")
 	if err != nil {
-		return nil
+		return -1
 	}
-	var m Map
-	if json.Unmarshal(data, &m) != nil {
-		return nil
+	n, err := strconv.Atoi(out)
+	if err != nil {
+		return -1
 	}
-	return &m
+	return n
+}
+
+// acceptanceResolver traces a changed file in the acceptance package to the
+// tests that reach what changed in it, from the diff since rev; a file git
+// does not track yet changed everywhere.
+func acceptanceResolver(o options, rev string) func(file string) ([]string, string) {
+	diff, err := git("diff", "-U0", rev, "--", o.pkg)
+	lines := ChangedLines(diff)
+	return func(file string) ([]string, string) {
+		if err != nil {
+			return nil, "reading the diff of " + file + ": " + err.Error()
+		}
+		ranges, ok := lines[file]
+		if !ok {
+			ranges = []LineRange{{From: 1, To: 1 << 30}}
+		}
+		return ReachingChange(o.pkg, file, ranges)
+	}
 }
 
 func changedSince(rev string) ([]string, error) {
-	if rev == "" || exec.Command("git", "cat-file", "-e", rev+"^{commit}").Run() != nil {
-		return nil, fmt.Errorf("the map's revision %q is unknown to git", rev)
-	}
 	seen := map[string]bool{}
 	var files []string
 	for _, args := range [][]string{{"diff", "--name-only", rev}, {"ls-files", "--others", "--exclude-standard"}} {
@@ -304,14 +330,26 @@ func changed(o options, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	m := loadMap(o.mapFile)
+	s := Situation{Tests: tests, CI: "unknown"}
+	if common, err := git("rev-parse", "--path-format=absolute", "--git-common-dir"); err == nil {
+		s.CI = ReadCI(common)
+	}
+	s.Map, s.Behind = NearestMap(o.maps, behindHEAD)
 	var c Choice
-	if m == nil {
-		c = Choose(nil, tests, nil, nil)
-	} else if files, err := changedSince(m.Rev); err != nil {
-		c = Choice{Fallback: err.Error()}
-	} else {
-		c = Choose(m, tests, files, func(f string) (string, bool) { return PackageOf(".", mod, f) })
+	if s.Map != nil && s.Behind >= 0 {
+		if s.Changed, err = changedSince(s.Map.Rev); err != nil {
+			c = Choice{Fallback: err.Error()}
+		}
+	}
+	if c.Fallback == "" {
+		rev := ""
+		if s.Map != nil {
+			rev = s.Map.Rev
+		}
+		c = Choose(s, Resolver{
+			PackageOf:  func(f string) (string, bool) { return PackageOf(".", mod, f) },
+			Acceptance: acceptanceResolver(o, rev),
+		})
 	}
 	switch {
 	case c.Fallback != "":
@@ -321,11 +359,6 @@ func changed(o options, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, c.Note)
 		return 0
 	}
-	fmt.Fprintf(stdout, "selected: %s\n", strings.Join(c.Tests, " "))
-	run := exec.Command("go", "test", o.pkg, "-run", "^("+strings.Join(c.Tests, "|")+")$")
-	run.Stdout, run.Stderr = stdout, stderr
-	if err := run.Run(); err != nil {
-		return 1
-	}
-	return 0
+	fmt.Fprintf(stdout, "selected, from the map at %s, %d commits behind: %s\n", s.Map.Rev, s.Behind, strings.Join(c.Tests, " "))
+	return RunPackage(o.pkg, mod+"/pkg/measure", RunPattern(c.Tests), o.parallel, o.timeout, stdout)
 }
