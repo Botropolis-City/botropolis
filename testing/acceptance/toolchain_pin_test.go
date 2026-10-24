@@ -117,9 +117,13 @@ if [[ "$GOTOOLCHAIN" == go* ]]; then echo "$GOTOOLCHAIN"; else echo "go`+other+`
 		})
 
 		t.Run("and GOTOOLCHAIN is a different version", func(t *testing.T) {
-			stale := "1.27.1"
-			if goPin == stale {
-				stale = "1.27.0"
+			local := localGoVersion(t)
+			stale := ""
+			for _, v := range []string{"1.27.1", "1.27.0", "1.26.0"} {
+				if v != goPin && v != local {
+					stale = v
+					break
+				}
 			}
 			gomod := filepath.Join(t.TempDir(), "go.mod")
 			if err := os.WriteFile(gomod, []byte("module example.com/pin\n\ngo 1.27\n\ntoolchain go"+stale+"\n"), 0o644); err != nil {
@@ -136,8 +140,22 @@ if [[ "$GOTOOLCHAIN" == go* ]]; then echo "$GOTOOLCHAIN"; else echo "go`+other+`
 			})
 
 			t.Run("it should name the version that ran", func(t *testing.T) {
-				assert.Contains(t, out, goPin)
+				assert.Contains(t, out, local)
 			})
 		})
 	})
+}
+
+// Item 227: with GOTOOLCHAIN=local the machine's own Go runs, which need not
+// be the pin.
+func localGoVersion(t *testing.T) string {
+	t.Helper()
+	cmd := exec.Command("go", "env", "GOVERSION")
+	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go env GOVERSION: %v", err)
+	}
+	version, _, _ := strings.Cut(strings.TrimPrefix(strings.TrimSpace(string(out)), "go"), "-")
+	return version
 }
