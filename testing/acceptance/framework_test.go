@@ -60,7 +60,9 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// page, a texture of its own, and batching now knows it. Item 222
 		// set them to 24 and 41, as item 236 measured it: a vehicle's new
 		// place in the depth sort splits one batch by day and one by night.
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 24, 22: 41}, "item 222", nil, nil},
+		// Item 236 then drew sprites without mipmaps (Aria, 2026-10-24),
+		// and they are 21 and 38.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 21, 22: 38}, "item 236", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
@@ -74,8 +76,30 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 	}{{"day", 14, 1}, {"night", 22, 4}} {
 		t.Run("when the metropolis demo is drawn at 1600×900 by "+light.name+", and it has settled", func(t *testing.T) {
 			t.Parallel()
-			runs := frameWorkRuns(t, "metropolis", light.hour, light.runs)
+			settled := frameWorkRuns(t, "metropolis", light.hour, light.runs)
+			runs := make([]helpers.Frame, len(settled))
+			var each []int
+			for i, frames := range settled {
+				runs[i] = settledWork(t, frames)
+				for _, f := range frames {
+					each = append(each, f.Commands)
+				}
+			}
 			worst := helpers.MostWork(runs)
+
+			// Item 236: vehicles drive along their lanes through the
+			// settled frames, and where one stood once decided which
+			// mipmap level a redrawn rectangle pulled in, so the count
+			// moved from frame to frame. With mipmaps off it still moves
+			// by one, 20 to 21 by day and 37 to 38 by night, for a
+			// cause not yet found; the goal is none, and item 236 stays
+			// open on it.
+			const wobble = 1
+			spread := slices.Max(each) - slices.Min(each)
+			t.Logf("draw commands in the %d settled frames: %d to %d", len(each), slices.Min(each), slices.Max(each))
+			t.Run(fmt.Sprintf("it should vary by no more than %d draw command between settled frames, as the vehicles move along their lanes", wobble), func(t *testing.T) {
+				assert.LessOrEqual(t, spread, wobble)
+			})
 
 			if light.runs > 1 {
 				commands := make([]int, len(runs))
@@ -147,24 +171,26 @@ const withoutMovers = "BOTROPOLIS_FRAME_MOVERS=none"
 // 20th logged when that took three frames (item 162).
 const settledFrom = 17
 
-// frameWork runs the debug city for a second of frames on a staged demo,
-// with the local clock at hour, and returns each count's worst over the
-// settled frames.
-func frameWork(t *testing.T, demo string, hour int) helpers.Frame {
+// settledFrames runs the debug city for a second of frames on a staged
+// demo, with the local clock at hour, and returns the settled frames.
+func settledFrames(t *testing.T, demo string, hour int, env ...string) []helpers.Frame {
 	t.Helper()
-	return frameWorkWith(t, demo, hour)
+	all := frameLog(t, demo, hour, 1, "", env...)
+	require.Greater(t, len(all), settledFrom+10, "too few frames logged to call any settled")
+	return all[settledFrom:]
 }
 
-// frameWorkRuns is frameWork run n times at once, each in its own
-// subtest, so a failed run fails only itself.
-func frameWorkRuns(t *testing.T, demo string, hour, n int) []helpers.Frame {
+// frameWorkRuns runs the debug city n times at once, each in its own
+// subtest, so a failed run fails only itself, and returns each run's
+// settled frames.
+func frameWorkRuns(t *testing.T, demo string, hour, n int) [][]helpers.Frame {
 	t.Helper()
-	frames := make([]helpers.Frame, n)
+	frames := make([][]helpers.Frame, n)
 	var wg sync.WaitGroup
 	for i := range n {
 		wg.Go(func() {
 			t.Run(fmt.Sprintf("run %d", i+1), func(t *testing.T) {
-				frames[i] = frameWork(t, demo, hour)
+				frames[i] = settledFrames(t, demo, hour)
 			})
 		})
 	}
@@ -175,12 +201,12 @@ func frameWorkRuns(t *testing.T, demo string, hour, n int) []helpers.Frame {
 	return frames
 }
 
-// frameWorkWith is frameWork with more of the city's environment.
+// frameWorkWith runs the debug city for a second of frames on a staged
+// demo, with the local clock at hour and more of its environment, and
+// returns each count's worst over the settled frames.
 func frameWorkWith(t *testing.T, demo string, hour int, env ...string) helpers.Frame {
 	t.Helper()
-	all := frameLog(t, demo, hour, 1, "", env...)
-	require.Greater(t, len(all), settledFrom+10, "too few frames logged to call any settled")
-	return settledWork(t, all[settledFrom:])
+	return settledWork(t, settledFrames(t, demo, hour, env...))
 }
 
 // settledWork is each count's worst over frames that should have

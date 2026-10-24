@@ -362,3 +362,69 @@ func TestTheMipmapRuleIsCopiedFromTheEbitengineBuilt(t *testing.T) {
 		})
 	})
 }
+
+// Item 236: Aria ruled sprites drawn without mipmaps (2026-10-24), so no
+// draw samples a level of its page, and where a car stands no longer
+// decides which level a redrawn rectangle pulls in.
+func TestNoDrawSamplesAMipmap(t *testing.T) {
+	day := time.Now()
+	for _, c := range []struct {
+		name string
+		open func(t *testing.T) *Drive
+	}{
+		{"the metropolis by day", func(t *testing.T) *Drive {
+			d, err := NewDrive(DriveOptions{Home: stageMetropolis(t, day), Now: atHour(day, 14)})
+			require.NoError(t, err)
+			require.NoError(t, d.Run(60))
+			return d
+		}},
+		{"the metropolis by night", func(t *testing.T) *Drive {
+			d, err := NewDrive(DriveOptions{Home: stageMetropolis(t, day), Now: atHour(day, 22)})
+			require.NoError(t, err)
+			require.NoError(t, d.Run(60))
+			return d
+		}},
+		{"the metropolis with a view up", func(t *testing.T) *Drive {
+			d, err := NewDrive(DriveOptions{Home: stageMetropolis(t, day), Now: atHour(day, 14)})
+			require.NoError(t, err)
+			d.game.scene.SetView(city.ViewSpend)
+			require.NoError(t, d.Run(60))
+			return d
+		}},
+		{"217 sessions at full zoom", func(t *testing.T) *Drive { return fullZoom(t, DriveOptions{}) }},
+	} {
+		t.Run("when "+c.name+" is recorded", func(t *testing.T) {
+			g := c.open(t).game
+			require.NotNil(t, g.kits, "no kits were put up")
+			kit := map[*ebiten.Image]bool{}
+			for _, a := range g.kits.atlases {
+				for _, p := range a.pages {
+					kit[p] = true
+				}
+			}
+			l := g.rec
+			var sprites, mipmapped, levelled int
+			for i := range l.cmds {
+				cmd := &l.cmds[i]
+				if cmd.kind == cmdImage && kit[cmd.page] {
+					sprites++
+					if !cmd.img.DisableMipmaps {
+						mipmapped++
+					}
+				}
+				if l.mipLevel(i) > 0 {
+					levelled++
+				}
+			}
+			require.NotEmpty(t, l.cmds, "nothing was recorded")
+
+			t.Run("it should record every kit sprite draw with its mipmaps disabled", func(t *testing.T) {
+				assert.Zero(t, mipmapped, "of %d kit sprite draws", sprites)
+			})
+
+			t.Run("it should key every draw at mipmap level 0", func(t *testing.T) {
+				assert.Zero(t, levelled, "of %d draws", len(l.cmds))
+			})
+		})
+	}
+}

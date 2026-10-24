@@ -73,6 +73,10 @@ func (g *Game) drawSprite(screen *ebiten.Image, s pagedSprite, at city.Point, sc
 		op.ColorScale = *tint
 	}
 	op.Filter = ebiten.FilterLinear
+	// No mipmaps (Aria, 2026-10-24, item 236): each level is a texture
+	// of its own, so where a car stood decided which a redrawn rectangle
+	// pulled in, and how many draws the frame took.
+	op.DisableMipmaps = true
 	g.recorder().ImageOn(screen, img, s.page, op)
 	g.punch(img, s.page, op.GeoM)
 }
