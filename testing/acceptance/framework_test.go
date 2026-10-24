@@ -57,8 +57,10 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// stopped staging every session as opened together, and lost its
 		// false groups. Item 236 brought them back down to 23 and 40: a
 		// sprite drawn below half size samples a mipmap level of its
-		// page, a texture of its own, and batching now knows it.
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 23, 22: 40}, "item 236", nil, nil},
+		// page, a texture of its own, and batching now knows it. Item 222
+		// set them to 24 and 41, as item 236 measured it: a vehicle's new
+		// place in the depth sort splits one batch by day and one by night.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 24, 22: 41}, "item 222", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
