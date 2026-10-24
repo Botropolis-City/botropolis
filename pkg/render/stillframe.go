@@ -51,18 +51,22 @@ type stillFrame struct {
 	overlayHeldOrigin city.Point
 	overlayOK         bool
 
-	entries []entry
-	boxes   []image.Rectangle
-	subs    []*ebiten.Image
-	plays   []streamPlay
-	batched []streamPlay
-	lit     []entry
-	pend    [][]lightOp
-	panes   []uint16
-	left    []leftCut
-	rects   []image.Rectangle
-	ops     []lightOp
-	opsHash maphash.Hash
+	entries   []entry
+	boxes     []image.Rectangle
+	subs      []*ebiten.Image
+	plays     []streamPlay
+	batched   []streamPlay
+	lit       []entry
+	pend      [][]int
+	panes     []uint16
+	due       []leftCut
+	left      []leftCut
+	laid      []streamPlay
+	unbatched []streamPlay
+	lightKeys map[lightSource]int
+	rects     []image.Rectangle
+	ops       []lightOp
+	opsHash   maphash.Hash
 
 	stats stillStats
 }
@@ -333,52 +337,163 @@ func (g *Game) paintLights(real *ebiten.Image) {
 }
 
 // layLightsStream lays light ops into the rectangles they were played
-// into, each rectangle's in the order noted: a cut waits, in its own
-// rectangle, for the next window there it meets, as layLights has it.
-// What is left over is laid at the end in orderCuts' order across every
-// rectangle, since cuts only take light away and their order among
-// themselves does not matter (items 193 and 199).
+// into, in the order lightPlays gives.
 func (g *Game) layLightsStream(subs []*ebiten.Image, plays []streamPlay) {
 	s := &g.still
-	for len(s.pend) < len(subs) {
-		s.pend = append(s.pend, nil)
-	}
-	for i := range subs {
-		s.pend[i] = s.pend[i][:0]
-	}
-	for _, p := range plays {
-		op, r := g.lightOps[p.cmd], p.rect
+	s.laid = g.lightPlays(s.laid[:0], plays)
+	for _, p := range s.laid {
+		op, dst := g.lightOps[p.cmd], subs[p.rect]
 		if op.punch || op.cut != cutNone {
-			s.pend[r] = append(s.pend[r], op)
+			g.layCut(dst, op)
 			continue
 		}
-		due, kept := g.dueCuts[:0], s.pend[r][:0]
+		indices := g.panesIn(op, s.rects[p.rect])
+		if op.warm {
+			colorm.DrawTriangles(dst, op.vertices, indices, op.src, warmGlass, warmOptions)
+			continue
+		}
+		dst.DrawTriangles(op.vertices, indices, op.src, windowOptions)
+	}
+}
+
+// lightPlays is the order light ops played into rectangles are laid
+// in, appended to out: the order lightOrder gives, batched by source as
+// the mover pass is, so a window passes only draws its panes do not
+// overlap in its rectangle, and a cut only those and other cuts, since
+// cuts only take light away; and the lights come out the same (item
+// 236).
+func (g *Game) lightPlays(out, plays []streamPlay) []streamPlay {
+	s := &g.still
+	s.unbatched = g.lightOrder(s.unbatched[:0], plays)
+	clear(s.lightKeys)
+	return batchBy(out, s.unbatched, func(i, j int) bool {
+		return g.lightsOverlap(s.unbatched[i].cmd, s.unbatched[j].cmd)
+	}, g.lightKey)
+}
+
+// lightsOverlap is whether light ops a and b must be laid in the order
+// noted: neither is a cut, or one is, and its box meets the other's,
+// a window's being each of its panes with the pixels its light spreads.
+func (g *Game) lightsOverlap(a, b int) bool {
+	x, y := &g.lightOps[a], &g.lightOps[b]
+	xCut, yCut := x.punch || x.cut != cutNone, y.punch || y.cut != cutNone
+	switch {
+	case xCut && yCut:
+		return false
+	case xCut:
+		return g.panesMeet(y, padded(x.box))
+	case yCut:
+		return g.panesMeet(x, padded(y.box))
+	}
+	if !g.lightBox(a).Overlaps(g.lightBox(b)) {
+		return false
+	}
+	for _, p := range g.litRects[x.from:x.to] {
+		if g.panesMeet(y, padded(p)) {
+			return true
+		}
+	}
+	return false
+}
+
+// panesMeet is whether any of window op's panes, with the pixels its
+// light spreads, meets box.
+func (g *Game) panesMeet(op *lightOp, box image.Rectangle) bool {
+	for _, p := range g.litRects[op.from:op.to] {
+		if padded(p).Overlaps(box) {
+			return true
+		}
+	}
+	return false
+}
+
+// lightSource is what Ebitengine merges light draws on: what is drawn,
+// which says the shader and the blend, and the texture or face read.
+type lightSource struct {
+	kind int
+	img  *ebiten.Image
+	face unsafe.Pointer
+}
+
+// lightKey is a number for the source light op i is laid from, the same
+// for every light op Ebitengine could lay with it in one draw.
+func (g *Game) lightKey(i int) int {
+	op := &g.lightOps[i]
+	k := lightSource{kind: 1 + int(op.cut), img: op.src}
+	switch {
+	case op.punch:
+		k = lightSource{kind: -1, img: op.page}
+	case op.cut == cutNone && op.warm:
+		k.kind = -2
+	case op.cut == cutWords:
+		k = lightSource{kind: k.kind, face: faceID(op.face)}
+	case op.cut == cutMesh || op.cut == cutRing:
+		k.img = nil
+	}
+	s := &g.still
+	if s.lightKeys == nil {
+		s.lightKeys = map[lightSource]int{}
+	}
+	id, ok := s.lightKeys[k]
+	if !ok {
+		id = len(s.lightKeys)
+		s.lightKeys[k] = id
+	}
+	return id
+}
+
+// lightOrder is the order light ops played into rectangles are laid
+// in before batching, appended to out: each rectangle's in the order
+// noted, a cut waiting, in its own rectangle, for the next window there
+// it meets, as layLights has it, and what is left over at the end in
+// orderCuts' order across every rectangle, since cuts only take light
+// away and their order among themselves does not matter (items 193 and
+// 199).
+func (g *Game) lightOrder(out, plays []streamPlay) []streamPlay {
+	s := &g.still
+	rects := 0
+	for _, p := range plays {
+		rects = max(rects, p.rect+1)
+	}
+	for len(s.pend) < rects {
+		s.pend = append(s.pend, nil)
+	}
+	for i := range rects {
+		s.pend[i] = s.pend[i][:0]
+	}
+	cut := func(c *leftCut) *lightOp { return &g.lightOps[c.cmd] }
+	for _, p := range plays {
+		op, r := &g.lightOps[p.cmd], p.rect
+		if op.punch || op.cut != cutNone {
+			s.pend[r] = append(s.pend[r], p.cmd)
+			continue
+		}
+		due, kept := s.due[:0], s.pend[r][:0]
 		for _, c := range s.pend[r] {
-			if meets(c.box, g.litRects[op.from:op.to]) {
-				due = append(due, c)
+			if meets(g.lightOps[c].box, g.litRects[op.from:op.to]) {
+				due = append(due, leftCut{cmd: c, rect: r})
 			} else {
 				kept = append(kept, c)
 			}
 		}
-		g.layCuts(subs[r], due)
-		g.dueCuts, s.pend[r] = due[:0], kept
-		indices := g.panesIn(op, s.rects[r])
-		if op.warm {
-			colorm.DrawTriangles(subs[r], op.vertices, indices, op.src, warmGlass, warmOptions)
-			continue
+		orderCutsBy(due, cut)
+		for _, c := range due {
+			out = append(out, streamPlay{cmd: c.cmd, rect: r})
 		}
-		subs[r].DrawTriangles(op.vertices, indices, op.src, windowOptions)
+		s.due, s.pend[r] = due[:0], kept
+		out = append(out, p)
 	}
 	s.left = s.left[:0]
-	for r := range subs {
-		for _, op := range s.pend[r] {
-			s.left = append(s.left, leftCut{op: op, rect: r})
+	for r := range rects {
+		for _, c := range s.pend[r] {
+			s.left = append(s.left, leftCut{cmd: c, rect: r})
 		}
 	}
-	orderCutsBy(s.left, func(c *leftCut) *lightOp { return &c.op })
+	orderCutsBy(s.left, cut)
 	for _, c := range s.left {
-		g.layCut(subs[c.rect], c.op)
+		out = append(out, streamPlay{cmd: c.cmd, rect: c.rect})
 	}
+	return out
 }
 
 // lightBox is the box the ith light op covers: a cut's own, or a
@@ -415,8 +530,7 @@ func (g *Game) panesIn(op lightOp, r image.Rectangle) []uint16 {
 
 // leftCut is a cut still to be laid, and the rectangle it is laid in.
 type leftCut struct {
-	op   lightOp
-	rect int
+	cmd, rect int
 }
 
 // cutOrder is the order layCuts lays cuts in, by kind.

@@ -55,12 +55,28 @@ func batch(out []streamPlay, plays []streamPlay, box func(cmd int) image.Rectang
 	if n == 0 {
 		return out
 	}
-	// Each draw's box and source are asked for once: asking again on
-	// every comparison was most of the cost (item 161).
-	boxes, srcs := make([]image.Rectangle, n), make([]int, n)
+	// Each draw's box is asked for once: asking again on every
+	// comparison was most of the cost (item 161).
+	boxes := make([]image.Rectangle, n)
+	for j, p := range plays {
+		boxes[j] = box(p.cmd)
+	}
+	return batchBy(out, plays, func(i, j int) bool { return boxes[i].Overlaps(boxes[j]) }, src)
+}
+
+// batchBy is batch with the draws that must keep their order told by
+// overlap, which is asked of the indices into plays of two draws into
+// one rectangle, the earlier first (item 236).
+func batchBy(out []streamPlay, plays []streamPlay, overlap func(i, j int) bool, src func(cmd int) int) []streamPlay {
+	n := len(plays)
+	if n == 0 {
+		return out
+	}
+	// Each draw's source is asked for once (item 161).
+	srcs := make([]int, n)
 	inRect := map[int][]int{}
 	for j, p := range plays {
-		boxes[j], srcs[j] = box(p.cmd), src(p.cmd)
+		srcs[j] = src(p.cmd)
 		inRect[p.rect] = append(inRect[p.rect], j)
 	}
 	// waits[j] counts the earlier draws into j's rectangle that j
@@ -71,7 +87,7 @@ func batch(out []streamPlay, plays []streamPlay, box func(cmd int) image.Rectang
 	for _, js := range inRect {
 		for b, j := range js {
 			for _, i := range js[:b] {
-				if boxes[i].Overlaps(boxes[j]) {
+				if overlap(i, j) {
 					waits[j]++
 					after[i] = append(after[i], j)
 				}

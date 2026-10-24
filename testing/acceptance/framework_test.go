@@ -62,8 +62,11 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// place in the depth sort splits one batch by day and one by night.
 		// Item 236 then drew sprites without mipmaps (Aria, 2026-10-24),
 		// and cut their silhouettes out of the lights the same way, and
-		// they are 21 and 37.
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 21, 22: 37}, "item 236", nil, nil},
+		// they are 21 and 37. Item 236 then batched the night's lights
+		// laid again where movers are, and judged the worst of every
+		// settled frame rather than the first second's, which had ended
+		// just before a run of 40s: 21 and 36.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 21, 22: 36}, "item 236", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
@@ -74,7 +77,17 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// draw count once varied by run with where Ebitengine packed
 		// the light cuts' stamps (item 199).
 		runs int
-	}{{"day", 14, 1}, {"night", 22, 4}} {
+		// wobble is how far the draw count moves between settled
+		// frames, as measured (item 236).
+		wobble int
+	}{
+		{"day", 14, 1, 1},
+		// 33 to 36 over 416 settled frames: the night's lights laid
+		// again alternate where a window, a sprite in front of it and a
+		// window in front of that must keep their order, which is depth
+		// and not batching, so fewer would change pixels.
+		{"night", 22, 4, 3},
+	} {
 		t.Run("when the metropolis demo is drawn at 1600×900 by "+light.name+", and it has settled", func(t *testing.T) {
 			t.Parallel()
 			settled := frameWorkRuns(t, "metropolis", light.hour, light.runs)
@@ -91,15 +104,17 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 			// Item 236: vehicles drive along their lanes through the
 			// settled frames, and where one stood once decided which
 			// mipmap level a redrawn rectangle pulled in, so the count
-			// moved from frame to frame. With mipmaps off it still moves
-			// by one, 20 to 21 by day and 36 to 37 by night, for a
-			// cause not yet found; the goal is none, and item 236 stays
-			// open on it.
-			const wobble = 1
+			// moved from frame to frame. With mipmaps off, and the
+			// night's lights batched, it moves with how many rectangles
+			// a mover is drawn again in and what they hold: 20 to 21 by
+			// day over 104 settled frames, and 33 to 36 by night over
+			// 416, the lights alternating where a window, a sprite in
+			// front of it and a window in front of that must keep their
+			// order.
 			spread := slices.Max(each) - slices.Min(each)
 			t.Logf("draw commands in the %d settled frames: %d to %d", len(each), slices.Min(each), slices.Max(each))
-			t.Run(fmt.Sprintf("it should vary by no more than %d draw command between settled frames, as the vehicles move along their lanes", wobble), func(t *testing.T) {
-				assert.LessOrEqual(t, spread, wobble)
+			t.Run(fmt.Sprintf("it should vary by no more than %d draw commands between settled frames, as the vehicles move along their lanes", light.wobble), func(t *testing.T) {
+				assert.LessOrEqual(t, spread, light.wobble)
 			})
 
 			if light.runs > 1 {
@@ -181,6 +196,33 @@ func settledFrames(t *testing.T, demo string, hour int, env ...string) []helpers
 	return all[settledFrom:]
 }
 
+// Item 236: a second of frames ended just before the night's worst run
+// of them, cars passing lit buildings 20 frames after the cut, so the
+// ceiling held by timing. The work is judged over at least the 104
+// settled frames the performance manager measured. How many frames a
+// second of the city logs depends on the machine, so the city records
+// longer until it has them, and gives up, failing, after a minute.
+const (
+	recordSettled = 104
+	recordGiveUp  = time.Minute
+)
+
+// recordedSettledFrames runs the debug city on a staged demo, with the
+// local clock at hour, for longer each time until it logs at least
+// recordSettled settled frames, and returns them.
+func recordedSettledFrames(t *testing.T, demo string, hour int) []helpers.Frame {
+	t.Helper()
+	start := time.Now()
+	for seconds := 4.0; ; seconds *= 2 {
+		all := frameLog(t, demo, hour, seconds, "")
+		settled := all[min(settledFrom, len(all)):]
+		if len(settled) >= recordSettled {
+			return settled
+		}
+		require.Less(t, time.Since(start), recordGiveUp, "only %d settled frames in %g s of the city, of the %d wanted", len(settled), seconds, recordSettled)
+	}
+}
+
 // frameWorkRuns runs the debug city n times at once, each in its own
 // subtest, so a failed run fails only itself, and returns each run's
 // settled frames.
@@ -191,7 +233,7 @@ func frameWorkRuns(t *testing.T, demo string, hour, n int) [][]helpers.Frame {
 	for i := range n {
 		wg.Go(func() {
 			t.Run(fmt.Sprintf("run %d", i+1), func(t *testing.T) {
-				frames[i] = settledFrames(t, demo, hour)
+				frames[i] = recordedSettledFrames(t, demo, hour)
 			})
 		})
 	}

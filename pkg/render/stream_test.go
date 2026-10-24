@@ -446,3 +446,100 @@ func TestNoDrawSamplesAMipmap(t *testing.T) {
 		})
 	}
 }
+
+// Item 236: the lights laid again in the rectangles something moves in
+// went down in the order noted, a cut and the pane it covers, then the
+// next pair, so a sheet and a page alternated and every pair was two
+// commands. They are batched as the mover pass is, by source, without
+// moving a draw past one it overlaps in its rectangle.
+func TestTheLightsStreamBatches(t *testing.T) {
+	sheet, page := ebiten.NewImage(8, 8), ebiten.NewImage(8, 8)
+	defer sheet.Deallocate()
+	defer page.Deallocate()
+	far := func(x int) image.Rectangle { return image.Rect(x*20, 0, x*20+4, 4) }
+	for _, c := range []struct {
+		name  string
+		ops   []lightOp
+		panes []image.Rectangle
+		plays []streamPlay
+		want  []streamPlay
+		it    string
+	}{
+		{
+			"when plain panes from one sheet alternate with punches from one page, and no pair overlaps another",
+			[]lightOp{
+				{punch: true, page: page, src: page, box: far(0)},
+				{src: sheet, from: 0, to: 1},
+				{punch: true, page: page, src: page, box: far(1)},
+				{src: sheet, from: 1, to: 2},
+			},
+			[]image.Rectangle{far(0), far(1)},
+			[]streamPlay{{0, 0}, {1, 0}, {2, 0}, {3, 0}},
+			[]streamPlay{{0, 0}, {2, 0}, {1, 0}, {3, 0}},
+			"it should lay the punches together, each before the pane it covers, and then the panes together",
+		},
+		{
+			"when a warm pane overlaps a plain pane before it, and another plain pane lies apart",
+			[]lightOp{
+				{src: sheet, from: 0, to: 1},
+				{src: sheet, warm: true, from: 1, to: 2},
+				{src: sheet, from: 2, to: 3},
+			},
+			[]image.Rectangle{far(0), far(0), far(1)},
+			[]streamPlay{{0, 0}, {1, 0}, {2, 0}},
+			[]streamPlay{{0, 0}, {2, 0}, {1, 0}},
+			"it should keep the plain pane it overlaps first, and lay the plain panes together",
+		},
+		{
+			"when a punch and the pane it covers are laid in each of two rectangles, at the same place",
+			[]lightOp{
+				{punch: true, page: page, src: page, box: far(0)},
+				{src: sheet, from: 0, to: 1},
+				{punch: true, page: page, src: page, box: far(0)},
+				{src: sheet, from: 1, to: 2},
+			},
+			[]image.Rectangle{far(0), far(0)},
+			[]streamPlay{{0, 0}, {1, 0}, {2, 1}, {3, 1}},
+			[]streamPlay{{0, 0}, {2, 1}, {1, 0}, {3, 1}},
+			"it should batch them across the rectangles",
+		},
+		{
+			"when two pages' punches overlap one another, and no pane between them",
+			[]lightOp{
+				{punch: true, page: page, src: page, box: far(0)},
+				{src: sheet, from: 0, to: 1},
+				{punch: true, page: sheet, src: sheet, box: far(2)},
+				{punch: true, page: page, src: page, box: far(2)},
+			},
+			[]image.Rectangle{far(0)},
+			[]streamPlay{{0, 0}, {1, 0}, {2, 0}, {3, 0}},
+			[]streamPlay{{0, 0}, {3, 0}, {1, 0}, {2, 0}},
+			"it should lay a page's punches together, since cuts only take light away",
+		},
+		{
+			"when a warm window's panes lie either side of a plain pane laid after it, and under none of them",
+			[]lightOp{
+				{src: sheet, from: 0, to: 1},
+				{src: sheet, warm: true, from: 1, to: 3},
+				{src: sheet, from: 3, to: 4},
+			},
+			[]image.Rectangle{far(1), far(0), far(2), far(1)},
+			[]streamPlay{{0, 0}, {1, 0}, {2, 0}},
+			[]streamPlay{{0, 0}, {2, 0}, {1, 0}},
+			"it should lay the plain panes together, by the panes and not the box around them",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			g := &Game{lightOps: c.ops, litRects: c.panes}
+			got := g.lightPlays(nil, c.plays)
+
+			t.Run(c.it, func(t *testing.T) {
+				assert.Equal(t, c.want, got)
+			})
+
+			t.Run("it should lay every draw the stream plays, each into its rectangle, once", func(t *testing.T) {
+				assert.ElementsMatch(t, c.plays, got)
+			})
+		})
+	}
+}
