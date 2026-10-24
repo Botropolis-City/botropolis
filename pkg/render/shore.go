@@ -13,11 +13,47 @@ import (
 
 // The island and the sea round it, painted from pkg/city's model of the
 // ground. It is painted once per plan into a texture in world space, a
-// texel to shoreTexel world units, and drawn under the plan through the
-// camera's own affine projection, so the coast is soft and costs one
+// texel to shoreTexelFor world units, and drawn under the plan through
+// the camera's own affine projection, so the coast is soft and costs one
 // draw a frame. Item 85.
 
+// shoreTexel is the finest the shore is painted, in world units a texel.
 const shoreTexel = 4.0
+
+// shoreTexelSide is the most texels the shore takes a side (item 162).
+// Ebitengine rounds a texture up to a power of two, so the real history's
+// 1464×1416 at 4 world units a texel was 2048², 16 MiB; at 1024 it is
+// 4 MiB, and the bands are soft gradients drawn with linear filtering.
+const shoreTexelSide = 1024
+
+// shoreTexelFor is the texel for an island's sea: 4 world units, or as
+// coarse as fits the longer side in shoreTexelSide texels.
+func shoreTexelFor(sea city.Rect) float64 {
+	return max(shoreTexel, max(sea.Width(), sea.Height())/shoreTexelSide)
+}
+
+// shoreSize is the shore texture's size for an island's sea.
+func shoreSize(sea city.Rect) (w, h int) {
+	texel := shoreTexelFor(sea)
+	return int(sea.Width() / texel), int(sea.Height() / texel)
+}
+
+// shoreGeoM maps the shore texture's texels onto the screen.
+func shoreGeoM(cam *city.Camera, sea city.Rect) ebiten.GeoM {
+	texel := shoreTexelFor(sea)
+	project := func(p city.Point) city.Point { return cam.Project(p).Add(cam.Offset).Scale(cam.Zoom) }
+	o := project(sea.Min)
+	ex := project(city.Point{X: sea.Min.X + texel, Y: sea.Min.Y}).Sub(o)
+	ey := project(city.Point{X: sea.Min.X, Y: sea.Min.Y + texel}).Sub(o)
+	var m ebiten.GeoM
+	m.SetElement(0, 0, ex.X)
+	m.SetElement(1, 0, ex.Y)
+	m.SetElement(0, 1, ey.X)
+	m.SetElement(1, 1, ey.Y)
+	m.SetElement(0, 2, o.X)
+	m.SetElement(1, 2, o.Y)
+	return m
+}
 
 // shorePalette is the island's colours by day or by night.
 type shorePalette struct {
@@ -109,11 +145,12 @@ func (g *Game) shoreImage(c *city.City, flat bool) *shoreLayer {
 		}
 	}
 	sea := island.Sea()
-	w, h := int(sea.Width()/shoreTexel), int(sea.Height()/shoreTexel)
+	w, h := shoreSize(sea)
+	texel := shoreTexelFor(sea)
 	pix := make([]byte, 4*w*h)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			kind, t := island.At(city.Point{X: sea.Min.X + (float64(x)+0.5)*shoreTexel, Y: sea.Min.Y + (float64(y)+0.5)*shoreTexel})
+			kind, t := island.At(city.Point{X: sea.Min.X + (float64(x)+0.5)*texel, Y: sea.Min.Y + (float64(y)+0.5)*texel})
 			col := palette.paint(kind, t)
 			i := 4 * (y*w + x)
 			pix[i], pix[i+1], pix[i+2], pix[i+3] = col.R, col.G, col.B, 0xff
@@ -141,16 +178,6 @@ func (g *Game) shore(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 		return
 	}
 	s := g.shoreImage(c, cam.Projection != city.Isometric)
-	project := func(p city.Point) city.Point { return cam.Project(p).Add(cam.Offset).Scale(cam.Zoom) }
-	o := project(s.sea.Min)
-	ex := project(city.Point{X: s.sea.Min.X + shoreTexel, Y: s.sea.Min.Y}).Sub(o)
-	ey := project(city.Point{X: s.sea.Min.X, Y: s.sea.Min.Y + shoreTexel}).Sub(o)
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-	op.GeoM.SetElement(0, 0, ex.X)
-	op.GeoM.SetElement(1, 0, ex.Y)
-	op.GeoM.SetElement(0, 1, ey.X)
-	op.GeoM.SetElement(1, 1, ey.Y)
-	op.GeoM.SetElement(0, 2, o.X)
-	op.GeoM.SetElement(1, 2, o.Y)
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, GeoM: shoreGeoM(cam, s.sea)}
 	g.recorder().Image(screen, s.img, op)
 }

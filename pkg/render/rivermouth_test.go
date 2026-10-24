@@ -39,7 +39,8 @@ func TestRiverMouthBlends(t *testing.T) {
 			worst := 0.0
 			dir := math.Copysign(1, mouth.to-mouth.from)
 			prev := shorePaint(island.At(city.Point{X: from.X, Y: mouth.from}))
-			for y := mouth.from + dir*shoreTexel; dir*(mouth.to-y) > 0; y += dir * shoreTexel {
+			texel := shoreTexelFor(island.Sea())
+			for y := mouth.from + dir*texel; dir*(mouth.to-y) > 0; y += dir * texel {
 				cur := shorePaint(island.At(city.Point{X: from.X, Y: y}))
 				for _, d := range []float64{float64(cur.R) - float64(prev.R), float64(cur.G) - float64(prev.G), float64(cur.B) - float64(prev.B)} {
 					worst = math.Max(worst, math.Abs(d))
