@@ -177,6 +177,12 @@ func (a *KitAtlas) usedRows(i int) int {
 	return rows
 }
 
+// KitDrawUpMost is the least a level is drawn up by before the camera
+// takes the next level instead (item 162, slice 14). At 1.75, z1 serves
+// every zoom below 1.75 and z1.5 the rest, up to 2.0 at 1.33x: z1.5's 40
+// MiB of texture is resident only from there, where z2's was 66.
+const KitDrawUpMost = 1.75
+
 // LoadKitManifests reads every atlas's manifest, lowest zoom first, and
 // decodes no page.
 func LoadKitManifests() ([]KitAtlas, error) {

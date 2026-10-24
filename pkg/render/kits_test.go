@@ -10,6 +10,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// zoomPicking is the least camera zoom that draws with level i. Since item
+// 162's slice 14 that is not the level's own cut: z1.5 is picked only from
+// 1.75, so a test that set the camera to atlas.Zoom drew with z1 twice.
+func zoomPicking(t testing.TB, k *kits, i int) float64 {
+	t.Helper()
+	zoom := k.atlases[i].Zoom
+	if i > 0 {
+		zoom = max(zoom, k.atlases[i-1].Zoom*assets.KitDrawUpMost)
+	}
+	require.Equal(t, i, k.index(zoom), "precondition: zoom %g picks level %d", zoom, i)
+	return zoom
+}
+
 // Bug 53. Aria: "The boats get smaller at a certain zoom. We don't need
 // to do that."
 //

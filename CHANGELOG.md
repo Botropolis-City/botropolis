@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The city holds about 38 MiB less graphics memory fully zoomed in, and 12 MiB less at every zoom.**
+  The island's shore is painted coarser as the island grows, so its texture stays 1024 pixels a side, and the closest zoom draws a new middle level of the kit art in place of the largest one.
+
 ### Fixed
 
 - **A delivery truck always leaves on the bridge.**

@@ -65,7 +65,8 @@ func TestKitPageTrim(t *testing.T) {
 // Item 162: Ebitengine rounds every texture up to a power of two a side,
 // so what a level costs is its pages at those sizes. Packed in shelves in
 // the order they were cut, z2 was five full pages and a part, 88 MiB;
-// filled a page at a time it is four and a 2048×1024 one, 72.
+// filled a page at a time it is four and a 2048×1024 one, 72. Slice 14
+// replaced it with z1.5: two pages and a 2048×1024 one, 40.
 func TestKitTextureCost(t *testing.T) {
 	k, err := loadKits()
 	require.NoError(t, err)
@@ -83,8 +84,8 @@ func TestKitTextureCost(t *testing.T) {
 			assert.LessOrEqual(t, cost(0), 20)
 		})
 
-		t.Run("it should hold z2 in no more than 72 MiB of texture", func(t *testing.T) {
-			assert.LessOrEqual(t, cost(1), 72)
+		t.Run("it should hold z1.5 in no more than 40 MiB of texture", func(t *testing.T) {
+			assert.LessOrEqual(t, cost(1), 40)
 		})
 	})
 }

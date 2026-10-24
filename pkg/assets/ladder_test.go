@@ -1,6 +1,7 @@
 package assets_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,29 +25,26 @@ import (
 // Cutting the missing levels was budgeted before capping the ladder: z3
 // wants 14 pages and z4 wants 23, against a budget of 8 each and z2's 6.
 // So the ladder stops where the art does, and this holds it there.
+//
+// Item 162, slice 14: "where the art does" is now a draw-up, not a cut.
+// z2 gave way to z1.5 drawn up to 2.0, 1.33x, which Aria judged against
+// z2 on 2026-10-24 and could not tell apart, so the assertion that the
+// highest cut reaches MaxZoom was retired; what holds the ladder now is
+// that no step draws a sprite up by KitDrawUpMost or more, which a ladder
+// running to 3 or 4 still fails.
 func TestZoomLadderStopsWhereTheAtlasDoes(t *testing.T) {
 	atlases, err := assets.LoadKits()
 	require.NoError(t, err)
 	require.NotEmpty(t, atlases)
 
-	highest := 0.0
-	for _, a := range atlases {
-		if a.Zoom > highest {
-			highest = a.Zoom
-		}
-	}
-
-	t.Run("when the map is zoomed as far in as it goes", func(t *testing.T) {
-		t.Run("it should still have a sprite to draw, rather than stretching one", func(t *testing.T) {
-			assert.LessOrEqual(t, city.MaxZoom, highest,
-				"the ladder promises zoom %g and the atlas stops at %g", city.MaxZoom, highest)
-		})
-	})
-
 	t.Run("when the wheel walks its steps", func(t *testing.T) {
-		t.Run("it should not step past what the art can serve", func(t *testing.T) {
+		t.Run("it should never draw a sprite up by as much as KitDrawUpMost", func(t *testing.T) {
 			for _, step := range city.ZoomSteps {
-				require.LessOrEqual(t, step, highest, "step %g is past the atlas", step)
+				least := math.Inf(1)
+				for _, a := range atlases {
+					least = math.Min(least, step/a.Zoom)
+				}
+				require.Less(t, least, assets.KitDrawUpMost, "step %g draws every level up by %gx or more", step, least)
 			}
 		})
 

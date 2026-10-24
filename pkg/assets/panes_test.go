@@ -62,13 +62,14 @@ func TestKitPanes(t *testing.T) {
 		}
 	}
 
-	t.Run("when the cottage is seen from its home heading at zoom 2", func(t *testing.T) {
-		var sprite assets.KitSprite
+	t.Run("when the cottage is seen from its home heading in the closest level", func(t *testing.T) {
+		closest := atlases[0]
 		for _, atlas := range atlases {
-			if atlas.Zoom == 2 {
-				sprite, _ = atlas.Sprite("botropolis/residential-1", 0)
+			if atlas.Zoom > closest.Zoom {
+				closest = atlas
 			}
 		}
+		sprite, _ := closest.Sprite("botropolis/residential-1", 0)
 
 		t.Run("it should have the five windows its two faces show", func(t *testing.T) {
 			assert.Len(t, sprite.Panes, 5)

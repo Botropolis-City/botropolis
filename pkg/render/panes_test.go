@@ -24,11 +24,12 @@ const cornerSlack = 2.0
 // the scaffold already projects.
 func TestPanesStayOnOneFace(t *testing.T) {
 	g := kitGame(t)
-	for _, atlas := range g.kits.atlases {
+	for i := range g.kits.atlases {
+		zoom := zoomPicking(t, g.kits, i)
 		for _, kind := range []city.DistrictType{city.ResidentialDistrict, city.ShoppingDistrict, city.OfficeDistrict, city.IndustrialDistrict} {
 			for tier := 1; tier <= state.MaxStoreys; tier++ {
 				for _, heading := range assets.Headings {
-					cam := &city.Camera{Zoom: atlas.Zoom, Projection: city.Isometric, Heading: heading}
+					cam := &city.Camera{Zoom: zoom, Projection: city.Isometric, Heading: heading}
 					b := kindBuilding(kind, tier)
 					site, ok := g.workFrame(cam, b)
 					if !ok {
@@ -42,12 +43,12 @@ func TestPanesStayOnOneFace(t *testing.T) {
 					}
 					var spanning [][4]city.Point
 					for _, q := range g.facadePanes(cam, buildingPiece(b), g.footOf(cam, b)) {
-						if math.Min(q[0].X, q[3].X) < near.X-cornerSlack*atlas.Zoom && math.Max(q[1].X, q[2].X) > near.X+cornerSlack*atlas.Zoom {
+						if math.Min(q[0].X, q[3].X) < near.X-cornerSlack*zoom && math.Max(q[1].X, q[2].X) > near.X+cornerSlack*zoom {
 							spanning = append(spanning, q)
 						}
 					}
 
-					t.Run(fmt.Sprintf("when %s is seen from %d at zoom %g", buildingPiece(b), heading, atlas.Zoom), func(t *testing.T) {
+					t.Run(fmt.Sprintf("when %s is seen from %d at zoom %g", buildingPiece(b), heading, zoom), func(t *testing.T) {
 						t.Run("it should keep every pane to one face of the building", func(t *testing.T) {
 							assert.Empty(t, spanning, "the near corner is at x %.1f", near.X)
 						})

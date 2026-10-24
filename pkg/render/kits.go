@@ -116,8 +116,8 @@ func (k *kits) complete(i int) bool {
 // view is a window's update: it puts up a page of the level the zoom
 // picks while that level is not all up, and once it is, lets go of any
 // other level not picked for kitHoldUpdates (item 162). Only the level in
-// use is resident: z1 is picked below zoom 1.98, and z2's pages are
-// 66 MiB of texture that most sessions never draw.
+// use is resident: z1 is picked below zoom 1.75, and z1.5's pages are
+// 40 MiB of texture that most sessions never draw.
 func (k *kits) view(zoom float64) error {
 	if k.keepAll {
 		return nil
@@ -234,16 +234,17 @@ func pageStrips(page *image.NRGBA, put func(pix []byte, region image.Rectangle))
 	}
 }
 
-// index is the level for a camera zoom: the largest cut at or below it,
-// so a sprite is only ever scaled down or up by less than a level.
+// index is the level for a camera zoom: the lowest that draws it up by
+// less than assets.KitDrawUpMost, or the highest when none does, so a
+// closer level is resident only where the one below would look drawn up
+// (item 162, slice 14).
 func (k *kits) index(zoom float64) int {
-	best := 0
 	for i := range k.atlases {
-		if k.atlases[i].Zoom <= zoom*1.01 {
-			best = i
+		if zoom < k.atlases[i].Zoom*assets.KitDrawUpMost {
+			return i
 		}
 	}
-	return best
+	return max(0, len(k.atlases)-1)
 }
 
 // pick is the atlas to draw with at a camera zoom: its level when that is

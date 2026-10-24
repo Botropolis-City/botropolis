@@ -25,9 +25,11 @@ that edge at all, which is closed by another name — the bend is a
 partial tile and that is how it reads.
 """
 import argparse
+import glob
 import json
 from PIL import Image
-m=json.load(open('pkg/assets/kits/kits-z2.json'))
+LEVEL=max(glob.glob('pkg/assets/kits/kits-z*.json'), key=lambda p: json.load(open(p))['zoom'])
+m=json.load(open(LEVEL))
 sp=m['sprites']; TILE=m['tile']; HW,HH=TILE/2,TILE/4
 MID={"N":(HW/2,-HH/2),"E":(HW/2,HH/2),"S":(-HW/2,HH/2),"W":(-HW/2,-HH/2)}
 KERB=200
@@ -35,7 +37,7 @@ EXPECT={"road-straight":2,"road-crossroad":4,"road-bend":2,"road-intersection":3
 
 def sides(name, turn):
     e=sp["city-kit-roads/"+name][str((0-turn)%360)]
-    page=Image.open(f"pkg/assets/kits/kits-z2-{e['page']}.png").convert("RGBA")
+    page=Image.open(f"pkg/assets/kits/{m['pages'][e['page']]}").convert("RGBA")
     img=page.crop((e['x'],e['y'],e['x']+e['w'],e['y']+e['h'])); px=img.load()
     ax,ay=e['ax'],e['ay']; out=[]
     for d,(dx,dy) in MID.items():

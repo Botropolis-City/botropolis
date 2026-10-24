@@ -147,12 +147,12 @@ func TestBridgeClearance(t *testing.T) {
 	pieces := append(append([]string{}, kitLocos...), kitWagons...)
 
 	t.Run("when the deck is raised over the rail", func(t *testing.T) {
-		for _, atlas := range k.atlases {
+		for i, atlas := range k.atlases {
 			for _, heading := range []int{0, 90, 180, 270} {
 				cam := city.NewCamera()
-				cam.Zoom, cam.Heading = atlas.Zoom, heading
+				cam.Zoom, cam.Heading = zoomPicking(t, k, i), heading
 				require.Equal(t, atlas.Zoom, k.pick(cam.Zoom).Zoom, "precondition: the camera picks the atlas under test")
-				t.Run(fmt.Sprintf("at zoom %.0f and heading %d, it should leave the deck's underside above every train piece's roof", atlas.Zoom, heading), func(t *testing.T) {
+				t.Run(fmt.Sprintf("at zoom %g and heading %d, it should leave the deck's underside above every train piece's roof", cam.Zoom, heading), func(t *testing.T) {
 					var roof float64
 					for _, piece := range pieces {
 						for _, turn := range []int{0, 90, 180, 270} {
@@ -185,11 +185,11 @@ func TestBridgeRamp(t *testing.T) {
 	require.NotEmpty(t, ramp, "the bridge has no ramp: nothing below can fail")
 
 	t.Run("when the road ramps up to the deck", func(t *testing.T) {
-		for _, atlas := range k.atlases {
+		for i := range k.atlases {
 			for _, heading := range []int{0, 90, 180, 270} {
 				cam := city.NewCamera()
-				cam.Projection, cam.Zoom, cam.Heading = city.Isometric, atlas.Zoom, heading
-				t.Run(fmt.Sprintf("at zoom %.0f and heading %d, it should climb no steeper than %.1f rise over run", atlas.Zoom, heading, maxRampSlope), func(t *testing.T) {
+				cam.Projection, cam.Zoom, cam.Heading = city.Isometric, zoomPicking(t, k, i), heading
+				t.Run(fmt.Sprintf("at zoom %g and heading %d, it should climb no steeper than %.1f rise over run", cam.Zoom, heading, maxRampSlope), func(t *testing.T) {
 					assert.LessOrEqual(t, liftToWorld(cam, g.deckLift(cam))/b.RampRun(), maxRampSlope)
 				})
 			}

@@ -32,7 +32,7 @@ import sys
 
 ASSETS = os.path.join("pkg", "assets")
 RENDERED = os.path.join(ASSETS, "kits")
-MANIFEST = re.compile(r"^kits-z\d+\.json$")
+MANIFEST = re.compile(r"^kits-z\d+(\.\d+)?\.json$")
 LICENCE = re.compile(r"^(licen[cs]e|copying)([._-].*)?$", re.IGNORECASE)
 EXTENSIONS = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tga", ".tif", ".tiff",

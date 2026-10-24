@@ -211,7 +211,7 @@ def parse_args():
     p.add_argument("mode", choices=["scene", "atlas", "kinds", "trains"], help="what to render")
     p.add_argument("--out", required=True, help="PNG to write (scene, kinds, trains) or directory for the atlases (atlas)")
     p.add_argument("--heading", type=int, default=0, help="the heading to show the kinds from (kinds)")
-    p.add_argument("--zooms", default="1,2", help="zoom levels to cut atlases for (atlas)")
+    p.add_argument("--zooms", default="1,1.5", help="zoom levels to cut atlases for (atlas)")
     p.add_argument("--both-sides", action="store_true", help="show each engine turned 180 degrees too (trains)")
     p.add_argument("--only", default="", help="render only pieces whose name contains this (atlas, for trying things)")
     p.add_argument("--kits", default=KITS, help="where the Kenney kits are (tools/kits)")

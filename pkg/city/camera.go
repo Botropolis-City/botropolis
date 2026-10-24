@@ -16,8 +16,13 @@ const (
 	// wants 14 pages and z4 wants 23 against a budget of 8 each, on top
 	// of z2's 6. A ladder that promises a zoom the art cannot serve is
 	// the same lie as a label that does not match its behaviour, so the
-	// ladder stops where the art does. pkg/render's
+	// ladder stops where the art does. pkg/assets'
 	// TestZoomLadderStopsWhereTheAtlasDoes holds the two together.
+	//
+	// Since item 162's slice 14 the closest level is z1.5, drawn up to 2
+	// at 1.33x, in place of z2: Aria could not tell them apart
+	// (2026-10-24), and it is 26 MiB less texture. So "where the art
+	// does" is a draw-up below assets.KitDrawUpMost, not a cut at 2.
 	MaxZoom = 2.0
 	fitPad  = 40.0
 	// FitFooter keeps the bottom strip, where the footer draws, clear of the city.
