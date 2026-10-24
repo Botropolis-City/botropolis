@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The railway no longer shows through the trees.**
+  Where the freight loop runs behind a tree, the tree now hides it; the trees look as they did over the grass.
 - **A delivery truck always leaves on the bridge.**
   When the island grew while a truck was on its way, the bridge moved and the truck carried on where it had been, beside the deck and over the water; it now takes the bridge as it stands.
 - **The bridge stays where it is.**
