@@ -364,8 +364,10 @@ func TestTheMipmapRuleIsCopiedFromTheEbitengineBuilt(t *testing.T) {
 }
 
 // Item 236: Aria ruled sprites drawn without mipmaps (2026-10-24), so no
-// draw samples a level of its page, and where a car stands no longer
-// decides which level a redrawn rectangle pulls in.
+// sprite, nor its silhouette cut out of the lights, samples a level of
+// its page, and where a car stands no longer decides which level a
+// redrawn rectangle pulls in. The fog's puffs keep theirs: she chose the
+// fog from frames drawn with them (item 239).
 func TestNoDrawSamplesAMipmap(t *testing.T) {
 	day := time.Now()
 	for _, c := range []struct {
@@ -411,9 +413,9 @@ func TestNoDrawSamplesAMipmap(t *testing.T) {
 					if !cmd.img.DisableMipmaps {
 						mipmapped++
 					}
-				}
-				if l.mipLevel(i) > 0 {
-					levelled++
+					if l.mipLevel(i) > 0 {
+						levelled++
+					}
 				}
 			}
 			require.NotEmpty(t, l.cmds, "nothing was recorded")
@@ -438,8 +440,8 @@ func TestNoDrawSamplesAMipmap(t *testing.T) {
 				assert.Zero(t, mipmapped, "of %d kit sprite draws", sprites)
 			})
 
-			t.Run("it should key every draw at mipmap level 0", func(t *testing.T) {
-				assert.Zero(t, levelled, "of %d draws", len(l.cmds))
+			t.Run("it should key every kit sprite draw at mipmap level 0", func(t *testing.T) {
+				assert.Zero(t, levelled, "of %d kit sprite draws", sprites)
 			})
 		})
 	}
