@@ -144,6 +144,17 @@ demo-media :: build-dev demo-tool demo-image
 	@mkdir -p ${DEMO_OUT}
 	@${DEMO_FILM}
 
+# Item 236: frames that compare two builds are filmed holding the landing
+# lock, so no landing's gate runs beside them. A worktree session cannot run
+# flock around the film itself, so make takes the lock, as for make land.
+# make demo-media-locked DEMO_SCENARIOS=<dir> DEMO_OUT=<dir>
+DEMO_MEDIA_GATE ?= demo-media
+
+demo-media-locked ::
+	@command -v flock >/dev/null || { echo "make demo-media-locked needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
+	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
+	@flock ${LAND_LOCK} ${MAKE} --no-print-directory ${DEMO_MEDIA_GATE} DEMO_SCENARIOS='${DEMO_SCENARIOS}' DEMO_OUT='${DEMO_OUT}'
+
 # Files every cached shot under the current key without filming anything:
 # for after the key's own recipe changes, when the pictures cannot have. A
 # shot with nothing cached stops it, rather than starting an hour of filming.

@@ -37,6 +37,9 @@ land-probe-hang ::
 
 land-probe-run ::
 	@echo "${PROBE_NAME} ran ${RUN}" >> ${PROBE_LOG}
+
+land-probe-film ::
+	@echo "${PROBE_NAME} filmed ${DEMO_SCENARIOS} into ${DEMO_OUT}" >> ${PROBE_LOG}
 `
 
 type landRig struct {
@@ -560,4 +563,83 @@ func makeRecipes(t *testing.T, makefile string, targets ...string) []string {
 	}
 	require.NoError(t, scan.Err())
 	return lines
+}
+
+func (r *landRig) filmLocked(dir, name, gate string, extra ...string) *exec.Cmd {
+	cmd := exec.Command("make", "-s", "-C", dir, "demo-media-locked", "DEMO_MEDIA_GATE="+gate)
+	cmd.Env = append(append(append([]string{}, r.env...), "PROBE_NAME="+name), extra...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	return cmd
+}
+
+// Item 236: frames filmed to compare two builds are filmed holding the
+// landing lock, so no landing's gate runs beside them, and make takes the
+// lock, since a worktree session cannot run flock around the film itself.
+func TestDemoMediaLocked(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs make in scratch repositories")
+	}
+	if _, err := exec.LookPath("flock"); err != nil {
+		t.Skip("flock is not installed, so make demo-media-locked went untested")
+	}
+	t.Parallel()
+
+	t.Run("when another session holds the landing lock", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		holder := r.land(a, "a", "land-probe-slow")
+		holderOut, holderErr := runAsync(holder)
+		r.waitForStart(t, "a")
+		out, err := r.filmLocked(a, "b", "land-probe-film", "DEMO_SCENARIOS=s", "DEMO_OUT=o").CombinedOutput()
+		require.NoError(t, err, string(out))
+		require.NoError(t, <-holderErr, holderOut.String())
+
+		t.Run("it should wait for it to be released before it films", func(t *testing.T) {
+			assert.Equal(t, []string{"a_start", "a_end", "b_filmed_s_into_o"}, r.probeLog(t))
+		})
+
+		t.Run("it should say it is waiting", func(t *testing.T) {
+			assert.Contains(t, string(out), "Waiting for the landing in progress")
+		})
+	})
+
+	t.Run("when the scenarios and the output are given", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		out, err := r.filmLocked(a, "a", "land-probe-film", "DEMO_SCENARIOS=/tmp/scenes", "DEMO_OUT=/tmp/clip/on").CombinedOutput()
+		require.NoError(t, err, string(out))
+
+		t.Run("it should pass them to the film unchanged", func(t *testing.T) {
+			assert.Equal(t, []string{"a_filmed_/tmp/scenes_into_/tmp/clip/on"}, r.probeLog(t))
+		})
+	})
+
+	t.Run("when the film fails", func(t *testing.T) {
+		t.Parallel()
+		r := newLandRig(t)
+		a := r.session(t, "a", "a.txt", "a\n")
+		out, err := r.filmLocked(a, "a", "land-probe-fail").CombinedOutput()
+
+		t.Run("it should exit non-zero", func(t *testing.T) {
+			assert.Error(t, err, string(out))
+		})
+	})
+
+	t.Run("when the recipe is read from the Makefile", func(t *testing.T) {
+		recipes := makeRecipes(t, filepath.Join(repoRoot(t), "Makefile"), "demo-media-locked")
+		require.NotEmpty(t, recipes)
+		pipe := regexp.MustCompile(`(^|[^|])\|([^|]|$)`)
+		var piped []string
+		for _, line := range recipes {
+			if pipe.MatchString(line) {
+				piped = append(piped, line)
+			}
+		}
+
+		t.Run("it should pipe nothing, so the film's exit code is make's", func(t *testing.T) {
+			assert.Empty(t, piped)
+		})
+	})
 }
