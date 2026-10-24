@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The city holds about 38 MiB less graphics memory fully zoomed in, and 12 MiB less at every zoom.**
   The island's shore is painted coarser as the island grows, so its texture stays 1024 pixels a side, and the closest zoom draws a new middle level of the kit art in place of the largest one.
 
+- **The bridge runs off into the haze.**
+  The deck no longer stops in open water: it runs on a few cells past where it ended and fades into the sea, and a delivery truck fades with it and is gone at the far end.
+
 ### Fixed
 
 - **The railway no longer shows through the trees.**

@@ -3,6 +3,7 @@ package render
 import (
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -37,20 +38,12 @@ func (g *Game) drawInspector(screen *ebiten.Image, cam *city.Camera, b *city.Bui
 	g.noteHit(r, city.Hit{Building: b, District: g.scene.City().DistrictOf(b), Inspector: b})
 }
 
-// drawDelivery draws a truck with its crate, fading out on the far side
-// of the bridge, or where it stands at still.
+// drawDelivery draws a truck with its crate, fading into the haze with
+// the bridge, or where it stands at still.
 func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, bridge city.Bridge, d city.Delivery) {
 	now := g.scene.Clock()
-	p := d.Progress(now)
-	fade := 1.0
-	switch {
-	case d.Fades:
-		fade = 1 - p
-	case p > 0.9:
-		fade = (1 - p) / 0.1
-	}
 	tint := &ebiten.ColorScale{}
-	tint.ScaleAlpha(float32(fade))
+	tint.ScaleAlpha(float32(deliveryAlpha(d, bridge, now)))
 	at, dir := deliveryPlace(d, now)
 	turn := vehicleTurn(dir)
 	// On the bridge it rides at the deck's height (item 132).
@@ -58,6 +51,16 @@ func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, bridge city.
 	r := g.kitLifted(screen, cam, kitDelivery, turn, at, lift, tint)
 	g.kitScaledLifted(screen, cam, crates[d.PR.Number%len(crates)], turn, at, 0.3, lift, tint)
 	g.noteHit(r, city.Hit{Delivery: &d})
+}
+
+// deliveryAlpha is how much of a truck shows: as much as of the deck
+// under it, so it fades into the haze with the bridge (item 219), or at
+// still it fades out where it stands.
+func deliveryAlpha(d city.Delivery, bridge city.Bridge, now time.Time) float64 {
+	if d.Fades {
+		return 1 - d.Progress(now)
+	}
+	return bridge.Alpha(d.At(now))
 }
 
 // drawMessage draws a message on its way: a van on the road, or a

@@ -37,13 +37,31 @@ const (
 // stays up from there out to Far.
 type Bridge struct {
 	Land, Far Point
-	Abutment  Cell
+	// Haze is where the deck starts to fade into the distance, out
+	// over open sea; it is gone by Far (item 219).
+	Haze     Point
+	Abutment Cell
 	// Ramp is every cell the road climbs over between the abutment
 	// and the deck.
 	Ramp []Cell
 	// Deck is every cell the raised road stands over, from the one
 	// after the abutment out to Far's.
 	Deck []Cell
+}
+
+// HazeCells is how far the deck runs on into the haze, in cells, from
+// where it starts to fade to where it is gone. Item 219.
+const HazeCells = 3.0
+
+// Alpha is how much of the bridge shows at a point on its road: all of
+// it up to the haze, and none by the far end.
+func (b Bridge) Alpha(p Point) float64 {
+	band := math.Abs(b.Far.X - b.Haze.X)
+	if b.Land == b.Far || band == 0 {
+		return 1
+	}
+	into := (p.X - b.Haze.X) * math.Copysign(1, b.Far.X-b.Land.X)
+	return min(1, max(0, 1-into/band))
 }
 
 // RampRun is how far the road climbs over, from the landing's centre to
@@ -61,17 +79,18 @@ func (c *City) Bridge() Bridge {
 	}
 	at := land.Center()
 	reach := c.Island().Reach()
-	far := Point{X: reach.Min.X - CellSize, Y: at.Y}
+	haze := Point{X: reach.Min.X - CellSize, Y: at.Y}
 	step := -1
 	if c.bridgeEast() {
-		far.X = reach.Max.X + CellSize
+		haze.X = reach.Max.X + CellSize
 		step = 1
 	}
+	far := Point{X: haze.X + float64(step)*HazeCells*CellSize, Y: at.Y}
 	rail := map[Cell]bool{}
 	for _, p := range c.Rails {
 		rail[CellOf(p)] = true
 	}
-	b := Bridge{Land: at, Far: far, Abutment: land}
+	b := Bridge{Land: at, Far: far, Haze: haze, Abutment: land}
 	for col := land.Col + step; col != CellOf(far).Col+step; col += step {
 		cell := Cell{Col: col, Row: land.Row}
 		if len(b.Deck) == 0 && !rail[cell] {

@@ -691,6 +691,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	bridge := c.Bridge()
 	items = append(items, bridgeItems(cam, bridge, func(p bridgePart) func() {
+		if p.hazy() {
+			return func() { g.drawHazePiece(screen, cam, bridge, p, c.Night) }
+		}
 		if !p.span() {
 			return func() { g.drawRampSegment(screen, cam, bridge, p) }
 		}

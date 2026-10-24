@@ -79,6 +79,22 @@ type bridgePart struct {
 	Rect     city.Rect
 	Cell     city.Cell
 	From, To float64
+	// Mist is how far a piece of the deck in the haze is mixed toward
+	// the sea's colour (item 219).
+	Mist float64
+}
+
+// hazeColour is a colour of the deck mist of the way into the sea's.
+func hazeColour(c color.NRGBA, mist float64, night bool) color.NRGBA {
+	if mist <= 0 {
+		return c
+	}
+	return mix(c, shorePaletteFor(false, night).sea, mist)
+}
+
+// hazy is whether a part is a piece of the deck cut for the haze.
+func (p bridgePart) hazy() bool {
+	return p.span() && p.Rect != p.Cell.Rect()
 }
 
 func (p bridgePart) span() bool { return p.From == 1 && p.To == 1 }
@@ -98,8 +114,32 @@ func bridgeParts(b city.Bridge) []bridgePart {
 		r := city.Rect{Min: city.Point{X: min(x0, x1), Y: b.Abutment.Rect().Min.Y}, Max: city.Point{X: max(x0, x1), Y: b.Abutment.Rect().Max.Y}}
 		parts = append(parts, bridgePart{Rect: r, Cell: city.CellOf(r.Center()), From: d / run, To: (d + half) / run})
 	}
+	along := func(x float64) float64 { return (x - b.Land.X) * dir }
 	for _, cell := range b.Deck {
-		parts = append(parts, bridgePart{Rect: cell.Rect(), Cell: cell, From: 1, To: 1})
+		r := cell.Rect()
+		if max(along(r.Min.X), along(r.Max.X)) <= along(b.Haze.X) {
+			parts = append(parts, bridgePart{Rect: r, Cell: cell, From: 1, To: 1})
+			continue
+		}
+		// Into the haze, the deck is cut into quarters, each mixed
+		// toward the sea by how little of it shows at its outer end, so the
+		// last is the sea's own colour (item 219).
+		quarter := city.CellSize / 4
+		for i := range 4 {
+			x0 := r.Min.X + float64(i)*quarter
+			if dir < 0 {
+				x0 = r.Max.X - float64(i+1)*quarter
+			}
+			q := city.Rect{Min: city.Point{X: x0, Y: r.Min.Y}, Max: city.Point{X: x0 + quarter, Y: r.Max.Y}}
+			if min(along(q.Min.X), along(q.Max.X)) >= along(b.Far.X) {
+				break
+			}
+			end := city.Point{X: q.Max.X, Y: q.Center().Y}
+			if dir < 0 {
+				end.X = q.Min.X
+			}
+			parts = append(parts, bridgePart{Rect: q, Cell: cell, From: 1, To: 1, Mist: 1 - b.Alpha(end)})
+		}
 	}
 	return parts
 }
@@ -223,6 +263,45 @@ func (g *Game) drawRampSegment(screen *ebiten.Image, cam *city.Camera, b city.Br
 	for _, e := range edges {
 		lo, hi := along(e)
 		g.railing(screen, cam, lo, hi, liftLow, liftHigh)
+	}
+}
+
+// drawHazePiece is a quarter of a span in the haze (item 219): its
+// girders, road, lane line and railings, and the pier where its cell
+// ends, every colour mixed toward the sea's by the piece's mist, drawn
+// flat as the ramp is, so the deck melts into the water and is gone.
+func (g *Game) drawHazePiece(screen *ebiten.Image, cam *city.Camera, b city.Bridge, p bridgePart, night bool) {
+	r := p.Rect
+	top := g.deckLift(cam)
+	under := g.deckUnderside(cam)
+	paint := func(c color.NRGBA) color.NRGBA { return hazeColour(c, p.Mist, night) }
+	out, edge := r.Max.X, p.Cell.Rect().Max.X
+	if b.Far.X < b.Land.X {
+		out, edge = r.Min.X, p.Cell.Rect().Min.X
+	}
+	if out == edge {
+		inset := 0.2 * (r.Max.Y - r.Min.Y)
+		pa, pb := city.Point{X: out, Y: r.Min.Y + inset}, city.Point{X: out, Y: r.Max.Y - inset}
+		g.fillScreen(screen, []city.Point{raised(cam, pa, 0), raised(cam, pb, 0), raised(cam, pb, under), raised(cam, pa, under)}, paint(colorPier))
+	}
+	edges := sides(cam, r)
+	for _, e := range edges {
+		g.fillScreen(screen, []city.Point{raised(cam, e[0], top), raised(cam, e[1], top), raised(cam, e[1], under), raised(cam, e[0], under)}, paint(colorGirder))
+	}
+	f, n := edges[0], edges[1]
+	g.fillScreen(screen, []city.Point{raised(cam, f[0], top), raised(cam, f[1], top), raised(cam, n[1], top), raised(cam, n[0], top)}, paint(colorRampRoad))
+	mid := r.Center().Y
+	g.strokeScreen(screen, raised(cam, city.Point{X: r.Min.X, Y: mid}, top), raised(cam, city.Point{X: r.Max.X, Y: mid}, top), math.Max(1, cam.Zoom), paint(colorRampLine))
+	up := railHeight * cam.Zoom
+	for _, e := range edges {
+		g.strokeScreen(screen, raised(cam, e[0], top+up), raised(cam, e[1], top+up), math.Max(1, cam.Zoom), paint(colorRailing))
+		if out == edge {
+			post := e[0]
+			if e[1].X == out {
+				post = e[1]
+			}
+			g.strokeScreen(screen, raised(cam, post, top), raised(cam, post, top+up), math.Max(1, 0.8*cam.Zoom), paint(colorRailing))
+		}
 	}
 }
 
