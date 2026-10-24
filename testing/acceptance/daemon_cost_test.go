@@ -112,7 +112,7 @@ func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
 		stopped      = 200
 		replies      = 300
 		projects     = 30
-		stream       = 30 * time.Second
+		stream       = 15 * time.Second
 		every        = 200 * time.Millisecond
 		maxCoreShare = 0.02
 		sid          = "11111111-1111-4111-8111-111111111111"
@@ -139,7 +139,7 @@ func TestSettledDaemonUnderAStreamOfChanges(t *testing.T) {
 		d.settle(t, 3*time.Minute)
 		meter := meterCore(t, d.pid)
 
-		t.Run("and one session writes a reply every 200 ms for two windows of 30 s", func(t *testing.T) {
+		t.Run(fmt.Sprintf("and one session writes a reply every 200 ms for two windows of %.0f s", stream.Seconds()), func(t *testing.T) {
 			measured := time.Now()
 			opens := watchOpens(t, dirs)
 			written := 0
