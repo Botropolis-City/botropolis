@@ -51,7 +51,7 @@ func isTitle(line []byte) bool {
 
 // scaleContext scales every main-line usage so the last reaches the
 // target share of the window and the rest keep their proportions: a
-// replayed building rises through the bands as the session goes on.
+// replayed session's context fills as it goes on.
 func scaleContext(lines [][]byte, target string) ([][]byte, error) {
 	pct, err := strconv.Atoi(strings.TrimSuffix(target, "%"))
 	if err != nil || !strings.HasSuffix(target, "%") || pct <= 0 || pct >= 100 {
