@@ -46,10 +46,34 @@ func TestFirstLaunch(t *testing.T) {
 	t.Run(fmt.Sprintf("when the daemon starts on an empty state directory over %d MiB of history", history>>20), func(t *testing.T) {
 		l := newLaunch(t, history, 8<<20)
 		run := l.start(t)
-		run.untilIdle(t)
+		run.untilRead(t, l.written)
 		read := bytesRead(t, run.pid)
 
 		t.Run("it should read the whole history", func(t *testing.T) {
+			assert.GreaterOrEqual(t, read, l.written)
+		})
+	})
+
+	// Item 226: on a loaded machine the daemon, at background priority,
+	// can go seconds without the CPU partway through its read, and a wait
+	// that took that for idle read 80 MiB of 256. Stopping it is the same
+	// starvation, made certain.
+	t.Run("when the daemon is held still for 4 s partway through its first launch, as a starved one is", func(t *testing.T) {
+		l := newLaunch(t, 64<<20, 8<<20)
+		run := l.start(t)
+		require.Eventually(t, func() bool { return bytesRead(t, run.pid) >= 8<<20 }, time.Minute, 20*time.Millisecond)
+		require.NoError(t, run.cmd.Process.Signal(syscall.SIGSTOP))
+		resumed := make(chan struct{})
+		go func() {
+			defer close(resumed)
+			time.Sleep(4 * time.Second)
+			_ = run.cmd.Process.Signal(syscall.SIGCONT)
+		}()
+		run.untilRead(t, l.written)
+		read := bytesRead(t, run.pid)
+		<-resumed
+
+		t.Run("it should still read the whole history before the wait ends", func(t *testing.T) {
 			assert.GreaterOrEqual(t, read, l.written)
 		})
 	})
@@ -119,7 +143,7 @@ func TestFirstLaunchLoad(t *testing.T) {
 	shape := newRealShape()
 
 	t.Run(shape.when(), func(t *testing.T) {
-		load := shape.load(t, (*daemonRun).untilIdle, nil)
+		load := shape.load(t, (*daemonRun).untilRead, nil)
 
 		t.Run("it should read no more than each transcript's window before its first snapshot", func(t *testing.T) {
 			assert.LessOrEqual(t, load.readFirst, load.transcripts*window+slack)
@@ -152,7 +176,7 @@ func TestFirstLaunchLoadCost(t *testing.T) {
 
 	t.Run(shape.when(), func(t *testing.T) {
 		cpuFirst := -1.0
-		load := shape.load(t, (*daemonRun).untilIdleMeasured, func(pid int) { cpuFirst = float64(cpuTicks(t, pid)) / clockTicksSec })
+		load := shape.load(t, func(r *daemonRun, t *testing.T, _ int64) { r.untilIdleMeasured(t) }, func(pid int) { cpuFirst = float64(cpuTicks(t, pid)) / clockTicksSec })
 		t.Logf("first snapshot after %.2f CPU-seconds; idle after %s at a peak of %.0f%% of a core",
 			cpuFirst, load.run.took.Round(time.Second), load.run.peakShare*100)
 
@@ -206,34 +230,37 @@ type firstLoad struct {
 }
 
 // load starts a daemon on the shape, reads its first snapshot and, once
-// idle says it is idle, the settled one. first, when not nil, is called
-// with the daemon's pid as the first snapshot arrives.
-func (s realShape) load(t *testing.T, idle func(*daemonRun, *testing.T), first func(pid int)) firstLoad {
+// settled has returned, the settled one. settled is handed the daemon and
+// how many bytes of history the shape wrote. first, when not nil, is
+// called with the daemon's pid as the first snapshot arrives.
+func (s realShape) load(t *testing.T, settled func(r *daemonRun, t *testing.T, written int64), first func(pid int)) firstLoad {
 	t.Helper()
 	root := t.TempDir()
 	home := helpers.HomeAt(t, filepath.Join(root, "home"))
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	now := time.Now()
+	var written int64
 	for i := range s.stopped {
-		syntheticSession(t, home, syntheticSID(i), at.Add(time.Duration(i)*time.Hour), s.old)
+		w, _ := syntheticSession(t, home, syntheticSID(i), at.Add(time.Duration(i)*time.Hour), s.old)
+		written += w
 	}
 	var load firstLoad
 	for i, pid := range []int{os.Getpid(), os.Getppid()} {
 		sid := syntheticSID(s.stopped + i)
 		home.Session(pid, sid, syntheticCWD, "interactive", "idle")
-		_, n := syntheticSession(t, home, sid, now.Add(-3*time.Hour), s.liveSizes[i])
-		load.live, load.turns = append(load.live, sid), load.turns+n
+		w, n := syntheticSession(t, home, sid, now.Add(-3*time.Hour), s.liveSizes[i])
+		load.live, load.turns, written = append(load.live, sid), load.turns+n, written+w
 	}
 	for i, size := range s.todaySizes {
-		_, n := syntheticSession(t, home, syntheticSID(s.stopped+2+i), now.Add(-20*time.Hour), size)
-		load.turns += n
+		w, n := syntheticSession(t, home, syntheticSID(s.stopped+2+i), now.Add(-20*time.Hour), size)
+		load.turns, written = load.turns+n, written+w
 	}
 	l := &launch{root: root, home: home.Path}
 	load.run = l.start(t)
 	quiet := make(chan struct{})
 	go func() {
 		defer close(quiet)
-		idle(load.run, t)
+		settled(load.run, t, written)
 	}()
 	var client *proto.Client
 	require.Eventually(t, func() bool {
@@ -285,7 +312,7 @@ func TestFirstLaunchResumes(t *testing.T) {
 	t.Run("when the daemon is killed part-way through its first launch and started again on the same state", func(t *testing.T) {
 		whole := newLaunch(t, history, perSession)
 		uninterrupted := whole.start(t)
-		uninterrupted.untilIdle(t)
+		uninterrupted.untilRead(t, whole.written)
 		once := bytesRead(t, uninterrupted.pid)
 		again := once - whole.written
 
@@ -295,7 +322,7 @@ func TestFirstLaunchResumes(t *testing.T) {
 		first.kill(t)
 		before := first.read
 		second := l.start(t)
-		second.untilIdle(t)
+		second.untilRead(t, l.written-before)
 		total := before + bytesRead(t, second.pid)
 		t.Logf("one launch read %d MiB of %d; killed at %d MiB and started again, %d MiB in all", once>>20, whole.written>>20, before>>20, total>>20)
 
@@ -609,11 +636,37 @@ func (r *daemonRun) kill(t *testing.T) {
 	r.killed = true
 }
 
-// untilIdle samples the daemon each second until it has used under 5%
-// of a core for three samples running. It is a wait: a test that asserts
-// on what the samples saw calls untilIdleMeasured (item 226).
-func (r *daemonRun) untilIdle(t *testing.T) { r.untilQuiet(t, nil) }
+// untilRead waits until the daemon has read at least want bytes, then
+// until its reads hold still for three samples a second apart, or ten
+// minutes. It waits on the read itself, not on the CPU (item 226): a
+// daemon starved of the CPU on a loaded machine looked idle to that,
+// with 80 MiB of 256 read.
+func (r *daemonRun) untilRead(t *testing.T, want int64) {
+	t.Helper()
+	const (
+		stillSamples = 3
+		gaveUp       = 10 * time.Minute
+	)
+	start := time.Now()
+	still, last := 0, int64(-1)
+	for still < stillSamples && time.Since(start) < gaveUp {
+		time.Sleep(time.Second)
+		n := bytesRead(t, r.pid)
+		switch {
+		case n < want:
+			still = 0
+		case n == last:
+			still++
+		default:
+			still = 0
+		}
+		last = n
+	}
+	r.took = time.Since(start)
+}
 
+// untilQuiet samples the daemon each second until it has used under 5%
+// of a core for three samples running, handing each sample to sampled.
 func (r *daemonRun) untilQuiet(t *testing.T, sampled func(share float64)) {
 	t.Helper()
 	const (
