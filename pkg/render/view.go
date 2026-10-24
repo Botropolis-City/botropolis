@@ -144,22 +144,52 @@ func (g *Game) unlitTower(t *city.Tower) bool {
 // sprite path to drain the colour out of it, which a scale cannot do.
 func (g *Game) scenery() *ebiten.ColorScale { return nil }
 
-// Ground trees are drawn a little translucent over the grass and a
-// little darker, so they sit lower in contrast and saturation than
-// anything that answers a hover. Item 85.
+// Ground trees sit lower in contrast and saturation than anything that
+// answers a hover: a little darker, and mixed with the ground they stand
+// on, as if a third of it showed through (item 85). The mix is baked
+// into their colour and they are drawn opaque, so nothing under them —
+// the railway — shows through as well (item 221).
 const (
 	groundTreeAlpha = 0.66
 	groundTreeValue = 0.86
 )
 
-// treeTint is how a tree is drawn: through the ground's tint when it
-// means nothing, and in full colour when it lines a road.
-func (g *Game) treeTint(t city.Tree) *ebiten.ColorScale {
-	if t.Kind != plan.ParkTree {
-		return g.scenery()
+// groundTreeMatrix draws a ground tree over ground of one colour: over
+// it, the pixel is the one a tree drawn translucent would give, and over
+// anything else it hides what is there.
+func groundTreeMatrix(ground color.NRGBA) colorm.ColorM {
+	var m colorm.ColorM
+	v := groundTreeAlpha * groundTreeValue
+	m.Scale(v, v, v, 1)
+	left := (1 - groundTreeAlpha) / 0xff
+	m.Translate(left*float64(ground.R), left*float64(ground.G), left*float64(ground.B), 0)
+	return m
+}
+
+// groundColour is the colour a kind of ground is drawn in, as the iso
+// shore paints it by day or by night, and drained under a view as the
+// ground under it is.
+func groundColour(kind city.Ground, t float64, night, viewing bool) color.NRGBA {
+	c := shorePaletteFor(false, night).paint(kind, t)
+	if viewing {
+		c = receded(c)
 	}
-	var tint ebiten.ColorScale
-	v := float32(groundTreeAlpha * groundTreeValue)
-	tint.Scale(v, v, v, groundTreeAlpha)
-	return &tint
+	return c
+}
+
+// receded is a colour as a view drains the ground under it.
+func receded(c color.NRGBA) color.NRGBA {
+	m := recedeMatrix()
+	r, g, b, a := m.Apply(c).RGBA()
+	return color.NRGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)}
+}
+
+// treeMatrix is the matrix a tree is drawn through over ground of one
+// colour, and whether it is drawn through one at all: a street tree
+// lines a road and keeps its full colour.
+func treeMatrix(t city.Tree, ground color.NRGBA) (colorm.ColorM, bool) {
+	if t.Kind != plan.ParkTree {
+		return colorm.ColorM{}, false
+	}
+	return groundTreeMatrix(ground), true
 }

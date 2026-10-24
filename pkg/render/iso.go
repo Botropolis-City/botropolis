@@ -63,12 +63,7 @@ func (g *Game) drawSprite(screen *ebiten.Image, s pagedSprite, at city.Point, sc
 	// about, and draining colour is a mixing of channels that a scale
 	// cannot do — so those sprites go through a colour matrix instead.
 	if g.viewing() && tint == nil {
-		op := &colorm.DrawImageOptions{}
-		op.GeoM.Scale(scale, scale)
-		op.GeoM.Translate(at.X, at.Y)
-		op.Filter = ebiten.FilterLinear
-		g.recorder().colorm(screen, img, s.page, recedeMatrix(), op)
-		g.punch(img, s.page, op.GeoM)
+		g.drawSpriteThrough(screen, s, at, scale, recedeMatrix())
 		return
 	}
 	op := &ebiten.DrawImageOptions{}
@@ -80,6 +75,20 @@ func (g *Game) drawSprite(screen *ebiten.Image, s pagedSprite, at city.Point, sc
 	op.Filter = ebiten.FilterLinear
 	g.recorder().ImageOn(screen, img, s.page, op)
 	g.punch(img, s.page, op.GeoM)
+}
+
+// drawSpriteThrough draws a sheet sprite through a colour matrix.
+func (g *Game) drawSpriteThrough(screen *ebiten.Image, s pagedSprite, at city.Point, scale float64, m colorm.ColorM) {
+	if s.img == nil {
+		return
+	}
+	g.drawing.world()
+	op := &colorm.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(at.X, at.Y)
+	op.Filter = ebiten.FilterLinear
+	g.recorder().colorm(screen, s.img, s.page, m, op)
+	g.punch(s.img, s.page, op.GeoM)
 }
 
 // footprint is the projected diamond of a world rect: its top corner and
@@ -116,8 +125,18 @@ func (g *Game) isoGround(screen *ebiten.Image, cam *city.Camera, c *city.City, w
 }
 
 // isoTree plants one of the plan's trees, back to front with everything else.
-func (g *Game) isoTree(screen *ebiten.Image, cam *city.Camera, t city.Tree, tint *ebiten.ColorScale) {
-	g.kit(screen, cam, treePiece(t), 0, t.At, tint)
+// A ground tree is mixed with the ground at its foot (item 221).
+func (g *Game) isoTree(screen *ebiten.Image, cam *city.Camera, island city.Island, night bool, t city.Tree) {
+	kind, band := island.At(t.At)
+	m, mixed := treeMatrix(t, groundColour(kind, band, night, g.viewing()))
+	if !mixed {
+		g.kit(screen, cam, treePiece(t), 0, t.At, g.scenery())
+		return
+	}
+	img, origin, scale, _, ok := g.kitPlace(cam, treePiece(t), 0, t.At, 0)
+	if ok {
+		g.drawSpriteThrough(screen, img, origin, scale, m)
+	}
 }
 
 // isoPlaza is the civic centre's floor and its fountain.
@@ -790,13 +809,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}))
 		items[len(items)-1].kept = g.keeps(d)
 	}
+	island := c.Island()
 	for _, t := range c.Trees {
 		if !g.scene.Scenery() {
 			break
 		}
 		t := t
 		items = append(items, standingAt(cam, t.At, func() {
-			g.isoTree(screen, cam, t, g.treeTint(t))
+			g.isoTree(screen, cam, island, c.Night, t)
 		}))
 	}
 	for _, t := range c.Towers {
