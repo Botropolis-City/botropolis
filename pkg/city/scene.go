@@ -742,6 +742,12 @@ func (s *Scene) Opened() bool { return s.opened }
 // one opens the city, or the first whose history is read when the scene
 // opens on a read.
 func (s *Scene) SetSnapshot(snapshot state.Snapshot) {
+	// The snapshot that finishes the history's first read has the ledger
+	// read fresh, so the city it opens or rebuilds never shows a window
+	// cached partway through that read (item 242).
+	if s.offered && snapshot.HeftsRead && !s.real.HeftsRead && s.ledger != nil {
+		s.ledger.ReadFresh()
+	}
 	s.real = snapshot
 	s.restate()
 	s.offered = true

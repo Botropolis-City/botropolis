@@ -55,6 +55,8 @@ func (l *fakeLedger) Window(at time.Time, hours int, root func(string) string) (
 
 func (l *fakeLedger) Reason() string { return l.reason }
 
+func (l *fakeLedger) ReadFresh() {}
+
 func cost(usd float64) stats.Cost { return stats.Cost{Low: usd, High: usd} }
 
 var stored = stats.Window{

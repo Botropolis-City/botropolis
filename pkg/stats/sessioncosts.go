@@ -38,9 +38,10 @@ func (l *Ledger) SessionCosts(at time.Time) (map[string]Cost, error) {
 		}
 		return nil, l.err
 	}
-	if l.costs != nil && fresh(s, l.costs.at, at, l.costs.version, LedgerSessions, 0) {
+	if l.costs != nil && !l.costsDue && fresh(s, l.costs.at, at, l.costs.version, LedgerSessions, 0) {
 		return l.costs.costs, nil
 	}
+	l.costsDue = false
 	return l.sessionCostsLocked(at)
 }
 

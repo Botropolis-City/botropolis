@@ -39,6 +39,10 @@ type Ledger struct {
 	// log (item 215).
 	live  map[int]*liveWindow
 	costs *liveCosts
+	// due are the windows, by their hours, and costsDue the costs, that
+	// ReadFresh has the next ask read whatever is cached (item 242).
+	due      map[int]bool
+	costsDue bool
 	// priced and messageReads count the sessions priced and the reads
 	// of messages, for the tests.
 	priced, messageReads int
@@ -64,7 +68,7 @@ func fresh(s *Store, from, at time.Time, version int64, cache, ageing time.Durat
 
 // NewLedger is a ledger over the store at path, opened when first asked.
 func NewLedger(path string) *Ledger {
-	return &Ledger{path: path, live: map[int]*liveWindow{}}
+	return &Ledger{path: path, live: map[int]*liveWindow{}, due: map[int]bool{}}
 }
 
 // Store is the open store, opening it if it is due a try.
@@ -121,9 +125,10 @@ func (l *Ledger) Window(at time.Time, hours int, root func(string) string) (Wind
 		}
 		return Window{}, l.err
 	}
-	if w, ok := l.live[hours]; ok && fresh(s, w.at, at, w.version, LedgerCache, LedgerAging) {
+	if w, ok := l.live[hours]; ok && !l.due[hours] && fresh(s, w.at, at, w.version, LedgerCache, LedgerAging) {
 		return w.window, nil
 	}
+	delete(l.due, hours)
 	return l.windowLocked(at, hours, root)
 }
 
@@ -154,6 +159,23 @@ func (l *Ledger) windowLocked(at time.Time, hours int, root func(string) string)
 	w.at, w.version, w.window = at, version, answer
 	l.live[hours] = w
 	return answer, nil
+}
+
+// ReadFresh has the next ask for each window, and for the session
+// costs, read the store rather than reuse a cached answer; the reuse
+// holds again from that read on. The city asks it when the history's
+// first read finishes, so it never shows a window cached partway
+// through (item 242).
+func (l *Ledger) ReadFresh() {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for hours := range l.live {
+		l.due[hours] = true
+	}
+	l.costsDue = l.costs != nil
 }
 
 // Close closes the store, if it was opened.

@@ -72,6 +72,9 @@ type Ledger interface {
 	Window(at time.Time, hours int, root func(string) string) (stats.Window, error)
 	SessionCosts(at time.Time) (map[string]stats.Cost, error)
 	Reason() string
+	// ReadFresh has the next asks read the store rather than reuse a
+	// cached answer (item 242).
+	ReadFresh()
 }
 
 // priceSessions gives each building its session's cost from the store;
