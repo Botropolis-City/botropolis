@@ -49,6 +49,10 @@ type stagedTranscript struct {
 
 func place(corpus Corpus, scenario string, i int, p Placement, dir string, now time.Time, spawn Spawner) (placed, error) {
 	end := now.Add(-time.Duration(p.Ago))
+	var begin time.Time
+	if p.Started > 0 {
+		begin = now.Add(-time.Duration(p.Started))
+	}
 	record := map[string]any{
 		"version":    demoVersion,
 		"entrypoint": "cli",
@@ -69,7 +73,7 @@ func place(corpus Corpus, scenario string, i int, p Placement, dir string, now t
 				{rec.ID, o.id},
 			}
 		}
-		st, err := stageTranscript(rec, dir, end, o)
+		st, err := stageTranscript(rec, dir, end, begin, o)
 		if err != nil {
 			return at, err
 		}
@@ -80,7 +84,14 @@ func place(corpus Corpus, scenario string, i int, p Placement, dir string, now t
 		if p.Title != "" {
 			record["name"] = p.Title
 		}
-		record["sessionId"], record["cwd"], record["startedAt"] = at.id, filepath.Join(Root, p.Project), end.UnixMilli()
+		started := end
+		if !begin.IsZero() {
+			if begin.After(end) {
+				return at, fmt.Errorf("%s: started %s is sooner than ago %s", p.Project, time.Duration(p.Started), time.Duration(p.Ago))
+			}
+			started = begin
+		}
+		record["sessionId"], record["cwd"], record["startedAt"] = at.id, filepath.Join(Root, p.Project), started.UnixMilli()
 	default:
 		return at, fmt.Errorf("neither a ref nor a project")
 	}
@@ -124,8 +135,9 @@ func recordFor(s state.State) (claude.Kind, claude.Status, bool, error) {
 // stageTranscript copies a recorded session and its subagents into the
 // home, overlaid as the placement asks, all moved by the one delta that
 // puts the session's newest line at end. It returns the moved start and
-// the session's working dir.
-func stageTranscript(rec Recorded, dir string, end time.Time, o overlay) (stagedTranscript, error) {
+// the session's working dir. A non-zero begin moves the recording's
+// opening back to it, so the session reads as opened then (item 223).
+func stageTranscript(rec Recorded, dir string, end, begin time.Time, o overlay) (stagedTranscript, error) {
 	main, err := readJSONL(rec.Path)
 	if err != nil {
 		return stagedTranscript{}, err
@@ -158,6 +170,19 @@ func stageTranscript(rec Recorded, dir string, end time.Time, o overlay) (staged
 	if err != nil {
 		return stagedTranscript{}, err
 	}
+	started := earliest(moved)
+	if !begin.IsZero() {
+		if o.Replay != nil {
+			return stagedTranscript{}, fmt.Errorf("%s: a replayed session arrives in the clip, so it takes no started", rec.Path)
+		}
+		if begin.After(started) {
+			return stagedTranscript{}, fmt.Errorf("%s: started is sooner than ago plus the recording's %s", rec.Path, end.Sub(started).Round(time.Second))
+		}
+		if moved, err = openAt(moved, begin); err != nil {
+			return stagedTranscript{}, err
+		}
+		started = begin
+	}
 	path := filepath.Join(folder, o.id+".jsonl")
 	var pending []pendingLine
 	if o.Replay != nil {
@@ -187,7 +212,24 @@ func stageTranscript(rec Recorded, dir string, end time.Time, o overlay) (staged
 			return stagedTranscript{}, err
 		}
 	}
-	return stagedTranscript{started: earliest(main).Add(delta), cwd: cwd, path: path, pending: pending}, nil
+	return stagedTranscript{started: started, cwd: cwd, path: path, pending: pending}, nil
+}
+
+// openAt moves a transcript's opening, the lines at its earliest
+// timestamp and any untimed lines among them, back to begin.
+func openAt(lines [][]byte, begin time.Time) ([][]byte, error) {
+	first := earliest(lines)
+	n := 0
+	for ; n < len(lines); n++ {
+		if at, ok := Latest(lines[n : n+1]); ok && !at.Equal(first) {
+			break
+		}
+	}
+	head, err := Shift(lines[:n], begin.Sub(first))
+	if err != nil {
+		return nil, err
+	}
+	return append(head, lines[n:]...), nil
 }
 
 // overlay is what a placement adds to a recording: a new identity for a

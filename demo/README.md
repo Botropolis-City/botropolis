@@ -91,8 +91,10 @@ sessions:
   - ref: tidepool/6f1d  # <project>/<session id or a prefix of it>
     state: working      # working, needs-you, unattended, resting
     ago: 2m             # how long before now its last line sits
+    started: 3h         # how long before now it was opened; its recording's own span when unset
   - project: beacon     # an empty plot needs no recording
     state: empty
+groups: []              # the groups the city should find, each as its members' titles
 shots:
   - name: overview
     title: A quiet hamlet
@@ -105,6 +107,17 @@ shots:
 
 A shot also takes `window`, `hover`, `detail`, `signage`, `scale` and its own `clock`.
 Unknown keys are refused, and so is a scenario that places no sessions.
+
+## Start times and groups
+
+A recording runs for minutes, so staged as recorded every session looks opened just now.
+The city groups sessions started within a minute of each other,
+and the metropolis once showed one group across twelve districts (item 223).
+Give each live session a `started:` that reads like a real day, spaced more than fifteen minutes from the others unless they belong together.
+`started:` moves only the recording's opening back, so the newest line stays at `ago`.
+
+`groups:` lists every group the scenario means to show, its teams and any group it means the city to infer.
+`testing/integration/demo/scenarios_test.go` stages every scenario and fails when the city finds a group not listed, or misses one that is.
 
 ## What a recording cannot cheaply produce
 

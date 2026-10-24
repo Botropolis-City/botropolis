@@ -8,15 +8,18 @@ sessions:
     state: working
     context: 34%
     ago: 30s
+    started: 1h15m
     prs: [open]
   - ref: tidepool/review-loader-and-docs
     state: needs-you
     context: 72%
     ago: 6m
+    started: 3h20m
   - ref: lanternfish/list-race
     state: working
     context: 91%
     ago: 2m
+    started: 40m
     errors: 1
   - ref: lanternfish/status-filter
     state: resting
@@ -26,6 +29,7 @@ sessions:
     state: working
     context: 48%
     ago: 1m
+    started: 2h25m
   - ref: kiln/empty-log-from-tracker
     state: resting
     ago: 26h
@@ -34,11 +38,13 @@ sessions:
     state: unattended
     context: 24%
     ago: 3m
+    started: 1h50m
   - ref: quillmark/compare-kiln-packaging
     state: resting
     ago: 2d
   - project: quillmark
     state: empty
+    started: 4h10m
     title: Theme gallery
 shots:
   - name: overview

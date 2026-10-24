@@ -23,7 +23,10 @@ type Scenario struct {
 	Clock    string      `yaml:"clock"`
 	MCP      []string    `yaml:"mcp"`
 	Sessions []Placement `yaml:"sessions"`
-	Shots    []Shot      `yaml:"shots"`
+	// Groups are the groups the city is expected to find once the
+	// scenario is staged, each named by its members' titles (item 223).
+	Groups [][]string `yaml:"groups"`
+	Shots  []Shot     `yaml:"shots"`
 	// Usage floats the boats; UsageChanges moves them during a clip.
 	Usage        *Usage        `yaml:"usage"`
 	UsageChanges []UsageChange `yaml:"usage_changes"`
@@ -39,6 +42,11 @@ type Placement struct {
 	State   state.State `yaml:"state"`
 	// Ago is how long before now the session's last line sits.
 	Ago Duration `yaml:"ago"`
+	// Started is how long before now the session was opened, when that
+	// is longer than its recording runs: staged as recorded, every
+	// session would look opened minutes ago, and the city would group
+	// them all as started together (item 223).
+	Started Duration `yaml:"started"`
 
 	// The rest is overlaid on the recording, for what a recording run
 	// cannot cheaply produce: a title, pull requests in each state

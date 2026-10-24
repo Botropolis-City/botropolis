@@ -47,3 +47,25 @@ func TestDurationYAML(t *testing.T) {
 		})
 	}
 }
+
+func TestScenarioYAML(t *testing.T) {
+	var s Scenario
+	require.NoError(t, yaml.Unmarshal([]byte(`
+sessions:
+  - {ref: tidepool/what-is-phase, state: working, ago: 1m, started: 3h}
+groups:
+  - [Driftwood ingest, Saltmarsh API]
+`), &s))
+
+	t.Run("when a placement gives started", func(t *testing.T) {
+		t.Run("it should parse it as a duration", func(t *testing.T) {
+			assert.Equal(t, 3*time.Hour, time.Duration(s.Sessions[0].Started))
+		})
+	})
+
+	t.Run("when a scenario lists the groups it expects", func(t *testing.T) {
+		t.Run("it should read each group as its members' titles", func(t *testing.T) {
+			assert.Equal(t, [][]string{{"Driftwood ingest", "Saltmarsh API"}}, s.Groups)
+		})
+	})
+}

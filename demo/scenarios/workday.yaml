@@ -12,6 +12,7 @@ sessions:
     state: working
     context: 62%
     ago: 30s
+    started: 50m
     prs: [open]
     changes:
       - {at: 14s, prs: [merged]}
@@ -20,6 +21,7 @@ sessions:
     state: needs-you
     context: 88%
     ago: 2m
+    started: 1h25m
     changes:
       - {at: 6s, state: working}
       - {at: 20s, errors: 1}
@@ -27,6 +29,7 @@ sessions:
     state: working
     context: 41%
     ago: 1m
+    started: 20m
     leave: 30s
   - ref: quillmark/drafts-and-changelog
     state: working

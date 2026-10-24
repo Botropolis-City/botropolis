@@ -4,34 +4,36 @@ clock: "18:30"
 mcp: [tracker, weather]
 usage: {session: 71, weekly: 83, models: {Opus: 64}}
 sessions:
-  - {ref: tidepool/units-from-tracker, state: working, ago: 20s, prs: [open], context: 38%}
-  - {ref: tidepool/review-loader-and-docs, state: working, ago: 1m, context: 66%}
+  - {ref: tidepool/units-from-tracker, state: working, ago: 20s, started: 2h10m, prs: [open], context: 38%}
+  - {ref: tidepool/review-loader-and-docs, state: working, ago: 1m, started: 3h25m, context: 66%}
   - {ref: tidepool/fix-table-timezone, state: resting, ago: 9h, prs: [merged]}
   - {ref: tidepool/what-is-phase, state: resting, ago: 2d}
-  - {ref: lanternfish/list-race, state: working, ago: 40s, errors: 2, context: 93%}
-  - {ref: lanternfish/crash-safe-snapshots, state: needs-you, ago: 8m, context: 21%}
+  - {ref: lanternfish/list-race, state: working, ago: 40s, started: 1h05m, errors: 2, context: 93%}
+  - {ref: lanternfish/crash-safe-snapshots, state: needs-you, ago: 8m, started: 5h20m, context: 21%}
   - {ref: lanternfish/status-filter, state: resting, ago: 4h, prs: [merged, closed]}
-  - {ref: kiln/json-report, state: working, ago: 15s, context: 79%}
+  - {ref: kiln/json-report, state: working, ago: 15s, started: 2h40m, context: 79%}
   - {ref: kiln/hold-time-sampling, state: resting, ago: 30h}
-  - {ref: kiln/line-numbers-like-tidepool, state: unattended, ago: 2m, context: 55%}
-  - {ref: quillmark/block-handlers, state: working, ago: 1m, prs: [open], context: 47%}
+  - {ref: kiln/line-numbers-like-tidepool, state: unattended, ago: 2m, started: 35m, context: 55%}
+  - {ref: quillmark/block-handlers, state: working, ago: 1m, started: 4h45m, prs: [open], context: 47%}
   - {ref: quillmark/drafts-and-changelog, state: resting, ago: 6h, prs: [merged]}
-  - {ref: orchard/parallel-review, state: working, ago: 10s, context: 84%}
-  - {ref: orchard/triploid-design, state: needs-you, ago: 12m, context: 30%}
+  - {ref: orchard/parallel-review, state: working, ago: 10s, started: 1h35m, context: 84%}
+  - {ref: orchard/triploid-design, state: needs-you, ago: 12m, started: 7h10m, context: 30%}
   - {ref: orchard/layout-reentrancy, state: resting, ago: 3d, prs: [merged]}
-  - {ref: beacon/conditions-line, state: working, ago: 3m, context: 71%}
+  - {ref: beacon/conditions-line, state: working, ago: 3m, started: 5h40m, context: 71%}
   - {ref: beacon/shared-classifier, state: resting, ago: 20h}
-  - {ref: tidepool/units-from-tracker, project: driftwood, state: working, ago: 2m, title: Driftwood ingest, team: harbor, agent: lead, context: 62%}
-  - {ref: kiln/json-report, project: driftwood, state: working, ago: 1m, title: Driftwood schema, team: harbor, agent: schema, context: 90%}
-  - {ref: lanternfish/list-race, project: saltmarsh, state: working, ago: 3m, title: Saltmarsh API, team: harbor, agent: api, context: 44%}
-  - {ref: quillmark/block-handlers, project: ferrylight, state: needs-you, ago: 5m, title: Ferrylight docs, context: 26%}
-  - {ref: orchard/layout-reentrancy, project: copperleaf, state: working, ago: 30s, title: Copperleaf planner, context: 68%}
-  - {ref: beacon/shared-classifier, project: millrace, state: unattended, ago: 4m, title: Millrace nightly, context: 57%}
-  - {ref: kiln/hold-time-sampling, project: thistledown, state: resting, ago: 2d, title: Thistledown import}
-  - {ref: lanternfish/status-filter, project: thistledown, state: working, ago: 2m, title: Thistledown search, prs: [open], context: 35%}
+  - {ref: tidepool/units-from-tracker, project: driftwood, state: working, ago: 2m, started: 3h, title: Driftwood ingest, team: harbor, agent: lead, context: 62%}
+  - {ref: kiln/json-report, project: driftwood, state: working, ago: 1m, started: 3h, title: Driftwood schema, team: harbor, agent: schema, context: 90%}
+  - {ref: lanternfish/list-race, project: saltmarsh, state: working, ago: 3m, started: 3h, title: Saltmarsh API, team: harbor, agent: api, context: 44%}
+  - {ref: quillmark/block-handlers, project: ferrylight, state: needs-you, ago: 5m, started: 6h40m, title: Ferrylight docs, context: 26%}
+  - {ref: orchard/layout-reentrancy, project: copperleaf, state: working, ago: 30s, started: 7h45m, title: Copperleaf planner, context: 68%}
+  - {ref: beacon/shared-classifier, project: millrace, state: unattended, ago: 4m, started: 8h20m, title: Millrace nightly, context: 57%}
+  - {ref: kiln/hold-time-sampling, project: thistledown, state: resting, ago: 2d, started: 2d3h, title: Thistledown import}
+  - {ref: lanternfish/status-filter, project: thistledown, state: working, ago: 2m, started: 10h30m, title: Thistledown search, prs: [open], context: 35%}
   - {ref: tidepool/fix-table-timezone, project: copperleaf, state: resting, ago: 4d, title: Copperleaf timezones}
-  - {project: saltmarsh, state: empty, title: Saltmarsh tide gauges}
-  - {project: ferrylight, state: empty, title: Ferrylight timetable}
+  - {project: saltmarsh, state: empty, started: 9h40m, title: Saltmarsh tide gauges}
+  - {project: ferrylight, state: empty, started: 11h20m, title: Ferrylight timetable}
+groups:
+  - [Driftwood ingest, Driftwood schema, Saltmarsh API]
 shots:
   - name: overview
     title: A busy metropolis

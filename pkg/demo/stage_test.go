@@ -152,6 +152,46 @@ func TestStage(t *testing.T) {
 		})
 	})
 
+	t.Run("when a placement says started 3h", func(t *testing.T) {
+		t.Run("and its recording spans ten minutes", func(t *testing.T) {
+			got := stage(t, corpus, Scenario{Sessions: []Placement{{Ref: "tidepool/6f1d", State: state.Working, Ago: Duration(2 * time.Minute), Started: Duration(3 * time.Hour)}}}, now)
+			require.NoError(t, got.err)
+
+			t.Run("it should begin the staged transcript 3h before now", func(t *testing.T) {
+				assert.Equal(t, now.Add(-3*time.Hour), earliest(readLines(t, transcript(got.home))))
+			})
+
+			t.Run("it should keep the newest line at ago", func(t *testing.T) {
+				latest, _ := Latest(readLines(t, transcript(got.home)))
+				assert.Equal(t, now.Add(-2*time.Minute), latest)
+			})
+
+			t.Run("it should record startedAt 3h before now", func(t *testing.T) {
+				assert.EqualValues(t, now.Add(-3*time.Hour).UnixMilli(), records(t, got.home)[0]["startedAt"])
+			})
+		})
+
+		t.Run("and it is an empty plot", func(t *testing.T) {
+			got := stage(t, corpus, Scenario{Sessions: []Placement{{Project: "lanternfish", State: state.Empty, Started: Duration(3 * time.Hour)}}}, now)
+			require.NoError(t, got.err)
+
+			t.Run("it should record startedAt 3h before now", func(t *testing.T) {
+				assert.EqualValues(t, now.Add(-3*time.Hour).UnixMilli(), records(t, got.home)[0]["startedAt"])
+			})
+		})
+	})
+
+	for name, p := range map[string]Placement{
+		"a recording to start sooner than ago plus its span": {Ref: "tidepool/6f1d", State: state.Working, Ago: Duration(2 * time.Minute), Started: Duration(5 * time.Minute)},
+		"an empty plot to start sooner than ago":             {Project: "lanternfish", State: state.Empty, Ago: Duration(time.Hour), Started: Duration(time.Minute)},
+	} {
+		t.Run("when a placement asks "+name, func(t *testing.T) {
+			t.Run("it should refuse the placement", func(t *testing.T) {
+				assert.Error(t, stage(t, corpus, Scenario{Sessions: []Placement{p}}, now).err)
+			})
+		})
+	}
+
 	t.Run("when a plot is placed empty in a project", func(t *testing.T) {
 		got := stage(t, corpus, Scenario{Sessions: []Placement{{Project: "lanternfish", State: state.Empty}}}, now)
 		require.NoError(t, got.err)
