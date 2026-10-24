@@ -12,6 +12,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/sighold"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -176,7 +177,12 @@ func runSheet(job func(g *Game) error) error {
 	}
 	run := &sheetRun{g: &Game{kits: k, faces: f, theme: th, scene: city.NewScene(nil)}, job: job}
 	ebiten.SetWindowSize(64, 64)
-	if err := ebiten.RunGame(run); err != nil && !errors.Is(err, ebiten.Termination) {
+	// As in Run: Ebitengine opens the input devices from this thread, and
+	// a signal arriving during an open ended the run (items 128, 230).
+	release := sighold.Hold()
+	err = ebiten.RunGame(run)
+	release()
+	if err != nil && !errors.Is(err, ebiten.Termination) {
 		return err
 	}
 	return run.err

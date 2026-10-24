@@ -176,11 +176,16 @@ test-acceptance ::
 	@go test -timeout ${ACCEPTANCE_TIMEOUT} ./testing/acceptance/...
 
 # Item 128: 40 city starts while the input devices are busy and the main
-# thread is signalled, each of which must exit 0. Needs an openable
-# /dev/input/event*, and says so when there is none.
+# thread is signalled, each of which must exit 0, and item 230: 40 building
+# sheets drawn by the demo tool the same way. Needs an openable
+# /dev/input/event*, and says so when there is none. SOAK_GAMEPAD_RUN narrows
+# it to one case, and it logs every run as it finishes.
+SOAK_GAMEPAD_RUN ?= TestStartUnderSignals
+SOAK_GAMEPAD_TIMEOUT ?= 60m
+
 soak-gamepad ::
 	$(LOG) "Soaking the city's start under signals"
-	@BOTROPOLIS_SOAK=1 go test -count=1 -timeout 20m -run TestStartUnderSignals ./testing/acceptance/
+	@BOTROPOLIS_SOAK=1 go test -count=1 -v -timeout ${SOAK_GAMEPAD_TIMEOUT} -run '${SOAK_GAMEPAD_RUN}' ./testing/acceptance/
 
 # Item 125: 120 screenshot runs at load, each of which must exit 0. Minutes
 # long, so not part of test-acceptance.

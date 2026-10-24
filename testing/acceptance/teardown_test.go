@@ -40,6 +40,12 @@ func screenshotRun(root string, during func(*os.Process) (stop func())) string {
 	cmd := exec.Command(botropolis, "city", "--socket", filepath.Join(r.tmp, "none.sock"),
 		"--home", other, "--screenshot", filepath.Join(r.tmp, "shot.png"))
 	cmd.Env = append(r.env(), x.Env()...)
+	return exitOf(cmd, during)
+}
+
+// exitOf runs cmd to its exit, with during beside it, and says how it
+// exited: "" for status 0.
+func exitOf(cmd *exec.Cmd, during func(*os.Process) (stop func())) string {
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	if err := cmd.Start(); err != nil {
@@ -49,7 +55,7 @@ func screenshotRun(root string, during func(*os.Process) (stop func())) string {
 		stop := during(cmd.Process)
 		defer stop()
 	}
-	err = cmd.Wait()
+	err := cmd.Wait()
 	var exit *exec.ExitError
 	switch {
 	case err == nil:

@@ -5,13 +5,17 @@ package acceptance_test
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
+	"botropolis.city/botropolis/pkg/xvfb"
 	"botropolis.city/botropolis/testing/helpers"
 )
 
@@ -102,9 +106,9 @@ func TestStartUnderSignals(t *testing.T) {
 			root := t.TempDir()
 			var failures []string
 			for i := range signalledRuns {
-				if failed := screenshotRun(filepath.Join(root, fmt.Sprint(i)), signalMainThread); failed != "" {
-					failures = append(failures, fmt.Sprintf("run %d: %s", i, failed))
-				}
+				failures = append(failures, logRun(t, i, func() string {
+					return screenshotRun(filepath.Join(root, fmt.Sprint(i)), signalMainThread)
+				})...)
 			}
 
 			t.Run(fmt.Sprintf("it should start every one of %d times", signalledRuns), func(t *testing.T) {
@@ -112,4 +116,58 @@ func TestStartUnderSignals(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("when the demo tool draws the building sheet while other processes hold the input devices busy", func(t *testing.T) {
+		demo := filepath.Join(t.TempDir(), "botropolis-demo")
+		build, err := exec.Command("go", "build", "-o", demo, "../../cmd/botropolis-demo").CombinedOutput()
+		require.NoError(t, err, "%s", build)
+		stopBusy := keepBusy(inputs, 4)
+		defer stopBusy()
+
+		t.Run("and its main thread is sent signals repeatedly", func(t *testing.T) {
+			root := t.TempDir()
+			var failures []string
+			for i := range signalledRuns {
+				failures = append(failures, logRun(t, i, func() string {
+					return sheetRun(demo, filepath.Join(root, fmt.Sprint(i)), signalMainThread)
+				})...)
+			}
+
+			t.Run(fmt.Sprintf("it should finish every one of %d times", signalledRuns), func(t *testing.T) {
+				assert.Empty(t, failures)
+			})
+		})
+	})
+}
+
+// logRun runs one soak run and logs how it went and how long it took as it
+// finishes, so a soak that runs out of time still shows its runs (item 230).
+func logRun(t *testing.T, i int, run func() string) []string {
+	t.Helper()
+	start := time.Now()
+	failed := run()
+	took := time.Since(start).Round(100 * time.Millisecond)
+	if failed != "" {
+		t.Logf("run %d failed after %s: %s", i, took, failed)
+		return []string{fmt.Sprintf("run %d: %s", i, failed)}
+	}
+	t.Logf("run %d exited 0 after %s", i, took)
+	return nil
+}
+
+// sheetRun draws the building sheet in the demo tool's drawing child, the
+// process that runs Ebitengine (item 230), on a display of its own.
+func sheetRun(demo, root string, during func(*os.Process) (stop func())) string {
+	xdir := filepath.Join(root, "x")
+	if err := os.MkdirAll(xdir, 0o700); err != nil {
+		return err.Error()
+	}
+	x, err := xvfb.Start(xdir, 1100, 760)
+	if err != nil {
+		return "no display: " + err.Error()
+	}
+	defer func() { _ = x.Close() }()
+	cmd := exec.Command(demo, "sheet", "--out", filepath.Join(root, "sheet.png"))
+	cmd.Env = append(append(os.Environ(), x.Env()...), "BOTROPOLIS_SHEET_DISPLAY=1")
+	return exitOf(cmd, during)
 }
