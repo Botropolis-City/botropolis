@@ -292,6 +292,12 @@ func (f Filmer) Film(paths []string) (Manifest, error) {
 // a still takes about as long as six recorded frames, staging included.
 const stillUnits = 6
 
+// filmHold is how long a shot's stand-ins live if the filmer dies before
+// unstaging them. A clip's timeline runs in video time, so on a loaded
+// machine one clip can film for longer than an hour; a hold shorter than
+// the film turns its sessions resting mid-clip (item 187).
+const filmHold = 24 * time.Hour
+
 // shotUnits is a shot's share of the run's progress: its frames, or a
 // still's worth of them.
 func shotUnits(shot Shot) int {
@@ -333,7 +339,7 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 	if err := os.MkdirAll(home, 0o700); err != nil {
 		return nil, err
 	}
-	director, err := NewDirector(f.Corpus, scenario, home, f.Now(), Sleepers(home, time.Hour))
+	director, err := NewDirector(f.Corpus, scenario, home, f.Now(), Sleepers(home, filmHold))
 	if err != nil {
 		return nil, err
 	}

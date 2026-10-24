@@ -145,3 +145,13 @@ func TestClockZone(t *testing.T) {
 		})
 	})
 }
+
+func TestFilmHold(t *testing.T) {
+	const slowestFilmMeasured = time.Hour + 39*time.Minute
+
+	t.Run("when a shot's stand-ins are spawned", func(t *testing.T) {
+		t.Run("it should hold them longer than any film takes (item 187)", func(t *testing.T) {
+			assert.Greater(t, filmHold, slowestFilmMeasured)
+		})
+	})
+}
