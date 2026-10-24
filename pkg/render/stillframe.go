@@ -59,8 +59,8 @@ type stillFrame struct {
 	lit       []entry
 	pend      [][]int
 	panes     []uint16
-	due       []leftCut
-	left      []leftCut
+	due       []streamPlay
+	left      []streamPlay
 	laid      []streamPlay
 	unbatched []streamPlay
 	lightKeys map[lightSource]int
@@ -461,7 +461,7 @@ func (g *Game) lightOrder(out, plays []streamPlay) []streamPlay {
 	for i := range rects {
 		s.pend[i] = s.pend[i][:0]
 	}
-	cut := func(c *leftCut) *lightOp { return &g.lightOps[c.cmd] }
+	cut := func(c *streamPlay) *lightOp { return &g.lightOps[c.cmd] }
 	for _, p := range plays {
 		op, r := &g.lightOps[p.cmd], p.rect
 		if op.punch || op.cut != cutNone {
@@ -471,29 +471,24 @@ func (g *Game) lightOrder(out, plays []streamPlay) []streamPlay {
 		due, kept := s.due[:0], s.pend[r][:0]
 		for _, c := range s.pend[r] {
 			if meets(g.lightOps[c].box, g.litRects[op.from:op.to]) {
-				due = append(due, leftCut{cmd: c, rect: r})
+				due = append(due, streamPlay{cmd: c, rect: r})
 			} else {
 				kept = append(kept, c)
 			}
 		}
 		orderCutsBy(due, cut)
-		for _, c := range due {
-			out = append(out, streamPlay{cmd: c.cmd, rect: r})
-		}
+		out = append(out, due...)
 		s.due, s.pend[r] = due[:0], kept
 		out = append(out, p)
 	}
 	s.left = s.left[:0]
 	for r := range rects {
 		for _, c := range s.pend[r] {
-			s.left = append(s.left, leftCut{cmd: c, rect: r})
+			s.left = append(s.left, streamPlay{cmd: c, rect: r})
 		}
 	}
 	orderCutsBy(s.left, cut)
-	for _, c := range s.left {
-		out = append(out, streamPlay{cmd: c.cmd, rect: c.rect})
-	}
-	return out
+	return append(out, s.left...)
 }
 
 // lightBox is the box the ith light op covers: a cut's own, or a
@@ -526,11 +521,6 @@ func (g *Game) panesIn(op lightOp, r image.Rectangle) []uint16 {
 		}
 	}
 	return s.panes
-}
-
-// leftCut is a cut still to be laid, and the rectangle it is laid in.
-type leftCut struct {
-	cmd, rect int
 }
 
 // cutOrder is the order layCuts lays cuts in, by kind.
