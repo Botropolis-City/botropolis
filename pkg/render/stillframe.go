@@ -69,6 +69,8 @@ type stillFrame struct {
 	opsHash   maphash.Hash
 
 	stats stillStats
+	// kept is last frame's record, for still drawables to keep from.
+	kept keptRecord
 }
 
 // stillKey is what the standing city is composed over and through that
@@ -84,6 +86,10 @@ type stillKey struct {
 // were, and how many rectangles of movers were drawn again.
 type stillStats struct {
 	composes, redos, overlays, rects, direct, shifts int
+	// reused is how many still drawables kept last frame's record, fresh
+	// how many keyed ones were recorded afresh, and stale how many kept
+	// records differed from the one made afresh (item 212).
+	reused, fresh, stale int
 }
 
 // note runs a drawable: onto the frame when nothing is recorded, or in

@@ -45,6 +45,9 @@ type kits struct {
 	// was last picked on.
 	updates int
 	picked  []int
+	// generation counts the times a page went up or was let go (item
+	// 212).
+	generation int
 }
 
 // kitHoldUpdates is how long a window keeps a level its camera no longer
@@ -151,6 +154,7 @@ func (k *kits) uploadPage(i int) error {
 	}
 	k.send(up)
 	a.pages = append(a.pages, up)
+	k.generation++
 	if k.complete(i) {
 		// Nothing else the city does allocates on this scale, so
 		// without a nudge the collector has no reason to run and the
@@ -166,6 +170,7 @@ func (k *kits) letGo(i int) {
 		p.Deallocate()
 	}
 	k.atlases[i].pages = nil
+	k.generation++
 }
 
 // pageOptions makes each page its own texture. Managed, a 2048-pixel

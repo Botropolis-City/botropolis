@@ -281,6 +281,23 @@ type Game struct {
 	rec     *drawList
 	still   stillFrame
 	noStill bool
+	// noReuse records every still drawable afresh, keeping nothing from
+	// the frame before (item 212). verifyEvery is how often a kept record
+	// is made afresh too and compared, verifyCount the kept records so
+	// far, and staleLogged the kinds a difference was logged for.
+	// faultyKeys, for the walk only, leaves out of the keys whether a
+	// view drains the colour, so the walk shows it finds a key that misses
+	// an input.
+	noReuse     bool
+	verifyEvery int
+	verifyCount int
+	staleLogged map[recordKind]bool
+	faultyKeys  bool
+	// keyCam is the camera the frame is drawn through, and lotKeys each
+	// building's value hashed, for the city built from lotCity.
+	keyCam  *city.Camera
+	lotKeys map[*city.Building]uint64
+	lotCity *city.City
 	// frameBounds is the frame the dry pass records for, which a look
 	// is baked at the coordinates of (item 233).
 	frameBounds image.Rectangle
@@ -501,7 +518,7 @@ func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveL
 	if scene.Projection() != city.Isometric {
 		scene.SetProjection(city.Isometric)
 	}
-	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, started: time.Now(), focused: true, ime: true}
+	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, started: time.Now(), focused: true, ime: true, verifyEvery: releaseVerifyEvery}
 	g.overlays.push(&lensPanel{})
 	// A window that was closed owes the away list from when it was last
 	// seen, the way a blurred one does from when it lost focus.

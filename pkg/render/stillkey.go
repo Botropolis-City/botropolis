@@ -18,6 +18,12 @@ type entry struct {
 	// beacon pulsing, its scaffold up, its smoke; not the fountain,
 	// which sprays whatever the sessions do.
 	active bool
+	// key is what the drawable was drawn from, 0 for a drawable that
+	// keeps no record; keeps whether its record can be kept for the next
+	// frame, and world how many world draws it counted (item 212).
+	key   uint64
+	keeps bool
+	world int
 }
 
 // stillSet is the still drawables a layer was composed from, counted by

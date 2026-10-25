@@ -562,8 +562,10 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	labels := g.labelsVisible()
 	defer frames.start()()
 	g.drawing.reset()
+	g.keepRecord()
 	g.recorder().reset()
 	g.rec.origin = cameraOrigin(cam)
+	g.keyCam = cam
 	if g.labelLooks == nil {
 		g.labelLooks = newLabelCache()
 	}
@@ -599,7 +601,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		screen = g.rec.dry
 	}
 	g.note(func() { g.overgrowth(screen, cam) }, true)
-	g.note(func() { g.agedLots(screen, cam, c) }, false)
+	g.noteAgedLots(screen, cam, c)
 	// Drones stand in the depth sort on their shadows' ground points,
 	// and their shadows go on the ground first (item 89).
 	shadows, drones := g.flights(&screen, c, cam, seconds)
@@ -1471,48 +1473,94 @@ func (g *Game) dressing(b *city.Building) lot {
 // the worn paving, its cracks, and the growth in them, at the base of
 // the walls and in the yard. Item 86.
 func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
-	width := float32(math.Max(1, 1.2*cam.Zoom))
+	for _, d := range c.Districts {
+		if ground := g.dresser.dress(d); ground.Wear > 0 {
+			g.districtFloor(screen, cam, d.Rect, ground)
+		}
+	}
+	for _, b := range c.Buildings() {
+		if !g.scene.Dimmed(b) {
+			g.lotFloor(screen, cam, b)
+		}
+	}
+}
+
+// noteAgedLots notes the aged lots as agedLots draws them, in its
+// order, each district's floor and each building's lot a drawable of
+// its own, keyed by what it is drawn from, so a frame keeps their
+// records and a change records one lot again, not the city's (item 212).
+func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
+	if g.lotCity != c || g.lotKeys == nil {
+		g.lotKeys, g.lotCity = map[*city.Building]uint64{}, c
+	}
 	for _, d := range c.Districts {
 		ground := g.dresser.dress(d)
 		if ground.Wear == 0 {
 			continue
 		}
-		stain := colorLotWear
-		if ground.Mossy {
-			stain = colorLotMoss
-		}
-		stain.A = uint8(255 * ground.Wear)
-		g.poly(screen, cam, d.Rect, stain)
-		g.cracks(screen, cam, ground.Cracks, width, colorLotCrack)
-		for _, w := range ground.Weeds {
-			g.kit(screen, cam, w.Piece, 0, w.At, nil)
-		}
+		key := valueHash(struct {
+			root string
+			gen  int
+			rect city.Rect
+		}{d.Root, g.dresser.generation(d), d.Rect})
+		g.noteKeyed(kindDistrictFloor, key, func() { g.districtFloor(screen, cam, d.Rect, ground) })
 	}
 	for _, b := range c.Buildings() {
 		if g.scene.Dimmed(b) {
 			continue
 		}
-		d := g.dressing(b)
-		if d.Wear > 0 {
-			stain := colorLotWear
-			if b.Overgrown {
-				stain = colorLotMoss
-			}
-			stain.A = uint8(255 * d.Wear)
-			g.poly(screen, cam, lotRect(b), stain)
+		value, ok := g.lotKeys[b]
+		if !ok {
+			value = valueHash(b)
+			g.lotKeys[b] = value
 		}
-		width := float32(math.Max(1, 1.2*cam.Zoom))
-		g.cracks(screen, cam, d.Cracks, width, colorLotCrack)
-		if len(d.Weeds) == 0 {
-			continue
+		key := valueHash(struct {
+			building uint64
+			mowing   float64
+		}{value, g.scene.Mowing(b.Session.ID)})
+		g.noteKeyed(kindLotFloor, key, func() { g.lotFloor(screen, cam, b) })
+	}
+}
+
+// districtFloor paints a district's aged floor: its worn paving, its
+// cracks and the growth in them.
+func (g *Game) districtFloor(screen *ebiten.Image, cam *city.Camera, rect city.Rect, ground districtGround) {
+	width := float32(math.Max(1, 1.2*cam.Zoom))
+	stain := colorLotWear
+	if ground.Mossy {
+		stain = colorLotMoss
+	}
+	stain.A = uint8(255 * ground.Wear)
+	g.poly(screen, cam, rect, stain)
+	g.cracks(screen, cam, ground.Cracks, width, colorLotCrack)
+	for _, w := range ground.Weeds {
+		g.kit(screen, cam, w.Piece, 0, w.At, nil)
+	}
+}
+
+// lotFloor paints a stopped building's lot: its worn paving, its
+// cracks and the growth in them.
+func (g *Game) lotFloor(screen *ebiten.Image, cam *city.Camera, b *city.Building) {
+	d := g.dressing(b)
+	if d.Wear > 0 {
+		stain := colorLotWear
+		if b.Overgrown {
+			stain = colorLotMoss
 		}
-		fade := &ebiten.ColorScale{}
-		fade.ScaleAlpha(float32(g.weedFade))
-		weeds := append([]weed(nil), d.Weeds...)
-		sort.SliceStable(weeds, func(i, j int) bool { return weeds[i].At.X+weeds[i].At.Y < weeds[j].At.X+weeds[j].At.Y })
-		for _, w := range weeds {
-			g.kit(screen, cam, w.Piece, 0, w.At, fade)
-		}
+		stain.A = uint8(255 * d.Wear)
+		g.poly(screen, cam, lotRect(b), stain)
+	}
+	width := float32(math.Max(1, 1.2*cam.Zoom))
+	g.cracks(screen, cam, d.Cracks, width, colorLotCrack)
+	if len(d.Weeds) == 0 {
+		return
+	}
+	fade := &ebiten.ColorScale{}
+	fade.ScaleAlpha(float32(g.weedFade))
+	weeds := append([]weed(nil), d.Weeds...)
+	sort.SliceStable(weeds, func(i, j int) bool { return weeds[i].At.X+weeds[i].At.Y < weeds[j].At.X+weeds[j].At.Y })
+	for _, w := range weeds {
+		g.kit(screen, cam, w.Piece, 0, w.At, fade)
 	}
 }
 

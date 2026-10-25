@@ -244,6 +244,8 @@ type dressedDistrict struct {
 	rect   city.Rect
 	lots   []city.Rect
 	ground districtGround
+	// gen is the dressing this was, counted across every district.
+	gen int
 }
 
 func (m *districtDresser) dress(d *city.District) districtGround {
@@ -255,13 +257,17 @@ func (m *districtDresser) dress(d *city.District) districtGround {
 		return kept.ground
 	}
 	m.dressed++
-	kept = dressedDistrict{rung: d.Rung, depot: d.Depot, rect: d.Rect, lots: kept.lots[:0], ground: dressDistrict(d)}
+	kept = dressedDistrict{rung: d.Rung, depot: d.Depot, rect: d.Rect, lots: kept.lots[:0], ground: dressDistrict(d), gen: m.dressed}
 	for _, b := range d.Buildings {
 		kept.lots = append(kept.lots, b.Rect)
 	}
 	m.by[d.Root] = kept
 	return kept.ground
 }
+
+// generation is which dressing a district's floor is, after dress has
+// been asked for it: a number that moves whenever its floor does.
+func (m *districtDresser) generation(d *city.District) int { return m.by[d.Root].gen }
 
 func sameLots(lots []city.Rect, buildings []*city.Building) bool {
 	if len(lots) != len(buildings) {
