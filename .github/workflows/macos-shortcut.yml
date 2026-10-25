@@ -1,0 +1,38 @@
+name: macos-shortcut
+
+# Item 95: the global shortcut on a real macOS desktop. Nothing in the
+# working arrangement is a Mac, and Apple's licence allows macOS VMs only
+# on Apple hardware, so this is where the Carbon hot key and coming
+# forward are tried. The hosted image grants Accessibility to bash and
+# osascript, so System Events can press the combination from another
+# application. By hand only, never on push.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shortcut:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-26-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: The display and its scale
+        run: system_profiler SPDisplaysDataType
+      - name: The hot key and coming forward
+        env:
+          BOTROPOLIS_FRAMES: ${{ runner.temp }}/frames
+        run: go test -count=1 -v -timeout 10m -run 'OnMacOS' ./testing/integration/hotkey/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frames-${{ matrix.runner }}
+          path: ${{ runner.temp }}/frames
+          if-no-files-found: warn
