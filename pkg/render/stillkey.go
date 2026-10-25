@@ -25,6 +25,8 @@ type entry struct {
 	keeps bool
 	world int
 	jn    noteLog
+	// kept is whether it was kept from the frame before.
+	kept bool
 }
 
 // stillSet is the still drawables a layer was composed from, counted by

@@ -318,6 +318,66 @@ func TestRecordReuse(t *testing.T) {
 		})
 	})
 
+	t.Run("when a city like the real history has settled at full zoom, many of its looks baked running off the frame", func(t *testing.T) {
+		d := fullZoom(t, DriveOptions{})
+		d.game.verifyEvery = 1
+		for range 3 {
+			require.NoError(t, d.Tick())
+		}
+		require.NoError(t, d.Tick())
+		st := d.game.still.stats
+		var off *lookUse
+		for i := range d.game.jn.looks {
+			u := &d.game.jn.looks[i]
+			if u.inexact && u.box.Width() < 1800 && u.box.Height() < 1100 {
+				off = u
+				break
+			}
+		}
+		require.NotNil(t, off, "precondition: a look baked running off the frame")
+
+		t.Run("it should record no still building afresh", func(t *testing.T) {
+			assert.Zero(t, st.freshBy[kindHouse])
+		})
+		t.Run("it should hold the record made afresh", func(t *testing.T) {
+			assert.Zero(t, st.stale)
+		})
+
+		t.Run("and the camera pans by whole pixels until that look is wholly on the frame", func(t *testing.T) {
+			key, box := off.key, off.box
+			var pan city.Point
+			switch {
+			case box.Min.X < 0:
+				pan.X = math.Ceil(-box.Min.X) + 40
+			case box.Max.X > 1920:
+				pan.X = -math.Ceil(box.Max.X-1920) - 40
+			}
+			switch {
+			case box.Min.Y < 0:
+				pan.Y = math.Ceil(-box.Min.Y) + 40
+			case box.Max.Y > 1200:
+				pan.Y = -math.Ceil(box.Max.Y-1200) - 40
+			}
+			d.game.verifyEvery = 0
+			d.game.scene.Pan(pan)
+			require.NoError(t, d.Tick())
+			kept := false
+			for _, e := range d.game.still.entries {
+				for _, u := range d.game.jn.looks[e.jn.looks[0]:e.jn.looks[1]] {
+					if u.key == key && e.kept {
+						kept = true
+					}
+				}
+			}
+
+			// Drawn afresh, it is baked again exactly where the pages have
+			// room, as a look baked off the frame always was.
+			t.Run("it should draw it afresh, not keep it", func(t *testing.T) {
+				assert.False(t, kept)
+			})
+		})
+	})
+
 	t.Run("when reuse is off", func(t *testing.T) {
 		rc := settled(t)
 		rc.g.noReuse = true

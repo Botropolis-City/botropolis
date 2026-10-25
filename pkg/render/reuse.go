@@ -116,7 +116,7 @@ func (g *Game) noteKeyed(kind recordKind, key uint64, draw func()) {
 		shift, found = pixelShift(k.origin, l.origin)
 	}
 	if found {
-		found = g.looksHeld(&k.jn, k.entries[i].jn)
+		found = g.looksHeld(&k.jn, k.entries[i].jn, shift)
 	}
 	if !found {
 		g.noteFresh(key, draw)
@@ -186,6 +186,7 @@ func (g *Game) keep(k *keptRecord, i int, shift image.Point) {
 		g.drawing.world()
 	}
 	e.jn, e.lights = g.replay(&k.jn, &k.entries[i], shift)
+	e.kept = true
 }
 
 // copyRecord copies kept entry i's draws into this frame's record,

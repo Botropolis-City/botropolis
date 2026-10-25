@@ -20,6 +20,11 @@ import (
 type lookUse struct {
 	key  lookKey
 	look *bakedLook
+	// inexact is whether the look was baked running off the frame, and
+	// box where its run stood on the frame: once it stands wholly on the
+	// frame it is baked again, exactly, so its record is not kept.
+	inexact bool
+	box     city.Rect
 }
 
 // jspan is a range in one of the frame's buffers.
@@ -70,9 +75,10 @@ func (g *Game) seeText(s string) {
 	g.textSeen(s)
 }
 
-// journalLook notes a look the drawable recorded now draws from.
-func (g *Game) journalLook(key lookKey, look *bakedLook) {
-	g.jn.looks = append(g.jn.looks, lookUse{key: key, look: look})
+// journalLook notes a look the drawable recorded now draws from, and
+// for one baked running off the frame, where its run stands.
+func (g *Game) journalLook(key lookKey, look *bakedLook, box city.Rect) {
+	g.jn.looks = append(g.jn.looks, lookUse{key: key, look: look, inexact: look.inexact, box: box})
 }
 
 // unsettle says the drawable recorded now changed a cache, or would
@@ -135,7 +141,8 @@ func (g *Game) putJournalAside(k *journalBuffers) {
 
 // looksHeld is whether the cache still holds every look a kept noteLog
 // drew from, as the same look.
-func (g *Game) looksHeld(k *journalBuffers, j noteLog) bool {
+func (g *Game) looksHeld(k *journalBuffers, j noteLog, shift image.Point) bool {
+	d := city.Point{X: float64(shift.X), Y: float64(shift.Y)}
 	for _, u := range k.looks[j.looks[0]:j.looks[1]] {
 		if g.looks == nil || g.lookPages == nil {
 			return false
@@ -143,6 +150,12 @@ func (g *Game) looksHeld(k *journalBuffers, j noteLog) bool {
 		look, ok := g.looks.peek(u.key)
 		if !ok || look != u.look {
 			return false
+		}
+		if u.inexact {
+			box := city.Rect{Min: u.box.Min.Add(d), Max: u.box.Max.Add(d)}
+			if _, whole := bakeRegion(box, g.frameBounds); whole {
+				return false
+			}
 		}
 	}
 	return true
@@ -254,7 +267,10 @@ func (g *Game) sameJournal(k *journalBuffers, kept *entry, shift image.Point, fr
 	near := func(x, y float64) bool { return x-y <= keepTolerance && y-x <= keepTolerance }
 	d := city.Point{X: float64(shift.X), Y: float64(shift.Y)}
 	for i := range a.looks.n() {
-		if k.looks[a.looks[0]+i] != g.jn.looks[b.looks[0]+i] {
+		u, v := k.looks[a.looks[0]+i], g.jn.looks[b.looks[0]+i]
+		moved := city.Rect{Min: u.box.Min.Add(d), Max: u.box.Max.Add(d)}
+		if u.key != v.key || u.look != v.look || u.inexact != v.inexact || u.inexact &&
+			!(near(moved.Min.X, v.box.Min.X) || !near(moved.Min.Y, v.box.Min.Y) || !near(moved.Max.X, v.box.Max.X) || !near(moved.Max.Y, v.box.Max.Y)) {
 			return false
 		}
 	}

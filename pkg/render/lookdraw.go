@@ -499,12 +499,14 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 		g.lookStats.hits++
 	case ok:
 		g.lookStats.hits++
+		// One baked running off the frame is baked again once it is
+		// wholly on it, which a pan can bring about with nothing it is
+		// keyed by changing: where it stands is kept with it.
+		var box city.Rect
 		if look.inexact {
-			// It is baked again once it is wholly on the frame, which a
-			// pan can bring about with nothing it is keyed by changing.
-			g.rec.unsettle()
+			box = g.lookBounds(cam, f)
 		}
-		g.journalLook(key, look)
+		g.journalLook(key, look, box)
 		if look.paged {
 			g.lookPages.use(look.onPage, g.lookFrame)
 		}
