@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"slices"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/testing/helpers"
 )
@@ -375,6 +377,27 @@ func TestRecordReuse(t *testing.T) {
 			t.Run("it should draw it afresh, not keep it", func(t *testing.T) {
 				assert.False(t, kept)
 			})
+		})
+	})
+
+	// A flag at the foot of its pole is not rising, so its building is
+	// still; a city that draws only on a change can next draw it long
+	// after, the flag at the top, with nothing else about it changed.
+	t.Run("when a pull request opens, its flag at the foot of its pole, and the next frame comes long after", func(t *testing.T) {
+		rc := settled(t)
+		rc.snap(func(s *state.Snapshot) {
+			s.At = rc.now
+			sess := session(s, "s09")
+			sess.PRs = append(slices.Clone(sess.PRs), claude.PR{Number: 7, URL: "https://example.com/s09/pr/7", State: claude.PROpen})
+		})
+		for range 3 {
+			rc.frame()
+		}
+		rc.now = rc.now.Add(10 * time.Minute)
+		st := rc.frame()
+
+		t.Run("it should hold the record made afresh", func(t *testing.T) {
+			assert.Zero(t, st.stale)
 		})
 	})
 
