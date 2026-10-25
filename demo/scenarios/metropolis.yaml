@@ -44,6 +44,19 @@ shots:
     description: A dozen districts, interface hidden.
     keys: [h]
     group_lines: false
+  - name: loop
+    title: The metropolis, drifting
+    description: A slow drift over the districts and back, interface hidden, that plays on without a seam.
+    record: {seconds: 15, fps: 30}
+    loop: {crossfade: 1}
+    group_lines: false
+    formats: [mp4, webm]
+    max_mb: 3
+    crops: ["4:5"]
+    script:
+      - {at: 0, key: H}
+      - {at: 2, pan_to: "district:driftwood", over: 7}
+      - {at: 9, pan_to: home, over: 7}
   - name: card
     title: Botropolis
     description: The metropolis framed for a link preview, interface hidden.

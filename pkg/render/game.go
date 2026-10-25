@@ -258,6 +258,9 @@ type Game struct {
 	generatedDone []generatedResult
 	clicked       ebiten.Key
 	hidden        bool
+	// clipHome is the world point in the middle of the window when a clip
+	// began, which a script's pan_to home brings back (item 76).
+	clipHome *city.Point
 	// live is whether anyone was watching the window last tick, so the
 	// tick is only changed when that changes. ticks counts Update calls
 	// and painted the tick the last frame was painted for, so a repeat
@@ -603,6 +606,9 @@ func (g *Game) Update() error {
 	g.clicked = -1
 	g.play = playFrame{}
 	if g.player != nil && g.record != "" && g.shotFrames > 0 {
+		if g.clipHome == nil {
+			g.markHome()
+		}
 		g.play = g.player.step(float64(g.recorded)/liveTPS, g.resolveTarget)
 		if key, shift, ok := scriptedKey(g.play.key); ok && g.play.key != "" {
 			g.scripted, g.scriptedShift = key, shift
@@ -742,6 +748,12 @@ func (g *Game) Update() error {
 func (g *Game) resolveTarget(target string) (city.Point, bool) {
 	c := g.scene.City()
 	cam := g.scene.Camera()
+	if target == homeTarget {
+		if g.clipHome == nil {
+			return city.Point{}, false
+		}
+		return cam.WorldToScreen(*g.clipHome), true
+	}
 	if target == "plant" && c.Plant.Rect.Area() > 0 {
 		return cam.WorldToScreen(c.Plant.Rect.Center()), true
 	}
@@ -786,6 +798,17 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 		}
 	}
 	return city.Point{}, false
+}
+
+// homeTarget is where the camera stood when the clip began.
+const homeTarget = "home"
+
+// markHome remembers what is in the middle of the window as the clip
+// begins. It is a world point, not a tally of the pans since, because
+// the scene clamps a pan that would carry the camera off the city.
+func (g *Game) markHome() {
+	at := g.scene.Camera().ScreenToWorld(g.player.centre)
+	g.clipHome = &at
 }
 
 // just reports a key pressed this frame, by hand or by the script.

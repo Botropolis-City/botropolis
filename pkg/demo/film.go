@@ -48,6 +48,13 @@ type Shot struct {
 	// PosterAt is the second of the clip its poster is taken from; unset,
 	// a third of the way in (item 76).
 	PosterAt *float64 `yaml:"poster_at"`
+	// Loop blends the clip's end into its start; MaxMB is the most any
+	// of its files may weigh, re-encoded smaller until it fits; Crops
+	// are extra cuts from the middle of the frame, such as 4:5 for a
+	// phone (item 76).
+	Loop  *Loop    `yaml:"loop"`
+	MaxMB float64  `yaml:"max_mb"`
+	Crops []string `yaml:"crops"`
 	// Timeline plays the scenario's arrivals, departures and changes
 	// while a clip records.
 	Timeline bool `yaml:"timeline"`
@@ -114,7 +121,7 @@ func cityArgs(shot Shot, home, still, frames string, opts ...cityOption) []strin
 			args = append(args, "--script", filepath.Join(filepath.Dir(frames), "script.json"))
 		}
 		return append(args, "--record", frames,
-			"--seconds", strconv.FormatFloat(shot.Record.Seconds, 'g', -1, 64),
+			"--seconds", strconv.FormatFloat(recordedSeconds(shot), 'g', -1, 64),
 			"--fps", strconv.Itoa(fpsOf(shot.Record)))
 	}
 	return append(args, "--screenshot", still)
@@ -131,19 +138,77 @@ func fpsOf(r *Recording) int {
 // one web format. H.264 in MP4 and VP9 in WebM between them play in
 // every current browser; the GIF is for places that take no video,
 // such as a README.
-func encodeArgs(format, frames string, fps int, out string) ([]string, error) {
+func encodeArgs(format, frames string, fps int, out string, opts ...encodeOption) ([]string, error) {
+	var e encoding
+	for _, o := range opts {
+		o(&e)
+	}
 	args := []string{"-loglevel", "error", "-y", "-framerate", strconv.Itoa(fps), "-i", filepath.Join(frames, "frame-%05d.png")}
+	if e.crop != "" {
+		w, h, err := ratio(e.crop)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, "-vf", fmt.Sprintf("crop=trunc(ih*%d/%d/2)*2:ih", w, h))
+	}
+	crf := func() string { return strconv.Itoa(firstCRF(e.crf, defaultCRF[format])) }
 	switch format {
 	case "mp4":
-		args = append(args, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", "-movflags", "+faststart")
+		args = append(args, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", crf(), "-movflags", "+faststart")
 	case "webm":
-		args = append(args, "-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", "-crf", "34", "-b:v", "0")
+		args = append(args, "-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", "-crf", crf(), "-b:v", "0")
 	case "gif":
 		args = append(args, "-vf", "fps=15,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=160[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4")
 	default:
 		return nil, fmt.Errorf("format %q: want mp4, webm or gif", format)
 	}
 	return append(args, out), nil
+}
+
+// defaultCRF is each video format's quality when a shot has no budget
+// to keep to: lower is better and bigger.
+var defaultCRF = map[string]int{"mp4": 20, "webm": 34}
+
+// maxCRFRise is how far above its default a budgeted file's CRF may be
+// raised before the film gives up on fitting it, in steps of crfStep.
+const (
+	maxCRFRise = 16
+	crfStep    = 2
+)
+
+type encoding struct {
+	crf  int
+	crop string
+}
+
+type encodeOption func(*encoding)
+
+func withCRF(crf int) encodeOption      { return func(e *encoding) { e.crf = crf } }
+func withCrop(crop string) encodeOption { return func(e *encoding) { e.crop = crop } }
+
+func firstCRF(crf, fallback int) int {
+	if crf > 0 {
+		return crf
+	}
+	return fallback
+}
+
+// encodeWithin encodes a file at its default CRF and, while it weighs
+// more than the budget, again at a higher one, up to maxCRFRise above.
+// encode makes the file at a CRF and says how big it came out.
+func encodeWithin(file string, crf int, budget int64, encode func(crf int) (int64, error)) error {
+	var size int64
+	for rise := 0; rise <= maxCRFRise; rise += crfStep {
+		var err error
+		if size, err = encode(crf + rise); err != nil {
+			return err
+		}
+		if budget <= 0 || size <= budget {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s: still %.1f MB at CRF %d, %d above its usual %d; the budget is %.1f MB",
+		file, float64(size)/(1<<20), crf+maxCRFRise, maxCRFRise, crf, float64(budget)/(1<<20))
 }
 
 // clockZone names a time zone in which now falls in the hour the clock
@@ -190,6 +255,8 @@ type Media struct {
 	Seconds     float64 `json:"seconds,omitempty"`
 	Poster      string  `json:"poster,omitempty"`
 	View        string  `json:"view,omitempty"`
+	// Crop is the shape cut from the middle of the frame, such as "4:5".
+	Crop string `json:"crop,omitempty"`
 }
 
 // shotMedia is what a shot's manifest entries share, whatever files it
@@ -319,7 +386,7 @@ func shotUnits(shot Shot) int {
 	if shot.Record == nil {
 		return stillUnits
 	}
-	return int(shot.Record.Seconds * float64(fpsOf(shot.Record)))
+	return int(recordedSeconds(shot) * float64(fpsOf(shot.Record)))
 }
 
 // scenarioFiles expands each directory to the scenario files in it, in
@@ -396,8 +463,21 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 	if err != nil {
 		return nil, err
 	}
+	fps := fpsOf(shot.Record)
+	if shot.Loop != nil {
+		progress.Detail("looping")
+		looped := filepath.Join(work, "looped")
+		if err := os.MkdirAll(looped, 0o700); err != nil {
+			return nil, err
+		}
+		seconds := func(s float64) int { return int(math.Round(s * float64(fps))) }
+		if err := loopFrames(frames, looped, seconds(LoopLead), seconds(shot.Record.Seconds), seconds(shot.Loop.Crossfade)); err != nil {
+			return nil, err
+		}
+		frames = looped
+	}
 	poster := filepath.Join(dir, shot.Name+".png")
-	if err := posterFrom(frames, poster, fpsOf(shot.Record), shot.PosterAt); err != nil {
+	if err := posterFrom(frames, poster, fps, shot.PosterAt); err != nil {
 		return nil, err
 	}
 	width, height, err := size(poster)
@@ -409,24 +489,49 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 		formats = defaultFormats
 	}
 	var out []Media
-	for _, format := range formats {
-		file := filepath.Join(dir, shot.Name+"."+format)
-		args, err := encodeArgs(format, frames, fpsOf(shot.Record), file)
-		if err != nil {
-			return nil, err
+	for _, crop := range append([]string{""}, shot.Crops...) {
+		name, still, w := shot.Name, poster, width
+		if crop != "" {
+			cw, ch, err := ratio(crop)
+			if err != nil {
+				return nil, err
+			}
+			name += "-" + cropName(crop)
+			still = filepath.Join(dir, name+".png")
+			if err := cropPoster(poster, still, crop); err != nil {
+				return nil, err
+			}
+			w = cropWidth(height, cw, ch)
 		}
-		progress.Detail("encoding " + format)
-		if err := run(exec.Command(f.FFmpeg, args...), f.Log); err != nil {
-			return nil, fmt.Errorf("ffmpeg %s: %w", format, err)
+		for _, format := range formats {
+			file := filepath.Join(dir, name+"."+format)
+			progress.Detail(strings.TrimSpace("encoding " + cropName(crop) + " " + format))
+			err := encodeWithin(file, defaultCRF[format], int64(shot.MaxMB*(1<<20)), func(crf int) (int64, error) {
+				args, err := encodeArgs(format, frames, fps, file, withCRF(crf), withCrop(crop))
+				if err != nil {
+					return 0, err
+				}
+				if err := run(exec.Command(f.FFmpeg, args...), f.Log); err != nil {
+					return 0, fmt.Errorf("ffmpeg %s: %w", format, err)
+				}
+				info, err := os.Stat(file)
+				if err != nil {
+					return 0, err
+				}
+				return info.Size(), nil
+			})
+			if err != nil {
+				return nil, err
+			}
+			m := media
+			m.File, m.Kind, m.Format, m.Poster, m.Crop = rel(f.Out, file), "video", format, rel(f.Out, still), crop
+			m.Width, m.Height, m.Seconds = w, height, shot.Record.Seconds
+			if format == "gif" {
+				m.Kind = "animation"
+				m.Width, m.Height = 960, height*960/width
+			}
+			out = append(out, m)
 		}
-		m := media
-		m.File, m.Kind, m.Format, m.Poster = rel(f.Out, file), "video", format, rel(f.Out, poster)
-		m.Width, m.Height, m.Seconds = width, height, shot.Record.Seconds
-		if format == "gif" {
-			m.Kind = "animation"
-			m.Width, m.Height = 960, height*960/width
-		}
-		out = append(out, m)
 	}
 	return out, nil
 }

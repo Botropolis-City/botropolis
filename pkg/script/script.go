@@ -30,7 +30,8 @@ type Cue struct {
 	Over    float64   `json:"over,omitempty" yaml:"over,omitempty"`
 	// PanTo glides the camera over Over seconds until a target -- named
 	// as PointAt names one -- is in the middle of the window. Unlike an
-	// arrow held down, it cannot carry the camera off the city.
+	// arrow held down, it cannot carry the camera off the city. "home"
+	// is wherever the camera stood when the clip began.
 	PanTo string `json:"pan_to,omitempty" yaml:"pan_to,omitempty"`
 	// Click clicks where the pointer is.
 	Click bool `json:"click,omitempty" yaml:"click,omitempty"`

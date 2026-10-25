@@ -31,6 +31,17 @@ func stills(s demo.Scenario, keep func(demo.Shot) bool) []string {
 
 func hidesInterface(shot demo.Shot) bool { return slices.Contains(shot.Keys, "h") }
 
+// hidesInterfaceFromTheStart is a clip that presses h before its first
+// frame; a loop's lead is cut, so before the lead ends is soon enough.
+func hidesInterfaceFromTheStart(shot demo.Shot) bool {
+	for _, c := range shot.Script {
+		if c.Key == "H" && c.At < demo.LoopLead {
+			return true
+		}
+	}
+	return false
+}
+
 // Item 76: the website's stand-ins each wait on a still the film makes.
 // A view added to the city without a still fails here, not on the site.
 func TestTheSiteHasItsStills(t *testing.T) {
@@ -58,6 +69,17 @@ func TestTheSiteHasItsStills(t *testing.T) {
 
 	t.Run("when the metropolis is loaded", func(t *testing.T) {
 		metropolis := loadScenario(t, "metropolis")
+
+		t.Run("it should have a looping hero of 12-16 s, interface hidden, within 3 MB, with a 4:5 crop", func(t *testing.T) {
+			var heroes []string
+			for _, s := range metropolis.Shots {
+				if s.Record != nil && s.Loop != nil && s.Record.Seconds >= 12 && s.Record.Seconds <= 16 &&
+					hidesInterfaceFromTheStart(s) && s.MaxMB > 0 && s.MaxMB <= 3 && slices.Contains(s.Crops, "4:5") {
+					heroes = append(heroes, s.Name)
+				}
+			}
+			assert.NotEmpty(t, heroes)
+		})
 
 		t.Run("it should have a 1200x630 social card with its interface hidden", func(t *testing.T) {
 			assert.NotEmpty(t, stills(metropolis, func(s demo.Shot) bool {

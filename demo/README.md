@@ -214,9 +214,33 @@ A clip's `script:` drives a pointer that is drawn into the frames, in seconds of
       - {at: 12.0, point_at: plant, over: 1}                               # or "district:<name>"
 ```
 
+`pan_to: home` glides back to wherever the camera stood when the clip began.
 `pan_to` is the way to move about: it ends with its target in the middle of the window, where an arrow held at high zoom can carry the camera off the city.
 `wheel` turns whole notches, spread over the span; the camera eases between them.
 The scenario test resolves every `point_at`, every `pan_to` and every key name against the staged city, so a typo fails `make test` rather than a film run.
+
+## Loops, budgets and crops
+
+```yaml
+  - name: loop
+    record: {seconds: 15, fps: 30}
+    loop: {crossfade: 1}     # its last second blends into its first
+    formats: [mp4, webm]
+    max_mb: 3                # re-encoded at a lower quality until each file fits
+    crops: ["4:5"]           # loop-4x5.mp4 and its poster, cut from the middle
+    script:
+      - {at: 0, key: H}
+      - {at: 2, pan_to: "district:driftwood", over: 7}
+      - {at: 9, pan_to: home, over: 7}
+```
+
+A loop records a second of lead for the fit to settle, then the clip, then the crossfade, and keeps only the clip.
+Its last `crossfade` seconds are blended toward the second before its first frame, so playing it again carries on rather than jumps.
+Its script keeps recorded time, so the kept clip starts at the lead plus the crossfade, 2 s here,
+and the camera should stand at home from 1 s to 2 s and again for the last second.
+Anything that moves between the two ends, a train or a boat, is ghosted for that second.
+`max_mb` raises the CRF two at a time, up to 16 above its usual, and fails naming the file if nothing fits.
+Both it and `crops` want the formats listed, and a GIF is refused.
 
 ## Timelines
 

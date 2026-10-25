@@ -2,6 +2,11 @@ package demo
 
 import (
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -88,6 +93,17 @@ func TestCityArgs(t *testing.T) {
 		})
 	})
 
+	// Item 76: a loop records a lead for the fit to settle, and its
+	// crossfade, beyond its own seconds.
+	t.Run("when a looping clip is recorded", func(t *testing.T) {
+		shot := Shot{Name: "loop", Record: &Recording{Seconds: 15, FPS: 30}, Loop: &Loop{Crossfade: 1}}
+
+		t.Run("it should record the lead, the seconds and the crossfade", func(t *testing.T) {
+			assert.Equal(t, append(base, "--window", "1920x1080", "--record", "/f", "--seconds", "17", "--fps", "30"),
+				cityArgs(shot, "/h", "", "/f"))
+		})
+	})
+
 	t.Run("when a clip has a script", func(t *testing.T) {
 		shot := Shot{Name: "c", Record: &Recording{Seconds: 4}, Script: []script.Cue{{At: 1, Click: true}}}
 
@@ -119,6 +135,24 @@ func TestEncodeArgs(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("when encoding at a given CRF", func(t *testing.T) {
+		args, err := encodeArgs("mp4", "/f", 30, "/o/c.mp4", withCRF(26))
+		require.NoError(t, err)
+
+		t.Run("it should use it", func(t *testing.T) {
+			assert.Equal(t, []string{"-crf", "26"}, args[11:13])
+		})
+	})
+
+	t.Run("when encoding a 4:5 crop", func(t *testing.T) {
+		args, err := encodeArgs("webm", "/f", 30, "/o/c-4x5.webm", withCrop("4:5"))
+		require.NoError(t, err)
+
+		t.Run("it should crop the middle of the frame to even dimensions", func(t *testing.T) {
+			assert.Equal(t, []string{"-vf", "crop=trunc(ih*4/5/2)*2:ih"}, args[7:9])
+		})
+	})
 
 	t.Run("when encoding a format it does not know", func(t *testing.T) {
 		_, err := encodeArgs("avi", "/f", 30, "/o/c.avi")
@@ -185,4 +219,81 @@ func TestPosterFrame(t *testing.T) {
 			})
 		})
 	}
+}
+
+// fakeEncoder makes files that shrink as the CRF rises, as a real
+// encoder's do.
+type fakeEncoder struct {
+	sizeAt func(crf int) int64
+	tried  []int
+}
+
+func (e *fakeEncoder) encode(crf int) (int64, error) {
+	e.tried = append(e.tried, crf)
+	return e.sizeAt(crf), nil
+}
+
+func TestEncodeWithin(t *testing.T) {
+	const mb = 1 << 20
+	shrinking := func(crf int) int64 { return int64(10-(crf-20)/2) * mb }
+
+	t.Run("when the first encode fits the budget", func(t *testing.T) {
+		e := &fakeEncoder{sizeAt: func(int) int64 { return mb }}
+		require.NoError(t, encodeWithin("/o/c.mp4", 20, 3*mb, e.encode))
+
+		t.Run("it should encode once", func(t *testing.T) {
+			assert.Equal(t, []int{20}, e.tried)
+		})
+	})
+
+	t.Run("when it does not fit", func(t *testing.T) {
+		e := &fakeEncoder{sizeAt: shrinking}
+		require.NoError(t, encodeWithin("/o/c.mp4", 20, 7*mb, e.encode))
+
+		t.Run("it should re-encode at higher CRFs until it fits", func(t *testing.T) {
+			assert.Equal(t, []int{20, 22, 24, 26}, e.tried)
+		})
+	})
+
+	t.Run("when nothing up to the ceiling fits", func(t *testing.T) {
+		e := &fakeEncoder{sizeAt: func(int) int64 { return 9 * mb }}
+		err := encodeWithin("/o/c.mp4", 20, 3*mb, e.encode)
+
+		for _, want := range []string{"/o/c.mp4", "9.0 MB", "3.0 MB", fmt.Sprintf("CRF %d", 20+maxCRFRise)} {
+			t.Run("it should fail, saying "+want, func(t *testing.T) {
+				assert.ErrorContains(t, err, want)
+			})
+		}
+	})
+}
+
+func TestCropPoster(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "p.png")
+	img := image.NewNRGBA(image.Rect(0, 0, 1920, 1080))
+	for x := 528; x < 528+864; x++ {
+		img.Set(x, 0, color.NRGBA{R: 255, A: 255})
+	}
+	f, err := os.Create(src)
+	require.NoError(t, err)
+	require.NoError(t, png.Encode(f, img))
+	require.NoError(t, f.Close())
+	dst := filepath.Join(t.TempDir(), "p-4x5.png")
+	require.NoError(t, cropPoster(src, dst, "4:5"))
+	out, err := os.Open(dst)
+	require.NoError(t, err)
+	defer func() { _ = out.Close() }()
+	got, err := png.Decode(out)
+	require.NoError(t, err)
+
+	t.Run("when a 1920x1080 poster is cropped to 4:5", func(t *testing.T) {
+		t.Run("it should be 864x1080", func(t *testing.T) {
+			assert.Equal(t, image.Pt(864, 1080), got.Bounds().Size())
+		})
+
+		t.Run("it should come from the middle", func(t *testing.T) {
+			left, _, _, _ := got.At(got.Bounds().Min.X, 0).RGBA()
+			right, _, _, _ := got.At(got.Bounds().Max.X-1, 0).RGBA()
+			assert.Equal(t, []uint32{0xffff, 0xffff}, []uint32{left, right})
+		})
+	})
 }

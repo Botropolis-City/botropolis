@@ -3,6 +3,7 @@ package demo
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -120,6 +121,9 @@ func (s Scenario) Validate() error {
 				return fmt.Errorf("scenario %q: shot %q: %w", s.Name, shot.Name, err)
 			}
 		}
+		if err := shot.validLoop(); err != nil {
+			return fmt.Errorf("scenario %q: shot %q: %w", s.Name, shot.Name, err)
+		}
 		if err := shot.validPosterAt(); err != nil {
 			return fmt.Errorf("scenario %q: shot %q: %w", s.Name, shot.Name, err)
 		}
@@ -184,6 +188,45 @@ func (shot Shot) validPosterAt() error {
 		return fmt.Errorf("poster_at: a still is its own poster")
 	case *at < 0 || *at > shot.Record.Seconds:
 		return fmt.Errorf("poster_at %gs: outside the clip's %gs", *at, shot.Record.Seconds)
+	}
+	return nil
+}
+
+// validLoop refuses a loop, budget or crop the film could not honour
+// (item 76).
+func (shot Shot) validLoop() error {
+	if shot.Record == nil {
+		if shot.Loop != nil || shot.MaxMB != 0 || len(shot.Crops) > 0 {
+			return fmt.Errorf("loop, max_mb and crops are for clips; a still is one frame")
+		}
+		return nil
+	}
+	if l := shot.Loop; l != nil && (l.Crossfade <= 0 || l.Crossfade >= shot.Record.Seconds/2) {
+		return fmt.Errorf("loop: a crossfade of %gs, where it wants more than nothing and under half the %gs clip", l.Crossfade, shot.Record.Seconds)
+	}
+	if (shot.MaxMB != 0 || len(shot.Crops) > 0) && len(shot.Formats) == 0 {
+		return fmt.Errorf("max_mb and crops want the shot's formats listed, without gif")
+	}
+	if (shot.MaxMB != 0 || len(shot.Crops) > 0) && slices.Contains(shot.Formats, "gif") {
+		return fmt.Errorf("max_mb and crops are for video: a GIF has no quality to step down, and is not cropped")
+	}
+	if shot.MaxMB < 0 {
+		return fmt.Errorf("max_mb %g is below zero", shot.MaxMB)
+	}
+	ww, wh := 1920, 1080
+	if shot.Window != "" {
+		if _, err := fmt.Sscanf(shot.Window, "%dx%d", &ww, &wh); err != nil {
+			return fmt.Errorf("window %q: want WIDTHxHEIGHT", shot.Window)
+		}
+	}
+	for _, crop := range shot.Crops {
+		w, h, err := ratio(crop)
+		if err != nil {
+			return err
+		}
+		if cropWidth(wh, w, h) > ww {
+			return fmt.Errorf("crop %s is wider than the %s window it is cut from", crop, firstOf(shot.Window, defaultWindow))
+		}
 	}
 	return nil
 }
