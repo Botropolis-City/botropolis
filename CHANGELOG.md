@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The global shortcut works on macOS.**
+  Set in the settings panel, it opens the finder from any application and brings the city's window forward, with no Accessibility permission to grant.
+  macOS will not take a combination whose only modifiers are Option and Shift, so the row refuses one in words and keeps what was set.
 - **A large island gets a second bridge.**
   Once the island holds 16 districts, a second bridge leaves by the east coast, crossing the river on a raised deck with the boats sailing under it, and fades into its own fog out at sea.
   It stays where it was placed as the island grows, and across a restart, even if the island later holds fewer districts.
