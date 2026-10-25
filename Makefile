@@ -89,10 +89,18 @@ DEMO_OUT ?= dist/demo
 # Shots unchanged since the last run are reused; DEMO_FRESH=1 films them all.
 DEMO_FRESH ?=
 
+# The tags are machine-wide, so another checkout's build can move one between
+# this build and its run: a recording once ran in an image two days older,
+# without tmux (item 105). Each build writes its image's ID into this
+# checkout's bin/, and every run here uses that ID. The tags stay for people.
+DEMO_RENDERER_ID := bin/.demo-renderer.iid
+DEMO_RECORDER_ID := bin/.demo-recorder.iid
+
 demo-image ::
 	$(LOG) "Building the demo images"
-	@docker build -q -f demo/Dockerfile --target renderer -t ${DEMO_IMAGE}-renderer demo >/dev/null
-	@docker build -q -f demo/Dockerfile --target recorder -t ${DEMO_IMAGE}-recorder demo >/dev/null
+	@mkdir -p bin
+	@docker build -q -f demo/Dockerfile --target renderer -t ${DEMO_IMAGE}-renderer --iidfile ${DEMO_RENDERER_ID} demo >/dev/null
+	@docker build -q -f demo/Dockerfile --target recorder -t ${DEMO_IMAGE}-recorder --iidfile ${DEMO_RECORDER_ID} demo >/dev/null
 
 # Recording spends real tokens on the account in CLAUDE_CODE_OAUTH_TOKEN, so
 # it is never a dependency of anything. The token comes from the environment,
@@ -121,13 +129,14 @@ demo-record :: demo-tool demo-image
 	$(LOG) "Recording demo sessions into ${DEMO_CORPUS}"
 	@test -n "$${CLAUDE_CODE_OAUTH_TOKEN}" || { echo "CLAUDE_CODE_OAUTH_TOKEN is not set: export it, put it in .env, or use secret-run" >&2; exit 1; }
 	@mkdir -p ${DEMO_CORPUS}
+	@echo "Recording in image $$(cat ${DEMO_RECORDER_ID})"
 	@docker run --rm $$([ -t 2 ] && echo -t) -e CLAUDE_CODE_OAUTH_TOKEN \
 		--user 1000:1000 \
 		-v $(CURDIR)/bin:/opt/botropolis:ro \
 		-v $(CURDIR)/demo:/demo:ro \
 		-v $(abspath ${DEMO_CORPUS}):/corpus \
-		${DEMO_IMAGE}-recorder \
-		/opt/botropolis/botropolis-demo record $(if ${DEMO_ONLY},--only ${DEMO_ONLY})
+		$$(cat ${DEMO_RECORDER_ID}) \
+		/opt/botropolis/botropolis-demo record --image $$(cat ${DEMO_RECORDER_ID}) $(if ${DEMO_ONLY},--only ${DEMO_ONLY})
 
 # The shots are keyed on a hash of the source rather than of the binaries, so
 # a cache filmed here is good on another machine building the same commit.
@@ -140,12 +149,13 @@ DEMO_FILM = docker run --rm $$([ -t 2 ] && echo -t) --network none --read-only -
 		-v $(abspath ${DEMO_CORPUS}):/corpus:ro \
 		-v $(abspath ${DEMO_SCENARIOS}):/scenarios:ro \
 		-v $(abspath ${DEMO_OUT}):/out \
-		${DEMO_IMAGE}-renderer \
+		$$(cat ${DEMO_RENDERER_ID}) \
 		/opt/botropolis/botropolis-demo film --corpus /corpus --out /out --botropolis /opt/botropolis/botropolis \
 		--source ${DEMO_SOURCE} $(if ${DEMO_FRESH},--fresh) /scenarios
 
 demo-media :: build-dev demo-tool demo-image
 	$(LOG) "Filming ${DEMO_SCENARIOS} from ${DEMO_CORPUS} into ${DEMO_OUT}"
+	@echo "Filming in image $$(cat ${DEMO_RENDERER_ID})"
 	@mkdir -p ${DEMO_OUT}
 	@${DEMO_FILM}
 

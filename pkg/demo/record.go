@@ -139,6 +139,9 @@ type Recorder struct {
 	Corpus    string
 	MCPConfig string
 	Claude    Claude
+	// Image is the recorder image's ID, logged on every prompt, so a
+	// recording made in the wrong image shows afterwards (item 105).
+	Image string
 	// Terminal runs a team session, and Team holds it to its limits.
 	Terminal Terminal
 	Team     TeamLimits
@@ -154,6 +157,7 @@ type Prompted struct {
 	Prompt  int     `json:"prompt"`
 	CostUSD float64 `json:"cost_usd"`
 	Error   string  `json:"error,omitempty"`
+	Image   string  `json:"image,omitempty"`
 }
 
 // Record records each session of the script the corpus does not hold
@@ -190,7 +194,7 @@ func (r Recorder) Record(ctx context.Context, script Script) ([]Prompted, error)
 				r.Progress.Step(fmt.Sprintf("%s/%s", script.Project, session.Label), fmt.Sprintf("prompt %d/%d, %s", i+1, len(session.Prompts), session.Model))
 			}
 			out, err := r.Claude(ctx, filepath.Join(r.Src, script.Project), claudeArgs(session, id, i, prompt, r.MCPConfig))
-			entry := Prompted{Project: script.Project, Label: session.Label, Prompt: i}
+			entry := Prompted{Project: script.Project, Label: session.Label, Prompt: i, Image: r.Image}
 			var result struct {
 				SessionID string  `json:"session_id"`
 				CostUSD   float64 `json:"total_cost_usd"`

@@ -80,11 +80,17 @@ func TestRecord(t *testing.T) {
 		writeFile(t, filepath.Join(folder, id, "subagents", "agent-x.jsonl"), `{"type":"assistant"}`+"\n")
 		return []byte(`{"session_id":"` + id + `","total_cost_usd":0.01}`), nil
 	}
-	r := Recorder{Home: home, Src: Root, Corpus: corpus, MCPConfig: "/m.json", Claude: claude}
+	r := Recorder{Home: home, Src: Root, Corpus: corpus, MCPConfig: "/m.json", Claude: claude, Image: "sha256:abc"}
 
 	t.Run("when a two-prompt session is recorded", func(t *testing.T) {
-		_, err := r.Record(ctx, script)
+		logged, err := r.Record(ctx, script)
 		require.NoError(t, err)
+
+		t.Run("it should log the image it recorded in on every prompt, so a wrong one shows after the fact", func(t *testing.T) {
+			for _, p := range logged {
+				assert.Equal(t, "sha256:abc", p.Image)
+			}
+		})
 
 		t.Run("it should send both prompts", func(t *testing.T) {
 			assert.Len(t, calls, 2)

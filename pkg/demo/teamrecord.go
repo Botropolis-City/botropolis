@@ -48,7 +48,7 @@ func teamArgs(s ScriptedSession, id, prompt, mcpConfig string) []string {
 // is a -p flag, so the recorder holds the run to its budget itself, by
 // pricing every transcript in the team as it grows.
 func (r Recorder) recordTeam(ctx context.Context, project string, s ScriptedSession, id string) (Prompted, error) {
-	entry := Prompted{Project: project, Label: s.Label}
+	entry := Prompted{Project: project, Label: s.Label, Image: r.Image}
 	limits := r.Team
 	if limits == (TeamLimits{}) {
 		limits = DefaultTeamLimits

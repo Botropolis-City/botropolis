@@ -194,7 +194,7 @@ func mcpCommand() *cobra.Command {
 }
 
 func recordCommand() *cobra.Command {
-	var scripts, projects, tracker, skills, corpus, home, src, only string
+	var scripts, projects, tracker, skills, corpus, home, src, only, image string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "record",
@@ -249,7 +249,7 @@ func recordCommand() *cobra.Command {
 			if progress.TTY {
 				log = io.Discard
 			}
-			r := demo.Recorder{Home: home, Src: src, Corpus: corpus, MCPConfig: config, Claude: runClaude, Terminal: runTmux, Log: log, Progress: progress}
+			r := demo.Recorder{Home: home, Src: src, Corpus: corpus, MCPConfig: config, Claude: runClaude, Terminal: runTmux, Image: image, Log: log, Progress: progress}
 			var spent []demo.Prompted
 			var failed error
 			for _, s := range all {
@@ -280,6 +280,7 @@ func recordCommand() *cobra.Command {
 	cmd.Flags().StringVar(&home, "home", "/home/demo", "the home claude writes into")
 	cmd.Flags().StringVar(&src, "src", demo.Root, "where the toy projects are worked on")
 	cmd.Flags().StringVar(&only, "only", "", "record only <project> or <project>/<label>")
+	cmd.Flags().StringVar(&image, "image", "", "the recorder image's ID, logged on every prompt")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the plan and its ceiling, record nothing")
 	return cmd
 }
