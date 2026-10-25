@@ -159,11 +159,14 @@ func TestACaptureUnderTheStallCeiling(t *testing.T) {
 			name    string
 			offered []*state.Snapshot
 			fails   bool
+			saw     string
 		}{
-			{"its read moved within the ceiling, with fewer partial hefts", []*state.Snapshot{unread(5, 0), unread(5, 0), unread(4, 0)}, false},
-			{"its read moved within the ceiling, with the scan's done risen", []*state.Snapshot{unread(5, 0), unread(5, 10)}, false},
-			{"snapshots kept coming with the same partial hefts and scan", []*state.Snapshot{unread(5, 10), unread(5, 10), unread(6, 10), unread(5, 9)}, true},
-			{"no snapshot came after the first", []*state.Snapshot{unread(5, 0)}, true},
+			{"its read moved within the ceiling, with fewer partial hefts", []*state.Snapshot{unread(5, 0), unread(5, 0), unread(4, 0)}, false, ""},
+			{"its read moved within the ceiling, with the scan's done risen", []*state.Snapshot{unread(5, 0), unread(5, 10)}, false, ""},
+			{"snapshots kept coming with the same partial hefts and scan", []*state.Snapshot{unread(5, 10), unread(5, 10), unread(6, 10), unread(5, 9)}, true,
+				"5 sessions' hefts still partial, 10 bytes of the scan done, 3 snapshots since it last moved"},
+			{"no snapshot came after the first", []*state.Snapshot{unread(5, 0)}, true,
+				"5 sessions' hefts still partial, 0 bytes of the scan done, 0 snapshots since it last moved"},
 		} {
 			t.Run("when a "+kind.name+" holds an unread snapshot, and it has waited past the ceiling, and "+c.name, func(t *testing.T) {
 				last := openCeiling + 20*time.Second
@@ -175,6 +178,12 @@ func TestACaptureUnderTheStallCeiling(t *testing.T) {
 				if c.fails {
 					t.Run("it should fail the capture, naming the read making no progress for the ceiling", func(t *testing.T) {
 						assert.ErrorContains(t, err, "the history was not read: the read made no progress for 30s")
+					})
+
+					// Item 249: CI's runner stalls where no machine here
+					// does, so its failure says what the capture saw.
+					t.Run("it should name the sessions still partial and the snapshots since the read last moved", func(t *testing.T) {
+						assert.ErrorContains(t, err, c.saw)
 					})
 					return
 				}

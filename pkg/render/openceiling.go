@@ -48,6 +48,14 @@ type readProgress struct {
 	partial int
 	done    int64
 	moved   time.Time
+	// latest is the newest snapshot's partial hefts, and since how many
+	// snapshots have come without the read moving, for a stall's
+	// failure to say what it saw.
+	latest, since int
+}
+
+func (p readProgress) String() string {
+	return fmt.Sprintf("%d sessions' hefts still partial, %d bytes of the scan done, %d snapshots since it last moved", p.latest, p.done, p.since)
 }
 
 // note takes a snapshot's progress, and moves the clock when the read
@@ -66,9 +74,12 @@ func (p *readProgress) note(snapshot *state.Snapshot, now time.Time) {
 	if snapshot.Scan != nil {
 		done = snapshot.Scan.Done
 	}
+	p.latest = partial
 	if p.seen && partial >= p.partial && done <= p.done {
+		p.since++
 		return
 	}
+	p.since = 0
 	if !p.seen || partial < p.partial {
 		p.partial = partial
 	}
@@ -115,7 +126,7 @@ func (g *Game) unreadAtCeiling(now time.Time) error {
 		if now.Sub(moved) < openCeiling {
 			return nil
 		}
-		return fmt.Errorf("the history was not read: the read made no progress for %s, so no frame is taken from a partial read", openCeiling)
+		return fmt.Errorf("the history was not read: the read made no progress for %s (%s), so no frame is taken from a partial read", openCeiling, g.readProgress)
 	}
 	if now.Sub(g.started) < openCeiling {
 		return nil
