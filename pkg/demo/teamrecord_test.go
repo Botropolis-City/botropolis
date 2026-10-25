@@ -35,7 +35,7 @@ type fakeTerminal struct {
 	dir               string
 	args, env         []string
 	busy              time.Duration
-	usage             string
+	usage, mateUsage  string
 	interrupt         func()
 	mu                sync.Mutex
 	stopped           bool
@@ -51,12 +51,16 @@ func (f *fakeTerminal) run(_ context.Context, dir string, args, env []string) (R
 		`{"type":"assistant","sessionId":"` + f.lead + `","cwd":"/home/demo/src/tidepool","teamName":"` + team + `","timestamp":"2026-10-25T10:00:09.000Z","message":{"id":"msg_l","model":"claude-haiku-4-5","stop_reason":"end_turn","usage":` + f.usage + `,"content":[{"type":"text","text":"done"}]}}` + "\n"
 	writeFile(f.t, filepath.Join(folder, f.lead+".jsonl"), lead)
 	writeFile(f.t, filepath.Join(folder, f.lead, "subagents", "agent-a1.jsonl"), `{"type":"assistant"}`+"\n")
+	// The teammate carries no team name the recorder knows, and is filed
+	// below its project folder rather than beside its lead, as an
+	// in-process teammate may be.
+	matePath := filepath.Join(other, "team", "mate-1.jsonl")
 	mate := func() string {
-		return `{"type":"user","sessionId":"mate-1","cwd":"/home/demo/src/kiln","teamName":"` + team + `","agentName":"reader","timestamp":"2026-10-25T10:00:01.000Z"}` + "\n" +
+		return `{"type":"user","sessionId":"mate-1","cwd":"/home/demo/src/kiln","agentName":"reader","timestamp":"2026-10-25T10:00:01.000Z"}` + "\n" +
+			`{"type":"assistant","sessionId":"mate-1","cwd":"/home/demo/src/kiln","timestamp":"2026-10-25T10:00:02.000Z","message":{"id":"msg_m","model":"claude-haiku-4-5","stop_reason":"end_turn","usage":` + f.mateUsage + `,"content":[{"type":"text","text":"sent"}]}}` + "\n" +
 			`{"type":"attachment","attachment":{"type":"prompt_snapshot"}}` + "\n"
 	}
-	writeFile(f.t, filepath.Join(other, "mate-1.jsonl"), mate())
-	writeFile(f.t, filepath.Join(folder, "stranger.jsonl"), `{"type":"user","sessionId":"stranger","cwd":"/home/demo/src/tidepool"}`+"\n")
+	writeFile(f.t, matePath, mate())
 	f.lastAt = time.Now()
 	if f.busy > 0 {
 		go func() {
@@ -66,7 +70,7 @@ func (f *fakeTerminal) run(_ context.Context, dir string, args, env []string) (R
 					f.mu.Unlock()
 					return
 				}
-				writeFile(f.t, filepath.Join(other, "mate-1.jsonl"), mate()+`{"type":"assistant","sessionId":"mate-1","teamName":"`+team+`"}`+"\n")
+				writeFile(f.t, matePath, mate()+`{"type":"user","sessionId":"mate-1"}`+"\n")
 				f.lastAt = time.Now()
 				f.mu.Unlock()
 			}
@@ -99,6 +103,13 @@ func TestRecordTeam(t *testing.T) {
 		if f.usage == "" {
 			f.usage = cheap
 		}
+		if f.mateUsage == "" {
+			f.mateUsage = cheap
+		}
+		stranger := filepath.Join(home, ".claude", "projects", "-home-demo-src-tidepool", "stranger.jsonl")
+		writeFile(t, stranger, `{"type":"user","sessionId":"stranger","cwd":"/home/demo/src/tidepool"}`+"\n")
+		before := time.Now().Add(-time.Hour)
+		require.NoError(t, os.Chtimes(stranger, before, before))
 		r := Recorder{Home: home, Src: Root, Corpus: corpus, MCPConfig: "/m.json", Terminal: f.run, Team: limits,
 			Claude: func(context.Context, string, []string) ([]byte, error) {
 				t.Fatal("a team session ran with -p")
@@ -130,19 +141,28 @@ func TestRecordTeam(t *testing.T) {
 		t.Run("it should export the lead's subagents with it", func(t *testing.T) {
 			assert.FileExists(t, filepath.Join(corpus, "tidepool", lead, "subagents", "agent-a1.jsonl"))
 		})
-		t.Run("it should export the teammate's transcript, under the project its cwd is in", func(t *testing.T) {
-			assert.FileExists(t, filepath.Join(corpus, "kiln", "mate-1.jsonl"))
+		t.Run("it should export every transcript the run wrote, keeping its path within its project folder", func(t *testing.T) {
+			assert.FileExists(t, filepath.Join(corpus, "kiln", "team", "mate-1.jsonl"))
 		})
-		t.Run("it should export no session outside the team", func(t *testing.T) {
+		t.Run("it should export nothing written before the run started", func(t *testing.T) {
 			assert.NoFileExists(t, filepath.Join(corpus, "tidepool", "stranger.jsonl"))
 		})
 		t.Run("it should export the teammate through the same scrub", func(t *testing.T) {
-			data, err := os.ReadFile(filepath.Join(corpus, "kiln", "mate-1.jsonl"))
+			data, err := os.ReadFile(filepath.Join(corpus, "kiln", "team", "mate-1.jsonl"))
 			require.NoError(t, err)
 			assert.NotContains(t, string(data), "prompt_snapshot")
 		})
 		t.Run("it should stop the terminal once the team is done", func(t *testing.T) {
 			assert.True(t, f.stopped)
+		})
+	})
+
+	t.Run("and a teammate's transcript carries no team name the recorder knows", func(t *testing.T) {
+		f := &fakeTerminal{mateUsage: `{"input_tokens":1000000,"output_tokens":1000000}`}
+		_, err := record(t, f, context.Background())
+
+		t.Run("it should still count its cost against the budget", func(t *testing.T) {
+			assert.ErrorContains(t, err, "over its budget")
 		})
 	})
 

@@ -231,14 +231,20 @@ func stageTranscript(rec Recorded, dir string, end, begin time.Time, o overlay) 
 	return stagedTranscript{started: started, cwd: cwd, path: path, pending: pending}, nil
 }
 
-// openAt moves a transcript's opening, the lines at its earliest
-// timestamp and any untimed lines among them, back to begin.
-// It returns how many lines the opening is.
+// openingSlack is how far after a transcript's earliest moment a leading
+// line may be stamped and still be its opening: Claude Code can stamp the
+// first prompt a moment after a line that follows it, 1 to 2 ms in the
+// corpus, and no reply comes back anywhere near this fast (item 105).
+const openingSlack = 50 * time.Millisecond
+
+// openAt moves a transcript's opening, its leading lines stamped within
+// openingSlack of its earliest timestamp and any untimed lines among
+// them, back to begin. It returns how many lines the opening is.
 func openAt(lines [][]byte, begin time.Time) ([][]byte, int, error) {
 	first := earliest(lines)
 	n := 0
 	for ; n < len(lines); n++ {
-		if at, ok := Latest(lines[n : n+1]); ok && !at.Equal(first) {
+		if at, ok := Latest(lines[n : n+1]); ok && at.Sub(first) > openingSlack {
 			break
 		}
 	}

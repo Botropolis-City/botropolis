@@ -37,3 +37,11 @@ sessions:
     visual: subagents
     prompts:
       - "Use the Agent tool to run two subagents in parallel: one should investigate TIDE-15 (unknown constituent names silently ignored) in internal/tide/stations.go and propose a fix, the other should read the loader and data/ and draft the README section TIDE-17 asks for. When both are back, apply the fix with a test and add the README section."
+  - label: tide-team
+    title: Ask a teammate about kiln's reader
+    model: haiku
+    budget_usd: 1.00
+    visual: team
+    team: true
+    prompts:
+      - "Spawn one teammate named reader, on the haiku model, using the Agent tool with the name reader. Ask it to read /home/demo/src/kiln/kiln/reader.py and send you, with SendMessage, a two-sentence summary of how kiln reports a bad line in a log. When its message arrives, thank it with one SendMessage, then tell me the summary and stop."

@@ -18,6 +18,10 @@ published in effect.
   5. Every transcript in an agent team's session-<id> team has the team's
      lead in the corpus, the session whose id starts with that <id>, since
      staging cannot write a team's config without its lead (item 105).
+  6. Every transcript line is of a type the app reads, the list the
+     recorder's scrub keeps (KEPT here, kept in pkg/demo/record.go):
+     anything else is Claude Code's own prompt, tools or settings, or
+     something a newer version writes that nobody has looked at yet.
 
 The token list is the employer's names, so it lives only on a machine
 that already has them and never in CI or anywhere else Aria keeps. Where
@@ -41,6 +45,29 @@ EMAIL = re.compile(rb"(?<![\\A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:
 FOREIGN_HOME = re.compile(rb"/home/(?!demo\b)[a-z_][a-z0-9_-]*|/Users/[A-Za-z]")
 DEMO_SRC = "/home/demo/src/"
 TEAM_PREFIX = "session-"
+KEPT = {"user", "assistant", "system", "attachment", "custom-title", "ai-title", "summary", "last-prompt",
+        "pr-link", "cost-state", "bridge-session", "agent-name"}
+KEPT_ATTACHMENTS = {"model"}
+
+
+def unread(data):
+    """The 1-based numbers and types of the lines the app does not read."""
+    for n, line in enumerate(data.splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            yield n, "not JSON"
+            continue
+        kind = record.get("type") if isinstance(record, dict) else None
+        if kind not in KEPT:
+            yield n, repr(kind)
+        elif kind == "attachment":
+            attachment = record.get("attachment")
+            sub = attachment.get("type") if isinstance(attachment, dict) else None
+            if sub not in KEPT_ATTACHMENTS:
+                yield n, f"an attachment of type {sub!r}"
 
 
 def sha256(path):
@@ -136,7 +163,10 @@ def main(argv):
         if not path.endswith(".jsonl"):
             continue
         with open(path, "rb") as f:
-            named = set(teams(f.read()))
+            data = f.read()
+        named = set(teams(data))
+        for n, kind in unread(data):
+            problems.append(f"{path}: line {n} is {kind}, which the app does not read and the scrub drops")
         for team in sorted(t for t in named if t.startswith(TEAM_PREFIX)):
             lead = team[len(TEAM_PREFIX):]
             if not any(i.startswith(lead) for i in ids):

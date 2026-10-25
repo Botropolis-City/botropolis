@@ -91,6 +91,10 @@ func turnsOf(lines [][]byte) (recordedTurns, bool) {
 	return r, true
 }
 
+// maxFill is the longest a session's hours before its recording are
+// filled: a day, three times the longest any scenario opens one.
+const maxFill = 24 * time.Hour
+
 // fillHours puts a turn every pace between a transcript's opening, the
 // first opened lines, and the recording that follows, so a session
 // opened hours ago holds hours of work (item 240). Each turn reads its
@@ -98,6 +102,11 @@ func turnsOf(lines [][]byte) (recordedTurns, bool) {
 // last context, writes what recordedTurns says a turn writes, and
 // says nothing: no text and no tool call, so no card, prompt or group
 // signal changes.
+//
+// It refuses an opening that is empty or more than maxFill before the
+// rest, as either would otherwise fill without bound: an empty one once
+// filled from the zero time, 205 million turns, until the test staging
+// it was killed at 25 GiB (item 105).
 func fillHours(lines [][]byte, opened int, pace time.Duration, id, cwd string) ([][]byte, error) {
 	if pace <= 0 || opened >= len(lines) {
 		return lines, nil
@@ -108,6 +117,12 @@ func fillHours(lines [][]byte, opened int, pace time.Duration, id, cwd string) (
 	}
 	begin := earliest(lines[:opened])
 	until := earliest(lines[opened:])
+	if opened <= 0 || begin.IsZero() {
+		return nil, fmt.Errorf("%s: no opening to fill the hours from", id)
+	}
+	if until.Sub(begin) > maxFill {
+		return nil, fmt.Errorf("%s: opened %s before its recording, more than the %s a session's hours are filled for", id, until.Sub(begin), maxFill)
+	}
 	steps := int64(until.Sub(begin) / pace)
 	if until.Sub(begin)%pace == 0 {
 		steps--

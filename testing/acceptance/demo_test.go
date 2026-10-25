@@ -165,13 +165,20 @@ func TestDemoCorpusIsClean(t *testing.T) {
 // fail.
 func checkTeamCorpus(t *testing.T, withLead bool) (string, error) {
 	t.Helper()
-	dir := t.TempDir()
 	files := map[string]string{
 		"tidepool/9c1f5e3d-0000-4000-8000-000000000002.jsonl": `{"type":"user","cwd":"/home/demo/src/tidepool","teamName":"session-7e4d0b2a","agentName":"reader"}`,
 	}
 	if withLead {
 		files["tidepool/7e4d0b2a-0000-4000-8000-000000000001.jsonl"] = `{"type":"user","cwd":"/home/demo/src/tidepool","teamName":"session-7e4d0b2a"}`
 	}
+	return checkCorpus(t, files)
+}
+
+// checkCorpus runs the corpus check on a demo directory holding only
+// these files, every one on REVIEWED.
+func checkCorpus(t *testing.T, files map[string]string) (string, error) {
+	t.Helper()
+	dir := t.TempDir()
 	var reviewed strings.Builder
 	for rel, content := range files {
 		path := filepath.Join(dir, "corpus", rel)
@@ -209,4 +216,25 @@ func TestDemoCorpusChecksTeams(t *testing.T) {
 			assert.Contains(t, out, "staging cannot write the team's config without its lead")
 		})
 	})
+}
+
+// The scrub keeps only the lines the app reads, so a corpus line of any
+// other type was recorded before it, or past it (item 105).
+func TestDemoCorpusRefusesLinesTheAppDoesNotRead(t *testing.T) {
+	const transcript = "tidepool/7e4d0b2a-0000-4000-8000-000000000001.jsonl"
+	for _, unread := range []string{
+		`{"type":"api-request-shape","shape":{}}`,
+		`{"type":"attachment","attachment":{"type":"skill_listing"}}`,
+	} {
+		t.Run("when a corpus transcript holds "+unread, func(t *testing.T) {
+			out, err := checkCorpus(t, map[string]string{transcript: `{"type":"user","cwd":"/home/demo/src/tidepool"}` + "\n" + unread})
+
+			t.Run("it should fail", func(t *testing.T) {
+				assert.Error(t, err)
+			})
+			t.Run("it should name the transcript and the line it should not hold", func(t *testing.T) {
+				assert.Regexp(t, regexp.QuoteMeta(transcript)+`: line 2 is .*the app does not read`, out)
+			})
+		})
+	}
 }

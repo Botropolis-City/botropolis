@@ -128,36 +128,50 @@ func TestRecord(t *testing.T) {
 	})
 }
 
+// The scrub keeps only the lines the app reads, so whatever a new Claude
+// Code version starts writing is dropped by default rather than
+// published (item 105).
 func TestScrub(t *testing.T) {
-	lines := [][]byte{
-		[]byte(`{"type":"user","message":{"content":"hi"}}`),
-		[]byte(`{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":["You are..."]}}`),
-		[]byte(`{"type":"attachment","attachment":{"type":"environment","snapshot":{"workingDirectory":"/home/demo/src/t","osVersion":"Linux 7.2.8-arch1-1"}},` +
-			`"rendered":[{"content":"<system-reminder>\n - Platform: linux\n - OS Version: Linux 7.2.8-arch1-1\n</system-reminder>"}]}`),
+	dropped := map[string]string{
+		"an API request":             `{"type":"api-request","params":{"betas":["x"]}}`,
+		"an API request's blob":      `{"type":"api-request-blob","message":{"role":"system","content":["You are..."]}}`,
+		"an API request's shape":     `{"type":"api-request-shape","shape":{"system":["You are..."],"tools":[]}}`,
+		"a type made up tomorrow":    `{"type":"something-new","secret":"x"}`,
+		"a queued operation":         `{"type":"queue-operation","operation":"enqueue"}`,
+		"a prompt snapshot":          `{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":["You are..."]}}`,
+		"the host's environment":     `{"type":"attachment","attachment":{"type":"environment","snapshot":{"osVersion":"Linux 7.2.8-arch1-1"}}}`,
+		"Claude Code's skill list":   `{"type":"attachment","attachment":{"type":"skill_listing","skills":["x"]}}`,
+		"a line with no type at all": `{"sessionId":"x"}`,
 	}
-	out := scrub(lines)
+	for name, line := range dropped {
+		t.Run("when a transcript holds "+name+", which the app does not read", func(t *testing.T) {
+			out := scrub([][]byte{[]byte(line)})
 
-	t.Run("when a transcript is exported", func(t *testing.T) {
-		t.Run("it should drop the prompt snapshots, which hold Claude Code's own system prompt", func(t *testing.T) {
-			assert.Len(t, out, 2)
-		})
-
-		t.Run("it should blank the host's kernel, which the container shares", func(t *testing.T) {
-			assert.NotContains(t, string(out[1]), "arch1")
-		})
-
-		t.Run("it should keep everything else as it was", func(t *testing.T) {
-			assert.Equal(t, string(lines[0]), string(out[0]))
-		})
-
-		t.Run("it should keep the rest of the rendered environment", func(t *testing.T) {
-			assert.Contains(t, string(out[1]), `Platform: linux`)
-		})
-
-		t.Run("and it is scrubbed again", func(t *testing.T) {
-			t.Run("it should change nothing more", func(t *testing.T) {
-				assert.Equal(t, out, scrub(out))
+			t.Run("it should drop it", func(t *testing.T) {
+				assert.Empty(t, out)
 			})
+		})
+	}
+
+	for _, kind := range keptTypes() {
+		line := `{"type":"` + kind + `","sessionId":"x","timestamp":"2026-10-25T10:00:00.000Z"}`
+		if kind == "attachment" {
+			line = `{"type":"attachment","attachment":{"type":"model","identity":{"modelId":"claude-haiku-5-5"}}}`
+		}
+		t.Run("when a transcript holds a "+kind+" line, which the app reads", func(t *testing.T) {
+			out := scrub([][]byte{[]byte(line)})
+
+			t.Run("it should keep it as it was", func(t *testing.T) {
+				assert.Equal(t, [][]byte{[]byte(line)}, out)
+			})
+		})
+	}
+
+	t.Run("when a scrubbed transcript is scrubbed again", func(t *testing.T) {
+		once := scrub([][]byte{[]byte(`{"type":"user"}`), []byte(dropped["an API request"])})
+
+		t.Run("it should change nothing more", func(t *testing.T) {
+			assert.Equal(t, once, scrub(once))
 		})
 	})
 }

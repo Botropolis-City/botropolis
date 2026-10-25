@@ -10,7 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
+	"sort"
 	"strconv"
 
 	"go.yaml.in/yaml/v3"
@@ -256,30 +256,26 @@ func exportFile(src, dst string) error {
 	return writeJSONL(dst, scrub(lines))
 }
 
-// osVersion is the line Claude Code renders the kernel into, beside the
-// structured field.
-var osVersion = regexp.MustCompile(`(?m)^(\s*-?\s*)OS Version: [^\n]*\n?`)
+// kept is every line type the app reads from a Claude Code transcript.
+// An attachment is kept only for the model it names. agent-name is here
+// because the app reads agentName from any line, and that is the line
+// Claude Code writes it on. tools/check-demo-corpus holds the same list.
+var kept = map[string]bool{
+	"user": true, "assistant": true, "system": true, "attachment": true,
+	"custom-title": true, "ai-title": true, "summary": true, "last-prompt": true,
+	"pr-link": true, "cost-state": true, "bridge-session": true, "agent-name": true,
+}
 
-// redact takes the rendered OS version out of every string in v.
-func redact(v any) {
-	switch node := v.(type) {
-	case map[string]any:
-		for k, child := range node {
-			if s, ok := child.(string); ok {
-				node[k] = osVersion.ReplaceAllString(s, "")
-				continue
-			}
-			redact(child)
-		}
-	case []any:
-		for i, child := range node {
-			if s, ok := child.(string); ok {
-				node[i] = osVersion.ReplaceAllString(s, "")
-				continue
-			}
-			redact(child)
-		}
+// keptAttachments are the attachment types the app reads.
+var keptAttachments = map[string]bool{"model": true}
+
+func keptTypes() []string {
+	out := make([]string, 0, len(kept))
+	for k := range kept {
+		out = append(out, k)
 	}
+	sort.Strings(out)
+	return out
 }
 
 // Scrub applies the export's scrub to a transcript already on disk, so a
@@ -292,37 +288,27 @@ func Scrub(path string) error {
 	return writeJSONL(path, scrub(lines))
 }
 
-// scrub takes out of a transcript what the city never reads and the
-// corpus should not carry. A prompt snapshot is Claude Code's whole
-// system prompt and tool list, three quarters of a short session's
-// bytes, and not ours to publish. The environment's osVersion is the
-// host's kernel, which a container shares with it.
+// scrub keeps only the lines the app reads, each exactly as written, and
+// drops the rest. Claude Code writes its own system prompt, tool and
+// skill lists and API settings into a transcript in more shapes with
+// each version, none of them ours to publish, and the environment holds
+// the host's kernel, which a container shares; an allowlist drops the
+// next version's new shapes by default instead of publishing them
+// (item 105).
 func scrub(lines [][]byte) [][]byte {
 	out := make([][]byte, 0, len(lines))
 	for _, line := range lines {
 		var probe struct {
+			Type       string `json:"type"`
 			Attachment struct {
 				Type string `json:"type"`
 			} `json:"attachment"`
 		}
-		_ = json.Unmarshal(line, &probe)
-		switch probe.Attachment.Type {
-		case "prompt_snapshot":
+		if json.Unmarshal(line, &probe) != nil || !kept[probe.Type] {
 			continue
-		case "environment":
-			v, err := decode(line)
-			if err != nil {
-				break
-			}
-			if a, ok := v.(map[string]any)["attachment"].(map[string]any); ok {
-				if snap, ok := a["snapshot"].(map[string]any); ok {
-					delete(snap, "osVersion")
-				}
-			}
-			redact(v)
-			if data, err := json.Marshal(v); err == nil {
-				line = data
-			}
+		}
+		if probe.Type == "attachment" && !keptAttachments[probe.Attachment.Type] {
+			continue
 		}
 		out = append(out, line)
 	}

@@ -102,11 +102,16 @@ demo-image ::
 #   CLAUDE_CODE_OAUTH_TOKEN=... make demo-record        (or put it in .env)
 #   secret-run --env CLAUDE_CODE_OAUTH_TOKEN=<ref> -- make demo-record
 #
+# The demo's token is the 1Password item DEMO_TOKEN_REF names (item 105):
+#
+#   secret-run --env "CLAUDE_CODE_OAUTH_TOKEN=${DEMO_TOKEN_REF}" -- make demo-record
+#
 # It is exported to this one recipe only, not to every target .env reaches.
 #
 # Sessions the corpus already holds are skipped, so a run can be resumed.
 # `make demo-plan` prints what would be recorded and the most it could cost.
 DEMO_ONLY ?=
+DEMO_TOKEN_REF ?= op:Botropolis/Botropolis Demo Recorder Token/credential
 
 demo-plan :: demo-tool
 	@bin/botropolis-demo record --dry-run --scripts demo/scripts --corpus ${DEMO_CORPUS} $(if ${DEMO_ONLY},--only ${DEMO_ONLY})

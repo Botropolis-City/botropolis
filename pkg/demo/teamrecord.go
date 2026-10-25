@@ -53,12 +53,14 @@ func (r Recorder) recordTeam(ctx context.Context, project string, s ScriptedSess
 	if limits == (TeamLimits{}) {
 		limits = DefaultTeamLimits
 	}
+	start := time.Now()
+	// since allows for a filesystem whose times are coarser than the clock.
+	since := start.Add(-2 * time.Second)
 	run, err := r.Terminal(ctx, filepath.Join(r.Src, project), teamArgs(s, id, s.Prompts[0], r.MCPConfig), []string{teamsEnv})
 	if err != nil {
 		return entry, err
 	}
 	defer func() { _ = run.Stop() }()
-	start := time.Now()
 	changed, last := start, ""
 	tick := time.NewTicker(limits.Poll)
 	defer tick.Stop()
@@ -68,10 +70,11 @@ func (r Recorder) recordTeam(ctx context.Context, project string, s ScriptedSess
 			return entry, fmt.Errorf("interrupted, so the run was stopped: %w", ctx.Err())
 		case <-tick.C:
 		}
-		files, err := r.teamFiles(project, id)
+		written, err := r.writtenSince(since)
 		if err != nil {
 			return entry, err
 		}
+		files := r.transcripts(project, id, written)
 		now := time.Now()
 		if sig := signature(files); sig != last {
 			last, changed = sig, now
@@ -88,39 +91,51 @@ func (r Recorder) recordTeam(ctx context.Context, project string, s ScriptedSess
 			if err := run.Stop(); err != nil {
 				return entry, err
 			}
-			return entry, r.exportTeam(project, id, files)
+			return entry, r.exportRun(project, id, written)
 		case now.Sub(start) >= limits.Time:
 			return entry, fmt.Errorf("ran out of time after %s, so the run was stopped", limits.Time)
 		}
 	}
 }
 
-// teamFiles is the lead's transcript first, then every other transcript
-// in the home that carries its team. Before the lead has written, it is
-// the lead's path alone.
-func (r Recorder) teamFiles(project, id string) ([]string, error) {
-	projects := filepath.Join(r.Home, ".claude", "projects")
-	lead := filepath.Join(projects, claude.ProjectFolder(filepath.Join(r.Src, project)), id+".jsonl")
-	paths, err := filepath.Glob(filepath.Join(projects, "*", "*.jsonl"))
-	if err != nil {
-		return nil, err
-	}
-	out := []string{""}
-	team := TeamOf(id)
-	for _, p := range paths {
-		if filepath.Base(p) == id+".jsonl" {
-			out[0] = p
-			continue
+// writtenSince is every file under the home's projects written since the
+// run started. Sessions are recorded one at a time, so they are all this
+// run's, wherever Claude Code filed them and whatever it named their
+// team: an in-process teammate is not filed the way a tmux one is
+// (item 105).
+func (r Recorder) writtenSince(since time.Time) ([]string, error) {
+	var out []string
+	root := filepath.Join(r.Home, ".claude", "projects")
+	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if errors.Is(err, os.ErrNotExist) {
+			return filepath.SkipDir
 		}
-		t, err := claude.ReadTranscript(p)
-		if err == nil && t.TeamName == team {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.ModTime().Before(since) {
+			out = append(out, p)
+		}
+		return nil
+	})
+	return out, err
+}
+
+// transcripts is the lead's transcript first, whether or not it has been
+// written yet, then every other transcript among the files.
+func (r Recorder) transcripts(project, id string, files []string) []string {
+	lead := filepath.Join(r.Home, ".claude", "projects", claude.ProjectFolder(filepath.Join(r.Src, project)), id+".jsonl")
+	out := []string{lead}
+	for _, p := range files {
+		if p != lead && filepath.Ext(p) == ".jsonl" {
 			out = append(out, p)
 		}
 	}
-	if out[0] == "" {
-		out[0] = lead
-	}
-	return out, nil
+	return out
 }
 
 func signature(files []string) string {
@@ -194,31 +209,42 @@ func leadEnded(path string) bool {
 	return false
 }
 
-// exportTeam exports the lead as any session is exported, and each
-// teammate, with its subagents, under the project its cwd is in.
-func (r Recorder) exportTeam(project, id string, files []string) error {
-	if err := r.export(project, id); err != nil {
-		return err
-	}
-	for _, p := range files[1:] {
+// exportRun exports every file the run wrote, through the same scrub,
+// into the corpus folder of the toy project whose folder Claude Code
+// filed it under, keeping its path within that folder. A folder is a toy
+// project's when it is the lead's or a transcript in it works in one; a
+// file under any other folder is refused, since nothing outside the toy
+// projects may reach the corpus.
+func (r Recorder) exportRun(project, id string, files []string) error {
+	folders := map[string]string{claude.ProjectFolder(filepath.Join(r.Src, project)): project}
+	for _, p := range files {
+		if filepath.Ext(p) != ".jsonl" {
+			continue
+		}
 		t, err := claude.ReadTranscript(p)
 		if err != nil {
 			return err
 		}
 		rel, err := filepath.Rel(r.Src, t.CWD)
-		if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
-			return fmt.Errorf("%s: teammate works in %q, outside %s", p, t.CWD, r.Src)
+		if err != nil || t.CWD == "" || rel == "." || strings.HasPrefix(rel, "..") {
+			continue
 		}
-		mate := strings.TrimSuffix(filepath.Base(p), ".jsonl")
-		into := filepath.Join(r.Corpus, strings.Split(rel, string(filepath.Separator))[0])
-		if err := exportFile(p, filepath.Join(into, mate+".jsonl")); err != nil {
+		name, _, _ := strings.Cut(rel, string(filepath.Separator))
+		folders[claude.ProjectFolder(filepath.Join(r.Src, name))] = name
+	}
+	root := filepath.Join(r.Home, ".claude", "projects")
+	for _, p := range files {
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
 			return err
 		}
-		subs, _ := filepath.Glob(filepath.Join(filepath.Dir(p), mate, "subagents", "*"))
-		for _, s := range subs {
-			if err := exportFile(s, filepath.Join(into, mate, "subagents", filepath.Base(s))); err != nil {
-				return err
-			}
+		folder, inside, _ := strings.Cut(rel, string(filepath.Separator))
+		into, ok := folders[folder]
+		if !ok || inside == "" {
+			return fmt.Errorf("%s: written outside every toy project's folder, so it is not exported", rel)
+		}
+		if err := exportFile(p, filepath.Join(r.Corpus, into, inside)); err != nil {
+			return err
 		}
 	}
 	return nil
