@@ -92,6 +92,9 @@ func LayoutBreakdown(th Theme, width, height float64, b city.Breakdown, series [
 				}
 			}
 			value := stats.Dollars(share.Cost)
+			if share.Counters.Messages > 0 && share.Cost.Unpriced >= share.Counters.Messages {
+				value = "cost unknown"
+			}
 			if !b.Priced {
 				value = fmt.Sprintf("%d messages", share.Counters.Messages)
 				if share.Counters.Messages == 1 {

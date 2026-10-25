@@ -400,6 +400,9 @@ type Game struct {
 	timelineLayout ui.Timeline
 	focused        bool
 	blurredAt      time.Time
+	// focusSource stands in for the window's focus when a drive sets it
+	// (item 246); nil asks the window.
+	focusSource func() bool
 	// awaySince is a moment the away list is owed for — the last time
 	// the window was seen, or when it lost focus — once the first batch
 	// of events has arrived; pendingEvents is that batch, queued by the
@@ -679,7 +682,7 @@ func (g *Game) Update() error {
 	g.scene.SetReducedMotion(g.reduced)
 	g.scene.SetPlanFade(city.PlanFade(g.liveliness))
 	g.scene.Animate(1.0 / 30)
-	if g.screenshot == "" && !g.driven {
+	if g.screenshot == "" && (!g.driven || g.focusSource != nil) {
 		g.watchFocus()
 	}
 	cursor := g.notePointer()

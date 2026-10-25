@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **An agent team's messages travel the road between its districts.**
   Recent Claude Code versions name a team after neither of its sessions and mark only the teammates as in it, so a lead's messages to its teammates were never road traffic, and a teammate's messages to its lead stopped counting once the lead ended.
   The city now knows a lead by the teammates it starts, and still reads teams named after their lead from older versions.
+- **The power breakdown no longer prices unknown messages at $0.00.**
+  A row none of whose messages has a known price, such as a model the price list does not have yet, says "cost unknown", as the panel's title already does, rather than "$0.00".
 - **The day's spend is whole as soon as the city has read your history.**
   Right after its first read the city could show part of the day's spend, and part of each session's cost, for up to 30 seconds; it now shows all of it once the read is done.
 - **Cars, vans and trucks keep their wheels on the road.**

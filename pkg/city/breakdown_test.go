@@ -95,6 +95,10 @@ func TestBreakdown(t *testing.T) {
 			assert.Equal(t, stored.Counters, b.Counters)
 		})
 
+		t.Run("it should give the strip the 24 h breakdown's own cost", func(t *testing.T) {
+			assert.Equal(t, b.Cost, c.Summary().Cost)
+		})
+
 		t.Run("it should carry the store's cost", func(t *testing.T) {
 			assert.Equal(t, stored.Cost, b.Cost)
 		})

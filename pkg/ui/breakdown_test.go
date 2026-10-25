@@ -137,6 +137,28 @@ func TestLayoutBreakdown(t *testing.T) {
 			assert.False(t, ok)
 		})
 	})
+
+	t.Run("when a priced breakdown has a row none of whose messages is priced", func(t *testing.T) {
+		b := someBreakdown()
+		b.BySession = append(b.BySession, city.Share{Key: "c", Counters: msgs(2), Cost: stats.Cost{Unpriced: 2}})
+		p := ui.LayoutBreakdown(th, 900, 700, b, series, nil, measure7)
+		row := p.Columns[2].Rows[2]
+
+		t.Run("it should say its cost is unknown rather than $0.00", func(t *testing.T) {
+			assert.Equal(t, "cost unknown", row.Value.Text)
+		})
+	})
+
+	t.Run("when a priced breakdown has a row only some of whose messages are priced", func(t *testing.T) {
+		b := someBreakdown()
+		b.BySession = append(b.BySession, city.Share{Key: "c", Counters: msgs(2), Cost: stats.Cost{Low: 0.02, High: 0.02, Unpriced: 1}})
+		p := ui.LayoutBreakdown(th, 900, 700, b, series, nil, measure7)
+		row := p.Columns[2].Rows[2]
+
+		t.Run("it should give the cost it knows", func(t *testing.T) {
+			assert.Equal(t, "$0.02", row.Value.Text)
+		})
+	})
 }
 
 func TestCardSparkline(t *testing.T) {

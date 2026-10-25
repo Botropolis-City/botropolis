@@ -45,6 +45,9 @@ func summarisable(session state.Session) bool {
 	return session.Harness == "" || session.Harness == "claude"
 }
 
+// DetailsOpen is whether the selection's card shows its details (i).
+func (s *Scene) DetailsOpen() bool { return s.detailsOpen() }
+
 func (s *Scene) detailsOpen() bool {
 	return s.selected != nil && s.detailsFor == s.selected.Session.ID
 }

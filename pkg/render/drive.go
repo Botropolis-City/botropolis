@@ -38,6 +38,8 @@ type Drive struct {
 	acted []city.Action
 	// actedAt is the tick each action was handed over on.
 	actedAt []uint64
+	// focused is the focus SetFocused last gave the city.
+	focused bool
 }
 
 type DriveOptions struct {
@@ -63,6 +65,16 @@ type DriveOptions struct {
 // Shown is what the last frame drew.
 type Shown struct {
 	Help, Views, Settings, Breakdown, Timeline, Search, Sidebar bool
+	// Overlays is how many panels are stacked over the map, the lens
+	// panel aside, such as the board, the reader or New session; Plan whether the City Plan is
+	// open, Hidden whether h hid the interface, and Details whether the
+	// selection's card shows its details (item 246).
+	Overlays              int
+	Plan, Hidden, Details bool
+	// TimelineTitle is the timeline's title while it is drawn, and Away
+	// the sessions the away list names, by id (item 246).
+	TimelineTitle string
+	Away          []string
 	// Journal is the journal's entries when it is drawn, each with what
 	// it was doing and what is next (item 86).
 	Journal []city.JournalEntry
@@ -364,6 +376,20 @@ func (d *Drive) PointAtPoint(at city.Point) error {
 	return nil
 }
 
+// SetFocused gives the city the focus or takes it away, as switching
+// windows does; until it is first called, a driven city never watches
+// its focus (item 246).
+func (d *Drive) SetFocused(focused bool) {
+	d.focused = focused
+	d.game.focusSource = func() bool { return d.focused }
+}
+
+// AddEvents hands the city a batch of the daemon's events, as the feed
+// does.
+func (d *Drive) AddEvents(fresh []events.Event) {
+	d.game.AddEvents(fresh)
+}
+
 // Feed loads a home and hands the city its snapshot, as the feed does
 // when sessions change; the ticks Until counts start from the tick that
 // takes it. The finder keeps the index it opened with.
@@ -543,7 +569,20 @@ func (g *Game) noteShown() {
 		Timeline: g.timeline, Search: g.finding() || g.query != "", Sidebar: g.sidebar,
 	}
 	if g.hidden {
-		s = Shown{}
+		s = Shown{Hidden: true}
+	} else {
+		s.Plan, s.Details = g.scene.CityPlanOpen(), g.scene.DetailsOpen()
+		if g.timeline {
+			s.TimelineTitle = g.timelineTitle()
+		}
+		for _, e := range g.away {
+			s.Away = append(s.Away, e.SessionID)
+		}
+		for _, o := range g.overlays {
+			if _, lens := o.(*lensPanel); !lens {
+				s.Overlays++
+			}
+		}
 	}
 	s.Lens, s.View = g.scene.Lens().Name(), g.scene.View().Name()
 	s.Explaining = g.explainHeld()

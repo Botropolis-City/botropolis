@@ -15,9 +15,9 @@ import (
 func (g *Game) drawTimeline(screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
-	title, list := "Timeline", g.scene.Events()
+	title, list := g.timelineTitle(), g.scene.Events()
 	if g.away != nil {
-		title, list = "While you were away", g.away
+		list = g.away
 	}
 	if g.cursor >= len(list) {
 		g.cursor = max(0, len(list)-1)
@@ -96,10 +96,22 @@ func (g *Game) clickTimeline(at city.Point) bool {
 	return true
 }
 
+// timelineTitle is the timeline's title: the away list's when the
+// window came back to it.
+func (g *Game) timelineTitle() string {
+	if g.away != nil {
+		return "While you were away"
+	}
+	return "Timeline"
+}
+
 // watchFocus notices the window losing and regaining focus; on the way
 // back it opens the away list when something needed you meanwhile.
 func (g *Game) watchFocus() {
 	focused := ebiten.IsFocused()
+	if g.focusSource != nil {
+		focused = g.focusSource()
+	}
 	now := timeNow()
 	switch {
 	case g.focused && !focused:
