@@ -24,10 +24,10 @@ WORKDIR /work
 # Credentials arrive as CLAUDE_CODE_OAUTH_TOKEN, forwarded by name from
 # the environment `secret-run` builds, never on a command line.
 FROM debian:trixie-slim AS recorder
-ARG CLAUDE_CODE_VERSION=2.1.286
+ARG CLAUDE_CODE_VERSION=2.1.310
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates git make jq ripgrep procps \
+      ca-certificates git make jq ripgrep procps tmux \
       golang-go python3 python3-pytest \
       nodejs npm \
  && npm install -g --no-fund --no-audit @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \

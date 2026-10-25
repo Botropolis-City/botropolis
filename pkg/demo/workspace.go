@@ -1,6 +1,8 @@
 package demo
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,6 +42,9 @@ func (w Workspace) Prepare() (string, error) {
 			return "", fmt.Errorf("%s: %w", p.Name(), err)
 		}
 	}
+	if err := w.settleFirstRun(projects); err != nil {
+		return "", err
+	}
 	tracker := filepath.Join(w.Home, "tracker")
 	if _, err := os.Stat(tracker); os.IsNotExist(err) {
 		if err := copyTree(w.Tracker, tracker); err != nil {
@@ -54,6 +59,45 @@ func (w Workspace) Prepare() (string, error) {
 		"tracker": map[string]any{"type": "stdio", "command": w.Self, "args": []string{"mcp", "tracker", "--data", tracker}},
 		"weather": map[string]any{"type": "stdio", "command": w.Self, "args": []string{"mcp", "weather"}},
 	}})
+}
+
+// settleFirstRun answers, in the recorder's own home, the dialogs an
+// interactive claude opens on before its prompt: onboarding, each toy
+// project's folder trust, and the bypass-permissions warning. A -p run
+// shows none of them, but a team is recorded interactively (item 105).
+// Whatever claude already keeps in that home is left as it is.
+func (w Workspace) settleFirstRun(projects []os.DirEntry) error {
+	path := filepath.Join(w.Home, ".claude.json")
+	state := map[string]any{}
+	if data, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(data, &state); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	state["hasCompletedOnboarding"] = true
+	trusted, _ := state["projects"].(map[string]any)
+	if trusted == nil {
+		trusted = map[string]any{}
+	}
+	for _, p := range projects {
+		if !p.IsDir() {
+			continue
+		}
+		dir := filepath.Join(w.Src, p.Name())
+		entry, _ := trusted[dir].(map[string]any)
+		if entry == nil {
+			entry = map[string]any{}
+		}
+		entry["hasTrustDialogAccepted"] = true
+		trusted[dir] = entry
+	}
+	state["projects"] = trusted
+	if err := writeJSON(path, state); err != nil {
+		return err
+	}
+	return writeJSON(filepath.Join(w.Home, ".claude", "settings.json"), map[string]any{"skipDangerousModePermissionPrompt": true})
 }
 
 func gitInit(dir string) error {

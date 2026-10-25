@@ -80,6 +80,13 @@ The token reaches the container by name, never on a command line, and only the `
 `make demo-plan` prints every session still to record and the most it could cost if every prompt hit its cap.
 Sessions already in the corpus are skipped, so a run that stops can be started again.
 
+A script session with `team: true` is an agent team's lead, recorded from its one prompt (item 105).
+Claude Code spawns no teammates under `-p`, so the recorder runs that prompt in an interactive `claude` inside tmux, with agent teams on.
+`--max-budget-usd` is a `-p` flag, so the recorder prices the lead's and every teammate's transcript as they grow and stops the run past `budget_usd`, after ten minutes, or when the recorder itself is interrupted.
+The run is done once the lead's turn has ended and no transcript has changed for thirty seconds.
+The lead is exported as any session is, and each teammate under the project its working directory is in.
+To open straight on its prompt, interactive `claude` needs its first-run dialogs answered: the recorder settles onboarding, each toy project's folder trust and the bypass-permissions warning in its own scratch home inside the container, and nowhere else.
+
 ## A scenario
 
 ```yaml

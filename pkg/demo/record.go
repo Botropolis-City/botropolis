@@ -35,6 +35,9 @@ type ScriptedSession struct {
 	BudgetUSD float64  `yaml:"budget_usd"`
 	Visual    string   `yaml:"visual"`
 	Prompts   []string `yaml:"prompts"`
+	// Team records the session as an agent team's lead, interactively
+	// through the recorder's Terminal, from its one prompt (item 105).
+	Team bool `yaml:"team"`
 }
 
 // LoadScript reads a script, refusing unknown keys and a session with
@@ -63,6 +66,8 @@ func LoadScript(path string) (Script, error) {
 			return Script{}, fmt.Errorf("%s: %s has no prompts", path, session.Label)
 		case session.BudgetUSD <= 0:
 			return Script{}, fmt.Errorf("%s: %s has no budget_usd", path, session.Label)
+		case session.Team && len(session.Prompts) != 1:
+			return Script{}, fmt.Errorf("%s: %s is a team, which is recorded from one prompt, not %d", path, session.Label, len(session.Prompts))
 		}
 		seen[session.Label] = true
 	}
@@ -134,7 +139,10 @@ type Recorder struct {
 	Corpus    string
 	MCPConfig string
 	Claude    Claude
-	Log       io.Writer
+	// Terminal runs a team session, and Team holds it to its limits.
+	Terminal Terminal
+	Team     TeamLimits
+	Log      io.Writer
 	// Progress is told of each prompt as it starts and ends.
 	Progress *Progress
 }
@@ -156,6 +164,24 @@ func (r Recorder) Record(ctx context.Context, script Script) ([]Prompted, error)
 		id := SessionID(script.Project, session.Label)
 		if _, err := os.Stat(filepath.Join(r.Corpus, script.Project, id+".jsonl")); err == nil {
 			r.logf("skip %s/%s: already in the corpus\n", script.Project, session.Label)
+			continue
+		}
+		if session.Team {
+			r.logf("record %s/%s as a team (%s, cap $%.2f)\n", script.Project, session.Label, session.Model, session.BudgetUSD)
+			if r.Progress != nil {
+				r.Progress.Step(fmt.Sprintf("%s/%s", script.Project, session.Label), "team, "+session.Model)
+			}
+			entry, err := r.recordTeam(ctx, script.Project, session, id)
+			if err != nil {
+				entry.Error = err.Error()
+			}
+			log = append(log, entry)
+			if err != nil {
+				return log, fmt.Errorf("%s/%s: %w", script.Project, session.Label, err)
+			}
+			if r.Progress != nil {
+				r.Progress.Advance(1)
+			}
 			continue
 		}
 		for i, prompt := range session.Prompts {

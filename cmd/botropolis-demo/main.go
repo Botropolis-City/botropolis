@@ -203,6 +203,9 @@ func recordCommand() *cobra.Command {
 			"skills and MCP servers, then runs `claude -p` for every scripted prompt\n" +
 			"the corpus does not hold yet, and exports each finished session's\n" +
 			"transcript and subagents -- and nothing else -- into --corpus.\n" +
+			"A session marked team: true runs its one prompt in claude under tmux\n" +
+			"with agent teams on, held to its budget by the recorder, and exports\n" +
+			"its teammates' transcripts with it.\n" +
 			"--dry-run prints what would be recorded and the most it could cost.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -246,7 +249,7 @@ func recordCommand() *cobra.Command {
 			if progress.TTY {
 				log = io.Discard
 			}
-			r := demo.Recorder{Home: home, Src: src, Corpus: corpus, MCPConfig: config, Claude: runClaude, Log: log, Progress: progress}
+			r := demo.Recorder{Home: home, Src: src, Corpus: corpus, MCPConfig: config, Claude: runClaude, Terminal: runTmux, Log: log, Progress: progress}
 			var spent []demo.Prompted
 			var failed error
 			for _, s := range all {
