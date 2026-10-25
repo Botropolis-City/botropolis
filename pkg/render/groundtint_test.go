@@ -200,11 +200,13 @@ func (g *Game) treesOverRail(c *city.City) (checked int, translucent []string) {
 			var hides bool
 			switch cmd.kind {
 			case cmdImage:
-				x, y = cmd.img.GeoM.Element(0, 2), cmd.img.GeoM.Element(1, 2)
-				hides = cmd.img.ColorScale.A() >= 1
+				o := &g.rec.imgOps[cmd.op]
+				x, y = o.GeoM.Element(0, 2), o.GeoM.Element(1, 2)
+				hides = o.ColorScale.A() >= 1
 			case cmdColorM:
-				x, y = cmd.cmImg.GeoM.Element(0, 2), cmd.cmImg.GeoM.Element(1, 2)
-				_, _, _, a := cmd.cm.Apply(color.NRGBA{0xff, 0xff, 0xff, 0xff}).RGBA()
+				o := &g.rec.cmOps[cmd.op]
+				x, y = o.opts.GeoM.Element(0, 2), o.opts.GeoM.Element(1, 2)
+				_, _, _, a := o.cm.Apply(color.NRGBA{0xff, 0xff, 0xff, 0xff}).RGBA()
 				hides = a == 0xffff
 			default:
 				continue

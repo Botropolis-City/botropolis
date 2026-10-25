@@ -410,7 +410,7 @@ func TestNoDrawSamplesAMipmap(t *testing.T) {
 				cmd := &l.cmds[i]
 				if cmd.kind == cmdImage && kit[cmd.page] {
 					sprites++
-					if !cmd.img.DisableMipmaps {
+					if !l.imgOps[cmd.op].DisableMipmaps {
 						mipmapped++
 					}
 					if l.mipLevel(i) > 0 {

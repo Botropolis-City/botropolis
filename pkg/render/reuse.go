@@ -4,11 +4,13 @@ import (
 	"encoding/binary"
 	"hash/maphash"
 	"image"
+	"image/color"
 	"log"
 	"math"
 	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -52,6 +54,12 @@ type keptRecord struct {
 	vertices []ebiten.Vertex
 	indices  []uint32
 	points   []city.Point
+	imgOps   []ebiten.DrawImageOptions
+	cmOps    []cmOp
+	triOps   []ebiten.DrawTrianglesOptions
+	pathOps  []vector.DrawPathOptions
+	textOps  []textOp
+	fills    []color.Color
 	entries  []entry
 	jn       journalBuffers
 	// at is each keyed entry's place in entries, by key.
@@ -80,6 +88,12 @@ func (g *Game) keepRecord() {
 	k.vertices, l.vertices = l.vertices, k.vertices
 	k.indices, l.indices = l.indices, k.indices
 	k.points, l.points = l.points, k.points
+	k.imgOps, l.imgOps = l.imgOps, k.imgOps
+	k.cmOps, l.cmOps = l.cmOps, k.cmOps
+	k.triOps, l.triOps = l.triOps, k.triOps
+	k.pathOps, l.pathOps = l.pathOps, k.pathOps
+	k.textOps, l.textOps = l.textOps, k.textOps
+	k.fills, l.fills = l.fills, k.fills
 	k.entries, g.still.entries = g.still.entries, k.entries
 	g.putJournalAside(&k.jn)
 	k.origin = l.origin
@@ -196,16 +210,31 @@ func (g *Game) copyRecord(k *keptRecord, i int, shift image.Point) {
 	e := k.entries[i]
 	dx, dy := float32(shift.X), float32(shift.Y)
 	from := len(l.cmds)
-	for _, c := range k.cmds[e.from:e.to] {
+	// Each command is copied once, onto the end of the list, and moved
+	// there; its options are copied with it.
+	for j := e.from; j < e.to; j++ {
+		l.cmds = append(l.cmds, k.cmds[j])
+		c := &l.cmds[len(l.cmds)-1]
 		c.box = moved(c.box, shift)
 		switch c.kind {
 		case cmdImage:
-			c.img.GeoM.Translate(float64(dx), float64(dy))
+			l.imgOps = append(l.imgOps, k.imgOps[c.op])
+			c.op = len(l.imgOps) - 1
+			l.imgOps[c.op].GeoM.Translate(float64(dx), float64(dy))
 		case cmdColorM:
-			c.cmImg.GeoM.Translate(float64(dx), float64(dy))
+			l.cmOps = append(l.cmOps, k.cmOps[c.op])
+			c.op = len(l.cmOps) - 1
+			l.cmOps[c.op].opts.GeoM.Translate(float64(dx), float64(dy))
 		case cmdWords:
-			c.text.GeoM.Translate(float64(dx), float64(dy))
+			l.textOps = append(l.textOps, k.textOps[c.op])
+			c.op = len(l.textOps) - 1
+			l.textOps[c.op].opts.GeoM.Translate(float64(dx), float64(dy))
+		case cmdFill:
+			l.fills = append(l.fills, k.fills[c.op])
+			c.op = len(l.fills) - 1
 		case cmdMesh:
+			l.triOps = append(l.triOps, k.triOps[c.op])
+			c.op = len(l.triOps) - 1
 			v := len(l.vertices)
 			for _, x := range k.vertices[c.v[0]:c.v[1]] {
 				x.DstX += dx
@@ -216,13 +245,14 @@ func (g *Game) copyRecord(k *keptRecord, i int, shift image.Point) {
 			l.indices = append(l.indices, k.indices[c.i[0]:c.i[1]]...)
 			c.v, c.i = [2]int{v, len(l.vertices)}, [2]int{n, len(l.indices)}
 		case cmdRing:
+			l.pathOps = append(l.pathOps, k.pathOps[c.op])
+			c.op = len(l.pathOps) - 1
 			p := len(l.points)
 			for _, x := range k.points[c.p[0]:c.p[1]] {
 				l.points = append(l.points, x.Add(city.Point{X: float64(dx), Y: float64(dy)}))
 			}
 			c.p = [2]int{p, len(l.points)}
 		}
-		l.cmds = append(l.cmds, c)
 	}
 	n := len(g.lightOps)
 	g.still.entries = append(g.still.entries, entry{
@@ -291,25 +321,28 @@ func (l *drawList) sameCmd(a, b *drawCmd) bool {
 	}
 	switch a.kind {
 	case cmdImage:
-		return geo(a.img.GeoM, b.img.GeoM) && sameImageOptions(&a.img, &b.img)
+		x, y := &l.imgOps[a.op], &l.imgOps[b.op]
+		return geo(x.GeoM, y.GeoM) && sameImageOptions(x, y)
 	case cmdColorM:
-		x, y := a.cmImg, b.cmImg
-		x.GeoM, y.GeoM = ebiten.GeoM{}, ebiten.GeoM{}
+		x, y := l.cmOps[a.op], l.cmOps[b.op]
 		for i := range 4 {
 			for j := range 5 {
-				if a.cm.Element(i, j) != b.cm.Element(i, j) {
+				if x.cm.Element(i, j) != y.cm.Element(i, j) {
 					return false
 				}
 			}
 		}
-		return geo(a.cmImg.GeoM, b.cmImg.GeoM) && x == y
+		same := geo(x.opts.GeoM, y.opts.GeoM)
+		x.opts.GeoM, y.opts.GeoM = ebiten.GeoM{}, ebiten.GeoM{}
+		return same && x.opts == y.opts
 	case cmdWords:
-		return geo(a.text.GeoM, b.text.GeoM) && sameImageOptions(&a.text.DrawImageOptions, &b.text.DrawImageOptions) &&
-			a.text.LayoutOptions == b.text.LayoutOptions && a.words == b.words && a.face == b.face
+		x, y := &l.textOps[a.op], &l.textOps[b.op]
+		return geo(x.opts.GeoM, y.opts.GeoM) && sameImageOptions(&x.opts.DrawImageOptions, &y.opts.DrawImageOptions) &&
+			x.opts.LayoutOptions == y.opts.LayoutOptions && x.words == y.words && x.face == y.face
 	case cmdFill:
-		return a.fill == b.fill
+		return l.fills[a.op] == l.fills[b.op]
 	case cmdMesh:
-		if !sameTriangleOptions(&a.tri, &b.tri) || a.v[1]-a.v[0] != b.v[1]-b.v[0] || a.i[1]-a.i[0] != b.i[1]-b.i[0] {
+		if !sameTriangleOptions(&l.triOps[a.op], &l.triOps[b.op]) || a.v[1]-a.v[0] != b.v[1]-b.v[0] || a.i[1]-a.i[0] != b.i[1]-b.i[0] {
 			return false
 		}
 		for j := range a.v[1] - a.v[0] {
@@ -325,7 +358,7 @@ func (l *drawList) sameCmd(a, b *drawCmd) bool {
 			}
 		}
 	case cmdRing:
-		if a.path != b.path || a.p[1]-a.p[0] != b.p[1]-b.p[0] {
+		if l.pathOps[a.op] != l.pathOps[b.op] || a.p[1]-a.p[0] != b.p[1]-b.p[0] {
 			return false
 		}
 		for j := range a.p[1] - a.p[0] {

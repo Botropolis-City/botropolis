@@ -51,16 +51,10 @@ type drawCmd struct {
 	src  *ebiten.Image
 	// page is the image src was cut from, when its caller cut it: the
 	// texture the draw reads, and batches by (item 161).
-	page  *ebiten.Image
-	img   ebiten.DrawImageOptions
-	cm    colorm.ColorM
-	cmImg colorm.DrawImageOptions
-	tri   ebiten.DrawTrianglesOptions
-	path  vector.DrawPathOptions
-	text  text.DrawOptions
-	words string
-	face  text.Face
-	fill  color.Color
+	page *ebiten.Image
+	// op is its options' place in the list's options of its kind: kept
+	// beside the commands, so a command is small to copy (item 212).
+	op int
 	// v, i and p are ranges in the list's vertices, indices and points.
 	v, i, p [2]int
 	// fade is the hover fade group the draw belongs to, 0 for none: the
@@ -80,6 +74,19 @@ type inked struct {
 	hash     uint64
 }
 
+// cmOp is a colour-matrix draw's options.
+type cmOp struct {
+	cm   colorm.ColorM
+	opts colorm.DrawImageOptions
+}
+
+// textOp is a text draw's options and what it draws.
+type textOp struct {
+	opts  text.DrawOptions
+	words string
+	face  text.Face
+}
+
 // drawList records the draws made onto its dry image.
 type drawList struct {
 	dry      *ebiten.Image
@@ -88,6 +95,14 @@ type drawList struct {
 	indices  []uint32
 	points   []city.Point
 	painter  shapes.Painter
+	// The options of each kind of draw, a command's op its place in its
+	// kind's (item 212).
+	imgOps  []ebiten.DrawImageOptions
+	cmOps   []cmOp
+	triOps  []ebiten.DrawTrianglesOptions
+	pathOps []vector.DrawPathOptions
+	textOps []textOp
+	fills   []color.Color
 
 	// fade is the fade group draws are recorded into now, and fades
 	// the last group begun.
@@ -124,6 +139,7 @@ func newDrawList() *drawList {
 // reset empties the list for a new frame, keeping its buffers.
 func (l *drawList) reset() {
 	l.cmds, l.vertices, l.indices, l.points = l.cmds[:0], l.vertices[:0], l.indices[:0], l.points[:0]
+	l.imgOps, l.cmOps, l.triOps, l.pathOps, l.textOps, l.fills = l.imgOps[:0], l.cmOps[:0], l.triOps[:0], l.pathOps[:0], l.textOps[:0], l.fills[:0]
 	l.fade, l.fades, l.open = 0, 0, false
 }
 
@@ -195,7 +211,8 @@ func (l *drawList) ImageOn(dst, img, page *ebiten.Image, op *ebiten.DrawImageOpt
 		dst.DrawImage(img, op)
 		return
 	}
-	l.push(drawCmd{kind: cmdImage, src: img, page: page, img: *op}, imageBox(img, op.GeoM))
+	l.imgOps = append(l.imgOps, *op)
+	l.push(drawCmd{kind: cmdImage, src: img, page: page, op: len(l.imgOps) - 1}, imageBox(img, op.GeoM))
 	l.hashSource(img, page)
 	l.hashGeoM(op.GeoM)
 	l.hashScale(op.ColorScale)
@@ -210,7 +227,8 @@ func (l *drawList) colorm(dst, img, page *ebiten.Image, m colorm.ColorM, op *col
 		colorm.DrawImage(dst, img, m, op)
 		return
 	}
-	l.push(drawCmd{kind: cmdColorM, src: img, page: page, cm: m, cmImg: *op}, imageBox(img, op.GeoM))
+	l.cmOps = append(l.cmOps, cmOp{cm: m, opts: *op})
+	l.push(drawCmd{kind: cmdColorM, src: img, page: page, op: len(l.cmOps) - 1}, imageBox(img, op.GeoM))
 	l.hashSource(img, page)
 	l.hashGeoM(op.GeoM)
 	for i := range 4 {
@@ -228,7 +246,8 @@ func (l *drawList) Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []u
 		dst.DrawTriangles32(vertices, indices, src, op)
 		return
 	}
-	c := drawCmd{kind: cmdMesh, src: src, tri: *op}
+	l.triOps = append(l.triOps, *op)
+	c := drawCmd{kind: cmdMesh, src: src, op: len(l.triOps) - 1}
 	c.v = [2]int{len(l.vertices), len(l.vertices) + len(vertices)}
 	c.i = [2]int{len(l.indices), len(l.indices) + len(indices)}
 	l.vertices = append(l.vertices, vertices...)
@@ -275,7 +294,8 @@ func (l *drawList) Ring(dst *ebiten.Image, pts []city.Point, op *vector.DrawPath
 		l.painter.FillPath(dst, pts, op)
 		return
 	}
-	c := drawCmd{kind: cmdRing, path: *op}
+	l.pathOps = append(l.pathOps, *op)
+	c := drawCmd{kind: cmdRing, op: len(l.pathOps) - 1}
 	c.p = [2]int{len(l.points), len(l.points) + len(pts)}
 	l.points = append(l.points, pts...)
 	box := image.Rectangle{}
@@ -302,7 +322,8 @@ func (l *drawList) words(dst *ebiten.Image, s string, face text.Face, op *text.D
 		text.Draw(dst, s, face, op)
 		return
 	}
-	l.push(drawCmd{kind: cmdWords, words: s, face: face, text: *op}, wordsBox(s, face, op))
+	l.textOps = append(l.textOps, textOp{opts: *op, words: s, face: face})
+	l.push(drawCmd{kind: cmdWords, op: len(l.textOps) - 1}, wordsBox(s, face, op))
 	l.ch.WriteString(s)
 	l.hashInt(uint64(uintptr(faceID(face))))
 	l.hashGeoM(op.GeoM)
@@ -321,7 +342,8 @@ func (l *drawList) fill(dst *ebiten.Image, c color.Color) {
 		dst.Fill(c)
 		return
 	}
-	l.push(drawCmd{kind: cmdFill, fill: c}, everywhere)
+	l.fills = append(l.fills, c)
+	l.push(drawCmd{kind: cmdFill, op: len(l.fills) - 1}, everywhere)
 	r, g, b, a := c.RGBA()
 	l.hashInt(uint64(r)<<48 | uint64(g)<<32 | uint64(b)<<16 | uint64(a))
 	l.seal()
@@ -361,11 +383,20 @@ func (l *drawList) playShifted(dst *ebiten.Image, s inked, d image.Point) {
 	for _, c := range l.cmds[s.from:s.to] {
 		switch c.kind {
 		case cmdImage:
-			c.img.GeoM.Translate(dx, dy)
+			o := l.imgOps[c.op]
+			o.GeoM.Translate(dx, dy)
+			dst.DrawImage(c.src, &o)
+			continue
 		case cmdColorM:
-			c.cmImg.GeoM.Translate(dx, dy)
+			o := l.cmOps[c.op]
+			o.opts.GeoM.Translate(dx, dy)
+			colorm.DrawImage(dst, c.src, o.cm, &o.opts)
+			continue
 		case cmdWords:
-			c.text.GeoM.Translate(dx, dy)
+			o := l.textOps[c.op]
+			o.opts.GeoM.Translate(dx, dy)
+			text.Draw(dst, o.words, o.face, &o.opts)
+			continue
 		case cmdMesh:
 			moved := append(l.shifted[:0], l.vertices[c.v[0]:c.v[1]]...)
 			for i := range moved {
@@ -373,7 +404,7 @@ func (l *drawList) playShifted(dst *ebiten.Image, s inked, d image.Point) {
 				moved[i].DstY += float32(dy)
 			}
 			l.shifted = moved
-			dst.DrawTriangles32(moved, l.indices[c.i[0]:c.i[1]], c.src, &c.tri)
+			dst.DrawTriangles32(moved, l.indices[c.i[0]:c.i[1]], c.src, &l.triOps[c.op])
 			continue
 		case cmdRing:
 			moved := append(l.shiftedPts[:0], l.points[c.p[0]:c.p[1]]...)
@@ -381,7 +412,7 @@ func (l *drawList) playShifted(dst *ebiten.Image, s inked, d image.Point) {
 				moved[i] = moved[i].Add(city.Point{X: dx, Y: dy})
 			}
 			l.shiftedPts = moved
-			l.painter.FillPath(dst, moved, &c.path)
+			l.painter.FillPath(dst, moved, &l.pathOps[c.op])
 			continue
 		}
 		l.playCmd(dst, &c)
@@ -389,15 +420,21 @@ func (l *drawList) playShifted(dst *ebiten.Image, s inked, d image.Point) {
 }
 
 // listMark is how far the list had recorded, to come back to.
-type listMark struct{ cmds, vertices, indices, points int }
+type listMark struct {
+	cmds, vertices, indices, points                int
+	imgOps, cmOps, triOps, pathOps, textOps, fills int
+}
 
 func (l *drawList) mark() listMark {
-	return listMark{len(l.cmds), len(l.vertices), len(l.indices), len(l.points)}
+	return listMark{len(l.cmds), len(l.vertices), len(l.indices), len(l.points),
+		len(l.imgOps), len(l.cmOps), len(l.triOps), len(l.pathOps), len(l.textOps), len(l.fills)}
 }
 
 // truncate forgets what was recorded since m.
 func (l *drawList) truncate(m listMark) {
 	l.cmds, l.vertices, l.indices, l.points = l.cmds[:m.cmds], l.vertices[:m.vertices], l.indices[:m.indices], l.points[:m.points]
+	l.imgOps, l.cmOps, l.triOps = l.imgOps[:m.imgOps], l.cmOps[:m.cmOps], l.triOps[:m.triOps]
+	l.pathOps, l.textOps, l.fills = l.pathOps[:m.pathOps], l.textOps[:m.textOps], l.fills[:m.fills]
 }
 
 // since is what was recorded since m: its commands, a hash of what they
@@ -422,17 +459,19 @@ func (l *drawList) cmdBox(i int) image.Rectangle { return l.cmds[i].box }
 func (l *drawList) playCmd(dst *ebiten.Image, c *drawCmd) {
 	switch c.kind {
 	case cmdImage:
-		dst.DrawImage(c.src, &c.img)
+		dst.DrawImage(c.src, &l.imgOps[c.op])
 	case cmdColorM:
-		colorm.DrawImage(dst, c.src, c.cm, &c.cmImg)
+		o := &l.cmOps[c.op]
+		colorm.DrawImage(dst, c.src, o.cm, &o.opts)
 	case cmdMesh:
-		dst.DrawTriangles32(l.vertices[c.v[0]:c.v[1]], l.indices[c.i[0]:c.i[1]], c.src, &c.tri)
+		dst.DrawTriangles32(l.vertices[c.v[0]:c.v[1]], l.indices[c.i[0]:c.i[1]], c.src, &l.triOps[c.op])
 	case cmdRing:
-		l.painter.FillPath(dst, l.points[c.p[0]:c.p[1]], &c.path)
+		l.painter.FillPath(dst, l.points[c.p[0]:c.p[1]], &l.pathOps[c.op])
 	case cmdWords:
-		text.Draw(dst, c.words, c.face, &c.text)
+		o := &l.textOps[c.op]
+		text.Draw(dst, o.words, o.face, &o.opts)
 	case cmdFill:
-		dst.Fill(c.fill)
+		dst.Fill(l.fills[c.op])
 	}
 }
 

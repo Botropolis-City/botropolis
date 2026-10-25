@@ -143,13 +143,16 @@ func (l *drawList) batchKey(i int) int {
 	k := batchSource{kind: c.kind}
 	switch c.kind {
 	case cmdImage:
-		k.page, k.filter, k.blend = l.pageKey(i), c.img.Filter, c.img.Blend
+		o := &l.imgOps[c.op]
+		k.page, k.filter, k.blend = l.pageKey(i), o.Filter, o.Blend
 	case cmdColorM:
-		k.page, k.filter, k.blend = l.pageKey(i), c.cmImg.Filter, c.cmImg.Blend
+		o := &l.cmOps[c.op].opts
+		k.page, k.filter, k.blend = l.pageKey(i), o.Filter, o.Blend
 	case cmdMesh:
-		k.page, k.filter, k.blend = l.pageKey(i), c.tri.Filter, c.tri.Blend
+		o := &l.triOps[c.op]
+		k.page, k.filter, k.blend = l.pageKey(i), o.Filter, o.Blend
 	case cmdWords:
-		k.face = faceID(c.face)
+		k.face = faceID(l.textOps[c.op].face)
 	}
 	k.level = l.mipLevel(i)
 	if l.batchKeys == nil {
@@ -186,9 +189,9 @@ func (l *drawList) mipLevel(i int) int {
 	c := &l.cmds[i]
 	switch c.kind {
 	case cmdImage:
-		return imageMipLevel(&c.img, c.src.Bounds(), l.pageSize(i))
+		return imageMipLevel(&l.imgOps[c.op], c.src.Bounds(), l.pageSize(i))
 	case cmdMesh:
-		return meshMipLevel(l.vertices[c.v[0]:c.v[1]], l.indices[c.i[0]:c.i[1]], &c.tri, l.pageSize(i))
+		return meshMipLevel(l.vertices[c.v[0]:c.v[1]], l.indices[c.i[0]:c.i[1]], &l.triOps[c.op], l.pageSize(i))
 	}
 	return 0
 }

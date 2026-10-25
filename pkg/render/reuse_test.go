@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -470,6 +471,17 @@ func BenchmarkAFullZoomFrameKeepingRecords(b *testing.B) {
 	}
 }
 
+// Item 212: keeping a record copies its commands, and a command that
+// carried every kind of draw's options was 648 bytes, so keeping a
+// building drawn in a hundred pieces cost what recording it did.
+func TestARecordedCommand(t *testing.T) {
+	t.Run("when a draw is recorded", func(t *testing.T) {
+		t.Run("it should take no more than 160 bytes, its kind's options kept beside it", func(t *testing.T) {
+			assert.LessOrEqual(t, unsafe.Sizeof(drawCmd{}), uintptr(160))
+		})
+	})
+}
+
 // Item 212: Ebitengine lets a sub-image it cut go from its cache after
 // 60 ticks unused, without disposing it, so a sprite cut again is a new
 // image of the same pixels, while a kept record still holds the old one.
@@ -479,12 +491,14 @@ func TestASpriteCutAgain(t *testing.T) {
 	t.Cleanup(page.Deallocate)
 	t.Cleanup(other.Deallocate)
 	r := image.Rect(8, 8, 24, 24)
+	// One list, as a frame's: a command's options are kept in the list
+	// that recorded it.
+	l := newDrawList()
 	record := func(img, from *ebiten.Image) drawCmd {
-		l := newDrawList()
 		l.begin()
 		l.ImageOn(l.dry, img, from, &ebiten.DrawImageOptions{})
 		l.end()
-		return l.cmds[0]
+		return l.cmds[len(l.cmds)-1]
 	}
 	// Another image of the same rect, as Ebitengine hands back once it
 	// has let the first go; Ebitengine's tick, which lets it go, does not
@@ -497,7 +511,7 @@ func TestASpriteCutAgain(t *testing.T) {
 			assert.Equal(t, was.hash, now.hash)
 		})
 		t.Run("it should draw the same", func(t *testing.T) {
-			assert.True(t, (&drawList{}).sameCmd(&was, &now))
+			assert.True(t, l.sameCmd(&was, &now))
 		})
 	})
 
