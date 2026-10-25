@@ -29,13 +29,16 @@ type Server struct {
 	// Cookie is the MIT-MAGIC-COOKIE-1 a client must present, in hex.
 	Cookie string
 
-	cmd  *exec.Cmd
-	once sync.Once
-	err  error
+	cmd     *exec.Cmd
+	release func()
+	once    sync.Once
+	err     error
 }
 
 // Start runs Xvfb with a screen of width by height in a process group of
 // its own, refusing any client without the cookie it writes into dir.
+// On Linux the server dies with the process that started it; elsewhere
+// Close is the only way it stops (item 251).
 func Start(dir string, width, height int) (*Server, error) {
 	path, err := exec.LookPath("Xvfb")
 	if err != nil {
@@ -60,7 +63,8 @@ func Start(dir string, width, height int) (*Server, error) {
 	cmd.ExtraFiles = []*os.File{write}
 	cmd.Stderr = &limited{buf: &stderr, max: 4096}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	if err := cmd.Start(); err != nil {
+	release, err := startTied(cmd)
+	if err != nil {
 		_ = write.Close()
 		return nil, err
 	}
@@ -69,6 +73,7 @@ func Start(dir string, width, height int) (*Server, error) {
 	if err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
+		release()
 		return nil, fmt.Errorf("the virtual display did not start: Xvfb reported no display: %s", strings.TrimSpace(stderr.String()))
 	}
 	return &Server{
@@ -76,6 +81,7 @@ func Start(dir string, width, height int) (*Server, error) {
 		Authority: authority,
 		Cookie:    hex.EncodeToString(cookie),
 		cmd:       cmd,
+		release:   release,
 	}, nil
 }
 
@@ -92,6 +98,7 @@ func (s *Server) Close() error {
 	s.once.Do(func() {
 		_ = s.cmd.Process.Kill()
 		err := s.cmd.Wait()
+		s.release()
 		var exit *exec.ExitError
 		if err != nil && !errors.As(err, &exit) {
 			s.err = err

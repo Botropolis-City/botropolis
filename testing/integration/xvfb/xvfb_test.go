@@ -1,12 +1,19 @@
 package xvfb_test
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/jezek/xgb"
 	"github.com/stretchr/testify/assert"
@@ -120,6 +127,67 @@ func TestStart(t *testing.T) {
 
 		t.Run("it should stop answering", func(t *testing.T) {
 			assert.Error(t, connect(s, s.Cookie))
+		})
+	})
+}
+
+const helperEnv = "BOTROPOLIS_XVFB_TEST_STARTER"
+
+// TestMain lets this test binary stand in for a city: re-run with
+// helperEnv naming a directory, it starts a server there, prints the
+// server's pid and waits to be killed.
+func TestMain(m *testing.M) {
+	if dir := os.Getenv(helperEnv); dir != "" {
+		s, err := xvfb.Start(dir, 320, 240)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		fmt.Println(s.Pid())
+		select {}
+	}
+	os.Exit(m.Run())
+}
+
+// gone says whether pid has exited: no such process, or a zombie.
+func gone(pid int) bool {
+	stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return true
+	}
+	shut := bytes.LastIndexByte(stat, ')')
+	return shut >= 0 && strings.HasPrefix(string(stat[shut+1:]), " Z")
+}
+
+// Item 251: a city killed outright never called Close, and its Xvfb ran
+// on for good.
+func TestStartedBy(t *testing.T) {
+	need(t)
+
+	t.Run("when the process that started a server is killed with SIGKILL", func(t *testing.T) {
+		starter := exec.Command(os.Args[0], "-test.run=^$")
+		starter.Env = append(os.Environ(), helperEnv+"="+t.TempDir())
+		out, err := starter.StdoutPipe()
+		require.NoError(t, err)
+		require.NoError(t, starter.Start())
+		line, err := bufio.NewReader(out).ReadString('\n')
+		require.NoError(t, err)
+		pid, err := strconv.Atoi(strings.TrimSpace(line))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			if !gone(pid) {
+				_ = syscall.Kill(pid, syscall.SIGKILL)
+			}
+		})
+		_ = starter.Process.Kill()
+		_ = starter.Wait()
+		deadline := time.Now().Add(10 * time.Second)
+		for !gone(pid) && time.Now().Before(deadline) {
+			time.Sleep(20 * time.Millisecond)
+		}
+
+		t.Run("it should leave the server gone within ten seconds", func(t *testing.T) {
+			assert.True(t, gone(pid), "Xvfb %d is still running", pid)
 		})
 	})
 }

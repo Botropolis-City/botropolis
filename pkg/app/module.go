@@ -367,7 +367,9 @@ const privateStateEnv = "BOTROPOLIS_INTERNAL_PRIVATE_STATE"
 // take the city's display away mid-cleanup. On a signal this process
 // kills that group, and only that group, waits until none of it can
 // still write, and returns, so stateDir is removed after the city is
-// gone (item 114).
+// gone (item 114). Killed outright, this process never gets there, but on
+// Linux Xvfb dies with it and the city exits on losing its display, so
+// the child is not tied to this process itself (item 251).
 func runHeadless(cmd *cobra.Command, stateDir string) error {
 	width, height, err := cli.Window(cmd)
 	if err != nil {

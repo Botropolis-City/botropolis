@@ -159,7 +159,11 @@ func (r stateRun) interrupt(t *testing.T, how interruption, args ...string) inte
 
 // cities finds every city process still running whose command line
 // names dir.
-func cities(dir string) []int {
+func cities(dir string) []int { return running("botropolis", dir) }
+
+// running finds every process called comm, not a zombie, whose command
+// line names dir.
+func running(name, dir string) []int {
 	var out []int
 	entries, _ := os.ReadDir("/proc")
 	for _, e := range entries {
@@ -171,7 +175,7 @@ func cities(dir string) []int {
 		cmdline, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "cmdline"))
 		stat, _ := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
 		zombie := strings.Contains(string(stat), ") Z ")
-		if strings.TrimSpace(string(comm)) == "botropolis" && strings.Contains(string(cmdline), dir) && !zombie {
+		if strings.TrimSpace(string(comm)) == name && strings.Contains(string(cmdline), dir) && !zombie {
 			out = append(out, pid)
 		}
 	}
