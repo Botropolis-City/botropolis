@@ -71,7 +71,7 @@ func (g *Game) keepRecord() {
 	l, k := g.recorder(), &g.still.kept
 	if k.held {
 		k.held = g.noStill
-		g.jn.looks, g.jn.words = g.jn.looks[:0], g.jn.words[:0]
+		g.jn.looks, g.jn.lookKeys, g.jn.words = g.jn.looks[:0], g.jn.lookKeys[:0], g.jn.words[:0]
 		g.litFrame = false
 		return
 	}
@@ -139,7 +139,7 @@ func (g *Game) noteKeyed(kind recordKind, key uint64, draw func()) {
 	mark := l.mark()
 	g.copyRecord(k, i, shift)
 	kept := &g.still.entries[len(g.still.entries)-1]
-	same := g.sameRecord(kept, &g.still.entries[fresh]) && g.sameJournal(&k.jn, &k.entries[i], shift, &g.still.entries[fresh])
+	same := g.sameKept(&k.jn, &k.entries[i], kept, shift, &g.still.entries[fresh])
 	l.truncate(mark)
 	g.still.entries = g.still.entries[:fresh+1]
 	if same {
@@ -154,7 +154,7 @@ func (g *Game) noteKeyed(kind recordKind, key uint64, draw func()) {
 // within is whether a kept entry's spans all lie in what its own frame
 // recorded and noted.
 func (k *keptRecord) within(e entry) bool {
-	if e.to > len(k.cmds) || e.jn.looks[1] > len(k.jn.looks) || e.jn.words[1] > len(k.jn.words) || e.jn.glows[1] > len(k.jn.glows) {
+	if e.to > len(k.cmds) || e.jn.looks[1] > len(k.jn.looks) || e.jn.lookKeys[1] > len(k.jn.lookKeys) || e.jn.words[1] > len(k.jn.words) || e.jn.glows[1] > len(k.jn.glows) {
 		return false
 	}
 	if e.lights[1] == e.lights[0] {

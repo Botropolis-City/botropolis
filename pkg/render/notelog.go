@@ -30,7 +30,10 @@ func (s jspan) n() int { return s[1] - s[0] }
 // noteLog is an entry's spans of the frame's noteLog buffers, and what
 // it counted.
 type noteLog struct {
-	looks, words, glows               jspan
+	looks, words, glows jspan
+	// lookKeys is the key of every look run it drew, from a look or
+	// straight: what its painting was worked out from.
+	lookKeys                          jspan
 	litRects, cutPoints, cutVertices  jspan
 	cutIndices                        jspan
 	windows, landmarks, punches, cuts int
@@ -44,6 +47,7 @@ type noteLog struct {
 // game's own buffers for the frame after to take from.
 type journalBuffers struct {
 	looks       []lookUse
+	lookKeys    []lookKey
 	words       []string
 	glows       []city.Point
 	lightOps    []lightOp
@@ -83,6 +87,7 @@ func (l *drawList) unsettle() {
 // journalMark is how far each noteLog buffer had got.
 type journalMark struct {
 	looks, words, glows, lightOps, litRects, cutPoints, cutVertices, cutIndices int
+	lookKeys                                                                    int
 	windows, landmarks, punches, cuts, buildings                                int
 	hits, world, fade, fades                                                    int
 	runs, lookHits, misses                                                      int
@@ -90,7 +95,7 @@ type journalMark struct {
 
 func (g *Game) journalMark() journalMark {
 	return journalMark{
-		looks: len(g.jn.looks), words: len(g.jn.words), glows: len(g.glows), lightOps: len(g.lightOps),
+		looks: len(g.jn.looks), lookKeys: len(g.jn.lookKeys), words: len(g.jn.words), glows: len(g.glows), lightOps: len(g.lightOps),
 		litRects: len(g.litRects), cutPoints: len(g.cutPoints), cutVertices: len(g.cutVertices), cutIndices: len(g.cutIndices),
 		windows: g.windowDraws, landmarks: g.landmarkDraws, punches: g.punches, cuts: g.cuts, buildings: g.buildingsDrawn,
 		hits: len(g.frameHits), world: g.drawing.n, fade: g.rec.fade, fades: g.rec.fades,
@@ -101,7 +106,7 @@ func (g *Game) journalMark() journalMark {
 // journalSince is what was noted between two marks.
 func journalSince(a, b journalMark) noteLog {
 	return noteLog{
-		looks: jspan{a.looks, b.looks}, words: jspan{a.words, b.words}, glows: jspan{a.glows, b.glows},
+		looks: jspan{a.looks, b.looks}, lookKeys: jspan{a.lookKeys, b.lookKeys}, words: jspan{a.words, b.words}, glows: jspan{a.glows, b.glows},
 		litRects: jspan{a.litRects, b.litRects}, cutPoints: jspan{a.cutPoints, b.cutPoints},
 		cutVertices: jspan{a.cutVertices, b.cutVertices}, cutIndices: jspan{a.cutIndices, b.cutIndices},
 		windows: b.windows - a.windows, landmarks: b.landmarks - a.landmarks, punches: b.punches - a.punches,
@@ -114,6 +119,7 @@ func journalSince(a, b journalMark) noteLog {
 // the frame's own.
 func (g *Game) putJournalAside(k *journalBuffers) {
 	k.looks, g.jn.looks = g.jn.looks, k.looks[:0]
+	k.lookKeys, g.jn.lookKeys = g.jn.lookKeys, k.lookKeys[:0]
 	k.words, g.jn.words = g.jn.words, k.words[:0]
 	k.glows = append(k.glows[:0], g.glows...)
 	k.lit = g.litFrame
@@ -154,6 +160,7 @@ func (g *Game) replay(k *journalBuffers, e *entry, shift image.Point) (noteLog, 
 		}
 		g.jn.looks = append(g.jn.looks, u)
 	}
+	g.jn.lookKeys = append(g.jn.lookKeys, k.lookKeys[j.lookKeys[0]:j.lookKeys[1]]...)
 	for _, w := range k.words[j.words[0]:j.words[1]] {
 		g.seeText(w)
 	}
@@ -241,6 +248,9 @@ func (g *Game) sameJournal(k *journalBuffers, kept *entry, shift image.Point, fr
 		kept.lights[1]-kept.lights[0] != fresh.lights[1]-fresh.lights[0] {
 		return false
 	}
+	if !g.sameLookKeys(k, a, b) {
+		return false
+	}
 	near := func(x, y float64) bool { return x-y <= keepTolerance && y-x <= keepTolerance }
 	d := city.Point{X: float64(shift.X), Y: float64(shift.Y)}
 	for i := range a.looks.n() {
@@ -309,6 +319,49 @@ func (g *Game) sameJournal(k *journalBuffers, kept *entry, shift image.Point, fr
 			if x.indices[v] != y.indices[v] {
 				return false
 			}
+		}
+	}
+	return true
+}
+
+// sameKept is whether a kept record, moved by shift, is the drawable as
+// made afresh. One made afresh that is unsettled — it baked a look, drew
+// one straight whose key is new, or drew from one baked off the frame —
+// draws the same in another form, a look for steps or steps for a look,
+// so it is compared by what it was worked out from: its looks' keys, and
+// what no look holds, its lit panes, its glows and its windows.
+func (g *Game) sameKept(k *journalBuffers, was, kept *entry, shift image.Point, fresh *entry) bool {
+	if fresh.keeps {
+		return g.sameRecord(kept, fresh) && g.sameJournal(k, was, shift, fresh)
+	}
+	a, b := was.jn, fresh.jn
+	if !g.sameLookKeys(k, a, b) || a.litRects.n() != b.litRects.n() || a.glows.n() != b.glows.n() || a.windows != b.windows {
+		return false
+	}
+	d := city.Point{X: float64(shift.X), Y: float64(shift.Y)}
+	for i := range a.litRects.n() {
+		if !nearBox(moved(k.litRects[a.litRects[0]+i], shift), g.litRects[b.litRects[0]+i]) {
+			return false
+		}
+	}
+	for i := range a.glows.n() {
+		p, q := k.glows[a.glows[0]+i].Add(d), g.glows[b.glows[0]+i]
+		if p.X-q.X > keepTolerance || q.X-p.X > keepTolerance || p.Y-q.Y > keepTolerance || q.Y-p.Y > keepTolerance {
+			return false
+		}
+	}
+	return true
+}
+
+// sameLookKeys is whether two journals drew their look runs under the
+// same keys.
+func (g *Game) sameLookKeys(k *journalBuffers, a, b noteLog) bool {
+	if a.lookKeys.n() != b.lookKeys.n() {
+		return false
+	}
+	for i := range a.lookKeys.n() {
+		if k.lookKeys[a.lookKeys[0]+i] != g.jn.lookKeys[b.lookKeys[0]+i] {
+			return false
 		}
 	}
 	return true

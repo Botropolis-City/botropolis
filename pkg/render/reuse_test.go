@@ -14,6 +14,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // Item 212: a still drawable whose key holds keeps last frame's record,
@@ -299,6 +300,24 @@ func TestRecordReuse(t *testing.T) {
 		})
 	})
 
+	t.Run("when a city like the real history zooms all the way in, checked as a release checks, so records are kept between checks", func(t *testing.T) {
+		now := time.Date(2026, 10, 12, 10, 0, 0, 0, time.Local)
+		d, err := NewDrive(DriveOptions{Home: helpers.ParkedWeek(t, 217, now, "Full zoom"), Now: now, Width: 1920, Height: 1200})
+		require.NoError(t, err)
+		d.game.verifyEvery = releaseVerifyEvery
+		require.NoError(t, d.Run(30))
+		d.game.scene.Wheel(city.Point{X: 960, Y: 600}, 40)
+		stale := 0
+		for range 120 {
+			require.NoError(t, d.Tick())
+			stale += d.game.still.stats.stale
+		}
+
+		t.Run("it should find no kept record that differs from the one made afresh", func(t *testing.T) {
+			assert.Zero(t, stale)
+		})
+	})
+
 	t.Run("when reuse is off", func(t *testing.T) {
 		rc := settled(t)
 		rc.g.noReuse = true
@@ -328,6 +347,41 @@ func BenchmarkASettledFrameKeepingRecords(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
 				rc.frame()
+			}
+		})
+	}
+}
+
+// Item 212: what a settled frame of a city like the real history costs
+// at full zoom, with its still drawables' records kept and recorded
+// afresh, and how many of each kind it keeps and records afresh. It
+// reports and never gates.
+func BenchmarkAFullZoomFrameKeepingRecords(b *testing.B) {
+	for _, c := range []struct {
+		name  string
+		fresh bool
+	}{{"kept", false}, {"afresh", true}} {
+		b.Run(c.name, func(b *testing.B) {
+			d := fullZoom(b, DriveOptions{})
+			d.game.noReuse = c.fresh
+			for range 5 {
+				require.NoError(b, d.Tick())
+			}
+			var kept, fresh [kindsKept]int
+			frames := 0
+			b.ReportAllocs()
+			for b.Loop() {
+				require.NoError(b, d.Tick())
+				st := d.game.still.stats
+				for k := range kindsKept {
+					kept[k] += st.keptBy[k]
+					fresh[k] += st.freshBy[k]
+				}
+				frames++
+			}
+			for k := recordKind(1); k < kindsKept; k++ {
+				b.ReportMetric(float64(kept[k])/float64(frames), fmt.Sprintf("kept-%d/frame", k))
+				b.ReportMetric(float64(fresh[k])/float64(frames), fmt.Sprintf("fresh-%d/frame", k))
 			}
 		})
 	}

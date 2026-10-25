@@ -482,6 +482,7 @@ func (g *Game) keyOf(cam *city.Camera, f *buildingFrame, r run) lookKey {
 func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame, r run) {
 	g.lookStats.runs++
 	key := g.keyOf(cam, f, r)
+	g.jn.lookKeys = append(g.jn.lookKeys, key)
 	cell := lookCell(g.footOf(cam, f.b))
 	look, ok := g.looks.get(key)
 	switch {
