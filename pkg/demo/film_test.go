@@ -71,6 +71,14 @@ func TestCityArgs(t *testing.T) {
 		})
 	}
 
+	t.Run("when a still asks for a view and keys of its own", func(t *testing.T) {
+		args := cityArgs(Shot{Name: "s", View: "models", Keys: []string{"h"}}, "/h", "/o/s.png", "")
+
+		t.Run("it should press the view's keys before the shot's", func(t *testing.T) {
+			assert.Equal(t, append(base, "--window", "1920x1080", "--keys", "Digit3,Digit3,h", "--screenshot", "/o/s.png"), args)
+		})
+	})
+
 	t.Run("when a clip is recorded", func(t *testing.T) {
 		shot := Shot{Name: "c", Record: &Recording{Seconds: 12, FPS: 30}}
 

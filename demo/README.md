@@ -108,6 +108,8 @@ shots:
 
 A shot also takes `window`, `hover`, `detail`, `signage`, `scale` and its own `clock`.
 A clip's poster is the frame a third of the way in, unless `poster_at:` names the second to take it from.
+`view:` films the city in one of its views by name, `spend` or `fan-out`, pressing the lens keys a person would, and the manifest names the view.
+`layers` films a still of every view, and `testing/integration/demo/media_test.go` fails when the city has a view it does not.
 Unknown keys are refused, and so is a scenario that places no sessions.
 
 ## Start times and groups

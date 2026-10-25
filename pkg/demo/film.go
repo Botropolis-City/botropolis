@@ -28,7 +28,10 @@ type Shot struct {
 	Keys        []string `yaml:"keys"`
 	Hover       string   `yaml:"hover"`
 	Detail      string   `yaml:"detail"`
-	Signage     string   `yaml:"signage"`
+	// View films the city in one of its views, by name, reached by the
+	// lens keys a person would press (item 76).
+	View    string `yaml:"view"`
+	Signage string `yaml:"signage"`
 	// DistrictType films every new district as this type, or by the
 	// district_type setting's other modes (item 109).
 	DistrictType string `yaml:"district_type"`
@@ -89,8 +92,9 @@ func cityArgs(shot Shot, home, still, frames string, opts ...cityOption) []strin
 		window = defaultWindow
 	}
 	args = append(args, "--window", window)
-	if len(shot.Keys) > 0 {
-		args = append(args, "--keys", strings.Join(shot.Keys, ","))
+	keys, _ := viewKeys(shot.View)
+	if keys = append(keys, shot.Keys...); len(keys) > 0 {
+		args = append(args, "--keys", strings.Join(keys, ","))
 	}
 	for _, f := range []struct{ flag, value string }{
 		{"--hover", shot.Hover}, {"--detail", shot.Detail}, {"--signage", shot.Signage}, {"--district_type", shot.DistrictType},
@@ -185,6 +189,13 @@ type Media struct {
 	Height      int     `json:"height"`
 	Seconds     float64 `json:"seconds,omitempty"`
 	Poster      string  `json:"poster,omitempty"`
+	View        string  `json:"view,omitempty"`
+}
+
+// shotMedia is what a shot's manifest entries share, whatever files it
+// makes.
+func shotMedia(scenario Scenario, shot Shot) Media {
+	return Media{Scenario: scenario.Name, Shot: shot.Name, Title: shot.Title, Description: shot.Description, View: shot.View}
 }
 
 // Filmer stages each scenario afresh for every shot, so each one sees
@@ -357,7 +368,7 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 	if err != nil {
 		return nil, err
 	}
-	media := Media{Scenario: scenario.Name, Shot: shot.Name, Title: shot.Title, Description: shot.Description}
+	media := shotMedia(scenario, shot)
 	fmt.Fprintf(f.Log, "filming %s/%s\n", scenario.Name, shot.Name)
 	progress.Detail("filming")
 	if shot.Record == nil {

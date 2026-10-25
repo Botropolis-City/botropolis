@@ -115,6 +115,11 @@ func (s Scenario) Validate() error {
 		if len(shot.Script) > 0 && shot.Record == nil {
 			return fmt.Errorf("scenario %q: shot %q: a script plays only while recording", s.Name, shot.Name)
 		}
+		if shot.View != "" {
+			if _, err := viewKeys(shot.View); err != nil {
+				return fmt.Errorf("scenario %q: shot %q: %w", s.Name, shot.Name, err)
+			}
+		}
 		if err := shot.validPosterAt(); err != nil {
 			return fmt.Errorf("scenario %q: shot %q: %w", s.Name, shot.Name, err)
 		}
