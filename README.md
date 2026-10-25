@@ -193,8 +193,7 @@ The roads, trees, cars, trains, boats and landmarks are [Kenney](https://kenney.
 Every session's building, the drone, the plaza's fountain, and the skips, trucks and ruins of a building site are modelled here, in `tools/render-sprites/buildings.py` and `render.py`, in the kits' palette.
 Both are pre-rendered once in Blender by `tools/render-sprites` into the atlases under `pkg/assets/kits/` (four headings, two zoom levels),
 the way Factorio ships its sprites: the runtime only ever draws 2D.
-The 16 px Tiny Town, Tiny Factory and Roguelike Modern City packs are still bundled, though the top-down view that drew them is no longer offered.
-Thank you, Kenney; see [`pkg/assets/kenney/README.md`](pkg/assets/kenney/README.md) and [`pkg/assets/kits/README.md`](pkg/assets/kits/README.md) for the packs, versions and terms,
+Thank you, Kenney; see [`pkg/assets/kits/README.md`](pkg/assets/kits/README.md) for the kits, versions and terms,
 and [support the studio](https://kenney.nl/donate) if the work helps you too.
 
 The chrome is set in [Inter](https://rsms.me/inter/) by The Inter Project Authors, embedded from `pkg/assets/fonts` under the SIL Open Font License 1.1

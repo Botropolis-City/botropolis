@@ -34,7 +34,7 @@ The history of each is kept here because it explains code that still exists.
   Before that: milestone 5 shipped procedural shapes (vendoring third-party assets was Aria's call),
   then on 2026-09-17 three 16 px Kenney packs (Tiny Town, Tiny Factory, Roguelike Modern City),
   then the same day Kenney's 2D isometric packs for the isometric view.
-  Those remain in `pkg/assets/kenney/` until the rendered atlases replace them; the 16 px packs have been drawn by nothing since item 183 deleted the top-down drawing path.
+  The rendered atlases replaced them all: the 16 px packs drew nothing once the top-down drawing path was deleted, and item 183 removed them too.
 - **Stopped sessions.**
   Settled in milestone 5: catalogued by a head-and-tail window read over `projects/*/*.jsonl`, cached by size and mtime,
   aged by `parked_days` until item 86, which catalogues every transcript Claude Code still has.

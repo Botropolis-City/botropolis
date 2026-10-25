@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The bridge fades into fog.**
   A still bank of fog stands where the deck fades, with a thin mist along that coast, so the deck and its trucks vanish into something, by day and by night.
 
+### Removed
+
+- **The three 16 px Kenney tile packs**, Tiny Town, Tiny Factory and Roguelike Modern City, which only the retired top-down view drew.
+  The install is smaller, the city no longer loads them at startup, and the packages no longer ship `kenney-packs.md`; the 3D kits' credits stay in `kenney-kits.md`.
+
 ### Fixed
 
 - **The day's spend is whole as soon as the city has read your history.**

@@ -22,8 +22,7 @@ class Botropolis < Formula
     (share/"licenses/botropolis").install "pkg/assets/fonts/inter/LICENSE.txt" => "inter-OFL.txt",
                                           "pkg/assets/fonts/gomono/LICENSE" => "gomono-BSD.txt",
                                           "pkg/assets/kits/nature-kit/License.txt" => "kenney-CC0.txt",
-                                          "pkg/assets/kits/README.md" => "kenney-kits.md",
-                                          "pkg/assets/kenney/README.md" => "kenney-packs.md"
+                                          "pkg/assets/kits/README.md" => "kenney-kits.md"
   end
 
   def caveats

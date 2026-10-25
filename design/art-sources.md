@@ -9,7 +9,7 @@ Every picture comes from one of three places, and from nowhere else.
 
 1. **A human artist**, credited, and paid when the work is commissioned.
 2. **An openly licensed asset pack**, with its licence followed, its licence file committed beside what was taken from it, and its author thanked.
-   Today that is Kenney's CC0 kits, in `pkg/assets/kits/` and `pkg/assets/kenney/`, and Inter under the SIL Open Font License, in `pkg/assets/fonts/`, with Go Mono, by Bigelow & Holmes under the Go project's BSD licence, embedded from `golang.org/x/image` and its licence committed in `pkg/assets/fonts/gomono/`.
+   Today that is Kenney's CC0 kits, in `pkg/assets/kits/`, and Inter under the SIL Open Font License, in `pkg/assets/fonts/`, with Go Mono, by Bigelow & Holmes under the Go project's BSD licence, embedded from `golang.org/x/image` and its licence committed in `pkg/assets/fonts/gomono/`.
    The thanks are in the README.
 3. **Geometry built by hand in code**: primitives placed, sized and coloured in a Blender script (`tools/render-sprites/`) or shapes drawn in Go (`pkg/render/`), the way an artist models.
    Claude writing that code is allowed,
@@ -48,5 +48,5 @@ so for that this document is the guard.
 
 The audit of 2026-10-18 found the rule already held.
 All 155 atlas sprites are either from Kenney's kits or modelled from boxes and cylinders in `tools/render-sprites/buildings.py` and `render.py`; the in-house ones are the 95 under `botropolis/`.
-The 16 px packs are Kenney's.
+The 16 px packs were Kenney's, and went with the top-down map (item 183).
 Monument signs, scaffolding, badges, the river and the wires are vector shapes drawn in Go.

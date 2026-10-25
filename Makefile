@@ -424,7 +424,6 @@ tarball :: build completions man
 	@cp pkg/assets/fonts/gomono/LICENSE dist/botropolis-${VERSION}/gomono-BSD.txt
 	@cp pkg/assets/kits/nature-kit/License.txt dist/botropolis-${VERSION}/kenney-CC0.txt
 	@cp pkg/assets/kits/README.md dist/botropolis-${VERSION}/kenney-kits.md
-	@cp pkg/assets/kenney/README.md dist/botropolis-${VERSION}/kenney-packs.md
 	@cp -r packaging dist/botropolis-${VERSION}/packaging
 	@cp -r bin/completions dist/botropolis-${VERSION}/completions
 	@cp -r bin/man dist/botropolis-${VERSION}/man

@@ -50,4 +50,4 @@ The camera carries a heading (`r` turns it a quarter about the window's middle) 
 the wheel eases the zoom to its ladder target unless motion is reduced.
 The fit view shows the sprites; only far below it does the flat map view take over.
 The 2D isometric packs of 2026-09-17 are gone,
-and the 16 px packs have drawn nothing since the top-down drawing path was deleted (item 183).
+and so are the 16 px packs, which went with the top-down drawing path (item 183).

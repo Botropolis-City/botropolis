@@ -113,8 +113,6 @@ contents:
     dst: /usr/share/licenses/botropolis/kenney-CC0.txt
   - src: ./pkg/assets/kits/README.md
     dst: /usr/share/licenses/botropolis/kenney-kits.md
-  - src: ./pkg/assets/kenney/README.md
-    dst: /usr/share/licenses/botropolis/kenney-packs.md
 
 scripts:
   postinstall: ./packaging/postinstall.sh
