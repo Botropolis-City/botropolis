@@ -115,6 +115,7 @@ type fakeCity struct {
 	record     string
 	seconds    float64
 	headless   bool
+	anchors    string
 }
 
 func (f *fakeCity) Run(cmd *cobra.Command) error {
@@ -123,6 +124,7 @@ func (f *fakeCity) Run(cmd *cobra.Command) error {
 	f.keys = cli.Keys(cmd)
 	f.record, f.seconds = cli.Record(cmd)
 	f.headless = cli.Headless(cmd)
+	f.anchors = cli.Anchors(cmd)
 	return nil
 }
 

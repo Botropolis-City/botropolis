@@ -22,6 +22,17 @@ func Screenshot(cmd *cobra.Command) string {
 	return path
 }
 
+// AnchorsFlag names the flag that writes, beside a screenshot, where
+// each named thing in the city landed in it, so the website can place
+// its hotspots by the frame rather than by hand (item 76).
+const AnchorsFlag = "anchors"
+
+// Anchors is the path given with --anchors, or "".
+func Anchors(cmd *cobra.Command) string {
+	path, _ := cmd.Flags().GetString(AnchorsFlag)
+	return path
+}
+
 // KeysFlag names the flag that presses keys, one per frame, before a
 // screenshot is taken, so a zoomed or sidebar frame can be shot
 // without a hand on the keyboard.

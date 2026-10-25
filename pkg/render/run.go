@@ -53,6 +53,9 @@ type Options struct {
 	// Keys are pressed first, one per frame.
 	Screenshot string
 	Keys       []string
+	// Anchors, beside a screenshot, is a JSON file to write with where
+	// each named thing landed in the frame (item 76).
+	Anchors string
 	// Hover parks the pointer at a window position for a scripted frame,
 	// because --keys cannot move a mouse and some of the map only reacts
 	// to one. HoverSet says whether it was asked for, since 0,0 is a
@@ -187,6 +190,7 @@ func Run(ctx context.Context, opts Options) error {
 		scene.SetOpenOnRead(!framesOpenUnread)
 	}
 	game.screenshot = opts.Screenshot
+	game.anchorsPath = opts.Anchors
 	game.script = opts.Keys
 	game.hover, game.hoverSet = opts.Hover, opts.HoverSet
 	game.record = opts.Record

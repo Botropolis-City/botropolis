@@ -115,6 +115,9 @@ shots:
 
 A shot also takes `window`, `hover`, `detail`, `signage`, `scale` and its own `clock`.
 A clip's poster is the frame a third of the way in, unless `poster_at:` names the second to take it from.
+Every still's manifest entry carries `anchors`: where the plant, fountain, library, hall, depot, each `tower:<server>` and each `district:<name>` landed in it, in its own pixels, at the foot of each.
+Anything outside the frame is left out, and the river has none.
+`point_at` and `pan_to` take the same names.
 `view:` films the city in one of its views by name, `spend` or `fan-out`, pressing the lens keys a person would, and the manifest names the view.
 `layers` films a still of every view, and `testing/integration/demo/media_test.go` fails when the city has a view it does not.
 Unknown keys are refused, and so is a scenario that places no sessions.

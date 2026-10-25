@@ -50,6 +50,25 @@ func TestFrameFlags(t *testing.T) {
 			})
 		})
 
+		// Item 76: where each named thing landed in the still.
+		t.Run("and its anchors are asked for", func(t *testing.T) {
+			h := newHarness(&config.Config{})
+			require.NoError(t, h.run("city", "--screenshot", "out.png", "--anchors", "out.anchors.json"))
+
+			t.Run("it should hand the city the path to write them to", func(t *testing.T) {
+				assert.Equal(t, "out.anchors.json", h.city.anchors)
+			})
+		})
+
+		t.Run("and no anchors are asked for", func(t *testing.T) {
+			h := newHarness(&config.Config{})
+			require.NoError(t, h.run("city", "--screenshot", "out.png"))
+
+			t.Run("it should ask for none", func(t *testing.T) {
+				assert.Empty(t, h.city.anchors)
+			})
+		})
+
 		t.Run("and headless is asked for", func(t *testing.T) {
 			h := newHarness(&config.Config{})
 			require.NoError(t, h.run("city", "--headless", "--screenshot", "out.png"))

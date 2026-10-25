@@ -12,6 +12,7 @@ import "github.com/spf13/pflag"
 // every one but --signage.
 func addFrameFlags(flags *pflag.FlagSet, signage bool) {
 	AddScreenshotFlag(flags)
+	AddAnchorsFlag(flags)
 	AddKeysFlag(flags)
 	AddRecordFlags(flags)
 	AddHeadlessFlag(flags)
@@ -25,6 +26,10 @@ func addFrameFlags(flags *pflag.FlagSet, signage bool) {
 
 func AddScreenshotFlag(flags *pflag.FlagSet) {
 	flags.String(ScreenshotFlag, "", "render one frame to this PNG and exit")
+}
+
+func AddAnchorsFlag(flags *pflag.FlagSet) {
+	flags.String(AnchorsFlag, "", "with --screenshot, write where the plant, towers, districts and landmarks landed in it to this JSON file")
 }
 
 func AddKeysFlag(flags *pflag.FlagSet) {

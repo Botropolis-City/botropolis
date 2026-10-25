@@ -112,6 +112,15 @@ func TestCityArgs(t *testing.T) {
 		})
 	})
 
+	// Item 76: the city says where each named thing landed in a still.
+	t.Run("when a still asks for its anchors", func(t *testing.T) {
+		args := cityArgs(Shot{Name: "s"}, "/h", "/o/s.png", "", withAnchors(anchorsFile("/o/s.png")))
+
+		t.Run("it should ask for them in a file beside the still", func(t *testing.T) {
+			assert.Equal(t, []string{"--anchors", "/o/s.anchors.json"}, args[6:8])
+		})
+	})
+
 	t.Run("when the daemon is running for a timeline", func(t *testing.T) {
 		args := cityArgs(Shot{Name: "c"}, "/h", "/o/c.png", "", withSocket("/run/d.sock"))
 
@@ -294,6 +303,32 @@ func TestCropPoster(t *testing.T) {
 			left, _, _, _ := got.At(got.Bounds().Min.X, 0).RGBA()
 			right, _, _, _ := got.At(got.Bounds().Max.X-1, 0).RGBA()
 			assert.Equal(t, []uint32{0xffff, 0xffff}, []uint32{left, right})
+		})
+	})
+}
+
+func TestReadAnchors(t *testing.T) {
+	t.Run("when the city wrote anchors", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "s.anchors.json")
+		require.NoError(t, os.WriteFile(path, []byte(`{"plant": {"x": 812.5, "y": 403}, "district:kiln": {"x": 10, "y": 20}}`), 0o644))
+		got, err := readAnchors(path)
+		require.NoError(t, err)
+
+		t.Run("it should read every one for the still's manifest entry", func(t *testing.T) {
+			assert.Equal(t, map[string]Anchor{"plant": {X: 812.5, Y: 403}, "district:kiln": {X: 10, Y: 20}}, got)
+		})
+
+		t.Run("and it should not keep the file", func(t *testing.T) {
+			assert.NoFileExists(t, path)
+		})
+	})
+
+	t.Run("when it wrote none", func(t *testing.T) {
+		got, err := readAnchors(filepath.Join(t.TempDir(), "s.anchors.json"))
+		require.NoError(t, err)
+
+		t.Run("it should leave anchors out of the entry", func(t *testing.T) {
+			assert.Nil(t, got)
 		})
 	})
 }

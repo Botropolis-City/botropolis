@@ -87,6 +87,40 @@ func withSocket(sock string) cityOption {
 	return func(args *[]string) { (*args)[5] = sock }
 }
 
+// withAnchors asks the city to write, beside a still, where each named
+// thing landed in it (item 76).
+func withAnchors(path string) cityOption {
+	return func(args *[]string) { *args = append(*args, "--anchors", path) }
+}
+
+// anchorsFile is where a still's anchors are written, beside it.
+func anchorsFile(still string) string {
+	return strings.TrimSuffix(still, filepath.Ext(still)) + ".anchors.json"
+}
+
+// Anchor is where a named thing landed in a still, in its pixels.
+type Anchor struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+// readAnchors takes what the city wrote beside a still into the
+// manifest, and removes the file: the manifest is where they live.
+func readAnchors(path string) (map[string]Anchor, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var anchors map[string]Anchor
+	if err := json.Unmarshal(data, &anchors); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return anchors, os.Remove(path)
+}
+
 // cityArgs is the botropolis command line for one shot: a screenshot to
 // still, or frames into frames.
 func cityArgs(shot Shot, home, still, frames string, opts ...cityOption) []string {
@@ -257,6 +291,9 @@ type Media struct {
 	View        string  `json:"view,omitempty"`
 	// Crop is the shape cut from the middle of the frame, such as "4:5".
 	Crop string `json:"crop,omitempty"`
+	// Anchors is where each named thing landed in a still: the plant,
+	// "tower:<server>", "district:<name>" and the rest.
+	Anchors map[string]Anchor `json:"anchors,omitempty"`
 }
 
 // shotMedia is what a shot's manifest entries share, whatever files it
@@ -440,7 +477,10 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 	progress.Detail("filming")
 	if shot.Record == nil {
 		still := filepath.Join(dir, shot.Name+".png")
-		if err := f.city(work, tz, cityArgs(shot, home, still, "")); err != nil {
+		if err := f.city(work, tz, cityArgs(shot, home, still, "", withAnchors(anchorsFile(still)))); err != nil {
+			return nil, err
+		}
+		if media.Anchors, err = readAnchors(anchorsFile(still)); err != nil {
 			return nil, err
 		}
 		media.File, media.Kind, media.Format = rel(f.Out, still), "image", "png"

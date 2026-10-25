@@ -17,7 +17,7 @@ func TestCityFlagsAbsentFromReleaseBuilds(t *testing.T) {
 		require.NoError(t, h.run("city", "--help"))
 		help := h.out.String()
 
-		for _, flag := range []string{"screenshot", "keys", "hover", "record", "fps", "seconds", "script", "headless", "window", "signage"} {
+		for _, flag := range []string{"screenshot", "keys", "hover", "record", "fps", "seconds", "script", "headless", "window", "signage", "anchors"} {
 			t.Run("it should not list --"+flag, func(t *testing.T) {
 				assert.NotContains(t, help, "--"+flag)
 			})

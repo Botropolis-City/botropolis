@@ -174,9 +174,12 @@ type Game struct {
 
 	// screenshot mode: frames drawn since the first snapshot, and the result.
 	screenshot string
-	shotFrames int
-	shotErr    error
-	shotDone   bool
+	// anchorsPath, beside a screenshot, is where to write where each
+	// named thing landed in it (item 76).
+	anchorsPath string
+	shotFrames  int
+	shotErr     error
+	shotDone    bool
 	// script is the keys --keys asked for, pressed one per frame before
 	// the screenshot; scripted is this frame's.
 	script   []string
@@ -757,6 +760,17 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 	if target == "plant" && c.Plant.Rect.Area() > 0 {
 		return cam.WorldToScreen(c.Plant.Rect.Center()), true
 	}
+	if r, ok := landmarkRect(c, target); ok {
+		return cam.WorldToScreen(r.Center()), r.Area() > 0
+	}
+	if name, ok := strings.CutPrefix(target, "tower:"); ok {
+		for _, t := range c.Towers {
+			if t.Server.Name == name {
+				return cam.WorldToScreen(t.Rect.Center()), true
+			}
+		}
+		return city.Point{}, false
+	}
 	if target == "needs-you line" {
 		g.mu.Lock()
 		line := g.footerBar.WaitingRect
@@ -798,6 +812,26 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 		}
 	}
 	return city.Point{}, false
+}
+
+// landmarkRect is the ground a landmark named as a target stands on.
+func landmarkRect(c *city.City, target string) (city.Rect, bool) {
+	switch target {
+	case "fountain":
+		return c.Fountain, true
+	case "library":
+		return c.Library.Rect, true
+	case "hall":
+		return c.Hall.Rect, true
+	case "depot":
+		for _, d := range c.Districts {
+			if d.Depot {
+				return d.Rect, true
+			}
+		}
+		return city.Rect{}, true
+	}
+	return city.Rect{}, false
 }
 
 // homeTarget is where the camera stood when the clip began.
@@ -952,6 +986,10 @@ func (g *Game) capture(screen *ebiten.Image) {
 		return
 	}
 	g.shotErr = writePNG(g.screenshot, frame(screen))
+	if g.shotErr == nil && g.anchorsPath != "" {
+		b := screen.Bounds()
+		g.shotErr = writeAnchors(g.anchorsPath, g.anchors(float64(b.Dx()), float64(b.Dy())))
+	}
 	g.shotDone = true
 }
 
