@@ -58,6 +58,16 @@ func (c *lookCache[K, V]) get(key K) (V, bool) {
 	return e.Value.(*lookEntry[K, V]).value, true
 }
 
+// peek is the look kept under a key, without counting as using it.
+func (c *lookCache[K, V]) peek(key K) (V, bool) {
+	e, ok := c.entries[key]
+	if !ok {
+		var zero V
+		return zero, false
+	}
+	return e.Value.(*lookEntry[K, V]).value, true
+}
+
 // put keeps a look of a size in bytes, evicting the least recently used
 // until it fits; a look bigger than the whole cap is not kept.
 func (c *lookCache[K, V]) put(key K, value V, bytes int) {

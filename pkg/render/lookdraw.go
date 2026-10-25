@@ -73,6 +73,12 @@ func (g *Game) drawBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 		return
 	}
 	g.buildingHits(cam, &f)
+	g.paintBuilding(screen, cam, &f)
+}
+
+// paintBuilding draws a building from its frame, its hits noted: from
+// its baked looks where nothing in them moves.
+func (g *Game) paintBuilding(screen *ebiten.Image, cam *city.Camera, f *buildingFrame) {
 	// Its own lights are noted rather than drawn, so they are never
 	// baked, but they do not move.
 	for i := range f.live {
@@ -83,10 +89,10 @@ func (g *Game) drawBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 	}
 	for _, r := range runsOf(f.present, f.live) {
 		if !r.baked || g.looks == nil || g.noLookCache {
-			g.drawSteps(screen, cam, &f, r.from, r.to)
+			g.drawSteps(screen, cam, f, r.from, r.to)
 			continue
 		}
-		g.drawRun(screen, cam, &f, r)
+		g.drawRun(screen, cam, f, r)
 	}
 }
 
@@ -482,6 +488,7 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	case ok && look.inexact && g.wholeOnFrame(cam, f, screen):
 		// Baked while it ran off the frame, it is baked again, exactly,
 		// the first time it is drawn wholly on it.
+		g.rec.unsettle()
 		if exact := g.bake(cam, f, r, cell, g.bakeFrame(screen)); exact != nil {
 			look = exact
 			g.lookStats.bakes++
@@ -491,16 +498,23 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 		g.lookStats.hits++
 	case ok:
 		g.lookStats.hits++
+		if look.inexact {
+			// It is baked again once it is wholly on the frame, which a
+			// pan can bring about with nothing it is keyed by changing.
+			g.rec.unsettle()
+		}
+		g.journalLook(key, look)
 		if look.paged {
 			g.lookPages.use(look.onPage, g.lookFrame)
 		}
-		if g.textSeen != nil {
-			for _, w := range look.words {
-				g.textSeen(w)
-			}
+		for _, w := range look.words {
+			g.seeText(w)
 		}
 	case g.looks.steady(runID{id: f.b.Session.ID, run: r.from}, key, g.lookFrame):
 		look = g.bake(cam, f, r, cell, g.bakeFrame(screen))
+		if look != nil {
+			g.rec.unsettle()
+		}
 		if look == nil {
 			g.lookStats.misses++
 			g.drawSteps(screen, cam, f, r.from, r.to)
@@ -509,6 +523,8 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 		g.lookStats.bakes++
 		g.looks.put(key, look, look.img.Bounds().Dx()*look.img.Bounds().Dy()*4)
 	default:
+		// Its key is new: it is baked once the key holds a frame.
+		g.rec.unsettle()
 		g.lookStats.misses++
 		g.logMiss(f.b.Session.ID, r.from, key)
 		g.drawSteps(screen, cam, f, r.from, r.to)

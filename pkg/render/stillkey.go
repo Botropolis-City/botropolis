@@ -24,6 +24,7 @@ type entry struct {
 	key   uint64
 	keeps bool
 	world int
+	jn    noteLog
 }
 
 // stillSet is the still drawables a layer was composed from, counted by

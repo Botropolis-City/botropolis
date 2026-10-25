@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"sort"
+	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
@@ -494,9 +495,7 @@ func (g *Game) sign(screen *ebiten.Image, s ui.Sign, c color.NRGBA) {
 	if !g.shareAllows(s.Text) {
 		return
 	}
-	if g.textSeen != nil {
-		g.textSeen(s.Text)
-	}
+	g.seeText(s.Text)
 	op := &text.DrawOptions{}
 	op.GeoM.Scale(s.Scale, s.Scale)
 	if s.Vertical {
@@ -563,6 +562,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	defer frames.start()()
 	g.drawing.reset()
 	g.keepRecord()
+	g.houseWide = g.houseWideKey()
 	g.recorder().reset()
 	g.rec.origin = cameraOrigin(cam)
 	g.keyCam = cam
@@ -657,6 +657,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 				g.drawBuilding(screen, cam, b, b == selected, detailed, seconds)
 			}))
 			items[len(items)-1].kept = g.keeps(d)
+			items[len(items)-1].keyed = func() { g.noteBuilding(screen, cam, b, b == selected, detailed, seconds) }
 		}
 	}
 	for _, v := range g.scene.Voyages() {
@@ -879,6 +880,12 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		g.beginLights(int(width), int(height))
 	}
 	for _, d := range layered(cam, items, airborne) {
+		// While a hovered car fades the city, each draw is wrapped in
+		// its fade group, so nothing keeps its record (item 212).
+		if d.keyed != nil && fade == nil {
+			d.keyed()
+			continue
+		}
 		g.note(d.draw, d.moves)
 	}
 	fade.done()
@@ -1490,9 +1497,7 @@ func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 // its own, keyed by what it is drawn from, so a frame keeps their
 // records and a change records one lot again, not the city's (item 212).
 func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
-	if g.lotCity != c || g.lotKeys == nil {
-		g.lotKeys, g.lotCity = map[*city.Building]uint64{}, c
-	}
+	g.valuesFor(c)
 	for _, d := range c.Districts {
 		ground := g.dresser.dress(d)
 		if ground.Wear == 0 {
@@ -1509,17 +1514,100 @@ func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City
 		if g.scene.Dimmed(b) {
 			continue
 		}
-		value, ok := g.lotKeys[b]
-		if !ok {
-			value = valueHash(b)
-			g.lotKeys[b] = value
-		}
 		key := valueHash(struct {
 			building uint64
 			mowing   float64
-		}{value, g.scene.Mowing(b.Session.ID)})
+		}{g.buildingValue(b), g.scene.Mowing(b.Session.ID)})
 		g.noteKeyed(kindLotFloor, key, func() { g.lotFloor(screen, cam, b) })
 	}
+}
+
+// valuesFor starts the buildings' hashed values again for a city other
+// than the one they were hashed for.
+func (g *Game) valuesFor(c *city.City) {
+	if g.lotCity != c || g.lotKeys == nil {
+		g.lotKeys, g.lotCity = map[*city.Building]uint64{}, c
+	}
+}
+
+// buildingValue is a building's whole value hashed, once for the city
+// it stands in.
+func (g *Game) buildingValue(b *city.Building) uint64 {
+	value, ok := g.lotKeys[b]
+	if !ok {
+		value = valueHash(b)
+		g.lotKeys[b] = value
+	}
+	return value
+}
+
+// noteBuilding notes a building as drawBuilding draws it: its hits
+// every frame, and its painting keyed by its frame, so a building whose
+// frame holds keeps last frame's record (item 212).
+func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Building, selected, detailed bool, seconds float64) {
+	f, ok := g.buildingFrame(cam, b, selected, detailed, seconds)
+	if !ok {
+		g.note(func() {
+			g.buildingsDrawn++
+			g.drawBuilding(screen, cam, b, selected, detailed, seconds)
+		}, false)
+		return
+	}
+	g.buildingHits(cam, &f)
+	g.noteKeyed(kindHouse, g.buildingKey(&f), func() {
+		g.buildingsDrawn++
+		g.paintBuilding(screen, cam, &f)
+	})
+}
+
+// buildingKey is what a building is painted from: its frame, but for the
+// clock, which only its live steps read and a live step keeps no record,
+// and its lot's dressing, which is its value and its mowing; and what its
+// still steps read of the scene that its frame does not hold: its lit
+// flags' hoists, its scaffold, its title and whether its
+// top course is lit, each of which can change with the clock alone.
+func (g *Game) buildingKey(f *buildingFrame) uint64 {
+	v := *f
+	b := v.b
+	id := b.Session.ID
+	k := struct {
+		frame     buildingFrame
+		building  uint64
+		mowing    float64
+		hoists    [3]float64
+		scaffold  float64
+		title     string
+		courseLit bool
+		frameWide uint64
+	}{
+		building: g.buildingValue(b), mowing: g.scene.Mowing(id),
+		scaffold: g.scene.Scaffold(b), title: b.Card(g.scene.City().Time).Title,
+		courseLit: courseLit(b.Session, g.scene.Now()), frameWide: g.houseWide,
+	}
+	for i := range min(f.state.flags, len(k.hoists)) {
+		k.hoists[i] = g.flagHoist(b, i)
+	}
+	v.b, v.seconds, v.dress = nil, 0, lot{}
+	k.frame = v
+	return valueHash(k)
+}
+
+// houseWideKey is what every building's painting reads alike this
+// frame: the theme, the faces, the signage and what a share lets show.
+func (g *Game) houseWideKey() uint64 {
+	var share struct {
+		mode uintptr
+		own  bool
+	}
+	if g.share != nil {
+		share.mode, share.own = uintptr(unsafe.Pointer(g.share)), g.share.own
+	}
+	return valueHash(struct {
+		theme   ui.Theme
+		faces   uintptr
+		signage city.Signage
+		share   any
+	}{g.theme, uintptr(unsafe.Pointer(g.faces)), g.signage, share})
 }
 
 // districtFloor paints a district's aged floor: its worn paving, its

@@ -21,6 +21,9 @@ type drawable struct {
 	right  float64   // units — only the ordering of these matters
 	turned city.Rect // the footprint in the camera's frame
 	draw   func()
+	// keyed, when set, notes it in place of note, keeping its record
+	// while what it is drawn from holds (item 212).
+	keyed func()
 	// kept is whether it stays at full strength while a hovered car
 	// fades everything not tied to it (item 108).
 	kept bool

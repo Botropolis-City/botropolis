@@ -301,9 +301,16 @@ type Game struct {
 	faultyKeys  bool
 	// keyCam is the camera the frame is drawn through, and lotKeys each
 	// building's value hashed, for the city built from lotCity.
-	keyCam  *city.Camera
-	lotKeys map[*city.Building]uint64
-	lotCity *city.City
+	keyCam *city.Camera
+	// jn is the frame's journal buffers, litHash the panes lit so far
+	// this frame, and litFrame whether it lays lights (item 212).
+	jn journalBuffers
+	// houseWide is what every building reads alike this frame.
+	houseWide uint64
+	litHash   uint64
+	litFrame  bool
+	lotKeys   map[*city.Building]uint64
+	lotCity   *city.City
 	// frameBounds is the frame the dry pass records for, which a look
 	// is baked at the coordinates of (item 233).
 	frameBounds image.Rectangle
@@ -1289,9 +1296,7 @@ func (g *Game) text(screen *ebiten.Image, at city.Point, s string, size ui.Size,
 	if !g.shareAllows(s) {
 		return
 	}
-	if g.textSeen != nil {
-		g.textSeen(s)
-	}
+	g.seeText(s)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(at.X, at.Y)
 	op.ColorScale.ScaleWithColor(c)

@@ -30,6 +30,59 @@ var keyedDraws = map[recordKind]struct {
 		"g.weedFade":   "worked out by dressing, from the lot's mowing and reduced motion, before it is read",
 		"scene.Mowing": "the lot's key",
 	})},
+	kindHouse: {"paintBuilding", houseReads},
+}
+
+// houseReads is what a building's painting reads beyond its frame, and
+// how its key covers it.
+var houseReads = map[string]string{
+	"g.rec":         "the recorder: where the draws go",
+	"g.paint":       "the painter, which hands every draw to the recorder",
+	"g.kits":        "frameKey: the kits' generation, and the zoom the level is picked by",
+	"g.drawing":     "a sink: world draws, counted, and counted again when kept",
+	"g.reduced":     "frameKey",
+	"scene.View":    "frameKey: whether a view drains the colour",
+	"g.looks":       "frameKey: the cache; a kept look must still be cached as the same look",
+	"g.lookPages":   "frameKey: the pages and the times one started again",
+	"g.noLookCache": "frameKey",
+	"g.lookStats":   "a sink: counted, and counted again when kept",
+	"g.lookFrame":   "the frame a look is used at, noted again when kept; and where a look bakes",
+	"g.frameBounds": "read where a look bakes, which keeps no record",
+	"g.still":       "the scratch a look bakes through, which keeps no record",
+	"g.jn":          "the journal: words and looks, done again when kept",
+	"g.textSeen":    "a sink: words, journalled and told again when kept",
+	"g.theme":       "houseWide",
+	"g.faces":       "houseWide",
+	"g.signage":     "houseWide",
+	"g.share":       "houseWide: the share and whether it is yours",
+	"g.lightsOn":    "frameKey: lights, and the panes lit before it",
+	"g.litHash":     "frameKey: the panes lit before it; folded again when kept",
+	"g.litRects":    "the journal: panes, laid again when kept",
+	"g.litBounds":   "the journal: widened again when kept",
+	"g.lightOps":    "the journal: light ops, laid again when kept",
+	"g.meshCut":     "set afresh by every drawable, and by a kept one",
+	"g.cuts":        "a sink: counted, and counted again when kept",
+	"g.punches":     "a sink: counted, and counted again when kept",
+	"g.windowDraws": "a sink: counted, and counted again when kept",
+	"g.baking":      "set only while a look bakes, which keeps no record",
+	"g.paintUncut":  "set only while a look bakes, which keeps no record",
+	// The clock reaches the painting only through attention, which only
+	// a pulsing beacon reads, and a pulsing beacon is a live step.
+	"g.driven":            "the clock, read only by a pulsing beacon, a live step",
+	"g.record":            "the clock, read only by a pulsing beacon, a live step",
+	"g.ticks":             "the clock, read only by a pulsing beacon, a live step",
+	"g.started":           "the clock, read only by a pulsing beacon, a live step",
+	"g.motion":            "the clock, read only by a pulsing beacon, a live step",
+	"g.liveliness":        "the clock, read only by a pulsing beacon, a live step",
+	"scene.City":          "buildingKey: the title, from the city's time",
+	"scene.Now":           "buildingKey: whether the top course is lit",
+	"scene.Lights":        "its frame: lit as its rise, its construction and its haul are, all in its frame",
+	"scene.Hoist":         "buildingKey: its flags' hoists",
+	"scene.Scaffold":      "buildingKey: its scaffold",
+	"scene.Rising":        "its frame's rise",
+	"scene.Celebration":   "its frame's state: a celebration is a live step",
+	"scene.CompactionJob": "its frame's state: a course pouring is a live step",
+	"scene.Loads":         "its frame's state: loads on the hoist are a live step",
 }
 
 // agedFloorReads is what an aged floor reads, and how its key covers it.
@@ -57,7 +110,7 @@ func with(reads, more map[string]string) map[string]string {
 // gameReads walks every function of the package a method of the game
 // can reach and returns what it reads of the game, as "g.field", and
 // what it asks of the scene, as "scene.Method".
-func gameReads(t *testing.T, root string) map[string]bool {
+func gameReads(t *testing.T, root string) map[string]string {
 	t.Helper()
 	files, err := filepath.Glob("*.go")
 	require.NoError(t, err)
@@ -86,7 +139,7 @@ func gameReads(t *testing.T, root string) map[string]bool {
 		}
 	}
 	require.Contains(t, methods, root, "precondition: the draw is a method of the game")
-	reads, seen := map[string]bool{}, map[*ast.FuncDecl]bool{}
+	reads, seen := map[string]string{}, map[*ast.FuncDecl]bool{}
 	var walk func(fn *ast.FuncDecl)
 	walk = func(fn *ast.FuncDecl) {
 		if seen[fn] {
@@ -101,12 +154,16 @@ func gameReads(t *testing.T, root string) map[string]bool {
 						walk(m)
 						return true
 					}
-					reads["g."+n.Sel.Name] = true
+					if _, ok := reads["g."+n.Sel.Name]; !ok {
+						reads["g."+n.Sel.Name] = fn.Name.Name
+					}
 					return true
 				}
 				if inner, ok := n.X.(*ast.SelectorExpr); ok {
 					if id, ok := inner.X.(*ast.Ident); ok && id.Name == "g" && inner.Sel.Name == "scene" {
-						reads["scene."+n.Sel.Name] = true
+						if _, ok := reads["scene."+n.Sel.Name]; !ok {
+							reads["scene."+n.Sel.Name] = fn.Name.Name
+						}
 						return false
 					}
 				}
@@ -130,13 +187,13 @@ func TestKeyedDrawsRead(t *testing.T) {
 		t.Run("when "+kind.String()+"'s draw reads the game's or the scene's state", func(t *testing.T) {
 			reads := gameReads(t, d.draw)
 			var unkeyed, unread []string
-			for r := range reads {
+			for r, in := range reads {
 				if _, ok := d.reads[r]; !ok {
-					unkeyed = append(unkeyed, r)
+					unkeyed = append(unkeyed, r+" (in "+in+")")
 				}
 			}
 			for r := range d.reads {
-				if !reads[r] {
+				if _, ok := reads[r]; !ok {
 					unread = append(unread, r)
 				}
 			}

@@ -243,6 +243,7 @@ func (g *Game) beginLights(width, height int) {
 	g.lightsOn, g.windowDraws, g.landmarkDraws, g.punches, g.cuts = true, 0, 0, 0, 0
 	g.meshCut = -1
 	g.paint.Cut = lightCutter{g}
+	g.litHash, g.litFrame = 0, true
 }
 
 // endLights lays the night's lights in the order noted, each sprite and
@@ -438,6 +439,7 @@ func (g *Game) noteLightsTinted(vertices []ebiten.Vertex, indices []uint16, page
 		}
 		g.litBounds = g.litBounds.Union(pane)
 		g.litRects = append(g.litRects, pane)
+		g.foldLit(pane)
 	}
 	g.meshCut = -1
 	g.lightOps = append(g.lightOps, lightOp{vertices: vertices, indices: indices, src: page, warm: warm, from: first, to: len(g.litRects)})

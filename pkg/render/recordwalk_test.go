@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"maps"
 	"math/rand/v2"
+	"os"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -43,6 +46,13 @@ func newRecordCity(t testing.TB) *recordCity {
 			s.State, s.LastActivity = state.Resting, at.Add(-time.Duration(40+i)*24*time.Hour)
 		default:
 			s.State, s.LastActivity = state.Resting, at.Add(-time.Duration(3+i)*24*time.Hour)
+		}
+		if i == 3 {
+			// Its top course glows until the clock moves on.
+			s.Compactions, s.LastCompactionAt = 2, at.Add(-courseGlow+20*time.Second)
+		}
+		if i == 6 {
+			s.PRs = []claude.PR{{Number: 1, URL: "https://example.com/pr/1", State: claude.PROpen}, {Number: 2, URL: "https://example.com/pr/2", State: claude.PRMerged}}
 		}
 		sessions = append(sessions, s)
 	}
@@ -147,6 +157,18 @@ func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
 					State: state.Resting, StartedAt: rc.now.Add(-time.Hour), LastActivity: rc.now.Add(-time.Duration(rnd.IntN(60)) * 24 * time.Hour)})
 			})
 		}},
+		{"a pull request opens or merges", func() {
+			rc.snap(func(s *state.Snapshot) {
+				sess := &s.Sessions[rnd.IntN(len(s.Sessions))]
+				sess.PRs = slices.Clone(sess.PRs)
+				if len(sess.PRs) > 0 && rnd.IntN(2) == 0 {
+					sess.PRs[0].State = claude.PRMerged
+					return
+				}
+				n := 10 + len(sess.PRs)
+				sess.PRs = append(sess.PRs, claude.PR{Number: n, URL: fmt.Sprintf("https://example.com/%s/pr/%d", sess.ID, n), State: claude.PROpen})
+			})
+		}},
 		{"the pointer moves", func() {
 			all := hits()
 			rc.scene.SetHover(all[rnd.IntN(len(all))])
@@ -168,6 +190,21 @@ func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
 			cam.Zoom = zs[rnd.IntN(len(zs))]
 		}},
 		{"night falls or lifts", func() { rc.scene.CycleLight() }},
+		{"the look pages fill and start again", func() {
+			// Pages a few looks wide, so looks find no room, are drawn
+			// straight, and pages start again under kept records.
+			if rc.g.lookPages != nil {
+				rc.g.lookPages.release()
+			}
+			rc.g.lookPages = newLookPages(2, 96+rnd.IntN(4)*64)
+			for _, k := range rc.g.looks.keys() {
+				rc.g.looks.remove(k)
+			}
+		}},
+		{"the clock moves a moment", func() {
+			// Less than a scaffold takes to come down or a flag to go up.
+			rc.now = rc.now.Add(time.Duration(50+rnd.IntN(650)) * time.Millisecond)
+		}},
 		{"the clock moves on", func() {
 			rc.now = rc.now.Add(time.Duration(1+rnd.IntN(3600)) * time.Second)
 		}},
@@ -184,7 +221,7 @@ func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
 		}
 		// A snapshot is taken with the pointer on bare ground, so only
 		// the snapshot can move a key (item 207).
-		if k < 3 {
+		if k < 4 {
 			rc.scene.SetHover(city.Hit{})
 		}
 		changes[k].do()
@@ -208,7 +245,10 @@ func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
 func TestTheRecordKeyWalk(t *testing.T) {
 	t.Run("when snapshots, the pointer, the view, the selection, the camera, night and the clock wander at random", func(t *testing.T) {
 		seed := uint64(time.Now().UnixNano())
-		t.Logf("seed %d", seed)
+		if s, err := strconv.ParseUint(os.Getenv("RECORD_WALK_SEED"), 10, 64); err == nil {
+			seed = s
+		}
+		t.Logf("seed %d (RECORD_WALK_SEED replays it)", seed)
 		stale, reused := recordWalk(t, seed, 60)
 
 		t.Run("it should find no kept record that differs from the one made afresh, after every step", func(t *testing.T) {

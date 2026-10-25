@@ -95,6 +95,9 @@ type drawList struct {
 	// moving is whether the drawable recorded now said it moves, and
 	// active whether it said it shows activity.
 	moving, active bool
+	// unsettled is whether it changed a cache, or would draw otherwise
+	// with nothing it is keyed by changing (item 212).
+	unsettled bool
 	// shifted and shiftedPts are buffers for playing a draw moved.
 	shifted    []ebiten.Vertex
 	shiftedPts []city.Point
@@ -193,7 +196,7 @@ func (l *drawList) ImageOn(dst, img, page *ebiten.Image, op *ebiten.DrawImageOpt
 		return
 	}
 	l.push(drawCmd{kind: cmdImage, src: img, page: page, img: *op}, imageBox(img, op.GeoM))
-	l.hashImage(img)
+	l.hashSource(img, page)
 	l.hashGeoM(op.GeoM)
 	l.hashScale(op.ColorScale)
 	l.hashInt(uint64(op.Filter), uint64(blendBits(op.Blend)))
@@ -208,7 +211,7 @@ func (l *drawList) colorm(dst, img, page *ebiten.Image, m colorm.ColorM, op *col
 		return
 	}
 	l.push(drawCmd{kind: cmdColorM, src: img, page: page, cm: m, cmImg: *op}, imageBox(img, op.GeoM))
-	l.hashImage(img)
+	l.hashSource(img, page)
 	l.hashGeoM(op.GeoM)
 	for i := range 4 {
 		for j := range 5 {
@@ -545,6 +548,27 @@ func (l *drawList) hashScale(s ebiten.ColorScale) {
 func (l *drawList) hashImage(img *ebiten.Image) {
 	b := img.Bounds()
 	l.hashInt(uint64(uintptr(unsafe.Pointer(img))), uint64(b.Min.X), uint64(b.Min.Y), uint64(b.Max.X), uint64(b.Max.Y))
+}
+
+// hashSource hashes which pixels a draw reads: a sprite cut from a page
+// is the page and where on it, since Ebitengine lets a sub-image go
+// from its cache after 60 ticks unused, and the next cut of the same
+// rect is a new image of the same pixels (item 212).
+func (l *drawList) hashSource(img, page *ebiten.Image) {
+	if page == nil {
+		l.hashImage(img)
+		return
+	}
+	b := img.Bounds()
+	l.hashInt(uint64(uintptr(unsafe.Pointer(page))), uint64(b.Min.X), uint64(b.Min.Y), uint64(b.Max.X), uint64(b.Max.Y))
+}
+
+// sameSource is whether two draws read the same pixels.
+func sameSource(a, b *drawCmd) bool {
+	if a.page != nil && a.page == b.page && a.src != nil && b.src != nil {
+		return a.src.Bounds() == b.src.Bounds()
+	}
+	return a.src == b.src
 }
 
 func faceID(face text.Face) unsafe.Pointer {

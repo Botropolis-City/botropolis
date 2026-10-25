@@ -33,6 +33,8 @@ type lookPages struct {
 	used []int
 	// full is whether a look found no room this frame.
 	full bool
+	// generation counts the pages started again (item 212).
+	generation int
 }
 
 func newLookPages(most, size int) *lookPages {
@@ -104,6 +106,7 @@ func (p *lookPages) next(frame int, forget func(lookKey)) {
 	}
 	p.keys[i] = p.keys[i][:0]
 	p.pages[i].reset()
+	p.generation++
 }
 
 // image is page i's image, made the first time it is drawn into.

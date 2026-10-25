@@ -90,6 +90,8 @@ type stillStats struct {
 	// how many keyed ones were recorded afresh, and stale how many kept
 	// records differed from the one made afresh (item 212).
 	reused, fresh, stale int
+	// keptBy and freshBy are reused and fresh by kind.
+	keptBy, freshBy [kindsKept]int
 }
 
 // note runs a drawable: onto the frame when nothing is recorded, or in
@@ -106,7 +108,7 @@ func (g *Game) note(draw func(), moves bool) {
 	// with it alone.
 	g.meshCut = -1
 	l.begin()
-	l.moving, l.active = false, false
+	l.moving, l.active, l.unsettled = false, false, false
 	draw()
 	e := entry{inked: l.end(), moves: moves || l.moving, active: moves || l.active, lights: [2]int{first, len(g.lightOps)}}
 	if first < len(g.lightOps) {
