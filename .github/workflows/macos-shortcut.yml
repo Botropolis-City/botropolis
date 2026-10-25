@@ -30,6 +30,29 @@ jobs:
         env:
           BOTROPOLIS_FRAMES: ${{ runner.temp }}/frames
         run: go test -count=1 -v -timeout 10m -run 'OnMacOS' ./testing/integration/hotkey/
+      # The settings row in the city's own live window, as a Mac shows it,
+      # for Aria to judge: off, asking, a combination saved, and an
+      # Option-only one refused. The city records its own frames too, but
+      # the screencaptures are the frames, since they show macOS's scaling
+      # and fonts. One key every two seconds; a capture every second.
+      - name: Build the city with the frame tooling
+        run: go build -tags devtools -o "$RUNNER_TEMP/botropolis" ./cmd/botropolis
+      - name: The settings row in a live window
+        env:
+          FRAMES: ${{ runner.temp }}/frames
+          KEYS: s,arrowdown,arrowdown,arrowdown,arrowdown,arrowdown,arrowdown,arrowdown,arrowdown,arrowdown,arrowdown,arrowdown,enter,cmd+shift+k,enter,alt+f
+        run: |
+          mkdir -p "$FRAMES/row/live" "$FRAMES/row/rendered" "$RUNNER_TEMP/home/.claude/projects"
+          "$RUNNER_TEMP/botropolis" city --home "$RUNNER_TEMP/home" --socket "$RUNNER_TEMP/none.sock" \
+            --config "$RUNNER_TEMP/config.toml" --record "$FRAMES/row/rendered" --fps 1 --seconds 40 --keys "$KEYS" &
+          city=$!
+          i=0
+          while kill -0 "$city" 2>/dev/null; do
+            screencapture -x "$FRAMES/row/live/$(printf %03d "$i").png"
+            i=$((i + 1))
+            sleep 1
+          done
+          wait "$city"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

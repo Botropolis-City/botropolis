@@ -14,47 +14,16 @@ import (
 	"botropolis.city/botropolis/pkg/config"
 )
 
-// Activation is the call that brings the window forward. Since macOS 14
-// activating is a request the system may refuse, and which of these it
-// honours for a hot key the application itself received is what the
-// macOS job finds out. Item 95.
-type Activation int
-
 const (
-	// Activate is NSApplication's activate, macOS 14's cooperative call.
-	Activate Activation = iota
-	// ActivateIgnoringOtherApps is the call activate replaced, deprecated in 14.
-	ActivateIgnoringOtherApps
-	// SetFrontProcess is Carbon's deprecated SetFrontProcessWithOptions.
-	SetFrontProcess
+	hotKeySignature       = 0x62747270 // 'btrp'
+	eventClassKeyboard    = 0x6b657962 // 'keyb'
+	eventHotKeyPressed    = 5
+	eventHotKeyInvalidErr = -9868
+	eventHotKeyExistsErr  = -9878
+	carbonPath            = "/System/Library/Frameworks/Carbon.framework/Carbon"
+	appKitPath            = "/System/Library/Frameworks/AppKit.framework/AppKit"
+	libSystemPath         = "/usr/lib/libSystem.B.dylib"
 )
-
-func (a Activation) String() string {
-	switch a {
-	case Activate:
-		return "activate"
-	case ActivateIgnoringOtherApps:
-		return "activateIgnoringOtherApps"
-	case SetFrontProcess:
-		return "SetFrontProcessWithOptions"
-	}
-	return fmt.Sprintf("Activation(%d)", int(a))
-}
-
-const (
-	hotKeySignature           = 0x62747270 // 'btrp'
-	eventClassKeyboard        = 0x6b657962 // 'keyb'
-	eventHotKeyPressed        = 5
-	setFrontProcessWindowOnly = 1
-	eventHotKeyInvalidErr     = -9868
-	eventHotKeyExistsErr      = -9878
-	carbonPath                = "/System/Library/Frameworks/Carbon.framework/Carbon"
-	applicationServicesPath   = "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
-	appKitPath                = "/System/Library/Frameworks/AppKit.framework/AppKit"
-	libSystemPath             = "/usr/lib/libSystem.B.dylib"
-)
-
-type processSerialNumber struct{ high, low uint32 }
 
 var mac struct {
 	once sync.Once
@@ -64,16 +33,14 @@ var mac struct {
 	install    func(target, handler, count uintptr, specs *[2]uint32, user uintptr, out *uintptr) int32
 	register   func(code, mods uint32, id uint64, target uintptr, options uint32, out *uintptr) int32
 	unregister func(ref uintptr) int32
-	setFront   func(psn *processSerialNumber, options uint32) int32
-	process    func(psn *processSerialNumber) int32
 
 	isMain     func() int32
 	asyncF     func(queue, context, work uintptr)
-	syncF      func(queue, context, work uintptr)
 	mainQueue  uintptr
 	trampoline uintptr
 
-	handler uintptr
+	handler    uintptr
+	installErr atomic.Pointer[error]
 
 	mu      sync.Mutex
 	next    uintptr
@@ -92,13 +59,21 @@ func bind(handle uintptr, fn any, name string) error {
 	return nil
 }
 
+func unsupported(err error) error {
+	return fmt.Errorf("%w (%v); %s", ErrUnsupported, err, Fallback)
+}
+
+// loadMac binds Carbon and libdispatch, and installs the hot key handler
+// on the main thread without waiting for it: Ebitengine's main thread
+// drains the main queue only while it polls events, and nothing drains
+// it in a test, so waiting would hang. Item 95.
 func loadMac() error {
 	mac.once.Do(func() {
 		handles := map[string]uintptr{}
-		for _, path := range []string{carbonPath, applicationServicesPath, appKitPath, libSystemPath} {
+		for _, path := range []string{carbonPath, appKitPath, libSystemPath} {
 			h, err := purego.Dlopen(path, purego.RTLD_NOW|purego.RTLD_GLOBAL)
 			if err != nil {
-				mac.err = fmt.Errorf("%w (%v); %s", ErrUnsupported, err, Fallback)
+				mac.err = unsupported(err)
 				return
 			}
 			handles[path] = h
@@ -112,20 +87,17 @@ func loadMac() error {
 			{carbonPath, &mac.install, "InstallEventHandler"},
 			{carbonPath, &mac.register, "RegisterEventHotKey"},
 			{carbonPath, &mac.unregister, "UnregisterEventHotKey"},
-			{applicationServicesPath, &mac.setFront, "SetFrontProcessWithOptions"},
-			{applicationServicesPath, &mac.process, "GetCurrentProcess"},
 			{libSystemPath, &mac.isMain, "pthread_main_np"},
 			{libSystemPath, &mac.asyncF, "dispatch_async_f"},
-			{libSystemPath, &mac.syncF, "dispatch_sync_f"},
 		} {
 			if err := bind(handles[b.lib], b.fn, b.name); err != nil {
-				mac.err = fmt.Errorf("%w (%v); %s", ErrUnsupported, err, Fallback)
+				mac.err = unsupported(err)
 				return
 			}
 		}
 		q, err := purego.Dlsym(handles[libSystemPath], "_dispatch_main_q")
 		if err != nil {
-			mac.err = fmt.Errorf("%w (%v); %s", ErrUnsupported, err, Fallback)
+			mac.err = unsupported(err)
 			return
 		}
 		mac.mainQueue = q
@@ -149,13 +121,13 @@ func loadMac() error {
 			}
 			return 0
 		})
-		var installed uintptr
-		mac.err = onMainWait(func() error {
+		onMain(func() {
+			var installed uintptr
 			specs := [2]uint32{eventClassKeyboard, eventHotKeyPressed}
 			if status := mac.install(mac.appTarget(), mac.handler, 1, &specs, 0, &installed); status != 0 {
-				return fmt.Errorf("%w (InstallEventHandler returned %d); %s", ErrUnsupported, status, Fallback)
+				err := unsupported(fmt.Errorf("InstallEventHandler returned %d", status))
+				mac.installErr.Store(&err)
 			}
-			return nil
 		})
 	})
 	return mac.err
@@ -169,18 +141,6 @@ func queued(f func()) uintptr {
 	return mac.next
 }
 
-// onMainWait runs f on the main thread and waits for it. Ebitengine's
-// main thread drains the main queue only while it polls events, between
-// frames, so this is for before the city runs, never from Update.
-func onMainWait(f func() error) error {
-	if mac.isMain() != 0 {
-		return f()
-	}
-	var err error
-	mac.syncF(mac.mainQueue, queued(func() { err = f() }), mac.trampoline)
-	return err
-}
-
 // onMain runs f on the main thread when it next drains the main queue,
 // without waiting.
 func onMain(f func()) {
@@ -192,23 +152,21 @@ func onMain(f func()) {
 }
 
 // macOS registers one combination through Carbon's RegisterEventHotKey,
-// which needs no Accessibility permission, and comes forward with how.
+// which needs no Accessibility permission. The macOS job found that it
+// accepts a registration from a thread other than the main one, which
+// is where Ebitengine's Update runs.
 type macOS struct {
-	how   Activation
 	fired chan uint32
 
 	mu  sync.Mutex
 	ref uintptr
 }
 
-// OpenMacOS is the macOS desktop, coming forward with how. It installs
-// the hot key handler on the main thread, so it is called before the
-// city runs, or while the main thread runs its loop.
-func OpenMacOS(how Activation) (Desktop, error) {
+func openMacOS() (Desktop, error) {
 	if err := loadMac(); err != nil {
 		return nil, err
 	}
-	d := &macOS{how: how, fired: make(chan uint32, 1)}
+	d := &macOS{fired: make(chan uint32, 1)}
 	current.Store(d)
 	return d, nil
 }
@@ -218,6 +176,9 @@ func (d *macOS) Fired() <-chan uint32 { return d.fired }
 func (d *macOS) Grab(c config.Chord) error {
 	if err := RefusedOn("darwin", c); err != nil {
 		return err
+	}
+	if err := mac.installErr.Load(); err != nil {
+		return *err
 	}
 	k, err := carbonChord(c)
 	if err != nil {
@@ -256,25 +217,20 @@ func (d *macOS) Release() error {
 	return nil
 }
 
-// Raise asks for the window to come forward, on the main thread at its
-// next drain; whether the system honours it is the system's call.
+// Raise asks for the window to come forward with NSApplication's
+// activate, on the main thread at its next drain, and before macOS 14,
+// which has no activate, with activateIgnoringOtherApps. The macOS job
+// found that activate brings the window forward for a hot key the city
+// received; activateIgnoringOtherApps and SetFrontProcessWithOptions
+// did too, and both are deprecated.
 func (d *macOS) Raise(uint32) bool {
-	how := d.how
 	onMain(func() {
-		switch how {
-		case SetFrontProcess:
-			var psn processSerialNumber
-			if mac.process(&psn) == 0 {
-				mac.setFront(&psn, setFrontProcessWindowOnly)
-			}
-		default:
-			app := objc.ID(objc.GetClass("NSApplication")).Send(objc.RegisterName("sharedApplication"))
-			if how == Activate && objc.Send[bool](app, objc.RegisterName("respondsToSelector:"), objc.RegisterName("activate")) {
-				app.Send(objc.RegisterName("activate"))
-				return
-			}
-			app.Send(objc.RegisterName("activateIgnoringOtherApps:"), true)
+		app := objc.ID(objc.GetClass("NSApplication")).Send(objc.RegisterName("sharedApplication"))
+		if objc.Send[bool](app, objc.RegisterName("respondsToSelector:"), objc.RegisterName("activate")) {
+			app.Send(objc.RegisterName("activate"))
+			return
 		}
+		app.Send(objc.RegisterName("activateIgnoringOtherApps:"), true)
 	})
 	return true
 }

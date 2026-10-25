@@ -1,7 +1,7 @@
 // Package hotkey registers the global shortcut that opens the finder
 // from any application and brings the city's window forward, on the
-// desktops that have a way to: X11 today. It grabs nothing until a
-// combination is set. Item 84.
+// desktops that have a way to: X11 (item 84) and macOS (item 95). It
+// grabs nothing until a combination is set.
 package hotkey
 
 import (
@@ -57,8 +57,14 @@ func Open(goos string, getenv func(string) string) (Desktop, error) {
 		if display := getenv("DISPLAY"); display != "" {
 			return openX11(display)
 		}
+	case "darwin":
+		return openMacOS()
 	}
-	return nil, fmt.Errorf("%w; %s", ErrUnsupported, Fallback)
+	return nil, unsupportedHere()
+}
+
+func unsupportedHere() error {
+	return fmt.Errorf("%w; %s", ErrUnsupported, Fallback)
 }
 
 // common is what a chord already means in most applications, for the

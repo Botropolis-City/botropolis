@@ -93,9 +93,7 @@ func firedWithin(d hotkey.Desktop, wait time.Duration) bool {
 }
 
 func TestGlobalShortcutOnMacOS(t *testing.T) {
-	d, err := hotkey.OpenMacOS(hotkey.Activate)
-	require.NoError(t, err)
-	t.Cleanup(d.Close)
+	d := openDesktop(t)
 
 	t.Run("when ctrl+alt+f is registered from a thread other than the main one, as the city's Update does", func(t *testing.T) {
 		t.Run("it should be accepted", func(t *testing.T) {
@@ -124,22 +122,26 @@ func TestGlobalShortcutOnMacOS(t *testing.T) {
 }
 
 func TestRaiseOnMacOS(t *testing.T) {
-	for _, how := range []hotkey.Activation{hotkey.Activate, hotkey.ActivateIgnoringOtherApps, hotkey.SetFrontProcess} {
-		t.Run("when Finder is in front and the shortcut is pressed and the window is raised with "+how.String(), func(t *testing.T) {
-			d, err := hotkey.OpenMacOS(how)
-			require.NoError(t, err)
-			defer d.Close()
-			require.NoError(t, d.Grab(ctrlAltF), "Carbon refused a registration off the main thread")
-			finderInFront(t)
-			pressCtrlAltF(t)
-			require.True(t, firedWithin(d, 5*time.Second), "the hot key never fired from a System Events keystroke")
-			d.Raise(0)
-			forward := eventually(func() bool { return frontmost(t) == os.Getpid() })
-			frame(t, "raise-"+how.String())
+	t.Run("when Finder is in front and the shortcut is pressed and the window is raised", func(t *testing.T) {
+		d := openDesktop(t)
+		require.NoError(t, d.Grab(ctrlAltF), "Carbon refused a registration off the main thread")
+		finderInFront(t)
+		pressCtrlAltF(t)
+		require.True(t, firedWithin(d, 5*time.Second), "the hot key never fired from a System Events keystroke")
+		d.Raise(0)
+		forward := eventually(func() bool { return frontmost(t) == os.Getpid() })
+		frame(t, "raise")
 
-			t.Run("it should make this process the frontmost application", func(t *testing.T) {
-				assert.True(t, forward)
-			})
+		t.Run("it should make this process the frontmost application", func(t *testing.T) {
+			assert.True(t, forward)
 		})
-	}
+	})
+}
+
+func openDesktop(t *testing.T) hotkey.Desktop {
+	t.Helper()
+	d, err := hotkey.Open("darwin", os.Getenv)
+	require.NoError(t, err)
+	t.Cleanup(d.Close)
+	return d
 }

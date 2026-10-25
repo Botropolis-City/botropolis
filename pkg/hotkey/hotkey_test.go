@@ -93,7 +93,6 @@ func TestOpen(t *testing.T) {
 		env     map[string]string
 	}{
 		{"Wayland with no DISPLAY", "linux", map[string]string{"WAYLAND_DISPLAY": "wayland-0"}},
-		{"macOS", "darwin", map[string]string{}},
 		{"Windows", "windows", map[string]string{"DISPLAY": ":0"}},
 	} {
 		t.Run("when the desktop is "+c.desktop, func(t *testing.T) {
