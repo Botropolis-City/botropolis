@@ -693,8 +693,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}))
 		items[len(items)-1].moves = true
 	}
-	bridge := c.Bridge()
-	items = append(items, bridgeItems(cam, bridge, func(p bridgePart) func() {
+	// Every bridge, and the fog its deck fades into (items 239 and 220).
+	items = append(items, bridgesInSort(cam, c, func(_ int, bridge city.Bridge, p bridgePart) func() {
 		if p.hazy() {
 			return func() { g.drawHazePiece(screen, cam, bridge, p, c.Night) }
 		}
@@ -702,13 +702,12 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			return func() { g.drawRampSegment(screen, cam, bridge, p) }
 		}
 		return func() { g.drawSpan(screen, cam, bridge, p.Cell) }
+	}, func(puffs []city.FogPuff) func() {
+		return func() { g.drawFog(screen, cam, puffs, c.Night) }
 	})...)
-	// The fog the deck fades into (item 239).
-	if fog, ok := fogItem(cam, c, func() { g.drawFog(screen, cam, c.Fog(), c.Night) }); ok {
-		items = append(items, fog)
-	}
 	for _, d := range g.scene.Deliveries() {
 		d := d
+		bridge := c.BridgeOf(d.Path)
 		at, _ := deliveryPlace(d, g.scene.Clock(), c.InBlock)
 		items = append(items, deliveryAt(cam, bridge, at, func() {
 			g.drawDelivery(screen, cam, bridge, d)

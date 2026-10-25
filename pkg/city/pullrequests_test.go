@@ -464,3 +464,184 @@ func assertPathNear(t *testing.T, want, got []city.Point) {
 		assert.InDeltaf(t, want[i].Y, got[i].Y, 1e-9, "point %d's Y", i)
 	}
 }
+
+// Item 220: once the island holds 16 districts a second bridge leaves by
+// the coast opposite the first (Aria, 2026-10-25), anchored as the first
+// is, and each truck takes whichever bridge is nearer its building.
+func TestSecondBridge(t *testing.T) {
+	roots := func(n int) []string {
+		var out []string
+		for i := 0; i < n; i++ {
+			out = append(out, fmt.Sprintf("/home/avesta/projects/d%02d", i))
+		}
+		return out
+	}
+	sessionsOf := func(n, grown int) []state.Session {
+		var all []state.Session
+		for i, root := range roots(n) {
+			all = append(all, session(fmt.Sprintf("s%02d", i), root, state.Working))
+		}
+		for i := 0; i < grown; i++ {
+			all = append(all, session(fmt.Sprintf("g%02d", i), roots(1)[0], state.Working))
+		}
+		return all
+	}
+	cityOf := func(layout *city.Layout, n, grown int) *city.City {
+		return city.Build(snapshot(sessionsOf(n, grown)...), layout)
+	}
+	second := func(c *city.City) city.Bridge { return c.Bridges()[1] }
+
+	t.Run("when the island holds 15 districts", func(t *testing.T) {
+		c := cityOf(city.NewLayout(), 15, 0)
+
+		t.Run("it should have one bridge", func(t *testing.T) {
+			assert.Len(t, c.Bridges(), 1)
+		})
+	})
+
+	t.Run("when the island holds 16 districts", func(t *testing.T) {
+		c := cityOf(city.NewLayout(), 16, 0)
+		bridges := c.Bridges()
+		require.Len(t, bridges, 2)
+		first, other := bridges[0], bridges[1]
+
+		t.Run("it should have two bridges", func(t *testing.T) {
+			assert.Len(t, bridges, 2)
+		})
+
+		t.Run("the second should leave by the coast opposite the first", func(t *testing.T) {
+			assert.Equal(t, first.Far.X < first.Land.X, other.Far.X > other.Land.X)
+		})
+
+		t.Run("the second should start on a street", func(t *testing.T) {
+			assert.True(t, c.IsStreet(city.CellOf(other.Land)))
+		})
+
+		t.Run("the second should start on land and end out at sea", func(t *testing.T) {
+			land, _ := c.Island().At(other.Land)
+			sea, _ := c.Island().At(other.Far)
+			assert.Equal(t, [2]city.Ground{city.GroundLand, city.GroundSea}, [2]city.Ground{land, sea})
+		})
+	})
+
+	for i, name := range []string{"first", "second"} {
+		t.Run("when a PR merges in a district nearer the "+name+" bridge", func(t *testing.T) {
+			pr := func(st string) claude.PR {
+				return claude.PR{Number: 1, URL: "https://github.com/o/r/pull/1", Repository: "o/r", State: st}
+			}
+			clock := now
+			s := city.NewScene(city.NewLayout())
+			s.Resize(800, 600)
+			s.SetClock(func() time.Time { return clock }, time.UTC)
+			plain := sessionsOf(16, 0)
+			s.SetSnapshot(snapshot(plain...))
+			bridges := s.City().Bridges()
+			require.Len(t, bridges, 2)
+			nearest, best := -1, math.Inf(1)
+			for j, d := range s.City().Districts {
+				if d.Depot {
+					continue
+				}
+				c := d.Rect.Center()
+				lead := math.Hypot(c.X-bridges[i].Land.X, c.Y-bridges[i].Land.Y) - math.Hypot(c.X-bridges[1-i].Land.X, c.Y-bridges[1-i].Land.Y)
+				if lead < best {
+					nearest, best = j, lead
+				}
+			}
+			root := s.City().Districts[nearest].Root
+			withPR := func(st string) []state.Session {
+				out := append([]state.Session(nil), plain...)
+				for k := range out {
+					if out[k].CWD == root {
+						out[k].SubagentsInFlight, out[k].PRs = 0, []claude.PR{pr(st)}
+						break
+					}
+				}
+				return out
+			}
+			s.SetSnapshot(snapshot(withPR(claude.PROpen)...))
+			s.SetSnapshot(snapshot(withPR(claude.PRMerged)...))
+			trucks := s.Deliveries()
+			require.Len(t, trucks, 1)
+
+			t.Run("the truck's path should end on the "+name+" bridge's far side", func(t *testing.T) {
+				path := trucks[0].Path
+				assert.Equal(t, s.City().Bridges()[i].Far, path[len(path)-1])
+			})
+		})
+	}
+
+	t.Run("when the island grows rows, as a district grows", func(t *testing.T) {
+		layout := city.NewLayout()
+		was := cityOf(layout, 16, 0)
+		now := cityOf(layout, 16, 12)
+		fromPlaza := func(c *city.City) float64 { return second(c).Land.Y - c.Plaza.Min.Y }
+		require.NotEqual(t, fromPlaza(was), fromPlaza(cityOf(city.NewLayout(), 16, 12)), "the middle rule should move it")
+
+		t.Run("it should keep the second landing the same distance from the plaza", func(t *testing.T) {
+			assert.Equal(t, fromPlaza(was), fromPlaza(now))
+		})
+	})
+
+	t.Run("when the layout is saved and loaded again, as on a restart", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "layout.json")
+		layout := city.NewLayout()
+		cityOf(layout, 16, 0)
+		before := cityOf(layout, 16, 12)
+		require.NoError(t, layout.Save(path))
+		loaded, err := city.LoadLayout(path)
+		require.NoError(t, err)
+		require.NotEqual(t, second(before).Land, second(cityOf(city.NewLayout(), 16, 12)).Land, "the middle rule should put it elsewhere")
+
+		t.Run("it should place the second bridge where it was", func(t *testing.T) {
+			assert.Equal(t, second(before).Land, second(cityOf(loaded, 16, 12)).Land)
+		})
+	})
+
+	// Aria, 2026-10-25: the east rail leg moves out one cell, toward the
+	// river, only when the second bridge exists, so it has one ramp cell
+	// as the first does, and every other city's east edge stays.
+	eastRailOff := func(c *city.City) int {
+		rail := math.Inf(-1)
+		for _, p := range c.Rails {
+			rail = math.Max(rail, p.X)
+		}
+		col, road := city.CellOf(city.Point{X: rail, Y: 0}).Col, -1
+		for cl := 0; cl < col; cl++ {
+			for row := 0; float64(row)*city.CellSize < c.Bounds().Max.Y; row++ {
+				if c.IsStreet(city.Cell{Col: cl, Row: row}) {
+					road = cl
+				}
+			}
+		}
+		return col - road
+	}
+	for _, c := range []struct {
+		districts, off int
+		where          string
+	}{{15, 1, "beside the east road"}, {16, 2, "one cell further out"}} {
+		t.Run(fmt.Sprintf("when the island holds %d districts", c.districts), func(t *testing.T) {
+			t.Run("it should stand the east rail leg "+c.where, func(t *testing.T) {
+				assert.Equal(t, c.off, eastRailOff(cityOf(city.NewLayout(), c.districts, 0)))
+			})
+		})
+	}
+
+	t.Run("when the second bridge leaves over the moved rail", func(t *testing.T) {
+		c := cityOf(city.NewLayout(), 16, 0)
+
+		t.Run("it should climb over one ramp cell, as the first does", func(t *testing.T) {
+			assert.Len(t, second(c).Ramp, len(c.Bridge().Ramp))
+		})
+	})
+
+	t.Run("when the count falls back below 16 after the second bridge was placed", func(t *testing.T) {
+		layout := city.NewLayout()
+		cityOf(layout, 16, 0)
+		c := cityOf(layout, 15, 0)
+
+		t.Run("it should keep the second bridge", func(t *testing.T) {
+			assert.Len(t, c.Bridges(), 2)
+		})
+	})
+}

@@ -51,10 +51,24 @@ func (g *Game) fogEllipses(cam *city.Camera, puffs []city.FogPuff) []fogEllipse 
 	return out
 }
 
+// bridgesInSort is every bridge in the depth sort, each with its parts
+// and its own fog, as its own drawable so each sorts by its own coast.
+// Item 220.
+func bridgesInSort(cam *city.Camera, c *city.City, part func(i int, b city.Bridge, p bridgePart) func(), fog func(puffs []city.FogPuff) func()) []drawable {
+	var items []drawable
+	for i, b := range c.Bridges() {
+		items = append(items, bridgeItems(cam, b, func(p bridgePart) func() { return part(i, b, p) })...)
+		puffs := c.FogOf(b)
+		if item, ok := fogItem(cam, puffs, fog(puffs)); ok {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
 // fogItem is the fog in the depth sort: one drawable over every puff's
 // ground, a level above the trucks on the deck.
-func fogItem(cam *city.Camera, c *city.City, draw func()) (drawable, bool) {
-	puffs := c.Fog()
+func fogItem(cam *city.Camera, puffs []city.FogPuff, draw func()) (drawable, bool) {
 	if len(puffs) == 0 {
 		return drawable{}, false
 	}

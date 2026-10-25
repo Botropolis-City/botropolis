@@ -25,12 +25,18 @@ const (
 	fogMistPerCell = 5
 )
 
-// Fog is every puff of the fog, back to front in no particular order.
+// Fog is every puff of the first bridge's fog, back to front in no
+// particular order.
 func (c *City) Fog() []FogPuff {
 	if _, ok := c.bridgeCell(); !ok {
 		return nil
 	}
-	b := c.Bridge()
+	return c.FogOf(c.Bridge())
+}
+
+// FogOf is every puff of the fog a bridge's deck fades into: each bridge
+// has its own (item 220).
+func (c *City) FogOf(b Bridge) []FogPuff {
 	if b.Land == b.Far {
 		return nil
 	}

@@ -103,12 +103,15 @@ func (c *City) layRoads() {
 	}
 	// A road that reaches the bridge's landing joins it: a T, not a
 	// road running past the bridge's end (Aria, 2026-10-18).
-	if land, ok := c.bridgeCell(); ok && road[land] {
-		toward := DirE
-		if c.Bridge().Far.X < c.Bridge().Land.X {
-			toward = DirW
+	for _, l := range c.landings {
+		if !road[l.cell] {
+			continue
 		}
-		stub[land] |= toward
+		toward := DirW
+		if l.east {
+			toward = DirE
+		}
+		stub[l.cell] |= toward
 	}
 	for _, corridor := range c.Corridors {
 		if road[corridor.Cell] {
@@ -125,9 +128,11 @@ func (c *City) layRoads() {
 	island := c.Island()
 	// Nothing grows through the bridge: its abutment and the ground
 	// under its ramp and deck stay clear (items 132 and 146).
-	bridge := c.Bridge()
 	underBridge := map[Cell]bool{}
-	if len(bridge.Deck) > 0 {
+	for _, bridge := range c.Bridges() {
+		if len(bridge.Deck) == 0 {
+			continue
+		}
 		underBridge[bridge.Abutment] = true
 		for _, cell := range append(append([]Cell{}, bridge.Ramp...), bridge.Deck...) {
 			underBridge[cell] = true

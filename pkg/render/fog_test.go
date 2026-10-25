@@ -119,7 +119,7 @@ func TestFogInTheDrawing(t *testing.T) {
 				for i, at := range inHaze {
 					items = append(items, deliveryAt(cam, b, at, rec(fmt.Sprintf("truck %d", i))))
 				}
-				fogged, ok := fogItem(cam, c, rec("fog"))
+				fogged, ok := fogItem(cam, fog, rec("fog"))
 				require.True(t, ok, "precondition: the fog is in the sort")
 				return append(items, fogged)
 			})

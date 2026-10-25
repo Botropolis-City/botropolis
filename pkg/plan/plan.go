@@ -57,6 +57,12 @@ type Input struct {
 	// plan's west edge; none is the plan's width (item 86).
 	DepotRows int
 	DepotCols int
+	// SecondBridge is whether a second bridge leaves by the east coast,
+	// which moves the east rail leg out a cell so the bridge road ramps
+	// up before it crosses the rail, as on the west, and widens the east
+	// belt a cell so the river's wandering banks stay off the rail
+	// (item 220).
+	SecondBridge bool
 }
 
 // Memory is what the plan remembers between snapshots: each district's
@@ -383,7 +389,11 @@ func (p *Plan) place(in Input) {
 	}
 	eastRoad := x - 1
 	p.span = eastRoad - p.colX[-p.rings]
-	cols := eastRoad + 1 + belt + RiverCols
+	eastBelt := belt
+	if in.SecondBridge {
+		eastBelt++
+	}
+	cols := eastRoad + 1 + eastBelt + RiverCols
 
 	ridge := belt
 	y := ridge + 1 + 1
@@ -425,12 +435,16 @@ func (p *Plan) place(in Input) {
 		{Min: Cell{}, Cols: riverCol, Rows: belt},
 		{Min: Cell{Row: lastRoad + 1}, Cols: riverCol, Rows: belt},
 		{Min: Cell{Row: belt}, Cols: belt, Rows: lastRoad + 1 - belt},
-		{Min: Cell{Col: eastRoad + 1, Row: belt}, Cols: belt, Rows: lastRoad + 1 - belt},
+		{Min: Cell{Col: eastRoad + 1, Row: belt}, Cols: eastBelt, Rows: lastRoad + 1 - belt},
 	}
 	// The west leg stands two cells off its road, as the north leg does
 	// beyond the ridge, so the bridge road ramps up before it crosses
 	// the rail (item 146).
-	p.Rails = railLoop(Cell{Col: westRoad - 2, Row: northRoad - 2}, Cell{Col: eastRoad + 1, Row: lastRoad + 1})
+	eastRail := eastRoad + 1
+	if in.SecondBridge {
+		eastRail++
+	}
+	p.Rails = railLoop(Cell{Col: westRoad - 2, Row: northRoad - 2}, Cell{Col: eastRail, Row: lastRoad + 1})
 	onRails := map[Cell]bool{}
 	for _, r := range p.Rails {
 		onRails[r] = true

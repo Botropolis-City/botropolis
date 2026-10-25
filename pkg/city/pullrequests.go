@@ -70,18 +70,56 @@ func (b Bridge) RampRun() float64 {
 	return CellSize/2 + float64(len(b.Ramp))*CellSize
 }
 
-// Bridge is where the bridge stands. It follows from the plan alone, so
-// the same plan always has it in the same place.
+// SecondBridgeAt is how many districts the island holds when a second
+// bridge leaves by the far coast (Aria, 2026-10-25). Item 220.
+const SecondBridgeAt = 16
+
+// landing is a street cell a bridge lands on, and whether the bridge
+// leaves from it eastward.
+type landing struct {
+	cell Cell
+	east bool
+}
+
+// Bridge is where the first bridge stands. It follows from the plan
+// alone, so the same plan always has it in the same place.
 func (c *City) Bridge() Bridge {
-	land, ok := c.bridgeCell()
-	if !ok {
+	if len(c.landings) == 0 {
 		return Bridge{}
 	}
+	return c.bridgeFrom(c.landings[0])
+}
+
+// Bridges is every bridge off the island, the first first: one, and a
+// second on the far coast once the island has held SecondBridgeAt
+// districts. Item 220.
+func (c *City) Bridges() []Bridge {
+	var out []Bridge
+	for _, l := range c.landings {
+		out = append(out, c.bridgeFrom(l))
+	}
+	return out
+}
+
+// BridgeOf is the bridge a truck's path ends on, or the first if it ends
+// on none of them.
+func (c *City) BridgeOf(path []Point) Bridge {
+	bridges := c.Bridges()
+	for _, b := range bridges {
+		if len(path) > 0 && path[len(path)-1] == b.Far {
+			return b
+		}
+	}
+	return c.Bridge()
+}
+
+func (c *City) bridgeFrom(l landing) Bridge {
+	land := l.cell
 	at := land.Center()
 	reach := c.Island().Reach()
 	haze := Point{X: reach.Min.X - CellSize, Y: at.Y}
 	step := -1
-	if c.bridgeEast() {
+	if l.east {
 		haze.X = reach.Max.X + CellSize
 		step = 1
 	}
@@ -123,8 +161,25 @@ func (c *City) bridgeEast() bool {
 	return ok && from.X < c.bounds.Center().X
 }
 
-// bridgeCell is where the bridge lands, as placeBridge placed it.
-func (c *City) bridgeCell() (Cell, bool) { return c.bridgeAt, c.bridged }
+// bridgeCell is where the first bridge lands, as placeBridge placed it.
+func (c *City) bridgeCell() (Cell, bool) {
+	if len(c.landings) == 0 {
+		return Cell{}, false
+	}
+	return c.landings[0].cell, true
+}
+
+// projectDistricts is how many districts the island holds, the depot
+// aside.
+func (c *City) projectDistricts() int {
+	n := 0
+	for _, d := range c.Districts {
+		if !d.Depot {
+			n++
+		}
+	}
+	return n
+}
 
 // placeBridge lands the bridge on the street cell nearest the coast on
 // its side, among those that reach it most directly: on the row the
@@ -133,29 +188,61 @@ func (c *City) bridgeCell() (Cell, bool) { return c.bridgeAt, c.bridged }
 // remembered by its place among the plan's slot rows, so the bridge
 // stays beside the same blocks as the island grows, and across a
 // restart (Aria, 2026-10-24: "It should stay where it is"). Item 218.
+//
+// The second bridge is placed the same way on the far coast, once the
+// island holds SecondBridgeAt districts, and kept from then on by its
+// own row in the layout, whatever the count does after. Item 220.
 func (c *City) placeBridge() {
-	var kept *plan.RowMark
+	c.landings = nil
+	east := c.bridgeEast()
+	var kept, kept2 *plan.RowMark
 	if c.layout != nil {
-		kept = c.layout.Bridge
+		kept, kept2 = c.layout.Bridge, c.layout.Bridge2
 	}
-	c.bridgeAt, c.bridged = c.coastalStreet(kept)
-	if c.bridged && c.layout != nil {
-		mark := c.plan.MarkRow(fromCell(c.bridgeAt).Row)
-		c.layout.Bridge = &mark
+	cell, ok := c.coastalStreet(kept, east)
+	if !ok {
+		return
+	}
+	c.landings = append(c.landings, landing{cell: cell, east: east})
+	c.remember(&kept, cell)
+	if kept2 == nil && c.projectDistricts() < SecondBridgeAt {
+		c.keepMarks(kept, nil)
+		return
+	}
+	if cell, ok := c.coastalStreet(kept2, !east); ok {
+		c.landings = append(c.landings, landing{cell: cell, east: !east})
+		c.remember(&kept2, cell)
+	}
+	c.keepMarks(kept, kept2)
+}
+
+// remember sets a mark to a landing's row.
+func (c *City) remember(mark **plan.RowMark, cell Cell) {
+	m := c.plan.MarkRow(fromCell(cell).Row)
+	*mark = &m
+}
+
+// keepMarks writes the landings' rows into the layout, if there is one.
+func (c *City) keepMarks(first, second *plan.RowMark) {
+	if c.layout == nil {
+		return
+	}
+	c.layout.Bridge = first
+	if second != nil {
+		c.layout.Bridge2 = second
 	}
 }
 
-// coastalStreet is the street cell nearest the coast on the bridge's
-// side, of those that reach it most directly: the one nearest the kept
-// row, or with none kept the middlemost.
-func (c *City) coastalStreet(kept *plan.RowMark) (Cell, bool) {
+// coastalStreet is the street cell nearest the coast on one side, of
+// those that reach it most directly: the one nearest the kept row, or
+// with none kept the middlemost.
+func (c *City) coastalStreet(kept *plan.RowMark, east bool) (Cell, bool) {
 	lo, hi := CellOf(c.bounds.Min), CellOf(Point{X: c.bounds.Max.X - 1, Y: c.bounds.Max.Y - 1})
 	mid := float64(lo.Row+hi.Row) / 2
 	target := mid
 	if kept != nil {
 		target = float64(c.plan.RowOf(*kept))
 	}
-	east := c.bridgeEast()
 	var best Cell
 	found := false
 	better := func(a, b Cell) bool {
@@ -193,17 +280,30 @@ func (c *City) coastalStreet(kept *plan.RowMark) (Cell, bool) {
 func (c *City) IsStreet(cell Cell) bool { return c.plan.IsStreet(fromCell(cell)) }
 
 // toBridge is a delivery truck's way from a building's kerb along the
-// avenues to the bridge and over it.
+// avenues to the nearer bridge by road, and over it (item 220).
 func (c *City) toBridge(b *Building) []Point {
+	var best []Point
+	for _, bridge := range c.Bridges() {
+		path := c.toBridgeBy(b, bridge)
+		if best == nil || pathLength(path[:len(path)-1]) < pathLength(best[:len(best)-1]) {
+			best = path
+		}
+	}
+	if best == nil {
+		return c.toBridgeBy(b, Bridge{})
+	}
+	return best
+}
+
+func (c *City) toBridgeBy(b *Building, bridge Bridge) []Point {
 	d := c.DistrictOf(b)
-	bridge := c.Bridge()
 	start := b.Rect.Center()
 	if d != nil {
 		route := d.Route(b)
 		start = route[len(route)-1]
 	}
 	path := []Point{start}
-	land, ok := c.bridgeCell()
+	land, ok := CellOf(bridge.Land), bridge.Land != bridge.Far
 	if dw, out := c.Driveway(d); ok && out {
 		// Out of the lot by its driveway, as every road leaves it. Item 108.
 		path = append(path, dw.Lot)
@@ -218,19 +318,40 @@ func (c *City) toBridge(b *Building) []Point {
 // stands. A truck's path is laid at the merge, and the bridge stands on
 // the middlemost street at the coast, so a city that grows a row while
 // the truck drives moves the bridge out from under it. Item 217.
+//
+// With two bridges, a truck keeps to the bridge on the coast it was
+// heading for (item 220).
 func (s *Scene) rerouteDeliveries(now time.Time) {
-	bridge := s.city.Bridge()
-	if bridge.Land == bridge.Far {
+	bridges := s.city.Bridges()
+	if len(bridges) == 0 || bridges[0].Land == bridges[0].Far {
 		return
 	}
 	for i, d := range s.deliveries {
 		n := len(d.Path)
-		if d.Fades || n < 2 || (d.Path[n-2] == bridge.Land && d.Path[n-1] == bridge.Far) {
+		if d.Fades || n < 2 || standsOn(d.Path, bridges) {
 			continue
+		}
+		bridge := bridges[0]
+		east := d.Path[n-1].X > d.Path[n-2].X
+		for _, b := range bridges {
+			if (b.Far.X > b.Land.X) == east {
+				bridge = b
+			}
 		}
 		s.deliveries[i].Path = s.city.reroute(d.Path, d.Progress(now), bridge)
 		s.deliveries[i].Since = now
 	}
+}
+
+// standsOn is whether a path ends over one of the bridges as it stands.
+func standsOn(path []Point, bridges []Bridge) bool {
+	n := len(path)
+	for _, b := range bridges {
+		if path[n-2] == b.Land && path[n-1] == b.Far {
+			return true
+		}
+	}
+	return false
 }
 
 // reroute is the rest of a truck's way from p of the way along path,
@@ -244,7 +365,7 @@ func (c *City) reroute(path []Point, p float64, bridge Bridge) []Point {
 		dir := math.Copysign(1, bridge.Far.X-bridge.Land.X)
 		return []Point{{X: bridge.Land.X + dir*out, Y: bridge.Land.Y}, bridge.Far}
 	}
-	land, _ := c.bridgeCell()
+	land := CellOf(bridge.Land)
 	route := []Point{here}
 	for _, pt := range ahead(path[:len(path)-2], p*pathLength(path)) {
 		if !c.IsStreet(CellOf(pt)) {

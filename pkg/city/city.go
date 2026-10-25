@@ -129,10 +129,9 @@ type City struct {
 	memo *memo
 	// planID is which of the memo's plans the city stands on (item 206).
 	planID int
-	// bridgeAt is the street cell the bridge lands on, if bridged
-	// (item 218).
-	bridgeAt Cell
-	bridged  bool
+	// landings are the street cells the bridges land on, the first
+	// bridge first (items 218 and 220).
+	landings []landing
 	// Corridors are the plan's whole avenue grid, and StreetCells the
 	// road laid on it: only the cells a connection's route crosses, each
 	// joined to the road beside it. A corridor without road is belt.
@@ -365,6 +364,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		city.Districts = append(city.Districts, buildDistrict(root, names[root], byRoot[root], layout, snapshot.At, ladder))
 	}
 	in := planInput(city.Districts, len(snapshot.Servers))
+	in.SecondBridge = len(city.Districts) >= SecondBridgeAt || (layout != nil && layout.Bridge2 != nil)
 	p := m.plan(in, layout.memory())
 	depot := buildDepot(packed, names, float64(p.SpanCols())*CellSize, snapshot.At, keepDepot)
 	if depot != nil {

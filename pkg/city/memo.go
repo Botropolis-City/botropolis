@@ -31,13 +31,13 @@ type memo struct {
 
 // laid is what laying road on the corridors made of a plan's walks.
 type laid struct {
-	plan   int
-	bridge Cell
-	paths  []Point
-	ends   []int
-	cells  []StreetCell
-	lamps  []Cell
-	trees  []Tree
+	plan    int
+	bridges []landing
+	paths   []Point
+	ends    []int
+	cells   []StreetCell
+	lamps   []Cell
+	trees   []Tree
 }
 
 // walkKey is what a walk along the avenues depends on: the plan, the
@@ -86,7 +86,7 @@ func (m *memo) plan(in plan.Input, mem *plan.Memory) plan.Plan {
 }
 
 func sameInput(a, b plan.Input) bool {
-	return a.Towers == b.Towers && a.DepotRows == b.DepotRows && a.DepotCols == b.DepotCols && slices.Equal(a.Districts, b.Districts)
+	return a.Towers == b.Towers && a.SecondBridge == b.SecondBridge && a.DepotRows == b.DepotRows && a.DepotCols == b.DepotCols && slices.Equal(a.Districts, b.Districts)
 }
 
 // current is the id of the plan last handed out, or none without a memo.
@@ -126,9 +126,9 @@ func (m *memo) sweepWalks(planID int) {
 
 // lay lays road on the city's corridors for its walks. Everything else
 // laying reads (the corridors, the island, the plan's lamps and trees)
-// comes from the plan, and the bridge's landing from the plan and the
-// row the layout keeps, so what was laid last for a heading stands while
-// the plan, the landing and every street's path are what they were.
+// comes from the plan, and the bridges' landings from the plan and the
+// rows the layout keeps, so what was laid last for a heading stands while
+// the plan, the landings and every street's path are what they were.
 func (m *memo) lay(c *City) {
 	if m == nil {
 		c.layRoads()
@@ -140,7 +140,7 @@ func (m *memo) lay(c *City) {
 		paths = append(paths, st.Path...)
 		ends = append(ends, len(paths))
 	}
-	if l, ok := m.lays[c.heading]; ok && l.plan == c.planID && l.bridge == c.bridgeAt && slices.Equal(l.paths, paths) && slices.Equal(l.ends, ends) {
+	if l, ok := m.lays[c.heading]; ok && l.plan == c.planID && slices.Equal(l.bridges, c.landings) && slices.Equal(l.paths, paths) && slices.Equal(l.ends, ends) {
 		c.StreetCells, c.Lamps, c.Trees = slices.Clone(l.cells), slices.Clone(l.lamps), slices.Clone(l.trees)
 		return
 	}
@@ -149,7 +149,7 @@ func (m *memo) lay(c *City) {
 	if m.lays == nil {
 		m.lays = map[int]laid{}
 	}
-	m.lays[c.heading] = laid{plan: c.planID, bridge: c.bridgeAt, paths: paths, ends: ends,
+	m.lays[c.heading] = laid{plan: c.planID, bridges: slices.Clone(c.landings), paths: paths, ends: ends,
 		cells: slices.Clone(c.StreetCells), lamps: slices.Clone(c.Lamps), trees: slices.Clone(c.Trees)}
 }
 

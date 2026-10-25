@@ -75,6 +75,10 @@ type Layout struct {
 	// plan's slot rows, chosen when the island first had one and kept
 	// while it is a street (item 218).
 	Bridge *plan.RowMark `json:"bridge,omitempty"`
+	// Bridge2 is the row the second bridge lands on, chosen when the
+	// island first held SecondBridgeAt districts and kept from then on
+	// (item 220).
+	Bridge2 *plan.RowMark `json:"bridge2,omitempty"`
 	// Hidden and Starred are map-only marks on projects, never written
 	// anywhere near ~/.claude.
 	Hidden  map[string]bool `json:"hidden,omitempty"`
