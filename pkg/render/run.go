@@ -46,10 +46,9 @@ type Options struct {
 	RestartDaemon func(context.Context) error
 	// Home is the directory holding .claude that the feed reads; the
 	// usage boats and Summary read from it too.
-	Home       string
-	Width      int
-	Height     int
-	Projection city.Projection
+	Home   string
+	Width  int
+	Height int
 	// Screenshot, when set, renders one frame to this PNG and exits;
 	// Keys are pressed first, one per frame.
 	Screenshot string
@@ -135,7 +134,6 @@ type Options struct {
 
 func Run(ctx context.Context, opts Options) error {
 	scene := city.NewScene(opts.Layout)
-	scene.SetProjection(opts.Projection)
 	scene.SetBudget(opts.DailyBudget)
 	width, height := opts.Width, opts.Height
 	if width <= 0 || height <= 0 {
@@ -157,15 +155,11 @@ func Run(ctx context.Context, opts Options) error {
 			_ = l.Save(opts.LayoutPath)
 		}
 	}
-	sprites, loadErr := loadSprites()
-	if loadErr != nil {
-		return loadErr
-	}
 	kitSprites, err := loadKitsLazily()
 	if err != nil {
 		return err
 	}
-	game := NewGame(scene, opts.Actor, theme, faces, save, sprites)
+	game := NewGame(scene, opts.Actor, theme, faces, save)
 	game.kits = kitSprites
 	game.home = opts.Home
 	game.search = opts.Search

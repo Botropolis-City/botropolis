@@ -42,11 +42,6 @@ func (g *Game) districtGhost(screen *ebiten.Image, cam *city.Camera) {
 	if gh.refused {
 		outline = ui.DefaultPalette.Error
 	}
-	if cam.Projection == city.Isometric {
-		g.polyStroke(screen, cam, gh.target, 2, outline)
-		g.poly(screen, cam, gh.block, colorGhost)
-		return
-	}
-	g.stroke(screen, cam, gh.target, 2, outline)
-	g.rect(screen, cam, gh.block, colorGhost)
+	g.polyStroke(screen, cam, gh.target, 2, outline)
+	g.poly(screen, cam, gh.block, colorGhost)
 }

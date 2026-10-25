@@ -37,7 +37,6 @@ type shareRig struct {
 
 // shareArt is the art every rig draws with, read once: it is only read
 // from, and reading it is most of what a rig costs.
-var shareArt = sync.OnceValues(func() (*sprites, error) { return loadSprites() })
 var shareKits = sync.OnceValues(func() (*kits, error) { return loadKits() })
 
 func newShareRig(t *testing.T) *shareRig {
@@ -45,8 +44,6 @@ func newShareRig(t *testing.T) *shareRig {
 	at := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 	th := ui.NewTheme(1)
 	f, err := newFaces(th)
-	require.NoError(t, err)
-	sp, err := shareArt()
 	require.NoError(t, err)
 	k, err := shareKits()
 	require.NoError(t, err)
@@ -57,7 +54,7 @@ func newShareRig(t *testing.T) *shareRig {
 	s.Resize(shareWidth, shareHeight)
 	s.SetSnapshot(helpers.ShareSnapshot(at))
 	r := &shareRig{actor: &recordingActor{}, screen: ebiten.NewImage(shareWidth, shareHeight), dir: t.TempDir()}
-	g := NewGame(s, r.actor, th, f, nil, sp)
+	g := NewGame(s, r.actor, th, f, nil)
 	g.kits = k
 	g.driven = true
 	g.scripted, g.clicked = -1, -1

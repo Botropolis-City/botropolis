@@ -49,4 +49,5 @@ each subagent in flight is a small drone working on a building's faces and roof.
 The camera carries a heading (`r` turns it a quarter about the window's middle) and the projection, corners, fit bounds, minimap and back-to-front order all go through it;
 the wheel eases the zoom to its ladder target unless motion is reduced.
 The fit view shows the sprites; only far below it does the flat map view take over.
-The 2D isometric packs of 2026-09-17 are gone; the 16 px packs stay with the top-down projection, which no setting reaches since the `projection` key was removed (item 149).
+The 2D isometric packs of 2026-09-17 are gone,
+and the 16 px packs have drawn nothing since the top-down drawing path was deleted (item 183).

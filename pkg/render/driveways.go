@@ -27,25 +27,25 @@ func (g *Game) padColour(night bool, fade float64) color.NRGBA {
 }
 
 // drivewayPads paves the pad off every driveway among the laid cells.
-func (g *Game) drivewayPads(screen *ebiten.Image, c *city.City, cam *city.Camera, flat bool) {
-	g.pads(screen, c, cam, c.StreetCells, 0, flat)
+func (g *Game) drivewayPads(screen *ebiten.Image, c *city.City, cam *city.Camera) {
+	g.pads(screen, c, cam, c.StreetCells, 0)
 }
 
 // overgrownPads fades the pad off every driveway growing over.
-func (g *Game) overgrownPads(screen *ebiten.Image, c *city.City, cam *city.Camera, flat bool) {
+func (g *Game) overgrownPads(screen *ebiten.Image, c *city.City, cam *city.Camera) {
 	for _, o := range g.scene.Overgrowth() {
-		g.pads(screen, c, cam, []city.StreetCell{{Cell: o.Cell, Mask: o.Mask}}, o.Progress, flat)
+		g.pads(screen, c, cam, []city.StreetCell{{Cell: o.Cell, Mask: o.Mask}}, o.Progress)
 	}
 }
 
-func (g *Game) pads(screen *ebiten.Image, c *city.City, cam *city.Camera, cells []city.StreetCell, fade float64, flat bool) {
+func (g *Game) pads(screen *ebiten.Image, c *city.City, cam *city.Camera, cells []city.StreetCell, fade float64) {
 	lit := g.litGround(c)
 	for _, sc := range cells {
 		col := g.padColour(c.Night, fade)
 		if groundTint(lit, sc.Cell) != nil {
 			col = g.padColour(c.Night, 1-(1-fade)*recededAlpha)
 		}
-		g.padsOf(screen, c, cam, sc, col, flat)
+		g.padsOf(screen, c, cam, sc, col)
 	}
 }
 
@@ -53,12 +53,8 @@ func (g *Game) pads(screen *ebiten.Image, c *city.City, cam *city.Camera, cells 
 // dimmed's alpha.
 const recededAlpha = 0.35
 
-func (g *Game) padsOf(screen *ebiten.Image, c *city.City, cam *city.Camera, sc city.StreetCell, col color.NRGBA, flat bool) {
+func (g *Game) padsOf(screen *ebiten.Image, c *city.City, cam *city.Camera, sc city.StreetCell, col color.NRGBA) {
 	for _, pad := range c.Pads([]city.StreetCell{sc}) {
-		if flat {
-			g.rect(screen, cam, pad, col)
-			continue
-		}
 		g.poly(screen, cam, pad, col)
 	}
 }

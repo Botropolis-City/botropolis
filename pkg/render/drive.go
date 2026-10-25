@@ -182,7 +182,6 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	layout := city.NewLayout()
 	layout.Seen = opts.Seen
 	scene := city.NewScene(layout)
-	scene.SetProjection(city.Isometric)
 	theme := ui.NewTheme(1)
 	scene.Resize(float64(width), float64(height))
 	faces, err := newFaces(theme)
@@ -193,10 +192,10 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	if err != nil {
 		return nil, err
 	}
-	sprites, kitSprites := art.sprites, art.kits
+	kitSprites := art.kits
 	d := &Drive{screen: ebiten.NewImage(width, height)}
 	scene.AddEvents(opts.Events)
-	g := NewGame(scene, d, theme, faces, nil, sprites)
+	g := NewGame(scene, d, theme, faces, nil)
 	g.kits = kitSprites
 	g.home = opts.Home
 	g.driven = true
@@ -243,21 +242,12 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	return d, nil
 }
 
-// driveArt is the sprites and kits, decoded once for every city driven in
-// a process: they are only read once loaded, and decoding the kits is
-// most of what opening a driven city costs.
-var driveArt = sync.OnceValues(func() (struct {
-	sprites *sprites
-	kits    *kits
-}, error) {
-	var art struct {
-		sprites *sprites
-		kits    *kits
-	}
+// driveArt is the kits, decoded once for every city driven in a
+// process: they are only read once loaded, and decoding them is most of
+// what opening a driven city costs.
+var driveArt = sync.OnceValues(func() (struct{ kits *kits }, error) {
+	var art struct{ kits *kits }
 	var err error
-	if art.sprites, err = loadSprites(); err != nil {
-		return art, err
-	}
 	art.kits, err = loadKits()
 	return art, err
 })

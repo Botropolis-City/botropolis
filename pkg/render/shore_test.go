@@ -12,20 +12,18 @@ import (
 
 // Item 85, slice 3: each kind of ground round the island is painted in
 // a colour of its own.
-// The top-down view has its own darker map palette; the island under it
-// has to share that palette, or the plan reads as a rectangle on it.
-func TestShorePaletteFollowsTheProjection(t *testing.T) {
+// The island shares the kit's ground and water, or the plan reads as a
+// rectangle laid on it.
+func TestShorePaletteFollowsTheKit(t *testing.T) {
 	for _, tc := range []struct {
 		scenario    string
-		flat, night bool
+		night       bool
 		land, river color.NRGBA
 	}{
-		{"by day in the isometric view", false, false, colorKitGrass, colorKitWater},
-		{"by day in the top-down view", true, false, colorGround, colorWater},
-		{"by night in the top-down view", true, true, colorGroundNight, colorWaterNight},
+		{"by day", false, colorKitGrass, colorKitWater},
 	} {
 		t.Run("when the island is painted "+tc.scenario, func(t *testing.T) {
-			p := shorePaletteFor(tc.flat, tc.night)
+			p := shorePaletteFor(tc.night)
 
 			t.Run("it should paint the land in that view's ground colour", func(t *testing.T) {
 				assert.Equal(t, tc.land, p.paint(city.GroundLand, 0))

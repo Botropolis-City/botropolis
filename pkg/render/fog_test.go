@@ -233,8 +233,6 @@ func fogFrame(t *testing.T, start time.Time, heading int) (hits []spriteHit, ell
 	th := ui.NewTheme(1)
 	f, err := newFaces(th)
 	require.NoError(t, err)
-	sp, err := shareArt()
-	require.NoError(t, err)
 	k, err := shareKits()
 	require.NoError(t, err)
 	clock := start
@@ -260,7 +258,7 @@ func fogFrame(t *testing.T, start time.Time, heading int) (hits []spriteHit, ell
 		s.Turn()
 	}
 	s.CenterOn(city.Point{X: mid, Y: b.Land.Y})
-	g := NewGame(s, &recordingActor{}, th, f, nil, sp)
+	g := NewGame(s, &recordingActor{}, th, f, nil)
 	g.kits = k
 	g.driven = true
 	g.scripted, g.clicked = -1, -1

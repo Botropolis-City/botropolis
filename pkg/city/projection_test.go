@@ -36,20 +36,4 @@ func TestProjection(t *testing.T) {
 			assert.Equal(t, city.Point{X: 3, Y: 4}, city.TopDown.Apply(city.Point{X: 3, Y: 4}))
 		})
 	})
-
-	t.Run("when a projection is parsed from config", func(t *testing.T) {
-		cases := map[string]city.Projection{"iso": city.Isometric, "isometric": city.Isometric, "top": city.TopDown}
-		for in, want := range cases {
-			t.Run("and the word is "+in, func(t *testing.T) {
-				got, ok := city.ParseProjection(in)
-				assert.True(t, ok)
-				assert.Equal(t, want, got)
-			})
-		}
-
-		t.Run("and the word is unknown", func(t *testing.T) {
-			_, ok := city.ParseProjection("cabinet")
-			assert.False(t, ok)
-		})
-	})
 }

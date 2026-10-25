@@ -89,7 +89,7 @@ func hazeColour(c color.NRGBA, mist float64, night bool) color.NRGBA {
 	if mist <= 0 {
 		return c
 	}
-	return mix(c, shorePaletteFor(false, night).sea, mist)
+	return mix(c, shorePaletteFor(night).sea, mist)
 }
 
 // hazy is whether a part is a piece of the deck cut for the haze.

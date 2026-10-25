@@ -20,16 +20,6 @@ const (
 	IsoScale     = IsoTileWidth / (2 * BuildingSize)
 )
 
-func ParseProjection(s string) (Projection, bool) {
-	switch s {
-	case "top", "top-down", "topdown":
-		return TopDown, true
-	case "iso", "isometric":
-		return Isometric, true
-	}
-	return TopDown, false
-}
-
 func (p Projection) String() string {
 	if p == Isometric {
 		return "iso"

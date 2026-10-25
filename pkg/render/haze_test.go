@@ -82,7 +82,7 @@ func TestDeckIntoTheHaze(t *testing.T) {
 			t.Run(fmt.Sprintf("and night is %v, it should paint the deck wholly mixed in the sea's own colour", night), func(t *testing.T) {
 				var off []string
 				for _, base := range []colorName{{"pier", colorPier}, {"girder", colorGirder}, {"railing", colorRailing}, {"road", colorRampRoad}, {"line", colorRampLine}} {
-					if got, want := hazeColour(base.c, 1, night), shorePaletteFor(false, night).sea; got != want {
+					if got, want := hazeColour(base.c, 1, night), shorePaletteFor(night).sea; got != want {
 						off = append(off, fmt.Sprintf("%s: %v, want %v", base.name, got, want))
 					}
 				}

@@ -38,7 +38,6 @@ type layerKey struct {
 	width      int
 	height     int
 	night      bool
-	projection city.Projection
 	// hover moves the highlight on a street, a district and a tower
 	// beam, all of which are painted into this layer.
 	hoverDistrict *city.District
@@ -97,7 +96,6 @@ func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layer
 		width:         width,
 		height:        height,
 		night:         g.scene.City().Night,
-		projection:    cam.Projection,
 		hoverDistrict: hover.District,
 		hoverTower:    hover.Tower,
 		hoverRoad:     hover.Road,
@@ -264,7 +262,7 @@ func (g *Game) composeStatic(dst *ebiten.Image, c *city.City, cam *city.Camera, 
 	for _, d := range c.Districts {
 		g.isoDistrict(dst, cam, d, hover.District == d)
 	}
-	g.drivewayPads(dst, c, cam, false)
+	g.drivewayPads(dst, c, cam)
 	g.fadeAll(&dst, func() { g.isoPlaza(dst, cam, c) })
 	g.camps(dst, c, cam)
 }

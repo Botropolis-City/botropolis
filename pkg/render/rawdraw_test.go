@@ -67,7 +67,6 @@ var drawsAllowed = map[string]string{
 	"sheetlandmarks.go:sheetLandmarkByDay": "the building sheet",
 	"syncdialog.go:drawSync":               "a panel, drawn instead of the city",
 	"opening.go:drawOpening":               "the opening panel, drawn instead of the city until it opens (item 159)",
-	"ground.go:ground":                     "the top-down map, which draws no standing city",
 	"framecheck.go:worldFrame":             "the check of the standing city",
 	"framecheck.go:panelFrame":             "the check of the baked panels",
 	"framecheck.go:checkShutters":          "the check of the boarded shutters drawn in one mesh a plank",

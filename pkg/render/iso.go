@@ -598,7 +598,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		g.still.stats = stillStats{}
 		screen = g.rec.dry
 	}
-	g.note(func() { g.overgrowth(screen, cam, false) }, true)
+	g.note(func() { g.overgrowth(screen, cam) }, true)
 	g.note(func() { g.agedLots(screen, cam, c) }, false)
 	// Drones stand in the depth sort on their shadows' ground points,
 	// and their shadows go on the ground first (item 89).
@@ -1050,9 +1050,9 @@ func (g *Game) streets(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 // overgrowth draws each road cell whose connection has ceased fading
 // into the belt beneath it. It changes every frame while it runs, so it
 // is drawn over the static layer rather than composed into it. Item 85.
-func (g *Game) overgrowth(screen *ebiten.Image, cam *city.Camera, flat bool) {
+func (g *Game) overgrowth(screen *ebiten.Image, cam *city.Camera) {
 	for _, o := range g.scene.Overgrowth() {
-		if flat || g.kits == nil {
+		if g.kits == nil {
 			col := g.flat(colorStreet)
 			col.A = uint8(float64(col.A) * (1 - o.Progress))
 			g.rect(screen, cam, o.Cell.Rect(), col)
@@ -1063,7 +1063,7 @@ func (g *Game) overgrowth(screen *ebiten.Image, cam *city.Camera, flat bool) {
 		name, turn := roadPiece(o.Mask)
 		g.kitGround(screen, cam, name, turn, o.Cell.Center(), &tint)
 	}
-	g.overgrownPads(screen, g.scene.City(), cam, flat)
+	g.overgrownPads(screen, g.scene.City(), cam)
 }
 
 // streetSigns highlights the hovered street and signs each one at the
