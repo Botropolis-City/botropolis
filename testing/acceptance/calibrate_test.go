@@ -35,16 +35,7 @@ func TestCalibrateCoreRate(t *testing.T) {
 
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
 	home := helpers.NewHome(t)
-	started := map[string]bool{}
-	for _, p := range helpers.ManySessions(198, 2000, now) {
-		if !started[p.Session] {
-			started[p.Session] = true
-			ts := p.At.Format("2006-01-02T15:04:05.000Z")
-			home.Transcript(p.Session, p.Dir, helpers.UserPrompt(p.Session, p.Dir, ts),
-				helpers.AssistantReply(p.Session, "msg_"+p.Session[len(p.Session)-6:], ts))
-		}
-		home.Prompt(p.Session, p.Dir, p.Text, p.At)
-	}
+	home.WriteHistory(helpers.ManySessions(198, 2000, now), "2006-01-02T15:04:05.000Z")
 	loader := state.NewLoader(home.Path, state.Probes{Alive: func(int) bool { return false }, Attached: func(string) bool { return false }})
 	_, err := loader.Load(now)
 	require.NoError(t, err)

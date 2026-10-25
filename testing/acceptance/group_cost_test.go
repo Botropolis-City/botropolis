@@ -68,16 +68,7 @@ func TestGroupingCostPerPrompt(t *testing.T) {
 	for _, h := range homes {
 		t.Run(h.scenario+", and one sends a prompt", func(t *testing.T) {
 			home := helpers.NewHome(t)
-			started := map[string]bool{}
-			for _, p := range h.history {
-				if !started[p.Session] {
-					started[p.Session] = true
-					ts := p.At.Format("2006-01-02T15:04:05.000Z")
-					home.Transcript(p.Session, p.Dir, helpers.UserPrompt(p.Session, p.Dir, ts),
-						helpers.AssistantReply(p.Session, "msg_"+p.Session[len(p.Session)-6:], ts))
-				}
-				home.Prompt(p.Session, p.Dir, p.Text, p.At)
-			}
+			home.WriteHistory(h.history, "2006-01-02T15:04:05.000Z")
 			settleDirs(t, home.Path)
 			loader := state.NewLoader(home.Path, state.Probes{Alive: func(int) bool { return false }, Attached: func(string) bool { return false }})
 			snapshot, err := loader.Load(now)
@@ -159,16 +150,7 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 	t.Run("when the daemon has settled on the synthetic home plus 2,000 small sessions in the last 30 days", func(t *testing.T) {
 		home := helpers.HomeAt(t, helpers.LiveFixtureHome(t, "synthetic"))
 		now := time.Now().UTC()
-		started := map[string]bool{}
-		for _, p := range helpers.ManySessions(198, sessions, now) {
-			if !started[p.Session] {
-				started[p.Session] = true
-				ts := p.At.Format(time.RFC3339Nano)
-				home.Transcript(p.Session, p.Dir, helpers.UserPrompt(p.Session, p.Dir, ts),
-					helpers.AssistantReply(p.Session, "msg_"+p.Session[len(p.Session)-6:], ts))
-			}
-			home.Prompt(p.Session, p.Dir, p.Text, p.At)
-		}
+		home.WriteHistory(helpers.ManySessions(198, sessions, now), time.RFC3339Nano)
 
 		d := startOwnDaemon(t, bin, home.Path, "GODEBUG=gctrace=1")
 		d.settle(t, 3*time.Minute)

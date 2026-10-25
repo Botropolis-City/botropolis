@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/demo"
 )
 
 type Home struct {
@@ -70,8 +71,7 @@ func (h *Home) Prompt(sessionID, project, text string, at time.Time) *Home {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	require.NoError(h.t, err)
 	defer func() { _ = f.Close() }()
-	_, err = fmt.Fprintf(f, `{"display":%q,"pastedContents":{},"timestamp":%d,"project":%q,"sessionId":%q}`+"\n",
-		text, at.UnixMilli(), project, sessionID)
+	_, err = f.WriteString(demo.PromptHistoryLine(sessionID, project, text, at))
 	require.NoError(h.t, err)
 	return h
 }
@@ -124,15 +124,11 @@ func ProjectSlug(cwd string) string {
 }
 
 func UserPrompt(sessionID, cwd, ts string) string {
-	return fmt.Sprintf(`{"type":"user","isSidechain":false,"timestamp":%q,"sessionId":%q,"cwd":%q,"gitBranch":"main",`+
-		`"version":"2.1.273","entrypoint":"cli","message":{"role":"user","content":"hi"}}`, ts, sessionID, cwd)
+	return demo.UserPromptLine(sessionID, cwd, ts)
 }
 
 func AssistantReply(sessionID, id, ts string) string {
-	return fmt.Sprintf(`{"type":"assistant","isSidechain":false,"timestamp":%q,"sessionId":%q,`+
-		`"message":{"id":%q,"model":"claude-opus-5","role":"assistant","stop_reason":"end_turn",`+
-		`"content":[{"type":"text","text":"hello"}],"usage":{"input_tokens":2,"output_tokens":5,"cache_read_input_tokens":250000}}}`,
-		ts, sessionID, id)
+	return demo.AssistantReplyLine(sessionID, id, ts)
 }
 
 func AssistantToolCall(sessionID, id, ts, toolUseID, name string) string {

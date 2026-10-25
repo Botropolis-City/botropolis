@@ -31,7 +31,7 @@ func run(args []string, out, errOut io.Writer) int {
 		SilenceErrors: true,
 	}
 	root.SetVersionTemplate("{{.Name}} {{.Version}}\n")
-	root.AddCommand(stageCommand(), unstageCommand(), filmCommand(), recordCommand(), mcpCommand(), scrubCommand(), retitleCommand(), sheetCommand())
+	root.AddCommand(stageCommand(), unstageCommand(), filmCommand(), recordCommand(), mcpCommand(), scrubCommand(), retitleCommand(), sheetCommand(), synthHomeCommand())
 	root.SetOut(out)
 	root.SetErr(errOut)
 	root.SetArgs(args)

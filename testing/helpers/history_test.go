@@ -17,18 +17,7 @@ import (
 )
 
 func writeHome(t *testing.T, history []helpers.HistoryPrompt, layout string) string {
-	home := helpers.NewHome(t)
-	started := map[string]bool{}
-	for _, p := range history {
-		if !started[p.Session] {
-			started[p.Session] = true
-			ts := p.At.Format(layout)
-			home.Transcript(p.Session, p.Dir, helpers.UserPrompt(p.Session, p.Dir, ts),
-				helpers.AssistantReply(p.Session, "msg_"+p.Session[len(p.Session)-6:], ts))
-		}
-		home.Prompt(p.Session, p.Dir, p.Text, p.At)
-	}
-	return home.Path
+	return helpers.NewHome(t).WriteHistory(history, layout).Path
 }
 
 func hashTree(t *testing.T, root string) string {
