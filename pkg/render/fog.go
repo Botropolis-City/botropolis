@@ -54,10 +54,19 @@ func (g *Game) fogEllipses(cam *city.Camera, puffs []city.FogPuff) []fogEllipse 
 // bridgesInSort is every bridge in the depth sort, each with its parts
 // and its own fog, as its own drawable so each sorts by its own coast.
 // Item 220.
-func bridgesInSort(cam *city.Camera, c *city.City, part func(i int, b city.Bridge, p bridgePart) func(), fog func(puffs []city.FogPuff) func()) []drawable {
+//
+// keyed, when set, makes each part's keyed draw from its own (item 212).
+func bridgesInSort(cam *city.Camera, c *city.City, part func(i int, b city.Bridge, p bridgePart) func(), fog func(puffs []city.FogPuff) func(), keyed func(b city.Bridge, p bridgePart, draw func()) func()) []drawable {
 	var items []drawable
 	for i, b := range c.Bridges() {
+		from := len(items)
 		items = append(items, bridgeItems(cam, b, func(p bridgePart) func() { return part(i, b, p) })...)
+		if keyed != nil {
+			parts := bridgeParts(b)
+			for j := range min(len(parts), len(items)-from) {
+				items[from+j].keyed = keyed(b, parts[j], items[from+j].draw)
+			}
+		}
 		puffs := c.FogOf(b)
 		if item, ok := fogItem(cam, puffs, fog(puffs)); ok {
 			items = append(items, item)

@@ -53,6 +53,39 @@ func TestRecordReuse(t *testing.T) {
 		})
 	})
 
+	t.Run("when a city has settled, its standing objects", func(t *testing.T) {
+		rc := settled(t)
+		st := rc.frame()
+		for _, kind := range []recordKind{kindMonument, kindTree, kindBridge} {
+			t.Run("it should keep "+kind.String()+"'s records", func(t *testing.T) {
+				assert.Positive(t, st.keptBy[kind])
+			})
+		}
+		t.Run("it should record none of them afresh", func(t *testing.T) {
+			assert.Zero(t, st.freshBy[kindMonument]+st.freshBy[kindTree]+st.freshBy[kindBridge])
+		})
+	})
+
+	t.Run("when a city has settled zoomed in, where its districts' signs stand legible", func(t *testing.T) {
+		rc := newRecordCity(t)
+		rc.g.verifyEvery = 1
+		rc.scene.SetView(city.ViewAttention)
+		rc.scene.Camera().Zoom = 2
+		rc.frame()
+		rc.now = rc.now.Add(10 * time.Minute)
+		for range 4 {
+			rc.frame()
+		}
+		st := rc.frame()
+
+		t.Run("it should keep the signs' records", func(t *testing.T) {
+			assert.Positive(t, st.keptBy[kindSign])
+		})
+		t.Run("it should record no sign afresh", func(t *testing.T) {
+			assert.Zero(t, st.freshBy[kindSign])
+		})
+	})
+
 	t.Run("when the camera pans by whole pixels", func(t *testing.T) {
 		rc := settled(t)
 		rc.scene.Pan(city.Point{X: 7, Y: -3})

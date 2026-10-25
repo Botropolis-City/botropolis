@@ -36,7 +36,7 @@ func TestEveryBridgeIsDrawn(t *testing.T) {
 	}, func(puffs []city.FogPuff) func() {
 		banks = append(banks, puffs)
 		return func() {}
-	})
+	}, nil)
 	require.NotEmpty(t, items)
 
 	// Aria, 2026-10-25: the second bridge crosses the river on its raised

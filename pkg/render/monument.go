@@ -177,24 +177,24 @@ func (g *Game) fill(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
 
 // monumentOf is where a district's sign stands and how big it is, or
 // false when the lot has nowhere to put it.
-func (g *Game) monumentOf(cam *city.Camera, d *city.District) (at city.Point, width, bed float64, ok bool) {
+func (g *Game) monumentOf(cam *city.Camera, lot city.Rect) (at city.Point, width, bed float64, ok bool) {
 	size := g.kitSize(cam, kitPlanter)
 	if size.X == 0 {
 		return city.Point{}, 0, 0, false
 	}
 	bed = float64(size.X)
 	width = bed * monumentSpan
-	at, ok = monumentSite(cam, d.Rect, ui.MonumentFootprint(width), bed)
+	at, ok = monumentSite(cam, lot, ui.MonumentFootprint(width), bed)
 	return at, width, bed, ok
 }
 
-func (g *Game) districtMonument(screen *ebiten.Image, cam *city.Camera, d *city.District, night bool) {
-	at, width, bed, ok := g.monumentOf(cam, d)
+func (g *Game) districtMonument(screen *ebiten.Image, cam *city.Camera, name string, lot city.Rect, night bool) {
+	at, width, bed, ok := g.monumentOf(cam, lot)
 	if !ok {
 		return
 	}
 	ground := cam.WorldToScreen(at)
-	sign, ok := ui.LayoutMonument(d.Name, ground, width, g.faces.Measure)
+	sign, ok := ui.LayoutMonument(name, ground, width, g.faces.Measure)
 	if !ok {
 		g.kit(screen, cam, kitPlanter, 0, bedOf(cam, at, bed), nil)
 		return

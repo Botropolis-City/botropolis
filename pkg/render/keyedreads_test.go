@@ -22,15 +22,61 @@ import (
 // cover.
 var keyedDraws = map[recordKind]struct {
 	draw  string
+	also  []string
 	reads map[string]string
 }{
-	kindDistrictFloor: {"districtFloor", agedFloorReads},
-	kindLotFloor: {"lotFloor", with(agedFloorReads, map[string]string{
+	kindDistrictFloor: {draw: "districtFloor", reads: agedFloorReads},
+	kindLotFloor: {draw: "lotFloor", reads: with(agedFloorReads, map[string]string{
 		"g.reduced":    "frameKey",
 		"g.weedFade":   "worked out by dressing, from the lot's mowing and reduced motion, before it is read",
 		"scene.Mowing": "the lot's key",
 	})},
-	kindHouse: {"paintBuilding", houseReads},
+	kindHouse: {draw: "paintBuilding", reads: houseReads},
+	kindMonument: {draw: "districtMonument", reads: because("g.rec", "g.paint", "g.kits", "g.drawing", "scene.View",
+		"g.faces", "g.share", "g.jn", "g.textSeen", "g.glows",
+		"g.baking", "g.paintUncut", "g.lightsOn", "g.litBounds", "g.litRects", "g.lightOps", "g.punches", "g.cuts")},
+	kindSign: {draw: "paintDistrictSign", reads: because("g.rec", "g.paint", "g.theme", "g.faces", "g.share", "g.jn", "g.textSeen",
+		"g.paintUncut", "g.lightsOn", "g.litBounds", "g.litRects", "g.lightOps", "g.cuts")},
+	kindTree: {draw: "isoTree", reads: because("g.rec", "g.paint", "g.kits", "g.drawing", "scene.View",
+		"g.baking", "g.lightsOn", "g.litBounds", "g.lightOps", "g.punches")},
+	kindBridge: {draw: "drawSpan", also: []string{"drawRampSegment", "drawHazePiece"}, reads: because("g.rec", "g.paint", "g.kits", "g.drawing", "scene.View",
+		"g.baking", "g.lightsOn", "g.litBounds", "g.lightOps", "g.punches")},
+}
+
+// why is how a keyed draw's key covers each thing a draw can read.
+var why = map[string]string{
+	"g.rec":        "the recorder: where the draws go",
+	"g.paint":      "the painter, which hands every draw to the recorder",
+	"g.kits":       "frameKey: the kits' generation, and the zoom the level is picked by",
+	"g.drawing":    "a sink: world draws, counted, and counted again when kept",
+	"scene.View":   "frameKey: whether a view drains the colour",
+	"g.theme":      "houseWide, in its key",
+	"g.faces":      "houseWide, in its key",
+	"g.share":      "houseWide, in its key: the share and whether it is yours",
+	"g.jn":         "the journal: words, told again when kept",
+	"g.textSeen":   "a sink: words, journalled and told again when kept",
+	"g.glows":      "the journal: glows, laid again when kept",
+	"g.baking":     "set only while a building's look bakes, which nothing else is drawn inside",
+	"g.paintUncut": "set only while a building's look bakes, which nothing else is drawn inside",
+	"g.lightsOn":   "frameKey: lights, and the panes lit before it",
+	"g.litBounds":  "frameKey: the panes lit before it",
+	"g.litRects":   "frameKey: the panes lit before it",
+	"g.lightOps":   "the journal: light ops, laid again when kept",
+	"g.punches":    "a sink: counted, and counted again when kept",
+	"g.cuts":       "a sink: counted, and counted again when kept",
+}
+
+// because is the reasons why gives for reads.
+func because(reads ...string) map[string]string {
+	out := map[string]string{}
+	for _, r := range reads {
+		reason, ok := why[r]
+		if !ok {
+			panic("no reason for " + r)
+		}
+		out[r] = reason
+	}
+	return out
 }
 
 // houseReads is what a building's painting reads beyond its frame, and
@@ -186,6 +232,13 @@ func TestKeyedDrawsRead(t *testing.T) {
 	for kind, d := range keyedDraws {
 		t.Run("when "+kind.String()+"'s draw reads the game's or the scene's state", func(t *testing.T) {
 			reads := gameReads(t, d.draw)
+			for _, more := range d.also {
+				for r, in := range gameReads(t, more) {
+					if _, ok := reads[r]; !ok {
+						reads[r] = in
+					}
+				}
+			}
 			var unkeyed, unread []string
 			for r, in := range reads {
 				if _, ok := d.reads[r]; !ok {

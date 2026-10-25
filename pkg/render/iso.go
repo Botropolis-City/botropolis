@@ -697,6 +697,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items[len(items)-1].moves = true
 	}
 	// Every bridge, and the fog its deck fades into (items 239 and 220).
+	bridgeHashes := map[city.Cell]uint64{}
 	items = append(items, bridgesInSort(cam, c, func(_ int, bridge city.Bridge, p bridgePart) func() {
 		if p.hazy() {
 			return func() { g.drawHazePiece(screen, cam, bridge, p, c.Night) }
@@ -707,6 +708,19 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		return func() { g.drawSpan(screen, cam, bridge, p.Cell) }
 	}, func(puffs []city.FogPuff) func() {
 		return func() { g.drawFog(screen, cam, puffs, c.Night) }
+	}, func(bridge city.Bridge, p bridgePart, draw func()) func() {
+		// A bridge is the same for every piece of it: hashed once.
+		whole, ok := bridgeHashes[bridge.Deck[0]]
+		if !ok {
+			whole = valueHash(bridge)
+			bridgeHashes[bridge.Deck[0]] = whole
+		}
+		key := valueHash(struct {
+			bridge uint64
+			part   bridgePart
+			night  bool
+		}{whole, p, c.Night})
+		return func() { g.noteKeyed(kindBridge, key, draw) }
 	})...)
 	for _, d := range g.scene.Deliveries() {
 		d := d
@@ -821,16 +835,27 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	// everything else rather than being painted over the scene. Bug 44.
 	for _, d := range c.Districts {
 		d := d
-		at, _, _, ok := g.monumentOf(cam, d)
+		at, _, _, ok := g.monumentOf(cam, d.Rect)
 		if !ok {
 			continue
 		}
+		name, lot := d.Name, d.Rect
 		items = append(items, standingAt(cam, at, func() {
-			g.districtMonument(screen, cam, d, c.Night)
+			g.districtMonument(screen, cam, name, lot, c.Night)
 		}))
 		items[len(items)-1].kept = g.keeps(d)
+		key := valueHash(struct {
+			name  string
+			lot   city.Rect
+			night bool
+			wide  uint64
+		}{name, lot, c.Night, g.houseWide})
+		items[len(items)-1].keyed = func() {
+			g.noteKeyed(kindMonument, key, func() { g.districtMonument(screen, cam, name, lot, c.Night) })
+		}
 	}
 	island := c.Island()
+	isle := valueHash(island)
 	for _, t := range c.Trees {
 		if !g.scene.Scenery() {
 			break
@@ -839,6 +864,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, standingAt(cam, t.At, func() {
 			g.isoTree(screen, cam, island, c.Night, t)
 		}))
+		key := valueHash(struct {
+			tree   city.Tree
+			island uint64
+			night  bool
+		}{t, isle, c.Night})
+		items[len(items)-1].keyed = func() {
+			g.noteKeyed(kindTree, key, func() { g.isoTree(screen, cam, island, c.Night, t) })
+		}
 	}
 	for _, t := range c.Towers {
 		t := t
@@ -872,6 +905,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 				signed[d] = g.districtSign(screen, cam, d)
 			}))
 			items[len(items)-1].kept = g.keeps(d)
+			items[len(items)-1].keyed = func() { signed[d] = g.noteDistrictSign(screen, cam, d) }
 		}
 	}
 	fade := g.fadeUnkept(&screen, items, airborne)
@@ -1520,6 +1554,24 @@ func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City
 		}{g.buildingValue(b), g.scene.Mowing(b.Session.ID)})
 		g.noteKeyed(kindLotFloor, key, func() { g.lotFloor(screen, cam, b) })
 	}
+}
+
+// noteDistrictSign notes a district's sign as districtSign draws it:
+// its room among the labels every frame, and its painting keyed by the
+// sign it lays out, so a sign that holds keeps last frame's record.
+func (g *Game) noteDistrictSign(screen *ebiten.Image, cam *city.Camera, d *city.District) bool {
+	sign := d.Sign()
+	foot, board, laid, ok := g.districtSignLayout(cam, d)
+	if !ok {
+		return false
+	}
+	g.queueDistrictSign(foot, board)
+	key := valueHash(struct {
+		sign city.DistrictSign
+		wide uint64
+	}{sign, g.houseWide})
+	g.noteKeyed(kindSign, key, func() { g.paintDistrictSign(screen, sign, foot, board, laid) })
+	return true
 }
 
 // valuesFor starts the buildings' hashed values again for a city other

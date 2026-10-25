@@ -29,10 +29,15 @@ const (
 	kindDistrictFloor
 	kindLotFloor
 	kindHouse
+	kindMonument
+	kindSign
+	kindTree
+	kindBridge
 	kindsKept
 )
 
-var recordKindNames = [kindsKept]string{"", "a district's aged floor", "a building's aged lot", "a building"}
+var recordKindNames = [kindsKept]string{"", "a district's aged floor", "a building's aged lot", "a building",
+	"a district's monument", "a district's sign", "a tree", "a piece of the bridge"}
 
 func (k recordKind) String() string { return recordKindNames[k] }
 

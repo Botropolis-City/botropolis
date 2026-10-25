@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **A still city spends less time drawing each frame.**
-  A building, or a worn or overgrown lot, is no longer drawn again every frame only to come out the same: it keeps last frame's drawing, its lit windows at night included, until something it is drawn from changes, and a sixteenth of what is kept is drawn again each frame to check.
+  A building, a worn or overgrown lot, a tree, a district's sign or monument, or a piece of the bridge is no longer drawn again every frame only to come out the same: it keeps last frame's drawing, its lit windows at night included, until something it is drawn from changes, and a sixteenth of what is kept is drawn again each frame to check.
 - **The city holds about 38 MiB less graphics memory fully zoomed in, and 12 MiB less at every zoom.**
   The island's shore is painted coarser as the island grows, so its texture stays 1024 pixels a side, and the closest zoom draws a new middle level of the kit art in place of the largest one.
 - **`status` names models short, as the city does.**
