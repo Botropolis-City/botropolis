@@ -23,6 +23,12 @@ func TestScenarioValidate(t *testing.T) {
 		"has a shot with no name": {Sessions: placed, Shots: []Shot{{}}},
 		"names two shots alike":   {Sessions: placed, Shots: []Shot{{Name: "a"}, {Name: "a"}}},
 		"sets a pace below zero":  {Sessions: placed, Pace: Duration(-time.Second)},
+		// Item 76: a poster is chosen from a clip's own frames.
+		"sets poster_at on a still": {Sessions: placed, Shots: []Shot{{Name: "a", PosterAt: ptr(1.0)}}},
+		"sets poster_at past the clip's end": {Sessions: placed,
+			Shots: []Shot{{Name: "a", Record: &Recording{Seconds: 4}, PosterAt: ptr(4.5)}}},
+		"sets poster_at below zero": {Sessions: placed,
+			Shots: []Shot{{Name: "a", Record: &Recording{Seconds: 4}, PosterAt: ptr(-1.0)}}},
 	} {
 		t.Run("when a scenario "+name, func(t *testing.T) {
 			t.Run("it should refuse it, rather than film an empty city or overwrite a file", func(t *testing.T) {
@@ -30,6 +36,17 @@ func TestScenarioValidate(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestPosterAtYAML(t *testing.T) {
+	var shot Shot
+	require.NoError(t, yaml.Unmarshal([]byte("{name: day, record: {seconds: 54}, poster_at: 12.5}"), &shot))
+
+	t.Run("when a shot sets poster_at", func(t *testing.T) {
+		t.Run("it should read it in seconds of video", func(t *testing.T) {
+			assert.Equal(t, ptr(12.5), shot.PosterAt)
+		})
+	})
 }
 
 func TestDurationYAML(t *testing.T) {

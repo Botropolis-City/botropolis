@@ -54,6 +54,7 @@ shots:
     title: A day on two projects
     description: Sessions arrive by boat, their buildings rise as they work, pull requests merge, and finished sessions rest on their own lots.
     record: {seconds: 54, fps: 30}
+    poster_at: 41
     timeline: true
     script:
       - {at: 0.5, point_at: "district:tidepool", over: 2}

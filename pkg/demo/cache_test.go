@@ -58,6 +58,9 @@ func TestShotKey(t *testing.T) {
 			changed.Clock = "23:00"
 			return shotKey(changed, scenario.Shots[0], "inputs-1")
 		},
+		"only the shot's poster_at changes": func() string {
+			return shotKey(scenario, Shot{Name: "a", PosterAt: ptr(4.5)}, "inputs-1")
+		},
 		"the corpus or a binary changes": func() string {
 			return shotKey(scenario, scenario.Shots[0], "inputs-2")
 		},

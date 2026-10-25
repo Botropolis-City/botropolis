@@ -115,6 +115,9 @@ func (s Scenario) Validate() error {
 		if len(shot.Script) > 0 && shot.Record == nil {
 			return fmt.Errorf("scenario %q: shot %q: a script plays only while recording", s.Name, shot.Name)
 		}
+		if err := shot.validPosterAt(); err != nil {
+			return fmt.Errorf("scenario %q: shot %q: %w", s.Name, shot.Name, err)
+		}
 		if seen[shot.Name] {
 			return fmt.Errorf("scenario %q: two shots named %q", s.Name, shot.Name)
 		}
@@ -165,4 +168,17 @@ func LoadScenario(path string) (Scenario, error) {
 		return Scenario{}, fmt.Errorf("%s: %w", path, err)
 	}
 	return s, nil
+}
+
+// validPosterAt refuses a poster_at no frame of the clip sits at.
+func (shot Shot) validPosterAt() error {
+	switch at := shot.PosterAt; {
+	case at == nil:
+		return nil
+	case shot.Record == nil:
+		return fmt.Errorf("poster_at: a still is its own poster")
+	case *at < 0 || *at > shot.Record.Seconds:
+		return fmt.Errorf("poster_at %gs: outside the clip's %gs", *at, shot.Record.Seconds)
+	}
+	return nil
 }

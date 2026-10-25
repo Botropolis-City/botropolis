@@ -7,6 +7,7 @@ import (
 	"image"
 	_ "image/png"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,6 +42,9 @@ type Shot struct {
 	Scale   float64    `yaml:"scale"`
 	Record  *Recording `yaml:"record"`
 	Formats []string   `yaml:"formats"`
+	// PosterAt is the second of the clip its poster is taken from; unset,
+	// a third of the way in (item 76).
+	PosterAt *float64 `yaml:"poster_at"`
 	// Timeline plays the scenario's arrivals, departures and changes
 	// while a clip records.
 	Timeline bool `yaml:"timeline"`
@@ -382,7 +386,7 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 		return nil, err
 	}
 	poster := filepath.Join(dir, shot.Name+".png")
-	if err := posterFrom(frames, poster); err != nil {
+	if err := posterFrom(frames, poster, fpsOf(shot.Record), shot.PosterAt); err != nil {
 		return nil, err
 	}
 	width, height, err := size(poster)
@@ -522,18 +526,27 @@ func watchFrames(frames string, expected int, progress *Progress) (stop func()) 
 	}
 }
 
-// posterFrom keeps the frame a third of the way in as the clip's
-// still: the first frame is the city before its fit has settled.
-func posterFrom(frames, poster string) error {
+// posterFrom keeps one frame as the clip's still: the frame at the
+// shot's poster_at, or a third of the way in, since the first frame is
+// the city before its fit has settled.
+func posterFrom(frames, poster string, fps int, at *float64) error {
 	all, err := filepath.Glob(filepath.Join(frames, "frame-*.png"))
 	if err != nil || len(all) == 0 {
 		return fmt.Errorf("no frames recorded in %s", frames)
 	}
-	data, err := os.ReadFile(all[len(all)/3])
+	data, err := os.ReadFile(all[posterFrame(len(all), fps, at)])
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(poster, data, 0o644)
+}
+
+// posterFrame is the index of the poster among a clip's frames.
+func posterFrame(frames, fps int, at *float64) int {
+	if at == nil {
+		return frames / 3
+	}
+	return max(0, min(frames-1, int(math.Round(*at*float64(fps)))))
 }
 
 func size(path string) (int, int, error) {

@@ -155,3 +155,26 @@ func TestFilmHold(t *testing.T) {
 		})
 	})
 }
+
+// Item 76: a clip's poster used to be whatever frame a third of the way
+// in landed on, which on timelapse/day was the pointer mid-hover.
+func TestPosterFrame(t *testing.T) {
+	const frames, fps = 90, 30
+
+	for _, tc := range []struct {
+		when, should string
+		at           *float64
+		want         int
+	}{
+		{"sets no poster_at", "take the frame a third of the way in", nil, 30},
+		{"sets poster_at inside the clip", "take the frame at that second", ptr(1.5), 45},
+		{"sets poster_at between two frames", "take the nearer", ptr(1.49), 45},
+		{"sets poster_at at the clip's last moment", "take the last frame rather than one past it", ptr(3.0), 89},
+	} {
+		t.Run("when a clip "+tc.when, func(t *testing.T) {
+			t.Run("it should "+tc.should, func(t *testing.T) {
+				assert.Equal(t, tc.want, posterFrame(frames, fps, tc.at))
+			})
+		})
+	}
+}

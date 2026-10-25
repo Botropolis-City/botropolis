@@ -107,6 +107,7 @@ shots:
 ```
 
 A shot also takes `window`, `hover`, `detail`, `signage`, `scale` and its own `clock`.
+A clip's poster is the frame a third of the way in, unless `poster_at:` names the second to take it from.
 Unknown keys are refused, and so is a scenario that places no sessions.
 
 ## Start times and groups
