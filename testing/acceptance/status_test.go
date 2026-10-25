@@ -26,6 +26,9 @@ type built struct{ *testing.M }
 
 func (b *built) Run() int {
 	m := b.M
+	// Item 249: a capture here fails only on a read that has stopped
+	// moving, so a loaded machine cannot fail one that is slow.
+	_ = os.Setenv("BOTROPOLIS_FRAME_OPEN_CEILING", "stall")
 	// make test-acceptance runs each test in a process of its own (item
 	// 226), so it builds the binary once and names it here. A map run
 	// builds its own, under coverage.

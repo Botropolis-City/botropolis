@@ -506,6 +506,10 @@ type Game struct {
 	shoreLayer *shoreLayer
 	fogPuff    *ebiten.Image
 	started    time.Time
+	// ceiling is what openCeiling bounds for a capture, and readProgress
+	// how far its read had got when it last moved (item 249).
+	ceiling      ceilingMode
+	readProgress readProgress
 	// driven is a city run a tick at a time by Drive; inject is this
 	// tick's input and shown what the last frame drew. Item 91.
 	driven bool
