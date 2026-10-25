@@ -69,6 +69,29 @@ func (s *Scene) noteHauls(now time.Time) {
 	s.spots = spots
 }
 
+// retargetHauls sends every truck on its way to where its building now
+// stands. A haul's end is laid when it starts, and a re-layout within
+// PackFor can move the building. The truck keeps its place, its
+// progress and its arrival: only the start it is eased from is solved
+// again, so it does not jump or speed up. Item 224.
+func (s *Scene) retargetHauls(now time.Time) {
+	at := map[string]*Building{}
+	for _, b := range s.city.Buildings() {
+		at[b.Session.ID] = b
+	}
+	for i, h := range s.hauls {
+		b := at[h.SessionID]
+		p := h.Progress(now)
+		if b == nil || b.Packed != (h.Kind == HaulPack) || p >= 1 || b.Rect.Center() == h.To {
+			continue
+		}
+		here, to := h.At(now), b.Rect.Center()
+		eased := 1 - (1-p)*(1-p)
+		s.hauls[i].From = here.Sub(to.Scale(eased)).Scale(1 / (1 - eased))
+		s.hauls[i].To = to
+	}
+}
+
 // Hauls is every truck still on its way.
 func (s *Scene) Hauls() []Haul {
 	now := s.now()
@@ -158,5 +181,6 @@ func (s *Scene) releaseDepot() {
 	s.city = build(s.snapshot, s.layout, s.ladder, false, s.ledger, s.memo)
 	s.city.Face(s.camera.Heading)
 	s.generation++
+	s.carryOn(s.now())
 	s.noteGround()
 }

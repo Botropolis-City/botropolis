@@ -367,8 +367,16 @@ func (s *Scene) face() {
 	}
 	was := s.city.StreetCells
 	s.city.Face(s.camera.Heading)
+	s.rerouteMessages(s.now())
 	s.noteOvergrowth(was, s.now())
 	s.noteGround()
+}
+
+// carryOn sends the movers laid out in an older city on their way in
+// this one. Item 224.
+func (s *Scene) carryOn(now time.Time) {
+	s.retargetHauls(now)
+	s.rerouteMessages(now)
 }
 
 // ToggleNight forces night on or off regardless of what is running, to
@@ -800,6 +808,7 @@ func (s *Scene) apply(snapshot state.Snapshot) {
 	s.notePRs(s.now())
 	s.noteMessages(s.now())
 	s.holdDepot()
+	s.carryOn(s.now())
 	s.city.Plant.BudgetUSD = s.budget
 	s.noteMerges()
 	s.noteVoyages(snapshot, s.now())

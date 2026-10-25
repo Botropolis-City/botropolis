@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On some factories zoomed out, a square window's planks could change shape from one frame to the next as the camera moved; they now stay as they are.
 - **A delivery truck always leaves on the bridge.**
   When the island grew while a truck was on its way, the bridge moved and the truck carried on where it had been, beside the deck and over the water; it now takes the bridge as it stands.
+- **Message vans and the depot's trucks arrive where things now are.**
+  When the city was laid out again during a trip, a message van kept to a road that had moved, and a truck carrying a crate drove to where the crate's place in the depot had been.
+  The van now carries on from where it is along the streets as they stand, and the truck turns toward the crate's new place, neither jumping nor speeding up.
 - **The bridge stays where it is.**
   It moved over a row every time the island grew a row; it now keeps its place beside the same blocks as the island grows and across a restart, and moves only when its road does.
 

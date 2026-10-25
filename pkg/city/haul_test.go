@@ -92,6 +92,51 @@ func TestHauls(t *testing.T) {
 		})
 	})
 
+	// Item 224: two more sessions in cinders re-lay the city mid-haul,
+	// which moves the crate's place in the depot.
+	t.Run("when a session is packed up, and the depot moves under the crate mid-haul", func(t *testing.T) {
+		s, _, was := haul(t, lot, crate, false)
+		require.Len(t, s.Hauls(), 1)
+		at = now.Add(city.PackFor / 2)
+		here := s.Hauls()[0].At(at)
+		s.SetSnapshot(snapshot(session("a", cinders, state.Working), crate, session("c0", cinders, state.Working), session("c1", cinders, state.Working)))
+		moved := centreIn(t, s, "b")
+		require.NotEqual(t, was, moved, "the fixture should move the crate")
+		hauls := s.Hauls()
+
+		t.Run("it should carry on from where it was", func(t *testing.T) {
+			require.Len(t, hauls, 1)
+			assert.InDelta(t, 0, hauls[0].At(at).DistanceToSegment(here, here), 1e-9)
+		})
+
+		t.Run("it should end where the crate now stands", func(t *testing.T) {
+			require.Len(t, hauls, 1)
+			assert.InDelta(t, 0, hauls[0].At(now.Add(city.PackFor)).DistanceToSegment(moved, moved), 1e-9)
+		})
+
+		t.Run("it should arrive when it would have", func(t *testing.T) {
+			at = now.Add(city.PackFor)
+			assert.Empty(t, s.Hauls())
+		})
+	})
+
+	t.Run("when a crate is unpacked again before its pack truck arrives", func(t *testing.T) {
+		s, _, depot := haul(t, lot, crate, false)
+		at = now.Add(city.PackFor / 2)
+		s.SetSnapshot(snapshot(session("a", cinders, state.Working), lot))
+		var pack []city.Haul
+		for _, h := range s.Hauls() {
+			if h.Kind == city.HaulPack {
+				pack = append(pack, h)
+			}
+		}
+
+		t.Run("it should still end the pack truck at the depot", func(t *testing.T) {
+			require.Len(t, pack, 1)
+			assert.Equal(t, depot, pack[0].To)
+		})
+	})
+
 	t.Run("when reduced motion is on", func(t *testing.T) {
 		s, _, _ := haul(t, lot, crate, true)
 

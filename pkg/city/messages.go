@@ -1,6 +1,7 @@
 package city
 
 import (
+	"math"
 	"slices"
 	"time"
 )
@@ -148,6 +149,120 @@ func (s *Scene) messagePath(road *RoadLine, from, to *District) ([]Point, bool) 
 		slices.Reverse(path)
 	}
 	return path, false
+}
+
+// rerouteMessages sends every van on its way by the road as it now
+// stands, to its districts as they now stand. A van's path is laid when
+// the message is sent, and a re-layout can move the road out from under
+// it. Item 224, after item 217's trucks.
+func (s *Scene) rerouteMessages(now time.Time) {
+	for i, m := range s.messages {
+		if m.From == nil || m.To == nil || m.Progress(now) >= 1 {
+			continue
+		}
+		from, to := s.city.districtRooted(m.From.Root), s.city.districtRooted(m.To.Root)
+		road := s.city.roadBetween(from, to)
+		if road == nil {
+			continue
+		}
+		want, train := s.messagePath(road, from, to)
+		m.From, m.To = from, to
+		switch rest := ahead(m.Path, m.Progress(now)*pathLength(m.Path)); {
+		case m.Fades || !now.After(m.Since):
+			m.Path, m.Train = want, train
+		case isTail(rest, want) && m.Train == train:
+		case train && m.Train && len(want) == len(m.Path):
+			m.Path = append([]Point{m.At(now)}, want[len(want)-len(rest):]...)
+			m.Since = now
+		case train:
+			m.Path, m.Since, m.Train = []Point{m.At(now), want[len(want)-1]}, now, true
+		default:
+			m.Path, m.Since, m.Train = s.city.rejoin(m.At(now), want), now, false
+		}
+		s.messages[i] = m
+	}
+}
+
+// rejoin is the way from here along the streets as they now stand to a
+// street path: to the nearest street if here is off them, by the
+// avenues to the path, and along it to its end.
+func (c *City) rejoin(here Point, path []Point) []Point {
+	end := path[len(path)-1]
+	onto := map[Cell]bool{}
+	for _, p := range path[1 : len(path)-1] {
+		onto[CellOf(p)] = true
+	}
+	start := CellOf(here)
+	if !c.IsStreet(start) {
+		start = c.nearestStreet(here, end)
+	}
+	cells := c.walkStreets(map[Cell]bool{start: true}, onto)
+	if len(cells) == 0 {
+		return []Point{here, end}
+	}
+	if len(cells) > 1 && here.DistanceToSegment(cells[0].Center(), cells[1].Center()) < 1e-9 {
+		cells = cells[1:]
+	}
+	route := []Point{here}
+	for _, cell := range cells {
+		route = append(route, cell.Center())
+	}
+	joined := cells[len(cells)-1]
+	for j := 1; j < len(path)-1; j++ {
+		if CellOf(path[j]) == joined {
+			return append(route, path[j+1:]...)
+		}
+	}
+	return append(route, end)
+}
+
+// nearestStreet is the avenue cell nearest a point, or of those about as
+// near, the one nearest where it is going, so it does not back up.
+func (c *City) nearestStreet(p, toward Point) Cell {
+	nearest := math.Inf(1)
+	for _, st := range c.plan.Streets {
+		nearest = min(nearest, hypot(toCell(st.Cell).Center(), p))
+	}
+	var best Cell
+	left := math.Inf(1)
+	for _, st := range c.plan.Streets {
+		cell := toCell(st.Cell)
+		if hypot(cell.Center(), p) > nearest+BuildingSize/2 {
+			continue
+		}
+		if d := hypot(cell.Center(), toward); d < left {
+			best, left = cell, d
+		}
+	}
+	return best
+}
+
+// isTail is whether rest is the last points of path.
+func isTail(rest, path []Point) bool {
+	return len(rest) <= len(path) && slices.Equal(rest, path[len(path)-len(rest):])
+}
+
+func (c *City) districtRooted(root string) *District {
+	for _, d := range c.Districts {
+		if d.Root == root {
+			return d
+		}
+	}
+	return nil
+}
+
+// roadBetween is the road joining two districts, either way, or nil.
+func (c *City) roadBetween(a, b *District) *RoadLine {
+	if a == nil || b == nil {
+		return nil
+	}
+	for i := range c.Roads {
+		r := &c.Roads[i]
+		if (r.From == a && r.To == b) || (r.From == b && r.To == a) {
+			return r
+		}
+	}
+	return nil
 }
 
 // Messages is every message still on its way.

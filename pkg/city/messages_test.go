@@ -23,13 +23,20 @@ func TestMessages(t *testing.T) {
 		s.SubagentsInFlight, s.Group = 0, group
 		return s
 	}
-	snap := func(messages, back int, group string) state.Snapshot {
-		s := snapshot(member("a", cinders, group), member("b", mullet, group))
+	grown := func(messages, back, extra int, group string) state.Snapshot {
+		sessions := []state.Session{member("a", cinders, group), member("b", mullet, group)}
+		for i := 0; i < extra; i++ {
+			sessions = append(sessions, member(fmt.Sprintf("c%d", i), cinders, ""))
+		}
+		s := snapshot(sessions...)
 		s.Roads = []state.Road{{From: cinders, To: mullet, Messages: messages, BackMessages: back, Sessions: 2}}
 		if group != "" {
 			s.Groups = []state.Group{{ID: group, Short: "G", Members: []string{"a", "b"}}}
 		}
 		return s
+	}
+	snap := func(messages, back int, group string) state.Snapshot {
+		return grown(messages, back, 0, group)
 	}
 	type scene struct {
 		s     *city.Scene
@@ -178,6 +185,95 @@ func TestMessages(t *testing.T) {
 		t.Run("it should fade the van in at the recipient's end, with no drive", func(t *testing.T) {
 			require.Len(t, vans, 1)
 			assert.Equal(t, [2]any{true, vans[0].Path[len(vans[0].Path)-1]}, [2]any{vans[0].Fades, vans[0].At(start.Add(time.Millisecond))})
+		})
+	})
+
+	// Item 224: three more sessions in cinders re-lay the city, which
+	// moves the road and the line a row while the message is on its way.
+	relaid := func(t *testing.T, level city.Liveliness, group string) (scene, city.Point) {
+		t.Helper()
+		sc := open(t, level, true, snap(0, 0, group), snap(1, 0, group))
+		vans := sc.s.Messages()
+		require.Len(t, vans, 1)
+		*sc.clock = start.Add(vans[0].For() / 2)
+		here := vans[0].At(*sc.clock)
+		was := sc.s.City().Streets
+		sc.s.SetSnapshot(grown(1, 0, 3, group))
+		require.NotEqual(t, was[0].Path, sc.s.City().Streets[0].Path, "the fixture should move the road")
+		return sc, here
+	}
+	road := func(sc scene) []city.Point {
+		for _, st := range sc.s.City().Streets {
+			if st.Road.From.Root == cinders && st.Road.To.Root == mullet {
+				return st.Path
+			}
+		}
+		return nil
+	}
+
+	t.Run("when the city is re-laid out while a van drives, so its road moves", func(t *testing.T) {
+		sc, here := relaid(t, city.Lively, "")
+		vans := sc.s.Messages()
+		now := road(sc)
+
+		t.Run("it should carry on from where it was", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			assert.Equal(t, here, vans[0].At(*sc.clock))
+		})
+
+		t.Run("it should end at the recipient's kerb as it now stands, by its driveway", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			path := vans[0].Path
+			assert.Equal(t, now[len(now)-2:], path[len(path)-2:])
+		})
+
+		t.Run("it should drive only on the streets as they now stand on its way to the kerb", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			path := vans[0].Path
+			var off []city.Point
+			for _, p := range path[1 : len(path)-1] {
+				if !sc.s.City().IsStreet(city.CellOf(p)) {
+					off = append(off, p)
+				}
+			}
+			assert.Empty(t, off)
+		})
+
+		t.Run("it should name the districts as they now stand", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			assert.True(t, vans[0].From == district(sc, cinders) && vans[0].To == district(sc, mullet), "the van names districts from an older city")
+		})
+	})
+
+	t.Run("when both sessions are stations on a drawn line and the city is re-laid out mid-trip", func(t *testing.T) {
+		sc, here := relaid(t, city.Lively, "g1")
+		vans := sc.s.Messages()
+		var station city.Point
+		for _, st := range sc.s.City().Lines[0].Stations {
+			if st.District.Root == mullet {
+				station = st.At
+			}
+		}
+
+		t.Run("it should carry on from where it was", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			assert.Equal(t, here, vans[0].At(*sc.clock))
+		})
+
+		t.Run("it should end at the recipient's station as it now stands", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			assert.Equal(t, station, vans[0].Path[len(vans[0].Path)-1])
+		})
+	})
+
+	t.Run("when the level is still and the city is re-laid out", func(t *testing.T) {
+		sc, _ := relaid(t, city.Still, "")
+		vans := sc.s.Messages()
+		now := road(sc)
+
+		t.Run("it should fade in at the recipient's end as it now stands", func(t *testing.T) {
+			require.Len(t, vans, 1)
+			assert.Equal(t, now[len(now)-1], vans[0].At(*sc.clock))
 		})
 	})
 
