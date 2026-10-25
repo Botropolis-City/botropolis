@@ -55,3 +55,7 @@ func (s *Scene) FromScratch() *City {
 	c.Face(s.camera.Heading)
 	return c
 }
+
+// BridgeRoads is the road laid only to reach a bridge's landing
+// (item 247).
+func (c *City) BridgeRoads() []Cell { return c.bridgeRoads }

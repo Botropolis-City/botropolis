@@ -55,5 +55,19 @@ func TestRoadJoinsTheBridge(t *testing.T) {
 		t.Run("it should lay no driveway pad onto the bridge", func(t *testing.T) {
 			assert.Empty(t, c.Pads([]StreetCell{{Cell: land, Mask: mask}}))
 		})
+
+		// Item 247: the bridge's own road is laid only where no road
+		// already reaches the landing.
+		t.Run("it should lay no road but the road's own", func(t *testing.T) {
+			var laid []Cell
+			for _, sc := range c.StreetCells {
+				laid = append(laid, sc.Cell)
+			}
+			var own []Cell
+			for _, p := range path[1 : len(path)-1] {
+				own = append(own, CellOf(p))
+			}
+			assert.ElementsMatch(t, own, laid)
+		})
 	})
 }

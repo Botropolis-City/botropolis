@@ -84,7 +84,8 @@ func (c *City) Face(heading int) {
 // Heading is the camera heading the streets are placed for.
 func (c *City) Heading() int { return c.heading }
 
-// layRoads lays a road on every corridor cell a route crosses, each cell
+// layRoads lays a road on every corridor cell a route crosses, and on the
+// way to each bridge (item 247), each cell
 // joined only to the road cells beside it and a driveway to its lot, and
 // keeps the lamps and the street trees to the roads: a corridor nothing
 // travels is belt.
@@ -101,6 +102,7 @@ func (c *City) layRoads() {
 			stub[cell] |= sideOf(cell, end[1])
 		}
 	}
+	c.layBridgeRoads(road, stub)
 	// A road that reaches the bridge's landing joins it: a T, not a
 	// road running past the bridge's end (Aria, 2026-10-18).
 	for _, l := range c.landings {
@@ -154,6 +156,66 @@ func (c *City) layRoads() {
 	}
 	c.Trees = trees
 }
+
+// layBridgeRoads lays road to every bridge's landing that no route
+// reaches, along the avenues from the nearest road laid, or on a city
+// with no road from the nearest driveway, out of its lot: the trucks
+// drive that way, so it is travelled and not belt. Item 247.
+func (c *City) layBridgeRoads(road map[Cell]bool, stub map[Cell]int) {
+	c.bridgeRoads = nil
+	for _, l := range c.landings {
+		if road[l.cell] {
+			continue
+		}
+		from := map[Cell]bool{}
+		for cell := range road {
+			from[cell] = true
+		}
+		lots := map[Cell]Point{}
+		if len(from) == 0 {
+			for _, d := range c.Districts {
+				if dw, ok := c.Driveway(d); ok {
+					from[dw.Cell] = true
+					lots[dw.Cell] = dw.Lot
+				}
+			}
+		}
+		walk := c.walkStreets(from, map[Cell]bool{l.cell: true})
+		if len(walk) == 0 {
+			continue
+		}
+		for _, cell := range walk {
+			if !road[cell] {
+				c.bridgeRoads = append(c.bridgeRoads, cell)
+			}
+			road[cell] = true
+		}
+		if lot, ok := lots[walk[0]]; ok {
+			stub[walk[0]] |= sideOf(walk[0], lot)
+		}
+	}
+}
+
+// walkRoads is walkStreets for a truck: across as few corridor cells
+// without road as it can, and the cheapest walk among those, so a truck
+// takes the road wherever the road goes. Item 247.
+func (c *City) walkRoads(from, to map[Cell]bool) []Cell {
+	paved := map[Cell]bool{}
+	for _, sc := range c.StreetCells {
+		paved[sc.Cell] = true
+	}
+	return c.walkCosting(from, to, func(cell Cell) float64 {
+		if paved[cell] {
+			return 0
+		}
+		return unpavedCost
+	})
+}
+
+// unpavedCost is what a step onto a corridor cell without road costs a
+// truck over a step onto road: more than the steps and turns of any walk
+// across the plan, so a cell less unpaved always wins.
+const unpavedCost = 1e4
 
 var sides = []struct{ dc, dr, dir int }{{0, -1, DirN}, {1, 0, DirE}, {0, 1, DirS}, {-1, 0, DirW}}
 
@@ -452,6 +514,12 @@ func (c *City) routeStreets(road *RoadLine) []Point {
 // walkStreets is the cheapest walk along the avenues from any of one set
 // of cells to any of another, or nil when none joins them.
 func (c *City) walkStreets(from, to map[Cell]bool) []Cell {
+	return c.walkCosting(from, to, nil)
+}
+
+// walkCosting is walkStreets with an extra cost for stepping onto a
+// cell, or none for a nil extra.
+func (c *City) walkCosting(from, to map[Cell]bool, extra func(Cell) float64) []Cell {
 	type entry struct {
 		node routeNode
 		cost float64
@@ -492,6 +560,9 @@ func (c *City) walkStreets(from, to map[Cell]bool) []Cell {
 				continue
 			}
 			cost := cur.cost + 1 + tieCost*float64(nearest-c.depth(next.cell))
+			if extra != nil {
+				cost += extra(next.cell)
+			}
 			if cur.node.dir != 0 && cur.node.dir != st.dir {
 				cost += turnCost
 			}

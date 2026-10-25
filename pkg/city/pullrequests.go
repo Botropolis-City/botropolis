@@ -307,7 +307,7 @@ func (c *City) toBridgeBy(b *Building, bridge Bridge) []Point {
 	if dw, out := c.Driveway(d); ok && out {
 		// Out of the lot by its driveway, as every road leaves it. Item 108.
 		path = append(path, dw.Lot)
-		for _, cell := range c.walkStreets(map[Cell]bool{dw.Cell: true}, map[Cell]bool{land: true}) {
+		for _, cell := range c.walkRoads(map[Cell]bool{dw.Cell: true}, map[Cell]bool{land: true}) {
 			path = append(path, cell.Center())
 		}
 	}
@@ -372,7 +372,7 @@ func (c *City) reroute(path []Point, p float64, bridge Bridge) []Point {
 			route = append(route, pt)
 			continue
 		}
-		for _, cell := range c.walkStreets(map[Cell]bool{CellOf(pt): true}, map[Cell]bool{land: true}) {
+		for _, cell := range c.walkRoads(map[Cell]bool{CellOf(pt): true}, map[Cell]bool{land: true}) {
 			route = append(route, cell.Center())
 		}
 		break

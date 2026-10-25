@@ -61,16 +61,31 @@ func TestRoadOverlay(t *testing.T) {
 			assert.NotEmpty(t, c.Corridors)
 		})
 
-		t.Run("it should lay no road cells", func(t *testing.T) {
-			assert.Empty(t, c.StreetCells)
+		t.Run("it should lay no road but the bridge's", func(t *testing.T) {
+			got := map[city.Cell]bool{}
+			for cell := range laid(c) {
+				got[cell] = true
+			}
+			assert.Equal(t, bridgeRoad(c), got)
 		})
 
 		t.Run("it should stand no lamps", func(t *testing.T) {
 			assert.Empty(t, c.Lamps)
 		})
 
-		t.Run("it should plant no street trees", func(t *testing.T) {
-			assert.Empty(t, streetTrees(c))
+		t.Run("it should plant street trees only beside the bridge's road", func(t *testing.T) {
+			spur := bridgeRoad(c)
+			var stray []city.Cell
+			for _, tree := range streetTrees(c) {
+				beside := false
+				for _, n := range neighbours(tree.Cell) {
+					beside = beside || spur[n]
+				}
+				if !beside {
+					stray = append(stray, tree.Cell)
+				}
+			}
+			assert.Empty(t, stray)
 		})
 	})
 
@@ -91,13 +106,26 @@ func TestRoadOverlay(t *testing.T) {
 			route[city.CellOf(p)] = true
 		}
 		road := laid(c)
+		// The bridge's landing joins the bridge on its seaward side
+		// (item 108), which is no road cell.
+		seaward := map[city.Cell]int{}
+		for _, b := range c.Bridges() {
+			seaward[city.CellOf(b.Land)] = city.DirW
+			if b.Far.X > b.Land.X {
+				seaward[city.CellOf(b.Land)] = city.DirE
+			}
+		}
 
-		t.Run("it should lay a road on exactly the corridor cells of its route, driveway to driveway", func(t *testing.T) {
+		t.Run("it should lay a road on exactly the corridor cells of its route, driveway to driveway, and the bridge's", func(t *testing.T) {
 			got := map[city.Cell]bool{}
 			for cell := range road {
 				got[cell] = true
 			}
-			assert.Equal(t, route, got)
+			want := bridgeRoad(c)
+			for cell := range route {
+				want[cell] = true
+			}
+			assert.Equal(t, want, got)
 		})
 
 		t.Run("it should lay it only on corridors", func(t *testing.T) {
@@ -107,11 +135,11 @@ func TestRoadOverlay(t *testing.T) {
 			}
 		})
 
-		t.Run("it should autotile each road cell against road neighbours and its lot only", func(t *testing.T) {
+		t.Run("it should autotile each road cell against road neighbours, its lot and the bridge only", func(t *testing.T) {
 			for cell, mask := range road {
 				for dir, n := range neighbours(cell) {
 					_, joined := road[n]
-					joined = joined || lots[n]
+					joined = joined || lots[n] || seaward[cell] == dir
 					assert.Equal(t, joined, mask&dir != 0, "cell %v towards %d", cell, dir)
 				}
 			}
@@ -195,8 +223,8 @@ func TestRoadGrowsOver(t *testing.T) {
 			clock = clock.Add(city.OvergrowFor / 2)
 			growing := s.Overgrowth()
 
-			t.Run("it should draw every cell of the road overgrowing", func(t *testing.T) {
-				assert.Len(t, growing, len(was))
+			t.Run("it should draw every cell of the road no longer laid overgrowing", func(t *testing.T) {
+				assert.Len(t, growing, len(was)-stillLaid(was, s.City()))
 			})
 
 			t.Run("it should be part way grown over", func(t *testing.T) {
@@ -254,4 +282,25 @@ func TestRoadGrowsOver(t *testing.T) {
 			assert.Empty(t, s.Overgrowth())
 		})
 	})
+}
+
+// bridgeRoad is the road laid only to reach a bridge (item 247).
+func bridgeRoad(c *city.City) map[city.Cell]bool {
+	cells := map[city.Cell]bool{}
+	for _, cell := range c.BridgeRoads() {
+		cells[cell] = true
+	}
+	return cells
+}
+
+// stillLaid is how many of a road's cells are laid in a city.
+func stillLaid(was map[city.Cell]int, c *city.City) int {
+	now := laid(c)
+	n := 0
+	for cell := range was {
+		if _, ok := now[cell]; ok {
+			n++
+		}
+	}
+	return n
 }

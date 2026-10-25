@@ -38,6 +38,7 @@ type laid struct {
 	cells   []StreetCell
 	lamps   []Cell
 	trees   []Tree
+	spurs   []Cell
 }
 
 // walkKey is what a walk along the avenues depends on: the plan, the
@@ -142,6 +143,7 @@ func (m *memo) lay(c *City) {
 	}
 	if l, ok := m.lays[c.heading]; ok && l.plan == c.planID && slices.Equal(l.bridges, c.landings) && slices.Equal(l.paths, paths) && slices.Equal(l.ends, ends) {
 		c.StreetCells, c.Lamps, c.Trees = slices.Clone(l.cells), slices.Clone(l.lamps), slices.Clone(l.trees)
+		c.bridgeRoads = slices.Clone(l.spurs)
 		return
 	}
 	c.layRoads()
@@ -150,7 +152,7 @@ func (m *memo) lay(c *City) {
 		m.lays = map[int]laid{}
 	}
 	m.lays[c.heading] = laid{plan: c.planID, bridges: slices.Clone(c.landings), paths: paths, ends: ends,
-		cells: slices.Clone(c.StreetCells), lamps: slices.Clone(c.Lamps), trees: slices.Clone(c.Trees)}
+		cells: slices.Clone(c.StreetCells), lamps: slices.Clone(c.Lamps), trees: slices.Clone(c.Trees), spurs: slices.Clone(c.bridgeRoads)}
 }
 
 // order is group.Order, remembered by group when there is a memo.

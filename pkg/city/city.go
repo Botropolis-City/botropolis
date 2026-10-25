@@ -132,9 +132,13 @@ type City struct {
 	// landings are the street cells the bridges land on, the first
 	// bridge first (items 218 and 220).
 	landings []landing
+	// bridgeRoads are the road cells laid only to reach a bridge's
+	// landing (item 247).
+	bridgeRoads []Cell
 	// Corridors are the plan's whole avenue grid, and StreetCells the
-	// road laid on it: only the cells a connection's route crosses, each
-	// joined to the road beside it. A corridor without road is belt.
+	// road laid on it: the cells a connection's route crosses and the
+	// way to each bridge, each joined to the road beside it. A corridor
+	// without road is belt.
 	Corridors   []StreetCell
 	StreetCells []StreetCell
 	RiverCells  []RiverCell

@@ -146,9 +146,9 @@ func TestDriveways(t *testing.T) {
 			assert.True(t, paved)
 		})
 
-		t.Run("and the road is gone, it should not pave the driveway", func(t *testing.T) {
+		t.Run("and the road is gone, it should pave the driveway only for the bridge's road", func(t *testing.T) {
 			_, paved := streetCellAt(without, dw.Cell)
-			assert.False(t, paved)
+			assert.Equal(t, bridgeRoad(without)[dw.Cell], paved)
 		})
 
 		pads := with.Pads(with.StreetCells)
@@ -194,8 +194,16 @@ func TestDriveways(t *testing.T) {
 				growing = append(growing, city.StreetCell{Cell: o.Cell, Mask: o.Mask})
 			}
 
-			t.Run("it should grow the pads over with the driveways", func(t *testing.T) {
-				assert.Len(t, s.City().Pads(growing), 2)
+			kept := 0
+			for _, d := range []string{"a", "b"} {
+				dw, _ := s.City().Driveway(districtNamed(s.City(), d))
+				if bridgeRoad(s.City())[dw.Cell] {
+					kept++
+				}
+			}
+
+			t.Run("it should grow the pads over with the driveways, but the bridge road's", func(t *testing.T) {
+				assert.Len(t, s.City().Pads(growing), 2-kept)
 			})
 		})
 	})
