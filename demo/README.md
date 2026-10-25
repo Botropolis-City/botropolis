@@ -163,7 +163,8 @@ A placement can add to its recording, each as a synthetic line stamped at the re
 
 ## Agent teams
 
-A recorded team is a lead and its teammates, each a session of its own carrying the lead's team (item 105).
+A recorded team is a lead and its teammates, each a session of its own (item 105).
+Every teammate's line names the team, while the lead names it only in the result of the Agent call that spawned the teammate, and the name is neither session's id.
 A teammate is placed by its lead's ref and its agent name:
 
 ```yaml
@@ -177,7 +178,8 @@ A teammate is placed by its lead's ref and its agent name:
 While the lead stands live, staging writes the team's `teams/<team>/config.json`, naming each placed member with its working directory as staged,
 so a message to a teammate is road traffic to wherever the scenario puts it.
 A resting lead's team has no config, because Claude Code removes it when the lead's session ends.
-A lead cannot be cloned into another project, because its id is the team's name.
+A lead cannot be cloned into another project, because the clone would lead its recording's team too.
+`scenarios/team.yaml` films one: its messages as vans with the group lines off, and as carriages along the team's line with them on.
 
 ## Usage on the river
 

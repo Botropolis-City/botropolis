@@ -44,7 +44,7 @@ type fakeTerminal struct {
 
 func (f *fakeTerminal) run(_ context.Context, dir string, args, env []string) (Run, error) {
 	f.dir, f.args, f.env = dir, args, env
-	team := TeamOf(f.lead)
+	team := "session-2aa29be8"
 	folder := filepath.Join(f.home, ".claude", "projects", "-home-demo-src-tidepool")
 	other := filepath.Join(f.home, ".claude", "projects", "-home-demo-src-kiln")
 	lead := `{"type":"user","sessionId":"` + f.lead + `","cwd":"/home/demo/src/tidepool","teamName":"` + team + `","timestamp":"2026-10-25T10:00:00.000Z"}` + "\n" +

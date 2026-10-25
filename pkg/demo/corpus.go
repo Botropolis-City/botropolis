@@ -9,23 +9,24 @@ import (
 	"botropolis.city/botropolis/pkg/claude"
 )
 
-// TeamOf is the name Claude Code gives the team a lead session starts:
-// "session-" and the first eight characters of its id.
-func TeamOf(leadID string) string {
-	return teamPrefix + leadID[:min(8, len(leadID))]
-}
-
-const teamPrefix = "session-"
-
 // findTeammate resolves "<lead ref>@<agent name>" to the transcript in
-// the lead's team recorded under that name. A teammate is a session of
-// its own, so it may be filed under any project of the corpus.
+// the lead's team recorded under that name. A lead names its team only
+// in the result of the Agent call that spawned a teammate, and the name
+// is not its own id (item 105). A teammate is a session of its own, so
+// it may be filed under any project of the corpus.
 func (c Corpus) findTeammate(ref, leadRef, agent string) (Recorded, error) {
 	lead, err := c.Find(leadRef)
 	if err != nil {
 		return Recorded{}, err
 	}
-	team := TeamOf(lead.ID)
+	led, err := claude.ReadTranscript(lead.Path)
+	if err != nil {
+		return Recorded{}, err
+	}
+	team := led.LeadsTeam
+	if team == "" {
+		return Recorded{}, fmt.Errorf("ref %q: %s leads no team", ref, leadRef)
+	}
 	paths, err := filepath.Glob(filepath.Join(c.Dir, "*", "*.jsonl"))
 	if err != nil {
 		return Recorded{}, err

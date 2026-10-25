@@ -160,16 +160,18 @@ func TestDemoCorpusIsClean(t *testing.T) {
 }
 
 // checkTeamCorpus runs the corpus check on a demo directory of its own,
-// holding a teammate whose team is session-7e4d0b2a and, when withLead,
-// that team's lead. Every file is on REVIEWED, so only the team rule can
-// fail.
+// holding a teammate whose team is session-2aa29be8 and, when withLead,
+// that team's lead, which names the team only in the result of the Agent
+// call that spawned the teammate: the name is neither session's id, as
+// Claude Code 2.1.310 records a team (item 105). Every file is on
+// REVIEWED, so only the team rule can fail.
 func checkTeamCorpus(t *testing.T, withLead bool) (string, error) {
 	t.Helper()
 	files := map[string]string{
-		"tidepool/9c1f5e3d-0000-4000-8000-000000000002.jsonl": `{"type":"user","cwd":"/home/demo/src/tidepool","teamName":"session-7e4d0b2a","agentName":"reader"}`,
+		"tidepool/9c1f5e3d-0000-4000-8000-000000000002.jsonl": `{"type":"user","cwd":"/home/demo/src/tidepool","teamName":"session-2aa29be8","agentName":"reader"}`,
 	}
 	if withLead {
-		files["tidepool/7e4d0b2a-0000-4000-8000-000000000001.jsonl"] = `{"type":"user","cwd":"/home/demo/src/tidepool","teamName":"session-7e4d0b2a"}`
+		files["tidepool/7e4d0b2a-0000-4000-8000-000000000001.jsonl"] = `{"type":"user","cwd":"/home/demo/src/tidepool","toolUseResult":{"status":"teammate_spawned","team_name":"session-2aa29be8"}}`
 	}
 	return checkCorpus(t, files)
 }
@@ -210,7 +212,7 @@ func TestDemoCorpusChecksTeams(t *testing.T) {
 			assert.Error(t, err)
 		})
 		t.Run("it should name the transcript and the missing lead", func(t *testing.T) {
-			assert.Regexp(t, `9c1f5e3d-0000-4000-8000-000000000002\.jsonl: .*session-7e4d0b2a.*no lead`, out)
+			assert.Regexp(t, `9c1f5e3d-0000-4000-8000-000000000002\.jsonl: .*session-2aa29be8.*no lead`, out)
 		})
 		t.Run("it should say staging cannot write the team's config without it", func(t *testing.T) {
 			assert.Contains(t, out, "staging cannot write the team's config without its lead")

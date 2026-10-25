@@ -15,23 +15,33 @@ import (
 )
 
 // recordedTeam writes a lead and its teammate into the corpus, both in
-// tidepool, as Claude Code files them: the teammate is a session of its
-// own carrying the lead's team, and it reports with SendMessage, as the lead asks it to.
+// tidepool, shaped as Claude Code 2.1.310 records them (item 105): the
+// lead names its team only in the result of the Agent call that spawned
+// the teammate, the team's name is not either session's id, and the
+// teammate is a session of its own whose every line carries the team.
+// Each sends the other one message.
 func recordedTeam(t *testing.T, corpus, leadID, mateID, mate string) {
 	t.Helper()
 	cwd := demo.Root + "/tidepool"
-	team := demo.TeamOf(leadID)
+	const team = "session-2aa29be8"
 	line := func(id, kind, at, agent, extra string) string {
-		l := `{"type":"` + kind + `","sessionId":"` + id + `","cwd":"` + cwd + `","timestamp":"` + at + `","teamName":"` + team + `"`
+		l := `{"type":"` + kind + `","sessionId":"` + id + `","cwd":"` + cwd + `","timestamp":"` + at + `"`
 		if agent != "" {
-			l += `,"agentName":"` + agent + `"`
+			l += `,"teamName":"` + team + `","agentName":"` + agent + `"`
 		}
 		return l + extra + "}"
 	}
-	send := `,"message":{"id":"msg_send","role":"assistant","content":[{"type":"tool_use","id":"toolu_send","name":"SendMessage","input":{"to":"team-lead","message":"done"}}]}`
+	send := func(to, id string) string {
+		return `,"message":{"id":"msg_` + id + `","role":"assistant","content":[{"type":"tool_use","id":"toolu_` + id + `","name":"SendMessage","input":{"to":"` + to + `","message":"done"}}]}`
+	}
+	spawned := `,"toolUseResult":{"status":"teammate_spawned","name":"` + mate + `","team_name":"` + team + `"}`
 	files := map[string][]string{
-		leadID: {line(leadID, "user", "2026-09-01T10:00:00.000Z", "", ""), line(leadID, "assistant", "2026-09-01T10:04:00.000Z", "", strings.ReplaceAll(strings.ReplaceAll(send, "team-lead", mate), "_send", "_ask"))},
-		mateID: {line(mateID, "user", "2026-09-01T10:01:00.000Z", mate, ""), line(mateID, "assistant", "2026-09-01T10:03:00.000Z", mate, send)},
+		leadID: {
+			line(leadID, "user", "2026-09-01T10:00:00.000Z", "", ""),
+			line(leadID, "user", "2026-09-01T10:00:30.000Z", "", spawned),
+			line(leadID, "assistant", "2026-09-01T10:04:00.000Z", "", send(mate, "ask")),
+		},
+		mateID: {line(mateID, "user", "2026-09-01T10:01:00.000Z", mate, ""), line(mateID, "assistant", "2026-09-01T10:03:00.000Z", mate, send("team-lead", "tell"))},
 	}
 	for id, lines := range files {
 		path := filepath.Join(corpus, "tidepool", id+".jsonl")

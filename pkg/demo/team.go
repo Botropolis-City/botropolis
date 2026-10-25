@@ -21,26 +21,27 @@ func writeTeams(dir string, at map[int]placed, now time.Time) error {
 	sort.Ints(order)
 	for _, i := range order {
 		lead := at[i]
-		if lead.pid == 0 || lead.team == "" || lead.team != TeamOf(lead.id) {
+		team := lead.leads
+		if lead.pid == 0 || team == "" {
 			continue
 		}
 		joined := now.UnixMilli()
-		members := []map[string]any{member(teamLead, lead.team, "team-lead", "in-process", lead.cwd, joined)}
+		members := []map[string]any{member(teamLead, team, "team-lead", "in-process", lead.cwd, joined)}
 		for _, j := range order {
 			mate := at[j]
-			if j == i || mate.team != lead.team || mate.agent == "" || mate.agent == teamLead {
+			if j == i || mate.team != team || mate.agent == "" || mate.agent == teamLead {
 				continue
 			}
-			members = append(members, member(mate.agent, lead.team, "general-purpose", "tmux", mate.cwd, joined))
+			members = append(members, member(mate.agent, team, "general-purpose", "tmux", mate.cwd, joined))
 		}
 		config := map[string]any{
-			"name":          lead.team,
+			"name":          team,
 			"createdAt":     joined,
-			"leadAgentId":   teamLead + "@" + lead.team,
+			"leadAgentId":   teamLead + "@" + team,
 			"leadSessionId": lead.id,
 			"members":       members,
 		}
-		if err := writeJSON(filepath.Join(dir, ".claude", "teams", lead.team, "config.json"), config); err != nil {
+		if err := writeJSON(filepath.Join(dir, ".claude", "teams", team, "config.json"), config); err != nil {
 			return err
 		}
 	}

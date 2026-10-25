@@ -1,0 +1,52 @@
+name: team
+description: An agent team at work across two districts. A lead in tidepool asks its teammate in kiln to read kiln's log reader, and their messages to each other cross the city as vans, or as carriages along the team's line.
+clock: "15:30"
+mcp: [tracker]
+usage: {session: 18, weekly: 37}
+sessions:
+  - ref: tidepool/tide-team
+    state: working
+    title: Ask a teammate about kiln's reader
+    replay: {over: 14s, context: 46%}
+  - ref: tidepool/tide-team@reader
+    project: kiln
+    state: working
+    title: Kiln reader
+    replay: {over: 14s, context: 38%}
+  - ref: kiln/hold-time-sampling
+    state: resting
+    ago: 3h
+  - ref: tidepool/fix-table-timezone
+    state: resting
+    ago: 5h
+  - ref: lanternfish/list-race
+    state: needs-you
+    ago: 4m
+    started: 2h10m
+    context: 72%
+  - project: beacon
+    state: empty
+    started: 1h40m
+groups:
+  - [Ask a teammate about kiln's reader, Kiln reader]
+shots:
+  - name: team-vans
+    title: A team's messages as vans
+    description: A lead and its teammate in two districts. Each message between them drives along the road as a van.
+    group_lines: false
+    record: {seconds: 18, fps: 30}
+    timeline: true
+    formats: [mp4, webm]
+    script:
+      - {at: 0.5, pan_to: "district:tidepool", over: 2}
+      - {at: 2.5, wheel: 2, over: 2}
+  - name: team-train
+    title: A team's messages along its line
+    description: The same team with its group's line drawn. Each message between them rides the line as a carriage from one station to the other.
+    group_lines: true
+    record: {seconds: 18, fps: 30}
+    timeline: true
+    formats: [mp4, webm]
+    script:
+      - {at: 0.5, pan_to: "district:tidepool", over: 2}
+      - {at: 2.5, wheel: 2, over: 2}

@@ -16,12 +16,15 @@ import (
 )
 
 const (
-	leadID   = "7e4d0b2a-0000-4000-8000-000000000001"
-	mateID   = "9c1f5e3d-0000-4000-8000-000000000002"
-	teamName = "session-7e4d0b2a"
+	leadID = "7e4d0b2a-0000-4000-8000-000000000001"
+	mateID = "9c1f5e3d-0000-4000-8000-000000000002"
+	// teamName is unrelated to either session's id, as Claude Code 2.1.310
+	// names a team (item 105).
+	teamName = "session-2aa29be8"
 	mateName = "reader"
 )
 
+// teamLine is a teammate's line, which carries its team and name.
 func teamLine(id, kind, at, agent string, extra string) string {
 	l := `{"type":"` + kind + `","sessionId":"` + id + `","cwd":"` + cwd + `","timestamp":"` + at + `","teamName":"` + teamName + `"`
 	if agent != "" {
@@ -30,15 +33,23 @@ func teamLine(id, kind, at, agent string, extra string) string {
 	return l + extra + "}"
 }
 
+// leadLine is a lead's line, which names no team.
+func leadLine(kind, at, extra string) string {
+	return `{"type":"` + kind + `","sessionId":"` + leadID + `","cwd":"` + cwd + `","timestamp":"` + at + `"` + extra + "}"
+}
+
 // newTeamCorpus is a lead in tidepool and its teammate, recorded beside
-// it as Claude Code files one: a session of its own carrying the lead's
-// team, which reports back with SendMessage to team-lead.
+// it as Claude Code files one: a session of its own carrying the team,
+// which reports back with SendMessage to team-lead. The lead names the
+// team only in the result of the Agent call that spawned the teammate.
 func newTeamCorpus(t *testing.T) Corpus {
 	t.Helper()
 	dir := t.TempDir()
+	spawned := `,"toolUseResult":{"status":"teammate_spawned","name":"` + mateName + `","teammate_id":"` + mateName + "@" + teamName + `","team_name":"` + teamName + `"}`
 	writeFile(t, filepath.Join(dir, "tidepool", leadID+".jsonl"), strings.Join([]string{
-		teamLine(leadID, "user", "2026-09-01T10:00:00.000Z", "", ""),
-		teamLine(leadID, "assistant", "2026-09-01T10:04:00.000Z", "", ""),
+		leadLine("user", "2026-09-01T10:00:00.000Z", ""),
+		leadLine("user", "2026-09-01T10:00:30.000Z", spawned),
+		leadLine("assistant", "2026-09-01T10:04:00.000Z", ""),
 	}, "\n")+"\n")
 	send := `,"message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"SendMessage","input":{"to":"team-lead","message":"done"}}]}`
 	writeFile(t, filepath.Join(dir, "tidepool", mateID+".jsonl"), strings.Join([]string{
@@ -136,7 +147,7 @@ func TestStageTeam(t *testing.T) {
 		cloned.Project = "kiln"
 		s := stage(t, corpus, Scenario{Name: "team", Sessions: []Placement{cloned, mate}}, now)
 
-		t.Run("it should refuse, since its id is the team's name", func(t *testing.T) {
+		t.Run("it should refuse, since the clone would lead its recording's team too", func(t *testing.T) {
 			assert.ErrorContains(t, s.err, "lead")
 		})
 	})

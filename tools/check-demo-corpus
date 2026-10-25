@@ -15,9 +15,10 @@ published in effect.
      address outside the reserved example domains.
   3. Every working directory a transcript records is under /home/demo/src.
   4. The corpus is not empty: every check above passes on nothing.
-  5. Every transcript in an agent team's session-<id> team has the team's
-     lead in the corpus, the session whose id starts with that <id>, since
-     staging cannot write a team's config without its lead (item 105).
+  5. Every transcript in an agent team has the team's lead in the corpus,
+     the session whose Agent result names the team as the one it spawned
+     a teammate into, since staging cannot write a team's config without
+     its lead (item 105). The name is not the lead's id.
   6. Every transcript line is of a type the app reads, the list the
      recorder's scrub keeps (KEPT here, kept in pkg/demo/record.go):
      anything else is Claude Code's own prompt, tools or settings, or
@@ -44,7 +45,6 @@ ALLOWED_EMAIL_DOMAINS = ("example.invalid", "example.com", "example.org", "examp
 EMAIL = re.compile(rb"(?<![\\A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})")
 FOREIGN_HOME = re.compile(rb"/home/(?!demo\b)[a-z_][a-z0-9_-]*|/Users/[A-Za-z]")
 DEMO_SRC = "/home/demo/src/"
-TEAM_PREFIX = "session-"
 KEPT = {"user", "assistant", "system", "attachment", "custom-title", "ai-title", "summary", "last-prompt",
         "pr-link", "cost-state", "bridge-session", "agent-name"}
 KEPT_ATTACHMENTS = {"model"}
@@ -120,13 +120,23 @@ def cwds(data):
 
 
 def teams(data):
+    """The teams a transcript's lines say it is in, and the teams its Agent
+    results say it spawned teammates into, which is how a lead names the
+    team it leads (item 105)."""
+    member, leads = set(), set()
     for line in data.splitlines():
         try:
             record = json.loads(line)
         except ValueError:
             continue
-        if isinstance(record, dict) and isinstance(record.get("teamName"), str):
-            yield record["teamName"]
+        if not isinstance(record, dict):
+            continue
+        if isinstance(record.get("teamName"), str):
+            member.add(record["teamName"])
+        result = record.get("toolUseResult")
+        if isinstance(result, dict) and isinstance(result.get("team_name"), str):
+            leads.add(result["team_name"])
+    return member, leads
 
 
 def main(argv):
@@ -158,20 +168,21 @@ def main(argv):
     for rel in sorted(set(listed) - {os.path.relpath(p, corpus) for p in corpus_files}):
         problems.append(f"{review_file}: lists {rel}, which is not there")
 
-    ids = {os.path.basename(p)[:-len(".jsonl")] for p in corpus_files if p.endswith(".jsonl")}
+    membership, led = {}, set()
     for path in corpus_files:
         if not path.endswith(".jsonl"):
             continue
         with open(path, "rb") as f:
             data = f.read()
-        named = set(teams(data))
         for n, kind in unread(data):
             problems.append(f"{path}: line {n} is {kind}, which the app does not read and the scrub drops")
-        for team in sorted(t for t in named if t.startswith(TEAM_PREFIX)):
-            lead = team[len(TEAM_PREFIX):]
-            if not any(i.startswith(lead) for i in ids):
-                problems.append(f"{path}: is in team {team}, which has no lead in the corpus, no transcript {lead}*; "
-                                "staging cannot write the team's config without its lead")
+        member, leads = teams(data)
+        membership[path] = member - leads
+        led |= leads
+    for path, member in membership.items():
+        for team in sorted(member - led):
+            problems.append(f"{path}: is in team {team}, which has no lead in the corpus, no transcript whose "
+                            "Agent result names it; staging cannot write the team's config without its lead")
 
     banned = tokens(repo)
     files = 0
