@@ -15,6 +15,9 @@ published in effect.
      address outside the reserved example domains.
   3. Every working directory a transcript records is under /home/demo/src.
   4. The corpus is not empty: every check above passes on nothing.
+  5. Every transcript in an agent team's session-<id> team has the team's
+     lead in the corpus, the session whose id starts with that <id>, since
+     staging cannot write a team's config without its lead (item 105).
 
 The token list is the employer's names, so it lives only on a machine
 that already has them and never in CI or anywhere else Aria keeps. Where
@@ -37,6 +40,7 @@ ALLOWED_EMAIL_DOMAINS = ("example.invalid", "example.com", "example.org", "examp
 EMAIL = re.compile(rb"(?<![\\A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})")
 FOREIGN_HOME = re.compile(rb"/home/(?!demo\b)[a-z_][a-z0-9_-]*|/Users/[A-Za-z]")
 DEMO_SRC = "/home/demo/src/"
+TEAM_PREFIX = "session-"
 
 
 def sha256(path):
@@ -88,6 +92,16 @@ def cwds(data):
             yield record["cwd"]
 
 
+def teams(data):
+    for line in data.splitlines():
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(record, dict) and isinstance(record.get("teamName"), str):
+            yield record["teamName"]
+
+
 def main(argv):
     if "--help" in argv or "-h" in argv:
         print(__doc__.strip())
@@ -116,6 +130,18 @@ def main(argv):
             problems.append(f"{path}: changed since it was reviewed")
     for rel in sorted(set(listed) - {os.path.relpath(p, corpus) for p in corpus_files}):
         problems.append(f"{review_file}: lists {rel}, which is not there")
+
+    ids = {os.path.basename(p)[:-len(".jsonl")] for p in corpus_files if p.endswith(".jsonl")}
+    for path in corpus_files:
+        if not path.endswith(".jsonl"):
+            continue
+        with open(path, "rb") as f:
+            named = set(teams(f.read()))
+        for team in sorted(t for t in named if t.startswith(TEAM_PREFIX)):
+            lead = team[len(TEAM_PREFIX):]
+            if not any(i.startswith(lead) for i in ids):
+                problems.append(f"{path}: is in team {team}, which has no lead in the corpus, no transcript {lead}*; "
+                                "staging cannot write the team's config without its lead")
 
     banned = tokens(repo)
     files = 0

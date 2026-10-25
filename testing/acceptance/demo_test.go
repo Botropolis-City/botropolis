@@ -1,6 +1,8 @@
 package acceptance_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -153,6 +155,58 @@ func TestDemoCorpusIsClean(t *testing.T) {
 	t.Run("when the demo directory is checked", func(t *testing.T) {
 		t.Run("it should find nothing from a real machine and nothing unreviewed", func(t *testing.T) {
 			assert.NoError(t, err, string(out))
+		})
+	})
+}
+
+// checkTeamCorpus runs the corpus check on a demo directory of its own,
+// holding a teammate whose team is session-7e4d0b2a and, when withLead,
+// that team's lead. Every file is on REVIEWED, so only the team rule can
+// fail.
+func checkTeamCorpus(t *testing.T, withLead bool) (string, error) {
+	t.Helper()
+	dir := t.TempDir()
+	files := map[string]string{
+		"tidepool/9c1f5e3d-0000-4000-8000-000000000002.jsonl": `{"type":"user","cwd":"/home/demo/src/tidepool","teamName":"session-7e4d0b2a","agentName":"reader"}`,
+	}
+	if withLead {
+		files["tidepool/7e4d0b2a-0000-4000-8000-000000000001.jsonl"] = `{"type":"user","cwd":"/home/demo/src/tidepool","teamName":"session-7e4d0b2a"}`
+	}
+	var reviewed strings.Builder
+	for rel, content := range files {
+		path := filepath.Join(dir, "corpus", rel)
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+		require.NoError(t, os.WriteFile(path, []byte(content+"\n"), 0o600))
+		sum := sha256.Sum256([]byte(content + "\n"))
+		reviewed.WriteString(hex.EncodeToString(sum[:]) + "  " + rel + "\n")
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "corpus", "REVIEWED"), []byte(reviewed.String()), 0o600))
+	cmd := exec.Command(helpers.Tool(t, "check-demo-corpus"), "--root", dir)
+	cmd.Dir = filepath.Join("..", "..")
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func TestDemoCorpusChecksTeams(t *testing.T) {
+	t.Run("when a teammate's transcript names a team whose lead is in the corpus", func(t *testing.T) {
+		out, err := checkTeamCorpus(t, true)
+
+		t.Run("it should pass", func(t *testing.T) {
+			assert.NoError(t, err, out)
+		})
+	})
+
+	t.Run("when a teammate's transcript names a team whose lead is not in the corpus", func(t *testing.T) {
+		out, err := checkTeamCorpus(t, false)
+
+		t.Run("it should fail", func(t *testing.T) {
+			assert.Error(t, err)
+		})
+		t.Run("it should name the transcript and the missing lead", func(t *testing.T) {
+			assert.Regexp(t, `9c1f5e3d-0000-4000-8000-000000000002\.jsonl: .*session-7e4d0b2a.*no lead`, out)
+		})
+		t.Run("it should say staging cannot write the team's config without it", func(t *testing.T) {
+			assert.Contains(t, out, "staging cannot write the team's config without its lead")
 		})
 	})
 }
