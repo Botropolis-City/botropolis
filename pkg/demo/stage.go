@@ -2,6 +2,7 @@ package demo
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -36,6 +37,9 @@ func Stage(corpus Corpus, scenario Scenario, dir string, now time.Time, spawn Sp
 type placed struct {
 	id, project, transcript string
 	pid                     int
+	// team and agent are the team the session's transcript carries and
+	// its name in it, and cwd its working directory as staged.
+	team, agent, cwd string
 	// pending is a replayed session's lines still to be revealed.
 	pending []pendingLine
 }
@@ -64,8 +68,15 @@ func place(corpus Corpus, scenario Scenario, i int, p Placement, dir string, now
 		if err != nil {
 			return at, err
 		}
+		recorded, err := claude.ReadTranscript(rec.Path)
+		if err != nil {
+			return at, err
+		}
 		o := overlay{Placement: p, id: rec.ID, project: rec.Project, pace: time.Duration(scenario.Pace)}
 		if p.Project != "" {
+			if recorded.TeamName == TeamOf(rec.ID) {
+				return at, fmt.Errorf("%s: a team's lead cannot be cloned into %s, since its id is the team's name", p.Ref, p.Project)
+			}
 			o.project = p.Project
 			o.id = plotID(scenario.Name, i)
 			o.replace = [][2]string{
@@ -77,7 +88,8 @@ func place(corpus Corpus, scenario Scenario, i int, p Placement, dir string, now
 		if err != nil {
 			return at, err
 		}
-		at = placed{id: o.id, project: o.project, transcript: st.path, pending: st.pending}
+		at = placed{id: o.id, project: o.project, transcript: st.path, pending: st.pending,
+			team: cmp.Or(p.Team, recorded.TeamName), agent: cmp.Or(p.Agent, recorded.AgentName), cwd: st.cwd}
 		record["sessionId"], record["cwd"], record["startedAt"] = o.id, st.cwd, st.started.UnixMilli()
 	case p.Project != "":
 		at = placed{id: plotID(scenario.Name, i), project: p.Project}

@@ -64,6 +64,9 @@ func NewDirector(corpus Corpus, scenario Scenario, dir string, now time.Time, sp
 		}
 		d.placed[i] = at
 	}
+	if err := writeTeams(dir, d.placed, now); err != nil {
+		return nil, err
+	}
 	return d, nil
 }
 

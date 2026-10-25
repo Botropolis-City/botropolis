@@ -5,7 +5,40 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"botropolis.city/botropolis/pkg/claude"
 )
+
+// TeamOf is the name Claude Code gives the team a lead session starts:
+// "session-" and the first eight characters of its id.
+func TeamOf(leadID string) string {
+	return teamPrefix + leadID[:min(8, len(leadID))]
+}
+
+const teamPrefix = "session-"
+
+// findTeammate resolves "<lead ref>@<agent name>" to the transcript in
+// the lead's team recorded under that name. A teammate is a session of
+// its own, so it may be filed under any project of the corpus.
+func (c Corpus) findTeammate(ref, leadRef, agent string) (Recorded, error) {
+	lead, err := c.Find(leadRef)
+	if err != nil {
+		return Recorded{}, err
+	}
+	team := TeamOf(lead.ID)
+	paths, err := filepath.Glob(filepath.Join(c.Dir, "*", "*.jsonl"))
+	if err != nil {
+		return Recorded{}, err
+	}
+	for _, p := range paths {
+		t, err := claude.ReadTranscript(p)
+		if err != nil || t.TeamName != team || t.AgentName != agent {
+			continue
+		}
+		return Recorded{Project: filepath.Base(filepath.Dir(p)), ID: strings.TrimSuffix(filepath.Base(p), ".jsonl"), Path: p}, nil
+	}
+	return Recorded{}, fmt.Errorf("ref %q: no session in team %s is named %q", ref, team, agent)
+}
 
 // Root is where the recorder keeps its toy projects, so it is the only
 // working directory a corpus transcript may name.
@@ -35,6 +68,9 @@ func (r Recorded) Subagents() string {
 // that matches two is refused rather than guessed at, since a scenario
 // that silently swaps sessions films something other than what it says.
 func (c Corpus) Find(ref string) (Recorded, error) {
+	if lead, agent, ok := strings.Cut(ref, "@"); ok {
+		return c.findTeammate(ref, lead, agent)
+	}
 	project, prefix, ok := strings.Cut(ref, "/")
 	if !ok || project == "" || prefix == "" {
 		return Recorded{}, fmt.Errorf("ref %q: want <project>/<session>", ref)
