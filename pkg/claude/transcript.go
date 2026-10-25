@@ -101,11 +101,14 @@ type Transcript struct {
 	Tail          Tail
 	TeamName      string
 	AgentName     string
-	Messages      map[string]int
-	Touches       map[string]int
-	MCPCalls      map[string]int
-	SkillCalls    map[string]int
-	PRs           []PR
+	// LeadsTeam is the team this session leads, named by its Agent
+	// results, since a lead's own lines name none (item 253).
+	LeadsTeam  string
+	Messages   map[string]int
+	Touches    map[string]int
+	MCPCalls   map[string]int
+	SkillCalls map[string]int
+	PRs        []PR
 	// Background is the tool calls that launched an agent in the
 	// background, which the session never waits on (item 89).
 	Background map[string]bool
@@ -317,6 +320,7 @@ func (s *transcriptScan) apply(rec transcriptLineJSON) {
 		if mainLine {
 			s.tail.user(rec, ts)
 			s.noteBackground(rec)
+			s.noteLeadsTeam(rec)
 			s.notePeer(rec, ts)
 		}
 	case "assistant":
@@ -521,6 +525,20 @@ func (s *transcriptScan) notePeer(rec transcriptLineJSON, at time.Time) {
 		}
 	}
 	t.PeerMessages = append(t.PeerMessages, PeerMessage{ID: origin.ID, FromPID: origin.PID, FromName: origin.Name, At: at})
+}
+
+// noteLeadsTeam remembers the team an Agent result spawned a teammate
+// into, which is how a lead is tied to its team (item 253).
+func (s *transcriptScan) noteLeadsTeam(rec transcriptLineJSON) {
+	if len(rec.ToolResult) == 0 || rec.ToolResult[0] != '{' {
+		return
+	}
+	var result struct {
+		TeamName string `json:"team_name"`
+	}
+	if json.Unmarshal(rec.ToolResult, &result) == nil && result.TeamName != "" {
+		s.transcript.LeadsTeam = result.TeamName
+	}
 }
 
 // noteBackground remembers the tool calls whose result says an agent

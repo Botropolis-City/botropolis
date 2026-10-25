@@ -686,6 +686,45 @@ func TestRoads(t *testing.T) {
 		})
 	})
 
+	// Item 253: Claude Code 2.1.310 names a team after neither session,
+	// and the lead's own lines carry no team; its Agent result does.
+	t.Run("when a lead's lines name no team but it leads one", func(t *testing.T) {
+		const team, leadDir, mateDir = "session-2aa29be8", "/home/demo/src/tidepool", "/home/demo/src/beacon"
+		lead := state.Session{ID: "3cab0685-0000-0000-0000-000000000000", CWD: leadDir, Team: team, Leads: team,
+			Messages: map[string]int{"reader": 2}}
+		mate := state.Session{ID: "562b571b-0000-0000-0000-000000000000", CWD: mateDir, Team: team, Agent: "reader",
+			Messages: map[string]int{"team-lead": 3}}
+		roads := state.Roads([]state.Session{lead, mate}, nil)
+
+		t.Run("it should carry the lead's messages to its teammate's district, and the teammate's back, with no team config", func(t *testing.T) {
+			assert.Equal(t, []state.Road{{From: mateDir, To: leadDir, Messages: 3, BackMessages: 2, Sessions: 2}}, roads)
+		})
+	})
+
+	t.Run("when a team is named after its lead's id and no session leads it by an Agent result", func(t *testing.T) {
+		lead := state.Session{ID: "37d10079-0000-0000-0000-000000000000", CWD: "/home/avesta/workspaces/github/auroq",
+			Leads: "session-2aa29be8"}
+		worker := sender("w", "/home/avesta/workspaces/github/mCedar/mullet", map[string]int{"team-lead": 4})
+		worker.Team = "session-37d10079"
+		roads := state.Roads([]state.Session{lead, worker}, nil)
+
+		t.Run("it should still resolve team-lead by the name's prefix", func(t *testing.T) {
+			assert.Equal(t, []state.Road{{From: worker.CWD, To: lead.CWD, Messages: 4, Sessions: 1}}, roads)
+		})
+	})
+
+	t.Run("when both a lead by Agent result and a session the name's prefix matches could be team-lead", func(t *testing.T) {
+		named := state.Session{ID: "2aa29be8-0000-0000-0000-000000000000", CWD: "/home/demo/src/harbour"}
+		lead := state.Session{ID: "3cab0685-0000-0000-0000-000000000000", CWD: "/home/demo/src/tidepool", Leads: "session-2aa29be8"}
+		mate := state.Session{ID: "562b571b-0000-0000-0000-000000000000", CWD: "/home/demo/src/beacon",
+			Team: "session-2aa29be8", Agent: "reader", Messages: map[string]int{"team-lead": 3}}
+		roads := state.Roads([]state.Session{named, lead, mate}, nil)
+
+		t.Run("it should route to the session that leads it", func(t *testing.T) {
+			assert.Equal(t, []state.Road{{From: mate.CWD, To: lead.CWD, Messages: 3, Sessions: 1}}, roads)
+		})
+	})
+
 	t.Run("when the recipient is not a known teammate", func(t *testing.T) {
 		roads := state.Roads([]state.Session{sender("a", "/p", map[string]int{"nobody": 4})}, teams)
 
@@ -1025,6 +1064,29 @@ func TestSoloTeams(t *testing.T) {
 		t.Run("they should both keep it", func(t *testing.T) {
 			assert.Equal(t, "session-"+sidA[:8], sessions[0].Team)
 			assert.Equal(t, "session-"+sidA[:8], sessions[1].Team)
+		})
+	})
+
+	// Item 253: a lead's lines name no team; its Agent results do.
+	t.Run("when a lead's transcript names no team but it leads one", func(t *testing.T) {
+		lead := transcript(sidA, claude.TurnWorking)
+		lead.LeadsTeam = "session-2aa29be8"
+		b := record(sidB, claude.KindBackground, claude.StatusBusy)
+		b.PID = 4343
+		sessions := build(t,
+			[]claude.SessionRecord{record(sidA, claude.KindBackground, claude.StatusBusy), b},
+			[]claude.Transcript{lead, teamed(sidB, "session-2aa29be8", "reader")}, nil, alive)
+
+		t.Run("it should be in that team", func(t *testing.T) {
+			assert.Equal(t, "session-2aa29be8", sessions[0].Team)
+		})
+
+		t.Run("it should be the team's lead", func(t *testing.T) {
+			assert.Equal(t, "session-2aa29be8", sessions[0].Leads)
+		})
+
+		t.Run("its teammate should keep the team", func(t *testing.T) {
+			assert.Equal(t, "session-2aa29be8", sessions[1].Team)
 		})
 	})
 

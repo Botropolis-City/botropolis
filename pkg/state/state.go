@@ -1,6 +1,7 @@
 package state
 
 import (
+	"cmp"
 	"sort"
 	"strings"
 	"time"
@@ -103,9 +104,11 @@ type Session struct {
 	Group       string `json:"group,omitempty"`
 	GroupJoined string `json:"groupJoined,omitempty"`
 	// GroupLikely is whether it joined on a guess, drawn as a dashed tie.
-	GroupLikely bool           `json:"groupLikely,omitempty"`
-	Agent       string         `json:"agent,omitempty"`
-	Messages    map[string]int `json:"messages,omitempty"`
+	GroupLikely bool   `json:"groupLikely,omitempty"`
+	Agent       string `json:"agent,omitempty"`
+	// Leads is the team the session leads (item 253).
+	Leads    string         `json:"leads,omitempty"`
+	Messages map[string]int `json:"messages,omitempty"`
 	// ToolCalls counts the main thread's tool calls, for the pulses up
 	// its building (item 89).
 	ToolCalls int `json:"toolCalls,omitempty"`
@@ -558,7 +561,8 @@ func visit(s *Session, sub claude.Transcript) {
 const HourlyKeep = 7 * 24
 
 func attribute(s *Session, t claude.Transcript) {
-	s.Team = t.TeamName
+	s.Team = cmp.Or(t.TeamName, t.LeadsTeam)
+	s.Leads = t.LeadsTeam
 	s.Agent = t.AgentName
 	s.Hourly = recentHours(t.Hourly, HourlyKeep)
 	s.Messages = t.Messages
@@ -635,8 +639,9 @@ func Roads(sessions []Session, teams []claude.Team) []Road {
 			var ok bool
 			if known {
 				member, ok = team.Member(name)
-			} else if name == teamLead {
-				member, ok = leadByTeamName(sessions, s.Team)
+			}
+			if !ok {
+				member, ok = memberBySession(sessions, s.Team, name)
 			}
 			if !ok {
 				continue
@@ -785,6 +790,24 @@ func projectOf(roots []string, path string) string {
 	return ""
 }
 
+// memberBySession finds a teammate among the sessions when the team's
+// config is gone, as Claude Code deletes it when the lead ends: the lead
+// is the session whose Agent results name the team, and a teammate the
+// session in the team with that agent name (item 253).
+func memberBySession(sessions []Session, teamName, name string) (claude.TeamMember, bool) {
+	for _, s := range sessions {
+		if name == teamLead && s.Leads == teamName || name != teamLead && s.Team == teamName && s.Agent == name {
+			return claude.TeamMember{Name: name, CWD: s.CWD}, true
+		}
+	}
+	if name == teamLead {
+		return leadByTeamName(sessions, teamName)
+	}
+	return claude.TeamMember{}, false
+}
+
+// leadByTeamName is the fallback for transcripts from older Claude Code
+// versions, which named a team after its lead's id.
 func leadByTeamName(sessions []Session, teamName string) (claude.TeamMember, bool) {
 	if !strings.HasPrefix(teamName, teamNamePrefix) {
 		return claude.TeamMember{}, false
