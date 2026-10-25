@@ -19,7 +19,20 @@ var (
 	ErrUnsupported = errors.New("this desktop has no way for botropolis to register a global shortcut")
 	// ErrHeld is a combination another application already holds.
 	ErrHeld = errors.New("another application holds")
+	// ErrRefused is a combination the desktop will not register at all,
+	// so the row does not save it.
+	ErrRefused = errors.New("the desktop refuses this combination")
 )
+
+// RefusedOn says why the desktop of goos refuses c, or nothing. macOS 15
+// refuses a combination whose only modifiers are Option and Shift.
+// Item 95.
+func RefusedOn(goos string, c config.Chord) error {
+	if goos == "darwin" && (c.Alt || c.Shift) && !c.Ctrl && !c.Cmd {
+		return fmt.Errorf("%w: %s needs ctrl or cmd with it on macOS", ErrRefused, c)
+	}
+	return nil
+}
 
 // Desktop is the shortcut's seam: one combination grabbed at a time,
 // the times it was pressed at, and the window brought forward.

@@ -149,6 +149,31 @@ func TestShortcutSetting(t *testing.T) {
 		})
 	})
 
+	t.Run("when the desktop refuses the combination pressed", func(t *testing.T) {
+		g, s, applied := panel("ctrl+alt+f")
+		s.refuse = fmt.Errorf("%w: alt+f needs ctrl or cmd with it on macOS", hotkey.ErrRefused)
+		press(t, g, ebiten.KeyEnter)
+		press(t, g, ebiten.KeyF, "alt")
+
+		t.Run("it should say why in the panel", func(t *testing.T) {
+			assert.Contains(t, g.settings.Note, "needs ctrl or cmd")
+		})
+
+		t.Run("it should not save it", func(t *testing.T) {
+			assert.Empty(t, saved(applied))
+		})
+	})
+
+	t.Run("when the city starts with a refused combination set", func(t *testing.T) {
+		g, s, _ := panel("alt+f")
+		s.refuse = fmt.Errorf("%w: alt+f needs ctrl or cmd with it on macOS", hotkey.ErrRefused)
+		g.useShortcut("alt+f")
+
+		t.Run("it should say why in the panel", func(t *testing.T) {
+			assert.Contains(t, g.settings.Note, "needs ctrl or cmd")
+		})
+	})
+
 	t.Run("when the desktop has no way to register one", func(t *testing.T) {
 		g, _, _ := panel("off")
 		g.shortcut = nil

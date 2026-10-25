@@ -1,6 +1,7 @@
 package render
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -120,10 +121,13 @@ func modifierKey(k ebiten.Key) bool {
 }
 
 // saveShortcut grabs c and saves it; a combination that cannot be
-// grabbed is still saved, and the panel says why it does not work.
+// grabbed is still saved, and the panel says why it does not work,
+// except one the desktop refuses outright, which is not saved (item 95).
 func (g *Game) saveShortcut(c config.Chord) {
-	note := g.grabShortcut(c)
-	g.setShortcutRow(c.String())
+	note, refused := g.grabShortcut(c)
+	if !refused {
+		g.setShortcutRow(c.String())
+	}
 	g.settings.Note = note
 }
 
@@ -148,15 +152,16 @@ func (g *Game) setShortcutRow(value string) {
 	g.applySetting(ui.Setting{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: value})
 }
 
-// grabShortcut grabs c, and says in words why it could not.
-func (g *Game) grabShortcut(c config.Chord) string {
+// grabShortcut grabs c, says in words why it could not, and reports
+// whether the desktop refuses c outright.
+func (g *Game) grabShortcut(c config.Chord) (string, bool) {
 	if g.shortcut == nil {
-		return g.unsupported()
+		return g.unsupported(), false
 	}
 	if err := g.shortcut.Grab(c); err != nil {
-		return err.Error()
+		return err.Error(), errors.Is(err, hotkey.ErrRefused)
 	}
-	return ""
+	return "", false
 }
 
 // useShortcut grabs the combination the config holds as the city
@@ -170,7 +175,7 @@ func (g *Game) useShortcut(value string) {
 	if err != nil {
 		note = err.Error()
 	} else {
-		note = g.grabShortcut(c)
+		note, _ = g.grabShortcut(c)
 	}
 	if note != "" {
 		g.settings.Note = "global shortcut: " + note

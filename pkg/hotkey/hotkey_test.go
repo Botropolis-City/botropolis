@@ -109,3 +109,35 @@ func TestOpen(t *testing.T) {
 		})
 	}
 }
+
+func TestRefusedOnMacOS(t *testing.T) {
+	for _, c := range []config.Chord{
+		{Alt: true, Key: "f"},
+		{Shift: true, Key: "f"},
+		{Alt: true, Shift: true, Key: "f"},
+	} {
+		t.Run("when the chord is "+c.String(), func(t *testing.T) {
+			err := RefusedOn("darwin", c)
+
+			t.Run("it should refuse it", func(t *testing.T) {
+				assert.True(t, errors.Is(err, ErrRefused))
+			})
+
+			t.Run("it should say macOS needs Ctrl or Cmd with it", func(t *testing.T) {
+				assert.ErrorContains(t, err, "needs ctrl or cmd")
+			})
+		})
+	}
+
+	for _, c := range []config.Chord{
+		{Ctrl: true, Alt: true, Key: "f"},
+		{Cmd: true, Shift: true, Key: "f"},
+		{Ctrl: true, Shift: true, Key: "f"},
+	} {
+		t.Run("when the chord is "+c.String(), func(t *testing.T) {
+			t.Run("it should allow it", func(t *testing.T) {
+				assert.NoError(t, RefusedOn("darwin", c))
+			})
+		})
+	}
+}
