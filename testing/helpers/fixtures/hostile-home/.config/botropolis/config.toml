@@ -8,6 +8,7 @@ find_copy_key = "mod+u"
 find_key = "mod+j"
 find_show_key = "ctrl+o"
 global_shortcut = "mod+shift+k"
+gone_sessions = true
 group_lines = false
 home = "/nonexistent/hostile-home"
 hook_command = "hostile-hook"
