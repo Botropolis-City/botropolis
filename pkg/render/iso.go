@@ -764,6 +764,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.letterLandmark(screen, cam, c, kitPlant)
 			g.lightLandmark(cam, c.Plant.Rect, kitPlant, landmarkOn(c, kitPlant, g.scene.PlantLights()))
 		}))
+		items[len(items)-1].keyed = g.keyedLandmark(screen, cam, c, c.Plant.Rect, kitPlant, landmarkOn(c, kitPlant, g.scene.PlantLights()), city.Hit{Landmark: city.LandmarkPlant})
 		// The chimney shares the building's depth and is appended after
 		// it. The sort is stable, so the slab is laid down first and the
 		// chimney over it, foot on the roof plane instead of the
@@ -778,6 +779,10 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			// meet a roof on. Bug 46.
 			g.stackThrough(screen, cam, kitStack, perch, roof)
 		}))
+		stackKey := keyMix(math.Float64bits(perch.X), math.Float64bits(perch.Y), math.Float64bits(roof))
+		items[len(items)-1].keyed = func() {
+			g.noteKeyed(kindStack, stackKey, func() { g.stackThrough(screen, cam, kitStack, perch, roof) })
+		}
 	}
 	// The usage boats. They sort with the city like anything else, and
 	// they are deliberately a different hull from the voyage tugs on
@@ -893,6 +898,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.noteHit(r, city.Hit{Landmark: city.LandmarkTower, Tower: t})
 			g.towerSign(screen, r, t.Server.Name)
 		}))
+		items[len(items)-1].keyed = func() { g.noteTower(screen, cam, t) }
 	}
 	if c.Library.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Library.Rect, func() {
@@ -900,6 +906,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.letterLandmark(screen, cam, c, kitLibrary)
 			g.lightLandmark(cam, c.Library.Rect, kitLibrary, landmarkOn(c, kitLibrary, 0))
 		}))
+		items[len(items)-1].keyed = g.keyedLandmark(screen, cam, c, c.Library.Rect, kitLibrary, landmarkOn(c, kitLibrary, 0), city.Hit{Landmark: city.LandmarkLibrary})
 	}
 	if c.Hall.Rect.Area() > 0 {
 		items = append(items, footprintAt(cam, c.Hall.Rect, func() {
@@ -907,6 +914,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			g.letterLandmark(screen, cam, c, kitHall)
 			g.lightLandmark(cam, c.Hall.Rect, kitHall, landmarkOn(c, kitHall, 0))
 		}))
+		items[len(items)-1].keyed = g.keyedLandmark(screen, cam, c, c.Hall.Rect, kitHall, landmarkOn(c, kitHall, 0), city.Hit{Landmark: city.LandmarkHall})
 	}
 	// Each district's board stands in the world, ordered with the
 	// buildings around it (item 88).
@@ -929,7 +937,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	for _, d := range layered(cam, items, airborne) {
 		// While a hovered car fades the city, each draw is wrapped in
 		// its fade group, so nothing keeps its record (item 212).
-		if d.keyed != nil && fade == nil {
+		if d.keyed != nil && fade == nil && !g.noKeyed {
 			d.keyed()
 			continue
 		}
@@ -1598,6 +1606,72 @@ func (g *Game) noteDistrictSign(screen *ebiten.Image, cam *city.Camera, d *city.
 	return true
 }
 
+// keyedLandmark notes a landmark as its item draws it: its hit every
+// frame, from where its sprite stands, and its painting, its sprite, its
+// lettering and its lights, keyed by what they are drawn from, so a
+// landmark that holds keeps last frame's record (item 212).
+func (g *Game) keyedLandmark(screen *ebiten.Image, cam *city.Camera, c *city.City, lot city.Rect, kit string, on float64, hit city.Hit) func() {
+	return func() {
+		if g.kits == nil {
+			g.note(func() {
+				g.isoLandmark(screen, cam, lot, kit, g.scenery(), hit)
+				g.letterLandmark(screen, cam, c, kit)
+				g.lightLandmark(cam, lot, kit, on)
+			}, false)
+			return
+		}
+		if _, _, _, r, ok := g.kitPlace(cam, kit, landmarkTurn, lot.Center(), 0); ok {
+			g.noteHit(r, hit)
+		}
+		tint := g.scenery()
+		key := keyMix(maphash.String(inkSeed, kit), hashOf(&lot), math.Float64bits(on), g.landmarksHash(c), g.houseWide)
+		if tint != nil {
+			key = keyMix(key, 1, hashOf(tint))
+		}
+		g.noteKeyed(kindLandmark, key, func() { g.paintLandmark(screen, cam, c, lot, kit, tint, on) })
+	}
+}
+
+// paintLandmark paints a landmark: its sprite, its lettering and its
+// lights. Its hit is noted beside it.
+func (g *Game) paintLandmark(screen *ebiten.Image, cam *city.Camera, c *city.City, lot city.Rect, kit string, tint *ebiten.ColorScale, on float64) {
+	g.kit(screen, cam, kit, landmarkTurn, lot.Center(), tint)
+	g.letterLandmark(screen, cam, c, kit)
+	g.lightLandmark(cam, lot, kit, on)
+}
+
+// landmarksHash is the city's landmarks hashed, which every landmark's
+// lettering reads, since one's letters keep off another's: for the city
+// they stand in.
+func (g *Game) landmarksHash(c *city.City) uint64 {
+	if !g.landmarksHashed {
+		plots := cityLandmarks(c)
+		g.landmarksKey, g.landmarksHashed = hashOf(&plots), true
+	}
+	return g.landmarksKey
+}
+
+// noteTower notes a tower as its item draws it: its hit every frame,
+// from where its sprite stands, and its sprite and its sign, keyed by
+// its server's name, where it stands and its tint (item 212).
+func (g *Game) noteTower(screen *ebiten.Image, cam *city.Camera, t *city.Tower) {
+	tint := towerTint(t, g.viewing(), g.unlitTower(t))
+	if _, _, _, r, ok := g.kitPlace(cam, kitTower, 0, t.Rect.Center(), 0); ok {
+		g.noteHit(r, city.Hit{Landmark: city.LandmarkTower, Tower: t})
+	}
+	key := keyMix(maphash.String(inkSeed, t.Server.Name), hashOf(&t.Rect), g.houseWide)
+	if tint != nil {
+		key = keyMix(key, 1, hashOf(tint))
+	}
+	g.noteKeyed(kindTower, key, func() { g.paintTower(screen, cam, t, tint) })
+}
+
+// paintTower paints a tower and the name on it.
+func (g *Game) paintTower(screen *ebiten.Image, cam *city.Camera, t *city.Tower, tint *ebiten.ColorScale) {
+	r := g.kit(screen, cam, kitTower, 0, t.Rect.Center(), tint)
+	g.towerSign(screen, r, t.Server.Name)
+}
+
 // valuesFor starts the buildings' hashed values again for a city other
 // than the one they were hashed for.
 func (g *Game) valuesFor(c *city.City) {
@@ -1607,6 +1681,7 @@ func (g *Game) valuesFor(c *city.City) {
 		g.bridgeHashes, g.treeHashes, g.isleHashed = map[city.Cell]uint64{}, nil, false
 		g.fogHashes = map[city.Cell]uint64{}
 		g.quietFrames = map[*city.Building]quietFrame{}
+		g.landmarksHashed = false
 	}
 }
 

@@ -56,7 +56,8 @@ func newRecordCity(t testing.TB) *recordCity {
 		}
 		sessions = append(sessions, s)
 	}
-	rc.snapshot = state.Snapshot{At: at, Sessions: sessions}
+	rc.snapshot = state.Snapshot{At: at, Sessions: sessions,
+		Servers: []state.Server{{Name: "files", Configured: true, Calls: 12, Sessions: 4}, {Name: "search", Configured: true, Calls: 20, Sessions: 4}}}
 	rc.scene = city.NewScene(city.NewLayout())
 	rc.scene.SetClock(func() time.Time { return rc.now }, time.UTC)
 	rc.scene.SetProjection(city.Isometric)

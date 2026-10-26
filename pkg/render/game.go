@@ -294,7 +294,10 @@ type Game struct {
 	// faultyKeys, for the walk only, leaves out of the keys whether a
 	// view drains the colour, so the walk shows it finds a key that misses
 	// an input.
-	noReuse     bool
+	noReuse bool
+	// noKeyed draws every item through its own draw, not its keyed one,
+	// for the tests to hold the keyed draws' hits and lights to.
+	noKeyed     bool
 	verifyEvery int
 	verifyCount int
 	// verifyBudget is how many kept records a frame the net checks in
@@ -331,10 +334,13 @@ type Game struct {
 	bridgeHashes map[city.Cell]uint64
 	fogHashes    map[city.Cell]uint64
 	quietFrames  map[*city.Building]quietFrame
-	treeHashes   []uint64
-	isleHash     uint64
-	isleHashed   bool
-	lotCity      *city.City
+	// landmarksKey is the city's landmarks hashed, once landmarksHashed.
+	landmarksKey    uint64
+	landmarksHashed bool
+	treeHashes      []uint64
+	isleHash        uint64
+	isleHashed      bool
+	lotCity         *city.City
 	// frameBounds is the frame the dry pass records for, which a look
 	// is baked at the coordinates of (item 233).
 	frameBounds image.Rectangle

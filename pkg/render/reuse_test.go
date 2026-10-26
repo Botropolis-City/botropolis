@@ -61,13 +61,17 @@ func TestRecordReuse(t *testing.T) {
 	t.Run("when a city has settled, its standing objects", func(t *testing.T) {
 		rc := settled(t)
 		st := rc.frame()
-		for _, kind := range []recordKind{kindMonument, kindTree, kindBridge, kindFog} {
+		for _, kind := range []recordKind{kindMonument, kindTree, kindBridge, kindFog, kindLandmark, kindStack, kindTower} {
 			t.Run("it should keep "+kind.String()+"'s records", func(t *testing.T) {
 				assert.Positive(t, st.keptBy[kind])
 			})
 		}
 		t.Run("it should record none of them afresh", func(t *testing.T) {
-			assert.Zero(t, st.freshBy[kindMonument]+st.freshBy[kindTree]+st.freshBy[kindBridge]+st.freshBy[kindFog])
+			fresh := 0
+			for _, k := range []recordKind{kindMonument, kindTree, kindBridge, kindFog, kindLandmark, kindStack, kindTower} {
+				fresh += st.freshBy[k]
+			}
+			assert.Zero(t, fresh)
 		})
 	})
 
@@ -449,6 +453,30 @@ func TestRecordReuse(t *testing.T) {
 
 		t.Run("it should hold the record made afresh", func(t *testing.T) {
 			assert.Zero(t, stale)
+		})
+	})
+
+	// The keyed draws note their hits outside their records, from where
+	// their sprites stand; each item's own draw notes them as it draws.
+	t.Run("when a settled city is drawn through each item's own draw, by night", func(t *testing.T) {
+		rc := newRecordCity(t)
+		rc.g.verifyEvery = 1
+		rc.scene.SetView(city.ViewAttention)
+		for !rc.scene.City().Night {
+			rc.scene.CycleLight()
+		}
+		rc.frame()
+		rc.now = rc.now.Add(10 * time.Minute)
+		for range 3 {
+			rc.frame()
+		}
+		keyed := frameNotes(rc.g)
+		rc.g.noKeyed = true
+		rc.frame()
+		own := frameNotes(rc.g)
+
+		t.Run("it should note what the keyed draws note", func(t *testing.T) {
+			assert.Equal(t, own, keyed)
 		})
 	})
 
