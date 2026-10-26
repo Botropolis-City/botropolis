@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/pkg/config"
 )
 
 // HomeVariables are every variable the code reads a home or a per-user
@@ -21,8 +23,9 @@ var HomeVariables = []string{
 }
 
 // RunIsolated runs a package's tests with HOME and every variable in
-// HomeVariables pointed at an empty temp dir, so nothing reads this
-// machine's Claude home. Go's own caches are pinned first, because the
+// HomeVariables pointed at an empty temp dir, and every variable in
+// ConfigVariables unset, so nothing reads this machine's Claude home or
+// the builder's own config (item 263). Go's own caches are pinned first, because the
 // tests build binaries and those caches default to the real home.
 func RunIsolated(m interface{ Run() int }) int {
 	pinned := []string{"GOCACHE", "GOMODCACHE", "GOPATH", "GOENV"}
@@ -45,6 +48,9 @@ func RunIsolated(m interface{ Run() int }) int {
 			panic(err)
 		}
 		_ = os.Setenv(name, dir)
+	}
+	for _, name := range ConfigVariables() {
+		_ = os.Unsetenv(name)
 	}
 	return m.Run()
 }
@@ -74,5 +80,35 @@ func AssertIsolated(t *testing.T) {
 				assert.True(t, strings.HasPrefix(os.Getenv(name), home+string(filepath.Separator)), os.Getenv(name))
 			})
 		}
+
+		for _, name := range ConfigVariables() {
+			t.Run("it should leave "+name+" unset", func(t *testing.T) {
+				_, set := os.LookupEnv(name)
+				assert.False(t, set)
+			})
+		}
 	})
+
+	t.Run("when the config variables are listed", func(t *testing.T) {
+		names := ConfigVariables()
+
+		for _, name := range []string{"BOTROPOLIS_DISTRICT_TYPE", "BOTROPOLIS_CONFIG", "BOTROPOLIS_SET"} {
+			t.Run("it should list "+name, func(t *testing.T) {
+				assert.Contains(t, names, name)
+			})
+		}
+	})
+}
+
+// ConfigVariables are every BOTROPOLIS_ variable pkg/config reads, taken
+// from its own key list so a new key cannot escape isolation. Item 263.
+func ConfigVariables() []string {
+	var names []string
+	for _, key := range []string{config.KeyConfig, config.KeySet} {
+		names = append(names, "BOTROPOLIS_"+strings.ToUpper(key))
+	}
+	for _, doc := range config.Docs() {
+		names = append(names, doc.Env)
+	}
+	return names
 }
