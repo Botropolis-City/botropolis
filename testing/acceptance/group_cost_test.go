@@ -4,6 +4,7 @@ package acceptance_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -13,7 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/appd"
 	"botropolis.city/botropolis/pkg/daemon"
+	"botropolis.city/botropolis/pkg/harness"
 	"botropolis.city/botropolis/pkg/measure"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/testing/helpers"
@@ -222,6 +225,65 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 			})
 
 			d.assertProduction(t, measured)
+		})
+	})
+}
+
+// TestARescanAtTwoThousandSessions is what a rescan costs on item 198's
+// home. Item 213 paced rescans by their counted cost, at 1% of a core,
+// which put them ~2.7 s apart there where they had been ~1.6 s; the
+// rescans then got cheaper to win that back. Under 16 ms of a core a
+// rescan, the pace rescans about every 1.6 s again.
+//
+// It is the daemon wired as botropolisd wires it, groups and ledger on,
+// told what its watcher would tell it. The statistics store's pass runs
+// beside the rescans, not in them, and is left out.
+func TestARescanAtTwoThousandSessions(t *testing.T) {
+	performanceTier(t)
+	const (
+		sessions = 2000
+		limit    = 16 * time.Millisecond
+		sid      = "11111111-1111-4111-8111-111111111111"
+		cwd      = "/home/user/src/alpha"
+	)
+	uncountable := measure.Available()
+
+	t.Run("when a daemon has settled on the synthetic home plus 2,000 small sessions, and a transcript gains a reply before each rescan", func(t *testing.T) {
+		home := helpers.HomeAt(t, helpers.LiveFixtureHome(t, "synthetic"))
+		now := time.Now().UTC()
+		home.WriteHistory(helpers.ManySessions(198, sessions, now), time.RFC3339Nano)
+		settleDirs(t, home.Path)
+		states := t.TempDir()
+		loader := state.NewLoader(home.Path, appd.NewProbes()).
+			WithGroups(filepath.Join(states, "groups.json")).
+			WithLedger(filepath.Join(states, "ledger.json"))
+		d := daemon.NewWith(harness.NewMulti(harness.NewClaude(loader)), time.Now)
+		require.NoError(t, d.Rescan())
+		require.GreaterOrEqual(t, len(d.Snapshot().Sessions), sessions)
+		for _, dir := range loader.WatchDirs() {
+			loader.Watching(dir, true)
+		}
+		require.NoError(t, d.Rescan())
+		transcript := filepath.Join(home.ClaudeDir(), "projects", helpers.ProjectSlug(cwd), sid+".jsonl")
+		var costs []time.Duration
+		for i := 0; i < 5; i++ {
+			home.AppendTranscript(sid, cwd, helpers.AssistantReply(sid, fmt.Sprintf("msg_213_rescan_%d", i), now.Add(time.Duration(i)*time.Second).Format(time.RFC3339Nano)))
+			loader.Changed(transcript)
+			var err error
+			costs = append(costs, measure.Counted(func() { err = d.Rescan() }).Core())
+			require.NoError(t, err)
+		}
+		slices.Sort(costs)
+		t.Logf("a core's time per rescan, sorted: %v; counted in instructions: %v", costs, uncountable == nil)
+
+		t.Run("it should count its rescans in instructions", func(t *testing.T) {
+			if uncountable != nil {
+				t.Skipf("skipped: no hardware instruction counters (%v), so the check below gates on thread CPU, which a busy machine moves", uncountable)
+			}
+		})
+
+		t.Run("it should cost under 16 ms of a core a rescan, so the pace rescans about every 1.6 s", func(t *testing.T) {
+			assert.Less(t, costs[len(costs)/2], limit, "costs %v", costs)
 		})
 	})
 }

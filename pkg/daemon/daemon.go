@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -347,6 +348,12 @@ func (d *Daemon) Rescan() error {
 		return err
 	}
 	d.mu.Lock()
+	// The loaded sessions are this rescan's own until they are the base,
+	// so each says whether a hook has spoken for it here, and a view
+	// with no hook overlay can share them (item 213).
+	for i := range snapshot.Sessions {
+		snapshot.Sessions[i].Hooked = d.hooked[snapshot.Sessions[i].ID]
+	}
 	d.base = snapshot
 	d.pruneOverlays()
 	view := d.view()
@@ -468,16 +475,21 @@ func (d *Daemon) Events(since time.Time) []events.Event {
 func (d *Daemon) view() state.Snapshot {
 	view := d.base
 	view.Store = d.store
-	view.Sessions = make([]state.Session, len(d.base.Sessions))
-	copy(view.Sessions, d.base.Sessions)
-	for i := range view.Sessions {
-		s := &view.Sessions[i]
-		s.Hooked = d.hooked[s.ID]
-		o, ok := d.overlays[s.ID]
-		if !ok || !o.at.After(s.LastActivity) {
+	copied := false
+	for i := range d.base.Sessions {
+		base := &d.base.Sessions[i]
+		hooked := d.hooked[base.ID]
+		o, ok := d.overlays[base.ID]
+		applies := ok && o.at.After(base.LastActivity) && (!o.turnEnded || base.RecordStatus != claude.StatusShell)
+		if hooked == base.Hooked && !applies {
 			continue
 		}
-		if o.turnEnded && s.RecordStatus == claude.StatusShell {
+		if !copied {
+			view.Sessions, copied = slices.Clone(d.base.Sessions), true
+		}
+		s := &view.Sessions[i]
+		s.Hooked = hooked
+		if !applies {
 			continue
 		}
 		s.LastActivity = o.at
