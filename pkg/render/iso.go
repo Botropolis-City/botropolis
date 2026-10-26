@@ -697,7 +697,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items[len(items)-1].moves = true
 	}
 	// Every bridge, and the fog its deck fades into (items 239 and 220).
-	bridgeHashes := map[city.Cell]uint64{}
+	g.valuesFor(c)
 	items = append(items, bridgesInSort(cam, c, func(_ int, bridge city.Bridge, p bridgePart) func() {
 		if p.hazy() {
 			return func() { g.drawHazePiece(screen, cam, bridge, p, c.Night) }
@@ -710,17 +710,16 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		return func() { g.drawFog(screen, cam, puffs, c.Night) }
 	}, func(bridge city.Bridge, p bridgePart, draw func()) func() {
 		// A bridge is the same for every piece of it: hashed once.
-		whole, ok := bridgeHashes[bridge.Deck[0]]
+		whole, ok := g.bridgeHashes[bridge.Deck[0]]
 		if !ok {
 			whole = valueHash(bridge)
-			bridgeHashes[bridge.Deck[0]] = whole
+			g.bridgeHashes[bridge.Deck[0]] = whole
 		}
-		key := valueHash(struct {
-			bridge uint64
-			part   bridgePart
-			night  bool
-		}{whole, p, c.Night})
+		key := keyMix(whole, valueHash(p), boolBits(c.Night))
 		return func() { g.noteKeyed(kindBridge, key, draw) }
+	}, func(puffs []city.FogPuff, draw func()) func() {
+		key := keyMix(valueHash(puffs), boolBits(c.Night))
+		return func() { g.noteKeyed(kindFog, key, draw) }
 	})...)
 	for _, d := range g.scene.Deliveries() {
 		d := d
@@ -855,8 +854,11 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 	}
 	island := c.Island()
-	isle := valueHash(island)
-	for _, t := range c.Trees {
+	g.valuesFor(c)
+	if !g.isleHashed {
+		g.isleHash, g.isleHashed = valueHash(island), true
+	}
+	for i, t := range c.Trees {
 		if !g.scene.Scenery() {
 			break
 		}
@@ -864,11 +866,13 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = append(items, standingAt(cam, t.At, func() {
 			g.isoTree(screen, cam, island, c.Night, t)
 		}))
-		key := valueHash(struct {
-			tree   city.Tree
-			island uint64
-			night  bool
-		}{t, isle, c.Night})
+		if len(g.treeHashes) != len(c.Trees) {
+			g.treeHashes = make([]uint64, len(c.Trees))
+			for j, t := range c.Trees {
+				g.treeHashes[j] = valueHash(t)
+			}
+		}
+		key := keyMix(g.treeHashes[i], g.isleHash, boolBits(c.Night))
 		items[len(items)-1].keyed = func() {
 			g.noteKeyed(kindTree, key, func() { g.isoTree(screen, cam, island, c.Night, t) })
 		}
@@ -1548,10 +1552,7 @@ func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City
 		if g.scene.Dimmed(b) {
 			continue
 		}
-		key := valueHash(struct {
-			building uint64
-			mowing   float64
-		}{g.buildingValue(b), g.scene.Mowing(b.Session.ID)})
+		key := keyMix(g.buildingValue(b), math.Float64bits(g.scene.Mowing(b.Session.ID)))
 		g.noteKeyed(kindLotFloor, key, func() { g.lotFloor(screen, cam, b) })
 	}
 }
@@ -1560,16 +1561,12 @@ func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City
 // its room among the labels every frame, and its painting keyed by the
 // sign it lays out, so a sign that holds keeps last frame's record.
 func (g *Game) noteDistrictSign(screen *ebiten.Image, cam *city.Camera, d *city.District) bool {
-	sign := d.Sign()
-	foot, board, laid, ok := g.districtSignLayout(cam, d)
+	sign, foot, board, laid, ok := g.signOf(cam, d)
 	if !ok {
 		return false
 	}
 	g.queueDistrictSign(foot, board)
-	key := valueHash(struct {
-		sign city.DistrictSign
-		wide uint64
-	}{sign, g.houseWide})
+	key := keyMix(g.signValues[d].hash, g.houseWide)
 	g.noteKeyed(kindSign, key, func() { g.paintDistrictSign(screen, sign, foot, board, laid) })
 	return true
 }
@@ -1579,7 +1576,77 @@ func (g *Game) noteDistrictSign(screen *ebiten.Image, cam *city.Camera, d *city.
 func (g *Game) valuesFor(c *city.City) {
 	if g.lotCity != c || g.lotKeys == nil {
 		g.lotKeys, g.lotCity = map[*city.Building]uint64{}, c
+		g.titles, g.signValues = map[*city.Building]string{}, map[*city.District]signValue{}
+		g.bridgeHashes, g.treeHashes, g.isleHashed = map[city.Cell]uint64{}, nil, false
 	}
+}
+
+// boolBits is a bool as a number to mix into a key.
+func boolBits(b bool) uint64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// signValue is a district's sign, which holds for the city it stands
+// in, hashed, and where it was last laid out: its layout is the sign's
+// and the camera's alone, and a pan by whole pixels moves it.
+type signValue struct {
+	sign   city.DistrictSign
+	hash   uint64
+	laidBy uint64
+	origin city.Point
+	foot   city.Point
+	board  city.Rect
+	laid   ui.DistrictSign
+	ok     bool
+}
+
+// signOf is a district's sign and where it stands, laid out again only
+// when the camera's zoom, heading or projection, or the faces, change,
+// or it pans by part of a pixel (item 212).
+func (g *Game) signOf(cam *city.Camera, d *city.District) (city.DistrictSign, city.Point, city.Rect, ui.DistrictSign, bool) {
+	v, ok := g.signValues[d]
+	if !ok {
+		v.sign = d.Sign()
+		v.hash = valueHash(v.sign)
+	}
+	by := keyMix(v.hash, math.Float64bits(cam.Zoom), uint64(cam.Heading), uint64(cam.Projection), uint64(uintptr(unsafe.Pointer(g.faces))), g.houseWide)
+	origin := g.rec.origin
+	if shift, whole := pixelShift(v.origin, origin); ok && v.laidBy == by && whole {
+		d := city.Point{X: float64(shift.X), Y: float64(shift.Y)}
+		v.foot = v.foot.Add(d)
+		v.board = city.Rect{Min: v.board.Min.Add(d), Max: v.board.Max.Add(d)}
+		v.laid.Name.At = v.laid.Name.At.Add(d)
+		v.laid.Move.At = v.laid.Move.At.Add(d)
+	} else {
+		v.foot, v.board, v.laid, v.ok = g.signLaidOut(cam, v.sign)
+		v.laidBy = by
+	}
+	v.origin = origin
+	g.signValues[d] = v
+	return v.sign, v.foot, v.board, v.laid, v.ok
+}
+
+// titleOf is a building's title, which holds for the city it stands in.
+func (g *Game) titleOf(b *city.Building) string {
+	t, ok := g.titles[b]
+	if !ok {
+		t = b.Card(g.scene.City().Time).Title
+		g.titles[b] = t
+	}
+	return t
+}
+
+// keyMix folds values into a hash.
+func keyMix(h uint64, vs ...uint64) uint64 {
+	for _, v := range vs {
+		h ^= v + 0x9e3779b97f4a7c15 + h<<6 + h>>2
+		h *= 0xff51afd7ed558ccd
+		h ^= h >> 33
+	}
+	return h
 }
 
 // buildingValue is a building's whole value hashed, once for the city
@@ -1633,7 +1700,7 @@ func (g *Game) buildingKey(f *buildingFrame) uint64 {
 		frameWide uint64
 	}{
 		building: g.buildingValue(b), mowing: g.scene.Mowing(id),
-		scaffold: g.scene.Scaffold(b), title: b.Card(g.scene.City().Time).Title,
+		scaffold: g.scene.Scaffold(b), title: g.titleOf(b),
 		courseLit: courseLit(b.Session, g.scene.Now()), frameWide: g.houseWide,
 	}
 	for i := range min(f.state.flags, len(k.hoists)) {

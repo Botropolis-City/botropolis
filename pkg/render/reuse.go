@@ -35,11 +35,12 @@ const (
 	kindSign
 	kindTree
 	kindBridge
+	kindFog
 	kindsKept
 )
 
 var recordKindNames = [kindsKept]string{"", "a district's aged floor", "a building's aged lot", "a building",
-	"a district's monument", "a district's sign", "a tree", "a piece of the bridge"}
+	"a district's monument", "a district's sign", "a tree", "a piece of the bridge", "a bank of fog"}
 
 func (k recordKind) String() string { return recordKindNames[k] }
 
@@ -210,6 +211,15 @@ func (g *Game) copyRecord(k *keptRecord, i int, shift image.Point) {
 	e := k.entries[i]
 	dx, dy := float32(shift.X), float32(shift.Y)
 	from := len(l.cmds)
+	if shift == (image.Point{}) {
+		g.copyStill(k, e)
+		n := len(g.lightOps)
+		g.still.entries = append(g.still.entries, entry{
+			inked:  inked{from: from, to: len(l.cmds), box: e.box, hash: e.hash},
+			lights: [2]int{n, n}, key: e.key, world: e.world, jn: e.jn, keeps: true,
+		})
+		return
+	}
 	// Each command is copied once, onto the end of the list, and moved
 	// there; its options are copied with it.
 	for j := e.from; j < e.to; j++ {
@@ -236,14 +246,16 @@ func (g *Game) copyRecord(k *keptRecord, i int, shift image.Point) {
 			l.triOps = append(l.triOps, k.triOps[c.op])
 			c.op = len(l.triOps) - 1
 			v := len(l.vertices)
-			for _, x := range k.vertices[c.v[0]:c.v[1]] {
+			for _, x := range c.vs {
 				x.DstX += dx
 				x.DstY += dy
 				l.vertices = append(l.vertices, x)
 			}
 			n := len(l.indices)
-			l.indices = append(l.indices, k.indices[c.i[0]:c.i[1]]...)
-			c.v, c.i = [2]int{v, len(l.vertices)}, [2]int{n, len(l.indices)}
+			l.indices = append(l.indices, c.is...)
+			c.vs = l.vertices[v:len(l.vertices):len(l.vertices)]
+			c.is = l.indices[n:len(l.indices):len(l.indices)]
+			c.owned = false
 		case cmdRing:
 			l.pathOps = append(l.pathOps, k.pathOps[c.op])
 			c.op = len(l.pathOps) - 1
@@ -259,6 +271,91 @@ func (g *Game) copyRecord(k *keptRecord, i int, shift image.Point) {
 		inked:  inked{from: from, to: len(l.cmds), box: moved(e.box, shift), hash: e.hash},
 		lights: [2]int{n, n}, key: e.key, world: e.world, jn: e.jn, keeps: true,
 	})
+}
+
+// copyStill copies a kept entry's draws into this frame's record where
+// the camera has not moved. A mesh's vertices and indices become its own
+// the first time it is kept, in one allocation for the entry, and are
+// not copied again while it is kept; a ring's points and each kind's
+// options are each one run in their buffer, since a drawable records
+// its draws in turn, copied whole, and the commands rebased onto them.
+func (g *Game) copyStill(k *keptRecord, e entry) {
+	l := g.rec
+	cmds := k.cmds[e.from:e.to]
+	type run struct {
+		from, to int
+		seen     bool
+	}
+	widen := func(r *run, a, b int) {
+		if !r.seen {
+			*r = run{a, b, true}
+			return
+		}
+		r.from, r.to = min(r.from, a), max(r.to, b)
+	}
+	var p, img, cm, tri, path, txt, fill run
+	verts, idx := 0, 0
+	for j := range cmds {
+		c := &cmds[j]
+		switch c.kind {
+		case cmdImage:
+			widen(&img, c.op, c.op+1)
+		case cmdColorM:
+			widen(&cm, c.op, c.op+1)
+		case cmdMesh:
+			widen(&tri, c.op, c.op+1)
+			if !c.owned {
+				verts, idx = verts+len(c.vs), idx+len(c.is)
+			}
+		case cmdRing:
+			widen(&path, c.op, c.op+1)
+			widen(&p, c.p[0], c.p[1])
+		case cmdWords:
+			widen(&txt, c.op, c.op+1)
+		case cmdFill:
+			widen(&fill, c.op, c.op+1)
+		}
+	}
+	dp := len(l.points) - p.from
+	dimg, dcm, dtri := len(l.imgOps)-img.from, len(l.cmOps)-cm.from, len(l.triOps)-tri.from
+	dpath, dtxt, dfill := len(l.pathOps)-path.from, len(l.textOps)-txt.from, len(l.fills)-fill.from
+	l.points = append(l.points, k.points[p.from:p.to]...)
+	l.imgOps = append(l.imgOps, k.imgOps[img.from:img.to]...)
+	l.cmOps = append(l.cmOps, k.cmOps[cm.from:cm.to]...)
+	l.triOps = append(l.triOps, k.triOps[tri.from:tri.to]...)
+	l.pathOps = append(l.pathOps, k.pathOps[path.from:path.to]...)
+	l.textOps = append(l.textOps, k.textOps[txt.from:txt.to]...)
+	l.fills = append(l.fills, k.fills[fill.from:fill.to]...)
+	var ownV []ebiten.Vertex
+	var ownI []uint32
+	if verts+idx > 0 {
+		ownV, ownI = make([]ebiten.Vertex, 0, verts), make([]uint32, 0, idx)
+	}
+	from := len(l.cmds)
+	l.cmds = append(l.cmds, cmds...)
+	for j := from; j < len(l.cmds); j++ {
+		c := &l.cmds[j]
+		switch c.kind {
+		case cmdImage:
+			c.op += dimg
+		case cmdColorM:
+			c.op += dcm
+		case cmdMesh:
+			c.op += dtri
+			if !c.owned {
+				v, n := len(ownV), len(ownI)
+				ownV, ownI = append(ownV, c.vs...), append(ownI, c.is...)
+				c.vs, c.is, c.owned = ownV[v:len(ownV):len(ownV)], ownI[n:len(ownI):len(ownI)], true
+			}
+		case cmdRing:
+			c.op += dpath
+			c.p[0], c.p[1] = c.p[0]+dp, c.p[1]+dp
+		case cmdWords:
+			c.op += dtxt
+		case cmdFill:
+			c.op += dfill
+		}
+	}
 }
 
 // sameRecord is whether kept, an entry kept this frame, is fresh, the
@@ -342,18 +439,18 @@ func (l *drawList) sameCmd(a, b *drawCmd) bool {
 	case cmdFill:
 		return l.fills[a.op] == l.fills[b.op]
 	case cmdMesh:
-		if !sameTriangleOptions(&l.triOps[a.op], &l.triOps[b.op]) || a.v[1]-a.v[0] != b.v[1]-b.v[0] || a.i[1]-a.i[0] != b.i[1]-b.i[0] {
+		if !sameTriangleOptions(&l.triOps[a.op], &l.triOps[b.op]) || len(a.vs) != len(b.vs) || len(a.is) != len(b.is) {
 			return false
 		}
-		for j := range a.v[1] - a.v[0] {
-			x, y := l.vertices[a.v[0]+j], l.vertices[b.v[0]+j]
+		for j := range a.vs {
+			x, y := a.vs[j], b.vs[j]
 			if !near(float64(x.DstX), float64(y.DstX)) || !near(float64(x.DstY), float64(y.DstY)) ||
 				x.SrcX != y.SrcX || x.SrcY != y.SrcY || x.ColorR != y.ColorR || x.ColorG != y.ColorG || x.ColorB != y.ColorB || x.ColorA != y.ColorA {
 				return false
 			}
 		}
-		for j := range a.i[1] - a.i[0] {
-			if l.indices[a.i[0]+j] != l.indices[b.i[0]+j] {
+		for j := range a.is {
+			if a.is[j] != b.is[j] {
 				return false
 			}
 		}

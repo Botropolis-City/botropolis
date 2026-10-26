@@ -191,7 +191,7 @@ func (l *drawList) mipLevel(i int) int {
 	case cmdImage:
 		return imageMipLevel(&l.imgOps[c.op], c.src.Bounds(), l.pageSize(i))
 	case cmdMesh:
-		return meshMipLevel(l.vertices[c.v[0]:c.v[1]], l.indices[c.i[0]:c.i[1]], &l.triOps[c.op], l.pageSize(i))
+		return meshMipLevel(c.vs, c.is, &l.triOps[c.op], l.pageSize(i))
 	}
 	return 0
 }

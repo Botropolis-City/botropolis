@@ -310,7 +310,17 @@ type Game struct {
 	litHash   uint64
 	litFrame  bool
 	lotKeys   map[*city.Building]uint64
-	lotCity   *city.City
+	// titles and signValues are the buildings' titles and the
+	// districts' signs, for the city built from lotCity.
+	titles     map[*city.Building]string
+	signValues map[*city.District]signValue
+	// bridgeHashes, treeHashes and isleHash are the city's bridges, by
+	// their first deck cell, its trees and its island, hashed.
+	bridgeHashes map[city.Cell]uint64
+	treeHashes   []uint64
+	isleHash     uint64
+	isleHashed   bool
+	lotCity      *city.City
 	// frameBounds is the frame the dry pass records for, which a look
 	// is baked at the coordinates of (item 233).
 	frameBounds image.Rectangle

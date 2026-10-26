@@ -39,6 +39,7 @@ var keyedDraws = map[recordKind]struct {
 		"g.paintUncut", "g.lightsOn", "g.litBounds", "g.litRects", "g.lightOps", "g.cuts")},
 	kindTree: {draw: "isoTree", reads: because("g.rec", "g.paint", "g.kits", "g.drawing", "scene.View",
 		"g.baking", "g.lightsOn", "g.litBounds", "g.lightOps", "g.punches")},
+	kindFog: {draw: "drawFog", reads: because("g.rec", "g.paint", "g.kits", "g.fogPuff")},
 	kindBridge: {draw: "drawSpan", also: []string{"drawRampSegment", "drawHazePiece"}, reads: because("g.rec", "g.paint", "g.kits", "g.drawing", "scene.View",
 		"g.baking", "g.lightsOn", "g.litBounds", "g.lightOps", "g.punches")},
 }
@@ -64,6 +65,7 @@ var why = map[string]string{
 	"g.lightOps":   "the journal: light ops, laid again when kept",
 	"g.punches":    "a sink: counted, and counted again when kept",
 	"g.cuts":       "a sink: counted, and counted again when kept",
+	"g.fogPuff":    "the puff texture, made once the first time fog is drawn and the same after",
 }
 
 // because is the reasons why gives for reads.

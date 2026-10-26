@@ -60,13 +60,13 @@ func TestRecordReuse(t *testing.T) {
 	t.Run("when a city has settled, its standing objects", func(t *testing.T) {
 		rc := settled(t)
 		st := rc.frame()
-		for _, kind := range []recordKind{kindMonument, kindTree, kindBridge} {
+		for _, kind := range []recordKind{kindMonument, kindTree, kindBridge, kindFog} {
 			t.Run("it should keep "+kind.String()+"'s records", func(t *testing.T) {
 				assert.Positive(t, st.keptBy[kind])
 			})
 		}
 		t.Run("it should record none of them afresh", func(t *testing.T) {
-			assert.Zero(t, st.freshBy[kindMonument]+st.freshBy[kindTree]+st.freshBy[kindBridge])
+			assert.Zero(t, st.freshBy[kindMonument]+st.freshBy[kindTree]+st.freshBy[kindBridge]+st.freshBy[kindFog])
 		})
 	})
 
@@ -402,6 +402,23 @@ func TestRecordReuse(t *testing.T) {
 		})
 	})
 
+	t.Run("when records are kept unchecked for many frames, their meshes their own", func(t *testing.T) {
+		d := fullZoom(t, DriveOptions{})
+		d.game.verifyEvery = 0
+		for range 10 {
+			require.NoError(t, d.Tick())
+		}
+		kept := recordDigest(d.game)
+		require.Positive(t, d.game.still.stats.keptBy[kindHouse], "precondition: buildings are kept")
+		d.game.noReuse = true
+		require.NoError(t, d.Tick())
+		afresh := recordDigest(d.game)
+
+		t.Run("it should draw what the frame made afresh draws", func(t *testing.T) {
+			assert.Equal(t, afresh, kept)
+		})
+	})
+
 	t.Run("when reuse is off", func(t *testing.T) {
 		rc := settled(t)
 		rc.g.noReuse = true
@@ -471,6 +488,46 @@ func BenchmarkAFullZoomFrameKeepingRecords(b *testing.B) {
 	}
 }
 
+// Item 212: a district's sign is laid out again only when the camera's
+// zoom, heading or projection, or the faces, change, and a pan by whole
+// pixels moves the layout it kept.
+func TestASignLaidOut(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		pan  city.Point
+	}{
+		{"by whole pixels", city.Point{X: 17, Y: -9}},
+		{"by part of a pixel", city.Point{X: 3.5, Y: 0.25}},
+	} {
+		t.Run("when the camera pans "+c.name+" after a sign was laid out", func(t *testing.T) {
+			rc := newRecordCity(t)
+			rc.scene.Camera().Zoom = 2
+			rc.frame()
+			rc.scene.Pan(c.pan)
+			rc.frame()
+			cam := rc.scene.Camera()
+			apart, signs := 0.0, 0
+			for _, d := range rc.scene.City().Districts {
+				_, foot, board, laid, ok := rc.g.signOf(cam, d)
+				wantFoot, wantBoard, wantLaid, wantOK := rc.g.signLaidOut(cam, d.Sign())
+				if !ok || !wantOK {
+					continue
+				}
+				signs++
+				for _, p := range [][2]city.Point{{foot, wantFoot}, {board.Min, wantBoard.Min}, {board.Max, wantBoard.Max},
+					{laid.Name.At, wantLaid.Name.At}, {laid.Move.At, wantLaid.Move.At}} {
+					apart = max(apart, math.Abs(p[0].X-p[1].X), math.Abs(p[0].Y-p[1].Y))
+				}
+			}
+			require.Positive(t, signs, "precondition: signs stand legible")
+
+			t.Run("it should stand where laying it out afresh puts it", func(t *testing.T) {
+				assert.LessOrEqual(t, apart, keepTolerance)
+			})
+		})
+	}
+}
+
 // Item 212: keeping a record copies its commands, and a command that
 // carried every kind of draw's options was 648 bytes, so keeping a
 // building drawn in a hundred pieces cost what recording it did.
@@ -522,6 +579,37 @@ func TestASpriteCutAgain(t *testing.T) {
 			assert.NotEqual(t, was.hash, elsewhere.hash)
 		})
 	})
+}
+
+// recordDigest is what a frame's still drawables draw, command by
+// command, positions to a 64th of a pixel.
+func recordDigest(g *Game) []string {
+	q := func(v float64) int64 { return int64(math.Round(v * 64)) }
+	l := g.rec
+	var out []string
+	for _, e := range g.still.entries {
+		if e.moves {
+			continue
+		}
+		for _, c := range l.cmds[e.from:e.to] {
+			line := fmt.Sprintf("kind %d box %v page %p", c.kind, c.box, c.page)
+			if c.src != nil {
+				line += fmt.Sprintf(" src %v", c.src.Bounds())
+			}
+			switch c.kind {
+			case cmdImage:
+				o := l.imgOps[c.op]
+				line += fmt.Sprintf(" at %d,%d scale %v", q(o.GeoM.Element(0, 2)), q(o.GeoM.Element(1, 2)), o.ColorScale)
+			case cmdMesh:
+				for _, v := range c.vs {
+					line += fmt.Sprintf(" %d,%d", q(float64(v.DstX)), q(float64(v.DstY)))
+				}
+				line += fmt.Sprint(" ", c.is)
+			}
+			out = append(out, line)
+		}
+	}
+	return out
 }
 
 // frameNotes is what a frame noted besides drawing, positions to a

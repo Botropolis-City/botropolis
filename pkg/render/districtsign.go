@@ -45,7 +45,12 @@ func (g *Game) paintDistrictSign(screen *ebiten.Image, sign city.DistrictSign, f
 // its words on the board, or false when they would not stand
 // ui.MinSignPx tall.
 func (g *Game) districtSignLayout(cam *city.Camera, d *city.District) (city.Point, city.Rect, ui.DistrictSign, bool) {
-	sign := d.Sign()
+	return g.signLaidOut(cam, d.Sign())
+}
+
+// signLaidOut is where a sign stands, its board and its words on the
+// board, from the sign and the camera alone.
+func (g *Game) signLaidOut(cam *city.Camera, sign city.DistrictSign) (city.Point, city.Rect, ui.DistrictSign, bool) {
 	foot := cam.WorldToScreen(sign.At)
 	board := ui.DistrictSignBoard(sign.Name, sign.Move, foot, cam.Zoom, g.faces.Measure)
 	laid, ok := ui.LayoutDistrictSign(sign.Name, sign.Move, board, g.faces.Measure)

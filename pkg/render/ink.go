@@ -55,8 +55,14 @@ type drawCmd struct {
 	// op is its options' place in the list's options of its kind: kept
 	// beside the commands, so a command is small to copy (item 212).
 	op int
-	// v, i and p are ranges in the list's vertices, indices and points.
-	v, i, p [2]int
+	// vs and is are a mesh's vertices and indices: in the list's
+	// buffers as recorded, and its own once it is kept, so a kept mesh is
+	// copied once and not every frame (item 212); owned says which. p is
+	// a ring's range in the list's points.
+	vs    []ebiten.Vertex
+	is    []uint32
+	owned bool
+	p     [2]int
 	// fade is the hover fade group the draw belongs to, 0 for none: the
 	// draws of one group are laid on the fade layer together and the
 	// layer put down when the group ends (item 108).
@@ -248,10 +254,10 @@ func (l *drawList) Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []u
 	}
 	l.triOps = append(l.triOps, *op)
 	c := drawCmd{kind: cmdMesh, src: src, op: len(l.triOps) - 1}
-	c.v = [2]int{len(l.vertices), len(l.vertices) + len(vertices)}
-	c.i = [2]int{len(l.indices), len(l.indices) + len(indices)}
+	v, i := len(l.vertices), len(l.indices)
 	l.vertices = append(l.vertices, vertices...)
 	l.indices = append(l.indices, indices...)
+	c.vs, c.is = l.vertices[v:len(l.vertices):len(l.vertices)], l.indices[i:len(l.indices):len(l.indices)]
 	l.push(c, vertexBox(vertices))
 	l.hashImage(src)
 	if key.Values != nil {
@@ -398,13 +404,13 @@ func (l *drawList) playShifted(dst *ebiten.Image, s inked, d image.Point) {
 			text.Draw(dst, o.words, o.face, &o.opts)
 			continue
 		case cmdMesh:
-			moved := append(l.shifted[:0], l.vertices[c.v[0]:c.v[1]]...)
+			moved := append(l.shifted[:0], c.vs...)
 			for i := range moved {
 				moved[i].DstX += float32(dx)
 				moved[i].DstY += float32(dy)
 			}
 			l.shifted = moved
-			dst.DrawTriangles32(moved, l.indices[c.i[0]:c.i[1]], c.src, &l.triOps[c.op])
+			dst.DrawTriangles32(moved, c.is, c.src, &l.triOps[c.op])
 			continue
 		case cmdRing:
 			moved := append(l.shiftedPts[:0], l.points[c.p[0]:c.p[1]]...)
@@ -464,7 +470,7 @@ func (l *drawList) playCmd(dst *ebiten.Image, c *drawCmd) {
 		o := &l.cmOps[c.op]
 		colorm.DrawImage(dst, c.src, o.cm, &o.opts)
 	case cmdMesh:
-		dst.DrawTriangles32(l.vertices[c.v[0]:c.v[1]], l.indices[c.i[0]:c.i[1]], c.src, &l.triOps[c.op])
+		dst.DrawTriangles32(c.vs, c.is, c.src, &l.triOps[c.op])
 	case cmdRing:
 		l.painter.FillPath(dst, l.points[c.p[0]:c.p[1]], &l.pathOps[c.op])
 	case cmdWords:
