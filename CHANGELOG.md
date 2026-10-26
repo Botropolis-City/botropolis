@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A statistics store the daemon cannot open no longer turns statistics off without a word.**
+  The daemon logs why, naming the file, and `botropolis doctor` has a statistics row that warns with the reason.
+  The city shows a notice once per launch with what to do: update Botropolis for a store written by a newer release, or move a damaged one aside and restart the daemon.
+  A damaged store is refused and left exactly as it was, never repaired or reset.
+
 ## [0.3.1] - 2026-10-26
 
 ### Added
