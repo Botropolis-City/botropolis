@@ -147,6 +147,53 @@ func TestCityPlan(t *testing.T) {
 		})
 	})
 
+	// Item 282: Skyline's zoom is computed from the island, and can lie
+	// below the ladder's last step.
+	crowd := func(districts int) []state.Session {
+		var out []state.Session
+		for i := 0; i < 3*districts; i++ {
+			out = append(out, session(fmt.Sprintf("c%03d", i), fmt.Sprintf("/w/p%03d", i%districts), state.Working))
+		}
+		return out
+	}
+	for _, c := range []struct {
+		districts     int
+		width, height float64
+		belowLadder   bool
+	}{
+		{2, 1600, 1000, false},
+		{6, 1600, 1000, false},
+		{60, 1600, 1000, true},
+		{200, 2560, 1400, true},
+		{6, 800, 600, true},
+	} {
+		t.Run(fmt.Sprintf("for %d districts in a %.0fx%.0f window, when the wheel turns out in quick notches from MaxZoom", c.districts, c.width, c.height), func(t *testing.T) {
+			at := now
+			s := open(t, c.width, c.height, snapshot(crowd(c.districts)...))
+			s.SetClock(func() time.Time { return at }, time.UTC)
+			require.Equal(t, c.belowLadder, s.SkylineZoom() < city.MinZoom, "precondition: whether Skyline lies below the ladder")
+			s.Camera().Zoom = city.MaxZoom
+			for i := 0; i < 20; i++ {
+				s.Wheel(centre(s), -1)
+				at = at.Add(quick)
+			}
+			stopped := s.Camera().Zoom
+
+			t.Run("it should stop at Skyline", func(t *testing.T) {
+				assert.InDelta(t, s.SkylineZoom(), stopped, 1e-9)
+			})
+
+			t.Run("and one more notch comes after a pause", func(t *testing.T) {
+				at = at.Add(city.PlanDebounce)
+				s.Wheel(centre(s), -1)
+
+				t.Run("it should open the plan", func(t *testing.T) {
+					assert.True(t, s.CityPlanOpen())
+				})
+			})
+		})
+	}
+
 	t.Run("when the plan is open", func(t *testing.T) {
 		opened := func(t *testing.T) *city.Scene {
 			t.Helper()

@@ -935,9 +935,14 @@ func (s *Scene) Wheel(cursor Point, amount float64) {
 	}
 	steps := int(math.Abs(amount) + 0.5)
 	for i := 0; i < steps; i++ {
-		if amount > 0 {
+		switch {
+		case amount > 0:
 			target = stepAbove(target)
-		} else {
+		case plans && target <= MinZoom+zoomEpsilon:
+			// Skyline can lie below the ladder; the step past its end
+			// reaches it (item 282).
+			target = s.SkylineZoom()
+		default:
 			target = stepBelow(target)
 		}
 	}
