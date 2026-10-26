@@ -108,15 +108,32 @@ func scratchModule(t *testing.T, extra ...string) string {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, name), data, info.Mode().Perm()))
 		require.NoError(t, os.Chtimes(filepath.Join(dir, name), at, at))
 	}
+	require.NoError(t, filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || path == dir {
+			return err
+		}
+		return os.Chtimes(path, at, at)
+	}))
 	return dir
+}
+
+// scratchGoTest runs go test in a scratch copy with gocachetest on, so a
+// run that misses the cache prints go's reason into the output a failing
+// assertion shows (item 256).
+func scratchGoTest(dir, pkg, run string) *exec.Cmd {
+	cmd := exec.Command("go", "test", pkg, "-run", run)
+	cmd.Dir = dir
+	godebug := "gocachetest=1"
+	if prior := os.Getenv("GODEBUG"); prior != "" {
+		godebug = prior + "," + godebug
+	}
+	cmd.Env = append(os.Environ(), "GOFLAGS=", "GODEBUG="+godebug)
+	return cmd
 }
 
 func goTestIn(t *testing.T, dir, pkg, run string) string {
 	t.Helper()
-	cmd := exec.Command("go", "test", pkg, "-run", run)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOFLAGS=")
-	out, err := cmd.CombinedOutput()
+	out, err := scratchGoTest(dir, pkg, run).CombinedOutput()
 	require.NoError(t, err, string(out))
 	return string(out)
 }
@@ -158,6 +175,26 @@ func TestTheCacheSeesTheBinary(t *testing.T) {
 	}
 }
 
+// Item 256: a second run that misses the cache now and then, at random,
+// says why, in go's own words, in the failure it causes.
+func TestScratchGoTest(t *testing.T) {
+	t.Run("when a scratch copy's go test command is built", func(t *testing.T) {
+		env := map[string]string{}
+		for _, kv := range scratchGoTest(t.TempDir(), "./testing/acceptance", "^TestStatus$").Env {
+			k, v, _ := strings.Cut(kv, "=")
+			env[k] = v
+		}
+
+		t.Run("it should clear GOFLAGS", func(t *testing.T) {
+			assert.Equal(t, "", env["GOFLAGS"])
+		})
+
+		t.Run("it should ask go to say why it misses the test cache", func(t *testing.T) {
+			assert.Contains(t, strings.Split(env["GODEBUG"], ","), "gocachetest=1")
+		})
+	})
+}
+
 // Item 209: go test caches no run that opened a file modified under 2 s
 // before, so a scratch copy made just before a run whose build is
 // already cached is never cached, at random.
@@ -172,16 +209,25 @@ func TestScratchModule(t *testing.T) {
 
 	t.Run("when a scratch copy of the module is made", func(t *testing.T) {
 		dir := scratchModule(t, "tools")
-		var young []string
+		var young, youngDirs []string
 		require.NoError(t, filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 			if err == nil && d.Type().IsRegular() && age(t, path) < cutoff {
 				young = append(young, path)
+			}
+			if err == nil && d.IsDir() && path != dir && age(t, path) < cutoff {
+				youngDirs = append(youngDirs, path)
 			}
 			return err
 		}))
 
 		t.Run("it should leave every file older than go test's 2 s freshness cutoff", func(t *testing.T) {
 			assert.Zero(t, len(young), "%d files younger than 2 s, the first %v", len(young), append(young, "")[0])
+		})
+
+		// Item 256: go hashes a directory's time and its entries' times
+		// too, so the copy's directories are dated with its files.
+		t.Run("it should leave every directory older than the cutoff too", func(t *testing.T) {
+			assert.Zero(t, len(youngDirs), "%d directories younger than 2 s, the first %v", len(youngDirs), append(youngDirs, "")[0])
 		})
 
 		t.Run("and a probe then changes a file in it", func(t *testing.T) {
