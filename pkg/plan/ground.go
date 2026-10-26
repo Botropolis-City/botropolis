@@ -96,7 +96,12 @@ func (p *Plan) plantGround(onRails map[Cell]bool) {
 // nearBlock reports whether a point, in cells, is within BlockClearance
 // of any district's block.
 func (p *Plan) nearBlock(x, y float64) bool {
-	for _, b := range p.Blocks {
+	p.nearAsks++
+	if p.nearIndex == nil {
+		p.indexBlocks()
+	}
+	for _, b := range p.nearIndex[nearBucketOf(x, y)] {
+		p.nearChecks++
 		dx := math.Max(0, math.Max(float64(b.Min.Col)-x, x-float64(b.Min.Col+b.Cols)))
 		dy := math.Max(0, math.Max(float64(b.Min.Row)-y, y-float64(b.Min.Row+b.Rows)))
 		if math.Hypot(dx, dy) < BlockClearance {
@@ -131,4 +136,28 @@ func Noise(x, y float64) float64 {
 	a := hash2(ix, iy) + (hash2(ix+1, iy)-hash2(ix, iy))*sx
 	b := hash2(ix, iy+1) + (hash2(ix+1, iy+1)-hash2(ix, iy+1))*sx
 	return a + (b-a)*sy
+}
+
+// nearBucket is the side, in cells, of the squares blocks are filed by
+// for nearBlock, which measured every candidate tree against every
+// block: on 900 districts, 2 s of a first build (item 270).
+const nearBucket = 4
+
+func nearBucketOf(x, y float64) [2]int {
+	return [2]int{int(math.Floor(x / nearBucket)), int(math.Floor(y / nearBucket))}
+}
+
+// indexBlocks files each block under every bucket that a point within
+// BlockClearance of it can fall in.
+func (p *Plan) indexBlocks() {
+	p.nearIndex = map[[2]int][]Block{}
+	for _, b := range p.Blocks {
+		lo := nearBucketOf(float64(b.Min.Col)-BlockClearance, float64(b.Min.Row)-BlockClearance)
+		hi := nearBucketOf(float64(b.Min.Col+b.Cols)+BlockClearance, float64(b.Min.Row+b.Rows)+BlockClearance)
+		for bx := lo[0]; bx <= hi[0]; bx++ {
+			for by := lo[1]; by <= hi[1]; by++ {
+				p.nearIndex[[2]int{bx, by}] = append(p.nearIndex[[2]int{bx, by}], b)
+			}
+		}
+	}
 }

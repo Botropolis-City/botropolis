@@ -283,6 +283,10 @@ type Plan struct {
 	height map[int]int
 	street map[Cell]int
 	park   map[Cell]bool
+	// nearAsks is how many points planting the ground asked about, and
+	// nearChecks how many blocks it measured them against (item 270).
+	nearAsks, nearChecks int
+	nearIndex            map[[2]int][]Block
 }
 
 const (
