@@ -298,18 +298,21 @@ func TestCloseUpPanel(t *testing.T) {
 		})
 	})
 
-	t.Run("when the quit confirmation is shown", func(t *testing.T) {
+	t.Run("when the quit panel is shown", func(t *testing.T) {
 		g := game(t, &recorder{}, live...)
 		pressKey(t, g, ebiten.KeyQ, false)
-		button, ok := g.quitButton()
+		size := g.scene.Size()
+		var closeUpButton city.Point
+		for _, b := range g.quitPanel().layout(g, size.X, size.Y).Buttons {
+			if b.Label.Text == "Close up…" {
+				closeUpButton = b.Rect.Center()
+			}
+		}
 
-		t.Run("it should offer close up as a button", func(t *testing.T) {
-			require.True(t, ok)
-			assert.Equal(t, "close up", button.Label.Text)
-		})
-
-		t.Run("and the button is clicked", func(t *testing.T) {
-			g.clickFooter(button.Rect.Center())
+		t.Run("and Close up… is clicked", func(t *testing.T) {
+			g.clickOverlay(closeUpButton)
+			require.NoError(t, g.handleKeys())
+			g.clicked = -1
 
 			t.Run("it should open the close-up panel", func(t *testing.T) {
 				panel(t, g)

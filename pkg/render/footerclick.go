@@ -27,11 +27,6 @@ var footerSynonyms = map[string]ebiten.Key{
 
 // clickFooter presses the verb under the cursor, if there is one.
 func (g *Game) clickFooter(cursor city.Point) bool {
-	// The close up button beside the quit prompt (item 86).
-	if b, ok := g.quitButton(); ok && b.Rect.Contains(cursor) {
-		g.openCloseUp()
-		return true
-	}
 	g.mu.Lock()
 	bar, waiting := g.footerBar, g.waitingID
 	g.mu.Unlock()

@@ -97,14 +97,14 @@ func TestOverlayStack(t *testing.T) {
 		})
 	})
 
-	t.Run("when the quit prompt is armed and the finder opens", func(t *testing.T) {
+	t.Run("when the quit panel is open and the finder opens", func(t *testing.T) {
 		g := newGame()
 		press(t, g, ebiten.KeyQ)
-		require.True(t, g.quit.armed(timeNow()), "q should arm the quit prompt")
-		press(t, g, ebiten.KeySlash)
+		require.NotNil(t, g.quitPanel(), "q should open the quit panel")
+		g.openFinder()
 
-		t.Run("it should stand the quit prompt down", func(t *testing.T) {
-			assert.False(t, g.quit.armed(timeNow()))
+		t.Run("it should stand the quit panel down", func(t *testing.T) {
+			assert.Nil(t, g.quitPanel())
 		})
 	})
 }

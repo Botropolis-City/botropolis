@@ -487,8 +487,9 @@ type Game struct {
 	// scriptedHeld is the keys a script holds down (item 88).
 	captions     []ui.Caption
 	scriptedHeld map[ebiten.Key]bool
-	// quit is the two-press guard on Escape.
-	quit confirm
+	// leaving is set when the quit panel is answered yes; the key path
+	// ends the game on it.
+	leaving bool
 	// overlays is the stack of panels over the city; the top one takes
 	// every key and click. Item 82. finderRect and finderCaret are where
 	// the finder was drawn, for clicks and for the input method's
@@ -666,7 +667,6 @@ func (g *Game) Update() error {
 		return nil
 	}
 	frames.tick()
-	g.quit.tick()
 	g.mu.Lock()
 	pending := g.pending
 	g.pending = nil
@@ -950,7 +950,7 @@ func (g *Game) notePointer() city.Point {
 
 // cityCovered is whether something with a full scrim is over the city:
 // a modal overlay, or the settings, the breakdown, the timeline or the
-// view key. The quit prompt is a footer line and covers nothing.
+// view key, the quit panel among the overlays.
 func (g *Game) cityCovered() bool {
 	return g.overlays.top() != nil || g.settingsOpen || g.breakdown || g.timeline || g.viewKey
 }

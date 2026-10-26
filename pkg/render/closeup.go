@@ -18,10 +18,10 @@ import (
 // with next time. Each live session is left running unless you mark it
 // pause, which is claude stop and keeps the conversation; a session
 // mid-turn says pausing interrupts it, and one in a terminal cannot be
-// paused from here. It is optional: Shift+Q opens it, or the button
-// beside the quit prompt, and quitting without it changes nothing. It is
-// a way of quitting: once it has recorded and paused, the city leaves
-// (item 291).
+// paused from here. It is optional: Shift+Q opens it, or Close up… on
+// the quit panel, and quitting without it changes nothing. It is a way
+// of quitting: once it has recorded and paused, the city leaves (item
+// 291).
 type closeUp struct {
 	rows     []state.Session
 	pinned   map[string]bool
@@ -34,14 +34,11 @@ type closeUp struct {
 
 const closeUpLabel = "close up"
 
-// openCloseUp puts the panel on the stack, standing the quit prompt down.
+// openCloseUp puts the panel on the stack, standing the quit panel down.
 // With nothing live there is nothing to choose, so it records the
 // close-up at once.
 func (g *Game) openCloseUp() {
-	if g.quit.armed(timeNow()) {
-		g.quit.cancel()
-		g.clearPrompt()
-	}
+	g.standQuitDown()
 	rows := g.scene.OpenSessions()
 	if len(rows) == 0 {
 		if err := g.closeUpWith(city.Action{Kind: city.ActionCloseUp}); err != nil {
@@ -283,28 +280,4 @@ func (g *Game) checkbox(screen *ebiten.Image, box city.Rect, checked bool) {
 // strokeRound outlines a rect.
 func (g *Game) strokeRound(screen *ebiten.Image, r city.Rect, c color.NRGBA) {
 	g.strokeRect(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), 1.5, c)
-}
-
-// quitButton is the close up button beside the quit prompt, while the
-// prompt is up: closing up stays one choice away from quitting.
-func (g *Game) quitButton() (ui.Button, bool) {
-	g.mu.Lock()
-	prompt := g.notice.Text(timeNow()) == quitPrompt
-	lines := g.footerBar.Lines
-	g.mu.Unlock()
-	if !prompt {
-		return ui.Button{}, false
-	}
-	measure := g.measure
-	if g.faces == nil {
-		measure = func(s string) (float64, float64) { return 7 * float64(len(s)), 14 }
-	}
-	at := city.Point{}
-	if len(lines) > 0 {
-		last := lines[len(lines)-1]
-		w, _ := measure(last.Text)
-		at = city.Point{X: last.At.X + w + 16, Y: last.At.Y - 4}
-	}
-	w, h := measure(closeUpLabel)
-	return ui.Button{Rect: city.RectAt(at.X, at.Y, w+16, h+8), Label: ui.Text{Text: closeUpLabel, At: city.Point{X: at.X + 8, Y: at.Y + 4}, Size: ui.Small}}, true
 }

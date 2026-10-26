@@ -194,12 +194,9 @@ func (g *Game) finding() bool {
 
 // openFinder puts the finder on the stack, holding the filter as it
 // stands so a second look carries on from the first. It stands the
-// quit prompt down: a prompt the panel covers is one nobody answers.
+// quit panel down: a question the finder covers is one nobody answers.
 func (g *Game) openFinder() {
-	if g.quit.armed(timeNow()) {
-		g.quit.cancel()
-		g.clearPrompt()
-	}
+	g.standQuitDown()
 	if g.finding() {
 		return
 	}

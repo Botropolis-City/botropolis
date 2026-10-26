@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Now one whose transcript ties it to a project on the map stands in that project's district instead: Claude Code's scratchpad for the project, a team or a lead it works with, subagents that worked in its folder, a message either way, or files it edited there.
   Its spend counts there too, in the power plant's breakdown and the statistics ranges, so each district's figures add up to the buildings drawn in it.
   A session whose transcript is gone has no tie left to follow, so its spend counts under *Temporary*.
+- **Quitting asks in the middle of the window, not in the footer.**
+  `q` opens a small panel over the dimmed city with three buttons: *Quit* (`y` or Enter), *Close up…* (`c`) and *Cancel* (`n`, Esc, or `q` again).
+  It stays until you answer it, rather than going away on its own after ten seconds, and while it is up the map behind it takes no other key or click.
 
 ### Fixed
 

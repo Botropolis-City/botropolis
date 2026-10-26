@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/config"
@@ -133,7 +132,6 @@ const (
 	// frame per key, so without this the script could zoom and turn but
 	// never walk the view off the plaza.
 	scriptPanBeat = 10
-	quitPrompt    = "quit? y or enter to quit; any other key stays; or close up first"
 )
 
 // panFor is how far the arrow keys move the view this frame.
@@ -191,6 +189,9 @@ func (g *Game) answerKeys() error {
 		return nil
 	}
 	if g.overlayKeys() {
+		if g.leaving {
+			return g.leave()
+		}
 		return nil
 	}
 	if g.settingsOpen {
@@ -248,25 +249,6 @@ func (g *Game) answerKeys() error {
 		g.openCloseUp()
 		return nil
 	}
-	if g.quit.armed(timeNow()) {
-		switch {
-		case just(ebiten.KeyY), just(ebiten.KeyEnter), just(ebiten.KeyKPEnter):
-			if g.quit.confirm(timeNow()) {
-				return g.leave()
-			}
-		case len(inpututil.AppendJustPressedKeys(nil)) > 0:
-			g.quit.cancel()
-			g.clearPrompt()
-			if just(ebiten.KeyEscape) || just(ebiten.KeyQ) {
-				return nil
-			}
-		default:
-			g.SetStatus(quitPrompt)
-			return nil
-		}
-	} else {
-		g.clearPrompt()
-	}
 	// The selection sits at the top of the ladder: it is the most modal
 	// thing on screen and it carries the verbs. Bug 43a. Bug 43 built
 	// this ladder from the keyboard's point of view and missed the card
@@ -322,8 +304,7 @@ func (g *Game) answerKeys() error {
 		return nil
 	}
 	if just(ebiten.KeyQ) {
-		g.quit.ask(timeNow())
-		g.SetStatus(quitPrompt)
+		g.openQuit()
 		return nil
 	}
 	if (just(ebiten.KeySlash) && g.shifted()) || just(ebiten.KeyF1) {
@@ -560,14 +541,4 @@ func screenshotPath(now time.Time) string {
 func isDir(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
-}
-
-// clearPrompt takes the quit prompt off the footer once it is answered
-// or has run out; any other notice stays.
-func (g *Game) clearPrompt() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.notice.Text(timeNow()) == quitPrompt {
-		g.notice.Clear()
-	}
 }
