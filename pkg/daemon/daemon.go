@@ -113,6 +113,10 @@ type overlay struct {
 	tool    string
 	subject string
 	note    string
+	// turnEnded is an overlay from a hook that says only that the turn
+	// ended, which a session still running its own shell command does
+	// not need you for (item 250).
+	turnEnded bool
 }
 
 type Snapshotter interface {
@@ -361,6 +365,8 @@ func (d *Daemon) Apply(event claude.HookEvent, at time.Time) {
 		o = overlay{}
 	}
 	o.at = at
+	o.turnEnded = event.Name == claude.HookStop ||
+		(event.Name == claude.HookNotification && event.NotificationType == claude.NotificationIdlePrompt)
 	switch event.Name {
 	case claude.HookPreToolUse:
 		o.state, o.tool, o.subject, o.note = state.Working, event.ToolName, event.Subject(), ""
@@ -437,6 +443,9 @@ func (d *Daemon) view() state.Snapshot {
 		s.Hooked = d.hooked[s.ID]
 		o, ok := d.overlays[s.ID]
 		if !ok || !o.at.After(s.LastActivity) {
+			continue
+		}
+		if o.turnEnded && s.RecordStatus == claude.StatusShell {
 			continue
 		}
 		s.LastActivity = o.at

@@ -19,6 +19,10 @@ const (
 	HookSubagentStop     HookName = "SubagentStop"
 )
 
+// NotificationIdlePrompt is the notification Claude Code sends when a
+// turn has ended and the prompt has sat idle (item 250).
+const NotificationIdlePrompt = "idle_prompt"
+
 type HookEvent struct {
 	Name             HookName `json:"hook_event_name"`
 	SessionID        string   `json:"session_id"`

@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A session whose turn ended over its own background command no longer says it needs you.**
+  While Claude Code says the session is running a shell command, it is working, with no beacon and no change of colour in `bar`, until the command finishes and the turn is truly back with you.
+  A permission prompt still needs you.
 - **An agent team's messages travel the road between its districts.**
   Recent Claude Code versions name a team after neither of its sessions and mark only the teammates as in it, so a lead's messages to its teammates were never road traffic, and a teammate's messages to its lead stopped counting once the lead ended.
   The city now knows a lead by the teammates it starts, and still reads teams named after their lead from older versions.

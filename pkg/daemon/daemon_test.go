@@ -34,7 +34,12 @@ func stamp(d time.Duration) string {
 
 func idleHome(t *testing.T, kind string) *helpers.Home {
 	t.Helper()
-	home := helpers.NewHome(t).Session(pid, sid, cwd, kind, "idle")
+	return homeWithRecord(t, kind, "idle")
+}
+
+func homeWithRecord(t *testing.T, kind, status string) *helpers.Home {
+	t.Helper()
+	home := helpers.NewHome(t).Session(pid, sid, cwd, kind, status)
 	home.Transcript(sid, cwd,
 		helpers.UserPrompt(sid, cwd, stamp(0)),
 		helpers.ModelAttachment(sid, "claude-opus-5[1m]", stamp(time.Second)),
@@ -164,6 +169,53 @@ func TestDaemon(t *testing.T) {
 			assert.Equal(t, state.NeedsYou, only(t, d).State)
 		})
 	})
+
+	t.Run("when a Stop event arrives for a session whose record says shell", func(t *testing.T) {
+		home := homeWithRecord(t, "interactive", "shell")
+		d := newDaemon(t, home)
+		d.Apply(event(claude.HookStop, ""), now)
+
+		t.Run("it should not need you", func(t *testing.T) {
+			assert.Equal(t, state.Working, only(t, d).State)
+		})
+
+		t.Run("and the record then turns idle with the turn awaiting the user", func(t *testing.T) {
+			home.Session(pid, sid, cwd, "interactive", "idle")
+			require.NoError(t, d.Rescan())
+
+			t.Run("it should need you", func(t *testing.T) {
+				assert.Equal(t, state.NeedsYou, only(t, d).State)
+			})
+		})
+	})
+
+	t.Run("when a Stop event arrives for an unattached background session whose record says shell", func(t *testing.T) {
+		d := newDaemon(t, homeWithRecord(t, "bg", "shell"))
+		d.Apply(event(claude.HookStop, ""), now)
+
+		t.Run("it should be unattended", func(t *testing.T) {
+			assert.Equal(t, state.Unattended, only(t, d).State)
+		})
+	})
+
+	for _, notification := range []struct {
+		kind  string
+		state state.State
+		says  string
+	}{
+		{"idle_prompt", state.Working, "it should not need you"},
+		{"permission_prompt", state.NeedsYou, "it should need you"},
+	} {
+		t.Run("when a "+notification.kind+" Notification arrives for a session whose record says shell", func(t *testing.T) {
+			d := newDaemon(t, homeWithRecord(t, "interactive", "shell"))
+			d.Apply(claude.HookEvent{Name: claude.HookNotification, SessionID: sid, NotificationType: notification.kind,
+				Message: "Claude is waiting for your input"}, now)
+
+			t.Run(notification.says, func(t *testing.T) {
+				assert.Equal(t, notification.state, only(t, d).State)
+			})
+		})
+	}
 
 	t.Run("when a SessionEnd event arrives", func(t *testing.T) {
 		d := newDaemon(t, idleHome(t, "interactive"))

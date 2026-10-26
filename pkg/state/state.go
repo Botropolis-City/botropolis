@@ -60,6 +60,9 @@ type Session struct {
 	Attached bool        `json:"attached"`
 	State    State       `json:"state"`
 	Turn     claude.Turn `json:"turn"`
+	// RecordStatus is the CLI's own word for the session, which the
+	// daemon's hook overlay yields to while it says shell (item 250).
+	RecordStatus claude.Status `json:"-"`
 	// Hooked is whether the daemon has ever seen a hook event from the
 	// session; without one it is reading files, and the map draws no
 	// wire to it.
@@ -401,6 +404,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 		PID:          r.PID,
 		Alive:        isAlive,
 		Attached:     isAttached,
+		RecordStatus: r.Status,
 		StartedAt:    r.StartedAt,
 		LastActivity: r.StartedAt,
 	}

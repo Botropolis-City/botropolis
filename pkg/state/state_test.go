@@ -975,6 +975,10 @@ func TestRecordStatus(t *testing.T) {
 		t.Run("it should be working", func(t *testing.T) {
 			assert.Equal(t, state.Working, session.State)
 		})
+
+		t.Run("it should carry the record's status", func(t *testing.T) {
+			assert.Equal(t, claude.StatusShell, session.RecordStatus)
+		})
 	})
 
 	t.Run("when the record says a word this build has never seen while the tail awaits the user", func(t *testing.T) {
