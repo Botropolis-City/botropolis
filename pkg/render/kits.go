@@ -24,6 +24,16 @@ type kitAtlas struct {
 	// as its page is put up (item 166).
 	walls   map[string][4][]span
 	storeys map[string][4][]int
+	// tops is each boat sprite's drawn top, in the atlas's own pixels,
+	// by where the sprite is cut from; measured as its page is put up
+	// (item 252).
+	tops map[spriteAt]float64
+}
+
+// spriteAt is where in an atlas a sprite is cut from.
+type spriteAt struct {
+	page int
+	at   image.Point
 }
 
 // kitAtlas is the atlas for a camera, or nil without kits.

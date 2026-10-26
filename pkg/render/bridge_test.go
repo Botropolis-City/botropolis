@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"testing"
 	"time"
@@ -195,30 +196,56 @@ func TestBridgeRamp(t *testing.T) {
 			}
 		}
 
-		t.Run("it should cut the ramp into segments no longer than half a cell, each on its own pier", func(t *testing.T) {
-			var long []bridgePart
-			for _, p := range ramp {
-				if p.Rect.Max.X-p.Rect.Min.X > city.CellSize/2+1e-9 {
-					long = append(long, p)
-				}
-			}
-			assert.Empty(t, long)
-		})
-
-		t.Run("it should rise from the ground to the deck, each segment from where the last left off", func(t *testing.T) {
-			var got, want []float64
-			want = append(want, 0)
-			for i, p := range ramp {
-				got = append(got, p.From)
-				if i > 0 {
-					want = append(want, ramp[i-1].To)
-				}
-			}
-			got = append(got, ramp[len(ramp)-1].To)
-			want = append(want, 1)
-			assert.Equal(t, want, got)
-		})
 	})
+
+	// Item 252: the second bridge's hump is cut and joined as the ramp is.
+	large := largeCity(t)
+	unit := func(h city.Height) float64 { return float64(h) }
+	for _, c := range []struct {
+		name   string
+		bridge city.Bridge
+	}{
+		{"the one bridge of a small city", b},
+		{"the first bridge of a large city", large.Bridges()[0]},
+		{"the second bridge of a large city", large.Bridges()[1]},
+	} {
+		t.Run("when the road runs along "+c.name, func(t *testing.T) {
+			parts := bridgeParts(c.bridge)
+			require.NotEmpty(t, parts, "precondition: the bridge has parts")
+			lift := func(along float64) float64 { return c.bridge.LiftAt(along, unit) }
+
+			t.Run("it should cut every sloped piece into segments no longer than half a cell, each on its own pier", func(t *testing.T) {
+				var long []bridgePart
+				for _, p := range parts {
+					if !p.span() && p.Rect.Max.X-p.Rect.Min.X > city.CellSize/2+1e-9 {
+						long = append(long, p)
+					}
+				}
+				assert.Empty(t, long)
+			})
+			t.Run("it should start the first part at the landing on the ground", func(t *testing.T) {
+				assert.Equal(t, [2]float64{0, 0}, [2]float64{parts[0].From, lift(parts[0].From)})
+			})
+			t.Run("it should run each part on from where the last left off", func(t *testing.T) {
+				var gaps []int
+				for i := 1; i < len(parts); i++ {
+					if math.Abs(parts[i].From-parts[i-1].To) > 1e-9 {
+						gaps = append(gaps, i)
+					}
+				}
+				assert.Empty(t, gaps)
+			})
+			t.Run("it should hold every span level from end to end", func(t *testing.T) {
+				var tilted []bridgePart
+				for _, p := range parts {
+					if p.span() && lift(p.From) != lift(p.To) {
+						tilted = append(tilted, p)
+					}
+				}
+				assert.Empty(t, tilted)
+			})
+		})
+	}
 }
 
 const maxRampSlope = 0.8

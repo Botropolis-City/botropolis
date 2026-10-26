@@ -3,6 +3,7 @@ package render
 import (
 	"image/color"
 	"math"
+	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -72,15 +73,17 @@ const (
 	levelOnDeck
 )
 
-// bridgePart is a piece of the bridge in the depth sort: a ramp
-// segment rising From one share of the deck's height To another, or a
-// span at the deck's height.
+// bridgePart is a piece of the bridge in the depth sort, running From
+// one distance out along the bridge To another: a sloped segment, or a
+// span, level from end to end.
 type bridgePart struct {
 	Rect     city.Rect
 	Cell     city.Cell
 	From, To float64
-	// Mist is how far a piece of the deck in the haze is mixed toward
-	// the sea's colour (item 219).
+	Level    bool
+	// Haze is whether the part is a piece of the deck cut for the haze,
+	// and Mist how far it is mixed toward the sea's colour (item 219).
+	Haze bool
 	Mist float64
 }
 
@@ -93,14 +96,14 @@ func hazeColour(c color.NRGBA, mist float64, night bool) color.NRGBA {
 }
 
 // hazy is whether a part is a piece of the deck cut for the haze.
-func (p bridgePart) hazy() bool {
-	return p.span() && p.Rect != p.Cell.Rect()
-}
+func (p bridgePart) hazy() bool { return p.Haze }
 
-func (p bridgePart) span() bool { return p.From == 1 && p.To == 1 }
+func (p bridgePart) span() bool { return p.Level }
 
 // bridgeParts is the ramp's segments from the landing outward, then the
-// spans.
+// deck cell by cell: a cell the road crosses level is a span, and one it
+// climbs or comes down over is cut into half-cell segments, and at every
+// change of slope, as the ramp is (item 252).
 func bridgeParts(b city.Bridge) []bridgePart {
 	var parts []bridgePart
 	run := b.RampRun()
@@ -109,16 +112,43 @@ func bridgeParts(b city.Bridge) []bridgePart {
 	if b.Far.X < b.Land.X {
 		dir = -1
 	}
-	for d := 0.0; d < run-1e-9; d += half {
-		x0, x1 := b.Land.X+dir*d, b.Land.X+dir*(d+half)
-		r := city.Rect{Min: city.Point{X: min(x0, x1), Y: b.Abutment.Rect().Min.Y}, Max: city.Point{X: max(x0, x1), Y: b.Abutment.Rect().Max.Y}}
-		parts = append(parts, bridgePart{Rect: r, Cell: city.CellOf(r.Center()), From: d / run, To: (d + half) / run})
+	rows := b.Abutment.Rect()
+	segment := func(d0, d1 float64) bridgePart {
+		x0, x1 := b.Land.X+dir*d0, b.Land.X+dir*d1
+		r := city.Rect{Min: city.Point{X: min(x0, x1), Y: rows.Min.Y}, Max: city.Point{X: max(x0, x1), Y: rows.Max.Y}}
+		return bridgePart{Rect: r, Cell: city.CellOf(r.Center()), From: d0, To: d1}
 	}
+	for d := 0.0; d < run-1e-9; d += half {
+		parts = append(parts, segment(d, d+half))
+	}
+	unit := func(h city.Height) float64 { return float64(h) }
+	knots := b.Profile()
 	along := func(x float64) float64 { return (x - b.Land.X) * dir }
 	for _, cell := range b.Deck {
 		r := cell.Rect()
-		if max(along(r.Min.X), along(r.Max.X)) <= along(b.Haze.X) {
-			parts = append(parts, bridgePart{Rect: r, Cell: cell, From: 1, To: 1})
+		a0, a1 := min(along(r.Min.X), along(r.Max.X)), max(along(r.Min.X), along(r.Max.X))
+		cuts := []float64{a0}
+		for i := 1; i < len(knots)-1; i++ {
+			k := knots[i]
+			if knots[i-1].Height == k.Height && knots[i+1].Height == k.Height {
+				continue
+			}
+			if k.Along > a0+1e-9 && k.Along < a1-1e-9 {
+				cuts = append(cuts, k.Along)
+			}
+		}
+		if len(cuts) > 1 || b.LiftAt(a0, unit) != b.LiftAt(a1, unit) {
+			cuts = append(cuts, a0+half, a1)
+			slices.Sort(cuts)
+			cuts = slices.Compact(cuts)
+			for i := 1; i < len(cuts); i++ {
+				parts = append(parts, segment(cuts[i-1], cuts[i]))
+				parts[len(parts)-1].Cell = cell
+			}
+			continue
+		}
+		if a1 <= along(b.Haze.X) {
+			parts = append(parts, bridgePart{Rect: r, Cell: cell, From: a0, To: a1, Level: true})
 			continue
 		}
 		// Into the haze, the deck is cut into quarters, each mixed
@@ -138,7 +168,8 @@ func bridgeParts(b city.Bridge) []bridgePart {
 			if dir < 0 {
 				end.X = q.Min.X
 			}
-			parts = append(parts, bridgePart{Rect: q, Cell: cell, From: 1, To: 1, Mist: 1 - b.Alpha(end)})
+			d0 := min(along(q.Min.X), along(q.Max.X))
+			parts = append(parts, bridgePart{Rect: q, Cell: cell, From: d0, To: d0 + quarter, Level: true, Haze: true, Mist: 1 - b.Alpha(end)})
 		}
 	}
 	return parts
@@ -175,7 +206,7 @@ func carriageAt(cam *city.Camera, at city.Point, draw func()) drawable {
 // has started to climb.
 func deliveryAt(cam *city.Camera, b city.Bridge, at city.Point, draw func()) drawable {
 	d := standingAt(cam, at, draw)
-	if b.Rise(at) > 0 {
+	if along, ok := b.Along(at); ok && along > 0 {
 		d.level = levelOnDeck
 	}
 	return d
@@ -230,13 +261,17 @@ func (g *Game) railing(screen *ebiten.Image, cam *city.Camera, a, b city.Point, 
 // over it, open underneath like the spans out over the water.
 func (g *Game) drawRampSegment(screen *ebiten.Image, cam *city.Camera, b city.Bridge, p bridgePart) {
 	r := p.Rect
-	top := g.deckLift(cam)
+	height := g.heights(cam)
 	thick := deckThickness * cam.Zoom
-	low, high := r.Min.X, r.Max.X
+	dir := 1.0
 	if b.Far.X < b.Land.X {
-		low, high = r.Max.X, r.Min.X
+		dir = -1
 	}
-	liftLow, liftHigh := p.From*top, p.To*top
+	low, high := b.Land.X+dir*p.From, b.Land.X+dir*p.To
+	liftLow, liftHigh := b.LiftAt(p.From, height), b.LiftAt(p.To, height)
+	if liftLow > liftHigh {
+		low, high, liftLow, liftHigh = high, low, liftHigh, liftLow
+	}
 	under := func(lift float64) float64 { return max(0, lift-thick) }
 	inset := 0.2 * (r.Max.Y - r.Min.Y)
 	pa, pb := city.Point{X: high, Y: r.Min.Y + inset}, city.Point{X: high, Y: r.Max.Y - inset}
@@ -272,8 +307,8 @@ func (g *Game) drawRampSegment(screen *ebiten.Image, cam *city.Camera, b city.Br
 // flat as the ramp is, so the deck melts into the water and is gone.
 func (g *Game) drawHazePiece(screen *ebiten.Image, cam *city.Camera, b city.Bridge, p bridgePart, night bool) {
 	r := p.Rect
-	top := g.deckLift(cam)
-	under := g.deckUnderside(cam)
+	top := b.LiftAt(p.From, g.heights(cam))
+	under := top - deckThickness*cam.Zoom
 	paint := func(c color.NRGBA) color.NRGBA { return hazeColour(c, p.Mist, night) }
 	out, edge := r.Max.X, p.Cell.Rect().Max.X
 	if b.Far.X < b.Land.X {
@@ -306,11 +341,13 @@ func (g *Game) drawHazePiece(screen *ebiten.Image, cam *city.Camera, b city.Brid
 }
 
 // drawSpan is one cell of the deck: the pier at its outer edge, the
-// girders, the road and its railings.
-func (g *Game) drawSpan(screen *ebiten.Image, cam *city.Camera, b city.Bridge, cell city.Cell) {
+// girders, the road and its railings, at the height the road stands at
+// over it.
+func (g *Game) drawSpan(screen *ebiten.Image, cam *city.Camera, b city.Bridge, p bridgePart) {
+	cell := p.Cell
 	r := cell.Rect()
-	top := g.deckLift(cam)
-	under := g.deckUnderside(cam)
+	top := b.LiftAt(p.From, g.heights(cam))
+	under := top - deckThickness*cam.Zoom
 	out := r.Max.X
 	if b.Far.X < b.Land.X {
 		out = r.Min.X

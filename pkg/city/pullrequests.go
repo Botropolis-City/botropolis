@@ -47,6 +47,96 @@ type Bridge struct {
 	// Deck is every cell the raised road stands over, from the one
 	// after the abutment out to Far's.
 	Deck []Cell
+	// Channel is the river band the deck crosses, west edge to east,
+	// where the boats sail; zero for a bridge over no river (item 252).
+	Channel Span
+}
+
+// Span is a stretch of the world's x axis.
+type Span struct{ From, To float64 }
+
+// Height is a level the road on a bridge stands at. The renderer says
+// how high each is: the deck clears the trains, the channel the boats.
+type Height int
+
+const (
+	AtGround Height = iota
+	AtDeck
+	AtChannel
+)
+
+func (h Height) String() string {
+	switch h {
+	case AtDeck:
+		return "the deck"
+	case AtChannel:
+		return "the channel"
+	}
+	return "the ground"
+}
+
+// Knot is where the road on a bridge reaches a height, as a distance
+// out from the landing's centre; it runs straight from knot to knot.
+type Knot struct {
+	Along  float64
+	Height Height
+}
+
+// Profile is the road's heights along the bridge: up from the landing
+// to the deck where the first span starts (item 146), and over a river
+// on up to the channel's height before it, and back down to the deck as
+// far past it as the climb took (item 252).
+func (b Bridge) Profile() []Knot {
+	knots := []Knot{{Along: 0, Height: AtGround}, {Along: b.RampRun(), Height: AtDeck}}
+	if b.Channel != (Span{}) {
+		near, far := math.Abs(b.Channel.From-b.Land.X), math.Abs(b.Channel.To-b.Land.X)
+		if near > far {
+			near, far = far, near
+		}
+		climb := near - b.RampRun()
+		knots = append(knots, Knot{Along: near, Height: AtChannel}, Knot{Along: far, Height: AtChannel}, Knot{Along: far + climb, Height: AtDeck})
+	}
+	return append(knots, Knot{Along: math.Abs(b.Far.X - b.Land.X), Height: AtDeck})
+}
+
+// Along is how far out from the landing's centre a point on the
+// bridge's road is, and whether it is on the bridge's row at all.
+func (b Bridge) Along(p Point) (float64, bool) {
+	if b.Land == b.Far || math.Abs(p.Y-b.Land.Y) > CellSize/2 {
+		return 0, false
+	}
+	return (p.X - b.Land.X) * math.Copysign(1, b.Far.X-b.Land.X), true
+}
+
+// Lift is how high the road on the bridge stands at a point, with each
+// height as tall as height says, and 0 off the bridge.
+func (b Bridge) Lift(p Point, height func(Height) float64) float64 {
+	along, ok := b.Along(p)
+	if !ok {
+		return 0
+	}
+	return b.LiftAt(along, height)
+}
+
+// LiftAt is how high the road stands a distance out along the bridge:
+// straight from knot to knot, on the ground behind the landing and level
+// past the far end.
+func (b Bridge) LiftAt(along float64, height func(Height) float64) float64 {
+	if along <= 0 {
+		return 0
+	}
+	knots := b.Profile()
+	for i := 1; i < len(knots); i++ {
+		a, z := knots[i-1], knots[i]
+		if along <= z.Along {
+			if z.Along == a.Along {
+				return height(z.Height)
+			}
+			f := (along - a.Along) / (z.Along - a.Along)
+			return height(a.Height) + f*(height(z.Height)-height(a.Height))
+		}
+	}
+	return height(knots[len(knots)-1].Height)
 }
 
 // HazeCells is how far the deck runs on into the haze, in cells, from
@@ -136,22 +226,13 @@ func (c *City) bridgeFrom(l landing) Bridge {
 			continue
 		}
 		b.Deck = append(b.Deck, cell)
+		if _, river := c.River(cell); river && b.Channel == (Span{}) {
+			if from, _, width, ok := c.RiverBand(); ok {
+				b.Channel = Span{From: from.X - width/2, To: from.X + width/2}
+			}
+		}
 	}
 	return b
-}
-
-// Rise is how far up the bridge a point on its road is, from 0 on the
-// ground to 1 on the deck: the road climbs from the landing's centre to
-// the first span (item 146).
-func (b Bridge) Rise(p Point) float64 {
-	if b.Land == b.Far || math.Abs(p.Y-b.Land.Y) > CellSize/2 {
-		return 0
-	}
-	out := p.X - b.Land.X
-	if b.Far.X < b.Land.X {
-		out = -out
-	}
-	return min(1, max(0, out/b.RampRun()))
 }
 
 // bridgeEast is whether the bridge leaves by the east coast: the side

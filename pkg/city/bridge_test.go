@@ -122,7 +122,7 @@ func TestBridgeOverTheRail(t *testing.T) {
 				{"it should be at deck level at the far end", bridge.Far, 1},
 			} {
 				t.Run(at.name, func(t *testing.T) {
-					assert.InDelta(t, at.want, bridge.Rise(at.p), 1e-9)
+					assert.InDelta(t, at.want, bridge.Lift(at.p, func(h city.Height) float64 { return float64(h) }), 1e-9)
 				})
 			}
 		})

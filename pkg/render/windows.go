@@ -108,6 +108,7 @@ func (a *kitAtlas) prepareKinds(index int, page *image.NRGBA) {
 			a.walls[name], a.storeys[name] = walls, storeys
 		}
 	}
+	a.measureBoats(index, page)
 }
 
 // windowLights is how a building's windows are lit tonight, given how

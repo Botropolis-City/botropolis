@@ -158,7 +158,8 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 			assert.InDelta(t, laneOffset, sideOf(bridge.Land, city.Point{X: 1}, at), 1e-6)
 		})
 		t.Run("it should ride as high as it would on the centre line", func(t *testing.T) {
-			assert.Equal(t, bridge.Rise(d.At(now)), bridge.Rise(at))
+			unit := func(h city.Height) float64 { return float64(h) }
+			assert.Equal(t, bridge.Lift(d.At(now), unit), bridge.Lift(at, unit))
 		})
 	})
 

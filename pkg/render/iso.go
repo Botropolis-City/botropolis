@@ -707,7 +707,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		if !p.span() {
 			return func() { g.drawRampSegment(screen, cam, bridge, p) }
 		}
-		return func() { g.drawSpan(screen, cam, bridge, p.Cell) }
+		return func() { g.drawSpan(screen, cam, bridge, p) }
 	}, func(puffs []city.FogPuff) func() {
 		return func() { g.drawFog(screen, cam, puffs, c.Night) }
 	}, func(bridge city.Bridge, p bridgePart, draw func()) func() {

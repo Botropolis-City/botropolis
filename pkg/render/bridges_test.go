@@ -87,6 +87,42 @@ func TestEveryBridgeIsDrawn(t *testing.T) {
 		}
 	})
 
+	// Item 252: over the channel the deck is raised, and a truck on it
+	// rides up there and draws over it.
+	t.Run("when a truck drives over the channel on the second bridge", func(t *testing.T) {
+		b := bridges[1]
+		require.NotEqual(t, city.Span{}, b.Channel, "precondition: the second bridge crosses the river")
+		at := city.Point{X: (b.Channel.From + b.Channel.To) / 2, Y: b.Land.Y}
+		k := preparedKits(t)
+		g := &Game{kits: k}
+		cam := city.NewCamera()
+		cam.Projection, cam.Zoom = city.Isometric, 1
+
+		t.Run("it should ride at the channel's height", func(t *testing.T) {
+			assert.InDelta(t, g.heights(cam)(city.AtChannel), g.roadLift(cam, b, at), 1e-9)
+		})
+		for _, heading := range []int{0, 90, 180, 270} {
+			cam := city.NewCamera()
+			cam.Heading = heading
+			got := namedOrder(cam, func(rec func(string) func()) []drawable {
+				deck := bridgeItems(cam, b, func(p bridgePart) func() {
+					if p.span() && p.Cell == city.CellOf(at) {
+						return rec("span")
+					}
+					return func() {}
+				})
+				truck := deliveryAt(cam, b, at, rec("truck"))
+				truck.moves = true
+				return append([]drawable{truck}, deck...)
+			})
+			require.ElementsMatch(t, []string{"span", "truck"}, got, "precondition: the span under the truck and the truck are each drawn once")
+
+			t.Run(fmt.Sprintf("at heading %d, it should draw the truck after the span beneath it", heading), func(t *testing.T) {
+				assert.Greater(t, slices.Index(got, "truck"), slices.Index(got, "span"), "%v", got)
+			})
+		}
+	})
+
 	for i, b := range bridges {
 		t.Run(fmt.Sprintf("for bridge %d", i+1), func(t *testing.T) {
 			t.Run("it should put its parts in the depth sort", func(t *testing.T) {

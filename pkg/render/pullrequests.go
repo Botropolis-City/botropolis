@@ -47,7 +47,7 @@ func (g *Game) drawDelivery(screen *ebiten.Image, cam *city.Camera, bridge city.
 	at, dir := deliveryPlace(d, now, g.scene.City().InBlock)
 	turn := vehicleTurn(dir)
 	// On the bridge it rides at the deck's height (item 132).
-	lift := bridge.Rise(at) * g.deckLift(cam)
+	lift := g.roadLift(cam, bridge, at)
 	r := g.kitLifted(screen, cam, kitDelivery, turn, at, lift, tint)
 	g.kitScaledLifted(screen, cam, crates[d.PR.Number%len(crates)], turn, at, 0.3, lift, tint)
 	g.noteHit(r, city.Hit{Delivery: &d})
