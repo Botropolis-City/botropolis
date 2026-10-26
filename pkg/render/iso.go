@@ -1557,12 +1557,30 @@ func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City
 		}{d.Root, g.dresser.generation(d), d.Rect})
 		g.noteKeyed(kindDistrictFloor, key, func() { g.districtFloor(screen, cam, d.Rect, ground) })
 	}
-	for _, b := range c.Buildings() {
-		if g.scene.Dimmed(b) {
-			continue
+	// A district's lots are one drawable, drawn as they always were, in
+	// turn, so a frame keeps one record a district rather than one a lot.
+	for _, d := range c.Districts {
+		key, lots := uint64(0), 0
+		for _, b := range d.Buildings {
+			dimmed := g.scene.Dimmed(b)
+			key = keyMix(key, g.buildingValue(b), boolBits(dimmed), math.Float64bits(g.scene.Mowing(b.Session.ID)))
+			if !dimmed {
+				lots++
+			}
 		}
-		key := keyMix(g.buildingValue(b), math.Float64bits(g.scene.Mowing(b.Session.ID)))
-		g.noteKeyed(kindLotFloor, key, func() { g.lotFloor(screen, cam, b) })
+		if lots > 0 {
+			g.noteKeyed(kindLotFloor, key, func() { g.lotFloors(screen, cam, d) })
+		}
+	}
+}
+
+// lotFloors paints a district's stopped buildings' lots, in turn, but
+// for those a search dims.
+func (g *Game) lotFloors(screen *ebiten.Image, cam *city.Camera, d *city.District) {
+	for _, b := range d.Buildings {
+		if !g.scene.Dimmed(b) {
+			g.lotFloor(screen, cam, b)
+		}
 	}
 }
 

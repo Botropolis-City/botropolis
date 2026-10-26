@@ -26,7 +26,8 @@ var keyedDraws = map[recordKind]struct {
 	reads map[string]string
 }{
 	kindDistrictFloor: {draw: "districtFloor", reads: agedFloorReads},
-	kindLotFloor: {draw: "lotFloor", reads: with(agedFloorReads, map[string]string{
+	kindLotFloor: {draw: "lotFloors", reads: with(agedFloorReads, map[string]string{
+		"scene.Dimmed": "the district's key: whether each of its lots is dimmed",
 		"g.reduced":    "frameKey",
 		"g.weedFade":   "worked out by dressing, from the lot's mowing and reduced motion, before it is read",
 		"scene.Mowing": "the lot's key",

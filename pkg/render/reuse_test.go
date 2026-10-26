@@ -439,7 +439,9 @@ func TestRecordReuse(t *testing.T) {
 
 	t.Run("when a search dims the quiet buildings it does not find", func(t *testing.T) {
 		rc := settled(t)
-		rc.scene.SetFilter("s00")
+		// s01 stands in a district of aged lots, which the search dims
+		// but for its own.
+		rc.scene.SetFilter("s01")
 		stale := 0
 		for range 3 {
 			stale += rc.frame().stale
@@ -630,6 +632,19 @@ func TestARecordedCommand(t *testing.T) {
 			assert.LessOrEqual(t, unsafe.Sizeof(drawCmd{}), uintptr(160))
 		})
 	})
+}
+
+// Item 212: the same city settled at fit, where nearly all of it is on
+// screen. It reports and never gates.
+func BenchmarkAFitFrameKeepingRecords(b *testing.B) {
+	now := time.Date(2026, 10, 12, 10, 0, 0, 0, time.Local)
+	d, err := NewDrive(DriveOptions{Home: helpers.ParkedWeek(b, 217, now, "Fit"), Now: now, Width: 1920, Height: 1200})
+	require.NoError(b, err)
+	require.NoError(b, d.Run(60))
+	b.ReportAllocs()
+	for b.Loop() {
+		require.NoError(b, d.Tick())
+	}
 }
 
 // Item 212: Ebitengine lets a sub-image it cut go from its cache after
