@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -98,6 +99,13 @@ func AssertIsolated(t *testing.T) {
 			})
 		}
 	})
+}
+
+// HostileConfig is the config.toml make test-unit runs under, setting
+// every key away from its default. Item 263.
+func HostileConfig() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "fixtures", "hostile-home", ".config", "botropolis", "config.toml")
 }
 
 // ConfigVariables are every BOTROPOLIS_ variable pkg/config reads, taken

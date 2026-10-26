@@ -188,10 +188,24 @@ test :: test-unit test-integration test-acceptance
 TEST_TIMEOUT ?= 40m
 ACCEPTANCE_TIMEOUT ?= ${TEST_TIMEOUT}
 
+# Item 263: 0.3.1 failed to build for anyone who had set district_type,
+# because a unit test read the builder's own config. So the unit suite always
+# runs in a copy of a home whose config, and BOTROPOLIS_ variables, set every
+# key away from its default; testing/helpers checks the file covers every key.
+HOSTILE_HOME := testing/helpers/fixtures/hostile-home
+
 test-unit ::
-	$(LOG) "Running unit tests"
-	@go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/acceptance-targets/...
-	@go test -timeout ${TEST_TIMEOUT} ${DEV_TAGS} ./pkg/cli/...
+	$(LOG) "Running unit tests under a hostile config"
+	@set -e; \
+	export GOCACHE="$$(go env GOCACHE)" GOMODCACHE="$$(go env GOMODCACHE)" GOPATH="$$(go env GOPATH)" GOENV="$$(go env GOENV)"; \
+	home="$$(mktemp -d)"; \
+	trap 'rm -rf -- "$$home"' EXIT; \
+	cp -R ${HOSTILE_HOME}/. "$$home"; \
+	export HOME="$$home" XDG_CONFIG_HOME="$$home/.config"; \
+	export BOTROPOLIS_CONFIG="$$XDG_CONFIG_HOME/botropolis/config.toml"; \
+	eval "$$(awk -F' = ' '/^[a-z_]+ = / { gsub(/"/, "", $$2); print "export BOTROPOLIS_" toupper($$1) "='\''" $$2 "'\''" }' "$$BOTROPOLIS_CONFIG")"; \
+	go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/acceptance-targets/...; \
+	go test -timeout ${TEST_TIMEOUT} ${DEV_TAGS} ./pkg/cli/...
 
 test-integration ::
 	$(LOG) "Running integration tests"
