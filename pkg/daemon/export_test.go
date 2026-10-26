@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"botropolis.city/botropolis/pkg/measure"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -12,10 +13,18 @@ func SetAddWatch(d *Daemon, add func(*fsnotify.Watcher, string) error) {
 	d.addWatch = add
 }
 
-// SetThreadCPU replaces how the daemon reads a rescan's CPU time, so a
+// SetRescanMeter replaces how the daemon reads what a rescan cost, so a
 // test can say what each costs.
-func SetThreadCPU(d *Daemon, cpu func() time.Duration) {
-	d.threadCPU = cpu
+func SetRescanMeter(d *Daemon, meter func(func()) measure.Cost) {
+	d.meter = meter
+}
+
+// WatchClock is the time the watcher reads, and how it waits.
+type WatchClock = watchClock
+
+// SetWatchClock replaces the clock the watcher reads and waits on.
+func SetWatchClock(d *Daemon, clock WatchClock) {
+	d.watchClock = clock
 }
 
 // ReleaseClock is a clock for the release timer that a test moves.
@@ -38,9 +47,4 @@ func SetReleaseClock(d *Daemon, clock ReleaseClock) {
 // PaceAfter is how long the watcher waits after a rescan that cost cost.
 func PaceAfter(cost time.Duration) time.Duration {
 	return paceAfter(cost)
-}
-
-// ThreadCPU is the CPU time the calling thread has used.
-func ThreadCPU() time.Duration {
-	return threadCPU()
 }

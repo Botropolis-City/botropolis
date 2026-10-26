@@ -182,3 +182,29 @@ func TestTotal(t *testing.T) {
 		})
 	})
 }
+
+// Item 213: the daemon paces its rescans by what they cost a core, as
+// the gates count it, so Counted counts whatever the tests' switch says,
+// and opens its counters without reading the machine's units again.
+func TestCounted(t *testing.T) {
+	t.Run("when the machine can count instructions, and the tests' switch is off", func(t *testing.T) {
+		if err := Available(); err != nil {
+			t.Skipf("no hardware instruction counters: %v", err)
+		}
+		was := CountInstructions.Swap(false)
+		t.Cleanup(func() { CountInstructions.Store(was) })
+		c := Counted(work)
+
+		t.Run("it should count the work", func(t *testing.T) {
+			assert.True(t, c.Counted)
+		})
+
+		t.Run("it should count its instructions", func(t *testing.T) {
+			assert.Greater(t, c.Instructions, uint64(20_000_000))
+		})
+
+		t.Run("it should allocate at most its counters when counting again", func(t *testing.T) {
+			assert.LessOrEqual(t, testing.AllocsPerRun(20, func() { Counted(func() {}) }), 2.0)
+		})
+	})
+}

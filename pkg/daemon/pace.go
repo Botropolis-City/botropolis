@@ -1,9 +1,6 @@
 package daemon
 
-import (
-	"runtime"
-	"time"
-)
+import "time"
 
 const (
 	// rescanShare is the share of a core the watcher's rescans may take
@@ -23,13 +20,14 @@ func paceAfter(cost time.Duration) time.Duration {
 	return min(max(pace, time.Duration(float64(cost)/rescanShare)), maxPace)
 }
 
-// timedRescan rescans on this goroutine's own thread, and reports what
-// that cost the thread, so other work on the machine and the daemon's
-// other goroutines do not count against it.
-func (d *Daemon) timedRescan() (time.Duration, error) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	before := d.threadCPU()
-	err := d.Rescan()
-	return d.threadCPU() - before, err
+// meteredRescan rescans on this goroutine's own thread, and reports what
+// that cost a core as the cost gates count one, so other work on the
+// machine and the daemon's other goroutines do not count against it. A
+// rescan's thread CPU ran a third or more under its counted cost on a
+// quiet machine, so rescans paced by it took more than their share
+// (item 213).
+func (d *Daemon) meteredRescan() (time.Duration, error) {
+	var err error
+	cost := d.meter(func() { err = d.Rescan() })
+	return cost.Core(), err
 }

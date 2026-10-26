@@ -49,7 +49,7 @@ func (d *Daemon) Watch(ctx context.Context) error {
 	wait := pace
 	schedule := func() {
 		if fire == nil {
-			fire = time.After(max(debounce, time.Until(last.Add(wait))))
+			fire = d.watchClock.After(max(debounce, last.Add(wait).Sub(d.watchClock.Now())))
 		}
 	}
 	for {
@@ -75,8 +75,8 @@ func (d *Daemon) Watch(ctx context.Context) error {
 				schedule()
 			}
 		case <-fire:
-			fire, last = nil, time.Now()
-			cost, err := d.timedRescan()
+			fire, last = nil, d.watchClock.Now()
+			cost, err := d.meteredRescan()
 			wait = paceAfter(cost)
 			if err != nil {
 				continue

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -18,8 +19,11 @@ import (
 // unit per kind of core, and a thread counts only on the kind it is on.
 var pmus = []string{"cpu_core", "cpu_atom", "cpu"}
 
-// pmuTypes reads the counter units this machine has.
-func pmuTypes() ([]uint32, error) {
+// pmuTypes is the counter units this machine has, read once: the
+// daemon opens counters on every rescan (item 213).
+var pmuTypes = sync.OnceValues(readPMUTypes)
+
+func readPMUTypes() ([]uint32, error) {
 	var types []uint32
 	for _, name := range pmus {
 		b, err := os.ReadFile(filepath.Join("/sys/bus/event_source/devices", name, "type"))
@@ -66,7 +70,7 @@ func openAll(tid int, inherit bool) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	var fds []int
+	fds := make([]int, 0, len(types))
 	for _, pmu := range types {
 		fd, err := open(pmu, tid, inherit)
 		if err != nil {

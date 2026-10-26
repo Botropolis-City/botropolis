@@ -100,10 +100,21 @@ func (t *Total) Cost() Cost {
 // and its instructions when CountInstructions is on and the machine can
 // count them. Locking nests, so a goroutine already locked stays locked.
 func Thread(f func()) Cost {
+	return thread(f, CountInstructions.Load())
+}
+
+// Counted is Thread with its instructions counted wherever the machine
+// can count them, whatever CountInstructions says: the daemon paces its
+// rescans by it (item 213).
+func Counted(f func()) Cost {
+	return thread(f, true)
+}
+
+func thread(f func(), count bool) Cost {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	var counters *threadCounters
-	if CountInstructions.Load() {
+	if count {
 		counters, _ = openThread()
 	}
 	before, kernel := threadCPU(), threadKernel()

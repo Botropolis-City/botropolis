@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"botropolis.city/botropolis/pkg/measure"
 	"github.com/fsnotify/fsnotify"
 
 	"context"
@@ -139,9 +140,13 @@ type Daemon struct {
 	// each logged once (item 205).
 	unwatchable map[string]bool
 	addWatch    func(*fsnotify.Watcher, string) error
-	// threadCPU is the CPU time the calling thread has used, which paces
-	// the watcher's rescans (item 205).
-	threadCPU func() time.Duration
+	// meter is what a rescan cost a core, which paces the watcher's
+	// rescans: its instructions where they can be counted, its thread's
+	// CPU where not (items 205 and 213).
+	meter func(func()) measure.Cost
+	// watchClock is the time the watcher reads and waits on, the real
+	// clock but in tests (item 213).
+	watchClock watchClock
 	// loaded, when not nil, is closed by the first scan to finish; until
 	// then every request but a hook event waits for it (item 143).
 	loaded   chan struct{}
@@ -259,7 +264,8 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		log:         events.NewLog(),
 		release:     debug.FreeOSMemory,
 		addWatch:    (*fsnotify.Watcher).Add,
-		threadCPU:   threadCPU,
+		meter:       measure.Counted,
+		watchClock:  realClock{},
 		settleAfter: SettleAfter,
 		ceiling:     ReleaseCeiling,
 
@@ -293,6 +299,14 @@ type realClock struct{}
 func (realClock) Now() time.Time { return time.Now() }
 
 func (realClock) AfterFunc(d time.Duration, f func()) stopper { return time.AfterFunc(d, f) }
+
+func (realClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
+
+// watchClock is the time the watcher reads, and how it waits.
+type watchClock interface {
+	Now() time.Time
+	After(d time.Duration) <-chan time.Time
+}
 
 // SetReleaseCeiling replaces the longest the daemon goes without
 // returning memory while it never settles, for tests and tuning.
