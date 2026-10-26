@@ -1,6 +1,7 @@
 package render
 
 import (
+	"math"
 	"sort"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -70,6 +71,12 @@ var labelSteps = [][2]float64{
 const labelNearSteps = 7
 
 func layoutLabels(labels []mapLabel, gap float64) []laidLabel {
+	laid, _ := layoutLabelsCounted(labels, gap)
+	return laid
+}
+
+func layoutLabelsCounted(labels []mapLabel, gap float64) ([]laidLabel, int) {
+	checks := 0
 	order := make([]int, len(labels))
 	for i := range order {
 		order[i] = i
@@ -82,26 +89,17 @@ func layoutLabels(labels []mapLabel, gap float64) []laidLabel {
 		return la.Anchor.Y > lb.Anchor.Y
 	})
 	out := make([]laidLabel, len(labels))
-	var taken, cars []city.Rect
+	var taken, cars rectGrid
 	for _, l := range labels {
 		if l.Kind == labelCar {
-			cars = append(cars, l.Rect)
+			cars.add(l.Rect)
 		}
 	}
 	free := func(kind labelKind, r city.Rect) bool {
-		for _, t := range taken {
-			if r.Overlaps(t) {
-				return false
-			}
+		if taken.hits(r, &checks) {
+			return false
 		}
-		if kind == labelTag {
-			for _, c := range cars {
-				if r.Overlaps(c) {
-					return false
-				}
-			}
-		}
-		return true
+		return kind != labelTag || !cars.hits(r, &checks)
 	}
 	for _, i := range order {
 		l := labels[i]
@@ -110,7 +108,7 @@ func layoutLabels(labels []mapLabel, gap float64) []laidLabel {
 		}
 		if l.Kind == labelSign {
 			out[i] = laidLabel{At: l.Rect, Shown: true}
-			taken = append(taken, l.Rect)
+			taken.add(l.Rect)
 			continue
 		}
 		dx, dy := l.Rect.Width()+gap, l.Rect.Height()+gap
@@ -118,10 +116,85 @@ func layoutLabels(labels []mapLabel, gap float64) []laidLabel {
 			at := city.RectAt(l.Rect.Min.X+step[0]*dx, l.Rect.Min.Y+step[1]*dy, l.Rect.Width(), l.Rect.Height())
 			if free(l.Kind, at) {
 				out[i] = laidLabel{At: at, Shown: true, Leader: s >= labelNearSteps}
-				taken = append(taken, at)
+				taken.add(at)
 				break
 			}
 		}
 	}
-	return out
+	return out, checks
+}
+
+// rectGrid holds the rectangles already placed, filed by the grid cells
+// they cover, so a label is tested only against those near it: the
+// layout compared each label with every one placed before it, every
+// frame, which at a plate a district was quadratic (item 270). One too
+// large to file cell by cell is tested against everything.
+type rectGrid struct {
+	rects    []city.Rect
+	cells    map[[2]int][]int32
+	oversize []int32
+}
+
+const (
+	rectGridCell = 64.0
+	rectGridMost = 64
+)
+
+func (g *rectGrid) span(r city.Rect) (x0, y0, x1, y1 int, ok bool) {
+	fx0, fy0 := math.Floor(r.Min.X/rectGridCell), math.Floor(r.Min.Y/rectGridCell)
+	fx1, fy1 := math.Floor(r.Max.X/rectGridCell), math.Floor(r.Max.Y/rectGridCell)
+	if !(fx1-fx0 < rectGridMost && fy1-fy0 < rectGridMost) {
+		return 0, 0, 0, 0, false
+	}
+	return int(fx0), int(fy0), int(fx1), int(fy1), true
+}
+
+func (g *rectGrid) add(r city.Rect) {
+	i := int32(len(g.rects))
+	g.rects = append(g.rects, r)
+	x0, y0, x1, y1, ok := g.span(r)
+	if !ok {
+		g.oversize = append(g.oversize, i)
+		return
+	}
+	if g.cells == nil {
+		g.cells = map[[2]int][]int32{}
+	}
+	for x := x0; x <= x1; x++ {
+		for y := y0; y <= y1; y++ {
+			g.cells[[2]int{x, y}] = append(g.cells[[2]int{x, y}], i)
+		}
+	}
+}
+
+// hits is whether r overlaps a rectangle in the grid, counting each
+// rectangle it tests in checks.
+func (g *rectGrid) hits(r city.Rect, checks *int) bool {
+	for _, i := range g.oversize {
+		*checks++
+		if r.Overlaps(g.rects[i]) {
+			return true
+		}
+	}
+	x0, y0, x1, y1, ok := g.span(r)
+	if !ok {
+		for _, t := range g.rects {
+			*checks++
+			if r.Overlaps(t) {
+				return true
+			}
+		}
+		return false
+	}
+	for x := x0; x <= x1; x++ {
+		for y := y0; y <= y1; y++ {
+			for _, i := range g.cells[[2]int{x, y}] {
+				*checks++
+				if r.Overlaps(g.rects[i]) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

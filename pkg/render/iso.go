@@ -561,6 +561,8 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	detailed := g.scene.Detailed()
 	labels := g.labelsVisible()
 	defer frames.start()()
+	g.labelFrame = city.RectAt(0, 0, width, height)
+	defer func() { g.labelFrame = city.Rect{} }()
 	g.drawing.reset()
 	g.keepRecord()
 	g.houseWide = g.houseWideKey()
@@ -934,6 +936,10 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if c.Night {
 		g.beginLights(int(width), int(height))
 	}
+	if !g.noStill {
+		items = onScreen(cam, items, frame)
+	}
+	g.sorted = len(items)
 	for _, d := range layered(cam, items, airborne) {
 		// While a hovered car fades the city, each draw is wrapped in
 		// its fade group, so nothing keeps its record (item 212).

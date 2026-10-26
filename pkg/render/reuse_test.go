@@ -79,7 +79,7 @@ func TestRecordReuse(t *testing.T) {
 		rc := newRecordCity(t)
 		rc.g.verifyEvery = 1
 		rc.scene.SetView(city.ViewAttention)
-		rc.scene.Camera().Zoom = 2
+		rc.scene.Camera().SetZoomAt(city.Point{X: recordWidth / 2, Y: recordHeight / 2}, 2)
 		rc.frame()
 		rc.now = rc.now.Add(10 * time.Minute)
 		for range 4 {

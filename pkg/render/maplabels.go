@@ -125,10 +125,14 @@ func (g *Game) queueRoadTag(road *city.RoadLine, at city.Point) {
 // over the world, each with a leader back to what it names when it had
 // to stand further off (item 102).
 func (g *Game) drawMapLabels(screen *ebiten.Image) {
+	if g.labelFrame.Area() > 0 {
+		g.mapLabels = reachable(g.mapLabels, g.labelFrame, g.theme.Px(2))
+	}
 	asks := make([]mapLabel, len(g.mapLabels))
 	for i, l := range g.mapLabels {
 		asks[i] = l.mapLabel
 	}
+	g.laidOut = len(asks)
 	laid := layoutLabels(asks, g.theme.Px(2))
 	shown := make([]ShownLabel, 0, len(laid))
 	// The faded labels' layer is made and cleared only when one is

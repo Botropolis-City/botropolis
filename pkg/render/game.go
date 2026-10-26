@@ -155,7 +155,15 @@ type Game struct {
 	lookStats lookStats
 	// buildingsDrawn is how many buildings the frame drew (item 161).
 	buildingsDrawn int
-	noLookCache    bool
+	// sorted is how many drawables the frame put in depth order
+	// (item 270).
+	sorted int
+	// laidOut is how many labels the frame laid out, and labelFrame the
+	// screen they are laid out for, empty when any place will do
+	// (item 270).
+	laidOut     int
+	labelFrame  city.Rect
+	noLookCache bool
 	// dresser keeps each district's aged floor while it holds (item 207).
 	dresser districtDresser
 	// linePairs is a buffer of segments drawn as one mesh (item 207).
