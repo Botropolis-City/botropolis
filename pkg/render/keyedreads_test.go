@@ -6,12 +6,15 @@ import (
 	"go/token"
 	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"botropolis.city/botropolis/pkg/city"
 )
 
 // keyedDraws is each kind of drawable that keeps its record, the method
@@ -168,16 +171,16 @@ var quietReads = map[string]string{
 	"scene.View":          "in the quiet key: the view's tint, when a view is up",
 	"scene.Tint":          "in the quiet key: the view's tint, when a view is up",
 	"scene.Dimmed":        "in the quiet key",
-	"scene.Hauling":       "quietness: not hauled",
-	"scene.HaulProgress":  "quietness: not fading out",
-	"scene.Rising":        "quietness: risen",
-	"scene.Construction":  "quietness: not being built",
-	"scene.Settling":      "quietness: not settling",
-	"scene.Celebration":   "quietness: not celebrating",
-	"scene.CompactionJob": "quietness: not pouring or collecting a course",
-	"scene.Loads":         "quietness: no load on its hoist",
-	"scene.Scaffold":      "quietness: not coming down, and in the quiet key",
-	"scene.Hoist":         "quietness: no flag moving, and each flag's hoist in the quiet key",
+	"scene.Hauling":       "stirring: hauled",
+	"scene.HaulProgress":  "stirring: hauled",
+	"scene.Rising":        "stirring: arriving",
+	"scene.Construction":  "stirring: arriving",
+	"scene.Settling":      "stirring: settling",
+	"scene.Celebration":   "stirring: celebrating",
+	"scene.CompactionJob": "stirring: pouring",
+	"scene.Loads":         "stirring: loads",
+	"scene.Scaffold":      "stirring: struck; and its height in the quiet key",
+	"scene.Hoist":         "stirring: hoisting; and each flag's hoist in the quiet key",
 	"scene.Lights":        "its rise, its construction and its haul, which quietness holds",
 }
 
@@ -203,6 +206,25 @@ func TestQuietReads(t *testing.T) {
 		})
 		t.Run("it should list nothing it does not read", func(t *testing.T) {
 			assert.Empty(t, unread)
+		})
+	})
+
+	t.Run("when a read is covered by a state stirring", func(t *testing.T) {
+		var unnamed []string
+		for r, why := range quietReads {
+			state, ok := strings.CutPrefix(why, "stirring: ")
+			if !ok {
+				continue
+			}
+			state, _, _ = strings.Cut(state, ";")
+			if !slices.Contains(city.StirringStates, state) {
+				unnamed = append(unnamed, r+" ("+state+")")
+			}
+		}
+		sort.Strings(unnamed)
+
+		t.Run("it should be one Scene.Stirring covers", func(t *testing.T) {
+			assert.Empty(t, unnamed)
 		})
 	})
 }

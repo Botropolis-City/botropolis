@@ -611,6 +611,7 @@ func (g *Game) frameBaseKey() frameBase {
 	if g.noLookCache {
 		house = keyMix(house, 4)
 	}
+	g.stirring = g.scene.Stirring(g.stirring)
 	return frameBase{all: h.Sum64(), house: house, ok: true}
 }
 

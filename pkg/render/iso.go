@@ -1752,29 +1752,16 @@ type quietFrame struct {
 // scaffold, its title and whether its top course glows. TestQuietReads
 // holds that to everything buildingFrame reads.
 func (g *Game) quietKey(b *city.Building, selected, detailed bool) (uint64, bool) {
-	s, id := g.scene, b.Session.ID
-	if s.Hauling(id) || s.HaulProgress(id) < 1 || s.Rising(id) < 1 || s.Celebration(id) >= 0 || len(s.Loads(id)) > 0 {
-		return 0, false
-	}
-	if _, building := s.Construction(id); building {
-		return 0, false
-	}
-	if settle, _ := s.Settling(id); settle != city.SettleNone {
-		return 0, false
-	}
-	if _, pouring := g.pouring(b); pouring {
-		return 0, false
-	}
-	if _, collecting := s.CompactionJob(id); collecting {
-		return 0, false
-	}
-	scaffold := s.Scaffold(b)
-	if scaffold > 0 && scaffold < 1 {
-		return 0, false
-	}
+	s := g.scene
 	if !g.frameBase.ok {
 		g.frameBase = g.frameBaseKey()
 	}
+	// Which sessions have a timed state running is asked of the scene
+	// once a frame, with the frame's base (item 212).
+	if g.stirring[b.Session.ID] {
+		return 0, false
+	}
+	scaffold := s.Scaffold(b)
 	key := keyMix(g.buildingValue(b), boolBits(selected), boolBits(detailed), boolBits(s.Dimmed(b)), boolBits(g.unlit(b)),
 		math.Float64bits(scaffold), g.titleHash(b), boolBits(courseLit(b.Session, s.Now())), g.houseWide,
 		g.frameBase.all, boolBits(g.lightsOn), boolBits(g.reduced))

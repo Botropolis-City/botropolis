@@ -317,9 +317,11 @@ type Game struct {
 	// frameBase what every drawable does, hashed once a frame.
 	houseWide uint64
 	frameBase frameBase
-	litHash   uint64
-	litFrame  bool
-	lotKeys   map[*city.Building]uint64
+	// stirring is the sessions with a timed state running this frame.
+	stirring map[string]bool
+	litHash  uint64
+	litFrame bool
+	lotKeys  map[*city.Building]uint64
 	// titles and signValues are the buildings' titles and the
 	// districts' signs, for the city built from lotCity.
 	titles     map[*city.Building]string
