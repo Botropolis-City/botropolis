@@ -29,3 +29,6 @@ func (l *Ledger) MessageReads() int {
 	defer l.mu.Unlock()
 	return l.messageReads
 }
+
+// OpenWith is Open through the database driver registered as driver.
+func OpenWith(path, driver string) (*Store, error) { return openWith(path, driver) }

@@ -268,27 +268,29 @@ func (s *Store) ingestFile(rows map[string]transcriptRow, path, session, thread 
 // end of a transcript or at a checkpoint inside one. rebuild drops the
 // thread's rows first, for a transcript read again from the start.
 func (s *Store) save(path, session, thread string, size, mtime int64, r read, rebuild bool) error {
+	st, err := s.prepared()
+	if err != nil {
+		return err
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
 	if rebuild {
-		if err := unlink(tx, session, thread); err != nil {
+		if err := unlink(tx, st, session, thread); err != nil {
 			return err
 		}
 	}
-	if err := upsertSession(tx, session, r.earliest, thread == mainThread); err != nil {
+	if err := upsertSession(tx, st, session, r.earliest, thread == mainThread); err != nil {
 		return err
 	}
 	for _, m := range r.messages {
-		if err := upsertMessage(tx, session, thread, m); err != nil {
+		if err := upsertMessage(tx, st, session, thread, m); err != nil {
 			return err
 		}
 	}
-	if _, err := tx.Exec(`INSERT INTO transcripts (path, session_id, size, mtime, read_to) VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT (path) DO UPDATE SET session_id = excluded.session_id, size = excluded.size, mtime = excluded.mtime, read_to = excluded.read_to`,
-		path, session, size, mtime, r.to); err != nil {
+	if _, err := tx.Stmt(st.transcript).Exec(path, session, size, mtime, r.to); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -315,11 +317,12 @@ func (s *Store) transcripts() (map[string]transcriptRow, error) {
 }
 
 func (s *Store) lastDir(session, thread string) (string, error) {
+	st, err := s.prepared()
+	if err != nil {
+		return "", err
+	}
 	var dir string
-	err := s.db.QueryRow(`SELECT d.path FROM messages m
-		JOIN message_sessions ms ON ms.message_id = m.id
-		JOIN dirs d ON d.id = m.dir_id
-		WHERE ms.session_id = ? AND m.thread = ? ORDER BY m.at DESC LIMIT 1`, session, thread).Scan(&dir)
+	err = st.lastDir.QueryRow(session, thread).Scan(&dir)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
@@ -442,48 +445,35 @@ func parseTime(raw string) (int64, bool) {
 	return at.UnixMilli(), true
 }
 
-func unlink(tx *sql.Tx, session, thread string) error {
-	if _, err := tx.Exec(`DELETE FROM message_sessions WHERE session_id = ?
-		AND message_id IN (SELECT id FROM messages WHERE thread = ?)`, session, thread); err != nil {
+func unlink(tx *sql.Tx, st *statements, session, thread string) error {
+	if _, err := tx.Stmt(st.unlinkSessions).Exec(session, thread); err != nil {
 		return err
 	}
-	_, err := tx.Exec(`DELETE FROM messages WHERE thread = ?
-		AND id NOT IN (SELECT message_id FROM message_sessions)`, thread)
+	_, err := tx.Stmt(st.unlinkMessages).Exec(thread)
 	return err
 }
 
-func upsertSession(tx *sql.Tx, session string, earliest int64, main bool) error {
+func upsertSession(tx *sql.Tx, st *statements, session string, earliest int64, main bool) error {
 	var started any
 	if main && earliest > 0 {
 		started = earliest
 	}
-	_, err := tx.Exec(`INSERT INTO sessions (id, started_at) VALUES (?, ?)
-		ON CONFLICT (id) DO UPDATE SET started_at = CASE
-			WHEN excluded.started_at IS NULL THEN sessions.started_at
-			WHEN sessions.started_at IS NULL THEN excluded.started_at
-			ELSE min(sessions.started_at, excluded.started_at) END`, session, started)
+	_, err := tx.Stmt(st.session).Exec(session, started)
 	return err
 }
 
-func upsertMessage(tx *sql.Tx, session, thread string, m message) error {
-	if _, err := tx.Exec("INSERT INTO dirs (path) VALUES (?) ON CONFLICT (path) DO NOTHING", m.dir); err != nil {
+func upsertMessage(tx *sql.Tx, st *statements, session, thread string, m message) error {
+	if _, err := tx.Stmt(st.dir).Exec(m.dir); err != nil {
 		return err
 	}
 	var fiveMinutes, oneHour any
 	if m.split != nil {
 		fiveMinutes, oneHour = m.split[0], m.split[1]
 	}
-	if _, err := tx.Exec(`INSERT INTO messages (id, at, model, speed, dir_id, thread, input, output, cache_create, cache_read, cache_create_5m, cache_create_1h, geo, web_search_requests, web_fetch_requests, service_tier)
-		VALUES (?, ?, ?, ?, (SELECT id FROM dirs WHERE path = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (id) DO UPDATE SET at = excluded.at, model = excluded.model, speed = excluded.speed,
-			dir_id = excluded.dir_id, thread = excluded.thread, input = excluded.input, output = excluded.output,
-			cache_create = excluded.cache_create, cache_read = excluded.cache_read,
-			cache_create_5m = excluded.cache_create_5m, cache_create_1h = excluded.cache_create_1h, geo = excluded.geo,
-			web_search_requests = excluded.web_search_requests, web_fetch_requests = excluded.web_fetch_requests, service_tier = excluded.service_tier`,
-		m.id, m.at, m.model, orNull(m.speed), m.dir, thread, m.input, m.output, m.cacheCreate, m.cacheRead, fiveMinutes, oneHour, orNull(m.geo), m.webSearches, m.webFetches, orNull(m.tier)); err != nil {
+	if _, err := tx.Stmt(st.message).Exec(m.id, m.at, m.model, orNull(m.speed), m.dir, thread, m.input, m.output, m.cacheCreate, m.cacheRead, fiveMinutes, oneHour, orNull(m.geo), m.webSearches, m.webFetches, orNull(m.tier)); err != nil {
 		return err
 	}
-	_, err := tx.Exec("INSERT INTO message_sessions (message_id, session_id) VALUES (?, ?) ON CONFLICT DO NOTHING", m.id, session)
+	_, err := tx.Stmt(st.link).Exec(m.id, session)
 	return err
 }
 

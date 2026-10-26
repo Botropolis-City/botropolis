@@ -68,10 +68,14 @@ func transcriptOf(projectsDir, path string) (session, thread string, ok bool) {
 
 // transcriptsOf is the rows of the transcripts named.
 func (s *Store) transcriptsOf(paths []string) (map[string]transcriptRow, error) {
+	st, err := s.prepared()
+	if err != nil {
+		return nil, err
+	}
 	all := make(map[string]transcriptRow, len(paths))
 	for _, path := range paths {
 		var row transcriptRow
-		err := s.db.QueryRow("SELECT size, mtime, read_to FROM transcripts WHERE path = ?", path).Scan(&row.size, &row.mtime, &row.readTo)
+		err := st.transcriptRow.QueryRow(path).Scan(&row.size, &row.mtime, &row.readTo)
 		if errors.Is(err, sql.ErrNoRows) {
 			continue
 		}

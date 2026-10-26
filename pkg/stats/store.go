@@ -223,6 +223,9 @@ type Store struct {
 	// written since it last asked (item 215).
 	watchMu sync.Mutex
 	watch   *sql.Conn
+	// stmts are compiled on first use and kept (item 213).
+	stmtMu sync.Mutex
+	stmts  *statements
 }
 
 // DataVersion is a number that moves whenever another connection, in
@@ -253,6 +256,10 @@ func Path() string {
 // only, and brings an older schema up to Version. A database written by
 // a newer build is refused rather than read wrongly.
 func Open(path string) (*Store, error) {
+	return openWith(path, "sqlite")
+}
+
+func openWith(path, driver string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
 	}
@@ -266,7 +273,7 @@ func Open(path string) (*Store, error) {
 	if err := sound(path); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=cache_size(-"+strconv.Itoa(CacheKiB)+")")
+	db, err := sql.Open(driver, path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=cache_size(-"+strconv.Itoa(CacheKiB)+")")
 	if err != nil {
 		return nil, err
 	}
@@ -385,6 +392,12 @@ func (s *Store) DB() *sql.DB { return s.db }
 
 // Close closes the database.
 func (s *Store) Close() error {
+	s.stmtMu.Lock()
+	if s.stmts != nil {
+		s.stmts.close()
+		s.stmts = nil
+	}
+	s.stmtMu.Unlock()
 	s.watchMu.Lock()
 	if s.watch != nil {
 		_ = s.watch.Close()
