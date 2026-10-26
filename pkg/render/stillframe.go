@@ -71,6 +71,10 @@ type stillFrame struct {
 	stats stillStats
 	// kept is last frame's record, for still drawables to keep from.
 	kept keptRecord
+	// sizes is what each of the record's buffers used over the last
+	// frames, and shrinks how many times one was made smaller (item 212).
+	sizes   [10]sizing
+	shrinks int
 }
 
 // stillKey is what the standing city is composed over and through that

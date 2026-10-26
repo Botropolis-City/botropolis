@@ -101,6 +101,7 @@ func (g *Game) keepRecord() {
 	k.pathOps, l.pathOps = l.pathOps, k.pathOps
 	k.textOps, l.textOps = l.textOps, k.textOps
 	k.fills, l.fills = l.fills, k.fills
+	g.fitRecord(l, k)
 	k.entries, g.still.entries = g.still.entries, k.entries
 	g.putJournalAside(&k.jn)
 	k.origin = l.origin
