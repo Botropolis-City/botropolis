@@ -49,6 +49,7 @@ var VeilTable = map[string]VeilKind{
 	"Session.Harness":                     VeilKeep,
 	"Session.Title":                       VeilSession,
 	"Session.CWD":                         VeilPath,
+	"Session.District":                    VeilPath,
 	"Session.Branch":                      VeilText,
 	"Session.Model":                       VeilKeep,
 	"Session.Kind":                        VeilKeep,

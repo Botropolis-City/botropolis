@@ -11,7 +11,7 @@ func (s *Scene) HeadlineOf(snapshot state.Snapshot) string {
 	}
 	var sum Summary
 	for _, sess := range snapshot.Sessions {
-		root := ProjectRoot(sess.CWD)
+		root := SessionRoot(sess)
 		if root == "" || s.layout.IsHidden(root) || sess.Packed {
 			continue
 		}

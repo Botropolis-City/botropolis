@@ -127,7 +127,7 @@ func (s *Scene) noteVoyages(snapshot state.Snapshot, now time.Time) {
 			if _, was := s.known[id]; was {
 				continue
 			}
-			root := ProjectRoot(sess.CWD)
+			root := SessionRoot(sess)
 			s.voyages = append(s.voyages, &Voyage{SessionID: id, Title: titleOrID(sess), Project: s.city.DistrictName(root),
 				Root: root, Kind: Arrival, Hue: projectHue(root), StartedAt: now})
 		}
@@ -146,7 +146,7 @@ func (s *Scene) noteVoyages(snapshot state.Snapshot, now time.Time) {
 				v.Kind, v.Handover, v.StartedAt = Departure, v.Progress(now), now
 				continue
 			}
-			root := ProjectRoot(was.CWD)
+			root := SessionRoot(was)
 			s.voyages = append(s.voyages, &Voyage{SessionID: id, Title: titleOrID(was), Project: s.city.DistrictName(root),
 				Root: root, Kind: Departure, Hue: projectHue(root), StartedAt: now})
 		}

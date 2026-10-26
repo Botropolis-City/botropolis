@@ -1090,7 +1090,7 @@ func (s *Scene) Actions() []ActionKind {
 	if s.selected == nil {
 		return nil
 	}
-	root := ProjectRoot(s.selected.Session.CWD)
+	root := SessionRoot(s.selected.Session)
 	var kinds []ActionKind
 	if s.selected.Packed {
 		kinds = append(kinds, ActionUnpack, ActionResume)
@@ -1169,7 +1169,7 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		return Action{}, "select a building first"
 	}
 	b := s.selected
-	root := ProjectRoot(b.Session.CWD)
+	root := SessionRoot(b.Session)
 	name := b.Where
 	switch kind {
 	case ActionAttach, ActionResume:

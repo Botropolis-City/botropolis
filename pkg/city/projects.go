@@ -23,7 +23,7 @@ func (c *City) Projects(layout *Layout) []ProjectRow {
 	byRoot := map[string]*ProjectRow{}
 	var roots []string
 	add := func(b *Building) {
-		root := ProjectRoot(b.Session.CWD)
+		root := SessionRoot(b.Session)
 		row, ok := byRoot[root]
 		if !ok {
 			row = &ProjectRow{Root: root, Name: c.DistrictName(root), Starred: layout != nil && layout.IsStarred(root)}

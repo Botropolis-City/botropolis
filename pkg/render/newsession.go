@@ -59,7 +59,7 @@ func (g *Game) openNewSession() {
 		n.guesser, n.recent = g.groupSource()
 	}
 	if b := g.scene.Selected(); b != nil {
-		n.fields[fieldDir].insert(city.ProjectRoot(b.Session.CWD))
+		n.fields[fieldDir].insert(city.SessionRoot(b.Session))
 		n.focus = fieldPrompt
 	}
 	n.reguess(g)

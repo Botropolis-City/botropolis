@@ -36,7 +36,7 @@ func BuildJournal(snapshot state.Snapshot, pinned []string, reply func(id string
 	byID := map[string]state.Session{}
 	roots := make([]string, 0, len(snapshot.Sessions))
 	for _, s := range snapshot.Sessions {
-		roots = append(roots, ProjectRoot(s.CWD))
+		roots = append(roots, SessionRoot(s))
 	}
 	names := DistrictNames(roots)
 	for _, s := range snapshot.Sessions {
@@ -88,7 +88,7 @@ func journalEntry(title string, members []state.Session, names map[string]string
 	for _, s := range members {
 		e.Sessions = append(e.Sessions, s.ID)
 		e.Pinned = e.Pinned || slices.Contains(pinned, s.ID)
-		where[names[ProjectRoot(s.CWD)]] = true
+		where[names[SessionRoot(s)]] = true
 	}
 	for w := range where {
 		e.Where = append(e.Where, w)

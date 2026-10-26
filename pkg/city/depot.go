@@ -95,7 +95,7 @@ func (d *District) depotCard() Card {
 	for _, row := range d.Rows {
 		n, oldest := 0, time.Time{}
 		for _, b := range d.Buildings {
-			if ProjectRoot(b.Session.CWD) != row.Root {
+			if SessionRoot(b.Session) != row.Root {
 				continue
 			}
 			n++

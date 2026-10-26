@@ -344,7 +344,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	known := layout.HiddenRoots()
 	var folderless []state.Session
 	for _, s := range snapshot.Sessions {
-		root := ProjectRoot(s.CWD)
+		root := SessionRoot(s)
 		if root == "" {
 			folderless = append(folderless, s)
 			continue

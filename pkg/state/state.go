@@ -105,6 +105,9 @@ type Session struct {
 	Subagents         int    `json:"subagents"`
 	SubagentsInFlight int    `json:"subagentsInFlight"`
 	Team              string `json:"team,omitempty"`
+	// District is the directory whose district a temporary-directory
+	// session stands in, when its transcript ties it there (item 272).
+	District string `json:"district,omitempty"`
 	// Group is the id of the group the session belongs to, and
 	// GroupJoined why it joined (item 87).
 	Group       string `json:"group,omitempty"`

@@ -62,4 +62,31 @@ func TestTemporaryDistrict(t *testing.T) {
 			assert.Contains(t, names, "Temporary")
 		})
 	})
+
+	t.Run("when a temporary-directory session is tied to a project's district", func(t *testing.T) {
+		tied := session("t", "/tmp/tmp.Aa11", state.Working)
+		tied.District = cinders + "/.claude/worktrees/glaze"
+		c := build(t, city.NewLayout(), session("p", cinders, state.Working), tied, session("u", "/var/tmp/run-7", state.Working))
+
+		t.Run("it should stand in that district", func(t *testing.T) {
+			assert.Equal(t, cinders, districtOf(t, c, "t").Root)
+		})
+
+		t.Run("and it should leave an untied one to Temporary", func(t *testing.T) {
+			assert.Equal(t, city.TemporaryRoot, districtOf(t, c, "u").Root)
+		})
+	})
+}
+
+func districtOf(t *testing.T, c *city.City, id string) *city.District {
+	t.Helper()
+	for _, d := range c.Districts {
+		for _, b := range d.Buildings {
+			if b.Session.ID == id {
+				return d
+			}
+		}
+	}
+	t.Fatalf("no building for %s", id)
+	return nil
 }

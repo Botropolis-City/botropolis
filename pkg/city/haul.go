@@ -64,7 +64,7 @@ func (s *Scene) noteHauls(now time.Time) {
 		if s.reduced {
 			span = PackFadeFor
 		}
-		s.hauls = append(s.hauls, Haul{SessionID: id, Kind: kind, From: was.at, To: b.Rect.Center(), Since: now, For: span, Hue: projectHue(ProjectRoot(b.Session.CWD))})
+		s.hauls = append(s.hauls, Haul{SessionID: id, Kind: kind, From: was.at, To: b.Rect.Center(), Since: now, For: span, Hue: projectHue(SessionRoot(b.Session))})
 	}
 	s.spots = spots
 }

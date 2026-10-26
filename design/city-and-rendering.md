@@ -2,7 +2,7 @@
 
 | On the map | Stands for | Hover shows |
 | --- | --- | --- |
-| District | a project (cwd root, worktrees folded in; every temporary directory folds into one *Temporary* district, item 272) | active hours, sessions, tokens, PRs |
+| District | a project (cwd root, worktrees folded in; a temporary directory stands in the district its transcript ties it to — a team, a lead, subagent visits, messages, Claude Code’s scratchpad or files it edited — and otherwise in one *Temporary* district, item 272) | active hours, sessions, tokens, PRs |
 | Building | a session | title, branch, model, state, age |
 | District type: residential, shopping, office or industrial | chosen once per district by `district_type` (random from its path, a guess from its top-level file names, or one type for all), kept in the layout and changed from a building's card (item 109) | what kind of buildings it grows |
 | Lit / blinds down / boarded up / overgrown | live / resting / shuttered after `shuttered_days` / overgrown after `overgrown_days` | the rung, and how long it has been quiet |

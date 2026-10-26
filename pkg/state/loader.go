@@ -298,6 +298,7 @@ func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	if err := l.applyGroups(&snapshot, claudeDir, now); err != nil {
 		snapshot.Skipped = append(snapshot.Skipped, claude.SkippedFile{Path: filepath.Join(claudeDir, "history.jsonl"), Err: err})
 	}
+	AssignDistricts(snapshot.Sessions)
 	snapshot.Power = powerSince(now.Add(-PowerWindow), src.Transcripts, src.Stopped)
 	return snapshot, nil
 }
