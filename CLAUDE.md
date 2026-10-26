@@ -71,7 +71,7 @@ Each publish continues the published tap's history, because `brew update` needs 
 **The workflow has no way to start a new history**, by design: it was started once, on 2026-10-15, and a second start would leave every Mac that has tapped it on a history the published one no longer continues. `tools/build-brew-tap --new` exists for local test builds only.
 `make brew-tap brew-tap-test` does the same locally.
 
-To cut one, work down [RELEASING.md](RELEASING.md): edit `VERSION`, add the matching `CHANGELOG.md` section, `make version-check`, push to `main`, let CI finish, soak that build overnight, re-film the frames, run the workflow.
+To cut one, work down [RELEASING.md](RELEASING.md): edit `VERSION`, add the matching `CHANGELOG.md` section, `make version-check`, push to `main`, let CI finish, soak that build overnight, run the validation checklist against it, re-film the frames, run the workflow.
 
 **A workflow that does not parse is not a workflow that fails.**
 GitHub lists it by path rather than by name and fails it before any step runs.

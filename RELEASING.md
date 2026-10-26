@@ -17,8 +17,12 @@ From 1.0.0 on, versions follow semver as written.
    It exits 0 within the growth budget of 1 MiB an hour, 1 over it, and 2 when the run is not a measurement, such as a screen that blanked; only 0 lets the release go on.
    Write its numbers up as a report in `performance/reports/`, following `performance/templates/report.md`, and file a numbered item for anything that grows.
    The method and its traps are run 8 in `performance/method.md`.
-5. **Re-film the demo and website frames, once for the release** (Aria's ruling: once per release, not per item).
+5. **Run the validation checklist against that build, and do not ship it with a step failing** (Aria, 2026-10-25, item 246).
+   The checklist is `roadmap/validation-checklist.md` in the meta repository.
+   Its scripted steps already passed in step 3's gate, so what is left is its live steps, which an agent runs against the real `claude` CLI and writes up there, and Aria's steps, A1 to A6, which need her own terminal, notifications and desktop.
+   Install the build from step 3's artifact first, and file a numbered item for anything that fails.
+6. **Re-film the demo and website frames, once for the release** (Aria's ruling: once per release, not per item).
    `make demo-media` films the scenarios here, and `make media-import` in botropolis.city brings the clips onto the website.
    Aria judges the frames before they go out.
-6. **Run the release workflow with `dry_run` first, then for real.**
+7. **Run the release workflow with `dry_run` first, then for real.**
    It reads `VERSION`, refuses a version already tagged, downloads the artifact CI built in step 3, and tags that commit; the package repositories and the Homebrew tap publish from it.
