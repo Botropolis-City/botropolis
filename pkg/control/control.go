@@ -10,9 +10,14 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const claudeBinary = "claude"
+
+// copyTimeout is how long a clipboard tool gets before it is stopped
+// and its failure becomes a notice (item 284).
+const copyTimeout = 2 * time.Second
 
 var ErrUntrusted = errors.New("workspace not trusted")
 
@@ -173,9 +178,13 @@ func (c *Control) Reveal(dir string) error {
 }
 
 // Copy puts text on the clipboard through whichever tool is installed.
+// A tool that has not finished within copyTimeout is stopped, and the
+// copy fails rather than holding up whoever asked.
 func (c *Control) Copy(ctx context.Context, text string) error {
 	for _, tool := range c.desktop.Clipboards {
 		if c.onPath(tool[0]) {
+			ctx, cancel := context.WithTimeout(ctx, copyTimeout)
+			defer cancel()
 			return c.runner.Feed(ctx, text, tool[0], tool[1:]...)
 		}
 	}
@@ -211,16 +220,33 @@ func JobID(id string) (string, error) {
 
 type execRunner struct{}
 
+// Feed waits for the tool to exit and never for its output to close:
+// clipboard tools fork a child that keeps serving the selection with
+// the tool's stdout and stderr still open (item 284). So stdout goes
+// nowhere and stderr to a file, neither of which Wait waits on.
 func (execRunner) Feed(ctx context.Context, input string, name string, args ...string) error {
+	stderr, err := os.CreateTemp("", "botropolis-feed-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(stderr.Name())
+	defer stderr.Close()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdin = strings.NewReader(input)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(string(out)))
+	cmd.Stderr = stderr
+	cmd.WaitDelay = feedWaitDelay
+	keepFromChildren()
+	if err := cmd.Run(); err != nil {
+		said, _ := os.ReadFile(stderr.Name())
+		return fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(string(said)))
 	}
 	return nil
 }
 
+const feedWaitDelay = time.Second
+
 func (execRunner) Run(ctx context.Context, dir string, name string, args ...string) (string, error) {
+	keepFromChildren()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	var stderr strings.Builder
@@ -244,6 +270,7 @@ func (execRunner) Start(dir string, name string, args ...string) error {
 	cmd.Dir = dir
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	keepFromChildren()
 	if err := cmd.Start(); err != nil {
 		return err
 	}

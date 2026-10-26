@@ -158,6 +158,7 @@ func TestBoardStandup(t *testing.T) {
 
 	t.Run("when the board is open and c is pressed", func(t *testing.T) {
 		pressKey(t, g, ebiten.KeyC, false)
+		g.settle()
 
 		t.Run("it should copy the selected row's stand-up", func(t *testing.T) {
 			assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "lib in progress"}}, actor.done)

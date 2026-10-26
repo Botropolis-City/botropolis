@@ -276,6 +276,7 @@ func TestReadingPane(t *testing.T) {
 			r := pane(g)
 			require.Len(t, r.panel.Copies, 2)
 			stays := g.clickOverlay(r.panel.Copies[1].Button.Rect.Center()) && g.reading()
+			g.settle()
 
 			t.Run("the clipboard should hold that prompt's text exactly, even when it wraps over several lines", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: long}}, actor.done)

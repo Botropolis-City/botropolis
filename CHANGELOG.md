@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A group draws its line only when it runs through two districts or more on the map.
   A group whose sessions are all in one district, or whose others are hidden, scripted or packed up, shows its badge on its buildings and no line, and keeps its stand-up and its details.
   Packed-up sessions no longer pull a line out to the depot.
+- **Copying a path or a line no longer freezes the city when the clipboard tool is xclip or xsel.**
+  The whole map used to stop for good, with no frames, no input and no way to quit, because the city waited on a helper the clipboard tool leaves running.
+  A copy now runs beside the map, and a clipboard tool that has not finished within two seconds is stopped, with a notice saying why.
+  Revealing a folder and opening a pull request run beside the map too.
+  Tools the city starts no longer inherit its open files, such as its input devices.
 
 ### Fixed
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"botropolis.city/botropolis/pkg/control"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,8 @@ type fakeRunner struct {
 	stdout  string
 	agents  string
 	failure error
+
+	feedDeadline time.Time
 }
 
 func (f *fakeRunner) Run(_ context.Context, dir string, name string, args ...string) (string, error) {
@@ -44,7 +47,8 @@ func (f *fakeRunner) Interactive(name string, args ...string) error {
 	return f.failure
 }
 
-func (f *fakeRunner) Feed(_ context.Context, input string, name string, args ...string) error {
+func (f *fakeRunner) Feed(ctx context.Context, input string, name string, args ...string) error {
+	f.feedDeadline, _ = ctx.Deadline()
 	f.feeds = append(f.feeds, feed{input, append([]string{name}, args...)})
 	return f.failure
 }
@@ -304,6 +308,16 @@ func TestRevealAndCopy(t *testing.T) {
 
 		t.Run("it should say which to install", func(t *testing.T) {
 			assert.ErrorContains(t, c.Copy(context.Background(), dir), "clipboard")
+		})
+	})
+
+	t.Run("when a clipboard tool is on the path", func(t *testing.T) {
+		runner := &fakeRunner{}
+		copied := time.Now()
+		require.NoError(t, control.New(runner, linux, env(nil), onPath("xclip")).Copy(context.Background(), dir))
+
+		t.Run("it should hand the tool a deadline no more than two seconds away", func(t *testing.T) {
+			assert.WithinDuration(t, copied.Add(control.CopyTimeout), runner.feedDeadline, 100*time.Millisecond)
 		})
 	})
 }

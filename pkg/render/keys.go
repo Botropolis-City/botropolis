@@ -507,9 +507,34 @@ func (g *Game) act(action city.Action) {
 	if action.Kind == city.ActionNone || g.actor == nil {
 		return
 	}
+	if besideTheLoop[action.Kind] {
+		actor := g.actor
+		g.acting.Add(1)
+		go func() {
+			defer g.acting.Done()
+			if err := actor.Do(action); err != nil {
+				g.SetStatus(err.Error())
+			}
+		}()
+		return
+	}
 	if err := g.actor.Do(action); err != nil {
 		g.SetStatus(err.Error())
 	}
+}
+
+// besideTheLoop is every action that hands off to a desktop tool, which
+// the map must never wait on: xclip once froze it for good (item 284).
+var besideTheLoop = map[city.ActionKind]bool{
+	city.ActionCopy:     true,
+	city.ActionCopyPath: true,
+	city.ActionReveal:   true,
+	city.ActionOpenPR:   true,
+}
+
+// settle waits for the desktop calls act sent beside the loop.
+func (g *Game) settle() {
+	g.acting.Wait()
 }
 
 // screenshotPath is where p saves a frame: the Pictures directory when

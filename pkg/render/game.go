@@ -58,6 +58,9 @@ type Actor interface {
 }
 
 type Game struct {
+	// acting counts the desktop calls running beside the loop, so a
+	// clipboard tool that hangs cannot stop the map (item 284).
+	acting sync.WaitGroup
 	// ledger is the statistics store as this window reads it, nil
 	// while statistics are off (item 116).
 	ledger *stats.Ledger

@@ -101,6 +101,7 @@ func TestFinderActs(t *testing.T) {
 			t.Run("and "+sys.mod+"+Y is pressed on "+sys.goos, func(t *testing.T) {
 				g, actor := finderOver(t, 1, live, stopped)
 				sys.press(t, g, ebiten.KeyY)
+				g.settle()
 
 				t.Run("it should copy cd <dir> && claude --resume <id>", func(t *testing.T) {
 					assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "cd /src/kiln && claude --resume stopped"}}, actor.done)
@@ -123,6 +124,7 @@ func TestFinderActs(t *testing.T) {
 				t.Run("and the directory has a space in it", func(t *testing.T) {
 					g, actor := finderOver(t, 0, spaced)
 					sys.press(t, g, ebiten.KeyY)
+					g.settle()
 
 					t.Run("it should quote it", func(t *testing.T) {
 						assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "cd '/src/my kiln' && claude --resume spaced"}}, actor.done)
