@@ -35,6 +35,10 @@ func DistrictNames(roots []string) map[string]string {
 			names[root] = FolderUnknown
 			continue
 		}
+		if root == TemporaryRoot {
+			names[root] = TemporaryName
+			continue
+		}
 		names[root] = root
 		tails(trimmed[root], func(tail string) bool {
 			if ending[tail] == 1 {

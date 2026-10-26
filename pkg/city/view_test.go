@@ -259,7 +259,7 @@ func TestCategoryCap(t *testing.T) {
 		// Five kinds, one session each, so the counts tie and the order is
 		// alphabetical: the first three earn a colour and the rest do not.
 		var sessions []state.Session
-		for i, cwd := range []string{cinders, botropolis, "/tmp/c", "/tmp/d", "/tmp/e"} {
+		for i, cwd := range []string{cinders, botropolis, "/home/u/src/c", "/home/u/src/d", "/home/u/src/e"} {
 			sess := session(string(rune('a'+i)), cwd, state.Working)
 			sess.Model = fmt.Sprintf("model-%d", i)
 			sessions = append(sessions, sess)

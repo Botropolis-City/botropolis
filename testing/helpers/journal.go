@@ -17,7 +17,7 @@ func JournalWeek(t testing.TB, now time.Time) (string, []string) {
 	h := NewHome(t)
 	session := func(i int, dir, prompt, title string, at time.Time) string {
 		id := fmt.Sprintf("91000000-0000-4000-8000-%012d", i)
-		cwd := filepath.Join(h.Path, "src", dir)
+		cwd := filepath.Join("/home/user/src", dir)
 		ts := at.UTC().Format(time.RFC3339Nano)
 		h.Transcript(id, cwd,
 			UserPrompt(id, cwd, ts),

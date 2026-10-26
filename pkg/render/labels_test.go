@@ -43,7 +43,7 @@ func TestFooterVerbsMatchWhatTheyDo(t *testing.T) {
 	scene := city.NewScene(city.NewLayout())
 	scene.Resize(800, 600)
 	scene.SetSnapshot(state.Snapshot{Sessions: []state.Session{
-		{ID: "a", CWD: "/tmp/repo", State: state.Working},
+		{ID: "a", CWD: "/home/u/src/repo", State: state.Working},
 	}})
 	b := scene.City().Buildings()[0]
 

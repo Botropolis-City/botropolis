@@ -32,7 +32,7 @@ func parkedWeek(h *Home, n int, now time.Time, target string) {
 	}
 	for i := range n {
 		id := fmt.Sprintf("00000000-0000-4000-8000-%012d", i)
-		cwd := filepath.Join(h.Path, "work", fmt.Sprintf("project-%02d", i%10))
+		cwd := filepath.Join("/home/user/work", fmt.Sprintf("project-%02d", i%10))
 		title := fmt.Sprintf("Session number %04d", i)
 		at := now.Add(-time.Duration(i+1) * 6 * 24 * time.Hour / time.Duration(n+1))
 		if i == n/2 {

@@ -307,6 +307,9 @@ func ProjectRoot(cwd string) string {
 		return ""
 	}
 	clean := filepath.Clean(cwd)
+	if Temporary(clean) {
+		return TemporaryRoot
+	}
 	if i := strings.Index(clean, "/"+worktreeSegment+"/"); i >= 0 {
 		return clean[:i]
 	}
