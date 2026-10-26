@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A group holds at most 40 sessions, and the daemon logs any it leaves out.
   A ticket, team, branch or file shared by more than 40 sessions no longer groups any of them, and the daemon logs it; on a long history this also takes most of the work out of the first load.
   New session now says *perhaps* rather than *likely* when its only reason is that you were in one of the group's sessions a minute ago.
+- **A city with hundreds of districts opens and stays usable.**
+  On a long history the map used to freeze, and quitting with `q` then `y` could fail while it was busy.
+  A city of 900 districts and 2,400 sessions now draws a frame in about 40 ms where it took 120, and in about 17 ms zoomed in, and lays itself out in under a second where it took 3.4 seconds.
+  The quit prompt now waits for your answer however busy the city is.
 
 ## [0.3.1] - 2026-10-26
 
