@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The daemon uses about a third less CPU on a home with thousands of sessions.**
+  With 2,000 sessions and one of them working, it settles at about 1.7% of a core, inside its 2% budget, where it used 2.5–3%.
+  A session's reply still reaches the map within about 1.6 seconds, and a hook still changes its building at once.
+
 ### Fixed
 
 - **A statistics store the daemon cannot open no longer turns statistics off without a word.**
