@@ -1,8 +1,9 @@
 package render
 
 import (
+	"cmp"
 	"container/heap"
-	"sort"
+	"slices"
 
 	"botropolis.city/botropolis/pkg/city"
 )
@@ -76,12 +77,12 @@ func standingAt(cam *city.Camera, p city.Point, draw func()) drawable {
 // behaviour: whatever cannot be ordered is appended in depth order
 // rather than dropped.
 func order(cam *city.Camera, items []drawable) []drawable {
-	sort.SliceStable(items, func(i, j int) bool { return items[i].depth < items[j].depth })
 	n := len(items)
 	if n < 2 {
 		return items
 	}
-	after := make([][]int32, n)
+	items = byDepth(items)
+	var edges [][2]int32
 	indegree := make([]int32, n)
 	for i := 0; i < n; i++ {
 		for j := i + 1; j < n && items[j].depth <= items[i].far; j++ {
@@ -97,34 +98,49 @@ func order(cam *city.Camera, items []drawable) []drawable {
 				if items[j].level < items[i].level {
 					lo, hi = j, i
 				}
-				after[lo] = append(after[lo], int32(hi))
+				edges = append(edges, [2]int32{int32(lo), int32(hi)})
 				indegree[hi]++
 			case city.BehindTurned(items[i].turned, items[j].turned):
-				after[i] = append(after[i], int32(j))
+				edges = append(edges, [2]int32{int32(i), int32(j)})
 				indegree[j]++
 			case city.BehindTurned(items[j].turned, items[i].turned):
-				after[j] = append(after[j], int32(i))
+				edges = append(edges, [2]int32{int32(j), int32(i)})
 				indegree[i]++
 			}
 		}
 	}
-	ready := &readyQueue{}
+	// Each drawable's successors, filed together in one slice: start[i]
+	// to start[i+1] in next are what must draw after i.
+	start := make([]int32, n+1)
+	for _, e := range edges {
+		start[e[0]+1]++
+	}
+	for i := 1; i <= n; i++ {
+		start[i] += start[i-1]
+	}
+	next := make([]int32, len(edges))
+	fill := slices.Clone(start[:n])
+	for _, e := range edges {
+		next[fill[e[0]]] = e[1]
+		fill[e[0]]++
+	}
+	var ready readyQueue
 	for i := 0; i < n; i++ {
 		if indegree[i] == 0 {
-			*ready = append(*ready, int32(i))
+			ready = append(ready, int32(i))
 		}
 	}
-	heap.Init(ready)
+	heap.Init(&ready)
 	out := make([]drawable, 0, n)
 	drawn := make([]bool, n)
-	for ready.Len() > 0 {
-		i := heap.Pop(ready).(int32)
+	for len(ready) > 0 {
+		i := ready.pop()
 		out = append(out, items[i])
 		drawn[i] = true
-		for _, j := range after[i] {
+		for _, j := range next[start[i]:start[i+1]] {
 			indegree[j]--
 			if indegree[j] == 0 {
-				heap.Push(ready, j)
+				ready.push(j)
 			}
 		}
 	}
@@ -152,3 +168,65 @@ func (q readyQueue) Less(a, b int) bool { return q[a] < q[b] }
 func (q readyQueue) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }
 func (q *readyQueue) Push(x any)        { *q = append(*q, x.(int32)) }
 func (q *readyQueue) Pop() any          { old := *q; n := len(old); x := old[n-1]; *q = old[:n-1]; return x }
+
+// byDepth is items back to front by depth, those of equal depth in the
+// order they came: their positions sorted by depth and then by position,
+// a total order, and the drawables moved once. A stable sort that
+// swapped whole drawables was three quarters of the depth sort at 3,000
+// of them (item 270).
+func byDepth(items []drawable) []drawable {
+	at := make([]int32, len(items))
+	for i := range at {
+		at[i] = int32(i)
+	}
+	slices.SortFunc(at, func(a, b int32) int {
+		if c := cmp.Compare(items[a].depth, items[b].depth); c != 0 {
+			return c
+		}
+		return cmp.Compare(a, b)
+	})
+	sorted := make([]drawable, len(items))
+	for i, j := range at {
+		sorted[i] = items[j]
+	}
+	return sorted
+}
+
+// push and pop are heap.Push and heap.Pop without boxing each index in
+// an interface, which allocated for every drawable a frame (item 270).
+func (q *readyQueue) push(x int32) {
+	*q = append(*q, x)
+	h := *q
+	for i := len(h) - 1; i > 0; {
+		parent := (i - 1) / 2
+		if h[parent] <= h[i] {
+			break
+		}
+		h[parent], h[i] = h[i], h[parent]
+		i = parent
+	}
+}
+
+func (q *readyQueue) pop() int32 {
+	h := *q
+	top := h[0]
+	last := len(h) - 1
+	h[0] = h[last]
+	h = h[:last]
+	for i := 0; ; {
+		least, l, r := i, 2*i+1, 2*i+2
+		if l < len(h) && h[l] < h[least] {
+			least = l
+		}
+		if r < len(h) && h[r] < h[least] {
+			least = r
+		}
+		if least == i {
+			break
+		}
+		h[i], h[least] = h[least], h[i]
+		i = least
+	}
+	*q = h
+	return top
+}
