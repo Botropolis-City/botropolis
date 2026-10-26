@@ -77,6 +77,9 @@ func (s *Scene) noteDrones(now time.Time) {
 		id := b.Session.ID
 		seen[id] = true
 		want := min(b.Session.SubagentsInFlight, MaxDrones)
+		if b.Stall() {
+			want = 0
+		}
 		var live []*flight
 		for _, f := range s.drones[id] {
 			if f.ended.IsZero() {

@@ -629,7 +629,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	for i := range drones {
 		drones[i].moves = true
 	}
-	items := drones
+	items := append(drones, g.queues(&screen, c, cam)...)
 	var airborne []func()
 	if c.Fountain.Area() > 0 {
 		// The fountain sprays: part of the city that animates, not a

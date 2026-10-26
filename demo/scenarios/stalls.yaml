@@ -1,0 +1,82 @@
+name: stalls
+description: Scripted runs, such as claude -p and the Agent SDK, shown as street stalls among the buildings of the sessions people work in, with a queue of customers at a stall for each of its subagents at work.
+clock: "11:00"
+mcp: [tracker]
+usage: {session: 30, weekly: 40}
+sessions:
+  - ref: tidepool/3cab
+    state: working
+    context: 62%
+    ago: 1m
+  - ref: tidepool/50b7
+    state: working
+    scripted: true
+    arrive: 1s
+    replay: {over: 14s}
+  - ref: tidepool/48b5
+    state: resting
+    scripted: true
+    ago: 2h
+  - ref: kiln/4960
+    state: working
+    context: 45%
+    ago: 2m
+  - ref: kiln/b552
+    state: resting
+    scripted: true
+    ago: 40m
+  - ref: quillmark/1276
+    state: resting
+    ago: 3h
+  - ref: quillmark/282a
+    state: working
+    scripted: true
+    ago: 1m
+  - ref: lanternfish/2f68
+    state: needs-you
+    context: 80%
+    ago: 4m
+  - ref: lanternfish/ea12
+    state: resting
+    scripted: true
+    ago: 1h
+shots:
+  - name: residential
+    title: Stalls in a residential district
+    description: Every district here is residential, and each scripted run stands beside the houses as a hot-dog cart.
+    district_type: residential
+    scripted_runs: true
+  - name: shopping
+    title: Stalls in a shopping district
+    description: Every district here is for shopping, and each scripted run is a market stall under a striped awning.
+    district_type: shopping
+    scripted_runs: true
+  - name: office
+    title: Stalls in an office district
+    description: Every district here is offices, and each scripted run is a coffee kiosk.
+    district_type: office
+    scripted_runs: true
+  - name: industrial
+    title: Stalls in an industrial district
+    description: Every district here is industrial, and each scripted run is a food trailer.
+    district_type: industrial
+    scripted_runs: true
+  - name: night
+    title: Stalls at night
+    description: The same streets late in the evening, each stall in its district's own kind.
+    clock: "22:00"
+    scripted_runs: true
+  - name: queue
+    title: A queue at a stall
+    description: A scripted run arrives as a stall, and a customer joins its queue for each subagent it sets to work.
+    district_type: shopping
+    scripted_runs: true
+    record: {seconds: 16, fps: 30}
+    timeline: true
+    script:
+      - {at: 0.5, pan_to: "district:tidepool", over: 2}
+      - {at: 2.5, wheel: 3, over: 2}
+  - name: hidden
+    title: Scripted runs hidden
+    description: The default, with scripted runs off the map; their tokens and spend still count in the power plant.
+    district_type: shopping

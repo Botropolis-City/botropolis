@@ -134,7 +134,7 @@ PIECES = {
                        "boat-speed-j"],
     # Item 109: the city's own buildings, one kind per district type and
     # storey count, modelled in buildings.py.
-    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names() + buildings.course_names() + buildings.site_names() + buildings.ruins_names(),
+    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names() + buildings.course_names() + buildings.site_names() + buildings.ruins_names() + buildings.stall_names() + buildings.customer_names(),
 }
 
 # Kits that are not modelled at one unit per cell are scaled on import:
@@ -352,6 +352,10 @@ def piece(kits, kit, name, at, turn=0.0):
             return buildings.site(name, at)
         if buildings.is_ruins(name):
             return buildings.ruins(name, at)
+        if buildings.is_stall(name):
+            return buildings.stall(name, at)
+        if buildings.is_customer(name):
+            return buildings.customer(name, at)
         raise FileNotFoundError(f"botropolis/{name} is not a piece we model")
     before = set(bpy.context.scene.objects)
     bpy.ops.import_scene.gltf(filepath=model_path(kits, kit, name))

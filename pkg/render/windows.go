@@ -116,7 +116,7 @@ func (a *kitAtlas) prepareKinds(index int, page *image.NRGBA) {
 // it has finished (item 155), and none of a building that is not lived
 // in, is behind its blinds or boarded up, is ruins, or is on its way.
 func (g *Game) windowLights(cam *city.Camera, b *city.Building, rise, on float64) (litWindows, bool) {
-	if !b.Lit || b.Blinds || b.Packed || b.Vacant || b.Session.ConversationGone || on <= 0 || rise <= 0 || g.kits == nil {
+	if !b.Lit || b.Blinds || b.Packed || b.Vacant || !b.Storied() || on <= 0 || rise <= 0 || g.kits == nil {
 		return litWindows{}, false
 	}
 	atlas := g.kits.pick(cam.Zoom)

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/script"
 )
 
@@ -38,6 +39,9 @@ type Shot struct {
 	// GroupLines shows or hides the group lines for this shot; unset, the
 	// city's default stands.
 	GroupLines *bool `yaml:"group_lines"`
+	// ScriptedRuns shows or hides the scripted runs for this shot; unset,
+	// the city's default stands (item 273).
+	ScriptedRuns *bool `yaml:"scripted_runs"`
 	// Clock overrides the scenario's time of day for this shot.
 	Clock string `yaml:"clock"`
 	// Scale is the render scale; 0 follows the virtual display, which
@@ -146,6 +150,13 @@ func cityArgs(shot Shot, home, still, frames string, opts ...cityOption) []strin
 	}
 	if shot.GroupLines != nil {
 		args = append(args, "--group_lines="+strconv.FormatBool(*shot.GroupLines))
+	}
+	if shot.ScriptedRuns != nil {
+		value := config.ScriptedHidden
+		if *shot.ScriptedRuns {
+			value = config.ScriptedShown
+		}
+		args = append(args, "--set", config.KeyScriptedRuns+"="+value)
 	}
 	if shot.Scale > 0 {
 		args = append(args, "--render_scale", strconv.FormatFloat(shot.Scale, 'g', -1, 64))

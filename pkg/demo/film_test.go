@@ -76,6 +76,30 @@ func TestCityArgs(t *testing.T) {
 		})
 	}
 
+	for _, tc := range []struct {
+		scenario string
+		shown    *bool
+		want     []string
+	}{
+		{"shows the scripted runs", ptr(true), []string{"--set", "scripted_runs=shown"}},
+		{"hides the scripted runs", ptr(false), []string{"--set", "scripted_runs=hidden"}},
+		{"says nothing of the scripted runs", nil, nil},
+	} {
+		t.Run("when a still "+tc.scenario+" (item 273)", func(t *testing.T) {
+			args := cityArgs(Shot{Name: "s", ScriptedRuns: tc.shown}, "/h", "/o/s.png", "")
+			var got []string
+			for i, a := range args {
+				if a == "--set" && i+1 < len(args) && strings.HasPrefix(args[i+1], "scripted_runs=") {
+					got = append(got, a, args[i+1])
+				}
+			}
+
+			t.Run("it should pass the setting through only when the shot sets it", func(t *testing.T) {
+				assert.Equal(t, tc.want, got)
+			})
+		})
+	}
+
 	t.Run("when a still asks for a view and keys of its own", func(t *testing.T) {
 		args := cityArgs(Shot{Name: "s", View: "models", Keys: []string{"h"}}, "/h", "/o/s.png", "")
 

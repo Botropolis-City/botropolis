@@ -81,6 +81,21 @@ PALETTE = {
     "drum": "#eceff1",
     "drum-band": "#e0b23c",
     "chute": "#6b7280",
+    "cart": "#e9e4d8",
+    "steel": "#a7adb5",
+    "wood": "#9a6a3f",
+    "wood-light": "#c89a62",
+    "goods-orange": "#e8892c",
+    "goods-green": "#6aa84f",
+    "goods-red": "#c8402f",
+    "kiosk": "#3f6f8f",
+    "cup": "#f4f1ea",
+    "trailer": "#d8c25a",
+    "trousers": "#3b4250",
+    "coat-blue": "#3c6fb0",
+    "coat-plum": "#8a4f7d",
+    "coat-mustard": "#d0a23a",
+    "hair": "#4a3428",
 }
 
 
@@ -481,6 +496,133 @@ def ruins(name, at=(0, 0)):
     for x, y, s in ((-0.12, -0.05, 0.06), (0.1, 0.08, 0.05), (0.0, -0.12, 0.04), (0.16, -0.14, 0.035),
                     (-0.18, 0.12, 0.045), (w / 2 + 0.04, 0.02, 0.04), (-0.05, -d / 2 - 0.05, 0.035), (0.06, d / 2 + 0.04, 0.03)):
         m.box((s, s * 1.2, s * 0.6), (x, y, PLINTH), "rubble" if s > 0.04 else "rubble-dark")
+    m.root.location = Vector((at[0], at[1], 0))
+    m.root["body"] = [round(v, 4) for v in m.body]
+    return m.done()
+
+
+# A scripted run, shown: a street stall a third of a building's footprint
+# and under a storey, one kind per district type (Aria, 2026-10-26, item
+# 273). Its front, where it serves, faces -y, toward the camera's corner.
+STALL_W = 0.24
+
+
+def stall_names():
+    return [f"{t}-stall" for t in TYPES]
+
+
+def is_stall(name):
+    return name in stall_names()
+
+
+def stripes(m, w, d, z, rise, keys, along="x"):
+    """A pitched canvas over w x d at z, striped in bands of keys."""
+    n = 6
+    for k in range(n):
+        if along == "x":
+            x0, x1 = -w / 2 + w * k / n, -w / 2 + w * (k + 1) / n
+            v = [(x0, -d / 2, z), (x1, -d / 2, z), (x1, 0, z + rise), (x0, 0, z + rise),
+                 (x0, d / 2, z), (x1, d / 2, z)]
+            m.mesh(v, [(0, 1, 2, 3), (3, 2, 5, 4)], keys[k % len(keys)])
+
+
+def hot_dog_cart(m):
+    """A two-wheeled cart with a handle and a striped umbrella."""
+    w, d = STALL_W * 0.8, STALL_W * 0.5
+    m.body = (w, d, 0.0)
+    m.box((w, d, 0.1), (0, 0, 0.05), "cart")
+    m.box((w + 0.01, d + 0.01, 0.012), (0, 0, 0.15), "steel")
+    m.box((w * 0.5, d * 0.6, 0.03), (0, 0, 0.162), "steel")
+    for x in (-w / 2 + 0.03, w / 2 - 0.03):
+        m.cylinder(0.035, 0.012, (x, -d / 2 - 0.007, 0.035), "tyre", axis="y", vertices=12)
+    m.box((0.012, 0.012, 0.06), (w / 2 + 0.04, 0, 0.1), "steel")
+    m.box((0.05, 0.012, 0.012), (w / 2 + 0.02, 0, 0.12), "steel")
+    m.box((0.008, 0.008, 0.2), (0, 0, 0.16), "mast")
+    for k in range(8):
+        a0, a1 = 2 * math.pi * k / 8, 2 * math.pi * (k + 1) / 8
+        r, top, rim = 0.16, 0.39, 0.33
+        v = [(0, 0, top), (r * math.cos(a0), r * math.sin(a0), rim), (r * math.cos(a1), r * math.sin(a1), rim)]
+        m.mesh(v, [(0, 1, 2)], "awning-red" if k % 2 == 0 else "sign-white")
+
+
+def bazaar_stall(m):
+    """Four poles, a striped awning, and crates of goods on the counter."""
+    w, d = STALL_W, STALL_W * 0.7
+    m.body = (w, d, 0.0)
+    m.box((w, d, 0.1), (0, 0, 0), "wood")
+    m.box((w + 0.02, d * 0.4, 0.012), (0, -d * 0.3, 0.1), "wood-light")
+    for x in (-w / 2, w / 2):
+        for y in (-d / 2, d / 2):
+            m.box((0.012, 0.012, 0.26), (x, y, 0.0), "wood")
+    stripes(m, w + 0.04, d + 0.06, 0.25, 0.06, ("awning-teal", "sign-white"))
+    for x, key in ((-w * 0.3, "goods-orange"), (0.0, "goods-green"), (w * 0.3, "goods-red")):
+        m.box((0.05, 0.04, 0.03), (x, -d * 0.3, 0.112), "wood-light")
+        m.box((0.042, 0.032, 0.014), (x, -d * 0.3, 0.142), key)
+
+
+def coffee_kiosk(m):
+    """A small booth with a serving hatch, a counter and an awning."""
+    w, d = STALL_W * 0.75, STALL_W * 0.6
+    m.body = (w, d, 0.0)
+    m.box((w + 0.02, d + 0.02, PLINTH * 0.6), (0, 0, 0), "plinth")
+    m.box((w, d, 0.26), (0, 0, PLINTH * 0.6), "kiosk")
+    m.box((w * 0.7, 0.012, 0.09), (0, -d / 2 - 0.004, 0.12), "display")
+    m.box((w * 0.8, 0.05, 0.012), (0, -d / 2 - 0.025, 0.115), "office-roof")
+    m.mesh([(-w / 2 - 0.01, -d / 2, 0.25), (w / 2 + 0.01, -d / 2, 0.25), (w / 2 + 0.01, -d / 2 - 0.07, 0.21), (-w / 2 - 0.01, -d / 2 - 0.07, 0.21)],
+           [(0, 1, 2, 3)], "awning-teal")
+    m.box((w + 0.02, d + 0.02, 0.02), (0, 0, 0.27), "office-roof")
+    m.box((w * 0.6, 0.012, 0.04), (0, 0, 0.29), "sign-white")
+    m.cylinder(0.018, 0.04, (w * 0.25, -d / 2 - 0.035, 0.127), "cup", vertices=10)
+
+
+def food_trailer(m):
+    """A trailer on blocks with a drawbar and a propped-up serving hatch."""
+    w, d = STALL_W, STALL_W * 0.55
+    m.body = (w, d, 0.0)
+    for x in (-w * 0.35, w * 0.35):
+        m.box((0.03, d * 0.8, 0.04), (x, 0, 0), "plinth")
+    m.cylinder(0.03, 0.014, (0, -d / 2 + 0.004, 0.03), "tyre", axis="y", vertices=12)
+    m.box((w, d, 0.2), (0, 0, 0.04), "trailer")
+    m.box((w, d + 0.004, 0.025), (0, 0, 0.1), "stripe")
+    m.box((w * 0.6, 0.012, 0.07), (0, -d / 2 - 0.004, 0.14), "display")
+    hatch = m.box((w * 0.62, 0.008, 0.07), (0, -d / 2 - 0.035, 0.21), "trailer")
+    hatch.rotation_euler = (1.0, 0, 0)
+    m.box((w * 0.66, 0.04, 0.01), (0, -d / 2 - 0.02, 0.13), "steel")
+    m.box((0.1, 0.012, 0.012), (w / 2 + 0.05, 0, 0.05), "steel")
+    m.box((w + 0.01, d + 0.01, 0.015), (0, 0, 0.24), "shed-roof")
+
+
+STALLS = {"residential": hot_dog_cart, "shopping": bazaar_stall, "office": coffee_kiosk, "industrial": food_trailer}
+
+
+def stall(name, at=(0, 0)):
+    m = Model(f"botropolis/{name}")
+    STALLS[name[: -len("-stall")]](m)
+    m.root.location = Vector((at[0], at[1], 0))
+    m.root["body"] = [round(v, 4) for v in m.body]
+    return m.done()
+
+
+# The customers who queue at a stall, one per subagent in flight: a
+# figure a little under half a storey tall, in one of three coats.
+CUSTOMERS = {"customer-a": "coat-blue", "customer-b": "coat-plum", "customer-c": "coat-mustard"}
+
+
+def customer_names():
+    return list(CUSTOMERS)
+
+
+def is_customer(name):
+    return name in CUSTOMERS
+
+
+def customer(name, at=(0, 0)):
+    m = Model(f"botropolis/{name}")
+    m.body = (0.05, 0.04, 0.0)
+    for x in (-0.012, 0.012):
+        m.box((0.016, 0.02, 0.07), (x, 0, 0), "trousers")
+    m.cylinder(0.024, 0.075, (0, 0, 0.07), CUSTOMERS[name], vertices=12)
+    m.cylinder(0.016, 0.03, (0, 0, 0.148), "hair", vertices=12)
     m.root.location = Vector((at[0], at[1], 0))
     m.root["body"] = [round(v, 4) for v in m.body]
     return m.done()

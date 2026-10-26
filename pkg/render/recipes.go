@@ -30,6 +30,17 @@ var (
 		city.OfficeDistrict:      "botropolis/office-ruins",
 		city.IndustrialDistrict:  "botropolis/industrial-ruins",
 	}
+	// What stands for a scripted run, shown: a street stall in its
+	// district's own kind (Aria, 2026-10-26, item 273).
+	kitStalls = map[city.DistrictType]string{
+		city.ResidentialDistrict: "botropolis/residential-stall",
+		city.ShoppingDistrict:    "botropolis/shopping-stall",
+		city.OfficeDistrict:      "botropolis/office-stall",
+		city.IndustrialDistrict:  "botropolis/industrial-stall",
+	}
+	// The customers who queue at a stall, one per subagent in flight,
+	// in a few coats so a queue is not one person repeated.
+	kitCustomers = []string{"botropolis/customer-a", "botropolis/customer-b", "botropolis/customer-c"}
 	// The courses under each kind, one per compaction, the top one first
 	// and each below it a step wider (item 109).
 	kindCourses = map[string][maxCourses]string{
@@ -162,6 +173,16 @@ func hashID(id string) uint32 {
 // the order of city.ContainerHues (item 86).
 var crates = []string{"city-kit-industrial/shipping-container-a", "city-kit-industrial/shipping-container-b", "city-kit-industrial/shipping-container-c"}
 
+// stallPieces is every stall, by district type in the order the city
+// lists them.
+func stallPieces() []string {
+	out := make([]string, 0, len(city.DistrictTypes))
+	for _, kind := range city.DistrictTypes {
+		out = append(out, kitStalls[kind])
+	}
+	return out
+}
+
 // buildingPiece is the piece for a session: its district type's kind
 // for its storeys, or a crate in its district's colour once it is packed
 // up. A stopped session keeps its building on its own lot (item 86).
@@ -174,6 +195,12 @@ func buildingPiece(b *city.Building) string {
 			return ruins
 		}
 		return kitRuins[city.ResidentialDistrict]
+	}
+	if b.Stall() {
+		if stall, ok := kitStalls[b.Type]; ok {
+			return stall
+		}
+		return kitStalls[city.ResidentialDistrict]
 	}
 	column, ok := kinds[b.Type]
 	if !ok {

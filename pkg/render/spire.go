@@ -80,7 +80,7 @@ func (g *Game) spireBase(cam *city.Camera, b *city.Building) city.Point {
 // spireSegments is how many segments a building's spire has: none for a
 // crate or for ruins.
 func spireSegments(b *city.Building) int {
-	if b.Packed || b.Session.ConversationGone {
+	if b.Packed || !b.Storied() {
 		return 0
 	}
 	return max(0, b.Session.Spire)
