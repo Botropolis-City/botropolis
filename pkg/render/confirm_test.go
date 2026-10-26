@@ -45,13 +45,29 @@ func TestConfirm(t *testing.T) {
 		})
 	})
 
-	t.Run("when the window runs out", func(t *testing.T) {
+	t.Run("when the window runs out while the loop keeps updating", func(t *testing.T) {
 		var c confirm
 		c.ask(t0)
+		for range confirmUpdates {
+			c.tick()
+		}
 
 		t.Run("it should stand down on its own", func(t *testing.T) {
 			assert.False(t, c.armed(t0.Add(ConfirmWithin+time.Millisecond)))
 			assert.False(t, c.confirm(t0.Add(ConfirmWithin+time.Millisecond)))
+		})
+	})
+
+	// Item 270: a city rebuilding a snapshot of 900 districts held its
+	// loop for longer than the window, so the y pressed at once was read
+	// after the prompt had stood down, and the city would not quit.
+	t.Run("when q asks and the loop stalls past the window before y is read", func(t *testing.T) {
+		var c confirm
+		c.ask(t0)
+		c.tick()
+
+		t.Run("it should still confirm", func(t *testing.T) {
+			assert.True(t, c.confirm(t0.Add(ConfirmWithin+time.Minute)))
 		})
 	})
 }

@@ -641,6 +641,7 @@ func (g *Game) Update() error {
 		return nil
 	}
 	frames.tick()
+	g.quit.tick()
 	g.mu.Lock()
 	pending := g.pending
 	g.pending = nil
