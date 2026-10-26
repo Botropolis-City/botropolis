@@ -200,6 +200,12 @@ func (g *Game) keep(k *keptRecord, i int, shift image.Point) {
 	for range e.world {
 		g.drawing.world()
 	}
+	if was := &k.entries[i]; was.jn.quiet() && was.lights[0] == was.lights[1] {
+		// It noted nothing besides its world draws: nothing to do again.
+		e.jn = noteLog{}
+		e.kept = true
+		return
+	}
 	e.jn, e.lights = g.replay(&k.jn, &k.entries[i], shift)
 	e.kept = true
 }
@@ -509,6 +515,35 @@ func pixelShift(from, to city.Point) (image.Point, bool) {
 // it, the fade group it is recorded into, at night the windows lit
 // before it, and for a building the look cache and its pages.
 func (g *Game) frameKey(kind recordKind, key uint64) uint64 {
+	if !g.frameBase.ok {
+		g.frameBase = g.frameBaseKey()
+	}
+	night := uint64(0)
+	if g.lightsOn {
+		// What a sprite cuts of the lights depends on the windows lit
+		// before it, which are other drawables'.
+		night = g.litHash | 1
+	}
+	house := uint64(0)
+	if kind == kindHouse {
+		house = g.frameBase.house
+	}
+	return keyMix(g.frameBase.all, uint64(kind), key, uint64(g.rec.fade), uint64(g.rec.fades), night, house) | 1
+}
+
+// frameBase is what every drawable of a frame reads alike, hashed once
+// a frame: all of them, and a building besides.
+type frameBase struct {
+	all, house uint64
+	ok         bool
+}
+
+// frameBaseKey hashes what every drawable of the frame reads alike: the
+// camera but for where it is, the kits, reduced motion and whether a
+// view drains the colour; and for a building the look cache and its
+// pages, since a look drawn straight for want of room is drawn afresh
+// once a page starts again, and a new cache holds none of the looks.
+func (g *Game) frameBaseKey() frameBase {
 	var h maphash.Hash
 	h.SetSeed(inkSeed)
 	var b [8]byte
@@ -517,8 +552,6 @@ func (g *Game) frameKey(kind recordKind, key uint64) uint64 {
 		h.Write(b[:])
 	}
 	cam := g.keyCam
-	put(uint64(kind))
-	put(key)
 	put(math.Float64bits(cam.Zoom))
 	put(uint64(cam.Heading))
 	put(uint64(cam.Projection))
@@ -529,27 +562,15 @@ func (g *Game) frameKey(kind recordKind, key uint64) uint64 {
 	if g.viewing() && !g.faultyKeys {
 		put(2)
 	}
-	put(uint64(g.rec.fade))
-	put(uint64(g.rec.fades))
-	if g.lightsOn {
-		// What a sprite cuts of the lights depends on the windows lit
-		// before it, which are other drawables'.
-		put(3)
-		put(g.litHash)
+	house := uint64(uintptr(unsafe.Pointer(g.looks)))
+	house = keyMix(house, uint64(uintptr(unsafe.Pointer(g.lookPages))))
+	if g.lookPages != nil {
+		house = keyMix(house, uint64(g.lookPages.generation))
 	}
-	if kind == kindHouse {
-		// A look drawn straight for want of room is drawn afresh once a
-		// page starts again; a new cache holds none of the looks drawn.
-		put(uint64(uintptr(unsafe.Pointer(g.looks))))
-		put(uint64(uintptr(unsafe.Pointer(g.lookPages))))
-		if g.lookPages != nil {
-			put(uint64(g.lookPages.generation))
-		}
-		if g.noLookCache {
-			put(4)
-		}
+	if g.noLookCache {
+		house = keyMix(house, 4)
 	}
-	return h.Sum64() | 1
+	return frameBase{all: h.Sum64(), house: house, ok: true}
 }
 
 // kitsGeneration counts the times the kits' resident pages changed, so

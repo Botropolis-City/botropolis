@@ -305,8 +305,10 @@ type Game struct {
 	// jn is the frame's journal buffers, litHash the panes lit so far
 	// this frame, and litFrame whether it lays lights (item 212).
 	jn journalBuffers
-	// houseWide is what every building reads alike this frame.
+	// houseWide is what every building reads alike this frame, and
+	// frameBase what every drawable does, hashed once a frame.
 	houseWide uint64
+	frameBase frameBase
 	litHash   uint64
 	litFrame  bool
 	lotKeys   map[*city.Building]uint64

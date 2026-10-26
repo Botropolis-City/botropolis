@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -523,6 +524,32 @@ func TestASignLaidOut(t *testing.T) {
 
 			t.Run("it should stand where laying it out afresh puts it", func(t *testing.T) {
 				assert.LessOrEqual(t, apart, keepTolerance)
+			})
+		})
+	}
+}
+
+// Item 212: a kept entry whose journal is quiet is not replayed, so a
+// journal that noted anything at all must not read as quiet.
+func TestAQuietJournal(t *testing.T) {
+	typ := reflect.TypeFor[noteLog]()
+	for i := range typ.NumField() {
+		f := typ.Field(i)
+		t.Run("when a journal noted only its "+f.Name, func(t *testing.T) {
+			var j noteLog
+			f := reflect.ValueOf(&j).Elem().Field(i)
+			v := reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem()
+			switch v.Kind() {
+			case reflect.Int:
+				v.SetInt(1)
+			case reflect.Array:
+				v.Index(1).SetInt(1)
+			default:
+				t.Fatalf("a %s the test cannot set", v.Kind())
+			}
+
+			t.Run("it should not be quiet", func(t *testing.T) {
+				assert.False(t, j.quiet())
 			})
 		})
 	}

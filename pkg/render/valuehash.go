@@ -5,7 +5,9 @@ import (
 	"hash/maphash"
 	"math"
 	"reflect"
+	"sync"
 	"time"
+	"unsafe"
 )
 
 // valueHash hashes v by value, every field of it, exported or not, and
@@ -13,12 +15,170 @@ import (
 // drawn from joins its key without anyone listing it (item 212). A map
 // hashes the same whatever order it is walked in; a time is its instant
 // and its location's identity.
+//
+// It hashes through a plan made once for v's type, which reads v's
+// memory as walking it by reflection would and writes the same; a map,
+// an interface and what neither covers are walked by reflection still.
 func valueHash(v any) uint64 {
+	var h maphash.Hash
+	h.SetSeed(inkSeed)
+	w := valueWriter{h: &h}
+	rv := reflect.ValueOf(v)
+	if !rv.IsValid() {
+		w.put(0)
+		return h.Sum64()
+	}
+	at := reflect.New(rv.Type())
+	at.Elem().Set(rv)
+	planOf(rv.Type())(&w, at.UnsafePointer())
+	return h.Sum64()
+}
+
+// reflectHash is valueHash walking v by reflection, as its plans must.
+func reflectHash(v any) uint64 {
 	var h maphash.Hash
 	h.SetSeed(inkSeed)
 	w := valueWriter{h: &h}
 	w.value(reflect.ValueOf(v))
 	return h.Sum64()
+}
+
+// hashPlan writes the value of its type at p.
+type hashPlan func(w *valueWriter, p unsafe.Pointer)
+
+// planCell holds a type's plan, so a type that refers to itself can be
+// planned before its plan is done.
+type planCell struct{ plan hashPlan }
+
+var plans sync.Map // reflect.Type → *planCell
+
+// planOf is t's plan, made the first time it is asked for.
+func planOf(t reflect.Type) hashPlan {
+	if c, ok := plans.Load(t); ok {
+		cell := c.(*planCell)
+		if cell.plan != nil {
+			return cell.plan
+		}
+		return func(w *valueWriter, p unsafe.Pointer) { cell.plan(w, p) }
+	}
+	cell := &planCell{}
+	if c, loaded := plans.LoadOrStore(t, cell); loaded {
+		cell = c.(*planCell)
+		return func(w *valueWriter, p unsafe.Pointer) { cell.plan(w, p) }
+	}
+	cell.plan = makePlan(t)
+	return cell.plan
+}
+
+func makePlan(t reflect.Type) hashPlan {
+	if t == timeType {
+		wall, ext, loc := t.Field(0).Offset, t.Field(1).Offset, t.Field(2).Offset
+		return func(w *valueWriter, p unsafe.Pointer) {
+			w.put(*(*uint64)(unsafe.Add(p, wall)))
+			w.put(uint64(*(*int64)(unsafe.Add(p, ext))))
+			w.put(uint64(*(*uintptr)(unsafe.Add(p, loc))))
+		}
+	}
+	switch t.Kind() {
+	case reflect.Bool:
+		return func(w *valueWriter, p unsafe.Pointer) {
+			if *(*bool)(p) {
+				w.put(1)
+			} else {
+				w.put(0)
+			}
+		}
+	case reflect.Int:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(int64(*(*int)(p)))) }
+	case reflect.Int8:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(int64(*(*int8)(p)))) }
+	case reflect.Int16:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(int64(*(*int16)(p)))) }
+	case reflect.Int32:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(int64(*(*int32)(p)))) }
+	case reflect.Int64:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(*(*int64)(p))) }
+	case reflect.Uint:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(*(*uint)(p))) }
+	case reflect.Uint8:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(*(*uint8)(p))) }
+	case reflect.Uint16:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(*(*uint16)(p))) }
+	case reflect.Uint32:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(*(*uint32)(p))) }
+	case reflect.Uint64:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(*(*uint64)(p)) }
+	case reflect.Uintptr:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(uint64(*(*uintptr)(p))) }
+	case reflect.Float32:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(math.Float64bits(float64(*(*float32)(p)))) }
+	case reflect.Float64:
+		return func(w *valueWriter, p unsafe.Pointer) { w.put(math.Float64bits(*(*float64)(p))) }
+	case reflect.String:
+		return func(w *valueWriter, p unsafe.Pointer) {
+			s := *(*string)(p)
+			w.put(uint64(len(s)))
+			w.h.WriteString(s)
+		}
+	case reflect.Struct:
+		type field struct {
+			off  uintptr
+			plan hashPlan
+		}
+		fields := make([]field, t.NumField())
+		for i := range fields {
+			f := t.Field(i)
+			fields[i] = field{f.Offset, planOf(f.Type)}
+		}
+		return func(w *valueWriter, p unsafe.Pointer) {
+			for _, f := range fields {
+				f.plan(w, unsafe.Add(p, f.off))
+			}
+		}
+	case reflect.Array:
+		elem, size, n := planOf(t.Elem()), t.Elem().Size(), t.Len()
+		return func(w *valueWriter, p unsafe.Pointer) {
+			for i := range n {
+				elem(w, unsafe.Add(p, uintptr(i)*size))
+			}
+		}
+	case reflect.Slice:
+		elem, size := planOf(t.Elem()), t.Elem().Size()
+		return func(w *valueWriter, p unsafe.Pointer) {
+			data, n := *(*unsafe.Pointer)(p), *(*int)(unsafe.Add(p, unsafe.Sizeof(uintptr(0))))
+			if data == nil {
+				w.put(math.MaxUint64)
+				return
+			}
+			w.put(uint64(n))
+			for i := range n {
+				elem(w, unsafe.Add(data, uintptr(i)*size))
+			}
+		}
+	case reflect.Pointer:
+		elem := t.Elem()
+		return func(w *valueWriter, p unsafe.Pointer) {
+			to := *(*unsafe.Pointer)(p)
+			if to == nil {
+				w.put(0)
+				return
+			}
+			at := uintptr(to)
+			if w.seen[at] {
+				w.put(2)
+				return
+			}
+			if w.seen == nil {
+				w.seen = map[uintptr]bool{}
+			}
+			w.seen[at] = true
+			w.put(1)
+			planOf(elem)(w, to)
+			delete(w.seen, at)
+		}
+	}
+	// A map, an interface, a func, a channel: walked by reflection.
+	return func(w *valueWriter, p unsafe.Pointer) { w.value(reflect.NewAt(t, p).Elem()) }
 }
 
 type valueWriter struct {

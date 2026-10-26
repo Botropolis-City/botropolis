@@ -48,6 +48,14 @@ type noteLog struct {
 	runs, hits, misses int
 }
 
+// quiet is whether a drawable noted nothing but its world draws.
+func (j noteLog) quiet() bool {
+	return j.looks.n() == 0 && j.lookKeys.n() == 0 && j.words.n() == 0 && j.glows.n() == 0 &&
+		j.litRects.n() == 0 && j.cutPoints.n() == 0 && j.cutVertices.n() == 0 && j.cutIndices.n() == 0 &&
+		j.windows == 0 && j.landmarks == 0 && j.punches == 0 && j.cuts == 0 && j.buildings == 0 &&
+		j.runs == 0 && j.hits == 0 && j.misses == 0
+}
+
 // journalBuffers is what a frame's drawables noted, kept beside the
 // game's own buffers for the frame after to take from.
 type journalBuffers struct {

@@ -563,6 +563,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.drawing.reset()
 	g.keepRecord()
 	g.houseWide = g.houseWideKey()
+	g.frameBase.ok = false
 	g.recorder().reset()
 	g.rec.origin = cameraOrigin(cam)
 	g.keyCam = cam
