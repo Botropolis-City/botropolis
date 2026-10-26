@@ -142,10 +142,12 @@ type Recorder struct {
 	// Image is the recorder image's ID, logged on every prompt, so a
 	// recording made in the wrong image shows afterwards (item 105).
 	Image string
-	// Terminal runs a team session, and Team holds it to its limits.
-	Terminal Terminal
-	Team     TeamLimits
-	Log      io.Writer
+	// Terminal runs a team session, and Team holds it to its limits on
+	// TeamClock, the real clock when nil.
+	Terminal  Terminal
+	Team      TeamLimits
+	TeamClock TeamClock
+	Log       io.Writer
 	// Progress is told of each prompt as it starts and ends.
 	Progress *Progress
 }

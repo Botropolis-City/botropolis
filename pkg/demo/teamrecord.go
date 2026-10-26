@@ -36,6 +36,29 @@ type TeamLimits struct {
 // DefaultTeamLimits are a team recording's limits when none are given.
 var DefaultTeamLimits = TeamLimits{Poll: 2 * time.Second, Quiet: 30 * time.Second, Time: 10 * time.Minute}
 
+// TeamClock is what a team recording reads the time from and waits on
+// between its polls (item 254).
+type TeamClock interface {
+	Now() time.Time
+	Wait(ctx context.Context, d time.Duration) error
+}
+
+// realTeamClock is the wall clock.
+type realTeamClock struct{}
+
+func (realTeamClock) Now() time.Time { return time.Now() }
+
+func (realTeamClock) Wait(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
+}
+
 // teamsEnv turns agent teams on for the run.
 const teamsEnv = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1"
 
@@ -53,7 +76,11 @@ func (r Recorder) recordTeam(ctx context.Context, project string, s ScriptedSess
 	if limits == (TeamLimits{}) {
 		limits = DefaultTeamLimits
 	}
-	start := time.Now()
+	clock := r.TeamClock
+	if clock == nil {
+		clock = realTeamClock{}
+	}
+	start := clock.Now()
 	// since allows for a filesystem whose times are coarser than the clock.
 	since := start.Add(-2 * time.Second)
 	run, err := r.Terminal(ctx, filepath.Join(r.Src, project), teamArgs(s, id, s.Prompts[0], r.MCPConfig), []string{teamsEnv})
@@ -62,20 +89,16 @@ func (r Recorder) recordTeam(ctx context.Context, project string, s ScriptedSess
 	}
 	defer func() { _ = run.Stop() }()
 	changed, last := start, ""
-	tick := time.NewTicker(limits.Poll)
-	defer tick.Stop()
 	for {
-		select {
-		case <-ctx.Done():
-			return entry, fmt.Errorf("interrupted, so the run was stopped: %w", ctx.Err())
-		case <-tick.C:
+		if err := clock.Wait(ctx, limits.Poll); err != nil {
+			return entry, fmt.Errorf("interrupted, so the run was stopped: %w", err)
 		}
 		written, err := r.writtenSince(since)
 		if err != nil {
 			return entry, err
 		}
 		files := r.transcripts(project, id, written)
-		now := time.Now()
+		now := clock.Now()
 		if sig := signature(files); sig != last {
 			last, changed = sig, now
 		}
