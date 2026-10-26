@@ -923,9 +923,22 @@ func (g *Game) notePointer() city.Point {
 		g.scene.PointerAway()
 		return cursor
 	}
+	// A scrim over the city puts it out of reach: the pointer resting on a
+	// notice hovered whatever stood behind it (item 264).
+	if g.cityCovered() {
+		g.scene.PointerAway()
+		return cursor
+	}
 	g.scene.PointerMove(cursor)
 	g.hoverSprites(cursor)
 	return cursor
+}
+
+// cityCovered is whether something with a full scrim is over the city:
+// a modal overlay, or the settings, the breakdown, the timeline or the
+// view key. The quit prompt is a footer line and covers nothing.
+func (g *Game) cityCovered() bool {
+	return g.overlays.top() != nil || g.settingsOpen || g.breakdown || g.timeline || g.viewKey
 }
 
 // keyByName finds an Ebitengine key by its name, case-insensitively:
