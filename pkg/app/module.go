@@ -596,6 +596,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		HideGroupLines: !c.config.GroupLines,
 		HideLabels:     !c.config.Labels,
 		ShowGone:       c.config.GoneSessions,
+		ShowScripted:   c.config.ScriptedRuns,
 		GroupSource:    groupSource(c.config),
 		JournalHours:   c.config.JournalHours,
 		LastCloseUp:    func() (state.CloseUp, error) { return state.LoadCloseUp(state.CloseUpPath()) },

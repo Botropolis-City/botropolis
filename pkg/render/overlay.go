@@ -383,14 +383,30 @@ func (f *finder) follow(g *Game, atOnce bool) {
 	if dispatch == nil {
 		dispatch = func(run func()) { go run() }
 	}
+	scripted := g.scene.Shown().Scripted
 	dispatch(func() {
 		hits, err := search(find.Query{Words: query, Limit: findLimit})
 		if err != nil {
 			g.SetStatus(err.Error())
 			return
 		}
-		f.deliver(query, hits)
+		f.deliver(query, onMapHits(hits, scripted))
 	})
+}
+
+// onMapHits leaves out the sessions the map leaves out, so the finder
+// never offers one it cannot show (item 273).
+func onMapHits(hits []find.Hit, scripted bool) []find.Hit {
+	if scripted {
+		return hits
+	}
+	kept := hits[:0:0]
+	for _, h := range hits {
+		if !h.Scripted {
+			kept = append(kept, h)
+		}
+	}
+	return kept
 }
 
 // openAnswer opens the top result of the search Enter was waiting on,

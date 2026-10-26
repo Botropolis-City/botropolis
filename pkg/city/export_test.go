@@ -51,7 +51,7 @@ func (s *Scene) Ground() any { return s.ground }
 // FromScratch is the scene's snapshot built from nothing, facing the
 // way the scene does.
 func (s *Scene) FromScratch() *City {
-	c := build(s.snapshot, s.layout, s.ladder, false, s.ledger, nil)
+	c := build(s.snapshot, s.layout, s.ladder, false, s.ledger, nil, s.offMap)
 	c.Face(s.camera.Heading)
 	return c
 }

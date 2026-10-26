@@ -124,6 +124,9 @@ type City struct {
 	// folderless is the sessions with no known folder: on no district,
 	// still counted in the statistics (item 139).
 	folderless []state.Session
+	// offMap is the sessions Shown leaves off the map: still counted in
+	// the statistics (item 273).
+	offMap []state.Session
 	// memo is what the scene remembers between snapshots, or nil for a
 	// city built from nothing (item 197).
 	memo *memo
@@ -324,18 +327,18 @@ func Build(snapshot state.Snapshot, layout *Layout) *City {
 // session keeps its lot in its own district and climbs the ladder there,
 // so a district stays while it has any session at all (item 86).
 func BuildWith(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds) *City {
-	return build(snapshot, layout, ladder, false, nil, nil)
+	return build(snapshot, layout, ladder, false, nil, nil, nil)
 }
 
 // BuildWithLedger builds the city reading its usage from a statistics
 // store.
 func BuildWithLedger(snapshot state.Snapshot, layout *Layout, ledger Ledger) *City {
-	return build(snapshot, layout, state.DefaultThresholds, false, ledger, nil)
+	return build(snapshot, layout, state.DefaultThresholds, false, ledger, nil, nil)
 }
 
 // build builds the city; keepDepot holds the depot open, empty, while a
 // truck is still leaving it with the last crate.
-func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool, ledger Ledger, m *memo) *City {
+func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, keepDepot bool, ledger Ledger, m *memo, offMap []state.Session) *City {
 	byRoot := map[string][]state.Session{}
 	packed := map[string][]state.Session{}
 	known := layout.HiddenRoots()
@@ -365,7 +368,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		return names[roots[i]] < names[roots[j]]
 	})
 
-	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless, memo: m}
+	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless, offMap: offMap, memo: m}
 	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
 		city.Plant.Day = city.Breakdown(LastDay)

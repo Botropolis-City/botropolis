@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On a long history the map used to freeze, and quitting with `q` then `y` could fail while it was busy.
   A city of 900 districts and 2,400 sessions now draws a frame in about 40 ms where it took 120, and in about 17 ms zoomed in, and lays itself out in under a second where it took 3.4 seconds.
   The quit prompt now waits for your answer however busy the city is.
+- **Scripted runs are no longer drawn as buildings.**
+  A session a program started, such as `claude -p` or the Agent SDK, used to stand as a building like one someone works in, so a machine that runs Claude from scripts filled with them.
+  They are off the map and out of the finder by default, and their tokens and spend still count in the power plant, the strip and the statistics.
+  The settings panel's *scripted runs* row, or `scripted_runs = "shown"`, brings them back at once.
 
 ## [0.3.1] - 2026-10-26
 

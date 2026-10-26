@@ -87,6 +87,8 @@ type Options struct {
 	// ShowGone keeps sessions whose transcript is gone on the map
 	// (item 274).
 	ShowGone bool
+	// ShowScripted draws the sessions a program started (item 273).
+	ShowScripted bool
 	// GroupSource builds what New session guesses a group from, for the
 	// sessions on the map: the history detected once, and the recently
 	// used directories.
@@ -216,7 +218,7 @@ func Run(ctx context.Context, opts Options) error {
 	scene.SetDetail(opts.Detail)
 	scene.SetGroupLines(!opts.HideGroupLines)
 	scene.SetLabels(!opts.HideLabels)
-	scene.SetShown(city.Shown{Gone: opts.ShowGone})
+	scene.SetShown(city.Shown{Gone: opts.ShowGone, Scripted: opts.ShowScripted})
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
 	if opts.Ladder != (state.Thresholds{}) {
 		scene.SetLadder(opts.Ladder)

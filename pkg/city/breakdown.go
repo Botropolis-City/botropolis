@@ -183,16 +183,20 @@ func (c *City) memoryBreakdown(w Window, reason string) Breakdown {
 		add(byProject, bld.Where, u)
 		add(bySession, bld.Session.ID, u)
 	}
-	for _, s := range c.folderless {
-		u := counters(windowUsage(&Building{Session: s}, w, c.Time))
-		buckets = append(buckets, s.Hourly)
-		if u == (stats.Counters{}) {
-			continue
+	unplaced := func(sessions []state.Session, project string) {
+		for _, s := range sessions {
+			u := counters(windowUsage(&Building{Session: s}, w, c.Time))
+			buckets = append(buckets, s.Hourly)
+			if u == (stats.Counters{}) {
+				continue
+			}
+			b.Counters = b.Counters.Add(u)
+			add(byProject, project, u)
+			add(bySession, s.ID, u)
 		}
-		b.Counters = b.Counters.Add(u)
-		add(byProject, FolderUnknown, u)
-		add(bySession, s.ID, u)
 	}
+	unplaced(c.folderless, FolderUnknown)
+	unplaced(c.offMap, OffMap)
 	b.Cost = stats.Cost{Unpriced: b.Counters.Messages}
 	b.ByProject, b.BySession = shares(byProject), shares(bySession)
 	b.Series = series(w, c.Time, buckets...)

@@ -61,7 +61,7 @@ func place(corpus Corpus, scenario Scenario, i int, p Placement, dir string, now
 	}
 	record := map[string]any{
 		"version":    demoVersion,
-		"entrypoint": "cli",
+		"entrypoint": p.entrypoint(),
 	}
 	var at placed
 	switch {
@@ -268,13 +268,20 @@ type overlay struct {
 	pace time.Duration
 }
 
-func (o overlay) rewrite(lines [][]byte) [][]byte {
-	if len(o.replace) == 0 && o.Branch == "" {
-		return lines
+// entrypoint is how the staged session says it was started.
+func (p Placement) entrypoint() string {
+	if p.Scripted {
+		return "sdk-cli"
 	}
+	return "cli"
+}
+
+func (o overlay) rewrite(lines [][]byte) [][]byte {
+	to := `"entrypoint":"` + o.entrypoint() + `"`
+	replace := append([][2]string{{`"entrypoint":"sdk-cli"`, to}, {`"entrypoint":"cli"`, to}}, o.replace...)
 	out := make([][]byte, len(lines))
 	for i, line := range lines {
-		for _, r := range o.replace {
+		for _, r := range replace {
 			line = bytes.ReplaceAll(line, []byte(r[0]), []byte(r[1]))
 		}
 		out[i] = o.onBranch(line)

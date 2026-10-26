@@ -69,6 +69,10 @@ type Placement struct {
 	// the building's height. Recorded sessions are short and efficient
 	// and all stop under 15%, which would draw every building alike.
 	Context string `yaml:"context"`
+	// Scripted stages the session as one a program ran, claude -p or the
+	// Agent SDK; otherwise it is someone's, whatever its recording says
+	// (item 273).
+	Scripted bool `yaml:"scripted"`
 
 	// A clip that plays the timeline sees the session arrive Arrive
 	// into it, leave at Leave, and change as Changes say. A still, and
