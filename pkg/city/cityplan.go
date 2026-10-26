@@ -504,6 +504,72 @@ func (p CityPlan) ToScreen(world Point) Point { return p.frame.toScreen(world) }
 // slow one carries on into the plan.
 const PlanDebounce = 350 * time.Millisecond
 
+// PlanZoomSteps is the plan's own wheel ladder: 1 is the plan fitted to
+// the window, and each step after it magnifies that (item 282).
+var PlanZoomSteps = []float64{1, 1.5, 2, 3, 4, 6, 8}
+
+// PlanZoom is how far the plan is magnified past its fitted widest.
+func (s *Scene) PlanZoom() float64 {
+	if s.planZoom <= 0 {
+		return PlanZoomSteps[0]
+	}
+	return s.planZoom
+}
+
+// wheelPlan zooms the open plan about the pointer, and a rested notch
+// in at its closest returns to the map.
+func (s *Scene) wheelPlan(cursor Point, amount float64, rested bool) {
+	z := s.PlanZoom()
+	last := PlanZoomSteps[len(PlanZoomSteps)-1]
+	if amount > 0 && rested && z >= last-zoomEpsilon {
+		s.closePlanAt(cursor)
+		return
+	}
+	for i := 0; i < int(math.Abs(amount)+0.5); i++ {
+		z = planZoomStep(z, amount > 0)
+	}
+	world := s.CityPlan().ToWorld(cursor)
+	s.planZoom = z
+	s.planShift = s.planShift.Add(cursor.Sub(s.CityPlan().ToScreen(world)))
+}
+
+// planZoomStep is the next step along PlanZoomSteps, in or out, held to its
+// ends.
+func planZoomStep(z float64, in bool) float64 {
+	if in {
+		for _, step := range PlanZoomSteps {
+			if step > z+zoomEpsilon {
+				return step
+			}
+		}
+		return PlanZoomSteps[len(PlanZoomSteps)-1]
+	}
+	for i := len(PlanZoomSteps) - 1; i >= 0; i-- {
+		if PlanZoomSteps[i] < z-zoomEpsilon {
+			return PlanZoomSteps[i]
+		}
+	}
+	return PlanZoomSteps[0]
+}
+
+// panPlan moves the zoomed plan with the pointer; CityPlan holds it so
+// the sheet stays across the window.
+func (s *Scene) panPlan(delta Point) {
+	s.planShift = s.planShift.Add(delta)
+}
+
+// heldShift is the furthest a plan magnified z times about centre may be
+// moved and still cover area, the sheet it was fitted to.
+func heldShift(shift Point, area Rect, centre Point, z float64) Point {
+	hold := func(v, lo, hi, c float64) float64 {
+		return math.Min((lo-c)*(1-z), math.Max((hi-c)*(1-z), v))
+	}
+	return Point{
+		X: hold(shift.X, area.Min.X, area.Max.X, centre.X),
+		Y: hold(shift.Y, area.Min.Y, area.Max.Y, centre.Y),
+	}
+}
+
 // PlanFade is how long, in seconds, the map and the plan take to
 // cross-fade into each other at a liveliness level.
 func PlanFade(l Liveliness) float64 {
@@ -570,6 +636,7 @@ func (s *Scene) openPlan() {
 		s.clamp()
 	}
 	s.planOpen = true
+	s.planZoom, s.planShift = 0, Point{}
 	s.planFrom = *s.camera
 	s.zoomTarget = 0
 	if s.instant {
@@ -732,6 +799,21 @@ func (s *Scene) CityPlan() CityPlan {
 			fit(d.Rect.Center(), inner)
 		}
 	}
+	// The plan's own zoom magnifies the fitted sheet about its centre,
+	// and its pan is held so the sheet still covers the window.
+	z := s.PlanZoom()
+	s.planShift = heldShift(s.planShift, area, frame.centre, z)
+	frame.scale *= z
+	frame.centre = frame.centre.Add(s.planShift)
+	// Badges whose districts lie off the window are left off it, and
+	// whether badges are compact is decided by those in view.
+	var shown []*District
+	for _, d := range districts {
+		if area.Contains(frame.toScreen(d.Rect.Center())) {
+			shown = append(shown, d)
+		}
+	}
+	compact = float64(len(shown))*PlanBadgeWidth*PlanBadgeHeight > planFullCover*area.Area()
 
 	plan := CityPlan{Area: area, Legend: legend, frame: frame, CoastShape: s.planCoast.shape}
 	for _, w := range coast {
@@ -754,7 +836,7 @@ func (s *Scene) CityPlan() CityPlan {
 	}
 	tones := map[state.Move]bool{}
 	rects := make([]Rect, 0, len(districts))
-	for _, d := range districts {
+	for _, d := range shown {
 		sign := d.Sign()
 		b := PlanBadge{District: d, Name: sign.Name, Move: sign.Move, Tone: sign.Tone, Sessions: len(d.Buildings), Compact: compact}
 		for _, bd := range d.Buildings {
@@ -801,6 +883,11 @@ func (s *Scene) CityPlan() CityPlan {
 			tr.Points = append(tr.Points, frame.toScreen(p))
 		}
 		plan.Traffic = append(plan.Traffic, tr)
+	}
+	for _, d := range districts {
+		if _, ok := at[d]; !ok {
+			at[d] = frame.toScreen(d.Rect.Center())
+		}
 	}
 	for _, l := range s.Lines() {
 		pl := PlanLine{Group: l.Group}

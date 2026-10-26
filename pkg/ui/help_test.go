@@ -31,7 +31,7 @@ var everyKey = []ui.Key{
 	{"c", "new session here"},
 	{"d d", "demolish the selection"},
 	{"f or 0", "Skyline, the whole city"},
-	{"wheel out past Skyline", "the City Plan: every district at a glance; wheel in to return"},
+	{"wheel out past Skyline", "the City Plan: every district at a glance; wheel to zoom it, and in past its closest to return"},
 	{"m", "the City Plan: every district on one screen; click a badge to fly in"},
 	{"z", "labels off and on"},
 	{"r", "turn the camera"},

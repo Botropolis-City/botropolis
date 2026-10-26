@@ -220,21 +220,94 @@ func TestCityPlan(t *testing.T) {
 			})
 		})
 
-		t.Run("and the wheel turns out", func(t *testing.T) {
+		t.Run("and the wheel turns out at the plan's widest", func(t *testing.T) {
 			s := opened(t)
 			s.Wheel(centre(s), -1)
 
 			t.Run("it should stay open", func(t *testing.T) {
 				assert.True(t, s.CityPlanOpen())
 			})
+
+			t.Run("it should stay at its widest", func(t *testing.T) {
+				assert.Equal(t, city.PlanZoomSteps[0], s.PlanZoom())
+			})
+		})
+	})
+
+	// Item 282: the plan has its own zoom, about the pointer, from its
+	// fitted widest to PlanZoomSteps' last; a rested notch in past the
+	// closest returns to the map.
+	zoomable := func(t *testing.T, sessions []state.Session, width, height float64) (*city.Scene, func(time.Duration)) {
+		t.Helper()
+		at := now
+		s := open(t, width, height, snapshot(sessions...))
+		s.SetClock(func() time.Time { return at }, time.UTC)
+		s.Skyline()
+		s.Wheel(centre(s), -1)
+		require.True(t, s.CityPlanOpen(), "precondition: the plan is open")
+		return s, func(d time.Duration) { at = at.Add(d) }
+	}
+	closest := city.PlanZoomSteps[len(city.PlanZoomSteps)-1]
+	gap := func(a, b city.Point) float64 { return math.Hypot(a.X-b.X, a.Y-b.Y) }
+
+	t.Run("when the plan is open and the wheel turns in with the pointer over a district", func(t *testing.T) {
+		s, _ := zoomable(t, spread(6), 1600, 1000)
+		target := s.CityPlan().Badges[0]
+		under := s.CityPlan().ToWorld(target.At)
+		s.Wheel(target.At, 1)
+
+		t.Run("it should keep the plan open", func(t *testing.T) {
+			assert.True(t, s.CityPlanOpen())
 		})
 
-		t.Run("and the wheel turns in with the pointer over a district", func(t *testing.T) {
-			s := opened(t)
-			target := s.CityPlan().Badges[0]
+		t.Run("it should zoom the plan in one step", func(t *testing.T) {
+			assert.Equal(t, city.PlanZoomSteps[1], s.PlanZoom())
+		})
+
+		t.Run("it should keep the point under the pointer", func(t *testing.T) {
+			assert.InDelta(t, 0, gap(target.At, s.CityPlan().ToScreen(under)), 1e-6)
+		})
+	})
+
+	t.Run("when the plan is zoomed in and the wheel turns out", func(t *testing.T) {
+		s, _ := zoomable(t, spread(6), 1600, 1000)
+		pointer := s.CityPlan().Badges[0].At
+		s.Wheel(pointer, 2)
+		under := s.CityPlan().ToWorld(pointer)
+		s.Wheel(pointer, -1)
+
+		t.Run("it should zoom the plan out one step", func(t *testing.T) {
+			assert.Equal(t, city.PlanZoomSteps[1], s.PlanZoom())
+		})
+
+		t.Run("it should keep the point under the pointer", func(t *testing.T) {
+			assert.InDelta(t, 0, gap(pointer, s.CityPlan().ToScreen(under)), 1e-6)
+		})
+	})
+
+	t.Run("when the wheel turns in quickly past the plan's closest zoom", func(t *testing.T) {
+		s, tick := zoomable(t, spread(6), 1600, 1000)
+		target := s.CityPlan().Badges[0]
+		for i := 0; i < 20; i++ {
+			tick(quick)
+			s.Wheel(target.At, 1)
+		}
+		stopped, opened := s.PlanZoom(), s.CityPlanOpen()
+
+		t.Run("it should stop at the closest zoom", func(t *testing.T) {
+			assert.Equal(t, closest, stopped)
+		})
+
+		t.Run("it should keep the plan open", func(t *testing.T) {
+			assert.True(t, opened)
+		})
+
+		t.Run("and one more notch comes after a pause", func(t *testing.T) {
+			under := s.CityPlan().ToWorld(target.At)
+			tick(city.PlanDebounce)
 			s.Wheel(target.At, 1)
 
-			t.Run("it should close the plan", func(t *testing.T) {
+			t.Run("it should return to the map", func(t *testing.T) {
 				assert.False(t, s.CityPlanOpen())
 			})
 
@@ -242,11 +315,98 @@ func TestCityPlan(t *testing.T) {
 				assert.InDelta(t, s.SkylineZoom(), s.Camera().Zoom, 1e-9)
 			})
 
-			t.Run("it should put that district under the pointer on the map", func(t *testing.T) {
-				under := s.Camera().ScreenToWorld(target.At)
-				d := target.District.Rect.Center().Sub(under)
-				assert.InDelta(t, 0, math.Hypot(d.X, d.Y), city.CellSize)
+			t.Run("it should put the point under the pointer on the plan under it on the map", func(t *testing.T) {
+				assert.InDelta(t, 0, gap(under, s.Camera().ScreenToWorld(target.At)), city.CellSize)
 			})
+		})
+	})
+
+	t.Run("when the plan is zoomed in until districts lie off the window", func(t *testing.T) {
+		s, _ := zoomable(t, spread(6), 1600, 1000)
+		s.Wheel(s.CityPlan().Badges[0].At, float64(len(city.PlanZoomSteps)))
+		plan := s.CityPlan()
+		var off int
+		for _, d := range s.City().Districts {
+			if !d.Depot && !plan.Area.Contains(plan.ToScreen(d.Rect.Center())) {
+				off++
+			}
+		}
+		require.Positive(t, off, "precondition: some district lies off the window")
+
+		t.Run("it should leave their badges off the plan rather than pile them at its edge", func(t *testing.T) {
+			var piled []string
+			for _, b := range plan.Badges {
+				if !plan.Area.Contains(b.Place) {
+					piled = append(piled, b.Name)
+				}
+			}
+			assert.Empty(t, piled)
+		})
+	})
+
+	t.Run("when a crowded plan is zoomed in until few badges are in view", func(t *testing.T) {
+		s, _ := zoomable(t, crowd(60), 800, 600)
+		require.True(t, s.CityPlan().Badges[0].Compact, "precondition: the crowded plan's badges are compact")
+		s.Wheel(s.CityPlan().Badges[0].At, float64(len(city.PlanZoomSteps)))
+
+		t.Run("it should draw the badges in view full", func(t *testing.T) {
+			var compact []string
+			for _, b := range s.CityPlan().Badges {
+				if b.Compact {
+					compact = append(compact, b.Name)
+				}
+			}
+			assert.Empty(t, compact)
+		})
+	})
+
+	t.Run("when the plan is zoomed in and dragged", func(t *testing.T) {
+		s, _ := zoomable(t, spread(6), 1600, 1000)
+		s.Wheel(centre(s), 2)
+		world := s.CityPlan().ToWorld(centre(s))
+		s.Pan(city.Point{X: 40, Y: -30})
+
+		t.Run("it should move the plan with the pointer", func(t *testing.T) {
+			assert.InDelta(t, 0, gap(centre(s).Add(city.Point{X: 40, Y: -30}), s.CityPlan().ToScreen(world)), 1e-6)
+		})
+	})
+
+	for _, drag := range []city.Point{{X: 1e5}, {X: -1e5}, {Y: 1e5}, {Y: -1e5}} {
+		t.Run(fmt.Sprintf("when the plan is zoomed in and dragged far by %v", drag), func(t *testing.T) {
+			s, _ := zoomable(t, spread(6), 1600, 1000)
+			fitted := s.CityPlan()
+			corners := [2]city.Point{fitted.ToWorld(fitted.Area.Min), fitted.ToWorld(fitted.Area.Max)}
+			s.Wheel(centre(s), 2)
+			s.Pan(drag)
+			plan := s.CityPlan()
+			lo, hi := plan.ToScreen(corners[0]), plan.ToScreen(corners[1])
+
+			t.Run("it should keep the sheet across the whole window", func(t *testing.T) {
+				assert.True(t, lo.X <= plan.Area.Min.X+1e-6 && lo.Y <= plan.Area.Min.Y+1e-6 &&
+					hi.X >= plan.Area.Max.X-1e-6 && hi.Y >= plan.Area.Max.Y-1e-6,
+					"sheet %v-%v, window %v", lo, hi, plan.Area)
+			})
+		})
+	}
+
+	t.Run("when the plan is at its widest and dragged", func(t *testing.T) {
+		s, _ := zoomable(t, spread(6), 1600, 1000)
+		world := s.CityPlan().ToWorld(centre(s))
+		s.Pan(city.Point{X: 40, Y: -30})
+
+		t.Run("it should not move", func(t *testing.T) {
+			assert.InDelta(t, 0, gap(centre(s), s.CityPlan().ToScreen(world)), 1e-6)
+		})
+	})
+
+	t.Run("when the plan is zoomed in, closed and opened again", func(t *testing.T) {
+		s, _ := zoomable(t, spread(6), 1600, 1000)
+		s.Wheel(centre(s), 2)
+		s.ToggleCityPlan()
+		s.ToggleCityPlan()
+
+		t.Run("it should open at its widest", func(t *testing.T) {
+			assert.Equal(t, city.PlanZoomSteps[0], s.PlanZoom())
 		})
 	})
 

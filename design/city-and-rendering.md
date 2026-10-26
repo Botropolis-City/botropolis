@@ -38,6 +38,7 @@ First pass is flat coloured shapes with text; sprites (Kenney CC0 city and isome
 
 The map is isometric (Kenney's isometric packs).
 One wheel notch out past Skyline, it becomes the City Plan: a flat map of district badges at their places, the groups' lines and the usage readings in a legend (`pkg/city/cityplan.go`, item 106).
+The plan has its own zoom, `PlanZoomSteps`, magnifying the fitted sheet about the pointer, and its pan is held so the sheet always covers the window; badges of districts off the window are left off, and whether badges are compact is decided by those in view (item 282).
 Past 30% coverage every badge goes compact, a name and a status dot, and `LayoutPlanBadges` places them in order, each on its own spot if free and otherwise on the nearest free one, so none overlap; districts needing you are placed first, and the layout is cached because the plan is laid out every frame.
 The `projection` setting is gone (item 149), so the map always opens isometric,
 and `pkg/render` no longer has a top-down drawing path: `render.NewGame` turns any scene it is handed isometric, because `TopDown` is `Projection`'s zero value (item 183).

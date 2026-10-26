@@ -37,7 +37,7 @@ var bindings = []ui.Key{
 	{Key: "c", Action: "new session here"},
 	{Key: "d d", Action: "demolish the selection"},
 	{Key: "f or 0", Action: "Skyline, the whole city"},
-	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel in to return"},
+	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel to zoom it, and in past its closest to return"},
 	{Key: planBinding, Action: "the City Plan: every district on one screen; click a badge to fly in"},
 	{Key: labelsBinding, Action: "labels off and on"},
 	{Key: "r", Action: "turn the camera"},

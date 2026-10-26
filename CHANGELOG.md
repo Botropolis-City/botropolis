@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   *Move to group* now starts with *new group…*: choose it, type a name and press enter, and the session moves into a new group by that name.
   The card offers *move to group* even before you have any groups, so your first group can be made the same way.
   A name that is empty or already a group's is refused in the picker, and esc goes back to the list.
+- **The City Plan zooms.**
+  The wheel, or `+` and `-`, zooms the plan about the pointer, up to eight times closer, and a drag moves round it, so a crowded plan can be read district by district.
+  Zoomed in, a crowded plan's small badges grow back to full ones, and districts off the window leave their badges off it.
+  Wheeling in used to leave the plan at once; now a notch in after a pause at the plan's closest zoom returns to the map.
 
 ### Changed
 

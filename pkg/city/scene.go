@@ -150,7 +150,11 @@ type Scene struct {
 	// planFadeFor how long it takes.
 	planShown, planFadeFor float64
 	// planFrom is the camera as it was when the plan opened.
-	planFrom  Camera
+	planFrom Camera
+	// planZoom is the plan's own zoom, 0 or 1 being fitted, and
+	// planShift how far it has been panned on screen (item 282).
+	planZoom  float64
+	planShift Point
 	planLaid  planLaid
 	planCoast planCoast
 	// planCovers is the chrome lying over the plan (item 112).
@@ -900,6 +904,10 @@ func (h Hit) ground() bool {
 }
 
 func (s *Scene) Pan(delta Point) {
+	if s.planOpen {
+		s.panPlan(delta)
+		return
+	}
 	s.touched = true
 	s.camera.Pan(delta.Scale(1 / s.camera.Zoom))
 	s.clamp()
@@ -924,9 +932,7 @@ func (s *Scene) Wheel(cursor Point, amount float64) {
 	rested := s.lastWheel.IsZero() || at.Sub(s.lastWheel) >= PlanDebounce
 	s.lastWheel = at
 	if plans && s.planOpen {
-		if amount > 0 {
-			s.closePlanAt(cursor)
-		}
+		s.wheelPlan(cursor, amount, rested)
 		return
 	}
 	if plans && amount < 0 && rested && target <= s.SkylineZoom()*(1+1e-9) {

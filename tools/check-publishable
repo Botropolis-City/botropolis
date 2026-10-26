@@ -347,6 +347,8 @@ docs/screenshots/r762-item-151-cars-both-ways.png
 docs/screenshots/r766-item-151-tugs-bow-first.png
 docs/screenshots/r766-item-151-tug-hull-from-above.png
 docs/screenshots/r769-item-153-cars-keep-right.png
+docs/screenshots/r1126-item-282-plan-widest.png
+docs/screenshots/r1126-item-282-plan-zoomed.png
 LIST
 )
 while read -r img; do
