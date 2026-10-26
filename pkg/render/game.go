@@ -170,7 +170,14 @@ type Game struct {
 	// sprite bounds for (item 270).
 	boundsWorked int
 	labelFrame   city.Rect
-	noLookCache  bool
+	// mini is the minimap's map as last painted, and minimapPaints how
+	// many times it has been painted (item 270).
+	mini          minimapCache
+	minimapPaints int
+	// minimapPainter, when set, takes the minimap map's boxes in place
+	// of the painter, for a test to read them.
+	minimapPainter func(dst *ebiten.Image, x, y, width, height float32, c color.Color)
+	noLookCache    bool
 	// dresser keeps each district's aged floor while it holds (item 207).
 	dresser districtDresser
 	// linePairs is a buffer of segments drawn as one mesh (item 207).

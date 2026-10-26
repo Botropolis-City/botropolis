@@ -42,6 +42,9 @@ var drawsAllowed = map[string]string{
 	// Not the world: a pixel of each kit page into a 1-pixel sink, so
 	// Ebitengine sends the page and lets its pixels go (item 162).
 	"kits.go:sendPage": "sends a kit page to the GPU",
+	// Not the world: the minimap's map, chrome drawn over it, painted
+	// once a city and laid from there (item 270).
+	"minimapcache.go:minimapMap": "lays the minimap's map, painted once a city",
 	// Not the world: a look baked at the frame's coordinates, copied
 	// onto its page by whole pixels (item 233).
 	"lookdraw.go:bake": "copies a baked look onto its page",

@@ -81,28 +81,7 @@ func (g *Game) minimap(screen *ebiten.Image, box city.Rect) {
 		return
 	}
 	g.roundPanel(screen, box)
-	seconds := 0.0
-	fill := func(r city.Rect, col color.NRGBA) {
-		g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(math.Max(1, r.Width())), float32(math.Max(1, r.Height())), col)
-	}
-	fill(all, colorGroundNight)
-	for _, park := range c.Parks {
-		fill(m.ProjectRect(park.Rect), colorMapPark)
-	}
-	if c.Plaza.Area() > 0 {
-		fill(m.ProjectRect(c.Plaza), colorMapPlaza)
-	}
-	for _, d := range c.Districts {
-		r := m.ProjectRect(d.Rect)
-		g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(math.Max(1, r.Width())), float32(math.Max(1, r.Height())), colorMapDistHi)
-		for _, b := range d.Buildings {
-			if b.Blinds {
-				continue
-			}
-			p := m.Project(b.Rect.Center())
-			g.paint.Box(screen, float32(p.X-1), float32(p.Y-1), 2, 2, blockColor(b, seconds))
-		}
-	}
+	g.minimapMap(screen, box, m, c, all)
 	view := city.Rect{
 		Min: city.Point{X: math.Max(box.Min.X, m.View.Min.X), Y: math.Max(box.Min.Y, m.View.Min.Y)},
 		Max: city.Point{X: math.Min(box.Max.X, m.View.Max.X), Y: math.Min(box.Max.Y, m.View.Max.Y)},
