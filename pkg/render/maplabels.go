@@ -27,11 +27,16 @@ func (g *Game) queueLabel(l pendingLabel) {
 }
 
 // queueBadge asks for a building's group badge under its foot.
-func (g *Game) queueBadge(b *city.Building, foot city.Point) {
+func (g *Game) queueBadge(b *city.Building, foot city.Point) (badge, bool) {
 	bd, ok := badgeLayout(b, foot, g.measure)
-	if !ok {
-		return
+	if ok {
+		g.queueLaidBadge(b, bd, foot)
 	}
+	return bd, ok
+}
+
+// queueLaidBadge asks for a building's badge as it was laid out.
+func (g *Game) queueLaidBadge(b *city.Building, bd badge, foot city.Point) {
 	g.queueLabel(pendingLabel{
 		mapLabel: mapLabel{Kind: labelBadge, Rect: bd.Panel, Anchor: foot},
 		draw: func(screen *ebiten.Image, at city.Rect) {

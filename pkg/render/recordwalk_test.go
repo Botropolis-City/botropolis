@@ -51,12 +51,16 @@ func newRecordCity(t testing.TB) *recordCity {
 			// Its top course glows until the clock moves on.
 			s.Compactions, s.LastCompactionAt = 2, at.Add(-courseGlow+20*time.Second)
 		}
+		if i%6 == 0 {
+			s.Group = "g1"
+		}
 		if i == 6 {
 			s.PRs = []claude.PR{{Number: 1, URL: "https://example.com/pr/1", State: claude.PROpen}, {Number: 2, URL: "https://example.com/pr/2", State: claude.PRMerged}}
 		}
 		sessions = append(sessions, s)
 	}
 	rc.snapshot = state.Snapshot{At: at, Sessions: sessions,
+		Groups:  []state.Group{{ID: "g1", Name: "the API", Short: "API"}},
 		Servers: []state.Server{{Name: "files", Configured: true, Calls: 12, Sessions: 4}, {Name: "search", Configured: true, Calls: 20, Sessions: 4}}}
 	rc.scene = city.NewScene(city.NewLayout())
 	rc.scene.SetClock(func() time.Time { return rc.now }, time.UTC)

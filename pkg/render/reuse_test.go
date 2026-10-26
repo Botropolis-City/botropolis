@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -173,6 +174,30 @@ func TestRecordReuse(t *testing.T) {
 		})
 		t.Run("it should hold the record made afresh", func(t *testing.T) {
 			assert.Zero(t, st.stale)
+		})
+	})
+
+	t.Run("when a quiet building smokes, and the clock moves on", func(t *testing.T) {
+		rc := settled(t)
+		rc.snap(func(s *state.Snapshot) { s.Sessions[4].APIErrors = 3 })
+		puffs := func() []string {
+			var out []string
+			for _, h := range rc.g.hits {
+				if h.hit.Smoke != nil {
+					out = append(out, fmt.Sprint(h.rect))
+				}
+			}
+			return out
+		}
+		for range 3 {
+			rc.frame()
+		}
+		before := puffs()
+		rc.now = rc.now.Add(2 * time.Second)
+		rc.frame()
+
+		t.Run("it should note its puffs where they have drifted to", func(t *testing.T) {
+			assert.NotEqual(t, before, puffs())
 		})
 	})
 
@@ -450,35 +475,66 @@ func TestRecordReuse(t *testing.T) {
 		for range 3 {
 			stale += rc.frame().stale
 		}
-
-		t.Run("it should hold the record made afresh", func(t *testing.T) {
-			assert.Zero(t, stale)
-		})
-	})
-
-	// The keyed draws note their hits outside their records, from where
-	// their sprites stand; each item's own draw notes them as it draws.
-	t.Run("when a settled city is drawn through each item's own draw, by night", func(t *testing.T) {
-		rc := newRecordCity(t)
-		rc.g.verifyEvery = 1
-		rc.scene.SetView(city.ViewAttention)
-		for !rc.scene.City().Night {
-			rc.scene.CycleLight()
-		}
-		rc.frame()
-		rc.now = rc.now.Add(10 * time.Minute)
-		for range 3 {
-			rc.frame()
-		}
 		keyed := frameNotes(rc.g)
 		rc.g.noKeyed = true
 		rc.frame()
 		own := frameNotes(rc.g)
 
-		t.Run("it should note what the keyed draws note", func(t *testing.T) {
+		t.Run("it should hold the record made afresh", func(t *testing.T) {
+			assert.Zero(t, stale)
+		})
+		t.Run("it should note the hits its own draws note", func(t *testing.T) {
 			assert.Equal(t, own, keyed)
 		})
 	})
+
+	// The keyed draws note their hits outside their records, from where
+	// their sprites stand; each item's own draw notes them as it draws.
+	every := func(string) bool { return true }
+	for _, c := range []struct {
+		name string
+		move func(rc *recordCity)
+		of   func(note string) bool
+	}{
+		{"", func(*recordCity) {}, every},
+		// Its hits and badges are moved by the pan the frame it pans, and
+		// worked out again the next; only the frame it pans keeps what was
+		// noted before it, and a look it brings wholly on is baked that
+		// frame, which changes the counts and not the hits.
+		{", and the camera has panned by whole pixels", func(rc *recordCity) {
+			rc.scene.Pan(city.Point{X: 9, Y: -7})
+			rc.frame()
+		}, func(note string) bool { return strings.HasPrefix(note, "hit ") || strings.HasPrefix(note, "label ") }},
+		{", and the camera has zoomed", func(rc *recordCity) {
+			rc.scene.Camera().Zoom *= 1.25
+			for range 3 {
+				rc.frame()
+			}
+		}, every},
+	} {
+		t.Run("when a settled city is drawn through each item's own draw, by night"+c.name, func(t *testing.T) {
+			rc := newRecordCity(t)
+			rc.g.verifyEvery = 1
+			rc.scene.SetView(city.ViewAttention)
+			for !rc.scene.City().Night {
+				rc.scene.CycleLight()
+			}
+			rc.frame()
+			rc.now = rc.now.Add(10 * time.Minute)
+			for range 3 {
+				rc.frame()
+			}
+			c.move(rc)
+			keyed := slices.DeleteFunc(frameNotes(rc.g), func(n string) bool { return !c.of(n) })
+			rc.g.noKeyed = true
+			rc.frame()
+			own := slices.DeleteFunc(frameNotes(rc.g), func(n string) bool { return !c.of(n) })
+
+			t.Run("it should note what the keyed draws note", func(t *testing.T) {
+				assert.Equal(t, own, keyed)
+			})
+		})
+	}
 
 	t.Run("when reuse is off", func(t *testing.T) {
 		rc := settled(t)
@@ -777,7 +833,10 @@ func frameNotes(g *Game) []string {
 	add("counts windows=%d landmarks=%d punches=%d cuts=%d buildings=%d world=%d",
 		g.windowDraws, g.landmarkDraws, g.punches, g.cuts, g.buildingsDrawn, g.drawing.n)
 	for _, h := range g.hits {
-		add("hit %v %p %p", h.rect, h.hit.Building, h.hit.District)
+		add("hit %d,%d %d,%d %p %p", q(h.rect.Min.X), q(h.rect.Min.Y), q(h.rect.Max.X), q(h.rect.Max.Y), h.hit.Building, h.hit.District)
+	}
+	for _, l := range g.shownLabels {
+		add("label %s %d,%d %d,%d faded %v", l.Kind, q(l.Rect.Min.X), q(l.Rect.Min.Y), q(l.Rect.Max.X), q(l.Rect.Max.Y), l.Faded)
 	}
 	return out
 }

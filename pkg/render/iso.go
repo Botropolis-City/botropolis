@@ -1781,7 +1781,8 @@ func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 		if m, ok := g.quietFrames[b]; ok && m.key == quiet {
 			f := m.frame
 			f.seconds = seconds
-			g.buildingHits(cam, &f)
+			g.quietHits(cam, &f, &m)
+			g.quietFrames[b] = m
 			// Recorded afresh, it is painted from its frame worked out
 			// afresh, so the net compares a kept record with one that owes
 			// nothing to the quiet key.
@@ -1805,11 +1806,13 @@ func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 	}
 	key := quiet
 	if still {
-		g.quietFrames[b] = quietFrame{key: quiet, frame: f}
+		m := quietFrame{key: quiet, frame: f}
+		g.quietHits(cam, &f, &m)
+		g.quietFrames[b] = m
 	} else {
 		key = g.buildingKey(&f)
+		g.buildingHits(cam, &f)
 	}
-	g.buildingHits(cam, &f)
 	g.noteKeyed(kindHouse, key, func() {
 		g.buildingsDrawn++
 		g.paintBuilding(screen, cam, &f)
@@ -1817,10 +1820,41 @@ func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 }
 
 // quietFrame is a quiet building's frame, and the quiet key it was
-// worked out under.
+// worked out under; and its hits and badge as last noted, and the origin
+// they were noted at, which they are moved from by the whole pan since.
 type quietFrame struct {
-	key   uint64
-	frame buildingFrame
+	key    uint64
+	frame  buildingFrame
+	hits   []spriteHit
+	noted  noted
+	origin city.Point
+	kept   bool
+}
+
+// quietHits notes a quiet building's hits and badge: those it noted
+// last, moved by the pan, while the camera has moved by whole pixels
+// since; otherwise worked out afresh and kept. A smoking building's are
+// always worked out afresh, as its puffs move with the clock (item 212).
+func (g *Game) quietHits(cam *city.Camera, f *buildingFrame, m *quietFrame) {
+	origin := g.rec.origin
+	if shift, whole := pixelShift(m.origin, origin); m.kept && whole {
+		d := city.Point{X: float64(shift.X), Y: float64(shift.Y)}
+		for _, h := range m.hits {
+			g.noteHit(city.Rect{Min: h.rect.Min.Add(d), Max: h.rect.Max.Add(d)}, h.hit)
+		}
+		if m.noted.badged {
+			g.queueLaidBadge(f.b, m.noted.badge.moved(m.noted.badge.Panel.Min.Add(d)), m.noted.foot.Add(d))
+		}
+		return
+	}
+	g.mu.Lock()
+	from := len(g.frameHits)
+	g.mu.Unlock()
+	m.noted = g.buildingHits(cam, f)
+	g.mu.Lock()
+	m.hits = append(m.hits[:0], g.frameHits[from:]...)
+	g.mu.Unlock()
+	m.origin, m.kept = origin, f.b.Smoke == 0
 }
 
 // quietKey is a building's key while nothing of it moves with the clock,

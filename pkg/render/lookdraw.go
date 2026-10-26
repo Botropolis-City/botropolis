@@ -250,17 +250,19 @@ func (g *Game) spriteRect(cam *city.Camera, f *buildingFrame) city.Rect {
 
 // buildingHits notes what of a building answers the pointer, and queues
 // its badge, every frame, whether its look is baked or not.
-func (g *Game) buildingHits(cam *city.Camera, f *buildingFrame) {
+func (g *Game) buildingHits(cam *city.Camera, f *buildingFrame) noted {
+	var n noted
 	b := f.b
 	r := g.spriteRect(cam, f)
 	district := g.scene.City().DistrictOf(b)
 	g.noteHit(r, city.Hit{Building: b, District: district})
 	if f.state.stop {
-		return
+		return n
 	}
 	foot := g.footOf(cam, b)
 	if f.dress.Sign && g.labelsVisible() {
-		g.queueBadge(b, foot)
+		n.badge, n.badged = g.queueBadge(b, foot)
+		n.foot = foot
 	}
 	roofTop := r.Min.Y
 	dot := math.Max(3, 6*cam.Zoom)
@@ -276,6 +278,14 @@ func (g *Game) buildingHits(cam *city.Camera, f *buildingFrame) {
 		g.noteHit(city.RectAt(p.at.X-p.radius, p.at.Y-p.radius, p.radius*2, p.radius*2),
 			city.Hit{Building: b, District: district, Smoke: b})
 	}
+	return n
+}
+
+// noted is a building's badge as buildingHits queued it, if it did.
+type noted struct {
+	badge  badge
+	foot   city.Point
+	badged bool
 }
 
 // drawSteps draws a building's steps from one to before another,
