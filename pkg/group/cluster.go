@@ -302,7 +302,7 @@ func (d *detection) oneHop(e edge, aloneA, aloneB bool, timed []bool) bool {
 // capOut records the join a full group refused: the session on its own
 // is left out of every group, and two groups simply stay apart.
 func (d *detection) capOut(e edge, xs, ys []int, out []bool) {
-	session, with := -1, -1
+	var session, with int
 	switch {
 	case len(xs) == 1:
 		session, with = e.a, e.b
