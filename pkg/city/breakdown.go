@@ -69,7 +69,7 @@ type Breakdown struct {
 
 // Ledger is the statistics store as the city reads it.
 type Ledger interface {
-	Window(at time.Time, hours int, root func(string) string) (stats.Window, error)
+	Window(at time.Time, hours int, root func(string) string, tied map[string]string) (stats.Window, error)
 	SessionCosts(at time.Time) (map[string]stats.Cost, error)
 	Reason() string
 	// ReadFresh has the next asks read the store rather than reuse a
@@ -142,7 +142,7 @@ func (c *City) Breakdown(w Window) Breakdown {
 	if c.ledger == nil {
 		return c.memoryBreakdown(w, stats.ReasonOff)
 	}
-	stored, err := c.ledger.Window(c.Time, w.Hours(), ProjectRoot)
+	stored, err := c.ledger.Window(c.Time, w.Hours(), ProjectRoot, c.ties)
 	if err != nil {
 		reason := c.ledger.Reason()
 		if reason == "" {

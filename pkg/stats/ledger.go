@@ -2,6 +2,7 @@ package stats
 
 import (
 	"errors"
+	"maps"
 	"sync"
 	"time"
 )
@@ -112,7 +113,7 @@ func (l *Ledger) Reason() string {
 
 // Window is the last hours up to at, reused for LedgerCache, and for
 // LedgerAging while nothing is written.
-func (l *Ledger) Window(at time.Time, hours int, root func(string) string) (Window, error) {
+func (l *Ledger) Window(at time.Time, hours int, root func(string) string, tied map[string]string) (Window, error) {
 	if l == nil {
 		return Window{}, errors.New(ReasonOff)
 	}
@@ -125,16 +126,16 @@ func (l *Ledger) Window(at time.Time, hours int, root func(string) string) (Wind
 		}
 		return Window{}, l.err
 	}
-	if w, ok := l.live[hours]; ok && !l.due[hours] && fresh(s, w.at, at, w.version, LedgerCache, LedgerAging) {
+	if w, ok := l.live[hours]; ok && !l.due[hours] && maps.Equal(w.tied, tied) && fresh(s, w.at, at, w.version, LedgerCache, LedgerAging) {
 		return w.window, nil
 	}
 	delete(l.due, hours)
-	return l.windowLocked(at, hours, root)
+	return l.windowLocked(at, hours, root, tied)
 }
 
 // windowLocked reads the window now, from what changed since it was
 // last read.
-func (l *Ledger) windowLocked(at time.Time, hours int, root func(string) string) (Window, error) {
+func (l *Ledger) windowLocked(at time.Time, hours int, root func(string) string, tied map[string]string) (Window, error) {
 	s, ok := l.storeLocked(at)
 	if !ok {
 		if l.err == nil {
@@ -151,12 +152,12 @@ func (l *Ledger) windowLocked(at time.Time, hours int, root func(string) string)
 		delete(l.live, hours)
 		return Window{}, err
 	}
-	answer, err := w.answer(at, hours, root)
+	answer, err := w.answer(at, hours, root, tied)
 	if err != nil {
 		delete(l.live, hours)
 		return Window{}, err
 	}
-	w.at, w.version, w.window = at, version, answer
+	w.at, w.version, w.tied, w.window = at, version, maps.Clone(tied), answer
 	l.live[hours] = w
 	return answer, nil
 }

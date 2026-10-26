@@ -108,7 +108,7 @@ func TestOpenReader(t *testing.T) {
 		t.Cleanup(func() { _ = r.Close() })
 
 		t.Run("it should read what the writer wrote", func(t *testing.T) {
-			districts, err := r.Districts(nil)
+			districts, err := r.Districts(nil, nil)
 			require.NoError(t, err)
 			assert.Equal(t, []string{"/w/app", "/w/lib"}, districts)
 		})
@@ -122,7 +122,7 @@ func TestOpenReader(t *testing.T) {
 		require.NoError(t, err)
 		r, err := stats.OpenReader(path)
 		require.NoError(t, err)
-		_, err = r.Districts(nil)
+		_, err = r.Districts(nil, nil)
 		require.NoError(t, err)
 		require.NoError(t, r.Close())
 		after, err := os.ReadFile(path)

@@ -23,3 +23,28 @@ func Temporary(dir string) bool {
 func SessionRoot(s state.Session) string {
 	return ProjectRoot(cmp.Or(s.District, s.CWD))
 }
+
+// Ties is each tied temporary-directory session's district directory,
+// by session id: what the statistics place its spend by (item 285).
+func (c *City) Ties() map[string]string {
+	if c == nil {
+		return nil
+	}
+	return c.ties
+}
+
+func ties(lists ...[]state.Session) map[string]string {
+	var out map[string]string
+	for _, list := range lists {
+		for _, s := range list {
+			if s.District == "" {
+				continue
+			}
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[s.ID] = s.District
+		}
+	}
+	return out
+}

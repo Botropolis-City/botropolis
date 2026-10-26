@@ -3,6 +3,7 @@ package render
 import (
 	"fmt"
 	"image/color"
+	"maps"
 	"sync"
 	"time"
 
@@ -23,7 +24,7 @@ type rangeQueries interface {
 	Totals(r stats.Range, f stats.Filter, loc *time.Location) (stats.Counters, stats.Cost, error)
 	Coverage(r stats.Range, f stats.Filter, loc *time.Location) (stats.Coverage, error)
 	ModelMix(r stats.Range, f stats.Filter, loc *time.Location) ([]stats.Share, error)
-	Districts(root func(dir string) string) ([]string, error)
+	Districts(root func(dir string) string, tied map[string]string) ([]string, error)
 }
 
 // rangeOpen gives the store when it can be read, or why it cannot.
@@ -44,10 +45,10 @@ func ledgerOpen(l *stats.Ledger, now func() time.Time) rangeOpen {
 const rangeRefresh = 30 * time.Second
 
 // loadRanges reads everything a long range shows, in loc's days.
-func loadRanges(q rangeQueries, sel ui.RangeSelection, today stats.Date, loc *time.Location) (ui.RangeData, error) {
+func loadRanges(q rangeQueries, sel ui.RangeSelection, today stats.Date, tied map[string]string, loc *time.Location) (ui.RangeData, error) {
 	days := sel.Days(today)
 	d := ui.RangeData{Today: today, Days: days, Unit: sel.Unit(today)}
-	f := stats.Filter{Root: city.ProjectRoot, Only: sel.Only}
+	f := stats.Filter{Root: city.ProjectRoot, Tied: tied, Only: sel.Only}
 	var err error
 	if d.Buckets, err = q.Series(days, f, d.Unit, loc); err != nil {
 		return d, err
@@ -61,7 +62,7 @@ func loadRanges(q rangeQueries, sel ui.RangeSelection, today stats.Date, loc *ti
 	if d.Mix, err = q.ModelMix(days, f, loc); err != nil {
 		return d, err
 	}
-	if d.All, err = q.Districts(city.ProjectRoot); err != nil {
+	if d.All, err = q.Districts(city.ProjectRoot, tied); err != nil {
 		return d, err
 	}
 	counted := sel.Only
@@ -71,7 +72,7 @@ func loadRanges(q rangeQueries, sel ui.RangeSelection, today stats.Date, loc *ti
 	named := city.DistrictNames(append(append([]string(nil), d.All...), counted...))
 	for _, root := range counted {
 		fig := ui.DistrictFigure{Root: root, Name: named[root]}
-		if fig.Counters, fig.Cost, err = q.Totals(days, stats.Filter{Root: city.ProjectRoot, Only: []string{root}}, loc); err != nil {
+		if fig.Counters, fig.Cost, err = q.Totals(days, stats.Filter{Root: city.ProjectRoot, Tied: tied, Only: []string{root}}, loc); err != nil {
 			return d, err
 		}
 		d.Districts = append(d.Districts, fig)
@@ -96,6 +97,7 @@ func loadRanges(q rangeQueries, sel ui.RangeSelection, today stats.Date, loc *ti
 // never holds a frame: a frame draws the last figures, or "loading".
 type rangeSource struct {
 	open rangeOpen
+	ties func() map[string]string
 	now  func() time.Time
 	loc  *time.Location
 
@@ -114,8 +116,8 @@ func newRangeSource(open rangeOpen, now func() time.Time, loc *time.Location) *r
 	return &rangeSource{open: open, now: now, loc: loc}
 }
 
-func rangeKey(sel ui.RangeSelection, today stats.Date) string {
-	return fmt.Sprintf("%v|%v|%v|%v|%v", today, sel.Days(today), sel.Unit(today), sel.Only, sel.SameDay)
+func rangeKey(sel ui.RangeSelection, today stats.Date, tied map[string]string) string {
+	return fmt.Sprintf("%v|%v|%v|%v|%v|%v", today, sel.Days(today), sel.Unit(today), sel.Only, sel.SameDay, tied)
 }
 
 // state is whether the store can be read, and why not.
@@ -139,13 +141,17 @@ func (s *rangeSource) state() (ui.StoreState, string) {
 // read gives the selection's figures as last read, starting a read when
 // they are missing or stale; it never waits for one.
 func (s *rangeSource) read(sel ui.RangeSelection, today stats.Date) ui.RangeData {
-	key := rangeKey(sel, today)
+	var tied map[string]string
+	if s.ties != nil {
+		tied = s.ties()
+	}
+	key := rangeKey(sel, today, tied)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if (key != s.key || s.now().Sub(s.at) >= rangeRefresh) && !s.loading {
 		if q, ok, _ := s.open(); ok {
 			s.loading = true
-			go s.load(q, sel, today, key)
+			go s.load(q, sel, today, maps.Clone(tied), key)
 		}
 	}
 	if s.has && s.key == key {
@@ -154,8 +160,8 @@ func (s *rangeSource) read(sel ui.RangeSelection, today stats.Date) ui.RangeData
 	return ui.RangeData{Loading: true, Today: today, Days: sel.Days(today), Unit: sel.Unit(today), All: s.all}
 }
 
-func (s *rangeSource) load(q rangeQueries, sel ui.RangeSelection, today stats.Date, key string) {
-	d, err := loadRanges(q, sel, today, s.loc)
+func (s *rangeSource) load(q rangeQueries, sel ui.RangeSelection, today stats.Date, tied map[string]string, key string) {
+	d, err := loadRanges(q, sel, today, tied, s.loc)
 	now := s.now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -185,6 +191,7 @@ func (g *Game) rangeToday() stats.Date { return stats.DateOf(g.rangeNow().In(tim
 func (g *Game) rangeSource() *rangeSource {
 	if g.ranges == nil {
 		g.ranges = newRangeSource(func() (rangeQueries, bool, string) { return ledgerOpen(g.ledger, g.rangeNow)() }, g.rangeNow, time.Local)
+		g.ranges.ties = func() map[string]string { return g.scene.City().Ties() }
 		g.rangeSel.SameDay = true
 	}
 	return g.ranges

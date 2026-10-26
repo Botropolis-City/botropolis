@@ -15,7 +15,7 @@ var windowEnd = time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 
 func (f *fixture) window(hours int) stats.Window {
 	f.t.Helper()
-	w, err := f.store.Window(windowEnd.Add(-time.Duration(hours)*time.Hour), windowEnd, hours, city.ProjectRoot)
+	w, err := f.store.Window(windowEnd.Add(-time.Duration(hours)*time.Hour), windowEnd, hours, city.ProjectRoot, nil)
 	require.NoError(f.t, err)
 	return w
 }

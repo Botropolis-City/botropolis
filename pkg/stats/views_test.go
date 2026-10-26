@@ -357,7 +357,7 @@ func TestDistricts(t *testing.T) {
 		)
 
 		t.Run("it should list each project once", func(t *testing.T) {
-			districts, err := f.store.Districts(city.ProjectRoot)
+			districts, err := f.store.Districts(city.ProjectRoot, nil)
 			require.NoError(t, err)
 			assert.Equal(t, []string{app, lib}, districts)
 		})

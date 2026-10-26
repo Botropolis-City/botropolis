@@ -76,12 +76,12 @@ func TestLedger(t *testing.T) {
 				msg("msg_1", "2026-10-19T11:00:00.000Z", lib, usage{Output: 2}),
 			)
 			l := newLedger(t, path)
-			_, err := l.Window(t0, 24, nil)
+			_, err := l.Window(t0, 24, nil, nil)
 			require.NoError(t, err)
 			return f, l
 		}
 		output := func(t *testing.T, l *stats.Ledger, at time.Time) int64 {
-			w, err := l.Window(at, 24, nil)
+			w, err := l.Window(at, 24, nil, nil)
 			require.NoError(t, err)
 			return w.Counters.Output
 		}
@@ -128,7 +128,7 @@ func TestLedger(t *testing.T) {
 
 	t.Run("when the store is paused, a window should be refused with the reason", func(t *testing.T) {
 		l := newLedger(t, filepath.Join(t.TempDir(), "stats.db"))
-		_, err := l.Window(t0, 24, nil)
+		_, err := l.Window(t0, 24, nil, nil)
 		assert.ErrorIs(t, err, stats.ErrNoStore)
 	})
 

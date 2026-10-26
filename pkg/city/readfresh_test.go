@@ -18,7 +18,7 @@ type readingLedger struct {
 	fresh int
 }
 
-func (l *readingLedger) Window(time.Time, int, func(string) string) (stats.Window, error) {
+func (l *readingLedger) Window(time.Time, int, func(string) string, map[string]string) (stats.Window, error) {
 	if l.fresh > 0 {
 		return stats.Window{Cost: cost(150)}, nil
 	}

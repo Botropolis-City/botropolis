@@ -29,6 +29,7 @@ type query struct {
 	unit stats.Unit
 	loc  *time.Location
 	root func(string) string
+	tied map[string]string
 }
 
 type fakeQueries struct {
@@ -50,12 +51,12 @@ func (f *fakeQueries) record(q query) error {
 }
 
 func (f *fakeQueries) Series(r stats.Range, flt stats.Filter, unit stats.Unit, loc *time.Location) ([]stats.Bucket, error) {
-	err := f.record(query{call: "series", r: r, only: flt.Only, unit: unit, loc: loc, root: flt.Root})
+	err := f.record(query{call: "series", r: r, only: flt.Only, unit: unit, loc: loc, root: flt.Root, tied: flt.Tied})
 	return []stats.Bucket{{Start: r.First, Last: r.First, Counters: stats.Counters{Messages: 1}}}, err
 }
 
 func (f *fakeQueries) Totals(r stats.Range, flt stats.Filter, loc *time.Location) (stats.Counters, stats.Cost, error) {
-	err := f.record(query{call: "totals", r: r, only: flt.Only, loc: loc, root: flt.Root})
+	err := f.record(query{call: "totals", r: r, only: flt.Only, loc: loc, root: flt.Root, tied: flt.Tied})
 	usd := 1.0
 	if len(flt.Only) == 1 && flt.Only[0] == "/w/kiln" {
 		usd = 7
@@ -64,17 +65,17 @@ func (f *fakeQueries) Totals(r stats.Range, flt stats.Filter, loc *time.Location
 }
 
 func (f *fakeQueries) Coverage(r stats.Range, flt stats.Filter, loc *time.Location) (stats.Coverage, error) {
-	err := f.record(query{call: "coverage", r: r, only: flt.Only, loc: loc, root: flt.Root})
+	err := f.record(query{call: "coverage", r: r, only: flt.Only, loc: loc, root: flt.Root, tied: flt.Tied})
 	return stats.Coverage{HasData: true, Earliest: r.First}, err
 }
 
 func (f *fakeQueries) ModelMix(r stats.Range, flt stats.Filter, loc *time.Location) ([]stats.Share, error) {
-	err := f.record(query{call: "mix", r: r, only: flt.Only, loc: loc, root: flt.Root})
+	err := f.record(query{call: "mix", r: r, only: flt.Only, loc: loc, root: flt.Root, tied: flt.Tied})
 	return []stats.Share{{Model: "claude-opus-5"}}, err
 }
 
-func (f *fakeQueries) Districts(root func(string) string) ([]string, error) {
-	err := f.record(query{call: "districts", root: root})
+func (f *fakeQueries) Districts(root func(string) string, tied map[string]string) ([]string, error) {
+	err := f.record(query{call: "districts", root: root, tied: tied})
 	return f.roots, err
 }
 
@@ -101,7 +102,7 @@ func TestLoadRanges(t *testing.T) {
 
 	t.Run("when a selection is loaded", func(t *testing.T) {
 		f := newFake()
-		d, err := loadRanges(f, sel, rangesToday, rangesLoc)
+		d, err := loadRanges(f, sel, rangesToday, nil, rangesLoc)
 		require.NoError(t, err)
 
 		t.Run("it should read the series for the selection's days", func(t *testing.T) {
@@ -166,7 +167,7 @@ func TestLoadRanges(t *testing.T) {
 
 	t.Run("when every district is counted", func(t *testing.T) {
 		f := newFake()
-		d, err := loadRanges(f, ui.RangeSelection{Kind: ui.Last3Months}, rangesToday, rangesLoc)
+		d, err := loadRanges(f, ui.RangeSelection{Kind: ui.Last3Months}, rangesToday, nil, rangesLoc)
 		require.NoError(t, err)
 
 		t.Run("it should give every district in the store its totals", func(t *testing.T) {
@@ -176,7 +177,7 @@ func TestLoadRanges(t *testing.T) {
 
 	t.Run("when the same-day toggle is off", func(t *testing.T) {
 		f := newFake()
-		d, err := loadRanges(f, ui.RangeSelection{Kind: ui.Last3Months}, rangesToday, rangesLoc)
+		d, err := loadRanges(f, ui.RangeSelection{Kind: ui.Last3Months}, rangesToday, nil, rangesLoc)
 		require.NoError(t, err)
 
 		t.Run("it should compare with last month in full", func(t *testing.T) {
@@ -184,10 +185,30 @@ func TestLoadRanges(t *testing.T) {
 		})
 	})
 
+	t.Run("when the city holds a temporary-directory session tied to a district", func(t *testing.T) {
+		tied := map[string]string{"s1": "/w/kiln"}
+		f := newFake()
+		_, err := loadRanges(f, sel, rangesToday, tied, rangesLoc)
+		require.NoError(t, err)
+		for _, call := range []string{"series", "totals", "coverage", "mix", "districts"} {
+			t.Run("it should hand the "+call+" query the ties", func(t *testing.T) {
+				f.mu.Lock()
+				defer f.mu.Unlock()
+				var got []map[string]string
+				for _, q := range f.calls {
+					if q.call == call && !assert.ObjectsAreEqual(tied, q.tied) {
+						got = append(got, q.tied)
+					}
+				}
+				assert.Empty(t, got)
+			})
+		}
+	})
+
 	t.Run("when a query fails", func(t *testing.T) {
 		f := newFake()
 		f.err = errors.New("disk I/O error")
-		_, err := loadRanges(f, sel, rangesToday, rangesLoc)
+		_, err := loadRanges(f, sel, rangesToday, nil, rangesLoc)
 
 		t.Run("it should say so", func(t *testing.T) {
 			assert.ErrorIs(t, err, f.err)
@@ -322,6 +343,23 @@ func TestRangeSource(t *testing.T) {
 
 			t.Run("it should not show the old selection's data", func(t *testing.T) {
 				assert.True(t, d.Loading)
+			})
+		})
+
+		t.Run("and the data is fresh but a session has been tied since", func(t *testing.T) {
+			at := rangesNow
+			f := newFake()
+			s := newRangeSource((&fakeLedger{q: f}).open, clock(&at), rangesLoc)
+			var tied map[string]string
+			s.ties = func() map[string]string { return tied }
+			settled(t, s)
+			tied = map[string]string{"s1": "/w/kiln"}
+			settled(t, s)
+
+			t.Run("it should read again with the tie", func(t *testing.T) {
+				series := f.find("series", stats.Last3Months(rangesToday))
+				require.Len(t, series, 2)
+				assert.Equal(t, tied, series[1].tied)
 			})
 		})
 

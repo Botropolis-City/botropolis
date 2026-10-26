@@ -56,8 +56,9 @@ func slices(groups []keyed, key func(string) string) []Slice {
 func same(k string) string { return k }
 
 // Window is what was used from since until until, with hours buckets for
-// the hourly cost; root maps a directory to its project.
-func (s *Store) Window(since, until time.Time, hours int, root func(string) string) (Window, error) {
+// the hourly cost; root maps a directory to its project, and tied a
+// tied session to its district's directory (item 285).
+func (s *Store) Window(since, until time.Time, hours int, root func(string) string, tied map[string]string) (Window, error) {
 	var w Window
 	in := " AND m.at >= ? AND m.at < ?"
 	lo, hi := since.UnixMilli(), until.UnixMilli()
@@ -74,7 +75,11 @@ func (s *Store) Window(since, until time.Time, hours int, root func(string) stri
 	if root == nil {
 		root = same
 	}
-	if w.ByProject, err = s.windowSlices("d.path", "messages m JOIN dirs d ON d.id = m.dir_id", in, root, lo, hi); err != nil {
+	key, from := "d.path", "messages m JOIN dirs d ON d.id = m.dir_id"
+	if len(tied) > 0 {
+		key, from = "coalesce(tp.place, d.path)", from+" LEFT JOIN "+tiedPlaces(tied)+" tp ON tp.id = m.id"
+	}
+	if w.ByProject, err = s.windowSlices(key, from, in, root, lo, hi); err != nil {
 		return w, err
 	}
 	if w.BySession, err = s.windowSlices("ms.session_id", "messages m JOIN message_sessions ms ON ms.message_id = m.id", in, same, lo, hi); err != nil {

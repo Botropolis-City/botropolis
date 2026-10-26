@@ -116,3 +116,52 @@ func BenchmarkBreakdown(b *testing.B) {
 		}
 	})
 }
+
+// BenchmarkTiedViews is what the store pays to place 20 sessions, each
+// in a temporary directory of its own, at the district they are tied
+// to, against none: for the 24 h window, and for the 3-month total of
+// that district and of one no session is tied to (item 285).
+func BenchmarkTiedViews(b *testing.B) {
+	const project = "/home/user/src/project-000"
+	path := realHistory(b)
+	store, err := stats.Open(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer func() { _ = store.Close() }()
+	tied := map[string]string{}
+	for i := range 20 {
+		id := sessionID(i * 10)
+		tied[id] = project
+		dir := 1000 + i
+		if _, err := store.DB().Exec("INSERT INTO dirs (id, path) VALUES (?, ?)", dir, fmt.Sprintf("/tmp/tmp.bench%02d", i)); err != nil {
+			b.Fatal(err)
+		}
+		if _, err := store.DB().Exec("UPDATE messages SET dir_id = ? WHERE thread = ?", dir, id); err != nil {
+			b.Fatal(err)
+		}
+	}
+	days := stats.Last3Months(stats.DateOf(realHistoryAt))
+	for _, c := range []struct {
+		name string
+		tied map[string]string
+	}{{"untied", nil}, {"tied", tied}} {
+		b.Run("window, "+c.name, func(b *testing.B) {
+			for b.Loop() {
+				if _, err := store.Window(realHistoryAt.Add(-24*time.Hour), realHistoryAt, 24, city.ProjectRoot, c.tied); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+		for _, d := range []struct{ name, root string }{{"tied district", project}, {"other district", "/home/user/src/project-050"}, {"Temporary", city.TemporaryRoot}} {
+			b.Run(d.name+" total, "+c.name, func(b *testing.B) {
+				f := stats.Filter{Root: city.ProjectRoot, Tied: c.tied, Only: []string{d.root}}
+				for b.Loop() {
+					if _, _, err := store.Totals(days, f, time.UTC); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}

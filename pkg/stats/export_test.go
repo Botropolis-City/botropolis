@@ -3,10 +3,10 @@ package stats
 import "time"
 
 // WindowNow is Window read now, whatever its cadence says.
-func (l *Ledger) WindowNow(at time.Time, hours int, root func(string) string) (Window, error) {
+func (l *Ledger) WindowNow(at time.Time, hours int, root func(string) string, tied map[string]string) (Window, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.windowLocked(at, hours, root)
+	return l.windowLocked(at, hours, root, tied)
 }
 
 // SessionCostsNow is SessionCosts read now, whatever its cadence says.

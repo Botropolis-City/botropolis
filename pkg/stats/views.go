@@ -22,10 +22,12 @@ const (
 
 // Filter picks the districts a view counts. Root maps a message's
 // directory to its district, and is the rule the city map uses, so the
-// numbers match what is drawn; Only nil means every district in the
-// store. Item 116.
+// numbers match what is drawn; Tied places a tied session's messages
+// at its district's directory instead (item 285); Only nil means every
+// district in the store. Item 116.
 type Filter struct {
 	Root func(dir string) string
+	Tied map[string]string
 	Only []string
 }
 
@@ -115,10 +117,57 @@ func (s *Store) dirs(f Filter) (string, error) {
 	if err := rows.Err(); err != nil {
 		return "", err
 	}
+	own := "0"
+	if len(ids) > 0 {
+		own = "m.dir_id IN (" + strings.Join(ids, ",") + ")"
+	}
+	if len(f.Tied) == 0 {
+		return " AND " + own, nil
+	}
+	var places []string
+	seen := map[string]bool{}
+	for _, d := range f.Tied {
+		if !seen[d] && chosen[root(d)] {
+			places = append(places, quote(d))
+		}
+		seen[d] = true
+	}
+	tied := tiedPlaces(f.Tied)
+	where := "(m.id NOT IN (SELECT id FROM " + tied + ") AND " + own + ")"
+	if len(places) > 0 {
+		sort.Strings(places)
+		at := "(SELECT id FROM " + tied + " WHERE place IN (" + strings.Join(places, ", ") + "))"
+		where += " OR m.id IN " + at
+		more, err := s.dirsOf(at)
+		if err != nil {
+			return "", err
+		}
+		ids = append(ids, more...)
+	}
 	if len(ids) == 0 {
 		return " AND 0", nil
 	}
-	return " AND m.dir_id IN (" + strings.Join(ids, ",") + ")", nil
+	return " AND m.dir_id IN (" + strings.Join(ids, ",") + ") AND (" + where + ")", nil
+}
+
+// dirsOf is the directories the messages a query selects sit in, so a
+// filter that also reads ties can still be found by directory: without
+// it, SQLite reads every message in the range (item 285).
+func (s *Store) dirsOf(messages string) ([]string, error) {
+	rows, err := s.db.Query("SELECT DISTINCT dir_id FROM messages WHERE id IN " + messages)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []string
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, strconv.FormatInt(id, 10))
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) earliest(where string, loc *time.Location) (Date, bool, error) {
@@ -286,9 +335,16 @@ func (s *Store) ModelMix(r Range, f Filter, loc *time.Location) ([]Share, error)
 }
 
 // Districts is every district the store holds messages for, by root,
-// in order: hidden ones and those whose transcripts are gone included.
-func (s *Store) Districts(root func(dir string) string) ([]string, error) {
-	rows, err := s.db.Query("SELECT path FROM dirs WHERE id IN (SELECT DISTINCT dir_id FROM messages)")
+// in order: hidden ones and those whose transcripts are gone included,
+// and a tied session's at its district's directory.
+func (s *Store) Districts(root func(dir string) string, tied map[string]string) ([]string, error) {
+	query := "SELECT path FROM dirs WHERE id IN (SELECT DISTINCT dir_id FROM messages)"
+	if len(tied) > 0 {
+		places := tiedPlaces(tied)
+		query = "SELECT path FROM dirs WHERE id IN (SELECT DISTINCT dir_id FROM messages WHERE id NOT IN (SELECT id FROM " + places +
+			")) UNION SELECT DISTINCT place FROM " + places
+	}
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}

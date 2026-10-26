@@ -36,6 +36,7 @@ type fakeLedger struct {
 	sessions map[string]stats.Cost
 	reason   string
 	asked    []int
+	tied     map[string]string
 }
 
 func (l *fakeLedger) SessionCosts(at time.Time) (map[string]stats.Cost, error) {
@@ -45,8 +46,9 @@ func (l *fakeLedger) SessionCosts(at time.Time) (map[string]stats.Cost, error) {
 	return l.sessions, nil
 }
 
-func (l *fakeLedger) Window(at time.Time, hours int, root func(string) string) (stats.Window, error) {
+func (l *fakeLedger) Window(at time.Time, hours int, root func(string) string, tied map[string]string) (stats.Window, error) {
 	l.asked = append(l.asked, hours)
+	l.tied = tied
 	if l.reason != "" {
 		return stats.Window{}, errors.New(l.reason)
 	}
@@ -164,6 +166,18 @@ func TestBreakdown(t *testing.T) {
 			series := c.Series(city.LastDay)
 			require.Len(t, series, 24)
 			assert.Equal(t, []float64{1, 1}, []float64{series[23], series[20]})
+		})
+	})
+
+	t.Run("when one temporary-directory session is tied to a project and another is not", func(t *testing.T) {
+		tied := spender("tied", "/tmp/tmp.tied", "claude-opus-5", map[int]int64{0: 10})
+		tied.District = cinders
+		untied := spender("untied", "/tmp/tmp.untied", "claude-opus-5", map[int]int64{0: 20})
+		ledger := &fakeLedger{window: stored}
+		city.BuildWithLedger(snapshot(append(sessions, tied, untied)...), city.NewLayout(), ledger)
+
+		t.Run("it should ask the store to place only the tied one, at its project", func(t *testing.T) {
+			assert.Equal(t, map[string]string{"tied": cinders}, ledger.tied)
 		})
 	})
 

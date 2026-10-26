@@ -35,7 +35,7 @@ func TestStatsRanges(t *testing.T) {
 	})
 
 	t.Run("when its districts are listed", func(t *testing.T) {
-		roots, err := store.Districts(city.ProjectRoot)
+		roots, err := store.Districts(city.ProjectRoot, nil)
 		require.NoError(t, err)
 
 		t.Run("it should hold all three", func(t *testing.T) {

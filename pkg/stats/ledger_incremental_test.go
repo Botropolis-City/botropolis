@@ -204,16 +204,16 @@ func TestLedgerIncremental(t *testing.T) {
 				c.step()
 			}
 			l := newLedger(t, c.f.db)
-			_, err := l.WindowNow(c.at, hours, city.ProjectRoot)
+			_, err := l.WindowNow(c.at, hours, city.ProjectRoot, nil)
 			require.NoError(t, err)
 			_, err = l.SessionCostsNow(c.at)
 			require.NoError(t, err)
 			var windows, costs string
 			for i := 0; i < 40 && windows == "" && costs == ""; i++ {
 				c.step()
-				got, err := l.WindowNow(c.at, hours, city.ProjectRoot)
+				got, err := l.WindowNow(c.at, hours, city.ProjectRoot, nil)
 				require.NoError(t, err)
-				want, err := c.f.store.Window(c.at.Add(-time.Duration(hours)*time.Hour), c.at, hours, city.ProjectRoot)
+				want, err := c.f.store.Window(c.at.Add(-time.Duration(hours)*time.Hour), c.at, hours, city.ProjectRoot, nil)
 				require.NoError(t, err)
 				if d := windowDiff(got, want); d != "" {
 					windows = fmt.Sprintf("after step %d: %s", i+1, d)
@@ -251,14 +251,14 @@ func TestLedgerIncremental(t *testing.T) {
 			require.NoError(t, err)
 		}
 		l := newLedger(t, c.f.db)
-		_, err := l.WindowNow(c.at, 24, city.ProjectRoot)
+		_, err := l.WindowNow(c.at, 24, city.ProjectRoot, nil)
 		require.NoError(t, err)
 		for range 10 {
 			c.step()
 		}
-		got, err := l.WindowNow(c.at, 24, city.ProjectRoot)
+		got, err := l.WindowNow(c.at, 24, city.ProjectRoot, nil)
 		require.NoError(t, err)
-		want, err := c.f.store.Window(c.at.Add(-24*time.Hour), c.at, 24, city.ProjectRoot)
+		want, err := c.f.store.Window(c.at.Add(-24*time.Hour), c.at, 24, city.ProjectRoot, nil)
 		require.NoError(t, err)
 
 		t.Run("it should read the window whole and equal Store.Window", func(t *testing.T) {
@@ -295,10 +295,10 @@ func TestLedgerIncremental(t *testing.T) {
 			c.step()
 		}
 		l := newLedger(t, c.f.db)
-		_, err := l.WindowNow(c.at, 24, city.ProjectRoot)
+		_, err := l.WindowNow(c.at, 24, city.ProjectRoot, nil)
 		require.NoError(t, err)
 		before := l.MessageReads()
-		_, err = l.WindowNow(c.at.Add(time.Minute), 24, city.ProjectRoot)
+		_, err = l.WindowNow(c.at.Add(time.Minute), 24, city.ProjectRoot, nil)
 		require.NoError(t, err)
 
 		t.Run("it should read no messages again", func(t *testing.T) {

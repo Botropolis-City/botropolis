@@ -131,6 +131,9 @@ type City struct {
 	// offMap is the sessions Shown leaves off the map: still counted in
 	// the statistics (item 273).
 	offMap []state.Session
+	// ties is each tied temporary-directory session's district
+	// directory, by session id, for the statistics (item 285).
+	ties map[string]string
 	// memo is what the scene remembers between snapshots, or nil for a
 	// city built from nothing (item 197).
 	memo *memo
@@ -376,7 +379,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		return names[roots[i]] < names[roots[j]]
 	})
 
-	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless, offMap: offMap, memo: m}
+	city := &City{Time: snapshot.At, ledger: ledger, names: names, folderless: folderless, offMap: offMap, ties: ties(snapshot.Sessions, offMap), memo: m}
 	if len(byRoot)+len(packed) == 0 && !keepDepot {
 		city.placeLandmarks(snapshot)
 		city.Plant.Day = city.Breakdown(LastDay)

@@ -22,7 +22,7 @@ func TestALedgerReadsFreshWhenAsked(t *testing.T) {
 		f.store = open(t, path)
 		f.seed(msg("msg_1", "2026-10-19T11:00:00.000Z", lib, usage{Output: 2}))
 		l := newLedger(t, path)
-		_, err := l.Window(t0, 24, nil)
+		_, err := l.Window(t0, 24, nil, nil)
 		require.NoError(t, err)
 		_, err = l.SessionCosts(t0)
 		require.NoError(t, err)
@@ -33,7 +33,7 @@ func TestALedgerReadsFreshWhenAsked(t *testing.T) {
 		f.ingest()
 	}
 	output := func(t *testing.T, l *stats.Ledger, at time.Time) int64 {
-		w, err := l.Window(at, 24, nil)
+		w, err := l.Window(at, 24, nil, nil)
 		require.NoError(t, err)
 		return w.Counters.Output
 	}

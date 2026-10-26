@@ -42,6 +42,7 @@ type liveWindow struct {
 	held    map[string]*held
 	at      time.Time
 	version int64
+	tied    map[string]string
 	window  Window
 }
 
@@ -259,7 +260,7 @@ func (g grouper) keyed(starts []time.Time) []keyed {
 
 // answer adds w's messages up into the window from since to until, as
 // Store.Window does.
-func (w *liveWindow) answer(until time.Time, hours int, root func(string) string) (Window, error) {
+func (w *liveWindow) answer(until time.Time, hours int, root func(string) string, tied map[string]string) (Window, error) {
 	_, starts := eraBounds()
 	if root == nil {
 		root = same
@@ -273,7 +274,7 @@ func (w *liveWindow) answer(until time.Time, hours int, root func(string) string
 		}
 		all.add("", h)
 		byModel.add(h.class.model, h)
-		byDir.add(h.dir, h)
+		byDir.add(placeOf(h, tied), h)
 		for _, s := range h.sessions {
 			bySession.add(s, h)
 		}
