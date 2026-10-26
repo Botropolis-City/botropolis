@@ -193,14 +193,6 @@ func TestDetect(t *testing.T) {
 				branch("a", "/w/lib", "proj-77-headers", 0),
 				branch("b", "/w/api", "PROJ-77-use-headers", 5*time.Minute),
 			}},
-			{"they were started within a minute of each other", []group.Member{
-				member("a", "/w/lib", 0, "look around"),
-				member("b", "/w/api", 40*time.Second, "open the gateway"),
-			}},
-			{"it was started within a minute of the other closing", []group.Member{
-				{ID: "a", Dir: "/w/lib", Started: t0, Ended: t0.Add(time.Hour), Prompts: []string{"look around"}},
-				member("b", "/w/api", time.Hour+40*time.Second, "open the gateway"),
-			}},
 		}
 		for _, c := range cases {
 			t.Run("and "+c.scenario, func(t *testing.T) {
@@ -231,6 +223,8 @@ func TestDetect(t *testing.T) {
 			signal   group.Signal
 		}{
 			{"it shares rare words", member("b", "/w/infra", 9*time.Hour, "allow the rate-limit headers through"), group.SignalWording},
+			{"it was started within a minute of a member", member("b", "/w/infra", 40*time.Second, "open the gateway"), group.SignalTiming},
+			{"it was started within a minute of a member closing", member("b", "/w/infra", time.Hour+40*time.Second, "open the gateway"), group.SignalContinuing},
 			{"it was started minutes apart", member("b", "/w/infra", 5*time.Minute, "open the gateway"), group.SignalTiming},
 			{"it was started minutes after a member closed", member("b", "/w/infra", time.Hour+5*time.Minute, "open the gateway"), group.SignalContinuing},
 		}

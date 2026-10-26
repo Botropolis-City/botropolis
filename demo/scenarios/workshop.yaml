@@ -6,6 +6,7 @@ usage: {session: 46, weekly: 58, models: {Opus: 21}}
 sessions:
   - ref: tidepool/units-from-tracker
     state: working
+    branch: feat/reader-units
     context: 34%
     ago: 30s
     started: 1h15m
@@ -27,6 +28,7 @@ sessions:
     prs: [merged]
   - ref: kiln/line-numbers-like-tidepool
     state: working
+    branch: feat/reader-units
     context: 48%
     ago: 1m
     started: 1h15m

@@ -3,6 +3,7 @@ package state
 import (
 	"crypto/sha256"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -51,6 +52,10 @@ type groupCache struct {
 	reviewed bool
 	texts    map[string]memberTexts
 	parts    signatureParts
+	// logf reports, and capped is how many sessions it last reported
+	// left out of a full group (item 271).
+	logf   func(format string, args ...any)
+	capped int
 }
 
 func lastPrompts(history map[string][]claude.Prompt) map[string]string {
@@ -67,6 +72,13 @@ func lastPrompts(history map[string][]claude.Prompt) map[string]string {
 // path. Without it groups are detected and nothing is written.
 func (l *Loader) WithGroups(path string) *Loader {
 	l.groups.path = path
+	return l
+}
+
+// WithLog sends what grouping has to report, such as sessions left out
+// of a full group, to logf rather than the standard logger.
+func (l *Loader) WithLog(logf func(format string, args ...any)) *Loader {
+	l.groups.logf = logf
 	return l
 }
 
@@ -137,6 +149,7 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 	}
 	c.result = c.detector.Detect(members, memory)
 	c.detections++
+	c.reportCapped()
 	if c.path == "" {
 		return nil
 	}
@@ -150,6 +163,24 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 		return group.Save(c.path, remembered)
 	}
 	return nil
+}
+
+// reportCapped logs the sessions detection left out of a full group,
+// when how many there are changes, rather than drawing them (item 271).
+func (c *groupCache) reportCapped() {
+	n := len(c.result.Capped)
+	if n == c.capped {
+		return
+	}
+	c.capped = n
+	if n == 0 {
+		return
+	}
+	logf := c.logf
+	if logf == nil {
+		logf = log.Printf
+	}
+	logf("botropolisd: %d sessions were left out of groups already holding %d sessions (item 271)", n, group.MaxMembers)
 }
 
 // confirmLikely notes when each likely member was first seen as one, and

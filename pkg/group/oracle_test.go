@@ -14,7 +14,7 @@ func detectEveryPair(members []Member, memory Memory) Result {
 	groups := d.oracleGroups(comps, edges, memory)
 	groups = d.placeMoved(groups, memory)
 	groups = d.joinStarted(groups, memory)
-	result := Result{Groups: groups}
+	result := Result{Groups: groups, Capped: d.capped}
 	result.Suggestions = d.oracleSuggest(groups, edges)
 	return result
 }
@@ -34,6 +34,9 @@ func (d *detection) oracleEdges() []edge {
 	sort.SliceStable(edges, func(x, y int) bool {
 		if edges[x].tier != edges[y].tier {
 			return edges[x].tier > edges[y].tier
+		}
+		if edges[x].timed != edges[y].timed {
+			return !edges[x].timed
 		}
 		return signalRank[edges[x].reason.Signal] < signalRank[edges[y].reason.Signal]
 	})
@@ -142,13 +145,42 @@ func (d *detection) oracleCluster(edges []edge) [][]int {
 		comp[i] = i
 		sets[i] = []int{i}
 	}
+	joinedOnTiming := map[int]bool{}
+	left := map[int]bool{}
+	d.capped = nil
 	for _, e := range edges {
-		if e.tier < Likely {
+		if e.tier < Likely || left[e.a] || left[e.b] {
 			continue
 		}
 		ca, cb := comp[e.a], comp[e.b]
-		if ca == cb || d.oracleAnyBlocked(sets[ca], sets[cb]) {
+		if ca == cb {
 			continue
+		}
+		na, nb := len(sets[ca]), len(sets[cb])
+		if e.timed {
+			hop := (na == 1 && nb == 1) || (na == 1 && !joinedOnTiming[e.b]) || (nb == 1 && !joinedOnTiming[e.a])
+			if !hop {
+				continue
+			}
+		}
+		if d.oracleAnyBlocked(sets[ca], sets[cb]) {
+			continue
+		}
+		if na+nb > MaxMembers {
+			if na == 1 || nb == 1 {
+				loose, with := e.a, e.b
+				if na != 1 {
+					loose, with = e.b, e.a
+				}
+				left[loose] = true
+				reason := e.reason
+				reason.With = d.members[with].ID
+				d.capped = append(d.capped, Capped{Session: d.members[loose].ID, Reason: reason})
+			}
+			continue
+		}
+		if e.timed {
+			joinedOnTiming[e.a], joinedOnTiming[e.b] = true, true
 		}
 		for _, m := range sets[cb] {
 			comp[m] = ca

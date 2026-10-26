@@ -156,6 +156,8 @@ A placement can add to its recording, each as a synthetic line stamped at the re
     errors: 2                    # smoke
     team: harbor                 # a camp
     agent: lead
+    branch: fix/leap-day         # every line on this branch: two sessions on one,
+                                 # started together, group as likely (item 271)
   - ref: tidepool/fix-leap-day   # with a project too: a clone,
     project: driftwood           # a session of its own in another district
     state: needs-you

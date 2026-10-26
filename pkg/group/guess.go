@@ -4,9 +4,8 @@ import "sort"
 
 // A Guess is the group New session proposes for a session about to
 // start, weighed by detection's own signals and tiers: a reference in
-// the prompt is sure, being in one of the group's sessions a minute ago
-// is likely, minutes ago or shared wording alone is only possible
-// (item 87).
+// the prompt is sure, and being in one of the group's sessions minutes
+// ago or shared wording alone is only possible (items 87 and 271).
 type Guess struct {
 	Group  string
 	Tier   Tier

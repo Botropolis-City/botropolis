@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -268,7 +269,7 @@ type overlay struct {
 }
 
 func (o overlay) rewrite(lines [][]byte) [][]byte {
-	if len(o.replace) == 0 {
+	if len(o.replace) == 0 && o.Branch == "" {
 		return lines
 	}
 	out := make([][]byte, len(lines))
@@ -276,9 +277,24 @@ func (o overlay) rewrite(lines [][]byte) [][]byte {
 		for _, r := range o.replace {
 			line = bytes.ReplaceAll(line, []byte(r[0]), []byte(r[1]))
 		}
-		out[i] = line
+		out[i] = o.onBranch(line)
 	}
 	return out
+}
+
+var gitBranch = regexp.MustCompile(`"gitBranch":"[^"]*"`)
+
+// onBranch puts a line on the placement's branch, when it names one.
+func (o overlay) onBranch(line []byte) []byte {
+	if o.Branch == "" || len(line) < 3 || line[0] != '{' {
+		return line
+	}
+	field, _ := json.Marshal(o.Branch)
+	branch := append([]byte(`"gitBranch":`), field...)
+	if gitBranch.Match(line) {
+		return gitBranch.ReplaceAllLiteral(line, branch)
+	}
+	return append(append(append([]byte("{"), branch...), ','), line[1:]...)
 }
 
 // contextWindow is the window a recorded session's context is measured

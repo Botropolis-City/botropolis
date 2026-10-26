@@ -192,6 +192,17 @@ func TestStage(t *testing.T) {
 		})
 	}
 
+	t.Run("when a placement gives a recorded session a branch", func(t *testing.T) {
+		got := stage(t, corpus, Scenario{Sessions: []Placement{{Ref: "tidepool/6f1d", State: state.Working, Ago: Duration(2 * time.Minute), Branch: "feat/tide-units"}}}, now)
+		require.NoError(t, got.err)
+
+		t.Run("it should put the session on that branch", func(t *testing.T) {
+			staged, err := claude.ReadTranscript(transcript(got.home))
+			require.NoError(t, err)
+			assert.Equal(t, "feat/tide-units", staged.Branch)
+		})
+	})
+
 	t.Run("when a plot is placed empty in a project", func(t *testing.T) {
 		got := stage(t, corpus, Scenario{Sessions: []Placement{{Project: "lanternfish", State: state.Empty}}}, now)
 		require.NoError(t, got.err)

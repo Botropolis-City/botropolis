@@ -6,13 +6,15 @@ package group
 import "time"
 
 const (
-	// together is how close two starts, or a close and a start, must be
-	// to suggest one piece of work on their own; burst and continuing
-	// are how close they must be to strengthen another signal.
-	together   = time.Minute
+	// burst and continuing are how close two starts, or a close and a
+	// start, must be to strengthen another signal; timing never joins on
+	// its own (item 271).
 	burst      = 15 * time.Minute
 	continuing = 10 * time.Minute
 )
+
+// MaxMembers is the most sessions one detected group holds (item 271).
+const MaxMembers = 40
 
 // Member is one session as detection sees it.
 type Member struct {
@@ -129,6 +131,14 @@ type Suggestion struct {
 type Result struct {
 	Groups      []Group
 	Suggestions []Suggestion
+	Capped      []Capped
+}
+
+// Capped is a session left out of a group that was already as large as
+// a group can be, and the tie that would have joined it.
+type Capped struct {
+	Session string
+	Reason  Reason
 }
 
 func (r Result) GroupOf(session string) (Group, bool) {
@@ -150,9 +160,12 @@ func (r Result) SuggestionsFor(session string) []Suggestion {
 	return out
 }
 
+// edge is a scored pair; timed is a likely pair that needs its timing
+// to be likely, which joins only one hop from evidence (item 271).
 type edge struct {
 	a, b   int
 	tier   Tier
+	timed  bool
 	reason Reason
 }
 
@@ -174,4 +187,6 @@ type detection struct {
 	// groups whose words have not moved (item 198); nil names every
 	// group afresh.
 	names *keptNames
+	// capped are the sessions cluster left out of a full group.
+	capped []Capped
 }

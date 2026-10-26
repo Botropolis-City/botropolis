@@ -133,11 +133,17 @@ func TestLoaderGroups(t *testing.T) {
 			})
 		})
 
-		t.Run("and a third session was started within a minute of one of them", func(t *testing.T) {
+		t.Run("and a third session is on one's branch and was started within a minute of it", func(t *testing.T) {
 			const sidC = "2222aaaa-0000-0000-0000-000000000000"
+			onBranch := func(line string) string {
+				return strings.Replace(line, `"gitBranch":"main"`, `"gitBranch":"feat/retries"`, 1)
+			}
 			home := groupedHome(t)
+			home.Transcript(sidB, apiDir,
+				onBranch(helpers.UserPrompt(sidB, apiDir, "2026-09-16T14:00:00.000Z")),
+				helpers.AssistantReply(sidB, "msg_02", "2026-09-16T14:00:10.000Z"))
 			home.Transcript(sidC, apiDir,
-				helpers.UserPrompt(sidC, apiDir, "2026-09-16T14:00:30.000Z"),
+				onBranch(helpers.UserPrompt(sidC, apiDir, "2026-09-16T14:00:30.000Z")),
 				helpers.AssistantReply(sidC, "msg_03", "2026-09-16T14:00:40.000Z"))
 			home.Prompt(sidC, apiDir, "tidy the readme", time.Date(2026, 9, 16, 14, 0, 30, 0, time.UTC))
 			snapshot, err := state.NewLoader(home.Path, dead).Load(now)

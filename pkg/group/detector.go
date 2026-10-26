@@ -38,6 +38,7 @@ type Detector struct {
 type scored struct {
 	first  string
 	tier   Tier
+	timed  bool
 	reason Reason
 }
 
@@ -122,7 +123,7 @@ func (dt *Detector) scoreChanged(d *detection, changed map[string]bool) {
 			a, b := min(i, j), max(i, j)
 			dt.scored++
 			if e, ok := d.pair(a, b); ok {
-				dt.tie(d.members[a].ID, d.members[b].ID, scored{first: d.members[a].ID, tier: e.tier, reason: e.reason})
+				dt.tie(d.members[a].ID, d.members[b].ID, scored{first: d.members[a].ID, tier: e.tier, timed: e.timed, reason: e.reason})
 			}
 		}
 	}
@@ -236,13 +237,13 @@ func (dt *Detector) taken2(d *detection, i, j int) (edge, bool) {
 			dt.untie(a, b)
 			return edge{}, false
 		}
-		s = scored{first: a, tier: e.tier, reason: e.reason}
+		s = scored{first: a, tier: e.tier, timed: e.timed, reason: e.reason}
 		dt.tie(a, b, s)
 	}
 	if d.sitsOut(a) || d.sitsOut(b) || (len(d.blocked) > 0 && d.blocked[[2]string{a, b}]) {
 		return edge{}, false
 	}
-	return edge{a: i, b: j, tier: s.tier, reason: s.reason}, true
+	return edge{a: i, b: j, tier: s.tier, timed: s.timed, reason: s.reason}, true
 }
 
 func (dt *Detector) tie(a, b string, s scored) {

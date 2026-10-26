@@ -20,15 +20,22 @@ const (
 	corpusDir    = "../../../demo/corpus"
 )
 
-// stagedGroups stages a scenario from the real corpus, loads it as the
-// daemon would, and names each group it detects by its members' titles.
+// stagedGroups stages a scenario from the real corpus, plays its
+// timeline to the end, loads it as the daemon would, and names each
+// group it detects by its members' titles: a scenario's groups are what
+// the city finds once it has played (item 271).
 func stagedGroups(t *testing.T, scenario demo.Scenario) []string {
 	t.Helper()
 	home := t.TempDir()
-	now := time.Now()
-	_, err := demo.NewDirector(demo.Corpus{Dir: corpusDir}, scenario, home, now, demo.Sleepers(home, 10*time.Minute))
+	start := time.Now()
+	director, err := demo.NewDirector(demo.Corpus{Dir: corpusDir}, scenario, home, start, demo.Sleepers(home, 10*time.Minute))
 	t.Cleanup(func() { _ = demo.Unstage(home) })
 	require.NoError(t, err)
+	now := start
+	for _, e := range director.Events() {
+		now = start.Add(e.At)
+		require.NoError(t, director.Apply(e, now))
+	}
 	snapshot, err := state.NewLoader(home, probes).WithGroups(filepath.Join(t.TempDir(), "groups.json")).Load(now)
 	require.NoError(t, err)
 	titles := map[string]string{}

@@ -30,7 +30,7 @@ func (d *detection) detect(memory Memory, edges []edge) Result {
 	groups := d.groups(comps, edges, memory)
 	groups = d.placeMoved(groups, memory)
 	groups = d.joinStarted(groups, memory)
-	result := Result{Groups: groups}
+	result := Result{Groups: groups, Capped: d.capped}
 	result.Suggestions = d.suggest(groups, edges)
 	return result
 }
@@ -107,7 +107,11 @@ func sortEdges(edges []edge, keys []keyedEdge, out []edge) ([]edge, []keyedEdge)
 
 func edgeKey(e edge) uint64 {
 	rank := uint64(signalRank[e.reason.Signal] + 1)
-	return uint64(Sure-e.tier)<<60 | rank<<52 | uint64(e.a)<<26 | uint64(e.b)
+	var timed uint64
+	if e.timed {
+		timed = 1
+	}
+	return uint64(Sure-e.tier)<<60 | timed<<56 | rank<<52 | uint64(e.a)<<26 | uint64(e.b)
 }
 
 func (d *detection) pair(i, j int) (edge, bool) {
@@ -130,10 +134,6 @@ func (d *detection) pair(i, j int) (edge, bool) {
 		return e, true
 	}
 	when, gap := timing(a, b)
-	if gap <= together {
-		e.tier, e.reason = Likely, Reason{Signal: when}
-		return e, true
-	}
 	var weak []Reason
 	if d.wording.Related(a.ID, b.ID) {
 		words, _ := d.wording.Shared(a.ID, b.ID)
@@ -145,12 +145,13 @@ func (d *detection) pair(i, j int) (edge, bool) {
 	if files := intersect(a.Files, b.Files); len(files) > 0 {
 		weak = append(weak, Reason{Signal: SignalFiles, Detail: files[0]})
 	}
-	if (when == SignalTiming && gap <= burst) || (when == SignalContinuing && gap <= continuing) {
+	timed := (when == SignalTiming && gap <= burst) || (when == SignalContinuing && gap <= continuing)
+	if timed {
 		weak = append(weak, Reason{Signal: when})
 	}
 	switch {
 	case len(weak) >= 2:
-		e.tier = Likely
+		e.tier, e.timed = Likely, timed && len(weak) == 2
 	case len(weak) == 1:
 		e.tier = Possible
 	default:
@@ -224,21 +225,32 @@ func sameBranch(a, b string) (string, bool) {
 }
 
 // cluster joins sessions along sure and likely edges, strongest first,
-// refusing any join that would put a not-related pair in one group.
+// refusing any join that would put a not-related pair in one group. A
+// timed edge, which comes after every other, joins a session on its own
+// to another on its own, or to a member that did not itself join on
+// timing, so timing never chains (item 271). No group grows past
+// MaxMembers: a session refused by a full group is left out of every
+// group and reported as capped.
 func (d *detection) cluster(edges []edge) [][]int {
 	comp := make([]int, len(d.members))
 	// sets are each group's sessions by the group's first, nil for a
 	// session on its own.
 	sets := make([][]int, len(d.members))
+	timed := make([]bool, len(d.members))
+	out := make([]bool, len(d.members))
+	d.capped = nil
 	for i := range d.members {
 		comp[i] = i
 	}
 	for _, e := range edges {
-		if e.tier < Likely {
+		if e.tier < Likely || out[e.a] || out[e.b] {
 			continue
 		}
 		ca, cb := comp[e.a], comp[e.b]
 		if ca == cb {
+			continue
+		}
+		if e.timed && !d.oneHop(e, sets[ca] == nil, sets[cb] == nil, timed) {
 			continue
 		}
 		for _, c := range []int{ca, cb} {
@@ -248,6 +260,13 @@ func (d *detection) cluster(edges []edge) [][]int {
 		}
 		if d.anyBlocked(sets[ca], sets[cb]) {
 			continue
+		}
+		if len(sets[ca])+len(sets[cb]) > MaxMembers {
+			d.capOut(e, sets[ca], sets[cb], out)
+			continue
+		}
+		if e.timed {
+			timed[e.a], timed[e.b] = true, true
 		}
 		for _, m := range sets[cb] {
 			comp[m] = ca
@@ -264,6 +283,38 @@ func (d *detection) cluster(edges []edge) [][]int {
 	}
 	sort.Slice(comps, func(i, j int) bool { return comps[i][0] < comps[j][0] })
 	return comps
+}
+
+// oneHop is whether a timed edge may join: two sessions on their own, or
+// one on its own and a grouped member that did not join on timing.
+func (d *detection) oneHop(e edge, aloneA, aloneB bool, timed []bool) bool {
+	switch {
+	case aloneA && aloneB:
+		return true
+	case aloneA:
+		return !timed[e.b]
+	case aloneB:
+		return !timed[e.a]
+	}
+	return false
+}
+
+// capOut records the join a full group refused: the session on its own
+// is left out of every group, and two groups simply stay apart.
+func (d *detection) capOut(e edge, xs, ys []int, out []bool) {
+	session, with := -1, -1
+	switch {
+	case len(xs) == 1:
+		session, with = e.a, e.b
+	case len(ys) == 1:
+		session, with = e.b, e.a
+	default:
+		return
+	}
+	out[session] = true
+	reason := e.reason
+	reason.With = d.members[with].ID
+	d.capped = append(d.capped, Capped{Session: d.members[session].ID, Reason: reason})
 }
 
 func (d *detection) anyBlocked(xs, ys []int) bool {

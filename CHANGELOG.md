@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On a machine with a long history, every such session used to stay drawn, however old, and each could be a district of its own.
   Its statistics are kept, so the power plant, the strip and the statistics panel read as before.
   The settings panel's *deleted transcripts* row, or `gone_sessions = true`, brings them back at once.
+- **Sessions started one after another no longer chain into groups of hundreds.**
+  Starting within a minute of another session no longer joins it to a group on its own; it is suggested instead.
+  Timing still counts alongside other evidence, such as shared files or a branch, but it never links one session to the next down a stream of runs.
+  A group holds at most 40 sessions, and the daemon logs any it leaves out.
+  New session now says *perhaps* rather than *likely* when its only reason is that you were in one of the group's sessions a minute ago.
 
 ## [0.3.1] - 2026-10-26
 

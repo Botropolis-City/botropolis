@@ -10,6 +10,7 @@ usage_changes:
 sessions:
   - ref: tidepool/fix-table-timezone
     state: working
+    branch: fix/station-time
     context: 62%
     ago: 30s
     started: 50m
@@ -27,6 +28,7 @@ sessions:
       - {at: 20s, errors: 1}
   - ref: kiln/hold-time-sampling
     state: working
+    branch: fix/station-time
     context: 41%
     ago: 1m
     started: 50m

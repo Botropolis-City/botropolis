@@ -61,7 +61,10 @@ type Placement struct {
 	PRs    []string `yaml:"prs"`
 	Errors int      `yaml:"errors"`
 	Team   string   `yaml:"team"`
-	Agent  string   `yaml:"agent"`
+	// Branch puts the session on a branch, so two placements can share
+	// one: with starting together, a likely group (item 271).
+	Branch string `yaml:"branch"`
+	Agent  string `yaml:"agent"`
 	// Context is how full the session's context window is, "72%":
 	// the building's height. Recorded sessions are short and efficient
 	// and all stop under 15%, which would draw every building alike.

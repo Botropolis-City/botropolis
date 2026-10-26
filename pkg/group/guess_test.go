@@ -42,7 +42,7 @@ func TestGuess(t *testing.T) {
 		reason   string
 	}{
 		{"the prompt mentions a group's reference", history(far), "/w/infra", "pass the headers for LOG-4", "c", group.Sure, "mentions LOG-4"},
-		{"you were in one of its sessions a minute ago", history(30 * time.Second), "/w/infra", "go", "a", group.Likely, "continued from b"},
+		{"you were in one of its sessions a minute ago", history(30 * time.Second), "/w/infra", "go", "a", group.Possible, "continued from b"},
 		{"you were in one of its sessions minutes ago", history(5 * time.Minute), "/w/infra", "go", "a", group.Possible, "continued from b"},
 		{"the prompt shares its rare words", history(far), "/w/infra", "allow the rate-limit headers through", "a", group.Possible, `shares "headers rate-limit" with a`},
 	}

@@ -52,8 +52,8 @@ func TestCorrections(t *testing.T) {
 
 	t.Run("when a likely member is confirmed", func(t *testing.T) {
 		likely := []group.Member{
-			member("a", "/w/lib", 0, "look around"),
-			member("b", "/w/api", 40*time.Second, "open the gateway"),
+			{ID: "a", Dir: "/w/lib", Started: t0, Branch: "feat/kiln", Files: []string{"/w/lib/kiln.go"}, Prompts: []string{"look around"}},
+			{ID: "b", Dir: "/w/api", Started: t0.Add(3 * time.Hour), Branch: "feat/kiln", Files: []string{"/w/lib/kiln.go"}, Prompts: []string{"open the gateway"}},
 		}
 		result := detect(group.Memory{Confirmed: []string{"b"}}, likely...)
 		g, _ := result.GroupOf("b")
