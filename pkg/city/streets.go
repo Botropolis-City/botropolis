@@ -1,7 +1,9 @@
 package city
 
 import (
+	"maps"
 	"math"
+	"slices"
 	"sort"
 
 	"botropolis.city/botropolis/pkg/plan"
@@ -102,6 +104,10 @@ func (c *City) layRoads() {
 			stub[cell] |= sideOf(cell, end[1])
 		}
 	}
+	// The bridge's road and its joints stand no lamps: lit, they cost the
+	// night frame draws it does not have, until item 257 lays every
+	// lamp's glow together (Aria, 2026-10-26).
+	lit := maps.Clone(road)
 	c.layBridgeRoads(road, stub)
 	// A road that reaches the bridge's landing joins it: a T, not a
 	// road running past the bridge's end (Aria, 2026-10-18).
@@ -122,7 +128,7 @@ func (c *City) layRoads() {
 	}
 	lamps := c.Lamps[:0]
 	for _, l := range c.Lamps {
-		if road[l] {
+		if lit[l] {
 			lamps = append(lamps, l)
 		}
 	}
@@ -158,42 +164,120 @@ func (c *City) layRoads() {
 }
 
 // layBridgeRoads lays road to every bridge's landing that no route
-// reaches, along the avenues from the nearest road laid, or on a city
-// with no road from the nearest driveway, out of its lot: the trucks
-// drive that way, so it is travelled and not belt. Item 247.
+// reaches: the trucks drive that way, so it is travelled and not belt.
+// Item 247.
+//
+// It leaves the nearest lot by that lot's driveway, which a road moves
+// once and the layout keeps for good (item 108), so it stays put while
+// roads between districts come and go, as the bridge it leads to does,
+// and no lot gets a second driveway for it. A turn of the camera lays
+// it again, as it does every road. And it runs on a
+// cell past the landing, so the landing is a T whose stem runs along
+// the ramp: a bend's curve passes the cell's middle half a cell off the
+// ramp's line (Aria, 2026-10-26).
 func (c *City) layBridgeRoads(road map[Cell]bool, stub map[Cell]int) {
 	c.bridgeRoads = nil
+	routes := maps.Clone(road)
+	var spurs [][]Cell
 	for _, l := range c.landings {
 		if road[l.cell] {
 			continue
 		}
 		from := map[Cell]bool{}
-		for cell := range road {
-			from[cell] = true
-		}
 		lots := map[Cell]Point{}
-		if len(from) == 0 {
-			for _, d := range c.Districts {
-				if dw, ok := c.Driveway(d); ok {
-					from[dw.Cell] = true
-					lots[dw.Cell] = dw.Lot
-				}
+		for _, d := range c.Districts {
+			if dw, ok := c.Driveway(d); ok {
+				from[dw.Cell] = true
+				lots[dw.Cell] = dw.Lot
 			}
 		}
 		walk := c.walkStreets(from, map[Cell]bool{l.cell: true})
 		if len(walk) == 0 {
 			continue
 		}
-		for _, cell := range walk {
-			if !road[cell] {
-				c.bridgeRoads = append(c.bridgeRoads, cell)
+		if n := len(walk); n >= 2 {
+			last := walk[n-2]
+			past := Cell{Col: 2*l.cell.Col - last.Col, Row: 2*l.cell.Row - last.Row}
+			if last.Col == l.cell.Col && c.IsStreet(past) {
+				walk = append(walk, past)
 			}
+		}
+		c.bridgeRoads = append(c.bridgeRoads, walk...)
+		spurs = append(spurs, walk)
+		for _, cell := range walk {
 			road[cell] = true
 		}
-		if lot, ok := lots[walk[0]]; ok {
-			stub[walk[0]] |= sideOf(walk[0], lot)
+		stub[walk[0]] |= sideOf(walk[0], lots[walk[0]])
+	}
+	for _, spur := range spurs {
+		joinBridgeRoad(c, routes, road, spur)
+	}
+}
+
+// joinBridgeRoad links each run of road between districts that does not
+// meet a bridge's road to it, by the cheapest walk along the avenues: a
+// joint that comes and goes with the road it links, as any route does,
+// while the bridge's road stays. So every bridge is reached by road from
+// every road. Item 247.
+func joinBridgeRoad(c *City, routes, road map[Cell]bool, spur []Cell) {
+	joined := map[Cell]bool{}
+	for _, cell := range spur {
+		joined[cell] = true
+	}
+	for _, run := range roadRuns(routes) {
+		meets := false
+		for _, cell := range run {
+			meets = meets || joined[cell] || besideRoad(cell, joined)
+		}
+		from := map[Cell]bool{}
+		for _, cell := range run {
+			from[cell] = true
+		}
+		if !meets {
+			for _, cell := range c.walkStreets(from, joined) {
+				road[cell] = true
+				joined[cell] = true
+			}
+		}
+		for _, cell := range run {
+			joined[cell] = true
 		}
 	}
+}
+
+// roadRuns is the road cells split into runs that join one another,
+// each run and the runs in order of their first cell.
+func roadRuns(road map[Cell]bool) [][]Cell {
+	cells := slices.Collect(maps.Keys(road))
+	slices.SortFunc(cells, func(a, b Cell) int {
+		if lessCell(a, b) {
+			return -1
+		}
+		if lessCell(b, a) {
+			return 1
+		}
+		return 0
+	})
+	seen := map[Cell]bool{}
+	var runs [][]Cell
+	for _, first := range cells {
+		if seen[first] {
+			continue
+		}
+		seen[first] = true
+		run := []Cell{first}
+		for i := 0; i < len(run); i++ {
+			for _, s := range sides {
+				next := Cell{run[i].Col + s.dc, run[i].Row + s.dr}
+				if road[next] && !seen[next] {
+					seen[next] = true
+					run = append(run, next)
+				}
+			}
+		}
+		runs = append(runs, run)
+	}
+	return runs
 }
 
 // walkRoads is walkStreets for a truck: across as few corridor cells

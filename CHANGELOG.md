@@ -62,8 +62,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A boarded-up building's planks hold still while the map pans.**
   On some factories zoomed out, a square window's planks could change shape from one frame to the next as the camera moved; they now stay as they are.
 - **A road leads to every bridge.**
-  Each bridge's ramp came down onto grass, a block from the nearest road; now a road runs to it from the nearest road, or out of the nearest lot when there is none, and joins the ramp.
+  Each bridge's ramp came down onto grass, a block from the nearest road; now a road runs to it out of the nearest lot and meets the ramp in a T, and stays where it is as other roads come and go.
+  Where a road between districts ends short of it, a short joining road links the two, and fades when that road does.
   A delivery truck keeps to the road where it goes, and crosses unpaved ground only to reach it.
+  The road to the bridge has no street lamps yet.
 - **A delivery truck always leaves on the bridge.**
   When the island grew while a truck was on its way, the bridge moved and the truck carried on where it had been, beside the deck and over the water; it now takes the bridge as it stands.
 - **Message vans and the depot's trucks arrive where things now are.**

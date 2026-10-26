@@ -111,8 +111,34 @@ func TestRoadToTheBridge(t *testing.T) {
 					t.Run("it should join the landing to the bridge", func(t *testing.T) {
 						assert.NotZero(t, road[land]&seaward(bridge))
 					})
+
+					// Aria, 2026-10-26: the road runs on a cell past the
+					// landing, so the landing is a T whose stem runs along
+					// the ramp's line, not a bend whose curve misses it.
+					t.Run("it should make the landing a T, the road running on past it", func(t *testing.T) {
+						assert.Equal(t, city.DirN|city.DirS|seaward(bridge), road[land])
+					})
 				})
 			}
+
+			// Aria, 2026-10-26: lit, their lamps cost the night frame three
+			// draws it does not have, so they stand unlit until item 257
+			// lays every lamp's glow together.
+			t.Run("it should stand no lamp on the bridge's road or its joints", func(t *testing.T) {
+				route := map[city.Cell]bool{}
+				for _, st := range c.Streets {
+					for _, p := range st.Path[1 : len(st.Path)-1] {
+						route[city.CellOf(p)] = true
+					}
+				}
+				var lit []city.Cell
+				for _, l := range c.Lamps {
+					if !route[l] {
+						lit = append(lit, l)
+					}
+				}
+				assert.Empty(t, lit)
+			})
 
 			for _, d := range c.Districts {
 				dw, ok := c.Driveway(d)
@@ -146,6 +172,108 @@ func TestRoadToTheBridge(t *testing.T) {
 			}
 		})
 	}
+
+	// The item: a bridge that is anchored keeps its road. Roads between
+	// districts come and go, so the bridge's road is laid from where
+	// they cannot move it.
+	t.Run("when roads between districts come and go", func(t *testing.T) {
+		spur := func(roads [][2]int) []city.Cell {
+			return city.Build(snapshotOf(6, roads), city.NewLayout()).BridgeRoads()
+		}
+		bare := spur(nil)
+		require.NotEmpty(t, bare, "precondition: a road is laid to the bridge")
+		for _, r := range []struct {
+			name  string
+			roads [][2]int
+		}{
+			{"near the bridge", [][2]int{{0, 1}}},
+			{"across the island", [][2]int{{3, 5}}},
+			{"far from the bridge", [][2]int{{4, 5}}},
+		} {
+			t.Run("and a road runs "+r.name+", it should lay the bridge's road where it lay without one", func(t *testing.T) {
+				assert.Equal(t, bare, spur(r.roads))
+			})
+		}
+	})
+
+	// The bridge's road leaves by the lot's own driveway, so no lot has a
+	// second one; a road moves a driveway once and the layout keeps it.
+	t.Run("when the district's driveway moves for a road", func(t *testing.T) {
+		layout := city.NewLayout()
+		bare := city.Build(snapshotOf(12, nil), layout)
+		was, _ := bare.Driveway(bare.Districts[0])
+		with := city.Build(snapshotOf(12, [][2]int{{0, 8}}), layout)
+		moved, _ := with.Driveway(with.Districts[0])
+		require.NotEqual(t, was.Cell, moved.Cell, "precondition: the road moves d00's driveway")
+		after := city.Build(snapshotOf(12, nil), layout)
+		start := func(c *city.City) city.Cell { return c.BridgeRoads()[0] }
+
+		var driveways []city.Cell
+		for _, d := range with.Districts {
+			if dw, ok := with.Driveway(d); ok {
+				driveways = append(driveways, dw.Cell)
+			}
+		}
+
+		t.Run("it should follow it once", func(t *testing.T) {
+			assert.NotEqual(t, bare.BridgeRoads(), with.BridgeRoads())
+		})
+
+		t.Run("it should leave by a lot's own driveway, so no lot has a second", func(t *testing.T) {
+			assert.Contains(t, driveways, start(with))
+		})
+
+		t.Run("and the road goes, it should stay where it went", func(t *testing.T) {
+			assert.Equal(t, with.BridgeRoads(), after.BridgeRoads())
+		})
+	})
+
+	t.Run("when a road between districts that a joint links to the bridge's road goes", func(t *testing.T) {
+		s := city.NewScene(city.NewLayout())
+		s.Resize(800, 600)
+		clock := now
+		s.SetClock(func() time.Time { return clock }, time.UTC)
+		s.SetSnapshot(snapshotOf(17, chain(6)))
+		was := s.City()
+		route := map[city.Cell]bool{}
+		for _, st := range was.Streets {
+			for _, p := range st.Path[1 : len(st.Path)-1] {
+				route[city.CellOf(p)] = true
+			}
+		}
+		spur := map[city.Cell]bool{}
+		for _, cell := range was.BridgeRoads() {
+			spur[cell] = true
+		}
+		var joint []city.Cell
+		for cell := range roadOf(was) {
+			if !route[cell] && !spur[cell] {
+				joint = append(joint, cell)
+			}
+		}
+		require.NotEmpty(t, joint, "precondition: a joint links the roads to the bridge's road")
+		bridgeRoad := was.BridgeRoads()
+		s.SetSnapshot(snapshotOf(17, nil))
+		clock = clock.Add(city.OvergrowFor / 2)
+		growing := map[city.Cell]bool{}
+		for _, o := range s.Overgrowth() {
+			growing[o.Cell] = true
+		}
+		var standing []city.Cell
+		for _, cell := range joint {
+			if !growing[cell] {
+				standing = append(standing, cell)
+			}
+		}
+
+		t.Run("it should grow the joint over", func(t *testing.T) {
+			assert.Empty(t, standing)
+		})
+
+		t.Run("it should keep the bridge's road", func(t *testing.T) {
+			assert.Equal(t, bridgeRoad, s.City().BridgeRoads())
+		})
+	})
 
 	t.Run("when no road leaves any lot, so the bridge's road leaves one", func(t *testing.T) {
 		c := city.Build(snapshotOf(2, nil), city.NewLayout())
