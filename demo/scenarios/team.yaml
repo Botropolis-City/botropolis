@@ -7,12 +7,12 @@ sessions:
   - ref: tidepool/tide-team
     state: working
     title: Ask a teammate about kiln's reader
-    replay: {over: 14s, context: 46%}
+    replay: {over: 6s, context: 46%}
   - ref: tidepool/tide-team@reader
     project: kiln
     state: working
     title: Kiln reader
-    replay: {over: 14s, context: 38%}
+    replay: {over: 6s, context: 38%}
   - ref: kiln/hold-time-sampling
     state: resting
     ago: 3h
@@ -38,8 +38,8 @@ shots:
     timeline: true
     formats: [mp4, webm]
     script:
-      - {at: 0.5, pan_to: "district:tidepool", over: 2}
-      - {at: 2.5, wheel: 2, over: 2}
+      - {at: 0.5, pan_to: plant, over: 2}
+      - {at: 2.5, wheel: 3, over: 2}
   - name: team-train
     title: A team's messages along its line
     description: The same team with its group's line drawn. Each message between them rides the line as a carriage from one station to the other.
@@ -48,5 +48,5 @@ shots:
     timeline: true
     formats: [mp4, webm]
     script:
-      - {at: 0.5, pan_to: "district:tidepool", over: 2}
-      - {at: 2.5, wheel: 2, over: 2}
+      - {at: 0.5, pan_to: plant, over: 2}
+      - {at: 2.5, wheel: 3, over: 2}
