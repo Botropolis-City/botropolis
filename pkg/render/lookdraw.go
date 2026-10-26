@@ -260,9 +260,12 @@ func (g *Game) buildingHits(cam *city.Camera, f *buildingFrame) noted {
 		return n
 	}
 	foot := g.footOf(cam, b)
-	if f.dress.Sign && g.labelsVisible() {
-		n.badge, n.badged = g.queueBadge(b, foot)
+	if f.dress.Sign {
+		n.badge, n.badged = badgeLayout(b, foot, g.measure)
 		n.foot = foot
+		if n.badged && g.labelsVisible() {
+			g.queueLaidBadge(b, n.badge, foot)
+		}
 	}
 	roofTop := r.Min.Y
 	dot := math.Max(3, 6*cam.Zoom)

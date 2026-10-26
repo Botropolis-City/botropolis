@@ -505,6 +505,18 @@ func TestRecordReuse(t *testing.T) {
 			rc.scene.Pan(city.Point{X: 9, Y: -7})
 			rc.frame()
 		}, func(note string) bool { return strings.HasPrefix(note, "hit ") || strings.HasPrefix(note, "label ") }},
+		{", and its labels are hidden", func(rc *recordCity) {
+			rc.scene.SetLabels(false)
+			rc.frame()
+		}, every},
+		{", and its labels are hidden and shown again", func(rc *recordCity) {
+			rc.scene.SetLabels(false)
+			for range 3 {
+				rc.frame()
+			}
+			rc.scene.SetLabels(true)
+			rc.frame()
+		}, every},
 		{", and the camera has zoomed", func(rc *recordCity) {
 			rc.scene.Camera().Zoom *= 1.25
 			for range 3 {

@@ -1842,7 +1842,7 @@ func (g *Game) quietHits(cam *city.Camera, f *buildingFrame, m *quietFrame) {
 		for _, h := range m.hits {
 			g.noteHit(city.Rect{Min: h.rect.Min.Add(d), Max: h.rect.Max.Add(d)}, h.hit)
 		}
-		if m.noted.badged {
+		if m.noted.badged && g.labelsVisible() {
 			g.queueLaidBadge(f.b, m.noted.badge.moved(m.noted.badge.Panel.Min.Add(d)), m.noted.foot.Add(d))
 		}
 		return
