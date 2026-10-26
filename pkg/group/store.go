@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -53,6 +54,15 @@ func (m Memory) WithMove(session, group string) Memory {
 	}
 	m.Moves = append(moves, Move{Session: session, Group: group})
 	return m
+}
+
+// WithNewGroup is memory with a group made by hand under the name typed,
+// and that group's id, from a seed unique to it: New session's job, or
+// the session moved into it (items 87, 288).
+func (m Memory) WithNewGroup(name, seed string) (Memory, string) {
+	id := NewGroupID(name + "\x00" + seed)
+	m.Groups = append(slices.Clone(m.Groups), Stored{ID: id, Name: name, Renamed: true})
+	return m, id
 }
 
 // WithMuted is memory with a word muted, so it no longer joins sessions

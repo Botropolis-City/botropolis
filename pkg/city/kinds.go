@@ -78,7 +78,7 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindTower, KindSession}},
 	KindLibrary: {"library", "the skills in use", "The library holds the skills sessions have used, and how often.",
 		[]Kind{KindSession}},
-	KindHall: {"city hall", "the board of groups", "City hall holds the board of groups: each piece of work, whose move it is, and what is next.",
+	KindHall: {"city hall", "the board of groups", "City hall holds the board of groups: each piece of work, whose move it is, and what is next. Move to group on a session's card, then new group…, makes a group.",
 		[]Kind{KindStation}},
 	KindRoad: {"road", "traffic between two projects", "A road joins two projects that sessions crossed between, by messages or by files. Roads appear only where traffic runs.",
 		[]Kind{KindProject, KindCar}},

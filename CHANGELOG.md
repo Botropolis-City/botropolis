@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A right or middle drag always pans, whether it starts on a district or a building, and never moves anything.
   Shift+drag still pans too.
   The help now notes that Alt+drag may not reach the city, because some window managers, i3 among them, use Alt+drag to move windows.
+- **You can make a new group from any session's card.**
+  *Move to group* now starts with *new group…*: choose it, type a name and press enter, and the session moves into a new group by that name.
+  The card offers *move to group* even before you have any groups, so your first group can be made the same way.
+  A name that is empty or already a group's is refused in the picker, and esc goes back to the list.
 
 ### Changed
 

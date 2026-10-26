@@ -50,12 +50,17 @@ func TestMoveToGroup(t *testing.T) {
 	t.Run("when move to group is chosen on a card", func(t *testing.T) {
 		g, _ := picking(t)
 
-		t.Run("it should offer every group and no group", func(t *testing.T) {
-			assert.Equal(t, []string{"PROJ-123 · headers", "LOG-88 · buffer", "no group"}, g.picker().labels())
+		t.Run("it should offer new group…, then every group, then no group", func(t *testing.T) {
+			assert.Equal(t, []string{"new group…", "PROJ-123 · headers", "LOG-88 · buffer", "no group"}, g.picker().labels())
+		})
+
+		t.Run("it should say in the title that new group… makes one", func(t *testing.T) {
+			assert.Contains(t, g.picker().title(), "new group… makes one")
 		})
 
 		t.Run("and a group is chosen", func(t *testing.T) {
 			g, actor := picking(t)
+			press(t, g, ebiten.KeyArrowDown)
 			press(t, g, ebiten.KeyArrowDown)
 			press(t, g, ebiten.KeyEnter)
 
@@ -72,6 +77,7 @@ func TestMoveToGroup(t *testing.T) {
 			g, actor := picking(t)
 			press(t, g, ebiten.KeyArrowDown)
 			press(t, g, ebiten.KeyArrowDown)
+			press(t, g, ebiten.KeyArrowDown)
 			press(t, g, ebiten.KeyEnter)
 
 			t.Run("it should take the session out of every group", func(t *testing.T) {
@@ -85,6 +91,74 @@ func TestMoveToGroup(t *testing.T) {
 
 			t.Run("it should move nothing", func(t *testing.T) {
 				assert.Empty(t, actor.done)
+			})
+		})
+
+		t.Run("and new group… is chosen", func(t *testing.T) {
+			naming := func(t *testing.T, name string) (*Game, *recordingActor) {
+				t.Helper()
+				g, actor := picking(t)
+				press(t, g, ebiten.KeyEnter)
+				for _, r := range name {
+					g.scriptedRune = r
+					require.NoError(t, g.handleKeys())
+					g.scriptedRune = 0
+				}
+				return g, actor
+			}
+			g, _ := naming(t, "")
+
+			t.Run("it should ask for a name in the picker", func(t *testing.T) {
+				assert.True(t, g.picker().naming)
+			})
+
+			t.Run("and a name is typed and enter is pressed", func(t *testing.T) {
+				g, actor := naming(t, "release")
+				press(t, g, ebiten.KeyEnter)
+
+				t.Run("it should move the session into a new group by that name", func(t *testing.T) {
+					assert.Equal(t, []city.Action{{Kind: city.ActionMove, SessionID: "a", GroupName: "release"}}, actor.done)
+				})
+
+				t.Run("it should close the picker", func(t *testing.T) {
+					assert.Nil(t, g.picker())
+				})
+			})
+
+			refusals := []struct {
+				when, name, says string
+			}{
+				{"and enter is pressed with no name", "", "a new group needs a name"},
+				{"and enter is pressed with only spaces", "   ", "a new group needs a name"},
+				{"and a name already taken is typed", " log-88 · BUFFER ", "LOG-88 · buffer is already a group"},
+			}
+			for _, r := range refusals {
+				t.Run(r.when, func(t *testing.T) {
+					g, actor := naming(t, r.name)
+					press(t, g, ebiten.KeyEnter)
+
+					t.Run("it should refuse in words in the picker", func(t *testing.T) {
+						assert.Equal(t, r.says, g.picker().refused)
+					})
+
+					t.Run("it should do nothing", func(t *testing.T) {
+						assert.Empty(t, actor.done)
+					})
+				})
+			}
+
+			t.Run("and esc is pressed while naming", func(t *testing.T) {
+				g, actor := naming(t, "rel")
+				press(t, g, ebiten.KeyEscape)
+
+				t.Run("it should return to the list", func(t *testing.T) {
+					require.NotNil(t, g.picker())
+					assert.False(t, g.picker().naming)
+				})
+
+				t.Run("it should do nothing", func(t *testing.T) {
+					assert.Empty(t, actor.done)
+				})
 			})
 		})
 	})

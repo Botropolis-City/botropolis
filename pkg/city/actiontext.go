@@ -20,7 +20,7 @@ var actionText = map[ActionKind]string{
 	ActionDistrictType: "Changes what kind of buildings this project's district grows.",
 	ActionDetails:      "Shows every number this card has.",
 	ActionDetailsHide:  "Folds the numbers away again.",
-	ActionMoveToGroup:  "Lets you choose which group this session belongs to.",
+	ActionMoveToGroup:  "Moves this session into a group, or into a new one you name.",
 	ActionMove:         "Moves this session to the group you chose.",
 	ActionGenerate:     "Asks Claude for a short summary of this session. This uses tokens.",
 	ActionRead:         "Opens the conversation here, to read without leaving the city.",

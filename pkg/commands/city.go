@@ -192,7 +192,7 @@ func (a Actor) Do(action city.Action) error {
 	case city.ActionCopy:
 		return a.Sessions.Copy(context.Background(), action.Text)
 	case city.ActionMove:
-		return a.move(action.SessionID, action.Group)
+		return a.move(action.SessionID, action.Group, action.GroupName)
 	case city.ActionMute:
 		return a.mute(action.Text)
 	case city.ActionCloseUp:
@@ -219,14 +219,18 @@ func (a Actor) Do(action city.Action) error {
 }
 
 // move writes a session's move into the groups' memory; the daemon sees
-// the file change and groups again with the move honoured.
-func (a Actor) move(session, to string) error {
+// the file change and groups again with the move honoured. A name, from
+// the picker's new group…, makes the group it moves into (item 288).
+func (a Actor) move(session, to, name string) error {
 	if a.GroupStore == "" {
 		return errNoGroups
 	}
 	memory, err := group.Load(a.GroupStore)
 	if err != nil {
 		return err
+	}
+	if name != "" {
+		memory, to = memory.WithNewGroup(name, session)
 	}
 	return group.Save(a.GroupStore, memory.WithMove(session, to))
 }
@@ -283,8 +287,7 @@ func (a Actor) newSession(action city.Action) error {
 	}
 	id := action.Group
 	if id == "" {
-		id = group.NewGroupID(action.GroupName + "\x00" + job)
-		memory.Groups = append(memory.Groups, group.Stored{ID: id, Name: action.GroupName, Renamed: true})
+		memory, id = memory.WithNewGroup(action.GroupName, job)
 	}
 	if memory.StartedFrom == nil {
 		memory.StartedFrom = map[string]string{}

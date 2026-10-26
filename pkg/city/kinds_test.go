@@ -24,6 +24,12 @@ func TestKinds(t *testing.T) {
 		}
 	})
 
+	t.Run("when it is city hall", func(t *testing.T) {
+		t.Run("it should say how to make a group", func(t *testing.T) {
+			assert.Contains(t, city.KindHall.About(), "Move to group on a session's card, then new group…, makes a group.")
+		})
+	})
+
 	t.Run("for every hit the map can return", func(t *testing.T) {
 		a := session("a", cinders, state.Working)
 		a.PRs = []claude.PR{{Number: 1, Repository: "o/r"}}

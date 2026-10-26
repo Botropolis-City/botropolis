@@ -685,6 +685,7 @@ func (g *Game) Update() error {
 		if key, shift, ok := scriptedKey(g.play.key); ok && g.play.key != "" {
 			g.scripted, g.scriptedShift = key, shift
 		}
+		g.typeScripted(g.play.key)
 		if g.play.press {
 			g.clickedAt = float64(g.recorded) / liveTPS
 		}
@@ -1030,7 +1031,13 @@ func (g *Game) pressScripted(name string) {
 	if key, shift, ok := scriptedKey(name); ok {
 		g.scripted, g.scriptedShift = key, shift || g.scriptedShift
 	}
-	typing := g.finding() || g.newSession() != nil || (g.triage() != nil && g.triage().snoozing != nil)
+	g.typeScripted(name)
+}
+
+// typeScripted types a one-character key name into the field that is
+// open, for --keys and a clip's script alike.
+func (g *Game) typeScripted(name string) {
+	typing := g.finding() || g.newSession() != nil || (g.picker() != nil && g.picker().naming) || (g.triage() != nil && g.triage().snoozing != nil)
 	if r := []rune(name); len(r) == 1 && typing && !g.scriptedCtrl && !g.scriptedAlt && !g.scriptedCmd {
 		g.scriptedRune = r[0]
 	}

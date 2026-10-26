@@ -1119,7 +1119,7 @@ func (s *Scene) Actions() []ActionKind {
 		kinds = append(kinds, ActionStar)
 	}
 	kinds = append(kinds, ActionDistrictType)
-	if len(s.snapshot.Groups) > 0 && s.selected.Session.State != state.Resting {
+	if s.selected.Session.State != state.Resting {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
 	if s.selected.Group != nil {

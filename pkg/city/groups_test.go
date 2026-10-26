@@ -92,8 +92,8 @@ func TestBuildingGroup(t *testing.T) {
 			snap.Groups = nil
 			s := selected(t, snap)
 
-			t.Run("it should not offer it", func(t *testing.T) {
-				assert.NotContains(t, s.Actions(), city.ActionMoveToGroup)
+			t.Run("it should still offer it, so the first group can be made", func(t *testing.T) {
+				assert.Contains(t, s.Actions(), city.ActionMoveToGroup)
 			})
 		})
 	})
