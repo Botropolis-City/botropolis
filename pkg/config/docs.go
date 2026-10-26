@@ -23,6 +23,7 @@ var unflagged = map[string]string{
 	KeyCodexHome:      "the directory holding Codex's sessions (default: ~/.codex)",
 	KeyGlobalShortcut: "a chord that opens the finder from any application, such as mod+shift+k; empty for none",
 	KeyGoneSessions:   "keep sessions whose transcript Claude Code deleted on the map; their statistics are kept either way",
+	KeyScriptedRuns:   "hidden or shown: the sessions a program started, such as claude -p and the Agent SDK; hidden, they are off the map and out of the finder, and their tokens and spend still count",
 }
 
 // Docs are every config key, sorted, with its help, default and

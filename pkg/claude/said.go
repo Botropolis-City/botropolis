@@ -32,12 +32,13 @@ type Passage struct {
 // its words. Tool output is left out, and so are subagents and the
 // CLI's own wrapped messages. Item 82.
 type Said struct {
-	SessionID string
-	CWD       string
-	Branch    string
-	FirstAt   time.Time
-	LastAt    time.Time
-	Passages  []Passage
+	SessionID  string
+	CWD        string
+	Branch     string
+	Entrypoint string
+	FirstAt    time.Time
+	LastAt     time.Time
+	Passages   []Passage
 }
 
 type saidLineJSON struct {
@@ -46,6 +47,7 @@ type saidLineJSON struct {
 	SessionID   string          `json:"sessionId"`
 	CWD         string          `json:"cwd"`
 	GitBranch   string          `json:"gitBranch"`
+	Entrypoint  string          `json:"entrypoint"`
 	Timestamp   string          `json:"timestamp"`
 	IsSidechain bool            `json:"isSidechain"`
 	IsMeta      bool            `json:"isMeta"`
@@ -101,6 +103,9 @@ func (s *Said) apply(rec saidLineJSON) {
 	}
 	if s.CWD == "" {
 		s.CWD = rec.CWD
+	}
+	if s.Entrypoint == "" {
+		s.Entrypoint = rec.Entrypoint
 	}
 	if rec.GitBranch != "" && rec.GitBranch != "HEAD" {
 		s.Branch = rec.GitBranch

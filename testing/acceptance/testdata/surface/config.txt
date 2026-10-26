@@ -33,6 +33,9 @@ new_session_key	string
 overgrown_days	int
 reduced_motion	bool
 render_scale	float64
+scripted_runs	string
+scripted_runs=hidden
+scripted_runs=shown
 shuttered_days	int
 socket	string
 stats	bool

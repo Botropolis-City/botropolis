@@ -10,4 +10,5 @@ var Values = map[string][]string{
 	KeyDetail:       {"full", "plain"},
 	KeyDistrictType: {"random", "guess", "residential", "shopping", "office", "industrial"},
 	KeyUsageRefresh: {UsageManual},
+	KeyScriptedRuns: {ScriptedHidden, ScriptedShown},
 }

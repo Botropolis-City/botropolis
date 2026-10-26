@@ -56,6 +56,9 @@ type Hit struct {
 	// Packed is a session packed up into the depot; opening it unpacks
 	// it (item 86).
 	Packed bool `json:"packed,omitempty"`
+	// Scripted is a session a program started, which the map hides
+	// unless scripted_runs shows it (item 273).
+	Scripted bool `json:"scripted,omitempty"`
 }
 
 // ToolOutput is the kind a hit found only in tool output carries.
@@ -190,7 +193,7 @@ func (ix *Index) Find(q Query) []Hit {
 	for path, t := range transcripts {
 		s := t.said
 		seen[s.SessionID] = true
-		hit := Hit{SessionID: s.SessionID, Dir: s.CWD, Branch: s.Branch, At: s.LastAt, State: q.Live[s.SessionID], Kind: ToolOutput}
+		hit := Hit{SessionID: s.SessionID, Dir: s.CWD, Branch: s.Branch, At: s.LastAt, State: q.Live[s.SessionID], Kind: ToolOutput, Scripted: claude.Scripted(s.Entrypoint)}
 		found := false
 		for _, p := range s.Passages {
 			if hit.FirstPrompt == "" && p.Kind == claude.SaidPrompt {

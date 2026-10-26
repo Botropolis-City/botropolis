@@ -40,6 +40,12 @@ const (
 	// LabelsShown and LabelsHidden are the labels row's two values.
 	LabelsShown  = "shown"
 	LabelsHidden = "hidden"
+	// KeyScriptedRuns shows or hides the sessions a program started,
+	// claude -p and the Agent SDK; hidden by default. Item 273.
+	KeyScriptedRuns = "scripted_runs"
+	// ScriptedHidden and ScriptedShown are its two values.
+	ScriptedHidden = "hidden"
+	ScriptedShown  = "shown"
 	// KeyDistrictType is how a new district's type is chosen: random,
 	// guess, or one type for all. Item 109.
 	KeyDistrictType = "district_type"
@@ -157,6 +163,20 @@ type Config struct {
 	// GoneSessions keeps sessions whose transcript is gone on the map
 	// (item 274).
 	GoneSessions bool
+	// ScriptedRuns shows the sessions a program started (item 273).
+	ScriptedRuns bool
+}
+
+// ParseScriptedRuns reads scripted_runs: hidden or shown, true for
+// shown. Item 273.
+func ParseScriptedRuns(value string) (bool, error) {
+	switch value {
+	case ScriptedHidden:
+		return false, nil
+	case ScriptedShown:
+		return true, nil
+	}
+	return false, fmt.Errorf("unknown %s %q: use %s or %s", KeyScriptedRuns, value, ScriptedHidden, ScriptedShown)
 }
 
 func NewViper() *viper.Viper {
@@ -193,6 +213,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyGoneSessions, false)
 	v.SetDefault(KeyLabelsToggle, DefaultLabelsToggle)
 	v.SetDefault(KeyGlobalShortcut, "")
+	v.SetDefault(KeyScriptedRuns, ScriptedHidden)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -312,6 +333,11 @@ func New(v *viper.Viper) (*Config, error) {
 	if _, err := ParseUsageRefresh(cfg.UsageRefresh); err != nil {
 		return nil, err
 	}
+	scripted, err := ParseScriptedRuns(v.GetString(KeyScriptedRuns))
+	if err != nil {
+		return nil, err
+	}
+	cfg.ScriptedRuns = scripted
 	if err := checkLadder(cfg.ShutteredDays, cfg.OvergrownDays); err != nil {
 		return nil, err
 	}

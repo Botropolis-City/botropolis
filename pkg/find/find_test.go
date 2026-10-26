@@ -234,6 +234,21 @@ func TestHit(t *testing.T) {
 			assert.Equal(t, "now tighten the clamp", hits[0].LastPrompt)
 		})
 	})
+
+	for _, c := range []struct {
+		entrypoint string
+		want       bool
+	}{{"sdk-cli", true}, {"cli", false}} {
+		t.Run("when the session's entrypoint is "+c.entrypoint, func(t *testing.T) {
+			line := strings.Replace(prompt("s1", t0, "fire the kiln"), `"gitBranch"`, `"entrypoint":"`+c.entrypoint+`","gitBranch"`, 1)
+			hits := newHome(t).write("s1", line).index().Find(find.Query{Words: "kiln"})
+			require.Len(t, hits, 1)
+
+			t.Run(fmt.Sprintf("it should mark the hit scripted %v (item 273)", c.want), func(t *testing.T) {
+				assert.Equal(t, c.want, hits[0].Scripted)
+			})
+		})
+	}
 }
 
 func TestRanking(t *testing.T) {

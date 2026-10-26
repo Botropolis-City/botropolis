@@ -698,6 +698,10 @@ func settingsFor(cfg *config.Config) ui.Settings {
 	if cfg.GoneSessions {
 		gone = config.LabelsShown
 	}
+	scripted := config.ScriptedHidden
+	if cfg.ScriptedRuns {
+		scripted = config.ScriptedShown
+	}
 	terminal := cfg.Terminal
 	if terminal == "" {
 		terminal = autoValue
@@ -716,6 +720,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
 		{Key: config.KeyGoneSessions, Label: "deleted transcripts", Options: []string{config.LabelsHidden, config.LabelsShown}, Value: gone},
+		{Key: config.KeyScriptedRuns, Label: "scripted runs", Options: []string{config.ScriptedHidden, config.ScriptedShown}, Value: scripted},
 		{Key: config.KeyDistrictType, Label: "new districts", Options: withValue(append([]string{}, city.TypingModes...), cfg.DistrictType), Value: cfg.DistrictType},
 		{Key: config.KeyStats, Label: "statistics", Options: []string{"on", "off"}, Value: statsValue(cfg.Stats)},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},

@@ -21,6 +21,7 @@ new_session_key = "shift+b"
 overgrown_days = 11
 reduced_motion = true
 render_scale = 3
+scripted_runs = "shown"
 shuttered_days = 3
 socket = "/nonexistent/hostile.sock"
 stats = false

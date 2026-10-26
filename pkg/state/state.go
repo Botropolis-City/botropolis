@@ -49,6 +49,9 @@ type Session struct {
 	Branch  string      `json:"branch"`
 	Model   string      `json:"model"`
 	Kind    claude.Kind `json:"kind"`
+	// Entrypoint is how the session was started: cli at a prompt, sdk-*
+	// from a program (item 273).
+	Entrypoint string `json:"entrypoint,omitempty"`
 	// Job is the background job the session runs as, by which New
 	// session records the group it was started in (item 87).
 	Job string `json:"job,omitempty"`
@@ -383,6 +386,12 @@ func dropSoloTeams(sessions []Session) {
 	}
 }
 
+// Scripted is whether a program started the session rather than
+// someone at a prompt (item 273).
+func (s Session) Scripted() bool {
+	return claude.Scripted(s.Entrypoint)
+}
+
 // ShortID is the eight-character form of a session id, the name a
 // session goes by when it has no title.
 func ShortID(id string) string {
@@ -400,6 +409,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 		Name:         r.Name,
 		CWD:          r.CWD,
 		Kind:         r.Kind,
+		Entrypoint:   r.Entrypoint,
 		Job:          r.JobID,
 		PID:          r.PID,
 		Alive:        isAlive,
@@ -413,6 +423,9 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 			s.Title = t.Title
 		}
 		s.Branch = t.Branch
+		if t.Entrypoint != "" {
+			s.Entrypoint = t.Entrypoint
+		}
 		s.Model = t.Model
 		if t.ModelID != "" {
 			s.Model = t.ModelID
@@ -492,6 +505,7 @@ func parkedSession(t claude.Transcript) Session {
 		Title:        t.Title,
 		CWD:          t.CWD,
 		Branch:       t.Branch,
+		Entrypoint:   t.Entrypoint,
 		Model:        t.Model,
 		State:        Resting,
 		Turn:         t.Tail.Turn,
