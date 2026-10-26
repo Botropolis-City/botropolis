@@ -15,6 +15,17 @@ const (
 
 type deallocator interface{ Deallocate() }
 
+// A value that can be told it has left the cache, and that knows its
+// place in the cache's order, is checked and touched by itself rather
+// than found by its key (item 212).
+type (
+	goneMarker  interface{ markGone() }
+	cachePlaced interface {
+		setPlace(*list.Element)
+		cachePlace() *list.Element
+	}
+)
+
 type lookEntry[K comparable, V deallocator] struct {
 	key   K
 	value V
@@ -58,6 +69,24 @@ func (c *lookCache[K, V]) get(key K) (V, bool) {
 	return e.Value.(*lookEntry[K, V]).value, true
 }
 
+// markAllGone marks every look the cache holds as let go, when the
+// cache itself is let go whole.
+func (c *lookCache[K, V]) markAllGone() {
+	for _, e := range c.entries {
+		if g, ok := any(e.Value.(*lookEntry[K, V]).value).(goneMarker); ok {
+			g.markGone()
+		}
+	}
+}
+
+// touch counts a look kept in the cache as used, as get does, by its
+// place in the cache rather than its key.
+func (c *lookCache[K, V]) touch(v V) {
+	if p, ok := any(v).(cachePlaced); ok && p.cachePlace() != nil {
+		c.order.MoveToFront(p.cachePlace())
+	}
+}
+
 // peek is the look kept under a key, without counting as using it.
 func (c *lookCache[K, V]) peek(key K) (V, bool) {
 	e, ok := c.entries[key]
@@ -79,7 +108,11 @@ func (c *lookCache[K, V]) put(key K, value V, bytes int) {
 	for c.total+bytes > c.cap {
 		c.remove(c.order.Back().Value.(*lookEntry[K, V]).key)
 	}
-	c.entries[key] = c.order.PushFront(&lookEntry[K, V]{key: key, value: value, bytes: bytes})
+	e := c.order.PushFront(&lookEntry[K, V]{key: key, value: value, bytes: bytes})
+	c.entries[key] = e
+	if p, ok := any(value).(cachePlaced); ok {
+		p.setPlace(e)
+	}
 	c.total += bytes
 }
 
@@ -89,6 +122,9 @@ func (c *lookCache[K, V]) remove(key K) {
 		return
 	}
 	entry := e.Value.(*lookEntry[K, V])
+	if g, ok := any(entry.value).(goneMarker); ok {
+		g.markGone()
+	}
 	entry.value.Deallocate()
 	c.total -= entry.bytes
 	c.order.Remove(e)

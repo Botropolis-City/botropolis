@@ -1,14 +1,63 @@
 package render
 
 import (
+	"container/list"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-type fakeLook struct{ freed bool }
+type fakeLook struct {
+	freed, gone bool
+	place       *list.Element
+}
 
-func (f *fakeLook) Deallocate() { f.freed = true }
+func (f *fakeLook) Deallocate()               { f.freed = true }
+func (f *fakeLook) markGone()                 { f.gone = true }
+func (f *fakeLook) setPlace(e *list.Element)  { f.place = e }
+func (f *fakeLook) cachePlace() *list.Element { return f.place }
+
+// Item 212: a kept record checks that the looks it draws from are still
+// cached by a mark on each, and touches each by its place in the cache,
+// rather than finding it by its key.
+func TestLookCacheMarks(t *testing.T) {
+	put := func(c *lookCache[string, *fakeLook], key string, bytes int) *fakeLook {
+		v := &fakeLook{}
+		c.put(key, v, bytes)
+		return v
+	}
+	for _, out := range []struct {
+		name string
+		do   func(c *lookCache[string, *fakeLook])
+	}{
+		{"removed from the cache", func(c *lookCache[string, *fakeLook]) { c.remove("a") }},
+		{"evicted to make room", func(c *lookCache[string, *fakeLook]) { put(c, "b", 80) }},
+		{"let go with the whole cache", func(c *lookCache[string, *fakeLook]) { c.markAllGone() }},
+	} {
+		t.Run("when a look is "+out.name, func(t *testing.T) {
+			c := newLookCache[string, *fakeLook](100)
+			a := put(c, "a", 40)
+			out.do(c)
+
+			t.Run("it should be marked gone", func(t *testing.T) {
+				assert.True(t, a.gone)
+			})
+		})
+	}
+
+	t.Run("when a look is touched by its place in the cache", func(t *testing.T) {
+		c := newLookCache[string, *fakeLook](100)
+		a := put(c, "a", 40)
+		put(c, "b", 40)
+		c.touch(a)
+		put(c, "c", 40)
+		_, kept := c.peek("a")
+
+		t.Run("it should be the last the cache evicts, as after get", func(t *testing.T) {
+			assert.True(t, kept)
+		})
+	})
+}
 
 // Item 192: a building's look is baked once and kept, least recently
 // used first out, in a cache capped in bytes.

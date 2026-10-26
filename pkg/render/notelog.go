@@ -155,8 +155,7 @@ func (g *Game) looksHeld(k *journalBuffers, j noteLog, shift image.Point) bool {
 		if g.looks == nil || g.lookPages == nil {
 			return false
 		}
-		look, ok := g.looks.peek(u.key)
-		if !ok || look != u.look {
+		if u.look.gone {
 			return false
 		}
 		if u.inexact {
@@ -175,7 +174,8 @@ func (g *Game) replay(k *journalBuffers, e *entry, shift image.Point) (noteLog, 
 	from := g.journalMark()
 	j := e.jn
 	for _, u := range k.looks[j.looks[0]:j.looks[1]] {
-		look, _ := g.looks.get(u.key)
+		look := u.look
+		g.looks.touch(look)
 		if look.paged {
 			g.lookPages.use(look.onPage, g.lookFrame)
 		}

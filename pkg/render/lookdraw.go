@@ -1,6 +1,7 @@
 package render
 
 import (
+	"container/list"
 	"image"
 	"math"
 
@@ -29,7 +30,16 @@ type bakedLook struct {
 	// the camera moved rather than at the frame's own coordinates, so a
 	// tie may have gone the other way in it (item 233).
 	inexact bool
+	// gone is whether the cache has let it go, and place where it stands
+	// in the cache's order, so a kept record checks and touches it by
+	// itself (item 212).
+	gone  bool
+	place *list.Element
 }
+
+func (l *bakedLook) markGone()                 { l.gone = true }
+func (l *bakedLook) setPlace(e *list.Element)  { l.place = e }
+func (l *bakedLook) cachePlace() *list.Element { return l.place }
 
 func (l *bakedLook) Deallocate() {
 	if !l.paged {
@@ -670,6 +680,7 @@ func (g *Game) nextLookFrame() {
 	if g.lookStats.hits+g.lookStats.bakes > 0 {
 		g.lookDrawn = g.lookFrame
 	} else if g.looks != nil && g.lookFrame-g.lookDrawn >= lookForget {
+		g.looks.markAllGone()
 		g.looks = nil
 	}
 	if g.looks == nil {
