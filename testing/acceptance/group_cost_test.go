@@ -142,7 +142,6 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 		promptEvery  = 5 * time.Second
 		maxCoreShare = 0.02
 		dirtyLimit   = 64 << 20
-		coreCeiling  = 0.04
 		liveLimitMB  = 256 * 1024 * 1024 / 1_000_000
 		sid          = "11111111-1111-4111-8111-111111111111"
 		cwd          = "/home/user/src/alpha"
@@ -212,16 +211,11 @@ func TestDaemonWithTwoThousandSessions(t *testing.T) {
 
 			meter.counted(t)
 
-			// Counted, it reads 2.3-2.6% on a quiet machine, over the
-			// budget, as its ticks there do at 2.0-2.2%: a cost, not the
-			// machine's load (item 209). It skips while over 2%, saying
-			// its number, and fails over twice that, which a regression
-			// like item 198's still trips, until item 213 brings it under.
+			// Counted, it read 2.3-3.1% on a quiet machine, a cost rather
+			// than the machine's load (item 209); item 213 brought it to
+			// 1.6-1.8%, so it gates at 2% with no skip.
 			t.Run("it should use at most 2% of a core", func(t *testing.T) {
-				if share := min(first, second); share > maxCoreShare {
-					require.LessOrEqual(t, share, coreCeiling, "over the %.0f%% ceiling", coreCeiling*100)
-					t.Skipf("unmet: %.2f%% of a core against 2%%; a settled daemon on a 2,000-session home is just over its CPU budget, item 213", share*100)
-				}
+				assert.LessOrEqual(t, min(first, second), maxCoreShare)
 			})
 
 			d.assertProduction(t, measured)
