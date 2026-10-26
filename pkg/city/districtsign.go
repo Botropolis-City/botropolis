@@ -21,17 +21,30 @@ func (d *District) Sign() DistrictSign {
 	if d.Depot {
 		return DistrictSign{Name: DepotName + " · " + plural(len(d.Buildings), "crate"), At: Point{X: d.Rect.Max.X - in, Y: d.Rect.Max.Y - in}}
 	}
-	move := d.move()
+	move, phrase := d.move(), d.phrase
+	if d.moved == nil {
+		phrase = movePhrase(move)
+	}
 	return DistrictSign{
 		Name: d.Name,
-		Move: movePhrase(move),
+		Move: phrase,
 		Tone: move,
 		At:   Point{X: d.Rect.Max.X - in, Y: d.Rect.Max.Y - in},
 	}
 }
 
-// move is the most urgent move among the district's sessions.
+// move is the most urgent move among the district's sessions, worked
+// out once its city is built, since a frame asks every district for its
+// sign (item 270). The sign's name is read afresh each time: sharing
+// renames a district after its city is built (item 168).
 func (d *District) move() state.Move {
+	if d.moved != nil {
+		return *d.moved
+	}
+	return d.urgentMove()
+}
+
+func (d *District) urgentMove() state.Move {
 	sessions := make([]state.Session, 0, len(d.Buildings))
 	for _, b := range d.Buildings {
 		sessions = append(sessions, b.Session)

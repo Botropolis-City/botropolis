@@ -59,3 +59,7 @@ func (s *Scene) FromScratch() *City {
 // BridgeRoads is the road laid only to reach a bridge's landing
 // (item 247).
 func (c *City) BridgeRoads() []Cell { return c.bridgeRoads }
+
+// DistrictsLookedAt is how many districts DistrictOf has looked through
+// to find buildings' districts (item 270).
+func (c *City) DistrictsLookedAt() int { return c.districtLooks }

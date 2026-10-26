@@ -98,6 +98,10 @@ type District struct {
 	// lot ages only when every session on it has (item 86).
 	Rung state.Rung
 	Rows []DepotRow
+	// moved is the most urgent move among its sessions, and phrase how
+	// its sign says it, worked out once its city is built (item 270).
+	moved  *state.Move
+	phrase string
 }
 
 type roadNote struct {
@@ -136,6 +140,10 @@ type City struct {
 	// session, once the districts are final (item 270).
 	buildings []*Building
 	byID      map[string]*Building
+	// districtLooks is how many districts DistrictOf has looked through
+	// (item 270).
+	districtLooks int
+	districtOf    map[*Building]*District
 	// landings are the street cells the bridges land on, the first
 	// bridge first (items 218 and 220).
 	landings []landing
@@ -550,11 +558,22 @@ func (c *City) Buildings() []*Building {
 }
 
 // indexBuildings lists the city's buildings once its districts are
-// final, so a frame that asks for them, or for one by its session,
-// does not walk every district to find it (item 270).
+// final, so a frame that asks for them, for one by its session or for
+// one's district does not walk every district to find it, and works out
+// each district's most urgent move once (item 270).
 func (c *City) indexBuildings() {
 	c.buildings = c.Buildings()
 	c.byID = make(map[string]*Building, len(c.buildings))
+	c.districtOf = make(map[*Building]*District, len(c.buildings))
+	for _, d := range c.Districts {
+		for _, b := range d.Buildings {
+			if _, dup := c.districtOf[b]; !dup {
+				c.districtOf[b] = d
+			}
+		}
+		move := d.urgentMove()
+		d.moved, d.phrase = &move, movePhrase(move)
+	}
 	for _, b := range c.buildings {
 		if _, dup := c.byID[b.Session.ID]; !dup {
 			c.byID[b.Session.ID] = b
@@ -729,7 +748,12 @@ func (b *Building) table(now time.Time) []string {
 
 // DistrictOf is the district a building stands in.
 func (c *City) DistrictOf(b *Building) *District {
+	if c.districtOf != nil {
+		c.districtLooks++
+		return c.districtOf[b]
+	}
 	for _, d := range c.Districts {
+		c.districtLooks++
 		for _, other := range d.Buildings {
 			if other == b {
 				return d

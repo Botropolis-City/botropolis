@@ -40,6 +40,10 @@ func TestDriveCullsWhatIsOffScreen(t *testing.T) {
 			assert.Less(t, d.game.sorted, standing/2)
 		})
 
+		t.Run("it should work out sprite bounds for fewer buildings than the city has", func(t *testing.T) {
+			assert.Less(t, d.game.boundsWorked, len(c.Buildings())/2)
+		})
+
 		t.Run("it should lay out fewer labels than the city has districts, since most of their plates cannot reach the screen", func(t *testing.T) {
 			assert.Less(t, d.game.laidOut, len(c.Districts)/2)
 		})

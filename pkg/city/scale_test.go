@@ -96,3 +96,42 @@ func TestInspectorAtScale(t *testing.T) {
 		})
 	})
 }
+
+func TestDistrictOfAtScale(t *testing.T) {
+	t.Run("when a city of 600 buildings in 200 districts is built", func(t *testing.T) {
+		c := city.Build(snapshot(scaleSessions("")...), city.NewLayout())
+		var want, got []*city.District
+		for _, d := range c.Districts {
+			for range d.Buildings {
+				want = append(want, d)
+			}
+		}
+		before := c.DistrictsLookedAt()
+		for _, d := range c.Districts {
+			for _, b := range d.Buildings {
+				got = append(got, c.DistrictOf(b))
+			}
+		}
+		looked := c.DistrictsLookedAt() - before
+
+		t.Run("it should find each building's district, as the district-by-district scan does", func(t *testing.T) {
+			assert.Equal(t, want, got)
+		})
+
+		t.Run("it should look at one entry to find each", func(t *testing.T) {
+			assert.LessOrEqual(t, looked, len(got))
+		})
+	})
+}
+
+func TestDistrictSignOnceBuilt(t *testing.T) {
+	t.Run("when a built city's district is asked for its sign a second time", func(t *testing.T) {
+		c := city.Build(snapshot(scaleSessions("")...), city.NewLayout())
+		d := c.Districts[0]
+		_ = d.Sign()
+
+		t.Run("it should allocate nothing", func(t *testing.T) {
+			assert.Zero(t, testing.AllocsPerRun(10, func() { _ = d.Sign() }))
+		})
+	})
+}

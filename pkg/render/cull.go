@@ -22,6 +22,10 @@ func (g *Game) culled(cam *city.Camera, b *city.Building, selected, detailed boo
 	if g.noStill {
 		return false
 	}
+	if farOffScreen(cam, b.Rect, frame) {
+		return true
+	}
+	g.boundsWorked++
 	r, ok := g.cullBound(cam, b, selected, detailed, seconds)
 	return ok && !r.Overlaps(frame)
 }
@@ -35,4 +39,22 @@ func (g *Game) cullBound(cam *city.Camera, b *city.Building, selected, detailed 
 	}
 	r := g.lookBounds(cam, &f)
 	return r.Inset(-cullPad * g.spriteRect(cam, &f).Width()), true
+}
+
+// farOffScreen is whether a building's footprint lands so far from the
+// frame that nothing it paints can reach it, padded by the footprint's
+// own width on the screen: a sprite is about as wide as its ground,
+// paints half a width past it, and rises from it by a few widths at
+// most. It answers before the building's look is worked out, which was
+// done for every building in the city each frame to draw the few on
+// screen (item 270).
+func farOffScreen(cam *city.Camera, r city.Rect, frame city.Rect) bool {
+	fp := footprintOnScreen(cam, cam.TurnRect(r))
+	w := fp.Width()
+	near := cullFrame(frame)
+	near.Min.X -= w
+	near.Max.X += w
+	near.Min.Y -= w
+	near.Max.Y += 4 * w
+	return !fp.Overlaps(near)
 }

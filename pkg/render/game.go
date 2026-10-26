@@ -161,9 +161,12 @@ type Game struct {
 	// laidOut is how many labels the frame laid out, and labelFrame the
 	// screen they are laid out for, empty when any place will do
 	// (item 270).
-	laidOut     int
-	labelFrame  city.Rect
-	noLookCache bool
+	laidOut int
+	// boundsWorked is how many buildings the frame's cull worked out
+	// sprite bounds for (item 270).
+	boundsWorked int
+	labelFrame   city.Rect
+	noLookCache  bool
 	// dresser keeps each district's aged floor while it holds (item 207).
 	dresser districtDresser
 	// linePairs is a buffer of segments drawn as one mesh (item 207).

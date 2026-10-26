@@ -562,6 +562,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	labels := g.labelsVisible()
 	defer frames.start()()
 	g.labelFrame = city.RectAt(0, 0, width, height)
+	g.boundsWorked = 0
 	defer func() { g.labelFrame = city.Rect{} }()
 	g.drawing.reset()
 	g.keepRecord()
