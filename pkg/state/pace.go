@@ -22,6 +22,16 @@ func newPace() *pace {
 	return &pace{fraction: backgroundShare, now: time.Now, sleep: time.Sleep}
 }
 
+// lower gives the calling thread background priority, unless the pass
+// may work for the whole clock: that is a capture's, which waits on it,
+// and in the idle I/O class its every commit waited behind the rest of
+// a busy disk (item 254).
+func (p *pace) lower() {
+	if p.fraction < 1 {
+		backgroundPriority()
+	}
+}
+
 func (p *pace) start() {
 	p.since = p.now()
 }

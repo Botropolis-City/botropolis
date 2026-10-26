@@ -127,7 +127,7 @@ func (r *laterRead) start() {
 
 func (r *laterRead) pass(jobs []laterJob) {
 	runtime.LockOSThread()
-	backgroundPriority()
+	r.pace.lower()
 	r.pace.start()
 	var before int64
 	for _, job := range jobs {

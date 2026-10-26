@@ -115,7 +115,7 @@ func (w *wholeRead) start(pending []stoppedFile) bool {
 
 func (w *wholeRead) pass(todo []stoppedFile) {
 	runtime.LockOSThread()
-	backgroundPriority()
+	w.pace.lower()
 	takeLane(w.lane)
 	w.pace.start()
 	w.mu.Lock()

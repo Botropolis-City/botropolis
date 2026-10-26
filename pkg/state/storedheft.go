@@ -155,7 +155,7 @@ func (h *storedHefts) ingest(projectsDir string, now time.Time, full bool, chang
 
 func (h *storedHefts) pass(projectsDir string, now time.Time, full bool, touched []string, listed bool) {
 	runtime.LockOSThread()
-	backgroundPriority()
+	h.pace.lower()
 	takeLane(h.lane)
 	h.pace.start()
 	yield := func() { h.pace.yield(h.yield) }
