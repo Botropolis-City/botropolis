@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -447,6 +448,7 @@ func groupAlive(group int) bool {
 }
 
 func (c *cityRunner) Run(cmd *cobra.Command) error {
+	debug.SetMemoryLimit(cityMemoryLimit(os.Getenv("GOMEMLIMIT")))
 	if cli.Headless(cmd) && os.Getenv(headlessEnv) == "" {
 		cleanup, err := statedir.MakePrivate(seedState(c.config))
 		if err != nil {
