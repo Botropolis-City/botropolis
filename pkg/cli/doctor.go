@@ -19,7 +19,7 @@ type DoctorServices interface {
 func NewDoctorCLI(load Loader, services DoctorServices) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Check the daemon, the hooks, a terminal, the claude CLI, the harnesses and the display",
+		Short: "Check the daemon, its statistics store, the hooks, a terminal, the claude CLI, the harnesses and the display",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := load()

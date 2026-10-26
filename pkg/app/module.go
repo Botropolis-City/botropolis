@@ -298,17 +298,17 @@ func (s *services) Doctor(cfg *config.Config) cli.DoctorRunner {
 		Desktop: control.Native(),
 		Getenv:  os.Getenv,
 		OnPath:  func(name string) bool { _, err := exec.LookPath(name); return err == nil },
-		Dial: func(sock string) error {
-			peer, err := proto.Ask(sock)
+		Dial: func(sock string) (*state.StatsStore, error) {
+			peer, store, err := proto.AskStore(sock)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if err := proto.Compare(peer, proto.Self()); err != nil {
 				mismatch := err.(*proto.Mismatch)
 				mismatch.Socket = sock
-				return mismatch
+				return nil, mismatch
 			}
-			return nil
+			return store, nil
 		},
 		RestartHint: nativeHint,
 	}

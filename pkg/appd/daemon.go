@@ -101,8 +101,10 @@ func newDaemon(cfg *config.Config, probes state.Probes) *daemon.Daemon {
 	// Each pass of the whole read ends in a rescan, so the storeys it
 	// measured reach the map (item 109).
 	rescan := func() { d.RequestRescan() }
-	d = daemon.NewWith(harnesses(cfg, probes, ledgerPath(cfg), rescan), time.Now)
+	loaders, store := harnesses(cfg, probes, ledgerPath(cfg), rescan)
+	d = daemon.NewWith(loaders, time.Now)
 	d.SetIndex(find.New(cfg.Home))
+	d.SetStatsStore(store)
 	return d
 }
 
@@ -150,20 +152,24 @@ func Harnesses(cfg *config.Config, probes state.Probes, speed Speed) *harness.Mu
 	// every few seconds, so it reads stopped sessions whole in the
 	// background too, and the next load picks up what a pass found
 	// (item 109).
-	return harnessesAt(cfg, probes, ledger, func() {}, speed)
+	loaders, _ := harnessesAt(cfg, probes, ledger, func() {}, speed)
+	return loaders
 }
 
 // harnesses reads every session; wholeRead, when not nil, has the Claude
 // loader read stopped transcripts whole in the background for their
-// heft and calls it after each pass. Only the daemon does that.
-func harnesses(cfg *config.Config, probes state.Probes, ledger string, wholeRead func()) *harness.Multi {
+// heft and calls it after each pass. Only the daemon does that. It also
+// says what became of the statistics store (item 190).
+func harnesses(cfg *config.Config, probes state.Probes, ledger string, wholeRead func()) (*harness.Multi, state.StatsStore) {
 	return harnessesAt(cfg, probes, ledger, wholeRead, Paced)
 }
 
-func harnessesAt(cfg *config.Config, probes state.Probes, ledger string, wholeRead func(), speed Speed) *harness.Multi {
+func harnessesAt(cfg *config.Config, probes state.Probes, ledger string, wholeRead func(), speed Speed) (*harness.Multi, state.StatsStore) {
 	loader := state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger).WithCloseUp(closeUpPath(ledger))
+	var store state.StatsStore
 	if wholeRead != nil {
-		if src, _ := statsSource(cfg, os.Stderr); src != nil {
+		var src *stats.Store
+		if src, store = statsSource(cfg, os.Stderr); src != nil {
 			loader = loader.WithStats(src, wholeRead)
 		} else {
 			loader = loader.WithWholeRead(wholeRead)
@@ -177,7 +183,7 @@ func harnessesAt(cfg *config.Config, probes state.Probes, ledger string, wholeRe
 	if info, err := os.Stat(filepath.Join(cfg.CodexHome, "sessions")); err == nil && info.IsDir() {
 		harnesses = append(harnesses, codex.NewLoader(cfg.CodexHome))
 	}
-	return harness.NewMulti(harnesses...)
+	return harness.NewMulti(harnesses...), store
 }
 
 func newListener(cfg *config.Config) (net.Listener, error) {

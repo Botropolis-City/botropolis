@@ -31,7 +31,10 @@ type Snapshot struct {
 	// Scan is how far a long background read of the history has got,
 	// while one runs (item 159).
 	Scan *ScanProgress `json:"scan,omitempty"`
-	At   time.Time     `json:"at"`
+	// Store is what became of the daemon's statistics store, on every
+	// snapshot a daemon sends (item 190).
+	Store *StatsStore `json:"store,omitempty"`
+	At    time.Time   `json:"at"`
 }
 
 func Load(home string, probes Probes, now time.Time) (Snapshot, error) {

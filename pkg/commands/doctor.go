@@ -11,6 +11,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 // Check is one thing the doctor looked at.
@@ -27,7 +28,7 @@ const (
 	CheckFail = "fail"
 )
 
-// Doctor looks over a first run: the daemon, the hooks, a terminal, the
+// Doctor looks over a first run: the daemon and its statistics store, the hooks, a terminal, the
 // claude CLI, the harness homes and the display.
 type Doctor struct {
 	Home        string
@@ -38,8 +39,9 @@ type Doctor struct {
 	Desktop     control.Desktop
 	Getenv      func(string) string
 	OnPath      func(string) bool
-	// Dial reaches the daemon and asks what it is.
-	Dial func(sock string) error
+	// Dial reaches the daemon and asks what it is and what became of its
+	// statistics store (item 190).
+	Dial func(sock string) (*state.StatsStore, error)
 	// RestartHint says what to do about a daemon out of sync (item 152).
 	RestartHint func(*proto.Mismatch) string
 }
@@ -48,7 +50,8 @@ type Doctor struct {
 func (d Doctor) Run() []Check {
 	var checks []Check
 	var mismatch *proto.Mismatch
-	if err := d.Dial(d.Socket); errors.As(err, &mismatch) {
+	store, err := d.Dial(d.Socket)
+	if errors.As(err, &mismatch) {
 		hint := ""
 		if d.RestartHint != nil {
 			hint = d.RestartHint(mismatch)
@@ -59,6 +62,7 @@ func (d Doctor) Run() []Check {
 	} else {
 		checks = append(checks, Check{"daemon", CheckOK, "answering at " + d.Socket, ""})
 	}
+	checks = append(checks, statistics(store, err)...)
 
 	settings := filepath.Join(d.Home, ".claude", "settings.json")
 	if data, err := os.ReadFile(settings); err != nil {
@@ -112,6 +116,24 @@ func (d Doctor) Run() []Check {
 		checks = append(checks, Check{"display", CheckWarn, "none", "the city needs one; status, tui, bar and notify work without"})
 	}
 	return checks
+}
+
+// statistics is the row for what the daemon made of its statistics
+// store, and none when there is no daemon of this build to ask: the
+// daemon row says so already (item 190).
+func statistics(store *state.StatsStore, err error) []Check {
+	if err != nil || store == nil {
+		return nil
+	}
+	switch store.State {
+	case state.StoreOpen:
+		return []Check{{"statistics", CheckOK, "kept in " + store.Path, ""}}
+	case state.StoreOwed:
+		return []Check{{"statistics", CheckOK, "on, waiting for the statistics prompt in the city to be answered", ""}}
+	case state.StoreRefused:
+		return []Check{{"statistics", CheckWarn, store.Path + " is " + store.Reason, "statistics are on, but nothing is kept until then"}}
+	}
+	return []Check{{"statistics", CheckOK, "off", ""}}
 }
 
 func (d Doctor) daemonStart() string {

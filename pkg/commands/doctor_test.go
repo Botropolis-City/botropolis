@@ -12,6 +12,8 @@ import (
 
 	"botropolis.city/botropolis/pkg/commands"
 	"botropolis.city/botropolis/pkg/control"
+	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 func doctorFor(t *testing.T, hooked bool, env map[string]string, onPath []string, dial error) commands.Doctor {
@@ -30,7 +32,70 @@ func doctorFor(t *testing.T, hooked bool, env map[string]string, onPath []string
 		Desktop: control.DesktopFor("linux"),
 		Getenv:  func(k string) string { return env[k] },
 		OnPath:  func(n string) bool { return path[n] },
-		Dial:    func(string) error { return dial },
+		Dial:    func(string) (*state.StatsStore, error) { return nil, dial },
+	}
+}
+
+// Item 190: the statistics row says what the daemon made of its store,
+// and warns when statistics are on but nothing is being kept.
+func TestDoctorStatistics(t *testing.T) {
+	cases := []struct {
+		scenario string
+		store    *state.StatsStore
+		dial     error
+		status   string
+		detail   string
+	}{
+		{"when the daemon reports the store refused", &state.StatsStore{State: state.StoreRefused, Path: "/s/stats.db", Reason: "schema version 4, which this build's version 3 cannot read: update Botropolis"},
+			nil, commands.CheckWarn, "/s/stats.db is schema version 4, which this build's version 3 cannot read: update Botropolis"},
+		{"when the daemon reports the store open", &state.StatsStore{State: state.StoreOpen, Path: "/s/stats.db"},
+			nil, commands.CheckOK, "kept in /s/stats.db"},
+		{"when statistics are off", &state.StatsStore{State: state.StoreOff},
+			nil, commands.CheckOK, "off"},
+		{"when the on prompt is owed", &state.StatsStore{State: state.StoreOwed, Path: "/s/stats.db"},
+			nil, commands.CheckOK, "on, waiting for the statistics prompt in the city to be answered"},
+	}
+	for _, c := range cases {
+		t.Run(c.scenario, func(t *testing.T) {
+			d := doctorFor(t, true, map[string]string{"DISPLAY": ":0"}, []string{"claude", "foot"}, nil)
+			d.Dial = func(string) (*state.StatsStore, error) { return c.store, c.dial }
+			row := checkNamed(d.Run(), "statistics")
+
+			t.Run("it should be "+c.status, func(t *testing.T) {
+				assert.Equal(t, c.status, row.Status)
+			})
+
+			t.Run("it should say what became of the store", func(t *testing.T) {
+				assert.Equal(t, c.detail, row.Detail)
+			})
+		})
+	}
+
+	t.Run("when the daemon reports the store refused, for whatever reason", func(t *testing.T) {
+		d := doctorFor(t, true, map[string]string{"DISPLAY": ":0"}, []string{"claude", "foot"}, nil)
+		d.Dial = func(string) (*state.StatsStore, error) {
+			return &state.StatsStore{State: state.StoreRefused, Path: "/s/stats.db", Reason: "damaged"}, nil
+		}
+
+		t.Run("it should say statistics stay off until it is dealt with", func(t *testing.T) {
+			assert.Equal(t, "statistics are on, but nothing is kept until then", checkNamed(d.Run(), "statistics").Hint)
+		})
+	})
+
+	for _, c := range []struct {
+		scenario string
+		dial     error
+	}{
+		{"when the daemon cannot be reached", errors.New("connection refused")},
+		{"when the daemon is another release", &proto.Mismatch{Daemon: proto.Peer{Release: "0.0.1"}, Ours: proto.Self()}},
+	} {
+		t.Run(c.scenario, func(t *testing.T) {
+			checks := doctorFor(t, true, map[string]string{"DISPLAY": ":0"}, []string{"claude", "foot"}, c.dial).Run()
+
+			t.Run("it should add no statistics row", func(t *testing.T) {
+				assert.Equal(t, commands.Check{}, checkNamed(checks, "statistics"))
+			})
+		})
 	}
 }
 

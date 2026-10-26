@@ -11,7 +11,7 @@ Districts are projects, buildings are sessions, and everything on the map means 
 
 ```
 botropolis setup                            # the hooks, the daemon, and the line for your shell (safe to run again)
-botropolis doctor                           # the daemon, the hooks, a terminal, the claude CLI, the display
+botropolis doctor                           # the daemon, statistics, the hooks, a terminal, the claude CLI, the display
 botropolis                                  # the city
 botropolis find -n 5 "words"                # sessions by what was said in them, daemon or not
 botropolis find                             # the finder, in the open city; bind it to a key (see --help)

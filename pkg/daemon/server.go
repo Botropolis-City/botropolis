@@ -113,7 +113,7 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 				return
 			}
 		case proto.OpPeer:
-			if err := d.respond(conn, proto.Response{}); err != nil {
+			if err := d.respond(conn, proto.Response{Store: d.statsStore()}); err != nil {
 				return
 			}
 		default:

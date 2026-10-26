@@ -86,7 +86,10 @@ type Response struct {
 	Found  []find.Hit     `json:"found,omitempty"`
 	// Loading is a loading request's answer.
 	Loading *state.LoadProgress `json:"loading,omitempty"`
-	Error   string              `json:"error,omitempty"`
+	// Store is a peer request's answer for what became of the daemon's
+	// statistics store (item 190).
+	Store *state.StatsStore `json:"store,omitempty"`
+	Error string            `json:"error,omitempty"`
 }
 
 // Update is one delivery to a subscriber: the snapshot, and the events

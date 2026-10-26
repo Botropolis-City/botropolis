@@ -147,8 +147,10 @@ type Daemon struct {
 	loaded   chan struct{}
 	loadOnce sync.Once
 
-	mu       sync.Mutex
-	base     state.Snapshot
+	mu   sync.Mutex
+	base state.Snapshot
+	// store is what became of the statistics store (item 190).
+	store    *state.StatsStore
 	overlays map[string]overlay
 	// hooked is every session a hook event has ever arrived for; a
 	// session without one is only read from files, and the map says so.
@@ -197,6 +199,21 @@ func New(home string, probes state.Probes, clock func() time.Time, options ...Op
 	d := NewWith(loader, clock)
 	d.SetIndex(find.New(home))
 	return d
+}
+
+// SetStatsStore tells the daemon what became of its statistics store,
+// which it then says to every client (item 190).
+func (d *Daemon) SetStatsStore(st state.StatsStore) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.store = &st
+}
+
+// statsStore is what SetStatsStore said, or nil.
+func (d *Daemon) statsStore() *state.StatsStore {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.store
 }
 
 // SetIndex gives the daemon the index its find op answers from. A
@@ -436,6 +453,7 @@ func (d *Daemon) Events(since time.Time) []events.Event {
 
 func (d *Daemon) view() state.Snapshot {
 	view := d.base
+	view.Store = d.store
 	view.Sessions = make([]state.Session, len(d.base.Sessions))
 	copy(view.Sessions, d.base.Sessions)
 	for i := range view.Sessions {

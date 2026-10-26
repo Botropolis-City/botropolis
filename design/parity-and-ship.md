@@ -40,7 +40,7 @@ A team is a camp: its lead's building tied to its members' with dashed lines, fr
 ## Ship
 
 Roadmap phase 12, 2026-09-18.
-`botropolis doctor` checks the daemon, the hooks, a terminal, the `claude` CLI, the harness homes and the display, with the command to run for anything short of ok;
+`botropolis doctor` checks the daemon, its statistics store, the hooks, a terminal, the `claude` CLI, the harness homes and the display, with the command to run for anything short of ok;
 a Wayland session is noted as XWayland, which is how Ebitengine (GLFW/X11) runs there today.
 `--headless` re-runs the city on a 1100×760 virtual display with the desktop's displays hidden from it, so screenshots, `--keys` and `--record` never open a window;
 the acceptance test shoots that way and skips only when there is no Xvfb.

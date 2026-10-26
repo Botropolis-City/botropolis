@@ -200,19 +200,27 @@ func (c *Client) readResponse() (Response, error) {
 // it is alongside its refusal, and one from before the exchange says
 // nothing (item 152).
 func Ask(sock string) (Peer, error) {
+	peer, _, err := AskStore(sock)
+	return peer, err
+}
+
+// AskStore asks the daemon on sock what it is and what became of its
+// statistics store, which is nil from a daemon that does not say
+// (item 190).
+func AskStore(sock string) (Peer, *state.StatsStore, error) {
 	client, err := Dial(sock)
 	if err != nil {
-		return Peer{}, err
+		return Peer{}, nil, err
 	}
 	defer func() { _ = client.Close() }()
 	if err := client.send(Request{Op: OpPeer}); err != nil {
-		return Peer{}, err
+		return Peer{}, nil, err
 	}
 	var response Response
 	if err := client.decode(&response); err != nil {
-		return Peer{}, err
+		return Peer{}, nil, err
 	}
-	return response.Peer, nil
+	return response.Peer, response.Store, nil
 }
 
 // Loading asks the daemon on sock how far its load has got, which it

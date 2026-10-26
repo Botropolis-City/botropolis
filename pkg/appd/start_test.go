@@ -85,7 +85,8 @@ func TestDaemonStart(t *testing.T) {
 		return fx.New(
 			DaemonModule(cfg, io.Discard),
 			fx.Decorate(func(cfg *config.Config, probes state.Probes) *daemon.Daemon {
-				return daemon.NewWith(wrap(harnesses(cfg, probes, "", nil)), time.Now)
+				loaders, _ := harnesses(cfg, probes, "", nil)
+				return daemon.NewWith(wrap(loaders), time.Now)
 			}),
 			fx.Populate(d),
 			fx.WithLogger(func() fxevent.Logger { return fxevent.NopLogger }),
