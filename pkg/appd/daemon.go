@@ -163,7 +163,7 @@ func harnesses(cfg *config.Config, probes state.Probes, ledger string, wholeRead
 func harnessesAt(cfg *config.Config, probes state.Probes, ledger string, wholeRead func(), speed Speed) *harness.Multi {
 	loader := state.NewLoader(cfg.Home, probes).WithGroups(GroupsPath(cfg)).WithLedger(ledger).WithCloseUp(closeUpPath(ledger))
 	if wholeRead != nil {
-		if src := statsSource(cfg); src != nil {
+		if src, _ := statsSource(cfg, os.Stderr); src != nil {
 			loader = loader.WithStats(src, wholeRead)
 		} else {
 			loader = loader.WithWholeRead(wholeRead)
@@ -283,25 +283,39 @@ func closeUpPath(ledger string) string {
 // (item 205).
 var _ state.PathIngester = (*stats.Store)(nil)
 
-func statsSource(cfg *config.Config) *stats.Store {
-	if cfg.HomeSet && !statedir.IsPrivate() {
-		return nil
-	}
-	if !cfg.Stats || stats.Owed(statedir.Dir(), true) != stats.NoPrompt {
-		return nil
+// statsSource also says what became of the store. One that will not
+// open leaves statistics off, as before, but no longer silently: the
+// refusal goes to log, naming the file, and comes back as the store's
+// state (item 190).
+func statsSource(cfg *config.Config, log io.Writer) (*stats.Store, state.StatsStore) {
+	if (cfg.HomeSet && !statedir.IsPrivate()) || !cfg.Stats {
+		return nil, state.StatsStore{State: state.StoreOff}
 	}
 	path := stats.Path()
+	if stats.Owed(statedir.Dir(), true) != stats.NoPrompt {
+		return nil, state.StatsStore{State: state.StoreOwed, Path: path}
+	}
 	openStores.Lock()
 	defer openStores.Unlock()
 	if s, ok := openStores.byPath[path]; ok {
-		return s
+		return s, state.StatsStore{State: state.StoreOpen, Path: path}
 	}
 	s, err := stats.Open(path)
 	if err != nil {
-		return nil
+		fmt.Fprintf(log, "botropolisd: statistics are off: %v\n", err)
+		return nil, state.StatsStore{State: state.StoreRefused, Path: path, Reason: refusal(err)}
 	}
 	openStores.byPath[path] = s
-	return s
+	return s, state.StatsStore{State: state.StoreOpen, Path: path}
+}
+
+// refusal is why a store was refused, in words that say what to do.
+func refusal(err error) string {
+	var r *stats.Refusal
+	if errors.As(err, &r) {
+		return r.Detail
+	}
+	return "it could not be opened: " + err.Error()
 }
 
 // openStores is the statistics store each path was opened as, so every

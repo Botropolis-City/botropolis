@@ -11,6 +11,10 @@ var (
 	ErrNewer     = errors.New("this store is from a newer Botropolis — update to read it")
 	ErrUpgrading = errors.New("the store is being upgraded")
 	ErrNoStore   = errors.New("there are no statistics yet")
+	// ErrDamaged is a store at this build's version that lacks what that
+	// version always writes. It is refused, never repaired, so nothing in
+	// it changes without the user's say (item 190).
+	ErrDamaged = errors.New("the store is damaged — move it aside and Botropolis starts a new one")
 )
 
 // OpenReader opens the store at path to read only: it never migrates,
@@ -39,6 +43,8 @@ func (s *Store) readable() error {
 		return err
 	}
 	switch {
+	case version == Version:
+		return damaged(s.db)
 	case version < Version:
 		return ErrUpgrading
 	case version > Version:
@@ -56,7 +62,7 @@ func Reason(err error) string {
 	switch {
 	case err == nil:
 		return ""
-	case errors.Is(err, ErrNewer), errors.Is(err, ErrUpgrading), errors.Is(err, ErrNoStore):
+	case errors.Is(err, ErrNewer), errors.Is(err, ErrUpgrading), errors.Is(err, ErrNoStore), errors.Is(err, ErrDamaged):
 		return err.Error()
 	}
 	return "the store could not be read: " + err.Error()

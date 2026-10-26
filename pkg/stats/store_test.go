@@ -44,6 +44,21 @@ func open(t *testing.T, path string) *stats.Store {
 	return s
 }
 
+// damaged is a store at this version with no meta table, left in
+// rollback-journal mode, as one was found on a real machine (item 190).
+func damaged(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "stats.db")
+	s, err := stats.Open(path)
+	require.NoError(t, err)
+	for _, stmt := range []string{"DROP TABLE meta", "PRAGMA journal_mode = DELETE"} {
+		_, err = s.DB().Exec(stmt)
+		require.NoError(t, err)
+	}
+	require.NoError(t, s.Close())
+	return path
+}
+
 func metaValue(t *testing.T, db *sql.DB, key string) int {
 	t.Helper()
 	var v int
@@ -228,6 +243,10 @@ func TestOpen(t *testing.T) {
 			t.Run("it should refuse to open it", func(t *testing.T) {
 				assert.ErrorContains(t, err, "update Botropolis")
 			})
+
+			t.Run("it should refuse it as newer", func(t *testing.T) {
+				assert.ErrorIs(t, err, stats.ErrNewer)
+			})
 		})
 
 		t.Run("and it does not say", func(t *testing.T) {
@@ -236,6 +255,31 @@ func TestOpen(t *testing.T) {
 			t.Run("it should refuse to open it", func(t *testing.T) {
 				assert.ErrorContains(t, err, "update Botropolis")
 			})
+		})
+	})
+
+	t.Run("when the database is at this version but has no meta table", func(t *testing.T) {
+		path := damaged(t)
+		s, err := stats.Open(path)
+		if s != nil {
+			t.Cleanup(func() { _ = s.Close() })
+		}
+
+		t.Run("it should refuse it as damaged", func(t *testing.T) {
+			assert.ErrorIs(t, err, stats.ErrDamaged)
+		})
+
+		t.Run("it should name the file", func(t *testing.T) {
+			assert.ErrorContains(t, err, path)
+		})
+
+		t.Run("it should leave the file as it was", func(t *testing.T) {
+			db, err := sql.Open("sqlite", path)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			var mode string
+			require.NoError(t, db.QueryRow("PRAGMA journal_mode").Scan(&mode))
+			assert.Equal(t, "delete", mode)
 		})
 	})
 

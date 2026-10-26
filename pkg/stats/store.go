@@ -263,6 +263,9 @@ func Open(path string) (*Store, error) {
 	if err := f.Close(); err != nil {
 		return nil, err
 	}
+	if err := sound(path); err != nil {
+		return nil, err
+	}
 	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=cache_size(-"+strconv.Itoa(CacheKiB)+")")
 	if err != nil {
 		return nil, err
@@ -299,7 +302,7 @@ func (s *Store) migrate(path string) error {
 	case version > Version:
 		var from int
 		if err := tx.QueryRow("SELECT value FROM meta WHERE key = 'readable_from'").Scan(&from); err != nil || from > Version {
-			return fmt.Errorf("%s is schema version %d, which this build's version %d cannot read: update Botropolis", path, version, Version)
+			return &Refusal{Path: path, Kind: ErrNewer, Detail: fmt.Sprintf("schema version %d, which this build's version %d cannot read: update Botropolis", version, Version)}
 		}
 	}
 	if version <= Version {
@@ -330,6 +333,46 @@ func (s *Store) migrate(path string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// Refusal is a store Open will not touch: Kind is ErrNewer or
+// ErrDamaged, and Detail says what is wrong with the file at Path in
+// words that end in what to do about it (item 190).
+type Refusal struct {
+	Path   string
+	Kind   error
+	Detail string
+}
+
+func (r *Refusal) Error() string { return r.Path + " is " + r.Detail }
+
+func (r *Refusal) Unwrap() error { return r.Kind }
+
+// sound refuses a store at this version without the meta table this
+// version always writes, before anything opens it to write: Open would
+// otherwise switch its journal and leave it changed (item 190).
+func sound(path string) error {
+	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	if err := damaged(db); err != nil {
+		return &Refusal{Path: path, Kind: ErrDamaged, Detail: fmt.Sprintf("schema version %d but has no meta table, so it is damaged: move it aside and Botropolis starts a new one", Version)}
+	}
+	return nil
+}
+
+// damaged is ErrDamaged for a store at this version with no meta table.
+func damaged(db *sql.DB) error {
+	var version, meta int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != Version {
+		return nil
+	}
+	if err := db.QueryRow("SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND name = 'meta'").Scan(&meta); err != nil || meta == 1 {
+		return nil
+	}
+	return ErrDamaged
 }
 
 func setMeta(tx *sql.Tx, key string, value int) error {

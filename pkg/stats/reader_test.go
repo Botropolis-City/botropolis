@@ -78,6 +78,10 @@ func TestOpenReader(t *testing.T) {
 		})
 	}
 
+	t.Run("when the store is at this version but has no meta table, it should refuse it as damaged", func(t *testing.T) {
+		assert.ErrorIs(t, openReader(t, damaged(t)), stats.ErrDamaged)
+	})
+
 	t.Run("when the file is not a database, it should be paused with the error in plain words", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "stats.db")
 		require.NoError(t, os.WriteFile(path, []byte(strings.Repeat("not sqlite ", 200)), 0o600))
