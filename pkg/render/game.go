@@ -64,6 +64,10 @@ type Game struct {
 	// stopping is set by a signal: the loop ends at its next update, so
 	// Run returns and whoever started it can clean up (item 114).
 	stopping atomic.Bool
+	// closedUp is set once a close-up has recorded and paused what was
+	// chosen: closing up is a way of quitting, so the city then leaves as
+	// the quit prompt's quit would (item 291).
+	closedUp atomic.Bool
 	// holdGL pins the GL libraries once the context exists, at the first
 	// update, so Ebitengine's teardown cannot unmap them under Mesa's
 	// threads; nil means glhold.Hold (item 125).

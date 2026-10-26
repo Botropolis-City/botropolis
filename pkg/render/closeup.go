@@ -19,7 +19,9 @@ import (
 // pause, which is claude stop and keeps the conversation; a session
 // mid-turn says pausing interrupts it, and one in a terminal cannot be
 // paused from here. It is optional: Shift+Q opens it, or the button
-// beside the quit prompt, and quitting without it changes nothing.
+// beside the quit prompt, and quitting without it changes nothing. It is
+// a way of quitting: once it has recorded and paused, the city leaves
+// (item 291).
 type closeUp struct {
 	rows     []state.Session
 	pinned   map[string]bool
@@ -42,10 +44,25 @@ func (g *Game) openCloseUp() {
 	}
 	rows := g.scene.OpenSessions()
 	if len(rows) == 0 {
-		g.act(city.Action{Kind: city.ActionCloseUp})
+		if err := g.closeUpWith(city.Action{Kind: city.ActionCloseUp}); err != nil {
+			g.SetStatus(err.Error())
+		}
 		return
 	}
 	g.overlays.push(&closeUp{rows: rows, pinned: map[string]bool{}, paused: map[string]bool{}})
+}
+
+// closeUpWith has the actor record and pause, and marks the city closed
+// up only when both did: a failure quits nothing.
+func (g *Game) closeUpWith(action city.Action) error {
+	if g.actor == nil {
+		return nil
+	}
+	if err := g.actor.Do(action); err != nil {
+		return err
+	}
+	g.closedUp.Store(true)
+	return nil
 }
 
 func (p *closeUp) ids() []string {
@@ -174,7 +191,7 @@ func (p *closeUp) keys(g *Game) bool {
 		if g.actor == nil {
 			return false
 		}
-		if err := g.actor.Do(city.Action{Kind: city.ActionCloseUp, Open: p.ids(), Pinned: p.pinnedIDs(), Pause: p.pausedIDs()}); err != nil {
+		if err := g.closeUpWith(city.Action{Kind: city.ActionCloseUp, Open: p.ids(), Pinned: p.pinnedIDs(), Pause: p.pausedIDs()}); err != nil {
 			p.err = err.Error()
 			return true
 		}
@@ -242,7 +259,7 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	if p.err != "" {
 		g.text(screen, city.Point{X: x, Y: y - lineH}, p.err, ui.Small, th.Palette.NeedsYou)
 	}
-	g.text(screen, city.Point{X: x, Y: y}, "click a box, or p, to pause  ·  a all  ·  n none  ·  space or click pin  ·  enter close up  ·  esc leave", ui.Small, th.Palette.Dim)
+	g.text(screen, city.Point{X: x, Y: y}, "click a box, or p, to pause  ·  a all  ·  n none  ·  space or click pin  ·  enter close up and quit  ·  esc back", ui.Small, th.Palette.Dim)
 }
 
 // checkbox is a box, ticked when checked.

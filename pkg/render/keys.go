@@ -151,8 +151,19 @@ func panFor(down func(ebiten.Key) bool, step float64) city.Point {
 	return pan
 }
 
-// handleKeys answers the keyboard for one tick.
+// handleKeys answers the keyboard for one tick, and leaves once a
+// close-up has finished, whether this tick's keys finished it or not.
 func (g *Game) handleKeys() error {
+	if err := g.answerKeys(); err != nil {
+		return err
+	}
+	if g.closedUp.Load() {
+		return g.leave()
+	}
+	return nil
+}
+
+func (g *Game) answerKeys() error {
 	defer g.showOpenPanels()
 	just := g.just
 	g.answerRequests()

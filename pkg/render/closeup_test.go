@@ -22,6 +22,15 @@ func (f *failing) Do(a city.Action) error {
 	return errors.New("closing up needs the daemon")
 }
 
+// pausing is an actor that records the close-up and then cannot pause bg,
+// as the actor reports a pause that failed.
+type pausing struct{ done []city.Action }
+
+func (f *pausing) Do(a city.Action) error {
+	f.done = append(f.done, a)
+	return errors.New("bg: claude stop failed")
+}
+
 // Item 86, slice 4: Close up records the desk, and pauses only what you
 // choose; everything else is left running.
 func TestCloseUpPanel(t *testing.T) {
@@ -49,7 +58,7 @@ func TestCloseUpPanel(t *testing.T) {
 	t.Run("when nothing is live", func(t *testing.T) {
 		actor := &recorder{}
 		g := game(t, actor)
-		pressShift(t, g, ebiten.KeyQ)
+		err := pressingShift(g, ebiten.KeyQ)
 
 		t.Run("Shift+Q should record the close-up without asking", func(t *testing.T) {
 			assert.Equal(t, []city.Action{{Kind: city.ActionCloseUp}}, actor.done)
@@ -57,6 +66,31 @@ func TestCloseUpPanel(t *testing.T) {
 
 		t.Run("it should open no panel", func(t *testing.T) {
 			assert.Nil(t, g.overlays.top())
+		})
+
+		t.Run("it should quit the city", func(t *testing.T) {
+			assert.Equal(t, ebiten.Termination, err)
+		})
+	})
+
+	t.Run("when nothing is live and the close-up cannot be recorded", func(t *testing.T) {
+		g := game(t, &failing{})
+		err := pressingShift(g, ebiten.KeyQ)
+
+		t.Run("it should not quit", func(t *testing.T) {
+			assert.NoError(t, err)
+		})
+
+		t.Run("and the next frame comes", func(t *testing.T) {
+			err := pressing(g, -1)
+
+			t.Run("it should still not quit", func(t *testing.T) {
+				assert.NoError(t, err)
+			})
+		})
+
+		t.Run("it should say why in the footer", func(t *testing.T) {
+			assert.Equal(t, "closing up needs the daemon", g.notice.Text(timeNow()))
 		})
 	})
 
@@ -189,11 +223,13 @@ func TestCloseUpPanel(t *testing.T) {
 
 	t.Run("when Enter is pressed", func(t *testing.T) {
 		g, actor, _ := opened(t)
+		saved := 0
+		g.saveState = func(*city.Layout) { saved++ }
 		pressKey(t, g, ebiten.KeyP, false)
 		pressKey(t, g, ebiten.KeyArrowDown, false)
 		pressKey(t, g, ebiten.KeyArrowDown, false)
 		pressKey(t, g, ebiten.KeySpace, false)
-		pressKey(t, g, ebiten.KeyEnter, false)
+		err := pressing(g, ebiten.KeyEnter)
 
 		t.Run("it should ask the actor to close up with the open, pinned and paused sessions", func(t *testing.T) {
 			assert.Equal(t, []city.Action{{Kind: city.ActionCloseUp, Open: []string{"bg", "busy", "term"}, Pinned: []string{"term"}, Pause: []string{"bg"}}}, actor.done)
@@ -202,23 +238,52 @@ func TestCloseUpPanel(t *testing.T) {
 		t.Run("it should close the panel", func(t *testing.T) {
 			assert.Nil(t, g.overlays.top())
 		})
-	})
 
-	t.Run("when the actor cannot close up", func(t *testing.T) {
-		g := game(t, &failing{}, live...)
-		pressShift(t, g, ebiten.KeyQ)
-		pressKey(t, g, ebiten.KeyEnter, false)
-		p, open := g.overlays.top().(*closeUp)
-
-		t.Run("the panel should stay open", func(t *testing.T) {
-			assert.True(t, open)
+		t.Run("it should quit the city", func(t *testing.T) {
+			assert.Equal(t, ebiten.Termination, err)
 		})
 
-		t.Run("it should say why", func(t *testing.T) {
-			require.True(t, open)
-			assert.Equal(t, "closing up needs the daemon", p.err)
+		t.Run("it should save the layout as quitting does", func(t *testing.T) {
+			assert.Equal(t, 1, saved)
 		})
 	})
+
+	for _, c := range []struct {
+		name  string
+		actor Actor
+		why   string
+	}{
+		{"when the actor cannot record the close-up", &failing{}, "closing up needs the daemon"},
+		{"when a pause fails", &pausing{}, "bg: claude stop failed"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			g := game(t, c.actor, live...)
+			pressShift(t, g, ebiten.KeyQ)
+			err := pressing(g, ebiten.KeyEnter)
+			p, open := g.overlays.top().(*closeUp)
+
+			t.Run("the panel should stay open", func(t *testing.T) {
+				assert.True(t, open)
+			})
+
+			t.Run("it should say why", func(t *testing.T) {
+				require.True(t, open)
+				assert.Equal(t, c.why, p.err)
+			})
+
+			t.Run("it should not quit", func(t *testing.T) {
+				assert.NoError(t, err)
+			})
+
+			t.Run("and another key is pressed", func(t *testing.T) {
+				err := pressing(g, ebiten.KeyArrowDown)
+
+				t.Run("it should still not quit", func(t *testing.T) {
+					assert.NoError(t, err)
+				})
+			})
+		})
+	}
 
 	t.Run("when Esc is pressed", func(t *testing.T) {
 		g, actor, _ := opened(t)
@@ -249,6 +314,14 @@ func TestCloseUpPanel(t *testing.T) {
 			t.Run("it should open the close-up panel", func(t *testing.T) {
 				panel(t, g)
 			})
+
+			t.Run("and Enter is pressed", func(t *testing.T) {
+				err := pressing(g, ebiten.KeyEnter)
+
+				t.Run("it should quit the city", func(t *testing.T) {
+					assert.Equal(t, ebiten.Termination, err)
+				})
+			})
 		})
 	})
 }
@@ -261,6 +334,20 @@ func panel(t *testing.T, g *Game) *closeUp {
 }
 
 // pressShift presses a key with Shift held, for a tick.
+// pressing is a frame's keys with key pressed, or none for -1, and what
+// the frame returned: ebiten.Termination when it quits.
+func pressing(g *Game, key ebiten.Key) error {
+	g.scripted = key
+	defer func() { g.scripted = -1 }()
+	return g.handleKeys()
+}
+
+func pressingShift(g *Game, key ebiten.Key) error {
+	g.scriptedShift = true
+	defer func() { g.scriptedShift = false }()
+	return pressing(g, key)
+}
+
 func pressShift(t *testing.T, g *Game, key ebiten.Key) {
 	t.Helper()
 	g.scripted, g.scriptedShift = key, true

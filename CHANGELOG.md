@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Both now take the session to the depot and back, as Shift+P always did, and the footer says which.
   A session still working comes back from the depot as soon as it does something, and packing one now says so.
 
+### Fixed
+
+- **Closing up quits the city.**
+  Enter in the *Close up* panel noted what was open and paused what you chose, then left the city running, with only the panel closed.
+  Now it quits once both are done, as the quit prompt's quit does, and so does Shift+Q when nothing is open.
+  If the note cannot be kept or a session cannot be paused, the panel stays open, says which, and nothing quits.
+
 ## [0.3.2] - 2026-10-26
 
 ### Changed

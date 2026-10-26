@@ -354,6 +354,20 @@ func TestActorCloseUp(t *testing.T) {
 		})
 	})
 
+	t.Run("when a pause fails", func(t *testing.T) {
+		ctl := &fakeController{failure: errors.New("claude stop failed")}
+		actor := commands.Actor{Sessions: commands.NewSessions(t.TempDir(), ctl), CloseUp: func(open, pinned []string) error { return nil }}
+		err := actor.Do(city.Action{Kind: city.ActionCloseUp, Open: []string{"bg", "busy"}, Pause: []string{"bg", "busy"}})
+
+		t.Run("it should name the session in the error", func(t *testing.T) {
+			assert.ErrorContains(t, err, "bg: claude stop failed")
+		})
+
+		t.Run("it should still pause the others", func(t *testing.T) {
+			assert.Equal(t, []string{"stop bg", "stop busy"}, ctl.calls)
+		})
+	})
+
 	t.Run("when there is no daemon", func(t *testing.T) {
 		ctl, _, err := run(t, false, []string{"bg"})
 
