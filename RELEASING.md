@@ -4,6 +4,9 @@ The steps a release does not ship without, in order.
 What each piece of the release machinery does, and why, is in the Releasing section of [CLAUDE.md](CLAUDE.md); this is the list to work down.
 Paths outside this repository are in the Botropolis-City meta repository, the directory above this one when it is checked out there.
 
+**Until 1.0.0, the middle digit moves only for a breaking change, and the last for features and fixes alike** (Aria, 2026-10-26).
+From 1.0.0 on, versions follow semver as written.
+
 1. **Edit `VERSION`, and add the matching `CHANGELOG.md` section.**
 2. **`make version-check`**, which fails, naming files, when `VERSION`, the changelog and the built binaries disagree.
 3. **Push to `main` with `make land`, and let CI finish.**

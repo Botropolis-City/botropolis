@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-26
+
 ### Added
 
 - **The global shortcut works on macOS.**
@@ -31,7 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The help lists `f` and `0` on one row**, "f or 0: Skyline, the whole city", since both do the same thing.
 - **Zoomed out, buildings and vehicles are drawn sharper.**
   Below half size they are drawn from their full-size pictures rather than smaller, softened copies, so rooftop details and trim stay crisp, and the night's lit windows still end exactly at each building's edge.
-
 - **The bridge runs off into the haze.**
   The deck no longer stops in open water: it runs on a few cells past where it ended and fades into the sea, and a delivery truck fades with it and is gone at the far end.
 - **The bridge fades into fog.**
@@ -842,7 +843,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Botropolis-City/botropolis/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Botropolis-City/botropolis/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/Botropolis-City/botropolis/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Botropolis-City/botropolis/compare/v0.2.1...v0.2.2
