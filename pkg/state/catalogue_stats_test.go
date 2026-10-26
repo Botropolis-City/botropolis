@@ -125,6 +125,77 @@ func TestCatalogueStats(t *testing.T) {
 		})
 	})
 
+	// Item 213: a load still walked every stopped transcript to find the
+	// few it had to look at, which among 2,000 was a fifth of a rescan.
+	// While nothing was listed or moved since the last load, it walks
+	// only those the watcher named and the audit's share.
+	walksOf := func(t *testing.T, f fixture) int {
+		t.Helper()
+		before := f.loader.TranscriptsWalked()
+		load(t, f)
+		return f.loader.TranscriptsWalked() - before
+	}
+
+	t.Run("when the watcher holds every directory, and nothing was listed or moved since the last load", func(t *testing.T) {
+		t.Run("and it says one stopped transcript changed", func(t *testing.T) {
+			f := setup(t, true, true)
+			load(t, f)
+			when := write(t, f, 0, 7)
+			f.loader.Changed(f.paths[0][7])
+			before := f.loader.TranscriptsWalked()
+			snapshot := load(t, f)
+
+			t.Run("it should walk only that transcript and the audit's share", func(t *testing.T) {
+				assert.LessOrEqual(t, f.loader.TranscriptsWalked()-before, 1+audit)
+			})
+
+			t.Run("it should read the change", func(t *testing.T) {
+				assert.Equal(t, when, lastActivity(t, snapshot, 0, 7))
+			})
+		})
+
+		t.Run("and a transcript is listed", func(t *testing.T) {
+			f := setup(t, true, true)
+			load(t, f)
+			ts := stamp(now.Add(-time.Minute))
+			f.loader.Changed(f.home.Transcript(id(0, perDir), dirs[0],
+				helpers.UserPrompt(id(0, perDir), dirs[0], ts), helpers.AssistantReply(id(0, perDir), "msg_listed", ts)))
+
+			t.Run("it should walk every stopped transcript", func(t *testing.T) {
+				assert.Equal(t, 2*perDir+1, walksOf(t, f))
+			})
+		})
+
+		t.Run("and a live session stops", func(t *testing.T) {
+			f := setup(t, true, true)
+			const pid = 52130
+			f.home.Session(pid, id(0, 3), dirs[0], "interactive", "busy")
+			load(t, f)
+			load(t, f)
+			f.home.RemoveSession(pid)
+			walked := walksOf(t, f)
+			snapshot := load(t, f)
+
+			t.Run("it should walk every stopped transcript", func(t *testing.T) {
+				assert.Equal(t, 2*perDir, walked)
+			})
+
+			t.Run("it should show the session it stopped", func(t *testing.T) {
+				assert.False(t, sessionByID(t, snapshot, id(0, 3)).Alive)
+			})
+		})
+
+		t.Run("and the watcher drops a directory it held", func(t *testing.T) {
+			f := setup(t, true, true)
+			load(t, f)
+			f.loader.Watching(f.projects[1], false)
+
+			t.Run("it should walk every stopped transcript", func(t *testing.T) {
+				assert.Equal(t, 2*perDir, walksOf(t, f))
+			})
+		})
+	})
+
 	t.Run("when the watcher holds every directory, and a stopped session it trusts has a subagent that worked elsewhere", func(t *testing.T) {
 		f := setup(t, true, true)
 		ts := stamp(now.Add(-3 * time.Hour))

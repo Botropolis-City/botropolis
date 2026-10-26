@@ -2,6 +2,7 @@ package state
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -58,7 +59,17 @@ type Loader struct {
 	// stoppedSubsOut are what it last gathered, and builtParked the
 	// stopped sessions built from them, all kept while no stopped
 	// transcript changes (item 205).
-	stoppedGen     int
+	stoppedGen int
+	// lastPaths, lastLive and lastHeld are what the last catalogue saw,
+	// and settled whether it found every transcript it had to, so the
+	// next can tell a quiet load (item 213).
+	lastPaths []string
+	lastLive  map[string]bool
+	lastHeld  int
+	settled   bool
+	// shown is keepLedger's set of the sessions shown, kept from load to
+	// load so it is not made again for every session (item 213).
+	shown          map[string]bool
 	stoppedOut     []claude.Transcript
 	stoppedSubsOut map[string][]claude.Subagent
 	builtParked    []Session
@@ -109,6 +120,7 @@ type Loader struct {
 	touchedListed   bool
 	auditTick       int
 	transcriptStats int
+	transcriptWalks int
 	loaded          bool
 	firstPace       *pace
 }
@@ -329,14 +341,18 @@ func (l *Loader) statsCache(path string) (*claude.Stats, error) {
 }
 
 func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time.Time, first bool) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
-	var skipped []claude.SkippedFile
 	view := l.watch.take()
 	tick := l.auditTick % auditEvery
 	l.auditTick++
+	laterBusy := l.later.busy()
+	if l.quiet(paths, live, view, laterBusy) {
+		return l.catalogueChanged(paths, live, view, tick, powerSince, first)
+	}
+	var skipped []claude.SkippedFile
 	l.stoppedGen++
 	gen := l.stoppedGen
-	laterBusy := l.later.busy()
 	changed := l.stoppedOut == nil
+	settled := !view.all && !laterBusy
 	for i, path := range paths {
 		l.loadDone.Add(1)
 		l.paceFirst()
@@ -344,6 +360,8 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 		if live[id] {
 			continue
 		}
+		l.transcriptWalks++
+		settled = settled && view.held[filepath.Dir(path)]
 		if entry := l.parked[path]; entry != nil && i%auditEvery != tick && view.trusts(path) && !entry.subagentsSkipped && (!laterBusy || !l.later.pending(path)) {
 			entry.gen = gen
 			for _, subPath := range entry.subagents {
@@ -351,38 +369,10 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 			}
 			continue
 		}
-		l.transcriptStats++
-		key, err := stat(path)
-		if err != nil {
-			skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
-			continue
-		}
-		entry := l.parked[path]
-		if later, read := l.later.take(path); read && later.key == key {
-			later.transcript.Project = filepath.Base(filepath.Dir(path))
-			entry, changed = &cachedTranscript{key: key, transcript: later.transcript}, true
-			l.touch(path, l.parked[path] == nil)
-		}
-		if entry == nil || entry.key != key {
-			l.reads++
-			transcript, err := l.stoppedTranscript(path, key, powerSince, first)
-			if err != nil {
-				skipped = append(skipped, claude.SkippedFile{Path: path, Err: err})
-				continue
-			}
-			transcript.Project = filepath.Base(filepath.Dir(path))
-			l.touch(path, entry == nil)
-			entry, changed = &cachedTranscript{key: key, transcript: transcript}, true
-		}
-		entry.gen = gen
-		l.parked[path] = entry
-		if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
-			continue
-		}
-		subPaths, subSkipped, subChanged := l.stoppedSubagents(path, entry.subagents, gen)
-		skipped = append(skipped, subSkipped...)
-		entry.subagents, entry.subagentsSkipped = subPaths, len(subSkipped) > 0
-		changed = changed || subChanged
+		lookSkipped, lookChanged, ok := l.look(path, gen, powerSince, first)
+		skipped = append(skipped, lookSkipped...)
+		changed = changed || lookChanged
+		settled = settled && ok
 	}
 	for path, entry := range l.parked {
 		if entry.gen != gen {
@@ -399,7 +389,109 @@ func (l *Loader) catalogue(paths []string, live map[string]bool, powerSince time
 		l.stoppedOut, l.stoppedSubsOut = l.gather(paths, gen)
 		l.builtParked = nil
 	}
+	l.lastPaths, l.lastLive, l.lastHeld, l.settled = paths, live, view.heldGen, settled
 	return l.stoppedOut, l.stoppedSubsOut, skipped, nil
+}
+
+// quiet is whether this load can look only at what the watcher said
+// changed, and the audit's share: the transcripts listed and the live
+// sessions are those of the last load, the watcher holds what it held
+// then and has nothing fresh or missed, and that load looked at every
+// transcript it had to and found each one (item 213).
+func (l *Loader) quiet(paths []string, live map[string]bool, view watchView, laterBusy bool) bool {
+	return l.settled && l.stoppedOut != nil && !view.all && len(view.fresh) == 0 && view.heldGen == l.lastHeld && !laterBusy &&
+		sameSlice(paths, l.lastPaths) && maps.Equal(live, l.lastLive)
+}
+
+// sameSlice is whether a and b list the same paths: at once when they
+// are the one slice, as the index hands back while no listing changes.
+func sameSlice(a, b []string) bool {
+	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0] || slices.Equal(a, b))
+}
+
+// catalogueChanged is a quiet load's catalogue: what the full one would
+// find, from the transcripts it would look at alone, which are the
+// audit's share and those the watcher said changed (item 213).
+func (l *Loader) catalogueChanged(paths []string, live map[string]bool, view watchView, tick int, powerSince time.Time, first bool) ([]claude.Transcript, map[string][]claude.Subagent, []claude.SkippedFile, error) {
+	var skipped []claude.SkippedFile
+	gen := l.stoppedGen
+	changed := false
+	l.loadDone.Add(int64(len(paths)))
+	visit := func(path string) {
+		if live[strings.TrimSuffix(filepath.Base(path), ".jsonl")] {
+			return
+		}
+		l.transcriptWalks++
+		var subs []string
+		if was := l.parked[path]; was != nil {
+			subs = was.subagents
+		}
+		lookSkipped, lookChanged, ok := l.look(path, gen, powerSince, first)
+		skipped = append(skipped, lookSkipped...)
+		changed = changed || lookChanged
+		if !ok {
+			l.settled = false
+		}
+		entry := l.parked[path]
+		if entry == nil || entry.gen != gen {
+			delete(l.parked, path)
+			changed, l.touchedListed = true, true
+			entry = nil
+		}
+		for _, sub := range subs {
+			if entry == nil || !slices.Contains(entry.subagents, sub) {
+				delete(l.parkedSubagents, sub)
+			}
+		}
+	}
+	for i := tick; i < len(paths); i += auditEvery {
+		visit(paths[i])
+	}
+	for path := range view.changed {
+		if l.parked[path] != nil {
+			visit(path)
+		}
+	}
+	if changed {
+		l.stoppedOut, l.stoppedSubsOut = l.gather(paths, gen)
+		l.builtParked = nil
+	}
+	return l.stoppedOut, l.stoppedSubsOut, skipped, nil
+}
+
+// look stats a stopped transcript and reads it again if it changed,
+// with its subagents. ok is false when the next load has to look at it
+// again: it could not be read, or a subagent of it could not.
+func (l *Loader) look(path string, gen int, powerSince time.Time, first bool) (skipped []claude.SkippedFile, changed, ok bool) {
+	l.transcriptStats++
+	key, err := stat(path)
+	if err != nil {
+		return []claude.SkippedFile{{Path: path, Err: err}}, false, false
+	}
+	entry := l.parked[path]
+	if later, read := l.later.take(path); read && later.key == key {
+		later.transcript.Project = filepath.Base(filepath.Dir(path))
+		entry, changed = &cachedTranscript{key: key, transcript: later.transcript}, true
+		l.touch(path, l.parked[path] == nil)
+	}
+	if entry == nil || entry.key != key {
+		l.reads++
+		transcript, err := l.stoppedTranscript(path, key, powerSince, first)
+		if err != nil {
+			return []claude.SkippedFile{{Path: path, Err: err}}, changed, false
+		}
+		transcript.Project = filepath.Base(filepath.Dir(path))
+		l.touch(path, entry == nil)
+		entry, changed = &cachedTranscript{key: key, transcript: transcript}, true
+	}
+	entry.gen = gen
+	l.parked[path] = entry
+	if entry.transcript.IsBridgeStub || entry.transcript.SessionID == "" {
+		return nil, changed, true
+	}
+	subPaths, subSkipped, subChanged := l.stoppedSubagents(path, entry.subagents, gen)
+	entry.subagents, entry.subagentsSkipped = subPaths, len(subSkipped) > 0
+	return subSkipped, changed || subChanged, len(subSkipped) == 0
 }
 
 // gather is the stopped sessions catalogued in this load, in the order
@@ -592,9 +684,13 @@ func (l *Loader) keepLedger(sessions []Session, claudeDir string, now time.Time)
 	if err := l.loadLedger(); err != nil {
 		return sessions, err
 	}
-	shown := map[string]bool{}
-	for _, s := range sessions {
-		shown[s.ID] = true
+	if l.shown == nil {
+		l.shown = make(map[string]bool, len(sessions))
+	}
+	shown := l.shown
+	clear(shown)
+	for i := range sessions {
+		shown[sessions[i].ID] = true
 	}
 	sessions, changed, more := l.recordShown(sessions)
 	var missing []string
@@ -639,8 +735,9 @@ func (l *Loader) KeepLedger(sessions []Session, now time.Time) ([]Session, []cla
 // that has done nothing since.
 func (l *Loader) recordShown(sessions []Session) ([]Session, bool, bool) {
 	changed, more := false, false
-	kept := sessions[:0]
-	for _, s := range sessions {
+	n := 0
+	for i := range sessions {
+		s := &sessions[i]
 		if e := l.ledger[s.ID]; e.Demolished() {
 			if !s.LastActivity.After(e.DemolishedAt) {
 				continue
@@ -651,9 +748,12 @@ func (l *Loader) recordShown(sessions []Session) ([]Session, bool, bool) {
 		}
 		c, m := l.ledger.record(s)
 		changed, more = changed || c, more || m
-		kept = append(kept, s)
+		if n != i {
+			sessions[n] = *s
+		}
+		n++
 	}
-	return kept, changed, more
+	return sessions[:n], changed, more
 }
 
 // markPacks packs up and unpacks what has merged or moved on, and marks
@@ -662,13 +762,13 @@ func (l *Loader) markPacks(sessions []Session, now time.Time) bool {
 	changed := false
 	for i := range sessions {
 		s := &sessions[i]
-		if l.packOnMerge(*s, now) {
-			changed = true
-		}
-		if l.unpackOnWork(*s, now) {
-			changed = true
-		}
 		e := l.ledger[s.ID]
+		if l.packOnMerge(s, e, now) {
+			changed, e = true, l.ledger[s.ID]
+		}
+		if l.unpackOnWork(s, e, now) {
+			changed, e = true, l.ledger[s.ID]
+		}
 		s.Packed = e.Packed()
 		if s.Packed {
 			s.PackedAt = e.PackedAt
@@ -680,8 +780,7 @@ func (l *Loader) markPacks(sessions []Session, now time.Time) bool {
 // packOnMerge packs up a stopped session whose pull request has merged,
 // unless you unpacked it since its last activity: a merge ends the work,
 // and an unpack says it has not ended.
-func (l *Loader) packOnMerge(s Session, now time.Time) bool {
-	e := l.ledger[s.ID]
+func (l *Loader) packOnMerge(s *Session, e LedgerEntry, now time.Time) bool {
 	if s.State != Resting || e.Packed() || !merged(s.PRs) {
 		return false
 	}
@@ -694,8 +793,7 @@ func (l *Loader) packOnMerge(s Session, now time.Time) bool {
 
 // unpackOnWork brings back a packed-up session that has done something
 // since it was packed: work that resumes is never kept in the depot.
-func (l *Loader) unpackOnWork(s Session, now time.Time) bool {
-	e := l.ledger[s.ID]
+func (l *Loader) unpackOnWork(s *Session, e LedgerEntry, now time.Time) bool {
 	if !e.Packed() || !s.LastActivity.After(e.PackedAt) {
 		return false
 	}

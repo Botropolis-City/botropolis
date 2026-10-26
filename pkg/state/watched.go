@@ -1,6 +1,7 @@
 package state
 
 import (
+	"maps"
 	"path/filepath"
 	"sync"
 )
@@ -21,12 +22,19 @@ type watchState struct {
 	fresh   map[string]bool
 	changed map[string]bool
 	all     bool
+	// heldGen counts the changes to held, and taken is the copy of it
+	// the last load took, handed out again while nothing changes
+	// (item 213).
+	heldGen int
+	taken   map[string]bool
+	takenAt int
 }
 
 // watchView is one load's share of it.
 type watchView struct {
 	held, fresh, changed map[string]bool
 	all                  bool
+	heldGen              int
 }
 
 // Changed is the watcher saying a file changed.
@@ -57,7 +65,10 @@ func (l *Loader) Watching(dir string, ok bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if !ok {
-		delete(w.held, dir)
+		if w.held[dir] {
+			delete(w.held, dir)
+			w.heldGen++
+		}
 		return
 	}
 	if w.held[dir] {
@@ -67,17 +78,17 @@ func (l *Loader) Watching(dir string, ok bool) {
 		w.held, w.fresh = map[string]bool{}, map[string]bool{}
 	}
 	w.held[dir], w.fresh[dir] = true, true
+	w.heldGen++
 }
 
 // take is this load's view, leaving the changes for the next to gather.
 func (w *watchState) take() watchView {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	held := make(map[string]bool, len(w.held))
-	for dir := range w.held {
-		held[dir] = true
+	if w.taken == nil || w.takenAt != w.heldGen {
+		w.taken, w.takenAt = maps.Clone(w.held), w.heldGen
 	}
-	v := watchView{held: held, fresh: w.fresh, changed: w.changed, all: w.all}
+	v := watchView{held: w.taken, fresh: w.fresh, changed: w.changed, all: w.all, heldGen: w.heldGen}
 	w.fresh, w.changed, w.all = map[string]bool{}, nil, false
 	return v
 }
@@ -92,4 +103,10 @@ func (v watchView) trusts(path string) bool {
 // transcript's size and modification time.
 func (l *Loader) TranscriptStats() int {
 	return l.transcriptStats
+}
+
+// TranscriptsWalked is how many stopped transcripts the catalogue has
+// walked past to find the ones to look at (item 213).
+func (l *Loader) TranscriptsWalked() int {
+	return l.transcriptWalks
 }

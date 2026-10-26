@@ -83,13 +83,13 @@ func LedgerPath() string {
 // Record notes a session and reports whether the ledger changed. An
 // empty session is never recorded: prune clears it on purpose.
 func (l Ledger) Record(s Session) bool {
-	changed, _ := l.record(s)
+	changed, _ := l.record(&s)
 	return changed
 }
 
 // record notes a session and reports whether the ledger changed, and
 // whether by more than the session's last activity (item 205).
-func (l Ledger) record(s Session) (changed, more bool) {
+func (l Ledger) record(s *Session) (changed, more bool) {
 	if s.State == Empty || s.ID == "" {
 		return false, false
 	}
