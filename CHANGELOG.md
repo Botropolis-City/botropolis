@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The daemon logs why, naming the file, and `botropolis doctor` has a statistics row that warns with the reason.
   The city shows a notice once per launch with what to do: update Botropolis for a store written by a newer release, or move a damaged one aside and restart the daemon.
   A damaged store is refused and left exactly as it was, never repaired or reset.
+- **The city behind a notice or a dimmed panel no longer reacts to the pointer.**
+  Resting the pointer on a notice, the board, the settings or any other panel that dims the map used to raise the card of whatever stood behind it.
+  While the map is dimmed, nothing on it is hovered.
 
 ## [0.3.1] - 2026-10-26
 
