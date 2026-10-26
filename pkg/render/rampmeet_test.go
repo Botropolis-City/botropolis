@@ -121,5 +121,5 @@ func roadOffRamp(atlas assets.KitAtlas, cam *city.Camera, mask int, b city.Bridg
 // paved is a pixel of the road, its kerbs and lane line included: opaque
 // and not the green verge.
 func paved(c color.NRGBA) bool {
-	return c.A > 64 && !(c.R < 100 && c.G > 100)
+	return c.A > 64 && (c.R >= 100 || c.G <= 100)
 }
