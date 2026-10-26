@@ -91,6 +91,23 @@ func TestRecordReuse(t *testing.T) {
 		})
 	})
 
+	t.Run("when a city like the real history has settled, its buildings quiet", func(t *testing.T) {
+		d := fullZoom(t, DriveOptions{})
+		d.game.verifyEvery = 1
+		for range 3 {
+			require.NoError(t, d.Tick())
+		}
+		require.NoError(t, d.Tick())
+		st := d.game.still.stats
+
+		t.Run("it should work out no building's frame again", func(t *testing.T) {
+			assert.Zero(t, st.framesWorked)
+		})
+		t.Run("it should hold the record made afresh", func(t *testing.T) {
+			assert.Zero(t, st.stale)
+		})
+	})
+
 	t.Run("when the camera pans by whole pixels", func(t *testing.T) {
 		rc := settled(t)
 		rc.scene.Pan(city.Point{X: 7, Y: -3})
@@ -417,6 +434,19 @@ func TestRecordReuse(t *testing.T) {
 
 		t.Run("it should draw what the frame made afresh draws", func(t *testing.T) {
 			assert.Equal(t, afresh, kept)
+		})
+	})
+
+	t.Run("when a search dims the quiet buildings it does not find", func(t *testing.T) {
+		rc := settled(t)
+		rc.scene.SetFilter("s00")
+		stale := 0
+		for range 3 {
+			stale += rc.frame().stale
+		}
+
+		t.Run("it should hold the record made afresh", func(t *testing.T) {
+			assert.Zero(t, stale)
 		})
 	})
 

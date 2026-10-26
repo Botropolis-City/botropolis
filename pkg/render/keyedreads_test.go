@@ -155,6 +155,59 @@ func with(reads, more map[string]string) map[string]string {
 	return out
 }
 
+// quietReads is everything a building's frame is worked out from, and
+// how quietKey covers it: a quiet building's frame is kept while its
+// quiet key holds, so a read neither the key nor quietness covers would
+// leave the frame stale (item 212).
+var quietReads = map[string]string{
+	"g.kits":              "frameBase, in the quiet key: the kits' generation and the zoom",
+	"g.lightsOn":          "in the quiet key",
+	"g.reduced":           "in the quiet key",
+	"g.lit":               "in the quiet key: whether it is unlit",
+	"g.weedFade":          "set by dressing from the mowing, which quietness holds at none",
+	"scene.View":          "in the quiet key: the view's tint, when a view is up",
+	"scene.Tint":          "in the quiet key: the view's tint, when a view is up",
+	"scene.Dimmed":        "in the quiet key",
+	"scene.Hauling":       "quietness: not hauled",
+	"scene.HaulProgress":  "quietness: not fading out",
+	"scene.Rising":        "quietness: risen",
+	"scene.Construction":  "quietness: not being built",
+	"scene.Settling":      "quietness: not settling",
+	"scene.Mowing":        "quietness: not being mowed",
+	"scene.Celebration":   "quietness: not celebrating",
+	"scene.CompactionJob": "quietness: not pouring or collecting a course",
+	"scene.Loads":         "quietness: no load on its hoist",
+	"scene.Scaffold":      "quietness: not coming down, and in the quiet key",
+	"scene.Hoist":         "quietness: no flag moving, and each flag's hoist in the quiet key",
+	"scene.Lights":        "its rise, its construction and its haul, which quietness holds",
+}
+
+func TestQuietReads(t *testing.T) {
+	t.Run("when a building's frame reads the game's or the scene's state", func(t *testing.T) {
+		reads := gameReads(t, "buildingFrame")
+		var uncovered, unread []string
+		for r, in := range reads {
+			if _, ok := quietReads[r]; !ok {
+				uncovered = append(uncovered, r+" (in "+in+")")
+			}
+		}
+		for r := range quietReads {
+			if _, ok := reads[r]; !ok {
+				unread = append(unread, r)
+			}
+		}
+		sort.Strings(uncovered)
+		sort.Strings(unread)
+
+		t.Run("it should be covered by quietness or the quiet key", func(t *testing.T) {
+			assert.Empty(t, uncovered)
+		})
+		t.Run("it should list nothing it does not read", func(t *testing.T) {
+			assert.Empty(t, unread)
+		})
+	})
+}
+
 // gameReads walks every function of the package a method of the game
 // can reach and returns what it reads of the game, as "g.field", and
 // what it asks of the scene, as "scene.Method".

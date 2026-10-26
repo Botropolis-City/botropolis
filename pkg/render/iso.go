@@ -1,6 +1,7 @@
 package render
 
 import (
+	"hash/maphash"
 	"image"
 	"image/color"
 	"math"
@@ -1586,6 +1587,7 @@ func (g *Game) valuesFor(c *city.City) {
 		g.titles, g.signValues = map[*city.Building]string{}, map[*city.District]signValue{}
 		g.bridgeHashes, g.treeHashes, g.isleHashed = map[city.Cell]uint64{}, nil, false
 		g.fogHashes = map[city.Cell]uint64{}
+		g.quietFrames = map[*city.Building]quietFrame{}
 	}
 }
 
@@ -1672,6 +1674,27 @@ func (g *Game) buildingValue(b *city.Building) uint64 {
 // every frame, and its painting keyed by its frame, so a building whose
 // frame holds keeps last frame's record (item 212).
 func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Building, selected, detailed bool, seconds float64) {
+	quiet, still := g.quietKey(b, selected, detailed)
+	if still {
+		// A quiet building's frame is what it was while its quiet key
+		// holds: worked out again only when it changes (item 212).
+		if m, ok := g.quietFrames[b]; ok && m.key == quiet {
+			f := m.frame
+			f.seconds = seconds
+			g.buildingHits(cam, &f)
+			// Recorded afresh, it is painted from its frame worked out
+			// afresh, so the net compares a kept record with one that owes
+			// nothing to the quiet key.
+			g.noteKeyed(kindHouse, quiet, func() {
+				g.buildingsDrawn++
+				if fresh, ok := g.buildingFrame(cam, b, selected, detailed, seconds); ok {
+					g.paintBuilding(screen, cam, &fresh)
+				}
+			})
+			return
+		}
+	}
+	g.still.stats.framesWorked++
 	f, ok := g.buildingFrame(cam, b, selected, detailed, seconds)
 	if !ok {
 		g.note(func() {
@@ -1680,11 +1703,80 @@ func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 		}, false)
 		return
 	}
+	key := quiet
+	if still {
+		g.quietFrames[b] = quietFrame{key: quiet, frame: f}
+	} else {
+		key = g.buildingKey(&f)
+	}
 	g.buildingHits(cam, &f)
-	g.noteKeyed(kindHouse, g.buildingKey(&f), func() {
+	g.noteKeyed(kindHouse, key, func() {
 		g.buildingsDrawn++
 		g.paintBuilding(screen, cam, &f)
 	})
+}
+
+// quietFrame is a quiet building's frame, and the quiet key it was
+// worked out under.
+type quietFrame struct {
+	key   uint64
+	frame buildingFrame
+}
+
+// quietKey is a building's key while nothing of it moves with the clock,
+// and whether nothing does: it is not rising, being built, hauled or
+// settled, its lot is not being mowed, it is not celebrating, pouring a
+// course or collecting one, no load rides its hoist, no flag is going
+// up or down and its scaffold is not coming down. Its frame is then its
+// value's and the frame's alone, with the scene's choices of it this
+// frame: dimmed, unlit, tinted by a view, its flags' hoists, its
+// scaffold, its title and whether its top course glows. TestQuietReads
+// holds that to everything buildingFrame reads.
+func (g *Game) quietKey(b *city.Building, selected, detailed bool) (uint64, bool) {
+	s, id := g.scene, b.Session.ID
+	if s.Hauling(id) || s.HaulProgress(id) < 1 || s.Rising(id) < 1 || s.Mowing(id) >= 0 || s.Celebration(id) >= 0 || len(s.Loads(id)) > 0 {
+		return 0, false
+	}
+	if _, building := s.Construction(id); building {
+		return 0, false
+	}
+	if settle, _ := s.Settling(id); settle != city.SettleNone {
+		return 0, false
+	}
+	if _, pouring := g.pouring(b); pouring {
+		return 0, false
+	}
+	if _, collecting := s.CompactionJob(id); collecting {
+		return 0, false
+	}
+	scaffold := s.Scaffold(b)
+	if scaffold > 0 && scaffold < 1 {
+		return 0, false
+	}
+	if !g.frameBase.ok {
+		g.frameBase = g.frameBaseKey()
+	}
+	key := keyMix(g.buildingValue(b), boolBits(selected), boolBits(detailed), boolBits(s.Dimmed(b)), boolBits(g.unlit(b)),
+		math.Float64bits(scaffold), g.titleHash(b), boolBits(courseLit(b.Session, s.Now())), g.houseWide,
+		g.frameBase.all, boolBits(g.lightsOn), boolBits(g.reduced))
+	if g.viewing() {
+		if c, ok := g.viewTint(b); ok {
+			key = keyMix(key, 1, uint64(c.R)<<24|uint64(c.G)<<16|uint64(c.B)<<8|uint64(c.A))
+		}
+	}
+	for i := range min(b.Flags, 3) {
+		h := g.flagHoist(b, i)
+		if h > 0 && h < 1 {
+			return 0, false
+		}
+		key = keyMix(key, math.Float64bits(h))
+	}
+	return key | 1, true
+}
+
+// titleHash is a building's title hashed, for the city it stands in.
+func (g *Game) titleHash(b *city.Building) uint64 {
+	return maphash.String(inkSeed, g.titleOf(b))
 }
 
 // buildingKey is what a building is painted from: its frame, but for the

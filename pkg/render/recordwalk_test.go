@@ -174,6 +174,10 @@ func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
 			rc.scene.SetHover(all[rnd.IntN(len(all))])
 		}},
 		{"the view changes", func() { rc.scene.SetView(views[rnd.IntN(len(views))]) }},
+		{"a search narrows the map or clears", func() {
+			all := append(ids(), "")
+			rc.scene.SetFilter(all[rnd.IntN(len(all))])
+		}},
 		{"the selection changes", func() {
 			all := append(ids(), "")
 			rc.scene.Select(all[rnd.IntN(len(all))])
@@ -190,6 +194,7 @@ func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
 			cam.Zoom = zs[rnd.IntN(len(zs))]
 		}},
 		{"night falls or lifts", func() { rc.scene.CycleLight() }},
+		{"the camera turns", func() { rc.scene.Turn() }},
 		{"the look pages fill and start again", func() {
 			// Pages a few looks wide, so looks find no room, are drawn
 			// straight, and pages start again under kept records.
