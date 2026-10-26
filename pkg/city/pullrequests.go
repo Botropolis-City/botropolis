@@ -667,8 +667,11 @@ func (s *Scene) Hoist(id string, number int) float64 {
 // is there.
 func (s *Scene) Inspector(id string) (Inspector, bool) {
 	p, ok := s.parked[id]
+	if !ok {
+		return Inspector{}, false
+	}
 	b := s.buildingOf(id)
-	if !ok || b == nil {
+	if b == nil {
 		return Inspector{}, false
 	}
 	span := ParkFor

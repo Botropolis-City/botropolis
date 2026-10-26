@@ -129,6 +129,10 @@ type City struct {
 	memo *memo
 	// planID is which of the memo's plans the city stands on (item 206).
 	planID int
+	// buildings is every district's buildings, and byID each by its
+	// session, once the districts are final (item 270).
+	buildings []*Building
+	byID      map[string]*Building
 	// landings are the street cells the bridges land on, the first
 	// bridge first (items 218 and 220).
 	landings []landing
@@ -387,6 +391,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 		depot.placeOn(cellRect(p.Depot))
 		city.Districts = append(city.Districts, depot)
 	}
+	city.indexBuildings()
 	for _, park := range append(append([]plan.Block(nil), p.Parks...), p.Belt...) {
 		city.Parks = append(city.Parks, Park{Rect: cellRect(park)})
 	}
@@ -528,11 +533,40 @@ func (c *City) TowerLabelWidth() float64 {
 }
 
 func (c *City) Buildings() []*Building {
+	if c.buildings != nil {
+		return c.buildings[:len(c.buildings):len(c.buildings)]
+	}
 	var buildings []*Building
 	for _, d := range c.Districts {
 		buildings = append(buildings, d.Buildings...)
 	}
 	return buildings
+}
+
+// indexBuildings lists the city's buildings once its districts are
+// final, so a frame that asks for them, or for one by its session,
+// does not walk every district to find it (item 270).
+func (c *City) indexBuildings() {
+	c.buildings = c.Buildings()
+	c.byID = make(map[string]*Building, len(c.buildings))
+	for _, b := range c.buildings {
+		if _, dup := c.byID[b.Session.ID]; !dup {
+			c.byID[b.Session.ID] = b
+		}
+	}
+}
+
+// building is the building of a session, or nil.
+func (c *City) building(id string) *Building {
+	if c.byID != nil {
+		return c.byID[id]
+	}
+	for _, b := range c.Buildings() {
+		if b.Session.ID == id {
+			return b
+		}
+	}
+	return nil
 }
 
 // Bounds is the plan's edge: belt to belt, river included.

@@ -224,12 +224,7 @@ func lerp(a, b Point, p float64) Point {
 
 // buildingOf is a session's building, or nil.
 func (s *Scene) buildingOf(id string) *Building {
-	for _, b := range s.city.Buildings() {
-		if b.Session.ID == id {
-			return b
-		}
-	}
-	return nil
+	return s.city.building(id)
 }
 
 // roof is the middle of a session's building, where its pad is.
