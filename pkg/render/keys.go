@@ -348,7 +348,8 @@ func (g *Game) handleKeys() error {
 	// Shift+P packs the selected session up, or unpacks a crate (item
 	// 86); P alone saves a frame.
 	if just(ebiten.KeyP) && g.shifted() {
-		if action := g.scene.TogglePack(); action.Kind != city.ActionNone {
+		if action, note := g.scene.Act(city.ActionPack); action.Kind != city.ActionNone {
+			g.SetStatus(note)
 			g.act(action)
 		}
 	} else if just(ebiten.KeyP) {

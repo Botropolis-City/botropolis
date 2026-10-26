@@ -817,10 +817,19 @@ func (g *Game) Update() error {
 // resolveTarget is where a scripted pointer aims, or a scripted pan
 // brings to the middle: a session's building
 // by title or id, a district by "district:<name>", a car by
-// "car:<from>-><to>", or the power plant.
+// "car:<from>-><to>", a button on the open card by "button:<label>",
+// or the power plant.
 func (g *Game) resolveTarget(target string) (city.Point, bool) {
 	c := g.scene.City()
 	cam := g.scene.Camera()
+	if label, ok := strings.CutPrefix(target, "button:"); ok {
+		for _, b := range g.pinned.Buttons {
+			if b.Label.Text == label {
+				return b.Rect.Center(), true
+			}
+		}
+		return city.Point{}, false
+	}
 	if target == homeTarget {
 		if g.clipHome == nil {
 			return city.Point{}, false

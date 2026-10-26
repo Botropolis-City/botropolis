@@ -10,6 +10,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/daemon"
 	"botropolis.city/botropolis/pkg/proto"
+	"botropolis.city/botropolis/testing/helpers"
 )
 
 // Item 86: the map packs a session up, and unpacks it, through the
@@ -38,12 +39,34 @@ func TestServePack(t *testing.T) {
 			assert.True(t, only(t, d).Packed)
 		})
 
+		t.Run("and the daemon rescans again", func(t *testing.T) {
+			require.NoError(t, d.Rescan())
+
+			t.Run("it should keep it packed (item 278)", func(t *testing.T) {
+				assert.True(t, only(t, d).Packed)
+			})
+		})
+
 		t.Run("and then unpacks it", func(t *testing.T) {
 			require.NoError(t, client.Pack(sid, false))
 
 			t.Run("it should not mark it packed", func(t *testing.T) {
 				assert.False(t, only(t, d).Packed)
 			})
+		})
+	})
+
+	t.Run("when a client packs a session that then works (item 278)", func(t *testing.T) {
+		home := idleHome(t, "interactive")
+		ledger := filepath.Join(t.TempDir(), "sessions.json")
+		d := daemon.New(home.Path, probes, func() time.Time { return now }, daemon.WithLedger(ledger))
+		require.NoError(t, d.Rescan())
+		require.NoError(t, d.Pack(sid, true))
+		home.AppendTranscript(sid, cwd, helpers.AssistantReply(sid, "msg_02", stamp(2*time.Hour)))
+		require.NoError(t, d.Rescan())
+
+		t.Run("it should bring it back", func(t *testing.T) {
+			assert.False(t, only(t, d).Packed)
 		})
 	})
 

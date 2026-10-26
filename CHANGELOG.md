@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Its directory, prompt and group fields ignored the keyboard, and took text only from a `--keys` script.
   They now take typing and input methods the way the finder does.
 
+### Fixed
+
+- **The card's *pack* button packs the session up again.**
+  Pressing *pack* on a building's card, or *unpack* on a crate's, did nothing, so a boarded-up building stayed where it stood.
+  Both now take the session to the depot and back, as Shift+P always did, and the footer says which.
+  A session still working comes back from the depot as soon as it does something, and packing one now says so.
+
 ## [0.3.2] - 2026-10-26
 
 ### Changed

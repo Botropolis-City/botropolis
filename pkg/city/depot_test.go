@@ -1,6 +1,7 @@
 package city_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -180,4 +181,98 @@ func TestPackActions(t *testing.T) {
 			assert.Equal(t, city.Action{Kind: city.ActionPack, SessionID: "w"}, s.TriageDone())
 		})
 	})
+}
+
+// Item 278: the card's pack and unpack did nothing, so a boarded-up
+// building stayed boarded up when you packed it.
+func TestActPack(t *testing.T) {
+	shuttered := session("b", cinders, state.Resting)
+	shuttered.LastActivity = now.Add(-8 * 24 * time.Hour)
+	crated := shuttered
+	crated.Packed, crated.PackedAt = true, now.Add(-time.Hour)
+	pressed := func(t *testing.T, kind city.ActionKind, b state.Session) (city.Action, string) {
+		t.Helper()
+		s := scene(t, session("a", cinders, state.Working), b)
+		s.Click(centreOf(t, s, b.ID))
+		require.NotNil(t, s.Selected())
+		return s.Act(kind)
+	}
+
+	t.Run("when a shuttered building is selected", func(t *testing.T) {
+		t.Run("and its card's pack is pressed", func(t *testing.T) {
+			action, note := pressed(t, city.ActionPack, shuttered)
+
+			t.Run("it should ask the actor to pack that session", func(t *testing.T) {
+				assert.Equal(t, city.Action{Kind: city.ActionPack, SessionID: "b"}, action)
+			})
+
+			t.Run("it should say it is packing it up", func(t *testing.T) {
+				assert.Equal(t, "packing Fix the CI queue up", note)
+			})
+		})
+	})
+
+	t.Run("when a crate is selected", func(t *testing.T) {
+		t.Run("and its card's unpack is pressed", func(t *testing.T) {
+			action, note := pressed(t, city.ActionUnpack, crated)
+
+			t.Run("it should ask the actor to unpack it", func(t *testing.T) {
+				assert.Equal(t, city.Action{Kind: city.ActionUnpack, SessionID: "b"}, action)
+			})
+
+			t.Run("it should say it is unpacking it", func(t *testing.T) {
+				assert.Equal(t, "unpacking Fix the CI queue", note)
+			})
+		})
+	})
+
+	t.Run("when a live building is selected", func(t *testing.T) {
+		t.Run("and its card's pack is pressed", func(t *testing.T) {
+			_, note := pressed(t, city.ActionPack, session("b", cinders, state.NeedsYou))
+
+			t.Run("it should say it comes back when it works again", func(t *testing.T) {
+				assert.Equal(t, "packed Fix the CI queue; it comes back when it works again", note)
+			})
+		})
+	})
+}
+
+// Item 278: a card button that asks for nothing, says nothing and
+// changes nothing reads as a broken button, and pack was one.
+func TestCardActionsDoSomething(t *testing.T) {
+	quiet := func(s state.Session, idle time.Duration) state.Session {
+		s.LastActivity = now.Add(-idle)
+		return s
+	}
+	crated := quiet(session("b", cinders, state.Resting), 8*24*time.Hour)
+	crated.Packed, crated.PackedAt = true, now.Add(-time.Hour)
+	for name, b := range map[string]state.Session{
+		"working":   session("b", cinders, state.Working),
+		"needs you": session("b", cinders, state.NeedsYou),
+		"resting":   quiet(session("b", cinders, state.Resting), time.Hour),
+		"shuttered": quiet(session("b", cinders, state.Resting), 8*24*time.Hour),
+		"overgrown": quiet(session("b", cinders, state.Resting), 40*24*time.Hour),
+		"packed":    crated,
+	} {
+		selected := func(t *testing.T) *city.Scene {
+			t.Helper()
+			s := scene(t, session("a", cinders, state.Working), b)
+			s.Click(centreOf(t, s, "b"))
+			require.NotNil(t, s.Selected())
+			return s
+		}
+		t.Run("when a "+name+" building's card is open", func(t *testing.T) {
+			for _, kind := range selected(t).Actions() {
+				t.Run("and "+string(kind)+" is pressed", func(t *testing.T) {
+					s := selected(t)
+					before := s.Actions()
+					action, note := s.Act(kind)
+
+					t.Run("it should ask the actor for something, say what happened or change the card", func(t *testing.T) {
+						assert.True(t, action.Kind != city.ActionNone || note != "" || !slices.Equal(before, s.Actions()))
+					})
+				})
+			}
+		})
+	}
 }

@@ -1183,6 +1183,8 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		return s.Activate(), ""
 	case ActionStop:
 		return Action{Kind: ActionStop, SessionID: b.Session.ID}, "stopping " + b.Card(s.city.Time).Title
+	case ActionPack, ActionUnpack:
+		return s.TogglePack(), s.packNote(b)
 	case ActionNew:
 		return Action{Kind: ActionNew, Dir: b.Session.CWD}, "new session in " + b.Session.CWD
 	case ActionReveal:
@@ -1485,6 +1487,19 @@ func (s *Scene) TogglePack() Action {
 		return Action{Kind: ActionUnpack, SessionID: s.selected.Session.ID}
 	}
 	return Action{Kind: ActionPack, SessionID: s.selected.Session.ID}
+}
+
+// packNote says what packing or unpacking a building does; a live
+// session comes straight back once it works again (item 278).
+func (s *Scene) packNote(b *Building) string {
+	title := b.Card(s.city.Time).Title
+	switch {
+	case b.Packed:
+		return "unpacking " + title
+	case state.Live(b.Session.State):
+		return "packed " + title + "; it comes back when it works again"
+	}
+	return "packing " + title + " up"
 }
 
 // OpenSessions is what closing up would stop: every live session on the
