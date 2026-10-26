@@ -554,9 +554,12 @@ type Game struct {
 	buttonPanning bool
 	buttonPanWith ebiten.MouseButton
 	buttonPanFrom city.Point
-	// moving is a district being dragged to another slot, picked up at
-	// pressAt; a press that never leaves its spot is a click. Item 85.
+	// moving is a district being dragged to another slot, and boxing a
+	// box being drawn to select districts, both from pressAt, where
+	// every left press starts; a press that never leaves its spot is a
+	// click. Items 85, 283.
 	moving  bool
+	boxing  bool
 	pressAt city.Point
 	// journalHours is how long away the map must have been for the
 	// journal to open by itself, and journalChecked whether the first
@@ -776,51 +779,14 @@ func (g *Game) Update() error {
 	// button on the card it just raised — and that card carries stop two
 	// along from attach. Move either to the other event and a click
 	// becomes able to stop a session.
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press {
-		if !g.clickOverlay(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickStream(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor) {
-			// A press on a district's floor or sign picks the district up;
-			// anywhere else, or with Shift or Alt held anywhere, it pans.
-			if carries(g.scene.Hover(), g.scene.Selected()) {
-				g.carrying = g.scene.Selected()
-			} else if g.scene.PressDistrict(cursor, panHeld()) {
-				g.moving, g.pressAt = true, cursor
-			} else {
-				g.dragging, g.dragFrom = true, cursor
-			}
-		}
-	}
-	if g.moving && (ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown) {
-		g.scene.DragDistrict(cursor)
-	}
-	if (inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release) && g.moving {
-		g.moving = false
-		if math.Hypot(cursor.X-g.pressAt.X, cursor.Y-g.pressAt.Y) > 3 {
-			if g.scene.DropDistrict(cursor) && g.saveState != nil {
-				g.saveState(g.scene.Layout())
-			}
-		} else {
-			g.scene.CancelDistrictDrag()
-			g.act(g.scene.Click(cursor))
-		}
-	}
-	if g.dragging && (ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown) {
-		g.scene.Pan(cursor.Sub(g.dragFrom))
-		g.dragFrom = cursor
-	}
-	if (inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release) && g.carrying != nil {
-		if drop := dropAction(g.carrying, g.scene.Hover()); drop.Kind == city.ActionMove {
-			g.move(drop.SessionID, drop.Group)
-		}
-		g.carrying = nil
-	}
-	if (inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release) && g.dragging {
-		wasDrag := math.Hypot(cursor.X-g.dragFrom.X, cursor.Y-g.dragFrom.Y) > 3
-		g.dragging = false
-		if !wasDrag {
-			g.clickLandmark(g.scene.Hover().Landmark)
-			g.act(g.scene.Click(cursor))
-		}
-	}
+	left := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press
+	g.leftButton(cursor, leftInput{
+		press:   left && !g.clickOverlay(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickStream(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor),
+		down:    ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown,
+		release: inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release,
+		ctrl:    g.ctrlHeld(),
+		pan:     panHeld(),
+	})
 	g.maybeFirstRun()
 	g.maybeStatsPrompt()
 	g.maybeStoreNotice()

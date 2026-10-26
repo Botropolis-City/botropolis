@@ -25,6 +25,9 @@ var bindings = []ui.Key{
 	{Key: "wheel", Action: "zoom"},
 	{Key: "+ / -", Action: "zoom"},
 	{Key: "click", Action: "select"},
+	{Key: "drag a selected district", Action: "move every selected district with it"},
+	{Key: "ctrl+click", Action: "select a district to move with others, or unselect it (cmd on a Mac)"},
+	{Key: "ctrl+drag", Action: "select every district in a box; esc clears the selection"},
 	{Key: "enter", Action: "attach the selection"},
 	{Key: "i", Action: "the selection's details"},
 	{Key: "o", Action: "read the selection's conversation"},
@@ -282,6 +285,10 @@ func (g *Game) answerKeys() error {
 	}
 	if just(ebiten.KeyEscape) && g.scene.Selected() != nil {
 		g.scene.Deselect()
+		return nil
+	}
+	if just(ebiten.KeyEscape) && len(g.scene.SelectedDistricts()) > 0 {
+		g.scene.ClearSelection()
 		return nil
 	}
 	if just(ebiten.KeyEscape) && g.scene.FocusedGroup() != "" {

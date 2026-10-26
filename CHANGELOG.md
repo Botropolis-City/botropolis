@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Several districts can be moved at once.**
+  Hold `Ctrl` (`Cmd` on a Mac) and click districts to select them, or drag a box over open ground to select every district it touches; each selected district is outlined.
+  Drag any one of them and they all move together, keeping their places relative to each other, and the city remembers where they went.
+  A move that would land one on another district is refused for all of them, and `Esc` clears the selection.
 - **Drag with the right or middle (wheel) button to pan the map from anywhere.**
   A left drag that starts on a district picks the district up, which made panning a crowded city a chore.
   A right or middle drag always pans, whether it starts on a district or a building, and never moves anything.
@@ -33,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Letting go of the map after dragging it no longer selects what is under the pointer.**
+  A drag that began on a building used to end as a click on it.
 - **The wheel zooms out all the way to Skyline on any city.**
   On a big city, or a small window, zooming out used to stop short of the whole-city view, so the only way to Skyline was `f`, and the City Plan could not be reached with the wheel at all.
   The wheel now always reaches Skyline, and a notch out after a pause there opens the plan.

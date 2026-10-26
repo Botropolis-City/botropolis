@@ -79,6 +79,9 @@ When the last one goes, its road grows over in one 1.5 s fade, a 0.3 s cross-fad
 The pair's traffic counts stay on the road's card; the cars on it are one per session on the connection that is working, so a road nobody is working on keeps its tarmac and has no cars (item 85).
 A district can be dragged to another slot: a press on its floor or name plate picks it up, a ghost of its block follows the pointer over the outline of the slot it would land on, and the drop writes only remembered slots to `layout.json`.
 Dropping on a slot another district holds swaps the two; the ring just outside the city takes a drop and grows the city by a ring; the plaza and anything further out refuse it, outlined in the error colour.
+Several can move at once (item 283): `Ctrl` or `Cmd` with a click adds a district to a selection or takes it out, and with a drag on open ground selects every district whose ground the screen box touches.
+Dragging a selected district carries the whole selection by one slot offset, a ghost per district over its own target, and the drop is refused for all of them if any target is the plaza, past the outer ring or held by a district outside the selection, so a group never swaps as a single district does.
+Every left press is measured from where it started, so a press let go within three pixels of it is a click and anything further is a drag (item 282).
 A press anywhere else pans, and so does any drag with Shift or Alt held.
 A right or middle drag pans from wherever it starts and never picks anything up (item 279); the help offers it first, because i3 and other window managers take Alt+drag to move windows.
 `pkg/city` also puts the plant, hall and library on the plaza.
