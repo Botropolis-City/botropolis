@@ -47,7 +47,7 @@ var wear = map[state.Rung]float64{
 // from 0 to 1, or below 0 when there is none: the growth clears in the
 // order it was scattered.
 func dressLot(b *city.Building, mowing float64) lot {
-	d := lot{Beacon: !b.Blinds, Sign: !b.Blinds, Dark: b.Blinds, Boards: b.BoardedUp, Wear: wear[b.Rung]}
+	d := lotLook(b)
 	if b.BoardedUp {
 		d.Cracks = cracks(b)
 	}
@@ -60,6 +60,13 @@ func dressLot(b *city.Building, mowing float64) lot {
 	}
 	d.Weeds = weeds
 	return d
+}
+
+// lotLook is what a building's lot says of the building itself: its
+// beacon, its sign, its dark windows and its boards, and its wear;
+// without the cracks and growth, which only the lot draws (item 212).
+func lotLook(b *city.Building) lot {
+	return lot{Beacon: !b.Blinds, Sign: !b.Blinds, Dark: b.Blinds, Boards: b.BoardedUp, Wear: wear[b.Rung]}
 }
 
 // frontReach is how much further out than behind growth reaches in

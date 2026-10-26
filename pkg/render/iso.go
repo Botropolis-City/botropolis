@@ -1744,7 +1744,7 @@ type quietFrame struct {
 
 // quietKey is a building's key while nothing of it moves with the clock,
 // and whether nothing does: it is not rising, being built, hauled or
-// settled, its lot is not being mowed, it is not celebrating, pouring a
+// settled, it is not celebrating, pouring a
 // course or collecting one, no load rides its hoist, no flag is going
 // up or down and its scaffold is not coming down. Its frame is then its
 // value's and the frame's alone, with the scene's choices of it this
@@ -1753,7 +1753,7 @@ type quietFrame struct {
 // holds that to everything buildingFrame reads.
 func (g *Game) quietKey(b *city.Building, selected, detailed bool) (uint64, bool) {
 	s, id := g.scene, b.Session.ID
-	if s.Hauling(id) || s.HaulProgress(id) < 1 || s.Rising(id) < 1 || s.Mowing(id) >= 0 || s.Celebration(id) >= 0 || len(s.Loads(id)) > 0 {
+	if s.Hauling(id) || s.HaulProgress(id) < 1 || s.Rising(id) < 1 || s.Celebration(id) >= 0 || len(s.Loads(id)) > 0 {
 		return 0, false
 	}
 	if _, building := s.Construction(id); building {
@@ -1800,32 +1800,30 @@ func (g *Game) titleHash(b *city.Building) uint64 {
 
 // buildingKey is what a building is painted from: its frame, but for the
 // clock, which only its live steps read and a live step keeps no record,
-// and its lot's dressing, which is its value and its mowing; and what its
-// still steps read of the scene that its frame does not hold: its lit
-// flags' hoists, its scaffold, its title and whether its
-// top course is lit, each of which can change with the clock alone.
+// and its building, by value; and what its still steps read of the scene
+// that its frame does not hold: its flags' hoists, its scaffold, its
+// title and whether its top course is lit, each of which can change with
+// the clock alone.
 func (g *Game) buildingKey(f *buildingFrame) uint64 {
 	v := *f
 	b := v.b
-	id := b.Session.ID
 	k := struct {
 		frame     buildingFrame
 		building  uint64
-		mowing    float64
 		hoists    [3]float64
 		scaffold  float64
 		title     string
 		courseLit bool
 		frameWide uint64
 	}{
-		building: g.buildingValue(b), mowing: g.scene.Mowing(id),
+		building: g.buildingValue(b),
 		scaffold: g.scene.Scaffold(b), title: g.titleOf(b),
 		courseLit: courseLit(b.Session, g.scene.Now()), frameWide: g.houseWide,
 	}
 	for i := range min(f.state.flags, len(k.hoists)) {
 		k.hoists[i] = g.flagHoist(b, i)
 	}
-	v.b, v.seconds, v.dress = nil, 0, lot{}
+	v.b, v.seconds = nil, 0
 	k.frame = v
 	return hashOf(&k)
 }

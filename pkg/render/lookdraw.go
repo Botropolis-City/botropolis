@@ -158,7 +158,9 @@ func (g *Game) buildingFrame(cam *city.Camera, b *city.Building, selected, detai
 	if f.building {
 		tint = buildTint(tint, f.site)
 	}
-	f.dress = g.dressing(b)
+	// Its lot's cracks and growth are the lot's to draw: a building
+	// reads only what its lot says of it (item 212).
+	f.dress = lotLook(b)
 	f.settle, f.progress = g.scene.Settling(b.Session.ID)
 	f.settling = f.settle != city.SettleNone && f.rise >= 1 && !g.scene.Dimmed(b) && !g.viewing()
 	if f.settling && !g.reduced {
