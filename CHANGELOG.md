@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The city behind a notice or a dimmed panel no longer reacts to the pointer.**
   Resting the pointer on a notice, the board, the settings or any other panel that dims the map used to raise the card of whatever stood behind it.
   While the map is dimmed, nothing on it is hovered.
+- **A session whose transcript Claude Code deleted leaves the map.**
+  On a machine with a long history, every such session used to stay drawn, however old, and each could be a district of its own.
+  Its statistics are kept, so the power plant, the strip and the statistics panel read as before.
+  The settings panel's *deleted transcripts* row, or `gone_sessions = true`, brings them back at once.
 
 ## [0.3.1] - 2026-10-26
 

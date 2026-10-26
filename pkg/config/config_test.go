@@ -74,6 +74,19 @@ func TestConfig(t *testing.T) {
 		t.Run("it should show the labels", func(t *testing.T) {
 			assert.True(t, cfg.Labels)
 		})
+
+		t.Run("it should leave sessions whose transcript is gone off the map (item 274)", func(t *testing.T) {
+			assert.False(t, cfg.GoneSessions)
+		})
+	})
+
+	t.Run("when gone_sessions is set for the run", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg := load(t, "--set", "gone_sessions=true")
+
+		t.Run("it should keep sessions whose transcript is gone on the map", func(t *testing.T) {
+			assert.True(t, cfg.GoneSessions)
+		})
 	})
 
 	t.Run("when the ladder's thresholds are given as flags", func(t *testing.T) {

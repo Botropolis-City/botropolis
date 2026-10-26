@@ -124,6 +124,8 @@ const (
 
 type Scene struct {
 	snapshot state.Snapshot
+	// shown is which sessions left off by default the map draws.
+	shown Shown
 	// ledger is the statistics store, nil when statistics are off.
 	ledger Ledger
 	// focus is the group the map is focused on, if any (item 87).
@@ -781,7 +783,7 @@ func (s *Scene) OpenAnyway() { s.opened = s.opened || s.offered }
 // the veil when there is one, for a change made inside the scene; it
 // never opens the city.
 func (s *Scene) restate() {
-	snapshot := s.real
+	snapshot := s.shown.onMap(s.real)
 	if s.veil != nil {
 		snapshot = s.veil.Snapshot(snapshot)
 	}

@@ -46,6 +46,9 @@ const (
 	// KeyStats keeps every assistant message's usage in the statistics
 	// store; on by default. Item 110.
 	KeyStats = "stats"
+	// KeyGoneSessions keeps sessions whose transcript Claude Code deleted
+	// on the map; off by default. Item 274.
+	KeyGoneSessions = "gone_sessions"
 	// KeyGlobalShortcut is the chord that opens the finder from any
 	// application, empty for off: there is no default. Item 84.
 	KeyGlobalShortcut = "global_shortcut"
@@ -151,6 +154,9 @@ type Config struct {
 	// Labels shows the map's labels; signs on posts stay either way
 	// (item 102).
 	Labels bool
+	// GoneSessions keeps sessions whose transcript is gone on the map
+	// (item 274).
+	GoneSessions bool
 }
 
 func NewViper() *viper.Viper {
@@ -184,6 +190,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyCityPlan, DefaultCityPlan)
 	v.SetDefault(KeyGroupLines, true)
 	v.SetDefault(KeyLabels, true)
+	v.SetDefault(KeyGoneSessions, false)
 	v.SetDefault(KeyLabelsToggle, DefaultLabelsToggle)
 	v.SetDefault(KeyGlobalShortcut, "")
 	v.SetConfigName(configName)
@@ -295,6 +302,7 @@ func New(v *viper.Viper) (*Config, error) {
 		LabelsKey:      v.GetString(KeyLabelsToggle),
 		GroupLines:     v.GetBool(KeyGroupLines),
 		Labels:         v.GetBool(KeyLabels),
+		GoneSessions:   v.GetBool(KeyGoneSessions),
 		GlobalShortcut: v.GetString(KeyGlobalShortcut),
 		File:           v.ConfigFileUsed(),
 	}

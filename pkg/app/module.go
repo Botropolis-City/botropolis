@@ -595,6 +595,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		Detail:         detail,
 		HideGroupLines: !c.config.GroupLines,
 		HideLabels:     !c.config.Labels,
+		ShowGone:       c.config.GoneSessions,
 		GroupSource:    groupSource(c.config),
 		JournalHours:   c.config.JournalHours,
 		LastCloseUp:    func() (state.CloseUp, error) { return state.LoadCloseUp(state.CloseUpPath()) },
@@ -693,6 +694,10 @@ func settingsFor(cfg *config.Config) ui.Settings {
 	if !cfg.Labels {
 		labels = config.LabelsHidden
 	}
+	gone := config.LabelsHidden
+	if cfg.GoneSessions {
+		gone = config.LabelsShown
+	}
 	terminal := cfg.Terminal
 	if terminal == "" {
 		terminal = autoValue
@@ -710,6 +715,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
+		{Key: config.KeyGoneSessions, Label: "deleted transcripts", Options: []string{config.LabelsHidden, config.LabelsShown}, Value: gone},
 		{Key: config.KeyDistrictType, Label: "new districts", Options: withValue(append([]string{}, city.TypingModes...), cfg.DistrictType), Value: cfg.DistrictType},
 		{Key: config.KeyStats, Label: "statistics", Options: []string{"on", "off"}, Value: statsValue(cfg.Stats)},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
@@ -755,7 +761,7 @@ func settingValue(s ui.Setting) (string, any) {
 	switch s.Key {
 	case config.KeyGroupLines, config.KeyStats:
 		return s.Key, s.Value == "on"
-	case config.KeyLabels:
+	case config.KeyLabels, config.KeyGoneSessions:
 		return s.Key, s.Value == config.LabelsShown
 	case config.KeyRenderScale:
 		if s.Value == autoValue {

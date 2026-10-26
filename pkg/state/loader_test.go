@@ -244,6 +244,21 @@ func TestCatalogue(t *testing.T) {
 			})
 		})
 
+		t.Run("and the loader has saved its ledger since (item 274)", func(t *testing.T) {
+			home := liveHome(t)
+			path := ledgerWith(t)
+			loader := state.NewLoader(home.Path, alive).WithLedger(path)
+			_, err := loader.Load(now)
+			require.NoError(t, err)
+			require.NoError(t, loader.Flush())
+			ledger, err := state.LoadLedger(path)
+			require.NoError(t, err)
+
+			t.Run("it should keep everything it needs to bring the session back", func(t *testing.T) {
+				assert.Equal(t, state.LedgerEntry{CWD: "/where/it/was", StartedAt: first, LastActivity: first.Add(time.Hour)}, ledger[gone])
+			})
+		})
+
 		t.Run("and the history does not have it either", func(t *testing.T) {
 			home := liveHome(t)
 			snapshot, err := state.NewLoader(home.Path, alive).WithLedger(ledgerWith(t)).Load(now)

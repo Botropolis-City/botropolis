@@ -84,6 +84,9 @@ type Options struct {
 	HideGroupLines bool
 	// HideLabels starts the city with every label off (item 102).
 	HideLabels bool
+	// ShowGone keeps sessions whose transcript is gone on the map
+	// (item 274).
+	ShowGone bool
 	// GroupSource builds what New session guesses a group from, for the
 	// sessions on the map: the history detected once, and the recently
 	// used directories.
@@ -213,6 +216,7 @@ func Run(ctx context.Context, opts Options) error {
 	scene.SetDetail(opts.Detail)
 	scene.SetGroupLines(!opts.HideGroupLines)
 	scene.SetLabels(!opts.HideLabels)
+	scene.SetShown(city.Shown{Gone: opts.ShowGone})
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
 	if opts.Ladder != (state.Thresholds{}) {
 		scene.SetLadder(opts.Ladder)

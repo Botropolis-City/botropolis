@@ -16,6 +16,7 @@ find_copy_key	string
 find_key	string
 find_show_key	string
 global_shortcut	string
+gone_sessions	bool
 group_lines	bool
 home	string
 hook_command	string

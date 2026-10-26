@@ -22,6 +22,7 @@ var unflagged = map[string]string{
 	KeyHookCommand:    "the command install writes into Claude Code's hooks",
 	KeyCodexHome:      "the directory holding Codex's sessions (default: ~/.codex)",
 	KeyGlobalShortcut: "a chord that opens the finder from any application, such as mod+shift+k; empty for none",
+	KeyGoneSessions:   "keep sessions whose transcript Claude Code deleted on the map; their statistics are kept either way",
 }
 
 // Docs are every config key, sorted, with its help, default and
