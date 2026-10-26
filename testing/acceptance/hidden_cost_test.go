@@ -52,7 +52,6 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 		storeStream   = 65 * time.Second
 		every         = 200 * time.Millisecond
 		maxCoreShare  = 0.01
-		unmetCeiling  = 0.02
 		clockTicksSec = 100
 	)
 	for _, way := range []struct {
@@ -200,14 +199,8 @@ func TestAnUnwatchedCityUnderAStreamOfSnapshots(t *testing.T) {
 					t.Skip("skipped: no hardware instruction counters here, so the thread CPU check below gates instead, and a busy machine moves it")
 				}
 				// Unfocused, counted with its time in the kernel, it read
-				// 1.04% on a quiet machine: a cost at its budget, not the
-				// machine's load (item 209). It skips while over 1%, saying
-				// its number, and fails over twice that, until item 214
-				// brings it under.
-				if way.drawn && measured > maxCoreShare {
-					require.LessOrEqual(t, measured, unmetCeiling, "over the %.0f%% ceiling", unmetCeiling*100)
-					t.Skipf("unmet: %.2f%% of a core against 1%%; the unfocused dashboard's layout sits right at its 1%% budget once kernel time counts, item 214", 100*measured)
-				}
+				// 1.04% on a quiet machine (item 209), and 0.82-0.83% when
+				// item 214 made this a plain gate.
 				assert.LessOrEqual(t, measured, maxCoreShare)
 			})
 
