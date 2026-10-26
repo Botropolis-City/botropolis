@@ -180,6 +180,76 @@ func TestNewSession(t *testing.T) {
 			})
 		})
 
+		t.Run("and text is committed by the keyboard", func(t *testing.T) {
+			g, _ := opened(t)
+			g.newSession().commit(g, "/w/infra")
+
+			t.Run("it should go into the directory, the focused field", func(t *testing.T) {
+				assert.Equal(t, "/w/infra", g.newSession().fields[fieldDir].query())
+			})
+		})
+
+		t.Run("and an input method is composing", func(t *testing.T) {
+			g, _ := opened(t)
+			n := g.newSession()
+			n.commit(g, "/w/")
+			n.compose("にほん")
+
+			t.Run("it should draw the composition in the focused field", func(t *testing.T) {
+				assert.Equal(t, "/w/にほん", n.value(g, fieldDir))
+			})
+
+			t.Run("it should leave the composition out of the directory's query", func(t *testing.T) {
+				assert.Equal(t, "/w/", n.fields[fieldDir].query())
+			})
+
+			t.Run("and the composition is committed", func(t *testing.T) {
+				n.compose("")
+				n.commit(g, "日本")
+
+				t.Run("it should be the field's text", func(t *testing.T) {
+					assert.Equal(t, "/w/日本", n.fields[fieldDir].query())
+				})
+			})
+		})
+
+		t.Run("and the arrow moves to the prompt before text is committed", func(t *testing.T) {
+			g, _ := opened(t)
+			g.newSession().commit(g, "/w/infra")
+			press(t, g, ebiten.KeyArrowDown, false)
+			g.newSession().commit(g, "carry on")
+
+			t.Run("it should put the text in the prompt", func(t *testing.T) {
+				assert.Equal(t, "carry on", g.newSession().fields[fieldPrompt].query())
+			})
+
+			t.Run("it should leave the directory as it was", func(t *testing.T) {
+				assert.Equal(t, "/w/infra", g.newSession().fields[fieldDir].query())
+			})
+		})
+
+		t.Run("and focus moves while an input method is composing", func(t *testing.T) {
+			g, _ := opened(t)
+			g.newSession().compose("にほん")
+			press(t, g, ebiten.KeyArrowDown, false)
+
+			t.Run("it should drop the composition from the field it left", func(t *testing.T) {
+				assert.Empty(t, g.newSession().fields[fieldDir].composing)
+			})
+		})
+
+		t.Run("and text is committed into the prompt", func(t *testing.T) {
+			g, _ := opened(t)
+			n := g.newSession()
+			n.commit(g, "/w/infra")
+			press(t, g, ebiten.KeyEnter, false)
+			n.commit(g, "carry on with LOG-4")
+
+			t.Run("it should guess again from it", func(t *testing.T) {
+				assert.Equal(t, idOf("c"), n.choice().Group)
+			})
+		})
+
 		t.Run("and esc is pressed", func(t *testing.T) {
 			g, actor := opened(t)
 			press(t, g, ebiten.KeyEscape, false)
@@ -193,6 +263,25 @@ func TestNewSession(t *testing.T) {
 			})
 		})
 	})
+	t.Run("when New session opens in a city with a window", func(t *testing.T) {
+		g, _ := newGame(t)
+		g.ime = true
+		g.openNewSession()
+
+		t.Run("it should give the panel a composer", func(t *testing.T) {
+			assert.NotNil(t, g.newSession().ime)
+		})
+	})
+
+	t.Run("when New session opens in a driven city", func(t *testing.T) {
+		g, _ := newGame(t)
+		g.openNewSession()
+
+		t.Run("it should give the panel none", func(t *testing.T) {
+			assert.Nil(t, g.newSession().ime)
+		})
+	})
+
 	t.Run("when the guess's reason names a session", func(t *testing.T) {
 		const id = "48b5815b-eb10-482d-9b32-bb648a4ed38b"
 		why := func(t *testing.T, sessions []state.Session) string {

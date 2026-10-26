@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On a big city, or a small window, zooming out used to stop short of the whole-city view, so the only way to Skyline was `f`, and the City Plan could not be reached with the wheel at all.
   The wheel now always reaches Skyline, and a notch out after a pause there opens the plan.
 
+### Fixed
+
+- **New session takes typing.**
+  Its directory, prompt and group fields ignored the keyboard, and took text only from a `--keys` script.
+  They now take typing and input methods the way the finder does.
+
 ## [0.3.2] - 2026-10-26
 
 ### Changed

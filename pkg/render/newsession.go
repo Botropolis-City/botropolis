@@ -1,12 +1,14 @@
 package render
 
 import (
+	"image"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/exp/textinput"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/group"
@@ -28,6 +30,7 @@ const (
 
 type newSession struct {
 	fields  [3]field
+	ime     *textinput.Composer
 	focus   int
 	guesser *group.Guesser
 	recent  []string
@@ -41,6 +44,9 @@ type newSession struct {
 	completing  int
 	asked       string
 	rect        city.Rect
+	// caret is where the focused field's caret was drawn, for an input
+	// method's candidates; g.mu guards it.
+	caret city.Rect
 }
 
 func (g *Game) newSession() *newSession {
@@ -61,6 +67,23 @@ func (g *Game) openNewSession() {
 	if b := g.scene.Selected(); b != nil {
 		n.fields[fieldDir].insert(city.SessionRoot(b.Session))
 		n.focus = fieldPrompt
+	}
+	if g.ime {
+		n.ime = &textinput.Composer{
+			OnNewSession: func() *textinput.SessionOptions {
+				g.mu.Lock()
+				caret := n.caret
+				g.mu.Unlock()
+				f := &n.fields[n.focus]
+				return &textinput.SessionOptions{
+					CaretBounds:     image.Rect(int(caret.Min.X), int(caret.Min.Y), int(caret.Max.X)+1, int(caret.Max.Y)),
+					TextBeforeCaret: string(f.text[:f.caret]),
+					TextAfterCaret:  string(f.text[f.caret:]),
+				}
+			},
+			OnComposition: func(c *textinput.Composition) { n.compose(c.Text()) },
+			OnCommit:      func(c *textinput.Commit) { n.commit(g, c.Text()) },
+		}
 	}
 	n.reguess(g)
 	g.overlays.push(n)
@@ -94,13 +117,21 @@ func (n *newSession) choice() city.Action {
 }
 
 func (n *newSession) keys(g *Game) bool {
+	if n.ime != nil {
+		if handled, err := n.ime.Update(); err != nil {
+			g.SetStatus(err.Error())
+		} else if handled {
+			return true
+		}
+	}
 	f := &n.fields[n.focus]
 	switch {
 	case g.just(ebiten.KeyEscape):
+		n.endComposing()
 		return false
 	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
 		if n.focus == fieldDir {
-			n.focus = fieldPrompt
+			n.refocus(fieldPrompt)
 			return true
 		}
 		dir := strings.TrimSpace(n.fields[fieldDir].query())
@@ -112,6 +143,7 @@ func (n *newSession) keys(g *Game) bool {
 		action.Kind, action.Dir, action.Prompt = city.ActionNewSession, dir, n.fields[fieldPrompt].query()
 		g.act(action)
 		g.SetStatus("starting a session in " + dir)
+		n.endComposing()
 		return false
 	case g.just(ebiten.KeyTab):
 		if n.focus == fieldDir {
@@ -120,19 +152,58 @@ func (n *newSession) keys(g *Game) bool {
 			n.alt = (n.alt + 1) % (len(n.guess.Alternatives) + 1)
 		}
 	case g.just(ebiten.KeyArrowDown):
-		n.focus = min(n.focus+1, fieldGroup)
+		n.refocus(min(n.focus+1, fieldGroup))
 	case g.just(ebiten.KeyArrowUp):
-		n.focus = max(n.focus-1, fieldDir)
+		n.refocus(max(n.focus-1, fieldDir))
 	case g.just(ebiten.KeyBackspace):
 		f.backspace()
 		n.completions = nil
 	}
 	if g.scriptedRune != 0 {
-		f.insert(string(g.scriptedRune))
-		n.completions = nil
+		n.commit(g, string(g.scriptedRune))
 	}
 	n.reguess(g)
 	return true
+}
+
+// commit is typed text arriving in the focused field, from the keyboard
+// or an input method. Item 289.
+func (n *newSession) commit(g *Game, s string) {
+	n.fields[n.focus].insert(s)
+	n.completions = nil
+	n.reguess(g)
+}
+
+// compose shows what an input method is composing in the focused field.
+func (n *newSession) compose(s string) {
+	n.fields[n.focus].compose(s)
+}
+
+// refocus moves to another field, ending any composition in the one
+// left, so the input method starts afresh with the new field's text.
+func (n *newSession) refocus(to int) {
+	if to == n.focus {
+		return
+	}
+	n.endComposing()
+	n.focus = to
+}
+
+func (n *newSession) endComposing() {
+	if n.ime != nil {
+		n.ime.Cancel()
+	}
+	n.fields[n.focus].compose("")
+}
+
+// value is a field as drawn: the group field names the choice, and the
+// others show their text with any composition at the caret.
+func (n *newSession) value(g *Game, i int) string {
+	if i == fieldGroup {
+		return n.groupLine(g)
+	}
+	shown, _ := n.fields[i].shown()
+	return shown
 }
 
 // complete replaces the directory with the next completion of what was
@@ -202,7 +273,6 @@ func (n *newSession) draw(g *Game, screen *ebiten.Image, width, height float64) 
 	g.text(screen, city.Point{X: x, Y: y}, "New session", ui.Title, th.Palette.Text)
 	y += title + grid
 	labels := [3]string{"directory", "prompt", "group"}
-	values := [3]string{n.fields[fieldDir].query(), n.fields[fieldPrompt].query(), n.groupLine(g)}
 	for i := range labels {
 		ink := th.Palette.Dim
 		if i == n.focus {
@@ -210,11 +280,17 @@ func (n *newSession) draw(g *Game, screen *ebiten.Image, width, height float64) 
 			g.roundRect(screen, city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, body+grid/2), 0, th.Palette.Hairline)
 		}
 		g.text(screen, city.Point{X: x, Y: y}, labels[i], ui.Body, th.Palette.Dim)
-		value := values[i]
-		if i == n.focus && i != fieldGroup {
-			value += "▏"
+		value := g.clip(n.value(g, i), inner-grid*12, ui.Body)
+		if i == n.focus {
+			w, _ := g.faces.Measure(value, ui.Body)
+			g.mu.Lock()
+			n.caret = city.RectAt(x+grid*12+w, y, 1, body)
+			g.mu.Unlock()
+			if i != fieldGroup {
+				value += "▏"
+			}
 		}
-		g.text(screen, city.Point{X: x + grid*12, Y: y}, g.clip(value, inner-grid*12, ui.Body), ui.Body, ink)
+		g.text(screen, city.Point{X: x + grid*12, Y: y}, value, ui.Body, ink)
 		y += body + grid/2
 	}
 	if why := n.why(g); why != "" {
@@ -228,7 +304,7 @@ func (n *newSession) draw(g *Game, screen *ebiten.Image, width, height float64) 
 
 // groupLine is the group the session will start in, by name.
 func (n *newSession) groupLine(g *Game) string {
-	if typed := n.fields[fieldGroup].query(); typed != "" {
+	if typed, _ := n.fields[fieldGroup].shown(); typed != "" {
 		return typed + " (new group)"
 	}
 	return n.nameOf(g, n.choice().Group)
