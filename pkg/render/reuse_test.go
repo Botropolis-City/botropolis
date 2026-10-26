@@ -279,7 +279,7 @@ func TestRecordReuse(t *testing.T) {
 
 	t.Run("when records are kept unchecked at night, the camera panned by whole pixels", func(t *testing.T) {
 		rc := newRecordCity(t)
-		rc.g.verifyEvery = 0
+		rc.g.verifyEvery, rc.g.verifyBudget = 0, 0
 		rc.scene.SetView(city.ViewAttention)
 		for !rc.scene.City().Night {
 			rc.scene.CycleLight()
@@ -325,7 +325,7 @@ func TestRecordReuse(t *testing.T) {
 		now := time.Date(2026, 10, 12, 10, 0, 0, 0, time.Local)
 		d, err := NewDrive(DriveOptions{Home: helpers.ParkedWeek(t, 217, now, "Full zoom"), Now: now, Width: 1920, Height: 1200})
 		require.NoError(t, err)
-		d.game.verifyEvery = releaseVerifyEvery
+		d.game.verifyEvery = 0
 		require.NoError(t, d.Run(30))
 		d.game.scene.Wheel(city.Point{X: 960, Y: 600}, 40)
 		stale := 0
@@ -379,7 +379,7 @@ func TestRecordReuse(t *testing.T) {
 			case box.Max.Y > 1200:
 				pan.Y = -math.Ceil(box.Max.Y-1200) - 40
 			}
-			d.game.verifyEvery = 0
+			d.game.verifyEvery, d.game.verifyBudget = 0, 0
 			d.game.scene.Pan(pan)
 			require.NoError(t, d.Tick())
 			kept := false
@@ -422,7 +422,7 @@ func TestRecordReuse(t *testing.T) {
 
 	t.Run("when records are kept unchecked for many frames, their meshes their own", func(t *testing.T) {
 		d := fullZoom(t, DriveOptions{})
-		d.game.verifyEvery = 0
+		d.game.verifyEvery, d.game.verifyBudget = 0, 0
 		for range 10 {
 			require.NoError(t, d.Tick())
 		}
@@ -471,7 +471,7 @@ func BenchmarkASettledFrameKeepingRecords(b *testing.B) {
 	}{{"kept", false}, {"afresh", true}} {
 		b.Run(c.name, func(b *testing.B) {
 			rc := newRecordCity(b)
-			rc.g.verifyEvery = releaseVerifyEvery
+			rc.g.verifyEvery = 0
 			rc.g.noReuse = c.fresh
 			for range 3 {
 				rc.frame()
@@ -517,6 +517,42 @@ func BenchmarkAFullZoomFrameKeepingRecords(b *testing.B) {
 			}
 		})
 	}
+}
+
+// Item 212: a release checks kept records on a fixed budget a frame
+// (Aria, 2026-10-26: eight), going round them in turn, so a key that
+// misses an input shows a stale record for at most a round.
+func TestTheNetsBudget(t *testing.T) {
+	t.Run("when a city like the real history has settled, checked as a release checks", func(t *testing.T) {
+		d := fullZoom(t, DriveOptions{})
+		require.Zero(t, d.game.verifyEvery, "precondition: a release checks on its budget")
+		require.Equal(t, releaseVerifyBudget, d.game.verifyBudget, "precondition: a release checks on its budget")
+		require.NoError(t, d.Tick())
+		kept := d.game.still.stats.reused
+		// Watched from the start of a round.
+		clear(d.game.verifyDone)
+		checked := map[uint64]bool{}
+		d.game.verified = func(key uint64) { checked[key] = true }
+		require.Positive(t, kept, "precondition: records are kept")
+		most := 0
+		for range kept/releaseVerifyBudget + 2 {
+			require.NoError(t, d.Tick())
+			most = max(most, d.game.still.stats.checked)
+		}
+		unchecked := 0
+		for _, e := range d.game.still.entries {
+			if e.kept && !checked[e.key] {
+				unchecked++
+			}
+		}
+
+		t.Run("it should check no more records a frame than its budget", func(t *testing.T) {
+			assert.LessOrEqual(t, most, releaseVerifyBudget)
+		})
+		t.Run("and a round's frames pass, it should have checked every kept record", func(t *testing.T) {
+			assert.Zero(t, unchecked)
+		})
+	})
 }
 
 // Item 212: a district's sign is laid out again only when the camera's

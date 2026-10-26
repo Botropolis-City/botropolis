@@ -297,8 +297,16 @@ type Game struct {
 	noReuse     bool
 	verifyEvery int
 	verifyCount int
-	staleLogged map[recordKind]bool
-	faultyKeys  bool
+	// verifyBudget is how many kept records a frame the net checks in
+	// a release, each once a round: verifySeen the kept records seen
+	// this frame and verifyDone those checked this round. verified, set
+	// by a test, hears each key checked.
+	verifyBudget int
+	verifySeen   int
+	verifyDone   map[uint64]bool
+	verified     func(key uint64)
+	staleLogged  map[recordKind]bool
+	faultyKeys   bool
 	// keyCam is the camera the frame is drawn through, and lotKeys each
 	// building's value hashed, for the city built from lotCity.
 	keyCam *city.Camera
@@ -552,7 +560,7 @@ func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveL
 	if scene.Projection() != city.Isometric {
 		scene.SetProjection(city.Isometric)
 	}
-	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, started: time.Now(), focused: true, ime: true, verifyEvery: releaseVerifyEvery}
+	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, started: time.Now(), focused: true, ime: true, verifyBudget: releaseVerifyBudget}
 	g.overlays.push(&lensPanel{})
 	// A window that was closed owes the away list from when it was last
 	// seen, the way a blurred one does from when it lost focus.

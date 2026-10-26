@@ -44,10 +44,12 @@ var recordKindNames = [kindsKept]string{"", "a district's aged floor", "a buildi
 
 func (k recordKind) String() string { return recordKindNames[k] }
 
-// releaseVerifyEvery is how often a release makes a kept record afresh
-// to check it: one in 16, so a key that misses an input shows a stale
-// city for a moment, not until the next change (Aria, 2026-10-25).
-const releaseVerifyEvery = 16
+// releaseVerifyBudget is how many kept records a release makes afresh a
+// frame to check them, going round them all in turn: so a key that
+// misses an input shows a stale record for a round, about two seconds,
+// not until the next change, for about 0.15% of a core (Aria,
+// 2026-10-26, in place of one in 16).
+const releaseVerifyBudget = 8
 
 // keptRecord is last frame's record, kept for this frame to take from.
 type keptRecord struct {
@@ -139,8 +141,7 @@ func (g *Game) noteKeyed(kind recordKind, key uint64, draw func()) {
 		g.still.stats.freshBy[kind]++
 		return
 	}
-	g.verifyCount++
-	if g.verifyEvery <= 0 || g.verifyCount%g.verifyEvery != 0 {
+	if !g.checks(key) {
 		g.keep(k, i, shift)
 		g.still.stats.reused++
 		g.still.stats.keptBy[kind]++
@@ -149,6 +150,10 @@ func (g *Game) noteKeyed(kind recordKind, key uint64, draw func()) {
 	// The record made afresh stands; the kept one is made beside it,
 	// compared, and let go, so the check covers keeping it as well as
 	// its key. Its noteLog is compared where it was kept, not done again.
+	g.still.stats.checked++
+	if g.verified != nil {
+		g.verified(key)
+	}
 	g.noteFresh(key, draw)
 	fresh := len(g.still.entries) - 1
 	mark := l.mark()
@@ -177,6 +182,42 @@ func (k *keptRecord) within(e entry) bool {
 	}
 	return k.jn.lit && e.lights[1] <= len(k.jn.lightOps) && e.jn.litRects[1] <= len(k.jn.litRects) &&
 		e.jn.cutPoints[1] <= len(k.jn.cutPoints) && e.jn.cutVertices[1] <= len(k.jn.cutVertices) && e.jn.cutIndices[1] <= len(k.jn.cutIndices)
+}
+
+// checks is whether the net checks the kept record at hand, under key:
+// every verifyEvery-th, as the tests check, or, as a release does, one
+// not yet checked this round while this frame's verifyBudget lasts; a
+// round ends once every kept record has been checked, so each is checked
+// once a round whatever order the frame draws them in.
+func (g *Game) checks(key uint64) bool {
+	switch {
+	case g.verifyEvery > 0:
+		g.verifyCount++
+		return g.verifyCount%g.verifyEvery == 0
+	case g.verifyBudget > 0:
+		g.verifySeen++
+		if g.still.stats.checked >= g.verifyBudget || g.verifyDone[key] {
+			return false
+		}
+		if g.verifyDone == nil {
+			g.verifyDone = map[uint64]bool{}
+		}
+		g.verifyDone[key] = true
+		return true
+	}
+	return false
+}
+
+// nextTurn starts a frame's turn of the net: a new round once every
+// kept record of the last frame has been checked in this one.
+func (g *Game) nextTurn() {
+	if g.verifyBudget <= 0 {
+		return
+	}
+	if len(g.verifyDone) >= g.verifySeen {
+		clear(g.verifyDone)
+	}
+	g.verifySeen = 0
 }
 
 // noteFresh records a drawable afresh under key, with its noteLog,

@@ -92,8 +92,9 @@ type stillStats struct {
 	reused, fresh, stale int
 	// keptBy and freshBy are reused and fresh by kind.
 	keptBy, freshBy [kindsKept]int
-	// framesWorked is how many buildings' frames were worked out.
-	framesWorked int
+	// framesWorked is how many buildings' frames were worked out, and
+	// checked how many kept records the net made afresh to compare.
+	framesWorked, checked int
 }
 
 // note runs a drawable: onto the frame when nothing is recorded, or in
