@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -28,20 +27,24 @@ func TestLoadTeamScript(t *testing.T) {
 
 // fakeTerminal stands in for claude under tmux: it writes the lead's
 // and its teammate's transcripts into the home as Claude Code would,
-// then keeps the teammate writing for as long as busy says.
+// then grows the teammate's on the recording's clock, on the clock's
+// first writes polls.
 type fakeTerminal struct {
 	t                 *testing.T
 	home, lead        string
 	dir               string
 	args, env         []string
-	busy              time.Duration
 	usage, mateUsage  string
+	pricyFrom         int
+	interruptAt       int
 	interrupt         func()
 	clock             *fakeTeamClock
-	mu                sync.Mutex
 	stopped           bool
 	stoppedAt, lastAt time.Time
 }
+
+// pricy is a turn's usage that puts any session over a dollar.
+const pricy = `{"input_tokens":1000000,"output_tokens":1000000}`
 
 func (f *fakeTerminal) run(_ context.Context, dir string, args, env []string) (Run, error) {
 	f.dir, f.args, f.env = dir, args, env
@@ -56,65 +59,34 @@ func (f *fakeTerminal) run(_ context.Context, dir string, args, env []string) (R
 	// below its project folder rather than beside its lead, as an
 	// in-process teammate may be.
 	matePath := filepath.Join(other, "team", "mate-1.jsonl")
-	mate := func() string {
+	mate := func(usage string, lines int) string {
 		return `{"type":"user","sessionId":"mate-1","cwd":"/home/demo/src/kiln","agentName":"reader","timestamp":"2026-10-25T10:00:01.000Z"}` + "\n" +
-			`{"type":"assistant","sessionId":"mate-1","cwd":"/home/demo/src/kiln","timestamp":"2026-10-25T10:00:02.000Z","message":{"id":"msg_m","model":"claude-haiku-4-5","stop_reason":"end_turn","usage":` + f.mateUsage + `,"content":[{"type":"text","text":"sent"}]}}` + "\n" +
-			`{"type":"attachment","attachment":{"type":"prompt_snapshot"}}` + "\n"
+			`{"type":"assistant","sessionId":"mate-1","cwd":"/home/demo/src/kiln","timestamp":"2026-10-25T10:00:02.000Z","message":{"id":"msg_m","model":"claude-haiku-4-5","stop_reason":"end_turn","usage":` + usage + `,"content":[{"type":"text","text":"sent"}]}}` + "\n" +
+			`{"type":"attachment","attachment":{"type":"prompt_snapshot"}}` + "\n" +
+			strings.Repeat(`{"type":"user","sessionId":"mate-1"}`+"\n", lines)
 	}
-	writeFile(f.t, matePath, mate())
-	f.lastAt = f.now()
-	if f.clock != nil {
-		grown := mate()
-		f.clock.onWait = func(polls int) {
-			if polls > f.clock.writes {
-				return
-			}
-			grown += `{"type":"user","sessionId":"mate-1"}` + "\n"
-			writeFile(f.t, matePath, grown)
-			f.lastAt = f.now()
+	writeFile(f.t, matePath, mate(f.mateUsage, 0))
+	f.lastAt = f.clock.Now()
+	f.clock.onWait = func(polls int) {
+		if f.interrupt != nil && polls == f.interruptAt {
+			f.interrupt()
 		}
-	}
-	if f.busy > 0 {
-		go func() {
-			for end := time.Now().Add(f.busy); time.Now().Before(end); time.Sleep(2 * time.Millisecond) {
-				f.mu.Lock()
-				if f.stopped {
-					f.mu.Unlock()
-					return
-				}
-				writeFile(f.t, matePath, mate()+`{"type":"user","sessionId":"mate-1"}`+"\n")
-				f.lastAt = time.Now()
-				f.mu.Unlock()
-			}
-		}()
-	}
-	if f.interrupt != nil {
-		go f.interrupt()
+		if polls > f.clock.writes {
+			return
+		}
+		usage := f.mateUsage
+		if f.pricyFrom > 0 && polls >= f.pricyFrom {
+			usage = pricy
+		}
+		writeFile(f.t, matePath, mate(usage, polls))
+		f.lastAt = f.clock.Now()
 	}
 	return f, nil
 }
 
 func (f *fakeTerminal) Stop() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.stopped, f.stoppedAt = true, f.now()
+	f.stopped, f.stoppedAt = true, f.clock.Now()
 	return nil
-}
-
-// teamClock is the clock the recorder runs on: the fake one when the
-// terminal has it, and the real one when not.
-func (f *fakeTerminal) teamClock() TeamClock {
-	if f.clock != nil {
-		return f.clock
-	}
-	return nil
-}
-
-func (f *fakeTerminal) now() time.Time {
-	if f.clock != nil {
-		return f.clock.Now()
-	}
-	return time.Now()
 }
 
 // fakeTeamClock is a recording's clock that moves only when the recorder
@@ -138,6 +110,16 @@ func (c *fakeTeamClock) Wait(ctx context.Context, d time.Duration) error {
 	return ctx.Err()
 }
 
+// always is a teammate that writes on every poll.
+const always = 1 << 30
+
+// withTime sets the time limit for one case.
+func withTime(t *testing.T, limits *TeamLimits, d time.Duration) {
+	saved := *limits
+	limits.Time = d
+	t.Cleanup(func() { *limits = saved })
+}
+
 func TestRecordTeam(t *testing.T) {
 	script := Script{Project: "tidepool", Sessions: []ScriptedSession{
 		{Label: "crew", Model: "haiku", BudgetUSD: 1, Team: true, Prompts: []string{"spawn a reader"}},
@@ -149,6 +131,10 @@ func TestRecordTeam(t *testing.T) {
 		t.Helper()
 		home, corpus := t.TempDir(), t.TempDir()
 		f.t, f.home, f.lead = t, home, lead
+		if f.clock == nil {
+			f.clock = &fakeTeamClock{}
+		}
+		f.clock.at = time.Now()
 		if f.usage == "" {
 			f.usage = cheap
 		}
@@ -159,7 +145,7 @@ func TestRecordTeam(t *testing.T) {
 		writeFile(t, stranger, `{"type":"user","sessionId":"stranger","cwd":"/home/demo/src/tidepool"}`+"\n")
 		before := time.Now().Add(-time.Hour)
 		require.NoError(t, os.Chtimes(stranger, before, before))
-		r := Recorder{Home: home, Src: Root, Corpus: corpus, MCPConfig: "/m.json", Terminal: f.run, Team: limits, TeamClock: f.teamClock(),
+		r := Recorder{Home: home, Src: Root, Corpus: corpus, MCPConfig: "/m.json", Terminal: f.run, Team: limits, TeamClock: f.clock,
 			Claude: func(context.Context, string, []string) ([]byte, error) {
 				t.Fatal("a team session ran with -p")
 				return nil, nil
@@ -207,7 +193,7 @@ func TestRecordTeam(t *testing.T) {
 	})
 
 	t.Run("and a teammate's transcript carries no team name the recorder knows", func(t *testing.T) {
-		f := &fakeTerminal{mateUsage: `{"input_tokens":1000000,"output_tokens":1000000}`}
+		f := &fakeTerminal{mateUsage: pricy}
 		_, err := record(t, f, context.Background())
 
 		t.Run("it should still count its cost against the budget", func(t *testing.T) {
@@ -216,7 +202,7 @@ func TestRecordTeam(t *testing.T) {
 	})
 
 	t.Run("and its transcripts cost more than its budget", func(t *testing.T) {
-		f := &fakeTerminal{usage: `{"input_tokens":1000000,"output_tokens":1000000}`}
+		f := &fakeTerminal{usage: pricy}
 		_, err := record(t, f, context.Background())
 
 		t.Run("it should stop the run", func(t *testing.T) {
@@ -227,11 +213,12 @@ func TestRecordTeam(t *testing.T) {
 		})
 	})
 
+	// Item 276: the time limit is the recording's clock passing it, never
+	// a slow runner, and the teammate writes on every poll, so the team
+	// can never fall quiet before the limit.
 	t.Run("and it has not finished when the time limit passes", func(t *testing.T) {
-		saved := limits
-		limits.Time = 50 * time.Millisecond
-		t.Cleanup(func() { limits = saved })
-		f := &fakeTerminal{busy: time.Second}
+		withTime(t, &limits, 50*time.Millisecond)
+		f := &fakeTerminal{clock: &fakeTeamClock{writes: always}}
 		_, err := record(t, f, context.Background())
 
 		t.Run("it should stop the run", func(t *testing.T) {
@@ -239,6 +226,39 @@ func TestRecordTeam(t *testing.T) {
 		})
 		t.Run("it should fail, saying it ran out of time", func(t *testing.T) {
 			assert.ErrorContains(t, err, "ran out of time")
+		})
+	})
+
+	// A team that fell quiet on the poll the limit passed has made a
+	// whole recording, already paid for, so being done wins over time.
+	t.Run("and the team falls quiet on the same poll the time limit passes", func(t *testing.T) {
+		withTime(t, &limits, 50*time.Millisecond)
+		f := &fakeTerminal{clock: &fakeTeamClock{writes: 20}}
+		corpus, err := record(t, f, context.Background())
+
+		t.Run("it should reach the time limit on the poll it stops", func(t *testing.T) {
+			assert.Equal(t, 50, f.clock.polls)
+		})
+		t.Run("it should succeed", func(t *testing.T) {
+			assert.NoError(t, err)
+		})
+		t.Run("it should export the recording", func(t *testing.T) {
+			assert.FileExists(t, filepath.Join(corpus, "kiln", "team", "mate-1.jsonl"))
+		})
+	})
+
+	// Going over budget is the costlier fault, and its message names the
+	// spend, so it wins over time.
+	t.Run("and it goes over its budget on the same poll the time limit passes", func(t *testing.T) {
+		withTime(t, &limits, 50*time.Millisecond)
+		f := &fakeTerminal{pricyFrom: 50, clock: &fakeTeamClock{writes: always}}
+		_, err := record(t, f, context.Background())
+
+		t.Run("it should reach the time limit on the poll it stops", func(t *testing.T) {
+			assert.Equal(t, 50, f.clock.polls)
+		})
+		t.Run("it should fail, naming the budget rather than the time", func(t *testing.T) {
+			assert.ErrorContains(t, err, "over its budget")
 		})
 	})
 
@@ -262,7 +282,7 @@ func TestRecordTeam(t *testing.T) {
 	t.Run("and the recorder itself is interrupted", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		f := &fakeTerminal{busy: time.Second, interrupt: func() { time.Sleep(20 * time.Millisecond); cancel() }}
+		f := &fakeTerminal{interruptAt: 5, interrupt: cancel, clock: &fakeTeamClock{writes: always}}
 		_, err := record(t, f, ctx)
 
 		t.Run("it should stop the tmux session, so no claude is left spending", func(t *testing.T) {
