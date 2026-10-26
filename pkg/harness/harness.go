@@ -72,6 +72,9 @@ func (m *Multi) Load(now time.Time) (state.Snapshot, error) {
 		if merged.Scan == nil {
 			merged.Scan = snapshot.Scan
 		}
+		if merged.Store == nil {
+			merged.Store = snapshot.Store
+		}
 	}
 	m.keepLedger(&merged, now)
 	m.heights.ApplyOn(merged.Sessions, sample, merged.HeftsRead, now)

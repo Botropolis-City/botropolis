@@ -113,6 +113,9 @@ var VeilTable = map[string]VeilKind{
 	"DailyModelTokens.TokensByModel{key}": VeilKeep,
 	"Stats.ModelUsage{key}":               VeilKeep,
 	"SkippedFile.Path":                    VeilPath,
+	"StatsStore.State":                    VeilKeep,
+	"StatsStore.Path":                     VeilText,
+	"StatsStore.Reason":                   VeilText,
 }
 
 // Veil is the neutral names a city wears while it is shared (item 168):
