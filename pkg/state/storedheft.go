@@ -1,7 +1,6 @@
 package state
 
 import (
-	"maps"
 	"runtime"
 	"sort"
 	"sync"
@@ -91,6 +90,9 @@ func (l *Loader) WithFullSpeed() *Loader {
 // through a window, and starts a refresh. It reports whether the hefts
 // are the user's whole history, and gives every stored heft for the
 // scale.
+//
+// It reads the hefts under the lock, since a pass changes the map in
+// place rather than copying it for every heft that moves (item 213).
 func (h *storedHefts) apply(sessions []Session, projectsDir string, now time.Time, touched []string, listed bool) (bool, []int64) {
 	h.mu.Lock()
 	hefts, read := h.hefts, h.read
@@ -98,7 +100,6 @@ func (h *storedHefts) apply(sessions []Session, projectsDir string, now time.Tim
 		h.pending[path] = true
 	}
 	h.listed = h.listed || listed
-	h.mu.Unlock()
 	for i := range sessions {
 		s := &sessions[i]
 		s.Heft, s.HeftPartial = Heft(s.Usage), s.Usage.Partial
@@ -109,12 +110,13 @@ func (h *storedHefts) apply(sessions []Session, projectsDir string, now time.Tim
 			s.Heft, s.HeftPartial = Heft(u), false
 		}
 	}
-	var sample []int64
+	sample := make([]int64, 0, len(hefts))
 	for _, u := range hefts {
 		if heft := Heft(u); heft > 0 {
 			sample = append(sample, heft)
 		}
 	}
+	h.mu.Unlock()
 	h.start(projectsDir, now)
 	return read, sample
 }
@@ -171,9 +173,6 @@ func (h *storedHefts) pass(projectsDir string, now time.Time, full bool, touched
 			h.mu.Lock()
 			changed = !h.read
 			hefts := h.hefts
-			if len(ids) > 0 {
-				hefts = maps.Clone(h.hefts)
-			}
 			if hefts == nil {
 				hefts = map[string]claude.Usage{}
 			}

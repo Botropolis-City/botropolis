@@ -41,6 +41,9 @@ const Keep = 500
 type Log struct {
 	events []Event
 	seen   map[string]seenSession
+	// spare is the map the next Observe fills, the one before last kept
+	// and cleared rather than made again (item 213).
+	spare map[string]seenSession
 }
 
 // seenSession is what Observe compares of a session from one snapshot to
@@ -54,7 +57,7 @@ type seenSession struct {
 }
 
 func seenOf(s *state.Session) seenSession {
-	return seenSession{state: s.State, apiErrors: s.APIErrors, compactions: s.Compactions, prs: s.PRs, title: titleOf(*s)}
+	return seenSession{state: s.State, apiErrors: s.APIErrors, compactions: s.Compactions, prs: s.PRs, title: titleOf(s)}
 }
 
 func NewLog() *Log {
@@ -63,7 +66,11 @@ func NewLog() *Log {
 
 // Observe diffs a snapshot against the last and returns what is new.
 func (l *Log) Observe(snapshot state.Snapshot, at time.Time) []Event {
-	current := make(map[string]seenSession, len(snapshot.Sessions))
+	current := l.spare
+	if current == nil {
+		current = make(map[string]seenSession, len(snapshot.Sessions))
+	}
+	clear(current)
 	for i := range snapshot.Sessions {
 		current[snapshot.Sessions[i].ID] = seenOf(&snapshot.Sessions[i])
 	}
@@ -81,26 +88,26 @@ func (l *Log) Observe(snapshot state.Snapshot, at time.Time) []Event {
 		was, known := l.seen[id]
 		if !known {
 			if s.State != state.Resting {
-				add(Started, id, titleOf(*s), string(s.State))
+				add(Started, id, titleOf(s), string(s.State))
 			}
 			continue
 		}
 		if s.State == state.NeedsYou && was.state != state.NeedsYou {
-			add(NeedsYou, id, titleOf(*s), s.Note)
+			add(NeedsYou, id, titleOf(s), s.Note)
 		}
 		if s.APIErrors > was.apiErrors {
-			add(Error, id, titleOf(*s), fmt.Sprintf("%d api errors", s.APIErrors))
+			add(Error, id, titleOf(s), fmt.Sprintf("%d api errors", s.APIErrors))
 		}
 		if s.Compactions > was.compactions {
-			add(Compaction, id, titleOf(*s), fmt.Sprintf("compacted %dx", s.Compactions))
+			add(Compaction, id, titleOf(s), fmt.Sprintf("compacted %dx", s.Compactions))
 		}
 		for _, pr := range s.PRs {
 			old, had := findPR(was.prs, pr.Number)
 			switch {
 			case !had:
-				add(PR, id, titleOf(*s), fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
+				add(PR, id, titleOf(s), fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
 			case pr.Merged() && !old.Merged():
-				add(Merged, id, titleOf(*s), fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
+				add(Merged, id, titleOf(s), fmt.Sprintf("#%d %s", pr.Number, pr.Repository))
 			}
 		}
 	}
@@ -109,7 +116,7 @@ func (l *Log) Observe(snapshot state.Snapshot, at time.Time) []Event {
 			add(Ended, id, was.title, string(was.state))
 		}
 	}
-	l.seen = current
+	l.seen, l.spare = current, l.seen
 	l.Add(fresh...)
 	return fresh
 }
@@ -166,7 +173,7 @@ func findPR(prs []claude.PR, number int) (found interface{ Merged() bool }, ok b
 	return nil, false
 }
 
-func titleOf(s state.Session) string {
+func titleOf(s *state.Session) string {
 	if s.Title != "" {
 		return s.Title
 	}
