@@ -34,6 +34,15 @@ func valueHash(v any) uint64 {
 	return h.Sum64()
 }
 
+// hashOf is valueHash of *v, hashed where it is rather than copied.
+func hashOf[T any](v *T) uint64 {
+	var h maphash.Hash
+	h.SetSeed(inkSeed)
+	w := valueWriter{h: &h}
+	planOf(reflect.TypeFor[T]())(&w, unsafe.Pointer(v))
+	return h.Sum64()
+}
+
 // reflectHash is valueHash walking v by reflection, as its plans must.
 func reflectHash(v any) uint64 {
 	var h maphash.Hash

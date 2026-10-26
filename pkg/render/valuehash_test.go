@@ -67,6 +67,17 @@ func TestTheValueHash(t *testing.T) {
 			})
 		})
 	}
+	for i, f := range frames {
+		t.Run(fmt.Sprintf("when %T number %d is hashed where it is", f, i), func(t *testing.T) {
+			v, ok := f.(buildingFrame)
+			if !ok {
+				return
+			}
+			t.Run("it should hash as copying it does", func(t *testing.T) {
+				assert.Equal(t, valueHash(v), hashOf(&v))
+			})
+		})
+	}
 
 	t.Run("when two values differ in one field", func(t *testing.T) {
 		a := mixed{s: "a", sl: []inner{{1, "a"}}}

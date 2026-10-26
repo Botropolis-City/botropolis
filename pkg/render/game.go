@@ -319,6 +319,7 @@ type Game struct {
 	// bridgeHashes, treeHashes and isleHash are the city's bridges, by
 	// their first deck cell, its trees and its island, hashed.
 	bridgeHashes map[city.Cell]uint64
+	fogHashes    map[city.Cell]uint64
 	treeHashes   []uint64
 	isleHash     uint64
 	isleHashed   bool

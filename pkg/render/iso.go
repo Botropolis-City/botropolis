@@ -718,8 +718,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}
 		key := keyMix(whole, valueHash(p), boolBits(c.Night))
 		return func() { g.noteKeyed(kindBridge, key, draw) }
-	}, func(puffs []city.FogPuff, draw func()) func() {
-		key := keyMix(valueHash(puffs), boolBits(c.Night))
+	}, func(bridge city.Bridge, puffs []city.FogPuff, draw func()) func() {
+		// A bank of fog is the same while its city stands: hashed once.
+		bank, ok := g.fogHashes[bridge.Deck[0]]
+		if !ok {
+			bank = valueHash(puffs)
+			g.fogHashes[bridge.Deck[0]] = bank
+		}
+		key := keyMix(bank, boolBits(c.Night))
 		return func() { g.noteKeyed(kindFog, key, draw) }
 	})...)
 	for _, d := range g.scene.Deliveries() {
@@ -1579,6 +1585,7 @@ func (g *Game) valuesFor(c *city.City) {
 		g.lotKeys, g.lotCity = map[*city.Building]uint64{}, c
 		g.titles, g.signValues = map[*city.Building]string{}, map[*city.District]signValue{}
 		g.bridgeHashes, g.treeHashes, g.isleHashed = map[city.Cell]uint64{}, nil, false
+		g.fogHashes = map[city.Cell]uint64{}
 	}
 }
 
@@ -1709,7 +1716,7 @@ func (g *Game) buildingKey(f *buildingFrame) uint64 {
 	}
 	v.b, v.seconds, v.dress = nil, 0, lot{}
 	k.frame = v
-	return valueHash(k)
+	return hashOf(&k)
 }
 
 // houseWideKey is what every building's painting reads alike this
