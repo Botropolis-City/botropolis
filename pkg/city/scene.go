@@ -270,6 +270,8 @@ type Scene struct {
 	messages []Message
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
+	// chosen is the districts selected to move together. Item 283.
+	chosen map[string]bool
 	// reduced is the reduced_motion setting: everything that moves on
 	// its own stands still. It is not the same as instant, which a
 	// still frame sets so the camera does not have to ease into place.

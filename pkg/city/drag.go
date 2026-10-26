@@ -28,6 +28,49 @@ func (l *Layout) MoveDistrict(root string, to plan.Slot, rings int) bool {
 	return true
 }
 
+// MoveDistricts moves a group of districts by one offset, keeping their
+// places relative to each other. Unlike a single move it swaps with
+// nothing: a target held by a district outside the group, on the plaza
+// or past the ring outside the city refuses the whole move. Item 283.
+func (l *Layout) MoveDistricts(roots []string, by plan.Slot, rings int) bool {
+	to, ok := l.groupTargets(roots, by, rings)
+	if !ok {
+		return false
+	}
+	mem := l.memory()
+	for root, slot := range to {
+		mem.Slots[root] = slot
+	}
+	return true
+}
+
+func (l *Layout) groupTargets(roots []string, by plan.Slot, rings int) (map[string]plan.Slot, bool) {
+	mem := l.memory()
+	to := map[string]plan.Slot{}
+	for _, root := range roots {
+		from, ok := mem.Slots[root]
+		slot := plan.Slot{Col: from.Col + by.Col, Row: from.Row + by.Row}
+		if !ok || slot.Ring() < 1 || slot.Ring() > rings+1 {
+			return nil, false
+		}
+		to[root] = slot
+	}
+	if len(to) == 0 {
+		return nil, false
+	}
+	for other, slot := range mem.Slots {
+		if _, moving := to[other]; moving {
+			continue
+		}
+		for _, target := range to {
+			if target == slot {
+				return nil, false
+			}
+		}
+	}
+	return to, true
+}
+
 // Rings is how many rings of slots lie round the plaza.
 func (c *City) Rings() int { return c.plan.Rings() }
 
@@ -54,16 +97,20 @@ func (c *City) DropSlot(p Point) (plan.Slot, bool) {
 
 // Drag is a district on the move: where the pointer holds it, and the
 // slot under the pointer, outlined, and whether it would take the drop.
+// Members are every district carried, the held one first, and Targets
+// the slot each would land on (item 283).
 type Drag struct {
 	District  *District
 	At        Point
 	Target    Rect
 	Droppable bool
+	Members   []*District
+	Targets   []Rect
 }
 
 type districtDrag struct {
-	root string
-	at   Point
+	roots []string
+	at    Point
 }
 
 // PressDistrict starts dragging the district whose floor or name plate
@@ -86,7 +133,15 @@ func (s *Scene) PressDistrict(screen Point, panHeld bool) bool {
 	if _, ok := s.city.plan.Slots[hit.District.Root]; !ok {
 		return false
 	}
-	s.drag = &districtDrag{root: hit.District.Root, at: s.camera.ScreenToWorld(screen)}
+	roots := []string{hit.District.Root}
+	if s.chosen[hit.District.Root] {
+		for _, root := range s.SelectedDistricts() {
+			if root != hit.District.Root {
+				roots = append(roots, root)
+			}
+		}
+	}
+	s.drag = &districtDrag{roots: roots, at: s.camera.ScreenToWorld(screen)}
 	return true
 }
 
@@ -102,40 +157,72 @@ func (s *Scene) DistrictDrag() (Drag, bool) {
 	if s.drag == nil {
 		return Drag{}, false
 	}
-	var d *District
+	byRoot := map[string]*District{}
 	for _, district := range s.city.Districts {
-		if district.Root == s.drag.root {
-			d = district
+		byRoot[district.Root] = district
+	}
+	drag := Drag{At: s.drag.at}
+	for _, root := range s.drag.roots {
+		if d := byRoot[root]; d != nil {
+			drag.Members = append(drag.Members, d)
 		}
 	}
-	if d == nil {
+	if len(drag.Members) == 0 || drag.Members[0].Root != s.drag.roots[0] {
 		return Drag{}, false
 	}
-	drag := Drag{District: d, At: s.drag.at}
-	if slot, ok := s.city.DropSlot(s.drag.at); ok {
-		drag.Target = s.city.SlotRect(slot)
+	drag.District = drag.Members[0]
+	slot, ok := s.city.DropSlot(s.drag.at)
+	if !ok {
+		drag.Target = CellOf(s.drag.at).Rect()
+		drag.Targets = []Rect{drag.Target}
+		return drag, true
+	}
+	drag.Target = s.city.SlotRect(slot)
+	if len(s.drag.roots) == 1 {
+		drag.Targets = []Rect{drag.Target}
 		drag.Droppable = true
-	} else {
-		cell := CellOf(s.drag.at)
-		drag.Target = cell.Rect()
+		return drag, true
+	}
+	by := s.dragOffset(slot)
+	for _, d := range drag.Members {
+		from := s.city.plan.Slots[d.Root]
+		drag.Targets = append(drag.Targets, s.city.SlotRect(plan.Slot{Col: from.Col + by.Col, Row: from.Row + by.Row}))
+	}
+	if s.layout != nil {
+		_, drag.Droppable = s.layout.groupTargets(s.drag.roots, by, s.city.Rings())
 	}
 	return drag, true
+}
+
+// dragOffset is how far a drop on a slot moves the held district.
+func (s *Scene) dragOffset(to plan.Slot) plan.Slot {
+	from := s.city.plan.Slots[s.drag.roots[0]]
+	return plan.Slot{Col: to.Col - from.Col, Row: to.Row - from.Row}
 }
 
 // CancelDistrictDrag puts the district down where it was.
 func (s *Scene) CancelDistrictDrag() { s.drag = nil }
 
 // DropDistrict ends the drag, and moves the district to the slot under
-// the pointer if it will take it. The city is rebuilt on the new slots
-// at once, so the drop lands without waiting for the next snapshot.
+// the pointer if it will take it, or the whole group carried by the same
+// offset. The city is rebuilt on the new slots at once, so the drop
+// lands without waiting for the next snapshot.
 func (s *Scene) DropDistrict(screen Point) bool {
 	if s.drag == nil {
 		return false
 	}
-	root := s.drag.root
-	s.drag = nil
+	defer func() { s.drag = nil }()
 	slot, ok := s.city.DropSlot(s.camera.ScreenToWorld(screen))
-	if !ok || s.layout == nil || !s.layout.MoveDistrict(root, slot, s.city.Rings()) {
+	if !ok || s.layout == nil {
+		return false
+	}
+	roots := s.drag.roots
+	if len(roots) == 1 {
+		ok = s.layout.MoveDistrict(roots[0], slot, s.city.Rings())
+	} else {
+		ok = s.layout.MoveDistricts(roots, s.dragOffset(slot), s.city.Rings())
+	}
+	if !ok {
 		return false
 	}
 	s.restate()
