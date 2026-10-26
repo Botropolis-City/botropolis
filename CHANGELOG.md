@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The package builds for anyone who has changed a setting.**
+  0.3.1 failed to build from source, the AUR package included, when the person building it had set `district_type` or any of several other keys in their own config or environment, because a test read them.
+  The tests now never read the builder's config, and every test run checks that against a config that changes every setting.
 - **A statistics store the daemon cannot open no longer turns statistics off without a word.**
   The daemon logs why, naming the file, and `botropolis doctor` has a statistics row that warns with the reason.
   The city shows a notice once per launch with what to do: update Botropolis for a store written by a newer release, or move a damaged one aside and restart the daemon.
