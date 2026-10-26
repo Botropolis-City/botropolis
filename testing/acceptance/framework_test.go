@@ -113,7 +113,9 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 			spread := slices.Max(each) - slices.Min(each)
 			t.Logf("draw commands in the %d settled frames: %d to %d", len(each), slices.Min(each), slices.Max(each))
 			t.Run(fmt.Sprintf("it should vary by no more than %d draw commands between settled frames, as the vehicles move along their lanes", light.wobble), func(t *testing.T) {
-				assert.LessOrEqual(t, spread, light.wobble)
+				if !assert.LessOrEqual(t, spread, light.wobble) {
+					logOffCount(t, settled)
+				}
 			})
 
 			if light.runs > 1 {
@@ -154,8 +156,8 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// chrome, and more activity may cost more.
 		t.Run("when the hamlet and the metropolis are drawn by "+light.name+" with the same movers, none: no travellers and no building animating", func(t *testing.T) {
 			t.Parallel()
-			metropolis := frameWorkWith(t, "metropolis", light.hour, withoutMovers)
-			hamlet := frameWorkWith(t, "hamlet", light.hour, withoutMovers)
+			metropolis := frameWorkWith(t, "metropolis", light.hour, withoutMovers, allSighted)
+			hamlet := frameWorkWith(t, "hamlet", light.hour, withoutMovers, allSighted)
 
 			for _, c := range counts {
 				got, limit := c.of(metropolis), c.of(hamlet)*5/4
@@ -177,6 +179,14 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 // everything that moves (item 193).
 const withoutMovers = "BOTROPOLIS_FRAME_MOVERS=none"
 
+// allSighted is the environment that has the debug city start with every
+// kind captioned already. A city that has never sighted one captions it
+// for 6 seconds and the next 2 seconds later, and each caption coming
+// down redraws the map's labels: 27 and 29 commands where a settled frame
+// takes 19 (item 260). A settled city is an everyday one, and a caption's
+// cost is its own tests'.
+const allSighted = "BOTROPOLIS_FRAME_SIGHTED=all"
+
 // settledFrom is the first frame counted. The buildings' looks and the
 // map's labels are baked by the third frame, onto pages of their own that
 // Ebitengine never moves (items 192 and 193), and the counts hold from
@@ -197,28 +207,60 @@ func settledFrames(t *testing.T, demo string, hour int, env ...string) []helpers
 
 // Item 236: a second of frames ended just before the night's worst run
 // of them, cars passing lit buildings 20 frames after the cut, so the
-// ceiling held by timing. The work is judged over at least the 104
-// settled frames the performance manager measured. How many frames a
-// second of the city logs depends on the machine, so the city records
-// longer until it has them, and gives up, failing, after a minute.
+// ceiling held by timing. The work is judged over the 104 settled frames
+// the performance manager measured.
+//
+// Item 260: they are judged by the city's tick, not by how many frames
+// came. A recording advances its clock one tick a frame however busy the
+// machine (item 113), so 4 seconds always held exactly these 104 frames,
+// with none to spare. The record then doubled to 8 seconds whenever one
+// went missing, and counted what the city does after 4 seconds, which
+// these limits were never measured on (item 261). So the city records 5
+// seconds, and the frames judged are the 104 ticks from settledFrom on
+// every machine: load lengthens the wait, never the span.
 const (
 	recordSettled = 104
-	recordGiveUp  = time.Minute
+	recordSeconds = 5.0
 )
 
 // recordedSettledFrames runs the debug city on a staged demo, with the
-// local clock at hour, for longer each time until it logs at least
-// recordSettled settled frames, and returns them.
+// local clock at hour, and returns the recordSettled settled frames from
+// tick settledFrom after its first.
 func recordedSettledFrames(t *testing.T, demo string, hour int) []helpers.Frame {
 	t.Helper()
-	start := time.Now()
-	for seconds := 4.0; ; seconds *= 2 {
-		all := frameLog(t, demo, hour, seconds, "")
-		settled := all[min(settledFrom, len(all)):]
-		if len(settled) >= recordSettled {
-			return settled
+	all := frameLog(t, demo, hour, recordSeconds, "", allSighted)
+	require.NotEmpty(t, all, "the city drew no frame")
+	from := all[0].Tick + settledFrom
+	settled := slices.DeleteFunc(slices.Clone(all), func(f helpers.Frame) bool {
+		return f.Tick < from || f.Tick >= from+recordSettled
+	})
+	require.Len(t, settled, recordSettled, "the frames of ticks %d to %d, in %g s of the city", from, from+recordSettled-1, recordSeconds)
+	return settled
+}
+
+// logOffCount logs every settled frame whose draw count is not the most
+// common one, with what its standing city and looks did, so a spread on
+// a runner nobody can watch says which frames carry it (item 260).
+func logOffCount(t *testing.T, runs [][]helpers.Frame) {
+	t.Helper()
+	seen := map[int]int{}
+	for _, frames := range runs {
+		for _, f := range frames {
+			seen[f.Commands]++
 		}
-		require.Less(t, time.Since(start), recordGiveUp, "only %d settled frames in %g s of the city, of the %d wanted", len(settled), seconds, recordSettled)
+	}
+	common := 0
+	for commands, n := range seen {
+		if n > seen[common] {
+			common = commands
+		}
+	}
+	for r, frames := range runs {
+		for _, f := range frames {
+			if f.Commands != common {
+				t.Logf("run %d, tick %d: %d draw commands, not %d; still %+v, looks %+v", r+1, f.Tick, f.Commands, common, f.Still, f.Looks)
+			}
+		}
 	}
 }
 

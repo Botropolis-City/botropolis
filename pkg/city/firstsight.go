@@ -47,3 +47,20 @@ func (s *Scene) Sightings() []Kind {
 	}
 	return s.sightings[:1:1]
 }
+
+// MarkSighted records kinds as captioned already, without captioning
+// them, so a frame test's city draws what an everyday city does: no
+// first sighting, whose caption comes down on a timer (item 260).
+func (s *Scene) MarkSighted(kinds []Kind) {
+	if s.layout == nil {
+		return
+	}
+	if s.layout.Sighted == nil {
+		s.layout.Sighted = map[string]bool{}
+	}
+	for _, k := range kinds {
+		if name := k.Name(); name != "" {
+			s.layout.Sighted[name] = true
+		}
+	}
+}

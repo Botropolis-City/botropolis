@@ -31,3 +31,7 @@ const framesWithoutMovers = false
 // framesOpenUnread is never so outside the debug build: a recording
 // always waits for a read history.
 const framesOpenUnread = false
+
+// framesAllSighted is never so outside the debug build: a first
+// sighting is always captioned.
+const framesAllSighted = false

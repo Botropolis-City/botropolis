@@ -21,14 +21,14 @@ func (g *Game) logLooks() {
 	fmt.Printf("looks: hits=%d misses=%d bakes=%d bytes=%d\n", g.lookStats.hits, g.lookStats.misses, g.lookStats.bakes, g.looks.bytes())
 }
 
-// logStill writes what the standing city cost this frame, for item
-// 193's frame test.
+// logStill writes what the standing city cost this frame, and the tick
+// it drew, for item 193's frame test and item 260's span of ticks.
 func (g *Game) logStill() {
 	if g.noStill {
 		return
 	}
 	s := g.still.stats
-	fmt.Printf("still: composes=%d redos=%d overlays=%d rects=%d ground=%d direct=%d shifts=%d\n", s.composes, s.redos, s.overlays, s.rects, g.static.composes, s.direct, s.shifts+g.static.shifts)
+	fmt.Printf("still: composes=%d redos=%d overlays=%d rects=%d ground=%d direct=%d shifts=%d tick=%d\n", s.composes, s.redos, s.overlays, s.rects, g.static.composes, s.direct, s.shifts+g.static.shifts, g.ticks)
 }
 
 // logOpened writes that a recording's city opened, on a read history,
@@ -97,3 +97,8 @@ var framesWithoutMovers = os.Getenv("BOTROPOLIS_FRAME_MOVERS") == "none"
 // do not change mid-shot (item 202), but item 159's first-launch test
 // films the read itself, so it asks for this. Nothing else should.
 var framesOpenUnread = os.Getenv("BOTROPOLIS_FRAME_OPEN_UNREAD") == "1"
+
+// framesAllSighted is whether the frame test asked for a city that has
+// captioned every kind already, so no first sighting comes down on a
+// timer partway through what it counts (item 260).
+var framesAllSighted = os.Getenv("BOTROPOLIS_FRAME_SIGHTED") == "all"

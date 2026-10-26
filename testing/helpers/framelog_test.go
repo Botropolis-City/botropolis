@@ -137,6 +137,17 @@ func TestFrameLogStill(t *testing.T) {
 		})
 	})
 
+	// Item 260: and the tick it drew, so a test judges the same span of
+	// the city's clock on every machine.
+	t.Run("when a frame reports its standing city with the tick it drew", func(t *testing.T) {
+		frames := ParseFrameLog(strings.NewReader("----\nstill: composes=0 redos=0 overlays=0 rects=11 ground=0 direct=0 shifts=0 tick=42\n"))
+		require.Len(t, frames, 1)
+
+		t.Run("it should read the tick", func(t *testing.T) {
+			assert.Equal(t, 42, frames[0].Tick)
+		})
+	})
+
 	t.Run("when the worst of several frames is asked for", func(t *testing.T) {
 		worst := MostWork([]Frame{{Still: Still{Composes: 1, Rects: 3}}, {Still: Still{Redos: 2, Rects: 9, Ground: 1}}})
 

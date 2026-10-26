@@ -62,6 +62,16 @@ func TestFirstSightings(t *testing.T) {
 		})
 	})
 
+	t.Run("when every kind is marked sighted, and then every kind is visible", func(t *testing.T) {
+		s, _ := sighting(city.NewLayout())
+		s.MarkSighted(city.Kinds)
+		s.Sight(city.Kinds)
+
+		t.Run("it should caption none", func(t *testing.T) {
+			assert.Empty(t, s.Sightings())
+		})
+	})
+
 	t.Run("when Botropolis restarts", func(t *testing.T) {
 		path := t.TempDir() + "/layout.json"
 		layout := city.NewLayout()

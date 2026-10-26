@@ -26,6 +26,9 @@ type Frame struct {
 	// Early is whether the city opened in this frame at its ceiling, on
 	// a history not yet read (item 202).
 	Early bool
+	// Tick is the city's tick the frame drew, which a recording advances
+	// once a frame however busy the machine (items 113 and 260).
+	Tick int
 }
 
 // OpenedEarly is whether the city opened at its ceiling, on a history
@@ -66,7 +69,7 @@ type Still struct {
 	Composes, Redos, Overlays, Rects, Ground, Direct, Shifts int
 }
 
-var stillLine = regexp.MustCompile(`^still: composes=(\d+) redos=(\d+) overlays=(\d+) rects=(\d+) ground=(\d+)(?: direct=(\d+) shifts=(\d+))?`)
+var stillLine = regexp.MustCompile(`^still: composes=(\d+) redos=(\d+) overlays=(\d+) rects=(\d+) ground=(\d+)(?: direct=(\d+) shifts=(\d+))?(?: tick=(\d+))?`)
 
 var looksLine = regexp.MustCompile(`^looks: hits=(\d+) misses=(\d+) bakes=(\d+) bytes=(\d+)`)
 
@@ -107,6 +110,7 @@ func ParseFrameLog(r io.Reader) []Frame {
 		if l := stillLine.FindStringSubmatch(line); l != nil && len(frames) > 0 {
 			n := func(i int) int { v, _ := strconv.Atoi(l[i]); return v }
 			frames[len(frames)-1].Still = Still{Composes: n(1), Redos: n(2), Overlays: n(3), Rects: n(4), Ground: n(5), Direct: n(6), Shifts: n(7)}
+			frames[len(frames)-1].Tick = n(8)
 			frames[len(frames)-1].Drawn = true
 			continue
 		}

@@ -189,6 +189,9 @@ func Run(ctx context.Context, opts Options) error {
 		// the heights the rest of it will (item 202).
 		scene.SetOpenOnRead(!framesOpenUnread)
 		game.ceiling = frameCeiling
+		if framesAllSighted {
+			scene.MarkSighted(city.Kinds)
+		}
 	}
 	game.screenshot = opts.Screenshot
 	game.anchorsPath = opts.Anchors
