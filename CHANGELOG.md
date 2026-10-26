@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Set in the settings panel, it opens the finder from any application and brings the city's window forward, with no Accessibility permission to grant.
   macOS will not take a combination whose only modifiers are Option and Shift, so the row refuses one in words and keeps what was set.
 - **A large island gets a second bridge.**
-  Once the island holds 16 districts, a second bridge leaves by the east coast, crossing the river on a raised deck with the boats sailing under it, and fades into its own fog out at sea.
-  Over the river the deck climbs from each bank high enough to clear the tallest boat, the weekly-usage liner, as gently as the first bridge's ramp, and comes back down before the open sea.
+  Once the island holds 16 districts, a second bridge leaves by the east coast, crossing the river on a raised deck, and fades into its own fog out at sea.
+  Over the river the deck rises from each bank high enough for the tallest boat, the weekly-usage liner, to pass under it, as gently as the first bridge's ramp, and comes back down before the open sea.
   It stays where it was placed as the island grows, and across a restart, even if the island later holds fewer districts.
   Each delivery truck takes whichever bridge is nearer its building by road.
   The east railway moves out one cell when the second bridge arrives, so the bridge road climbs before it crosses the rail, as it does on the west.
