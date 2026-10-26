@@ -46,7 +46,7 @@ func StatsRanges(t testing.TB, home string, now time.Time) string {
 	projects := filepath.Join(t.TempDir(), "projects")
 	rng := rand.New(rand.NewSource(116))
 	for i, name := range StatsRangeDistricts {
-		cwd := filepath.Join(home, "work", name)
+		cwd := filepath.Join("/home/user/work", name)
 		session := fmt.Sprintf("11600000-0000-4000-8000-%012d", i)
 		var lines []string
 		n := 0
