@@ -65,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enter in the *Close up* panel noted what was open and paused what you chose, then left the city running, with only the panel closed.
   Now it quits once both are done, as the quit prompt's quit does, and so does Shift+Q when nothing is open.
   If the note cannot be kept or a session cannot be paused, the panel stays open, says which, and nothing quits.
+- **A session's card stays one size as the pointer moves over its buttons.**
+  It used to grow when the pointer reached a button, to fit what that button does, and shrink again when it left, so the card flickered.
+  Now it keeps room for the longest description among its buttons, wrapped to the card's width, and only the words in that space change.
 
 ## [0.3.2] - 2026-10-26
 

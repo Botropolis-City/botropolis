@@ -297,8 +297,11 @@ type Card struct {
 	// Details is the full table; Open is whether it is folded out.
 	Details []string
 	Open    bool
-	// Hint is what the button under the pointer does (item 88).
+	// Hint is what the button under the pointer does (item 88), and
+	// Hints every hint the card can show, one per action, so it can be
+	// sized for the longest (item 287).
 	Hint    string
+	Hints   []string
 	Lines   []string
 	Actions []string
 	// Para, when set, is prose wrapped under the lines.

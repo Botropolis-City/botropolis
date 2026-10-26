@@ -1385,6 +1385,7 @@ func (s *Scene) SelectedCard() (Card, *Building, bool) {
 	card.Open = s.detailsOpen()
 	for _, kind := range s.Actions() {
 		card.Actions = append(card.Actions, string(kind))
+		card.Hints = append(card.Hints, kind.Describe())
 	}
 	return card, s.selected, true
 }

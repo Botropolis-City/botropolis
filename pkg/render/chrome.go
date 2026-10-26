@@ -161,7 +161,9 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 	for _, b := range c.Buttons {
 		g.button(screen, b.Rect, b.Label, th.Palette.Accent, b.Rect.Contains(at))
 	}
-	g.run(screen, c.Hint, th.Palette.Dim)
+	for _, line := range c.Hint {
+		g.run(screen, line, th.Palette.Dim)
+	}
 	for _, line := range c.Details {
 		g.run(screen, line, th.Palette.Dim)
 	}

@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -75,13 +76,82 @@ func TestLayoutCardFace(t *testing.T) {
 		})
 	})
 
-	t.Run("when the pointer is on a card's button", func(t *testing.T) {
+	t.Run("when a card offers several actions, each with a hint", func(t *testing.T) {
 		hinted := face
-		hinted.Hint = "Opens this session's terminal."
-		c := laid(hinted)
+		hinted.Hints = []string{
+			"Opens this session's terminal.",
+			"Stops this session. Its conversation is kept, and you can resume it.",
+			"Deletes this session and its worktree, and takes it off the map. Its conversation stays in Claude Code's files.",
+		}
+		longest := hinted.Hints[2]
+		resting := laid(hinted)
 
-		t.Run("it should show what the action does under the row", func(t *testing.T) {
-			assert.True(t, c.Hint.Text == hinted.Hint && c.Hint.At.Y >= c.Buttons[0].Rect.Max.Y && c.Rect.Max.Y > c.Hint.At.Y)
+		t.Run("and the pointer is on no button", func(t *testing.T) {
+			for _, hint := range hinted.Hints {
+				over := hinted
+				over.Hint = hint
+
+				t.Run("it should lay the same rect as with the hint "+hint, func(t *testing.T) {
+					assert.Equal(t, resting.Rect, laid(over).Rect)
+				})
+			}
+		})
+
+		t.Run("and the pointer is on the button with the longest hint", func(t *testing.T) {
+			over := hinted
+			over.Hint = longest
+			c := laid(over)
+			require.NotEmpty(t, c.Hint)
+			last := c.Hint[len(c.Hint)-1]
+
+			t.Run("it should wrap the hint to more than one line", func(t *testing.T) {
+				assert.Greater(t, len(c.Hint), 1)
+			})
+
+			t.Run("it should keep every hint line inside the card's width", func(t *testing.T) {
+				for _, line := range c.Hint {
+					w, _ := measure7(line.Text, line.Size)
+					assert.LessOrEqual(t, line.At.X+w, c.Rect.Max.X-16)
+				}
+			})
+
+			t.Run("it should keep the last hint line above the card's bottom pad", func(t *testing.T) {
+				assert.LessOrEqual(t, last.At.Y+16, c.Rect.Max.Y-16)
+			})
+
+			t.Run("it should lose none of the hint", func(t *testing.T) {
+				var words []string
+				for _, line := range c.Hint {
+					words = append(words, line.Text)
+				}
+				assert.Equal(t, longest, strings.Join(words, " "))
+			})
+		})
+
+		t.Run("and the pointer is on a button", func(t *testing.T) {
+			over := hinted
+			over.Hint = hinted.Hints[0]
+			c := laid(over)
+
+			t.Run("it should show what the action does under the row", func(t *testing.T) {
+				require.Len(t, c.Hint, 1)
+				assert.True(t, c.Hint[0].Text == over.Hint && c.Hint[0].At.Y >= c.Buttons[0].Rect.Max.Y && c.Rect.Max.Y > c.Hint[0].At.Y)
+			})
+		})
+	})
+
+	t.Run("when a card offers no actions", func(t *testing.T) {
+		bare := face
+		bare.Actions = nil
+
+		t.Run("and it is handed a hint", func(t *testing.T) {
+			hinted := bare
+			hinted.Hints = []string{"Opens this session's terminal."}
+			hinted.Hint = hinted.Hints[0]
+
+			t.Run("it should lay no hint row", func(t *testing.T) {
+				assert.Equal(t, laid(bare).Rect, laid(hinted).Rect)
+			})
 		})
 	})
 

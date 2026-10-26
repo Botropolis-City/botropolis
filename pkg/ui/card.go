@@ -2,6 +2,7 @@ package ui
 
 import (
 	"math"
+	"slices"
 	"strings"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -18,7 +19,7 @@ type Card struct {
 	Sentence []Text
 	Numbers  []Text
 	Details  []Text
-	Hint     Text
+	Hint     []Text
 	Lines    []Text
 	Para     []Text
 	Spark    Sparkline
@@ -137,10 +138,12 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 		}
 		c.Buttons = row
 	}
-	if card.Hint != "" && len(c.Buttons) > 0 {
-		c.Hint = small(card.Hint, c.Rect.Max.Y-pad+grid/2)
-		c.Rect.Max.Y = c.Hint.At.Y + smallH + pad
-		c.Rect.Max.X = max(c.Rect.Max.X, width+2*pad)
+	if rows := hintRows(card, c.Rect.Width()-2*pad, measure); rows > 0 && len(c.Buttons) > 0 {
+		top := c.Rect.Max.Y - pad + grid/2
+		for i, line := range wrapAt(card.Hint, c.Rect.Width()-2*pad, rows, Small, measure) {
+			c.Hint = append(c.Hint, Text{Text: line, At: city.Point{X: pad, Y: top + smallH*float64(i)}, Size: Small})
+		}
+		c.Rect.Max.Y = top + smallH*float64(rows) + pad
 	}
 	if card.Open && len(card.Details) > 0 {
 		y := c.Rect.Max.Y - pad + grid
@@ -163,6 +166,17 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 		x = bounds.Min.X + margin
 	}
 	return c.MoveTo(city.Point{X: x, Y: bounds.Min.Y + margin})
+}
+
+// hintRows is how many small lines the card keeps for its hint: the
+// most any hint it can show wraps to at its own width, so the card stays
+// one size whichever button the pointer is on (item 287).
+func hintRows(card city.Card, width float64, measure Measure) int {
+	rows := 0
+	for _, hint := range append(slices.Clone(card.Hints), card.Hint) {
+		rows = max(rows, len(wrapAt(hint, width, math.MaxInt, Small, measure)))
+	}
+	return rows
 }
 
 // PinTo places the card beside a screen rect: to its right when there is
@@ -205,7 +219,7 @@ func (c Card) PinTo(beside city.Rect, bounds city.Rect, gap float64) Card {
 func (c Card) MoveTo(at city.Point) Card {
 	by := at.Sub(c.Rect.Min)
 	moved := Card{Rect: city.Rect{Min: at, Max: c.Rect.Max.Add(by)}, Title: c.Title.moved(by),
-		Kind: c.Kind.moved(by), Move: c.Move.moved(by), Group: c.Group.moved(by), Hint: c.Hint.moved(by)}
+		Kind: c.Kind.moved(by), Move: c.Move.moved(by), Group: c.Group.moved(by)}
 	for _, line := range c.Lines {
 		moved.Lines = append(moved.Lines, line.moved(by))
 	}
@@ -214,6 +228,9 @@ func (c Card) MoveTo(at city.Point) Card {
 	}
 	for _, line := range c.Numbers {
 		moved.Numbers = append(moved.Numbers, line.moved(by))
+	}
+	for _, line := range c.Hint {
+		moved.Hint = append(moved.Hint, line.moved(by))
 	}
 	for _, line := range c.Details {
 		moved.Details = append(moved.Details, line.moved(by))

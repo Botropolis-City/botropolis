@@ -578,6 +578,15 @@ func TestSelectionActions(t *testing.T) {
 			assert.Equal(t, "a", b.Session.ID)
 			assert.Equal(t, "attach", card.Actions[0])
 		})
+
+		t.Run("it should carry one hint per action, each that action's description", func(t *testing.T) {
+			card, _, _ := s.SelectedCard()
+			var want []string
+			for _, kind := range s.Actions() {
+				want = append(want, kind.Describe())
+			}
+			assert.Equal(t, want, card.Hints)
+		})
 	})
 
 	t.Run("when a parked building is selected", func(t *testing.T) {

@@ -61,7 +61,7 @@ func DockCard(th Theme, card city.Card, panel, room city.Rect, covers []city.Rec
 		}
 	}
 	if !card.Open {
-		compact := city.Card{Kind: card.Kind, Title: card.Title, Move: card.Move, Group: card.Group, Actions: card.Actions, Hint: card.Hint}
+		compact := city.Card{Kind: card.Kind, Title: card.Title, Move: card.Move, Group: card.Group, Actions: card.Actions, Hint: card.Hint, Hints: card.Hints}
 		if d, ok := docked(LayoutCard(th, compact, panel, measure)); ok {
 			d.Compact = true
 			return d
