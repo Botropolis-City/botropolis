@@ -56,7 +56,7 @@ func coursePiece(name string, k int) string {
 }
 
 // courseLit is whether a session's newest course is still lit.
-func courseLit(s state.Session, now time.Time) bool {
+func courseLit(s *state.Session, now time.Time) bool {
 	return s.Compactions > 0 && !s.LastCompactionAt.IsZero() && now.Sub(s.LastCompactionAt) < courseGlow
 }
 
@@ -109,7 +109,7 @@ func (g *Game) drawCourses(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	for i := range n {
 		at := city.Point{X: ground.X, Y: ground.Y - float64(i)*h}
 		t := tint
-		if i == n-1 && courseLit(b.Session, g.scene.Now()) {
+		if i == n-1 && courseLit(&b.Session, g.scene.Now()) {
 			t = litCourse(tint)
 		}
 		if i == n-1 && pouring {

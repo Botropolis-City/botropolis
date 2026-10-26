@@ -941,6 +941,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = onScreen(cam, items, frame)
 	}
 	g.sorted = len(items)
+	g.still.standing = g.standingKey(selected)
 	for _, d := range layered(cam, items, airborne) {
 		// While a hovered car fades the city, each draw is wrapped in
 		// its fade group, so nothing keeps its record (item 212).
@@ -1879,7 +1880,7 @@ func (g *Game) quietKey(b *city.Building, selected, detailed bool) (uint64, bool
 	}
 	scaffold := s.Scaffold(b)
 	key := keyMix(g.buildingValue(b), boolBits(selected), boolBits(detailed), boolBits(s.Dimmed(b)), boolBits(g.unlit(b)),
-		math.Float64bits(scaffold), g.titleHash(b), boolBits(courseLit(b.Session, s.Now())), g.houseWide,
+		math.Float64bits(scaffold), g.titleHash(b), boolBits(courseLit(&b.Session, s.Now())), g.houseWide,
 		g.frameBase.all, boolBits(g.lightsOn), boolBits(g.reduced))
 	if g.viewing() {
 		if c, ok := g.viewTint(b); ok {
@@ -1921,7 +1922,7 @@ func (g *Game) buildingKey(f *buildingFrame) uint64 {
 	}{
 		building: g.buildingValue(b),
 		scaffold: g.scene.Scaffold(b), title: g.titleOf(b),
-		courseLit: courseLit(b.Session, g.scene.Now()), frameWide: g.houseWide,
+		courseLit: courseLit(&b.Session, g.scene.Now()), frameWide: g.houseWide,
 	}
 	for i := range min(f.state.flags, len(k.hoists)) {
 		k.hoists[i] = g.flagHoist(b, i)

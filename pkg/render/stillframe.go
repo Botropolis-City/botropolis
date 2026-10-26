@@ -75,6 +75,8 @@ type stillFrame struct {
 	// frames, and shrinks how many times one was made smaller (item 212).
 	sizes   [10]sizing
 	shrinks int
+	// standing is this frame's standing key (item 212).
+	standing uint64
 }
 
 // stillKey is what the standing city is composed over and through that

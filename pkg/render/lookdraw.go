@@ -464,7 +464,7 @@ func (g *Game) keyOf(cam *city.Camera, f *buildingFrame, r run) lookKey {
 		gone:    b.Session.ConversationGone,
 
 		compactions: b.Session.Compactions,
-		litCourse:   courseLit(b.Session, g.scene.Now()),
+		litCourse:   courseLit(&b.Session, g.scene.Now()),
 		dark:        f.dress.Dark,
 		boards:      f.dress.Boards,
 		selected:    f.selected,

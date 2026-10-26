@@ -62,12 +62,12 @@ func TestCourses(t *testing.T) {
 		s := state.Session{Compactions: 2, LastCompactionAt: now.Add(-5 * time.Second)}
 
 		t.Run("it should light the newest course", func(t *testing.T) {
-			assert.True(t, courseLit(s, now))
+			assert.True(t, courseLit(&s, now))
 		})
 
 		t.Run("and the light's time has passed", func(t *testing.T) {
 			t.Run("it should be in the building's own material", func(t *testing.T) {
-				assert.False(t, courseLit(s, now.Add(courseGlow)))
+				assert.False(t, courseLit(&s, now.Add(courseGlow)))
 			})
 		})
 	})
