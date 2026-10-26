@@ -45,23 +45,26 @@ func stagedHistory() ([]group.Member, [][]string) {
 }
 
 func TestDetectBound(t *testing.T) {
-	t.Run("when more sessions than the bound share one reference", func(t *testing.T) {
-		var ms []group.Member
-		for i := 0; i < group.MaxMembers+5; i++ {
-			ms = append(ms, member(fmt.Sprintf("s%02d", i), fmt.Sprintf("/w/dir%02d", i), time.Duration(i)*3*time.Hour, "on PROJ-42"))
-		}
-		result := detect(group.Memory{}, ms...)
+	t.Run("when more sessions than the bound are chained by references each pair shares", func(t *testing.T) {
+		result := detect(group.Memory{}, sharing(group.MaxMembers+5, func(i int, m *group.Member) {
+			m.Prompts = []string{fmt.Sprintf("REF-%d then REF-%d", i, i+1)}
+		})...)
 
 		t.Run("it should make no group larger than the bound", func(t *testing.T) {
 			assert.Equal(t, group.MaxMembers, largestGroup(result))
 		})
 
-		t.Run("it should leave the sessions past the bound loose", func(t *testing.T) {
-			assert.Len(t, result.Groups, 1)
+		t.Run("it should report the session that would have joined past the bound", func(t *testing.T) {
+			var capped []string
+			for _, c := range result.Capped {
+				capped = append(capped, c.Session)
+			}
+			assert.Equal(t, []string{fmt.Sprintf("s%04d", group.MaxMembers)}, capped)
 		})
 
-		t.Run("it should report each session it left out", func(t *testing.T) {
-			assert.Len(t, result.Capped, 5)
+		t.Run("it should leave that session out of every group", func(t *testing.T) {
+			_, ok := result.GroupOf(fmt.Sprintf("s%04d", group.MaxMembers))
+			assert.False(t, ok)
 		})
 	})
 

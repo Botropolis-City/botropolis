@@ -2,11 +2,13 @@ package state
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -56,6 +58,7 @@ type groupCache struct {
 	// left out of a full group (item 271).
 	logf   func(format string, args ...any)
 	capped int
+	common []string
 }
 
 func lastPrompts(history map[string][]claude.Prompt) map[string]string {
@@ -165,22 +168,34 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 	return nil
 }
 
-// reportCapped logs the sessions detection left out of a full group,
-// when how many there are changes, rather than drawing them (item 271).
+// reportCapped logs, rather than draws, the sessions detection left out
+// of a full group and the keys too many sessions share to group any,
+// each when it changes (item 271).
 func (c *groupCache) reportCapped() {
-	n := len(c.result.Capped)
-	if n == c.capped {
-		return
-	}
-	c.capped = n
-	if n == 0 {
-		return
-	}
 	logf := c.logf
 	if logf == nil {
 		logf = log.Printf
 	}
-	logf("botropolisd: %d sessions were left out of groups already holding %d sessions (item 271)", n, group.MaxMembers)
+	if n := len(c.result.Capped); n != c.capped {
+		c.capped = n
+		if n > 0 {
+			logf("botropolisd: groups are full at %d sessions; %d more left out of them (item 271)", group.MaxMembers, n)
+		}
+	}
+	if common := c.result.Common; !slices.Equal(common, c.common) {
+		c.common = common
+		if len(common) > 0 {
+			logf("botropolisd: shared by more than %d sessions, so grouping none of them: %s (item 271)", group.MaxMembers, firstFew(common, 5))
+		}
+	}
+}
+
+// firstFew is up to n of names, and how many more there are.
+func firstFew(names []string, n int) string {
+	if len(names) <= n {
+		return strings.Join(names, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(names[:n], ", "), len(names)-n)
 }
 
 // confirmLikely notes when each likely member was first seen as one, and

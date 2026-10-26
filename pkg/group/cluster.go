@@ -30,7 +30,7 @@ func (d *detection) detect(memory Memory, edges []edge) Result {
 	groups := d.groups(comps, edges, memory)
 	groups = d.placeMoved(groups, memory)
 	groups = d.joinStarted(groups, memory)
-	result := Result{Groups: groups, Capped: d.capped}
+	result := Result{Groups: groups, Capped: d.capped, Common: d.commonNames()}
 	result.Suggestions = d.suggest(groups, edges)
 	return result
 }
@@ -77,6 +77,7 @@ func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 		wording = prior.wording
 	}
 	d.wording = wording.Next(prompts, memory.Muted)
+	d.common = d.commonKeys()
 	for _, p := range memory.NotRelated {
 		d.blocked[[2]string{p[0], p[1]}] = true
 		d.blocked[[2]string{p[1], p[0]}] = true
@@ -121,11 +122,11 @@ func (d *detection) pair(i, j int) (edge, bool) {
 		e.tier, e.reason = Sure, Reason{Signal: SignalCoordinates}
 		return e, true
 	}
-	if shared := intersect(d.refs[i], d.refs[j]); len(shared) > 0 {
+	if shared := d.uncommon(refKey, intersect(d.refs[i], d.refs[j])); len(shared) > 0 {
 		e.tier, e.reason = Sure, Reason{Signal: SignalReference, Detail: shared[0]}
 		return e, true
 	}
-	if related(a, b) {
+	if d.related(a, b) {
 		e.tier, e.reason = Sure, Reason{Signal: SignalParentage}
 		return e, true
 	}
@@ -139,10 +140,10 @@ func (d *detection) pair(i, j int) (edge, bool) {
 		words, _ := d.wording.Shared(a.ID, b.ID)
 		weak = append(weak, Reason{Signal: SignalWording, Detail: strings.Join(words, " ")})
 	}
-	if key, ok := sameBranch(a.Branch, b.Branch); ok {
+	if key, ok := d.sameBranch(a.Branch, b.Branch); ok {
 		weak = append(weak, Reason{Signal: SignalBranch, Detail: key})
 	}
-	if files := intersect(a.Files, b.Files); len(files) > 0 {
+	if files := d.uncommon(fileKey, intersect(a.Files, b.Files)); len(files) > 0 {
 		weak = append(weak, Reason{Signal: SignalFiles, Detail: files[0]})
 	}
 	timed := (when == SignalTiming && gap <= burst) || (when == SignalContinuing && gap <= continuing)
@@ -190,8 +191,8 @@ func coordinates(a, b Member) bool {
 	return false
 }
 
-func related(a, b Member) bool {
-	if a.Team != "" && a.Team == b.Team {
+func (d *detection) related(a, b Member) bool {
+	if a.Team != "" && a.Team == b.Team && !d.isCommon(teamKey, a.Team) {
 		return true
 	}
 	if a.Parent == b.ID || b.Parent == a.ID {
@@ -211,15 +212,19 @@ func samePaste(a, b Member) bool {
 	return false
 }
 
-func sameBranch(a, b string) (string, bool) {
+// sameBranch is what two branches share, by the keys branchKeys gives
+// them, leaving out any too common to be evidence.
+func (d *detection) sameBranch(a, b string) (string, bool) {
 	if defaultBranches[a] || defaultBranches[b] {
 		return "", false
 	}
-	if a == b {
+	if a == b && !d.isCommon(branchKey, "branch:"+a) {
 		return a, true
 	}
-	if shared := intersect(References(strings.ToUpper(a)), References(strings.ToUpper(b))); len(shared) > 0 {
-		return shared[0], true
+	for _, shared := range intersect(References(strings.ToUpper(a)), References(strings.ToUpper(b))) {
+		if !d.isCommon(branchKey, "ref:"+shared) {
+			return shared, true
+		}
 	}
 	return "", false
 }

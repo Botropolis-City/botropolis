@@ -132,6 +132,10 @@ type Result struct {
 	Groups      []Group
 	Suggestions []Suggestion
 	Capped      []Capped
+	// Common are the keys more sessions share than a group can hold,
+	// such as "reference PROJ-42" or "branch feat/x", sorted: none of
+	// them ties sessions together (item 271).
+	Common []string
 }
 
 // Capped is a session left out of a group that was already as large as
@@ -189,4 +193,6 @@ type detection struct {
 	names *keptNames
 	// capped are the sessions cluster left out of a full group.
 	capped []Capped
+	// common are the keys too many members share to be evidence.
+	common map[indexKey]bool
 }

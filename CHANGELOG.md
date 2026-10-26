@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Starting within a minute of another session no longer joins it to a group on its own; it is suggested instead.
   Timing still counts alongside other evidence, such as shared files or a branch, but it never links one session to the next down a stream of runs.
   A group holds at most 40 sessions, and the daemon logs any it leaves out.
+  A ticket, team, branch or file shared by more than 40 sessions no longer groups any of them, and the daemon logs it; on a long history this also takes most of the work out of the first load.
   New session now says *perhaps* rather than *likely* when its only reason is that you were in one of the group's sessions a minute ago.
 
 ## [0.3.1] - 2026-10-26

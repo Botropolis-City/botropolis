@@ -253,6 +253,9 @@ func (c *candidates) of(i int) []int {
 				return
 			}
 		}
+		if d.isCommon(kind, key) {
+			return
+		}
 		add(c.ix.keys[indexKey{kind, key}])
 	})
 	if j, ok := d.index[m.Parent]; ok {

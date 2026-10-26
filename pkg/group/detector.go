@@ -33,6 +33,8 @@ type Detector struct {
 	// names are the groups' names from the last Detect, by their
 	// sessions; a run that is not followed by naming forgets them.
 	names map[string]named
+	// common are the last run's keys too common to be evidence.
+	common map[indexKey]bool
 }
 
 type scored struct {
@@ -94,6 +96,7 @@ func (dt *Detector) run(members []Member, memory Memory) (*detection, []edge) {
 	}
 	dt.index.update(d, differs, d.wording.allMoved || len(dt.index.under) == 0)
 	changed := dt.changed(differs, members, d.wording)
+	dt.rescoreFlipped(d.common, changed)
 	d.names = &keptNames{last: dt.names, next: map[string]named{}, changed: changed}
 	dt.names = nil
 	for id := range changed {
@@ -312,6 +315,21 @@ func (dt *Detector) changed(differs map[string]bool, members []Member, wording *
 		}
 	}
 	return changed
+}
+
+// rescoreFlipped marks changed every session under a key that became too
+// common to be evidence, or stopped being, since the last run.
+func (dt *Detector) rescoreFlipped(common map[indexKey]bool, changed map[string]bool) {
+	for _, keys := range [2]map[indexKey]bool{common, dt.common} {
+		for k := range keys {
+			if common[k] != dt.common[k] {
+				for _, id := range dt.index.keys[k] {
+					changed[id] = true
+				}
+			}
+		}
+	}
+	dt.common = common
 }
 
 // usesAny is whether words holds any of moved, looking up whichever of
