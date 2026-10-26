@@ -18,6 +18,9 @@ func (c *City) placeGroups(groups []state.Group) {
 	}
 	c.placeLines()
 	for _, line := range c.Lines {
+		if !line.Leads() {
+			continue
+		}
 		for i, st := range line.Stations {
 			if st.Teammate != nil {
 				continue

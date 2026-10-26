@@ -22,15 +22,19 @@ func TestLines(t *testing.T) {
 		s.Group, s.StartedAt = group, now.Add(started)
 		return s
 	}
-	lined := func(t *testing.T, sessions []state.Session, groups []state.Group) *city.Scene {
+	linedOn := func(t *testing.T, layout *city.Layout, sessions []state.Session, groups []state.Group) *city.Scene {
 		t.Helper()
 		snap := snapshot(sessions...)
 		snap.Groups = groups
-		s := city.NewScene(city.NewLayout())
+		s := city.NewScene(layout)
 		s.SetClock(func() time.Time { return now }, time.UTC)
 		s.Resize(800, 600)
 		s.SetSnapshot(snap)
 		return s
+	}
+	lined := func(t *testing.T, sessions []state.Session, groups []state.Group) *city.Scene {
+		t.Helper()
+		return linedOn(t, city.NewLayout(), sessions, groups)
 	}
 	dirs := func(l city.Line) []string {
 		var out []string
@@ -105,13 +109,49 @@ func TestLines(t *testing.T) {
 		})
 	})
 
+	// Item 281: a line with one station leads nowhere, so a group whose
+	// stations stand in one drawn district draws none.
+	pair := []state.Group{{ID: "g1", Members: []string{"a", "b"}}}
 	t.Run("when a group runs through one district only", func(t *testing.T) {
-		s := lined(t, []state.Session{member("a", cinders, "g1", state.Working, 0), member("b", cinders, "g1", state.Working, time.Hour)},
-			[]state.Group{{ID: "g1", Members: []string{"a", "b"}}})
+		s := lined(t, []state.Session{member("a", cinders, "g1", state.Working, 0), member("b", cinders, "g1", state.Working, time.Hour)}, pair)
 
-		t.Run("it should still have a station", func(t *testing.T) {
-			require.Len(t, s.Lines(), 1)
-			assert.Len(t, s.Lines()[0].Stations, 1)
+		t.Run("it should draw no line", func(t *testing.T) {
+			assert.Empty(t, s.Lines())
+		})
+	})
+
+	t.Run("when a group runs through two districts", func(t *testing.T) {
+		two := func() []state.Session {
+			return []state.Session{member("a", cinders, "g1", state.Working, 0), member("b", botropolis, "g1", state.Working, time.Hour)}
+		}
+
+		t.Run("and both are drawn", func(t *testing.T) {
+			s := lined(t, two(), pair)
+
+			t.Run("it should draw its line through both", func(t *testing.T) {
+				require.Len(t, s.Lines(), 1)
+				assert.Equal(t, []string{cinders, botropolis}, dirs(s.Lines()[0]))
+			})
+		})
+
+		t.Run("and one of them is a hidden project", func(t *testing.T) {
+			layout := city.NewLayout()
+			layout.SetHidden(botropolis, true)
+			s := linedOn(t, layout, two(), pair)
+
+			t.Run("it should draw no line", func(t *testing.T) {
+				assert.Empty(t, s.Lines())
+			})
+		})
+
+		t.Run("and one of its members is packed up", func(t *testing.T) {
+			sessions := two()
+			sessions[1].Packed = true
+			s := lined(t, sessions, pair)
+
+			t.Run("it should draw no line", func(t *testing.T) {
+				assert.Empty(t, s.Lines())
+			})
 		})
 	})
 

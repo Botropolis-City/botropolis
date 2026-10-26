@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The wheel zooms out all the way to Skyline on any city.**
   On a big city, or a small window, zooming out used to stop short of the whole-city view, so the only way to Skyline was `f`, and the City Plan could not be reached with the wheel at all.
   The wheel now always reaches Skyline, and a notch out after a pause there opens the plan.
+- **A group's line no longer stops at one station and leads nowhere.**
+  A group draws its line only when it runs through two districts or more on the map.
+  A group whose sessions are all in one district, or whose others are hidden, scripted or packed up, shows its badge on its buildings and no line, and keeps its stand-up and its details.
+  Packed-up sessions no longer pull a line out to the depot.
 
 ### Fixed
 

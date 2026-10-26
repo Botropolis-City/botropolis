@@ -201,6 +201,9 @@ func (c *City) placeLines() {
 		bySite := map[*District][]*Building{}
 		started := map[*District]time.Time{}
 		for _, d := range c.Districts {
+			if d.Depot {
+				continue
+			}
 			for _, b := range d.Buildings {
 				if b.Group != g {
 					continue
@@ -348,12 +351,31 @@ func (m *memo) orderSites(key string, sites []*District, bySite map[*District][]
 	return out, waits
 }
 
-// Lines are the groups' lines, or none while the setting hides them.
+// Leads is whether a line runs between two districts or more: a line
+// with stations in one district leads nowhere and is not drawn, though
+// its group keeps its stand-up and its dive (item 281).
+func (l Line) Leads() bool {
+	for _, st := range l.Stations {
+		if st.District != l.Stations[0].District {
+			return true
+		}
+	}
+	return false
+}
+
+// Lines are the groups' lines that lead somewhere, or none while the
+// setting hides them.
 func (s *Scene) Lines() []Line {
 	if s.linesHidden {
 		return nil
 	}
-	return s.city.Lines
+	var out []Line
+	for _, l := range s.city.Lines {
+		if l.Leads() {
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 // SetGroupLines shows or hides the groups' lines; they are on by
