@@ -22,4 +22,13 @@ type StatsStore struct {
 	State  string `json:"state,omitempty"`
 	Path   string `json:"path,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// Why is which refusal it was, so the map can say what to do
+	// without reading Reason: WhyNewer, WhyDamaged, or "" for another.
+	Why string `json:"why,omitempty"`
 }
+
+// The refusals the map says what to do about.
+const (
+	WhyNewer   = "newer"
+	WhyDamaged = "damaged"
+)

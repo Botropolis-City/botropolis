@@ -67,6 +67,9 @@ type playFrame struct {
 	pan city.Point
 	// statsPrompt is a statistics prompt to show, off or on (item 110).
 	statsPrompt string
+	// storeNotice is a refused store's notice to show, newer or damaged
+	// (item 190).
+	storeNotice string
 }
 
 func newPlayer(cues []script.Cue, start city.Point) *player {
@@ -90,6 +93,8 @@ func (p *player) step(t float64, resolve func(string) (city.Point, bool)) playFr
 			p.pans = append(p.pans, panTo{target: c.PanTo, from: c.At, until: c.At + math.Max(c.Over, 1.0/liveTPS)})
 		case c.ShowStatsPrompt != "":
 			f.statsPrompt = c.ShowStatsPrompt
+		case c.ShowStoreNotice != "":
+			f.storeNotice = c.ShowStoreNotice
 		case c.Click:
 			f.press = true
 			p.release = c.At + clickHold

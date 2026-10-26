@@ -18,6 +18,7 @@ func TestValidate(t *testing.T) {
 		"a click":             {At: 1, Click: true},
 		"a turn of wheel":     {At: 1, Wheel: 2, Over: 1},
 		"a statistics prompt": {At: 1, ShowStatsPrompt: "off"},
+		"a store notice":      {At: 1, ShowStoreNotice: "damaged"},
 	} {
 		t.Run("when a cue is "+name, func(t *testing.T) {
 			t.Run("it should pass", func(t *testing.T) {
@@ -32,7 +33,9 @@ func TestValidate(t *testing.T) {
 		"a point that is not xy": {At: 1, Point: []float64{10}},
 		"a hold with no length":  {At: 1, Hold: "ArrowLeft"},
 		"before the clip":        {At: -1, Click: true},
-		"a statistics prompt that is neither off nor on": {At: 1, ShowStatsPrompt: "maybe"},
+		"a statistics prompt that is neither off nor on":   {At: 1, ShowStatsPrompt: "maybe"},
+		"a store notice that is neither newer nor damaged": {At: 1, ShowStoreNotice: "broken"},
+		"a store notice and a click at once":               {At: 1, ShowStoreNotice: "newer", Click: true},
 	} {
 		t.Run("when a cue is "+name, func(t *testing.T) {
 			t.Run("it should refuse it", func(t *testing.T) {

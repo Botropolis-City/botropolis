@@ -180,11 +180,16 @@ func (p *statsPrompt) answer(g *Game, keep bool) {
 func (p *statsPrompt) click(g *Game, at city.Point) bool { return true }
 
 func (p *statsPrompt) draw(g *Game, screen *ebiten.Image, width, height float64) {
+	g.drawPrompt(screen, width, height, p.wording())
+}
+
+// drawPrompt draws a prompt's title, paragraphs and keys on a panel in
+// the middle of a scrim over the city.
+func (g *Game) drawPrompt(screen *ebiten.Image, width, height float64, w statsWording) {
 	th := g.theme
 	scrim := th.Palette.Panel
 	scrim.A = 0xa0
 	g.roundRect(screen, city.RectAt(0, 0, width, height), 0, scrim)
-	w := p.wording()
 	grid := th.Grid()
 	_, title := g.faces.Measure("", ui.Title)
 	_, body := g.faces.Measure("", ui.Body)

@@ -355,6 +355,10 @@ type Game struct {
 	carrying *city.Building
 	// firstRunAsked is whether this launch has shown the first run.
 	firstRunAsked bool
+	// storeNoticed is whether this launch has heard what became of the
+	// statistics store, and so shown the notice if it was refused
+	// (item 190).
+	storeNoticed bool
 	// groupSource is what New session guesses from: the history
 	// detected once, and the recently used directories.
 	groupSource func() (*group.Guesser, []string)
@@ -658,6 +662,9 @@ func (g *Game) Update() error {
 		if g.play.statsPrompt != "" {
 			g.playStatsPrompt(g.play.statsPrompt)
 		}
+		if g.play.storeNotice != "" {
+			g.playStoreNotice(g.play.storeNotice)
+		}
 	}
 	if g.record != "" && g.shotFrames > 0 {
 		// A key every two seconds, then run the clock out.
@@ -775,6 +782,7 @@ func (g *Game) Update() error {
 	}
 	g.maybeFirstRun()
 	g.maybeStatsPrompt()
+	g.maybeStoreNotice()
 	return g.handleKeys()
 }
 

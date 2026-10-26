@@ -309,10 +309,21 @@ func statsSource(cfg *config.Config, log io.Writer) (*stats.Store, state.StatsSt
 	s, err := stats.Open(path)
 	if err != nil {
 		fmt.Fprintf(log, "botropolisd: statistics are off: %v\n", err)
-		return nil, state.StatsStore{State: state.StoreRefused, Path: path, Reason: refusal(err)}
+		return nil, state.StatsStore{State: state.StoreRefused, Path: path, Reason: refusal(err), Why: why(err)}
 	}
 	openStores.byPath[path] = s
 	return s, state.StatsStore{State: state.StoreOpen, Path: path}
+}
+
+// why is which refusal err is, for the map to say what to do.
+func why(err error) string {
+	switch {
+	case errors.Is(err, stats.ErrNewer):
+		return state.WhyNewer
+	case errors.Is(err, stats.ErrDamaged):
+		return state.WhyDamaged
+	}
+	return ""
 }
 
 // refusal is why a store was refused, in words that say what to do.

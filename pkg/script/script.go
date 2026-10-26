@@ -42,11 +42,14 @@ type Cue struct {
 	// city would show it at open, so a frame can show what a recording
 	// is otherwise never asked. Item 110.
 	ShowStatsPrompt string `json:"show_stats_prompt,omitempty" yaml:"show_stats_prompt,omitempty"`
+	// ShowStoreNotice shows the notice for a statistics store the daemon
+	// refused, newer or damaged, so a frame can show it. Item 190.
+	ShowStoreNotice string `json:"show_store_notice,omitempty" yaml:"show_store_notice,omitempty"`
 }
 
 func (c Cue) verbs() int {
 	n := 0
-	for _, set := range []bool{c.Key != "", c.Hold != "", len(c.Point) > 0, c.PointAt != "", c.PanTo != "", c.Click, c.Wheel != 0, c.ShowStatsPrompt != ""} {
+	for _, set := range []bool{c.Key != "", c.Hold != "", len(c.Point) > 0, c.PointAt != "", c.PanTo != "", c.Click, c.Wheel != 0, c.ShowStatsPrompt != "", c.ShowStoreNotice != ""} {
 		if set {
 			n++
 		}
@@ -61,13 +64,15 @@ func Validate(cues []Cue) error {
 	for i, c := range cues {
 		switch {
 		case c.verbs() != 1:
-			return fmt.Errorf("cue %d at %gs: want exactly one of key, hold, point, point_at, pan_to, click, wheel, show_stats_prompt", i, c.At)
+			return fmt.Errorf("cue %d at %gs: want exactly one of key, hold, point, point_at, pan_to, click, wheel, show_stats_prompt, show_store_notice", i, c.At)
 		case len(c.Point) != 0 && len(c.Point) != 2:
 			return fmt.Errorf("cue %d at %gs: point wants [x, y]", i, c.At)
 		case c.Hold != "" && c.For <= 0:
 			return fmt.Errorf("cue %d at %gs: hold wants a duration in for", i, c.At)
 		case c.ShowStatsPrompt != "" && c.ShowStatsPrompt != "off" && c.ShowStatsPrompt != "on":
 			return fmt.Errorf("cue %d at %gs: show_stats_prompt wants off or on", i, c.At)
+		case c.ShowStoreNotice != "" && c.ShowStoreNotice != "newer" && c.ShowStoreNotice != "damaged":
+			return fmt.Errorf("cue %d at %gs: show_store_notice wants newer or damaged", i, c.At)
 		case c.At < 0:
 			return fmt.Errorf("cue %d: at %gs is before the clip starts", i, c.At)
 		}

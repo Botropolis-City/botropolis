@@ -90,6 +90,10 @@ func TestStatsWiring(t *testing.T) {
 			assert.Contains(t, st.Reason, "damaged")
 		})
 
+		t.Run("it should say why: damaged", func(t *testing.T) {
+			assert.Equal(t, state.WhyDamaged, st.Why)
+		})
+
 		t.Run("it should log the error, naming the file", func(t *testing.T) {
 			assert.Contains(t, log, path+" is ")
 		})
@@ -107,6 +111,10 @@ func TestStatsWiring(t *testing.T) {
 
 		t.Run("it should say to update Botropolis", func(t *testing.T) {
 			assert.Contains(t, st.Reason, "update Botropolis")
+		})
+
+		t.Run("it should say why: newer", func(t *testing.T) {
+			assert.Equal(t, state.WhyNewer, st.Why)
 		})
 	})
 

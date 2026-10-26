@@ -116,6 +116,7 @@ var VeilTable = map[string]VeilKind{
 	"StatsStore.State":                    VeilKeep,
 	"StatsStore.Path":                     VeilText,
 	"StatsStore.Reason":                   VeilText,
+	"StatsStore.Why":                      VeilKeep,
 }
 
 // Veil is the neutral names a city wears while it is shared (item 168):
