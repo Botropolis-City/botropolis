@@ -365,5 +365,18 @@ func changed(o options, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintf(stdout, "selected, from the map at %s, %d commits behind: %s\n", s.Map.Rev, s.Behind, strings.Join(c.Tests, " "))
-	return RunPackage(o.pkg, mod+"/pkg/measure", RunPattern(c.Tests), o.parallel, o.timeout, stdout)
+	tiers, err := readTiers(o)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	run, performance := OutsideTier(c.Tests, tiers)
+	if len(performance) > 0 {
+		fmt.Fprintf(stdout, "not run here: the performance tier, which make test-performance runs on a quiet machine: %s\n", strings.Join(performance, " "))
+	}
+	if len(run) == 0 {
+		fmt.Fprintln(stdout, "nothing else was selected")
+		return 0
+	}
+	return RunPackage(o.pkg, mod+"/pkg/measure", RunPattern(run), o.parallel, o.timeout, stdout)
 }

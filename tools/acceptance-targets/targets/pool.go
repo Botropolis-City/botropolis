@@ -43,6 +43,23 @@ func Runnable(listed []string, tiers map[string]Test) ([]string, error) {
 	return run, nil
 }
 
+// OutsideTier splits the tests a landing selected into those it runs and
+// the performance tier's, which only make test-performance runs, on a quiet
+// machine (item 214). A test it does not know is run, so that the binary's
+// own list check refuses it.
+func OutsideTier(selected []string, tiers map[string]Test) (run, performance []string) {
+	for _, name := range selected {
+		if test, ok := tiers[name]; ok && test.Tier == Performance {
+			performance = append(performance, name)
+		} else {
+			run = append(run, name)
+		}
+	}
+	sort.Strings(run)
+	sort.Strings(performance)
+	return run, performance
+}
+
 type Outcome int
 
 const (

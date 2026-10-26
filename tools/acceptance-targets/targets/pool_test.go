@@ -48,6 +48,47 @@ func TestRunnable(t *testing.T) {
 	})
 }
 
+func TestOutsideTier(t *testing.T) {
+	tiers := map[string]Test{
+		"TestA":     {Tier: Behaviour},
+		"TestB":     {Tier: Behaviour},
+		"TestCost":  {Tier: Performance},
+		"TestCost2": {Tier: Performance},
+	}
+
+	t.Run("when a selection holds behaviour and performance tests", func(t *testing.T) {
+		run, performance := OutsideTier([]string{"TestCost", "TestB", "TestA"}, tiers)
+
+		t.Run("it should run the behaviour tests, sorted", func(t *testing.T) {
+			assert.Equal(t, []string{"TestA", "TestB"}, run)
+		})
+
+		t.Run("it should leave the performance tests to their tier", func(t *testing.T) {
+			assert.Equal(t, []string{"TestCost"}, performance)
+		})
+	})
+
+	t.Run("when a selection holds only performance tests", func(t *testing.T) {
+		run, performance := OutsideTier([]string{"TestCost2", "TestCost"}, tiers)
+
+		t.Run("it should run none", func(t *testing.T) {
+			assert.Empty(t, run)
+		})
+
+		t.Run("it should leave them all to their tier", func(t *testing.T) {
+			assert.Equal(t, []string{"TestCost", "TestCost2"}, performance)
+		})
+	})
+
+	t.Run("when a selection names a test the package does not declare", func(t *testing.T) {
+		run, _ := OutsideTier([]string{"TestStray"}, tiers)
+
+		t.Run("it should run it, so the binary's own check refuses it", func(t *testing.T) {
+			assert.Equal(t, []string{"TestStray"}, run)
+		})
+	})
+}
+
 func exitStatus(t *testing.T, code int) error {
 	t.Helper()
 	err := exec.Command("sh", "-c", fmt.Sprintf("exit %d", code)).Run()
