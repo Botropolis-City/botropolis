@@ -549,4 +549,25 @@ func TestSharingPointer(t *testing.T) {
 			assert.NotEqual(t, before, r.g.scene.Camera().WorldToScreen(city.Point{}))
 		})
 	})
+
+	for _, button := range []struct {
+		name   string
+		button ebiten.MouseButton
+	}{{"right", ebiten.MouseButtonRight}, {"middle", ebiten.MouseButtonMiddle}} {
+		t.Run("when sharing over the reference and the map is dragged with the "+button.name+" button", func(t *testing.T) {
+			r := newShareRig(t)
+			r.g.openReference()
+			r.press(t, ebiten.KeyS, true)
+			from := city.Point{X: 400, Y: 400}
+			to := from.Add(city.Point{X: 50, Y: 20})
+			before := r.g.scene.Camera().WorldToScreen(city.Point{})
+			r.g.buttonPan(from, pressOf(button.button))
+			r.g.buttonPan(to, holdOf(button.button))
+			r.g.buttonPan(to, releaseOf(button.button))
+
+			t.Run("it should pan the map", func(t *testing.T) {
+				assert.NotEqual(t, before, r.g.scene.Camera().WorldToScreen(city.Point{}))
+			})
+		})
+	}
 }

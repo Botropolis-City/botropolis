@@ -18,7 +18,9 @@ import (
 // bindings is every key the city answers to, in the order the help lists
 // them; the footer shows the few that matter most.
 var bindings = []ui.Key{
-	{Key: "drag", Action: "pan"},
+	{Key: "right or middle drag", Action: "pan, from anywhere"},
+	{Key: "drag", Action: "pan; on a district, pick it up"},
+	{Key: "shift+drag", Action: "pan from anywhere (alt+drag too, unless the window manager takes alt)"},
 	{Key: "arrows", Action: "pan"},
 	{Key: "wheel", Action: "zoom"},
 	{Key: "+ / -", Action: "zoom"},
@@ -110,7 +112,7 @@ const planBinding = "m"
 const labelsBinding = "z"
 
 var footerKeys = []ui.Key{
-	{Key: "drag", Action: "pan"},
+	{Key: "right drag", Action: "pan"},
 	{Key: "wheel", Action: "zoom"},
 	{Key: "click", Action: "select"},
 	{Key: "tab", Action: "next needs-you"},

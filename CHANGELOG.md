@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Drag with the right or middle (wheel) button to pan the map from anywhere.**
+  A left drag that starts on a district picks the district up, which made panning a crowded city a chore.
+  A right or middle drag always pans, whether it starts on a district or a building, and never moves anything.
+  Shift+drag still pans too.
+  The help now notes that Alt+drag may not reach the city, because some window managers, i3 among them, use Alt+drag to move windows.
+
 ### Changed
 
 - **A session in a temporary directory joins the district its work is tied to.**

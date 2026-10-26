@@ -535,6 +535,11 @@ type Game struct {
 	scriptedShift     bool
 	dragging          bool
 	dragFrom          city.Point
+	// buttonPanning is a right or middle drag panning the map, kept apart
+	// from the left button's drag so its release clicks nothing. Item 279.
+	buttonPanning bool
+	buttonPanWith ebiten.MouseButton
+	buttonPanFrom city.Point
 	// moving is a district being dragged to another slot, picked up at
 	// pressAt; a press that never leaves its spot is a click. Item 85.
 	moving  bool
@@ -722,6 +727,7 @@ func (g *Game) Update() error {
 		g.watchFocus()
 	}
 	cursor := g.notePointer()
+	g.buttonPan(cursor, ebitenMouse{})
 	if g.share != nil {
 		_, wheel := ebiten.Wheel()
 		left := ebiten.MouseButtonLeft

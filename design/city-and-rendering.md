@@ -79,6 +79,7 @@ The pair's traffic counts stay on the road's card; the cars on it are one per se
 A district can be dragged to another slot: a press on its floor or name plate picks it up, a ghost of its block follows the pointer over the outline of the slot it would land on, and the drop writes only remembered slots to `layout.json`.
 Dropping on a slot another district holds swaps the two; the ring just outside the city takes a drop and grows the city by a ring; the plaza and anything further out refuse it, outlined in the error colour.
 A press anywhere else pans, and so does any drag with Shift or Alt held.
+A right or middle drag pans from wherever it starts and never picks anything up (item 279); the help offers it first, because i3 and other window managers take Alt+drag to move windows.
 `pkg/city` also puts the plant, hall and library on the plaza.
 The lake, the hashed river and the per-cell hashed grass, dirt and trees are gone.
 The plan stands on an island (`City.Island()`, item 85): its coast lies about two cells past the plan's edge and wanders by a smooth noise seeded only by position, so the same plan always has the same coast and a bigger city a bigger island.
