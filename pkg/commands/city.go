@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -225,14 +226,13 @@ func (a Actor) move(session, to, name string) error {
 	if a.GroupStore == "" {
 		return errNoGroups
 	}
-	memory, err := group.Load(a.GroupStore)
-	if err != nil {
-		return err
-	}
-	if name != "" {
-		memory, to = memory.WithNewGroup(name, session)
-	}
-	return group.Save(a.GroupStore, memory.WithMove(session, to))
+	return editGroups(a.GroupStore, func(m group.Memory) group.Memory {
+		into := to
+		if name != "" {
+			m, into = m.WithNewGroup(name, session)
+		}
+		return m.WithMove(session, into)
+	})
 }
 
 // mute writes a muted word into the groups' memory; the daemon sees the
@@ -241,11 +241,7 @@ func (a Actor) mute(word string) error {
 	if a.GroupStore == "" {
 		return errNoGroups
 	}
-	memory, err := group.Load(a.GroupStore)
-	if err != nil {
-		return err
-	}
-	return group.Save(a.GroupStore, memory.WithMuted(word))
+	return editGroups(a.GroupStore, func(m group.Memory) group.Memory { return m.WithMuted(word) })
 }
 
 // review writes the first run's confirmed groups into the groups'
@@ -261,11 +257,7 @@ func (a Actor) review(r *group.Review) error {
 	if a.Now != nil {
 		now = a.Now
 	}
-	memory, err := group.Load(a.GroupStore)
-	if err != nil {
-		return err
-	}
-	return group.Save(a.GroupStore, memory.Confirm(*r, now()))
+	return editGroups(a.GroupStore, func(m group.Memory) group.Memory { return m.Confirm(*r, now()) })
 }
 
 var errNoGroups = errors.New("groups are kept only for your own home, not for one --home points at")
@@ -281,19 +273,32 @@ func (a Actor) newSession(action city.Action) error {
 	if a.GroupStore == "" || job == "" || (action.Group == "" && action.GroupName == "") {
 		return nil
 	}
-	memory, err := group.Load(a.GroupStore)
+	return editGroups(a.GroupStore, func(memory group.Memory) group.Memory {
+		id := action.Group
+		if id == "" {
+			memory, id = memory.WithNewGroup(action.GroupName, job)
+		}
+		if memory.StartedFrom == nil {
+			memory.StartedFrom = map[string]string{}
+		}
+		memory.StartedFrom[job] = id
+		return memory
+	})
+}
+
+// groupsWriting holds one load-and-save of the groups file at a time:
+// a start runs beside the city's loop and writes after claude answers,
+// so without it a move made meanwhile would be lost (item 286).
+var groupsWriting sync.Mutex
+
+func editGroups(path string, edit func(group.Memory) group.Memory) error {
+	groupsWriting.Lock()
+	defer groupsWriting.Unlock()
+	memory, err := group.Load(path)
 	if err != nil {
 		return err
 	}
-	id := action.Group
-	if id == "" {
-		memory, id = memory.WithNewGroup(action.GroupName, job)
-	}
-	if memory.StartedFrom == nil {
-		memory.StartedFrom = map[string]string{}
-	}
-	memory.StartedFrom[job] = id
-	return group.Save(a.GroupStore, memory)
+	return group.Save(path, edit(memory))
 }
 
 // closeUp records what is open with the daemon, then pauses only the
