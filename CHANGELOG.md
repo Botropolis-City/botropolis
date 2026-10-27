@@ -69,6 +69,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **New session takes typing.**
   Its directory, prompt and group fields ignored the keyboard, and took text only from a `--keys` script.
   They now take typing and input methods the way the finder does.
+- **Every text field takes a paste.**
+  `Ctrl+V` (`Cmd+V` on a Mac), or `Shift+Insert` on Linux, pastes into the finder, New session's directory, prompt and group name, a new group's name and triage's snooze, at the caret.
+  A paste of several lines becomes one, and a trailing newline is dropped.
+  The clipboard is read with the tool copying uses, `wl-paste`, `xclip`, `xsel` or `pbpaste`, beside the map and for at most two seconds, so a tool that hangs shows a notice and never freezes the city.
+  With none installed, the notice says what to install.
 
 ### Fixed
 

@@ -12,6 +12,9 @@ type Desktop struct {
 	OS         string
 	Opener     string
 	Clipboards [][]string
+	// Pastes are the tools that read the clipboard back, in Clipboards'
+	// order, so paste reaches for the tool copy does (item 290).
+	Pastes [][]string
 	// ClipboardHint is what to install when no clipboard tool is found.
 	ClipboardHint string
 	Terminals     []string
@@ -25,6 +28,11 @@ var linuxDesktop = Desktop{
 		{"xclip", "-selection", "clipboard"},
 		{"xsel", "--clipboard", "--input"},
 	},
+	Pastes: [][]string{
+		{"wl-paste", "--no-newline", "--type", "text"},
+		{"xclip", "-o", "-selection", "clipboard"},
+		{"xsel", "--clipboard", "--output"},
+	},
 	ClipboardHint: "install wl-clipboard, xclip or xsel",
 	Terminals:     []string{"foot", "kitty", "alacritty", "wezterm", "gnome-terminal", "konsole", "terminator", "xterm"},
 }
@@ -35,6 +43,7 @@ var darwinDesktop = Desktop{
 	OS:            "darwin",
 	Opener:        "open",
 	Clipboards:    [][]string{{"pbcopy"}},
+	Pastes:        [][]string{{"pbpaste"}},
 	ClipboardHint: "pbcopy is not on PATH",
 	Terminals:     []string{"wezterm", "kitty", "alacritty", "Terminal"},
 }

@@ -577,6 +577,9 @@ func (f *finder) keys(g *Game) bool {
 	if g.scriptedRune != 0 {
 		f.field.insert(string(g.scriptedRune))
 	}
+	if s, ok := g.pasted(f); ok {
+		f.field.insert(s)
+	}
 	f.follow(g, false)
 	f.provisional(g)
 	f.show(g)

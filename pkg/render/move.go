@@ -148,6 +148,9 @@ func (p *picker) nameKeys(g *Game) bool {
 	if g.scriptedRune != 0 {
 		p.commit(string(g.scriptedRune))
 	}
+	if s, ok := g.pasted(p); ok {
+		p.commit(s)
+	}
 	return true
 }
 

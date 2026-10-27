@@ -284,6 +284,11 @@ type Game struct {
 	usageLanded bool
 	// probe asks Claude Code for fresh figures; nil is the real probe.
 	probe func(ctx context.Context)
+	// paste reads the clipboard, nil in a scripted, driven or filmed
+	// city, which must never read it; pasting is what it has brought back
+	// and for whom (item 290).
+	paste   func(ctx context.Context) (string, error)
+	pasting pasting
 	// summarise generates a session's summary; generating is the runs
 	// still out and generatedDone what has come back for the frame loop
 	// to hand over. Item 73. Both are read and written under mu.

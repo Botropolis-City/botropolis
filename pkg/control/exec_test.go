@@ -47,6 +47,51 @@ func TestExecRunner(t *testing.T) {
 		})
 	})
 
+	t.Run("when a tool is read from", func(t *testing.T) {
+		t.Run("and it prints to stdout", func(t *testing.T) {
+			got, err := runner.Read(context.Background(), "sh", "-c", `printf '/w/api'`)
+			require.NoError(t, err)
+
+			t.Run("it should return what it printed", func(t *testing.T) {
+				assert.Equal(t, "/w/api", got)
+			})
+		})
+
+		t.Run("and it forks a child that keeps stdout and stderr open", func(t *testing.T) {
+			pidFile := filepath.Join(t.TempDir(), "child")
+			killOnCleanup(t, pidFile)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			start := time.Now()
+			_, _ = runner.Read(ctx, "sh", "-c", `printf x; sleep 30 & echo $! >"$0"; exit 0`, pidFile)
+
+			t.Run("it should return once the tool itself exits", func(t *testing.T) {
+				assert.Less(t, time.Since(start), time.Second)
+			})
+		})
+
+		t.Run("and it never exits before the context's deadline", func(t *testing.T) {
+			pidFile := filepath.Join(t.TempDir(), "child")
+			killOnCleanup(t, pidFile)
+			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			defer cancel()
+			start := time.Now()
+			_, _ = runner.Read(ctx, "sh", "-c", `sleep 30 & echo $! >"$0"; wait`, pidFile)
+
+			t.Run("it should return within the deadline plus the wait delay", func(t *testing.T) {
+				assert.Less(t, time.Since(start), 2*time.Second)
+			})
+		})
+
+		t.Run("and it fails and says why on stderr", func(t *testing.T) {
+			_, err := runner.Read(context.Background(), "sh", "-c", `echo "Nothing is copied" >&2; exit 1`)
+
+			t.Run("it should return an error carrying what it said", func(t *testing.T) {
+				assert.ErrorContains(t, err, "Nothing is copied")
+			})
+		})
+	})
+
 	t.Run("when the tool reads its input", func(t *testing.T) {
 		out := filepath.Join(t.TempDir(), "out")
 		require.NoError(t, runner.Feed(context.Background(), "/src/kiln", "sh", "-c", `cat >"$0"`, out))
@@ -146,6 +191,10 @@ func TestExecRunner(t *testing.T) {
 				return err
 			}},
 			{"Start", func(probe, out string) error { return runner.Start("", "sh", "-c", probe, out) }},
+			{"Read", func(probe, out string) error {
+				_, err := runner.Read(context.Background(), "sh", "-c", probe, out)
+				return err
+			}},
 		} {
 			t.Run("and the tool is run through "+c.name, func(t *testing.T) {
 				fd, err := syscall.Open(os.DevNull, syscall.O_RDONLY, 0)

@@ -31,6 +31,10 @@ type fakeRunner struct {
 	// answers would, killed at the deadline.
 	hang      bool
 	deadlines []time.Time
+
+	reads        []call
+	readDeadline time.Time
+	readHangs    bool
 }
 
 func (f *fakeRunner) Run(ctx context.Context, dir string, name string, args ...string) (string, error) {
@@ -64,6 +68,16 @@ func (f *fakeRunner) Feed(ctx context.Context, input string, name string, args .
 	f.feedDeadline, _ = ctx.Deadline()
 	f.feeds = append(f.feeds, feed{input, append([]string{name}, args...)})
 	return f.failure
+}
+
+func (f *fakeRunner) Read(ctx context.Context, name string, args ...string) (string, error) {
+	f.readDeadline, _ = ctx.Deadline()
+	f.reads = append(f.reads, call{"", append([]string{name}, args...)})
+	if f.readHangs {
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
+	return f.stdout, f.failure
 }
 
 type feed struct {

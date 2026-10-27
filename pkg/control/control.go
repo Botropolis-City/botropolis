@@ -35,6 +35,8 @@ type Runner interface {
 	Interactive(name string, args ...string) error
 	// Feed runs a command with input on its stdin.
 	Feed(ctx context.Context, input string, name string, args ...string) error
+	// Read runs a command and returns what it printed.
+	Read(ctx context.Context, name string, args ...string) (string, error)
 }
 
 type Control struct {
@@ -329,3 +331,54 @@ func (execRunner) Interactive(name string, args ...string) error {
 }
 
 var errNoTerminal = errors.New("no terminal found: set BOTROPOLIS_TERMINAL (a command prefix, e.g. \"wezterm start --\") or TERMINAL")
+
+// Paste reads the clipboard's text through the tool Copy would use,
+// under the same deadline (item 290).
+func (c *Control) Paste(ctx context.Context) (string, error) {
+	for _, reader := range c.desktop.Pastes {
+		if !c.onPath(reader[0]) {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(ctx, copyTimeout)
+		defer cancel()
+		text, err := c.runner.Read(ctx, reader[0], reader[1:]...)
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("the clipboard did not answer within %s (%s)", copyTimeout, reader[0])
+		}
+		if err != nil {
+			return "", err
+		}
+		if text == "" {
+			return "", errors.New("the clipboard holds no text")
+		}
+		return text, nil
+	}
+	return "", errors.New("nothing to paste: no clipboard tool found: " + c.desktop.ClipboardHint)
+}
+
+// Read takes the tool's output through a file rather than a pipe, for
+// the reason Feed does: a child it forks cannot hold Wait (item 284).
+func (execRunner) Read(ctx context.Context, name string, args ...string) (string, error) {
+	stdout, err := os.CreateTemp("", "botropolis-read-")
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = os.Remove(stdout.Name()) }()
+	defer func() { _ = stdout.Close() }()
+	stderr, err := os.CreateTemp("", "botropolis-read-")
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = os.Remove(stderr.Name()) }()
+	defer func() { _ = stderr.Close() }()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout, cmd.Stderr = stdout, stderr
+	cmd.WaitDelay = feedWaitDelay
+	keepFromChildren()
+	if err := cmd.Run(); err != nil {
+		said, _ := os.ReadFile(stderr.Name())
+		return "", fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(string(said)))
+	}
+	out, err := os.ReadFile(stdout.Name())
+	return string(out), err
+}

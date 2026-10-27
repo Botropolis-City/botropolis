@@ -18,12 +18,14 @@ import (
 // it holds, or a function that calls ebiten.AppendInputChars touches the
 // field. A field fed only the scripted
 // rune passes every scripted test and takes no typing. Item 289.
-func textFields(t *testing.T) map[string]bool {
+// pasting is whether a function that calls g.pasted touches the field,
+// which is the one way a paste reaches one. Item 290.
+func textFields(t *testing.T) (holders, pasting map[string]bool) {
 	t.Helper()
 	paths, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 	fset := token.NewFileSet()
-	holders := map[string]bool{}
+	holders, pasting = map[string]bool{}, map[string]bool{}
 	fieldNames := map[string]map[string]bool{}
 	composers := map[string]map[string]bool{}
 	var funcs []*ast.FuncDecl
@@ -66,7 +68,7 @@ func textFields(t *testing.T) map[string]bool {
 		})
 	}
 	for _, fn := range funcs {
-		var appends bool
+		var appends, pastes bool
 		updated, touched := map[string]bool{}, map[string]bool{}
 		ast.Inspect(fn.Body, func(n ast.Node) bool {
 			sel, ok := n.(*ast.SelectorExpr)
@@ -76,6 +78,9 @@ func textFields(t *testing.T) map[string]bool {
 			touched[sel.Sel.Name] = true
 			if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "ebiten" && sel.Sel.Name == "AppendInputChars" {
 				appends = true
+			}
+			if sel.Sel.Name == "pasted" {
+				pastes = true
 			}
 			if inner, ok := sel.X.(*ast.SelectorExpr); ok && sel.Sel.Name == "Update" {
 				updated[inner.Sel.Name] = true
@@ -92,10 +97,13 @@ func textFields(t *testing.T) map[string]bool {
 				if appends && touched[name] {
 					holders[typ] = true
 				}
+				if pastes && touched[name] {
+					pasting[typ] = true
+				}
 			}
 		}
 	}
-	return holders
+	return holders, pasting
 }
 
 func isField(e ast.Expr) bool {
@@ -131,7 +139,7 @@ func receiverName(e ast.Expr) string {
 
 func TestEveryTextFieldReadsTheKeyboard(t *testing.T) {
 	t.Run("when pkg/render's source is read", func(t *testing.T) {
-		holders := textFields(t)
+		holders, pasting := textFields(t)
 		var names []string
 		for name := range holders {
 			names = append(names, name)
@@ -146,6 +154,10 @@ func TestEveryTextFieldReadsTheKeyboard(t *testing.T) {
 			t.Run("and "+name+" holds a field", func(t *testing.T) {
 				t.Run("it should read the keyboard, not only the scripted rune", func(t *testing.T) {
 					assert.True(t, holders[name], "%s holds a text field but neither updates a textinput.Composer nor calls ebiten.AppendInputChars", name)
+				})
+
+				t.Run("it should take a paste through g.pasted", func(t *testing.T) {
+					assert.True(t, pasting[name], "%s holds a text field that no function calling g.pasted touches", name)
 				})
 			})
 		}

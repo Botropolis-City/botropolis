@@ -161,6 +161,9 @@ func (n *newSession) keys(g *Game) bool {
 	if g.scriptedRune != 0 {
 		n.commit(g, string(g.scriptedRune))
 	}
+	if s, ok := g.pasted(n); ok {
+		n.commit(g, s)
+	}
 	n.reguess(g)
 	return true
 }

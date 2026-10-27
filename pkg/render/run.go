@@ -125,6 +125,9 @@ type Options struct {
 	GlobalShortcut string
 	// FindChords are the finder's chords; nil is this system's defaults.
 	FindChords *config.Chords
+	// Paste reads the clipboard's text for a text field; a scripted city
+	// is never given it (item 290).
+	Paste func(context.Context) (string, error)
 	// Search finds sessions by what was said in them, for the finder.
 	// Item 82.
 	Search func(find.Query) ([]find.Hit, error)
@@ -171,6 +174,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.kits = kitSprites
 	game.home = opts.Home
 	game.search = opts.Search
+	game.paste = clipboardFor(opts)
 	game.chords = opts.FindChords
 	if opts.GroupSource != nil {
 		game.groupSource = func() (*group.Guesser, []string) {

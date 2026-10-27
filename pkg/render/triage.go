@@ -125,6 +125,9 @@ func (t *triage) snoozeKeys(g *Game) {
 		if g.scriptedRune != 0 {
 			p.typed.insert(string(g.scriptedRune))
 		}
+		if s, ok := g.pasted(p); ok {
+			p.typed.insert(s)
+		}
 		for _, r := range ebiten.AppendInputChars(nil) {
 			p.typed.insert(string(r))
 		}
