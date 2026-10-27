@@ -147,6 +147,119 @@ func TestOrderMatchesTheStableSort(t *testing.T) {
 	}
 }
 
+// depthsOf is each drawable's footprint, in the order given: what tells
+// two drawables of one depth apart.
+func depthsOf(items []drawable) []city.Rect {
+	out := make([]city.Rect, len(items))
+	for i, d := range items {
+		out[i] = d.turned
+	}
+	return out
+}
+
+// Item 270: the depth sort sorted every drawable afresh each frame,
+// though from one frame to the next a few cars move and the rest stand.
+// It starts from the last frame's order and repairs it, and falls back to
+// sorting afresh when the repair runs past a budget.
+func TestByDepthAcrossFrames(t *testing.T) {
+	const n, movers = 3000, 40
+	cam := city.NewCamera()
+	frame := func(r *rand.Rand, at []city.Point) []drawable {
+		items := make([]drawable, len(at))
+		for i, p := range at {
+			items[i] = footprintAt(cam, city.RectAt(p.X, p.Y, 2*city.Tile, 2*city.Tile), func() {})
+		}
+		return items
+	}
+	place := func(seed int64, count int) []city.Point {
+		r := rand.New(rand.NewSource(seed))
+		at := make([]city.Point, count)
+		for i := range at {
+			at[i] = city.Point{X: float64(r.Intn(160)) * city.Tile, Y: float64(r.Intn(160)) * city.Tile}
+		}
+		return at
+	}
+
+	t.Run("when 3,000 drawables are sorted frame after frame, forty of them moving a little each frame", func(t *testing.T) {
+		r := rand.New(rand.NewSource(27))
+		at := place(270, n)
+		var s depthSorter
+		same, repaired := true, 0
+		for f := range 20 {
+			for k := range movers {
+				at[k].X += float64(r.Intn(3)-1) * city.Tile / 4
+				at[k].Y += float64(r.Intn(3)-1) * city.Tile / 4
+			}
+			items := frame(r, at)
+			before := s.moves
+			got := s.byDepth(slices.Clone(items))
+			if !slices.Equal(depthsOf(got), depthsOf(byDepth(nil, slices.Clone(items)))) {
+				same = false
+			}
+			if f > 0 {
+				repaired = max(repaired, s.moves-before)
+			}
+		}
+
+		t.Run("it should give each frame the order a fresh sort gives", func(t *testing.T) {
+			assert.True(t, same)
+		})
+
+		t.Run("it should repair each frame after the first in fewer moves than there are drawables", func(t *testing.T) {
+			assert.Less(t, repaired, n)
+		})
+
+		t.Run("it should not fall back to sorting afresh", func(t *testing.T) {
+			assert.Zero(t, s.fallbacks)
+		})
+	})
+
+	t.Run("when drawables come and go, so the count changes", func(t *testing.T) {
+		var s depthSorter
+		s.byDepth(frame(nil, place(270, n)))
+		items := frame(nil, place(271, n-17))
+		got := s.byDepth(slices.Clone(items))
+
+		t.Run("it should give the order a fresh sort gives", func(t *testing.T) {
+			assert.Equal(t, depthsOf(byDepth(nil, slices.Clone(items))), depthsOf(got))
+		})
+	})
+
+	for _, c := range []struct {
+		name string
+		next func(at []city.Point) []drawable
+	}{
+		{"when the camera turns, so every depth changes", func(at []city.Point) []drawable {
+			cam.Turn(1, city.Point{X: 80 * city.Tile, Y: 80 * city.Tile})
+			defer cam.Turn(-1, city.Point{X: 80 * city.Tile, Y: 80 * city.Tile})
+			return frame(nil, at)
+		}},
+		{"when the last frame's order is the reverse of this one's", func(at []city.Point) []drawable {
+			items := frame(nil, at)
+			slices.Reverse(items)
+			return items
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			at := place(270, n)
+			var s depthSorter
+			s.byDepth(frame(nil, at))
+			items := c.next(at)
+			before := s.moves
+			got := s.byDepth(slices.Clone(items))
+			moved := s.moves - before
+
+			t.Run("it should give the order a fresh sort gives", func(t *testing.T) {
+				assert.Equal(t, depthsOf(byDepth(nil, slices.Clone(items))), depthsOf(got))
+			})
+
+			t.Run("it should give up the repair within its budget and sort afresh", func(t *testing.T) {
+				assert.Equal(t, [2]any{1, true}, [2]any{s.fallbacks, moved <= repairBudget*n})
+			})
+		})
+	}
+}
+
 func BenchmarkOrderAtScale(b *testing.B) {
 	cam := city.NewCamera()
 	r := rand.New(rand.NewSource(270))

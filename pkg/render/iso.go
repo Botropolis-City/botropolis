@@ -946,7 +946,13 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	shift, hold := g.holding(fade)
 	g.still.logWhole = fade == nil && !g.noKeyed && !g.noStill && !g.noReuse
 	n := 0
-	for _, d := range layered(cam, items, airborne) {
+	// A frame drawn straight sorts afresh, so the frame check holds the
+	// repaired order to the plain one (item 270).
+	sorter := &g.depthSort
+	if g.noStill {
+		sorter = nil
+	}
+	for _, d := range layered(sorter, cam, items, airborne) {
 		// While a hovered car fades the city, each draw is wrapped in
 		// its fade group, so nothing keeps its record (item 212).
 		if d.keyed != nil && fade == nil && !g.noKeyed {

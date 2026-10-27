@@ -178,6 +178,9 @@ type Game struct {
 	labelFrame   city.Rect
 	// mini is the minimap's map as last painted, and minimapPaints how
 	// many times it has been painted (item 270).
+	// depthSort keeps the last frame's depth order, for the next to
+	// repair (item 270).
+	depthSort     depthSorter
 	mini          minimapCache
 	minimapPaints int
 	// minimapPainter, when set, takes the minimap map's boxes in place

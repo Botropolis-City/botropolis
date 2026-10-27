@@ -192,8 +192,8 @@ func segmentDistance(p, a, b city.Point) float64 {
 // layered is the frame's paint order: everything on the ground in the
 // order it stands, then everything in the air, so nothing flying is ever
 // drawn behind a building it is above. What flies moves.
-func layered(cam *city.Camera, standing []drawable, airborne []func()) []drawable {
-	out := order(cam, standing)
+func layered(s *depthSorter, cam *city.Camera, standing []drawable, airborne []func()) []drawable {
+	out := orderWith(s, cam, standing)
 	for _, draw := range airborne {
 		out = append(out, drawable{draw: draw, moves: true})
 	}

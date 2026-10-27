@@ -80,12 +80,15 @@ func standingAt(cam *city.Camera, p city.Point, draw func()) drawable {
 // A cycle that survives anyway costs nothing worse than the old
 // behaviour: whatever cannot be ordered is appended in depth order
 // rather than dropped.
-func order(cam *city.Camera, items []drawable) []drawable {
+func order(cam *city.Camera, items []drawable) []drawable { return orderWith(nil, cam, items) }
+
+// orderWith is order, its depth pass by way of s when there is one.
+func orderWith(s *depthSorter, cam *city.Camera, items []drawable) []drawable {
 	n := len(items)
 	if n < 2 {
 		return items
 	}
-	items = byDepth(items)
+	items = byDepth(s, items)
 	var edges [][2]int32
 	indegree := make([]int32, n)
 	for i := 0; i < n; i++ {
@@ -178,17 +181,17 @@ func (q *readyQueue) Pop() any          { old := *q; n := len(old); x := old[n-1
 // a total order, and the drawables moved once. A stable sort that
 // swapped whole drawables was three quarters of the depth sort at 3,000
 // of them (item 270).
-func byDepth(items []drawable) []drawable {
-	at := make([]int32, len(items))
-	for i := range at {
-		at[i] = int32(i)
-	}
-	slices.SortFunc(at, func(a, b int32) int {
-		if c := cmp.Compare(items[a].depth, items[b].depth); c != 0 {
-			return c
+func byDepth(s *depthSorter, items []drawable) []drawable {
+	var at []int32
+	if s != nil {
+		at = s.sort(items)
+	} else {
+		at = make([]int32, len(items))
+		for i := range at {
+			at[i] = int32(i)
 		}
-		return cmp.Compare(a, b)
-	})
+		slices.SortFunc(at, func(a, b int32) int { return deeper(items, a, b) })
+	}
 	sorted := make([]drawable, len(items))
 	for i, j := range at {
 		sorted[i] = items[j]
@@ -233,4 +236,69 @@ func (q *readyQueue) pop() int32 {
 	}
 	*q = h
 	return top
+}
+
+// deeper orders two positions in items by depth, and those of one depth
+// by position: a total order, so every sort of it gives one answer.
+func deeper(items []drawable, a, b int32) int {
+	if c := cmp.Compare(items[a].depth, items[b].depth); c != 0 {
+		return c
+	}
+	return cmp.Compare(a, b)
+}
+
+// repairBudget is how many moves a drawable the repair of the last
+// frame's order may take, on average, before it gives up and sorts
+// afresh: a turn or a new snapshot reorders nearly everything, and
+// repairing that by insertion would take about n²/2 moves.
+const repairBudget = 4
+
+// depthSorter keeps the frame's depth order, so the next frame, in which
+// a few cars have moved and the rest stand where they stood, repairs it
+// rather than sorting every drawable afresh (item 270). Whatever it
+// starts from, the order it gives is the one sorting afresh gives,
+// since deeper is a total order.
+type depthSorter struct {
+	last []int32
+	// moves is how many places the repairs have moved positions, and
+	// fallbacks how many times a repair gave up and sorted afresh.
+	moves, fallbacks int
+}
+
+// byDepth is items in depth order, by way of the sorter.
+func (s *depthSorter) byDepth(items []drawable) []drawable { return byDepth(s, items) }
+
+// sort is the positions of items in depth order: last frame's order
+// repaired by insertion when the count holds, otherwise, or when the
+// repair runs past its budget, sorted afresh.
+func (s *depthSorter) sort(items []drawable) []int32 {
+	n := len(items)
+	if len(s.last) != n {
+		s.last = make([]int32, n)
+		for i := range s.last {
+			s.last[i] = int32(i)
+		}
+		slices.SortFunc(s.last, func(a, b int32) int { return deeper(items, a, b) })
+		return s.last
+	}
+	at, budget := s.last, repairBudget*n
+	for i := 1; i < n; i++ {
+		x := at[i]
+		j := i
+		for j > 0 && deeper(items, at[j-1], x) > 0 {
+			at[j] = at[j-1]
+			j--
+			s.moves++
+			if budget--; budget == 0 {
+				s.fallbacks++
+				for k := range at {
+					at[k] = int32(k)
+				}
+				slices.SortFunc(at, func(a, b int32) int { return deeper(items, a, b) })
+				return at
+			}
+		}
+		at[j] = x
+	}
+	return at
 }
