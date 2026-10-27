@@ -32,8 +32,6 @@ type closeUp struct {
 	err string
 }
 
-const closeUpLabel = "close up"
-
 // openCloseUp puts the panel on the stack, standing the quit panel down.
 // With nothing live there is nothing to choose, so it records the
 // close-up at once.
