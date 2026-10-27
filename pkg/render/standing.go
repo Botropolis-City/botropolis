@@ -4,7 +4,6 @@ import (
 	"hash/maphash"
 	"image"
 	"math"
-	"reflect"
 	"unsafe"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -64,7 +63,7 @@ func (g *Game) standingKey(selected *city.Building) uint64 {
 // and labels it noted, for a frame whose standing key holds to note
 // again without running its draw (item 212).
 type heldItem struct {
-	id     uint64
+	at     itemAt
 	entry  int
 	kind   recordKind
 	hits   []spriteHit
@@ -73,11 +72,26 @@ type heldItem struct {
 	held bool
 }
 
-// itemID is who a keyed item is: where it stands, how high, and the code
-// that draws it, so two things on one footprint, such as the plant and
-// its stack, are told apart.
-func itemID(d drawable) uint64 {
-	return keyMix(hashOf(&d.turned), uint64(d.level), uint64(reflect.ValueOf(d.keyed).Pointer()))
+// itemAt is where a keyed item stands: its footprint and how high. Two
+// things on one footprint, the plant and its stack, come in the order
+// drawIso appends them, which the sort keeps.
+type itemAt struct {
+	turned city.Rect
+	level  int
+}
+
+// nextLog is the log's next item, empty, keeping the room its hits and
+// labels had two frames ago.
+func (s *stillFrame) nextLog() *heldItem {
+	n := len(s.log)
+	if n < cap(s.log) {
+		s.log = s.log[:n+1]
+	} else {
+		s.log = append(s.log, heldItem{})
+	}
+	it := &s.log[n]
+	*it = heldItem{hits: it.hits[:0], labels: it.labels[:0]}
+	return it
 }
 
 // holding is whether this frame notes its still things as the last did:
@@ -98,9 +112,9 @@ func (g *Game) holding(fade *fader) (image.Point, bool) {
 // of the frame, counted.
 func (g *Game) noteItem(d drawable, n int, hold *bool, shift image.Point) {
 	s := &g.still
-	id := itemID(d)
+	at := itemAt{turned: d.turned, level: d.level}
 	if *hold {
-		if n >= len(s.lastLog) || s.lastLog[n].id != id {
+		if n >= len(s.lastLog) || s.lastLog[n].at != at {
 			*hold = false
 			s.stats.orderBroke++
 		} else if !d.runs && g.holdItem(&s.lastLog[n], shift) {
@@ -113,7 +127,8 @@ func (g *Game) noteItem(d drawable, n int, hold *bool, shift image.Point) {
 	labels, entries := len(g.mapLabels), len(g.still.entries)
 	s.notedKind = kindsKept
 	d.keyed()
-	it := heldItem{id: id, entry: -1, kind: s.notedKind}
+	it := s.nextLog()
+	it.at, it.entry, it.kind = at, -1, s.notedKind
 	if len(s.entries) == entries+1 && s.entries[entries].keeps && s.notedKind < kindsKept {
 		it.entry = entries
 		s.stats.ranKept++
@@ -122,7 +137,6 @@ func (g *Game) noteItem(d drawable, n int, hold *bool, shift image.Point) {
 	it.hits = append(it.hits, g.frameHits[hits:]...)
 	g.mu.Unlock()
 	it.labels = append(it.labels, g.mapLabels[labels:]...)
-	s.log = append(s.log, it)
 	s.stats.ran++
 }
 
@@ -144,16 +158,18 @@ func (g *Game) holdItem(it *heldItem, shift image.Point) bool {
 	g.passCheck()
 	g.keep(k, it.entry, shift)
 	d := city.Point{X: float64(shift.X), Y: float64(shift.Y)}
-	held := heldItem{id: it.id, entry: len(s.entries) - 1, kind: it.kind, labels: it.labels, held: true}
+	held := s.nextLog()
+	held.at, held.entry, held.kind, held.held = it.at, len(s.entries)-1, it.kind, true
 	for _, h := range it.hits {
 		h.rect = city.Rect{Min: h.rect.Min.Add(d), Max: h.rect.Max.Add(d)}
 		g.noteHit(h.rect, h.hit)
 		held.hits = append(held.hits, h)
 	}
+	// Copied, not shared: each log keeps its items' room for reuse.
+	held.labels = append(held.labels, it.labels...)
 	for _, l := range it.labels {
 		g.queueLabel(l)
 	}
-	s.log = append(s.log, held)
 	s.stats.held++
 	s.stats.reused++
 	s.stats.keptBy[it.kind]++

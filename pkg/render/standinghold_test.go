@@ -136,7 +136,7 @@ func TestHoldingTheStillCity(t *testing.T) {
 		require.Greater(t, len(log), 2, "precondition: the frame logged its still things")
 		i := len(log) / 2
 		log[i], log[i+1] = log[i+1], log[i]
-		require.NotEqual(t, log[i].id, log[i+1].id, "precondition: the two swapped are different things")
+		require.NotEqual(t, log[i].at, log[i+1].at, "precondition: the two swapped are different things")
 		st := rc.frame()
 		held := drawn(rc.g)
 
