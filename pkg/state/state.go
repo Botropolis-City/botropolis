@@ -154,13 +154,19 @@ type Session struct {
 	PackedAt time.Time `json:"packedAt,omitzero"`
 	// Hourly is the session's usage by unix hour over its last week,
 	// for sparklines and the plant's breakdown.
-	Hourly           map[int64]claude.Usage `json:"hourly,omitempty"`
-	APIErrors        int                    `json:"apiErrors"`
-	LastErrorAt      time.Time              `json:"lastErrorAt"`
-	Compactions      int                    `json:"compactions"`
-	LastCompactionAt time.Time              `json:"lastCompactionAt"`
-	StartedAt        time.Time              `json:"startedAt"`
-	LastActivity     time.Time              `json:"lastActivity"`
+	Hourly      map[int64]claude.Usage `json:"hourly,omitempty"`
+	APIErrors   int                    `json:"apiErrors"`
+	LastErrorAt time.Time              `json:"lastErrorAt"`
+	// FailedTools is how many tool calls in a row failed, up to its
+	// last, and StoppedMidTurn a session whose process is gone with its
+	// turn unfinished and not interrupted: a crash, or a terminal closed
+	// mid-turn. The clinic lists both (item 280).
+	FailedTools      int       `json:"failedTools,omitempty"`
+	StoppedMidTurn   bool      `json:"stoppedMidTurn,omitempty"`
+	Compactions      int       `json:"compactions"`
+	LastCompactionAt time.Time `json:"lastCompactionAt"`
+	StartedAt        time.Time `json:"startedAt"`
+	LastActivity     time.Time `json:"lastActivity"`
 }
 
 type Server struct {
@@ -478,6 +484,10 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 	}
 	conversation := hasTranscript && (t.Tail.Prompts > 0 || !t.Tail.LastAssistantAt.IsZero())
 	s.State = derive(r, s.Turn, conversation, isAlive, isAttached)
+	if hasTranscript {
+		s.FailedTools = t.Tail.FailedTools
+		s.StoppedMidTurn = !isAlive && conversation && t.Tail.Turn == claude.TurnWorking && !t.Tail.Interrupted
+	}
 	return s
 }
 

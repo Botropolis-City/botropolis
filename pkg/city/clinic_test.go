@@ -92,6 +92,50 @@ func TestClinic(t *testing.T) {
 		})
 	})
 
+	// Slice 3: a session that stopped mid-turn, and one whose tool calls
+	// keep failing, are in trouble too.
+	stopped := func(id string, ago time.Duration) state.Session {
+		s := session(id, mullet, state.Resting)
+		s.StoppedMidTurn, s.LastActivity = true, now.Add(-ago)
+		return s
+	}
+	failing := func(id string, n int, ago time.Duration) state.Session {
+		s := session(id, botropolis, state.Working)
+		s.FailedTools, s.LastActivity = n, now.Add(-ago)
+		return s
+	}
+
+	t.Run("when sessions stopped mid-turn or their tool calls keep failing", func(t *testing.T) {
+		packedStop := stopped("packed-stop", time.Hour)
+		packedStop.Packed = true
+		everything := erred(stopped("everything", 10*time.Minute), 10*time.Minute)
+		everything.FailedTools = 5
+		s := scene(t, city.NewLayout(),
+			stopped("stopped", 2*time.Hour), stopped("long-ago", 25*time.Hour), packedStop,
+			failing("three", 3, 7*time.Minute), failing("two", 2, time.Minute), everything)
+
+		t.Run("it should list them, each once, with the reason that comes first, most recent first", func(t *testing.T) {
+			assert.Equal(t, []row{
+				{"three", "in trouble", "3 tool calls failed in a row"},
+				{"everything", "in trouble", "stopped mid-turn 10m ago"},
+				{"stopped", "in trouble", "stopped mid-turn 2h00m ago"},
+			}, rows(s))
+		})
+	})
+
+	t.Run("when a session's last record is an API error and its tool calls kept failing before it", func(t *testing.T) {
+		s := scene(t, city.NewLayout(), erred(session("live", mullet, state.Working), 3*time.Minute))
+		s2 := scene(t, city.NewLayout(), func() state.Session {
+			x := erred(session("both", mullet, state.Working), 3*time.Minute)
+			x.FailedTools = 4
+			return x
+		}())
+
+		t.Run("it should give the API error as the reason", func(t *testing.T) {
+			assert.Equal(t, rows(s)[0].Reason, rows(s2)[0].Reason)
+		})
+	})
+
 	t.Run("when a session needing you was set aside", func(t *testing.T) {
 		layout := city.NewLayout()
 		layout.Snoozed = map[string]time.Time{"recent": now.Add(time.Hour)}

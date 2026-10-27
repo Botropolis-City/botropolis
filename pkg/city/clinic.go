@@ -3,6 +3,7 @@ package city
 import (
 	"fmt"
 	"slices"
+	"time"
 
 	"botropolis.city/botropolis/pkg/format"
 	"botropolis.city/botropolis/pkg/state"
@@ -48,21 +49,25 @@ func (s *Scene) Clinic() []ClinicRow {
 		}
 		rows = append(rows, ClinicRow{Building: b, Section: ClinicNeedsYou, Reason: reason})
 	}
-	var trouble []*Building
+	type troubled struct {
+		b      *Building
+		reason string
+		at     time.Time
+	}
+	var trouble []troubled
 	for _, b := range s.city.Buildings() {
-		if inTrouble(b) {
-			trouble = append(trouble, b)
+		if reason, at, ok := troubleOf(b, now); ok {
+			trouble = append(trouble, troubled{b, reason, at})
 		}
 	}
-	slices.SortFunc(trouble, func(a, b *Building) int {
-		if c := b.Session.LastErrorAt.Compare(a.Session.LastErrorAt); c != 0 {
+	slices.SortFunc(trouble, func(a, b troubled) int {
+		if c := b.at.Compare(a.at); c != 0 {
 			return c
 		}
-		return state.LongestWaiting(a.Session, b.Session)
+		return state.LongestWaiting(a.b.Session, b.b.Session)
 	})
-	for _, b := range trouble {
-		rows = append(rows, ClinicRow{Building: b, Section: ClinicInTrouble,
-			Reason: "API error " + format.Age(now.Sub(b.Session.LastErrorAt)) + " ago"})
+	for _, t := range trouble {
+		rows = append(rows, ClinicRow{Building: t.b, Section: ClinicInTrouble, Reason: t.reason})
 	}
 	return rows
 }
@@ -72,14 +77,34 @@ func (s *Scene) ClinicCount() int {
 	return len(s.Clinic())
 }
 
-// inTrouble is a live session that does not need you whose last record
-// is an error from the API: a reply that succeeds after it clears it.
-func inTrouble(b *Building) bool {
+// StoppedFor is how long a session that stopped mid-turn stays in the
+// clinic's list (Aria, 2026-10-26).
+const StoppedFor = 24 * time.Hour
+
+// FailedToolsInARow is how many tool calls in a row must fail before a
+// session is in trouble: one failing is routine, as a red test is.
+const FailedToolsInARow = 3
+
+// troubleOf is why a session not needing you is in trouble, and since
+// when, the first that applies: its last record is an error from the
+// API, which a reply that succeeds clears; it stopped mid-turn within
+// StoppedFor, a crash or a terminal closed; or its last tool calls
+// failed, FailedToolsInARow or more of them (item 280).
+func troubleOf(b *Building, now time.Time) (string, time.Time, bool) {
 	sess := b.Session
-	if b.Packed || sess.Packed || !state.Live(sess.State) || sess.State == state.NeedsYou {
-		return false
+	if b.Packed || sess.Packed || sess.State == state.NeedsYou {
+		return "", time.Time{}, false
 	}
-	return sess.APIErrors > 0 && !sess.LastErrorAt.Before(sess.LastActivity)
+	live := state.Live(sess.State)
+	switch {
+	case live && sess.APIErrors > 0 && !sess.LastErrorAt.Before(sess.LastActivity):
+		return "API error " + format.Age(now.Sub(sess.LastErrorAt)) + " ago", sess.LastErrorAt, true
+	case !live && sess.StoppedMidTurn && now.Sub(sess.LastActivity) <= StoppedFor:
+		return "stopped mid-turn " + format.Age(now.Sub(sess.LastActivity)) + " ago", sess.LastActivity, true
+	case live && sess.FailedTools >= FailedToolsInARow:
+		return fmt.Sprintf("%d tool calls failed in a row", sess.FailedTools), sess.LastActivity, true
+	}
+	return "", time.Time{}, false
 }
 
 func (s *Scene) clinicCard() Card {

@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -30,13 +31,26 @@ type Tail struct {
 	Prompts         int
 	LastPromptAt    time.Time
 	LastAssistantAt time.Time
+	// FailedTools is how many tool results in a row on the main line
+	// came back as errors, up to the last; one that succeeds or a
+	// prompt starts it again (item 280).
+	FailedTools int
+	// Interrupted is a main line whose last word is the user's
+	// interrupt, which Claude Code writes as a user line (item 280).
+	Interrupted bool
 }
+
+// interruptPrefix opens the line Claude Code writes when the user
+// interrupts a turn, with or without " for tool use".
+const interruptPrefix = "[Request interrupted by user"
+
 
 type contentBlockJSON struct {
 	Type      string `json:"type"`
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	ToolUseID string `json:"tool_use_id"`
+	IsError   bool   `json:"is_error"`
 	Text      string `json:"text"`
 	Input     struct {
 		Command      string `json:"command"`
@@ -80,22 +94,33 @@ type tailScan struct {
 func (s *tailScan) user(rec transcriptLineJSON, ts time.Time) {
 	s.lastRole = "user"
 	results, prompt := false, !rec.IsMeta
+	s.tail.Interrupted = false
 	for _, block := range rec.Message.Content {
 		if block.Type == "tool_result" {
 			results, prompt = true, false
 			s.resolve(block.ToolUseID)
+			if block.IsError {
+				s.tail.FailedTools++
+			} else {
+				s.tail.FailedTools = 0
+			}
+		}
+		if block.Type == "text" && strings.HasPrefix(block.Text, interruptPrefix) {
+			s.tail.Interrupted = true
 		}
 	}
 	if !results && prompt {
 		s.tail.Prompts++
 		s.tail.LastPromptAt = ts
 		s.watch = false
+		s.tail.FailedTools = 0
 	}
 }
 
 func (s *tailScan) assistant(rec transcriptLineJSON, ts time.Time) {
 	s.lastRole = "assistant"
 	s.tail.LastAssistantAt = ts
+	s.tail.Interrupted = false
 	if rec.Message.StopReason != "" {
 		s.lastStop = rec.Message.StopReason
 	}

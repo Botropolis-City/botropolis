@@ -82,7 +82,7 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindSession}},
 	KindHall: {"city hall", "the board of groups", "City hall holds the board of groups: each piece of work, whose move it is, and what is next. Move to group on a session's card, then new group…, makes a group.",
 		[]Kind{KindStation}},
-	KindClinic: {"clinic", "what needs you, and what is in trouble", "The clinic counts the sessions waiting on you and the ones in trouble, such as one whose last reply was an error from the API. Click it, or press a, for the list: the ones needing you first, then the troubled ones, each a key away.",
+	KindClinic: {"clinic", "what needs you, and what is in trouble", "The clinic counts the sessions waiting on you and the ones in trouble: one whose last reply was an error from the API, one that stopped mid-turn in the last day, or one whose last three tool calls or more failed. Click it, or press a, for the list: the ones needing you first, then the troubled ones, each a key away.",
 		[]Kind{KindSession, KindSmoke}},
 	KindRoad: {"road", "traffic between two projects", "A road joins two projects that sessions crossed between, by messages or by files. Roads appear only where traffic runs.",
 		[]Kind{KindProject, KindCar}},

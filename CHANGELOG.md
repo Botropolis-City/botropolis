@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A move that would land one on another district is refused for all of them, and `Esc` clears the selection.
 - **A clinic on the plaza shows who needs you.**
   The building with the green cross that used to be City Hall now stands in the plaza's fourth corner as the clinic.
-  Its plate counts the sessions waiting on you plus the ones in trouble, which for now means a session whose last reply was an error from the API.
+  Its plate counts the sessions waiting on you plus the ones in trouble.
+  A session is in trouble when its last reply was an error from the API, when it stopped mid-turn in the last day because it crashed or its terminal was closed, or when its last three tool calls or more failed.
+  Interrupting a turn yourself does not count.
   Click it, or press `a`, for the list: the sessions needing you first, longest waiting at the top, then the troubled ones, each with its reason.
   `1` to `9` jumps straight to a session, and `↑` `↓` with `enter` reaches the rest.
 - **Drag with the right or middle (wheel) button to pan the map from anywhere.**
