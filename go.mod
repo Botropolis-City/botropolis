@@ -10,6 +10,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/ebitengine/purego v0.11.0
 	github.com/fsnotify/fsnotify v1.10.1
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/hajimehoshi/ebiten/v2 v2.10.2
 	github.com/jezek/xgb v1.3.1
 	github.com/mattn/go-isatty v0.0.24
