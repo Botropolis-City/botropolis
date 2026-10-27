@@ -185,3 +185,81 @@ func TestTriageWalkAtScale(t *testing.T) {
 		})
 	})
 }
+
+// Item 280: the clinic's count is asked for every frame, by the standing
+// key and its plate, so it looks only at the buildings the city listed
+// as needing you or in trouble when it was built, as triage does, and
+// agrees with a walk over every building.
+func TestClinicCountAtScale(t *testing.T) {
+	at := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
+	mixed := func() []state.Session {
+		sessions := scaleSessions("")
+		for k, i := range []int{17, 230, 511} {
+			sessions[i].State = state.NeedsYou
+			sessions[i].LastActivity = at.Add(-time.Duration(k+1) * time.Hour)
+		}
+		sessions[42].APIErrors, sessions[42].LastErrorAt = 1, sessions[42].LastActivity
+		sessions[43].APIErrors, sessions[43].LastErrorAt = 1, sessions[43].LastActivity.Add(-time.Minute)
+		sessions[99].FailedTools = city.FailedToolsInARow
+		sessions[100].FailedTools = city.FailedToolsInARow - 1
+		for i, ago := range map[int]time.Duration{300: time.Hour, 301: city.StoppedFor, 302: city.StoppedFor + time.Second} {
+			sessions[i].State, sessions[i].StoppedMidTurn, sessions[i].LastActivity = state.Resting, true, at.Add(-ago)
+		}
+		sessions[303].State, sessions[303].StoppedMidTurn, sessions[303].Packed = state.Resting, true, true
+		return sessions
+	}
+	open := func(layout *city.Layout, clock *time.Time) *city.Scene {
+		s := city.NewScene(layout)
+		s.SetClock(func() time.Time { return *clock }, time.UTC)
+		s.Resize(800, 600)
+		s.SetSnapshot(snapshot(mixed()...))
+		return s
+	}
+
+	t.Run("when a city of 600 buildings has three needing you and four in trouble, with the stopped sessions about the day's edge", func(t *testing.T) {
+		clock := at
+		s := open(city.NewLayout(), &clock)
+		before := s.ClinicLooks()
+		count := s.ClinicCount()
+		looked := s.ClinicLooks() - before
+
+		t.Run("it should count those seven", func(t *testing.T) {
+			assert.Equal(t, 7, count)
+		})
+
+		t.Run("it should count what a walk over every building counts", func(t *testing.T) {
+			assert.Equal(t, s.ClinicCountEveryBuilding(), count)
+		})
+
+		t.Run("it should count what its menu lists", func(t *testing.T) {
+			assert.Len(t, s.Clinic(), count)
+		})
+
+		t.Run("it should look at no building that is neither", func(t *testing.T) {
+			assert.LessOrEqual(t, looked, 9)
+		})
+
+		t.Run("and a second passes, so a stopped session leaves the day", func(t *testing.T) {
+			clock = at.Add(time.Second)
+
+			t.Run("it should still count what a walk over every building counts", func(t *testing.T) {
+				assert.Equal(t, s.ClinicCountEveryBuilding(), s.ClinicCount())
+			})
+
+			t.Run("it should count one fewer", func(t *testing.T) {
+				assert.Equal(t, 6, s.ClinicCount())
+			})
+		})
+	})
+
+	t.Run("when one needing you is snoozed", func(t *testing.T) {
+		layout := city.NewLayout()
+		layout.Snoozed = map[string]time.Time{"scale-0230": at.Add(time.Hour)}
+		clock := at
+		s := open(layout, &clock)
+
+		t.Run("it should count what a walk over every building counts", func(t *testing.T) {
+			assert.Equal(t, s.ClinicCountEveryBuilding(), s.ClinicCount())
+		})
+	})
+}

@@ -189,6 +189,9 @@ type Scene struct {
 	// triageLooks is how many buildings the triage walk has looked at
 	// (item 270).
 	triageLooks int
+	// clinicLooks is how many buildings the clinic's count has looked
+	// at (item 280).
+	clinicLooks int
 	sightings   []Kind
 	sightingAt  time.Time
 	generated   map[string]Generated

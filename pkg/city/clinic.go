@@ -55,7 +55,7 @@ func (s *Scene) Clinic() []ClinicRow {
 		at     time.Time
 	}
 	var trouble []troubled
-	for _, b := range s.city.Buildings() {
+	for _, b := range s.city.inTroubleMaybe() {
 		if reason, at, ok := troubleOf(b, now); ok {
 			trouble = append(trouble, troubled{b, reason, at})
 		}
@@ -72,9 +72,39 @@ func (s *Scene) Clinic() []ClinicRow {
 	return rows
 }
 
-// ClinicCount is how many sessions the clinic lists.
+// ClinicCount is how many sessions the clinic lists. The standing key
+// and the plate ask for it every frame, so it counts over the city's
+// lists of what needs you and what may be in trouble, and builds no
+// rows.
 func (s *Scene) ClinicCount() int {
-	return len(s.Clinic())
+	now := s.now()
+	n := 0
+	for _, b := range s.city.waitingOnYou() {
+		s.clinicLooks++
+		if s.inTriage(b) {
+			n++
+		}
+	}
+	for _, b := range s.city.inTroubleMaybe() {
+		s.clinicLooks++
+		if _, _, ok := troubleOf(b, now); ok {
+			n++
+		}
+	}
+	return n
+}
+
+// troubleCandidate is a building that troubleOf may find in trouble,
+// whatever the time: all of its tests but how long ago it stopped.
+func troubleCandidate(b *Building) bool {
+	sess := b.Session
+	if b.Packed || sess.Packed || sess.State == state.NeedsYou {
+		return false
+	}
+	live := state.Live(sess.State)
+	return (live && sess.APIErrors > 0 && !sess.LastErrorAt.Before(sess.LastActivity)) ||
+		(!live && sess.StoppedMidTurn) ||
+		(live && sess.FailedTools >= FailedToolsInARow)
 }
 
 // StoppedFor is how long a session that stopped mid-turn stays in the
@@ -91,10 +121,10 @@ const FailedToolsInARow = 3
 // StoppedFor, a crash or a terminal closed; or its last tool calls
 // failed, FailedToolsInARow or more of them (item 280).
 func troubleOf(b *Building, now time.Time) (string, time.Time, bool) {
-	sess := b.Session
-	if b.Packed || sess.Packed || sess.State == state.NeedsYou {
+	if !troubleCandidate(b) {
 		return "", time.Time{}, false
 	}
+	sess := b.Session
 	live := state.Live(sess.State)
 	switch {
 	case live && sess.APIErrors > 0 && !sess.LastErrorAt.Before(sess.LastActivity):

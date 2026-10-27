@@ -151,7 +151,10 @@ type City struct {
 	// needsYou are the buildings whose sessions need you, which the
 	// triage walk takes from, and indexed whether the indexes are built
 	// (item 270).
-	needsYou   []*Building
+	needsYou []*Building
+	// troubled are the buildings the clinic may count in trouble, the
+	// clock aside: it asks for its count every frame (item 280).
+	troubled   []*Building
 	indexed    bool
 	districtOf map[*Building]*District
 	// landings are the street cells the bridges land on, the first
@@ -594,6 +597,9 @@ func (c *City) indexBuildings() {
 		if b.Session.State == state.NeedsYou {
 			c.needsYou = append(c.needsYou, b)
 		}
+		if troubleCandidate(b) {
+			c.troubled = append(c.troubled, b)
+		}
 	}
 	c.indexed = true
 }
@@ -603,6 +609,16 @@ func (c *City) indexBuildings() {
 func (c *City) waitingOnYou() []*Building {
 	if c.indexed {
 		return c.needsYou
+	}
+	return c.Buildings()
+}
+
+// inTroubleMaybe are the buildings that may be in trouble, the clock
+// aside: those listed once the city is built, or every building before
+// then.
+func (c *City) inTroubleMaybe() []*Building {
+	if c.indexed {
+		return c.troubled
 	}
 	return c.Buildings()
 }

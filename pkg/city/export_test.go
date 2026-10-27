@@ -87,3 +87,22 @@ func (s *Scene) TriageWalkEveryBuilding() []*Building {
 
 // TriageLooks is how many buildings the triage walk has looked at.
 func (s *Scene) TriageLooks() int { return s.triageLooks }
+
+// ClinicLooks is how many buildings the clinic's count has looked at.
+func (s *Scene) ClinicLooks() int { return s.clinicLooks }
+
+// ClinicCountEveryBuilding is the clinic's count by walking every
+// building in the city, the oracle the indexed count is held to.
+func (s *Scene) ClinicCountEveryBuilding() int {
+	n := 0
+	for _, b := range s.city.Buildings() {
+		if s.inTriage(b) {
+			n++
+			continue
+		}
+		if _, _, ok := troubleOf(b, s.now()); ok {
+			n++
+		}
+	}
+	return n
+}
