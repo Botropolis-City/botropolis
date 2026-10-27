@@ -126,15 +126,27 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 	})
 }
 
+// firstMapLimit is how long the city of 600 districts has to draw its
+// first frame where the test runs (Aria, 2026-10-27, item 303): 5 s on her
+// machine, which item 270 set the bar for, and 9 s on CI, where a shared
+// runner with no GPU measured 7.0 s for 0.3.3's release.
+func firstMapLimit(getenv func(string) string) (time.Duration, string) {
+	if getenv("CI") != "" {
+		return 9 * time.Second, "9s, the CI limit: CI is set, and a shared runner measured 7.0 s (item 303)"
+	}
+	return 5 * time.Second, "5s, the reference machine's limit: CI is not set (item 270)"
+}
+
 func TestACityOfSixHundredDistricts(t *testing.T) {
 	performanceTier(t)
 	helpers.NeedXvfb(t)
+	firstFrame, why := firstMapLimit(os.Getenv)
+	t.Logf("first-map limit: %s", why)
 	const (
-		firstFrame = 5 * time.Second
-		settled    = 512 << 20
-		peak       = 1 << 30
-		settle     = 30 * time.Second
-		window     = 5 * time.Second
+		settled = 512 << 20
+		peak    = 1 << 30
+		settle  = 30 * time.Second
+		window  = 5 * time.Second
 	)
 
 	t.Run("when a city of 2,400 sessions in 600 districts, its temporary directories in one, with a group of 800, opens headless on its daemon", func(t *testing.T) {
@@ -180,7 +192,7 @@ func TestACityOfSixHundredDistricts(t *testing.T) {
 		t.Logf("first frame after %v; Private_Dirty peaked at %d MiB and settled at %d MiB; Go heap peaked at %d MB, %d MB live at the end; ms a frame of drawing: %v",
 			drawnIn, top>>20, last>>20, peakHeapMB(log), lastLiveMB(log), framesMS(log))
 
-		t.Run("it should draw its first frame within 5 s", func(t *testing.T) {
+		t.Run("it should draw its first frame within "+firstFrame.String(), func(t *testing.T) {
 			assert.True(t, drawnIn > 0 && drawnIn <= firstFrame, "first frame after %v", drawnIn)
 		})
 
