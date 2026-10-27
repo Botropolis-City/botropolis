@@ -123,14 +123,6 @@ func TestPaste(t *testing.T) {
 	}
 	chords := pasteChords(runtime.GOOS)
 	chord := chords[0]
-	pressChord := func(t *testing.T, g *Game, c config.Chord) {
-		t.Helper()
-		key, ok := keyByName(c.Key)
-		require.True(t, ok)
-		g.scriptedCtrl, g.scriptedCmd, g.scriptedShift = c.Ctrl, c.Cmd, c.Shift
-		press(t, g, key)
-		g.scriptedCtrl, g.scriptedCmd, g.scriptedShift = false, false, false
-	}
 	pressPaste := func(t *testing.T, g *Game) {
 		t.Helper()
 		pressChord(t, g, chord)

@@ -213,6 +213,16 @@ func (s system) press(t *testing.T, g *Game, key ebiten.Key) {
 }
 
 // press presses one key for a tick, with Ctrl held when ctrl is set.
+// pressChord presses a chord's key this frame with its modifiers held.
+func pressChord(t *testing.T, g *Game, c config.Chord) {
+	t.Helper()
+	key, ok := keyByName(c.Key)
+	require.True(t, ok)
+	g.scripted, g.scriptedCtrl, g.scriptedCmd, g.scriptedShift = key, c.Ctrl, c.Cmd, c.Shift
+	require.NoError(t, g.handleKeys())
+	g.scripted, g.scriptedCtrl, g.scriptedCmd, g.scriptedShift = -1, false, false, false
+}
+
 func pressKey(t *testing.T, g *Game, key ebiten.Key, ctrl bool) {
 	t.Helper()
 	g.scripted, g.scriptedCtrl = key, ctrl

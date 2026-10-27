@@ -216,9 +216,10 @@ func TestQuitPanel(t *testing.T) {
 		})
 	})
 
-	t.Run("when Ctrl+K is pressed with the panel open", func(t *testing.T) {
+	findChord := defaultChords().Open
+	t.Run("when "+findChord.String()+" is pressed with the panel open", func(t *testing.T) {
 		r := opened(t)
-		pressKey(t, r.g, ebiten.KeyK, true)
+		pressChord(t, r.g, findChord)
 
 		t.Run("it should stand the panel down and open the finder", func(t *testing.T) {
 			assert.Equal(t, []any{1, true}, []any{len(r.g.overlays), r.g.finding()})
