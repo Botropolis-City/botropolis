@@ -22,6 +22,7 @@ func TestLandmarkLights(t *testing.T) {
 	}{
 		{"the library", kitLibrary},
 		{"city hall", kitHall},
+		{"the clinic", kitClinic},
 		{"the power plant", kitPlant},
 	}
 
@@ -31,10 +32,10 @@ func TestLandmarkLights(t *testing.T) {
 		plant float64
 		want  map[string]float64
 	}{
-		{"it is night and a session is working", true, 1, map[string]float64{kitLibrary: 1, kitHall: 1, kitPlant: 1}},
-		{"it is night and nobody is working", true, 0, map[string]float64{kitLibrary: 1, kitHall: 1, kitPlant: 0}},
-		{"it is night and the plant's lights are fading in", true, 0.4, map[string]float64{kitLibrary: 1, kitHall: 1, kitPlant: 0.4}},
-		{"it is day and a session is working", false, 1, map[string]float64{kitLibrary: 0, kitHall: 0, kitPlant: 0}},
+		{"it is night and a session is working", true, 1, map[string]float64{kitLibrary: 1, kitHall: 1, kitClinic: 1, kitPlant: 1}},
+		{"it is night and nobody is working", true, 0, map[string]float64{kitLibrary: 1, kitHall: 1, kitClinic: 1, kitPlant: 0}},
+		{"it is night and the plant's lights are fading in", true, 0.4, map[string]float64{kitLibrary: 1, kitHall: 1, kitClinic: 1, kitPlant: 0.4}},
+		{"it is day and a session is working", false, 1, map[string]float64{kitLibrary: 0, kitHall: 0, kitClinic: 0, kitPlant: 0}},
 	} {
 		t.Run("when "+c.when, func(t *testing.T) {
 			for _, l := range landmarks {
@@ -165,7 +166,7 @@ func TestLandmarksLitOnTheMap(t *testing.T) {
 		want int
 	}{
 		{"it is day", 14, 0},
-		{"it is night and nobody is working, with statistics off, so no City Hall stands", 22, 1},
+		{"it is night and nobody is working, with statistics off, so no City Hall stands", 22, 2},
 	} {
 		t.Run("when "+c.when, func(t *testing.T) {
 			now := time.Date(2026, 10, 12, c.hour, 30, 0, 0, time.Local)
@@ -173,7 +174,7 @@ func TestLandmarksLitOnTheMap(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, d.Run(10))
 
-			t.Run(fmt.Sprintf("it should light %d of the landmarks: the library at night, and not the plant", c.want), func(t *testing.T) {
+			t.Run(fmt.Sprintf("it should light %d of the landmarks: the library and the clinic at night, and not the plant", c.want), func(t *testing.T) {
 				assert.Equal(t, c.want, d.Shown().LandmarkDraws)
 			})
 		})

@@ -100,6 +100,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It used to grow when the pointer reached a button, to fit what that button does, and shrink again when it left, so the card flickered.
   Now it keeps room for the longest description among its buttons, wrapped to the card's width, and only the words in that space change.
 
+### Added
+
+- **A clinic on the plaza shows who needs you.**
+  The building with the green cross that used to be City Hall now stands in the plaza's fourth corner as the clinic.
+  Its plate counts the sessions waiting on you plus the ones in trouble, which for now means a session whose last reply was an error from the API.
+  Click it, or press `a`, for the list: the sessions needing you first, longest waiting at the top, then the troubled ones, each with its reason.
+  `1` to `9` jumps straight to a session, and `↑` `↓` with `enter` reaches the rest.
+
 ## [0.3.2] - 2026-10-26
 
 ### Changed

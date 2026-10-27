@@ -12,7 +12,7 @@ import (
 // hotspots by (item 76). Anything outside the frame is left out.
 func (g *Game) anchors(width, height float64) map[string]city.Point {
 	c := g.scene.City()
-	names := []string{"plant", "fountain", "library", "hall", "depot"}
+	names := []string{"plant", "fountain", "library", "hall", "clinic", "depot"}
 	for _, t := range c.Towers {
 		names = append(names, "tower:"+t.Server.Name)
 	}

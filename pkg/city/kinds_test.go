@@ -48,6 +48,7 @@ func TestKinds(t *testing.T) {
 			city.KindPlant:    {Landmark: city.LandmarkPlant},
 			city.KindLibrary:  {Landmark: city.LandmarkLibrary},
 			city.KindHall:     {Landmark: city.LandmarkHall},
+			city.KindClinic:   {Landmark: city.LandmarkClinic},
 			city.KindTower:    {Landmark: city.LandmarkTower, Tower: &city.Tower{}},
 			city.KindRiver:    {Landmark: city.LandmarkWater},
 			city.KindFountain: {Landmark: city.LandmarkFountain},

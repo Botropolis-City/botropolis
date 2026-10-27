@@ -44,6 +44,7 @@ const (
 	LandmarkTower    Landmark = "tower"
 	LandmarkLibrary  Landmark = "library"
 	LandmarkHall     Landmark = "hall"
+	LandmarkClinic   Landmark = "clinic"
 	LandmarkWater    Landmark = "water"
 	LandmarkPlaza    Landmark = "plaza"
 	LandmarkFountain Landmark = "fountain"
@@ -224,8 +225,9 @@ type Beam struct {
 }
 
 // placeLandmarks puts the civic buildings on the plaza — the plant top
-// left, the hall top right, the library bottom left, the fountain on the
-// centre cell — and one tower per server along the ridge.
+// left, the hall top right, the library bottom left, the clinic bottom
+// right, the fountain on the centre cell — and one tower per server
+// along the ridge.
 func (c *City) placeLandmarks(snapshot state.Snapshot) {
 	if c.Plaza.Area() == 0 {
 		return
@@ -264,6 +266,9 @@ func (c *City) placeLandmarks(snapshot state.Snapshot) {
 		c.Hall.Rect = plotRect(plots.Hall, plaza, pad, HallWidth, HallHeight,
 			RectAt(plaza.Max.X-pad-HallWidth, plaza.Min.Y+pad, HallWidth, HallHeight))
 	}
+
+	c.Clinic = Clinic{Rect: plotRect(plots.Clinic, plaza, pad, ClinicWidth, ClinicHeight,
+		RectAt(plaza.Max.X-pad-ClinicWidth, plaza.Max.Y-pad-ClinicHeight, ClinicWidth, ClinicHeight))}
 }
 
 func (c *City) DistrictBounds() Rect {

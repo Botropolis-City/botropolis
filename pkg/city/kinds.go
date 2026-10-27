@@ -33,12 +33,14 @@ const (
 	KindInspector
 	KindDelivery
 	KindVan
+	// KindClinic is the clinic, where what needs you stands (item 280).
+	KindClinic
 )
 
 // Kinds is every kind, in the order the reference lists them.
 var Kinds = []Kind{
 	KindSession, KindProject, KindStation, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery, KindVan,
-	KindPlant, KindWire, KindTrain, KindTower, KindBeam, KindLibrary, KindHall,
+	KindPlant, KindWire, KindTrain, KindTower, KindBeam, KindLibrary, KindHall, KindClinic,
 	KindRoad, KindCar, KindRiver, KindGauge, KindTug, KindLaunch, KindFountain, KindPlaza,
 }
 
@@ -80,6 +82,8 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindSession}},
 	KindHall: {"city hall", "the board of groups", "City hall holds the board of groups: each piece of work, whose move it is, and what is next. Move to group on a session's card, then new group…, makes a group.",
 		[]Kind{KindStation}},
+	KindClinic: {"clinic", "what needs you, and what is in trouble", "The clinic counts the sessions waiting on you and the ones in trouble, such as one whose last reply was an error from the API. Click it, or press a, for the list: the ones needing you first, then the troubled ones, each a key away.",
+		[]Kind{KindSession, KindSmoke}},
 	KindRoad: {"road", "traffic between two projects", "A road joins two projects that sessions crossed between, by messages or by files. Roads appear only where traffic runs.",
 		[]Kind{KindProject, KindCar}},
 	KindCar: {"car", "a session crossing to another project", "A car on a road is a session working across two projects right now.",
@@ -94,8 +98,8 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindGauge}},
 	KindFountain: {"fountain", "the middle of the city", "The fountain marks the middle of the plaza.",
 		[]Kind{KindPlaza}},
-	KindPlaza: {"plaza", "the civic centre", "The plaza holds the civic buildings: the power plant, city hall and the library.",
-		[]Kind{KindPlant, KindHall, KindLibrary}},
+	KindPlaza: {"plaza", "the civic centre", "The plaza holds the civic buildings: the power plant, city hall, the library and the clinic.",
+		[]Kind{KindPlant, KindHall, KindLibrary, KindClinic}},
 }
 
 func (k Kind) Name() string { return kindTexts[k].name }
@@ -142,6 +146,8 @@ func KindOf(h Hit) Kind {
 		return KindLibrary
 	case h.Landmark == LandmarkHall:
 		return KindHall
+	case h.Landmark == LandmarkClinic:
+		return KindClinic
 	case h.Building != nil:
 		return KindSession
 	case h.District != nil:

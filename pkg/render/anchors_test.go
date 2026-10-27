@@ -57,7 +57,7 @@ func TestAnchors(t *testing.T) {
 	t.Run("when a still is taken of the city", func(t *testing.T) {
 		g := newGame(1600, 1000)
 		anchors := g.anchors(1600, 1000)
-		want := []string{"plant", "fountain", "library", "hall", "depot", "tower:tracker", "tower:weather"}
+		want := []string{"plant", "fountain", "library", "hall", "clinic", "depot", "tower:tracker", "tower:weather"}
 		for _, d := range g.scene.City().Districts {
 			if !d.Depot {
 				want = append(want, "district:"+d.Name)

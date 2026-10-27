@@ -26,6 +26,7 @@ var landmarkKits = []struct{ name, kit string }{
 	{"power plant", kitPlant},
 	{"library", kitLibrary},
 	{"city hall", kitHall},
+	{"clinic", kitClinic},
 }
 
 // quadsOverlap reports whether two convex quads share any area, by the
@@ -275,7 +276,7 @@ func plazaWithHall(t *testing.T) *city.City {
 func TestLandmarkLetteringAvoidsNearerLandmarks(t *testing.T) {
 	g := landmarkLabelGame(t)
 	plots := cityLandmarks(plazaWithHall(t))
-	require.Len(t, plots, 3, "precondition: all three landmarks stand")
+	require.Len(t, plots, 4, "precondition: all four landmarks stand")
 
 	for i, p := range plots {
 		for _, heading := range []int{0, 90, 180, 270} {

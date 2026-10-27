@@ -64,13 +64,15 @@ func (g *Game) openBoard() {
 }
 
 // clickLandmark is what a click on a landmark opens beside selecting it:
-// the plant its breakdown, City Hall its board.
+// the plant its breakdown, City Hall its board, the clinic its menu.
 func (g *Game) clickLandmark(l city.Landmark) {
 	switch l {
 	case city.LandmarkPlant:
 		g.breakdown, g.window = true, city.LastDay
 	case city.LandmarkHall:
 		g.openBoard()
+	case city.LandmarkClinic:
+		g.openClinic()
 	}
 }
 

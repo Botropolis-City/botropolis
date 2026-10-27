@@ -117,8 +117,10 @@ type City struct {
 	Towers    []*Tower
 	Library   Library
 	Hall      Hall
-	Roads     []RoadLine
-	Streets   []Street
+	// Clinic is where what needs you stands (item 280).
+	Clinic  Clinic
+	Roads   []RoadLine
+	Streets []Street
 	// Lines are the groups drawn across districts, and groups the
 	// snapshot's groups they are drawn from (item 87).
 	Lines  []Line
@@ -647,6 +649,9 @@ func (c *City) At(p Point) Hit {
 	}
 	if c.Hall.Rect.Area() > 0 && c.Hall.Rect.Contains(p) {
 		return Hit{Landmark: LandmarkHall}
+	}
+	if c.Clinic.Rect.Area() > 0 && c.Clinic.Rect.Contains(p) {
+		return Hit{Landmark: LandmarkClinic}
 	}
 	if c.Fountain.Area() > 0 && c.Fountain.Contains(p) {
 		return Hit{Landmark: LandmarkFountain}

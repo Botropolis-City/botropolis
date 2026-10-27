@@ -919,6 +919,14 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		}))
 		items[len(items)-1].keyed = g.keyedLandmark(screen, cam, c, c.Hall.Rect, kitHall, landmarkOn(c, kitHall, 0), city.Hit{Landmark: city.LandmarkHall})
 	}
+	if c.Clinic.Rect.Area() > 0 {
+		items = append(items, footprintAt(cam, c.Clinic.Rect, func() {
+			g.isoLandmark(screen, cam, c.Clinic.Rect, kitClinic, g.scenery(), city.Hit{Landmark: city.LandmarkClinic})
+			g.letterLandmark(screen, cam, c, kitClinic)
+			g.lightLandmark(cam, c.Clinic.Rect, kitClinic, landmarkOn(c, kitClinic, 0))
+		}))
+		items[len(items)-1].keyed = g.keyedLandmark(screen, cam, c, c.Clinic.Rect, kitClinic, landmarkOn(c, kitClinic, 0), city.Hit{Landmark: city.LandmarkClinic})
+	}
 	// Each district's board stands in the world, ordered with the
 	// buildings around it (item 88).
 	signed := map[*city.District]bool{}
@@ -1032,6 +1040,9 @@ func (g *Game) queueLandmarkLabels(cam *city.Camera, c *city.City, hover city.Hi
 	}
 	if c.Hall.Rect.Area() > 0 && hover.Landmark == city.LandmarkHall {
 		g.queueLandmarkLabel(cam, c.Hall.Rect, kitHall, "city hall")
+	}
+	if c.Clinic.Rect.Area() > 0 {
+		g.queueClinicLabel(cam, c.Clinic.Rect, hover.Landmark == city.LandmarkClinic)
 	}
 }
 

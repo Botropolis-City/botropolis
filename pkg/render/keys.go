@@ -32,6 +32,7 @@ var bindings = []ui.Key{
 	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
 	{Key: "w", Action: "triage: walk what waits on you, longest-waiting first"},
+	{Key: "a", Action: "the clinic: who needs you, then who is in trouble; 1-9 jumps (also click the clinic)"},
 	{Key: "shift+w", Action: "the journal: where you were, and what is next"},
 	{Key: "l", Action: "the stream: what is happening, newest first"},
 	{Key: "v", Action: "the lenses, and the lens's panel in full"},
@@ -335,6 +336,10 @@ func (g *Game) answerKeys() error {
 	}
 	if just(ebiten.KeyG) {
 		g.openBoard()
+		return nil
+	}
+	if just(ebiten.KeyA) {
+		g.openClinic()
 		return nil
 	}
 	if just(ebiten.KeyB) {

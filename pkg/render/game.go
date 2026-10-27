@@ -904,6 +904,8 @@ func landmarkRect(c *city.City, target string) (city.Rect, bool) {
 		return c.Library.Rect, true
 	case "hall":
 		return c.Hall.Rect, true
+	case "clinic":
+		return c.Clinic.Rect, true
 	case "depot":
 		for _, d := range c.Districts {
 			if d.Depot {

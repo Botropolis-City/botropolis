@@ -239,10 +239,12 @@ type Plots struct {
 	Plant   Block
 	Hall    Block
 	Library Block
+	// Clinic is where what needs you stands (item 280).
+	Clinic Block
 }
 
-// All is the three plots, for asking whether a cell is spoken for.
-func (p Plots) All() []Block { return []Block{p.Plant, p.Hall, p.Library} }
+// All is the four plots, for asking whether a cell is spoken for.
+func (p Plots) All() []Block { return []Block{p.Plant, p.Hall, p.Library, p.Clinic} }
 
 // Taken reports whether a cell falls on any reserved plot.
 func (p Plots) Taken(c Cell) bool {
@@ -822,12 +824,13 @@ const (
 )
 
 // plazaPlots reserves a corner of the plaza for each civic building:
-// the plant top-left, the hall top-right, the library bottom-left. The
+// the plant top-left, the hall top-right, the library bottom-left and
+// the clinic bottom-right (item 280). The
 // corners are where pkg/city has always put them; the difference is that
 // the plan now says so, once, where the planting can see it.
 func plazaPlots(plaza Block) Plots {
 	if plaza.Cols < 2*plotCols || plaza.Rows < 2*plotRows {
-		// Too small to hold three plots without them touching. Reserve
+		// Too small to hold four plots without them touching. Reserve
 		// nothing rather than reserve overlapping ground — the planting
 		// filling a cramped plaza is a smaller wrong than two buildings
 		// on one plot.
@@ -839,5 +842,6 @@ func plazaPlots(plaza Block) Plots {
 		Plant:   Block{Min: plaza.Min, Cols: plotCols, Rows: plotRows},
 		Hall:    Block{Min: Cell{Col: right, Row: plaza.Min.Row}, Cols: plotCols, Rows: plotRows},
 		Library: Block{Min: Cell{Col: plaza.Min.Col, Row: bottom}, Cols: plotCols, Rows: plotRows},
+		Clinic:  Block{Min: Cell{Col: right, Row: bottom}, Cols: plotCols, Rows: plotRows},
 	}
 }

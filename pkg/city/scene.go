@@ -1461,6 +1461,8 @@ func (s *Scene) cardFor(h Hit) (Card, bool) {
 		return s.city.Library.Card(), true
 	case h.Landmark == LandmarkHall:
 		return s.city.Hall.Card(s.city.Time), true
+	case h.Landmark == LandmarkClinic:
+		return s.clinicCard(), true
 	case h.Building != nil:
 		return s.buildingCard(h.Building), true
 	case h.District != nil:

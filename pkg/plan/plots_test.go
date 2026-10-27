@@ -21,7 +21,25 @@ func TestPlazaPlotsAreLeftClear(t *testing.T) {
 	p := plan.Make(plan.Input{Districts: live(6)}, plan.NewMemory())
 	require.NotZero(t, p.Plaza.Cols, "no plaza to test")
 
-	plots := []plan.Block{p.Plots.Plant, p.Plots.Hall, p.Plots.Library}
+	plots := []plan.Block{p.Plots.Plant, p.Plots.Hall, p.Plots.Library, p.Plots.Clinic}
+
+	// Item 280: the clinic, where what needs you stands, takes the
+	// plaza's fourth corner.
+	t.Run("when the clinic's plot is reserved", func(t *testing.T) {
+		t.Run("it should take the plaza's bottom-right corner", func(t *testing.T) {
+			assert.Equal(t, plan.Cell{Col: p.Plaza.Min.Col + p.Plaza.Cols - p.Plots.Clinic.Cols, Row: p.Plaza.Min.Row + p.Plaza.Rows - p.Plots.Clinic.Rows}, p.Plots.Clinic.Min)
+		})
+
+		t.Run("it should be one of the plots the planting keeps off", func(t *testing.T) {
+			assert.Contains(t, p.Plots.All(), p.Plots.Clinic)
+		})
+	})
+
+	t.Run("when the fountain is placed", func(t *testing.T) {
+		t.Run("it should stand on no plot", func(t *testing.T) {
+			assert.False(t, p.Plots.Taken(p.Fountain))
+		})
+	})
 
 	t.Run("when the plaza is planted", func(t *testing.T) {
 		t.Run("it should reserve a plot for each civic building", func(t *testing.T) {

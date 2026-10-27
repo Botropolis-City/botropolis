@@ -152,6 +152,7 @@ func cityLandmarks(c *city.City) []landmarkPlot {
 		{lot: c.Plant.Rect, kit: kitPlant, name: "power plant"},
 		{lot: c.Library.Rect, kit: kitLibrary, name: "library"},
 		{lot: c.Hall.Rect, kit: kitHall, name: "city hall"},
+		{lot: c.Clinic.Rect, kit: kitClinic, name: "clinic"},
 	} {
 		if p.lot.Area() > 0 {
 			out = append(out, p)
