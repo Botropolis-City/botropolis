@@ -44,7 +44,6 @@ type Tail struct {
 // interrupts a turn, with or without " for tool use".
 const interruptPrefix = "[Request interrupted by user"
 
-
 type contentBlockJSON struct {
 	Type      string `json:"type"`
 	ID        string `json:"id"`
