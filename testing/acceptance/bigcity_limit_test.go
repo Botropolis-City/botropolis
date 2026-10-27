@@ -94,6 +94,30 @@ func TestTheStressCityGate(t *testing.T) {
 					assert.False(t, r.failed)
 				})
 			})
+
+			t.Run("and the city drew no frame within the window", func(t *testing.T) {
+				r := &barRecorder{}
+				holdToFrames(r, gate, nil)
+
+				t.Run(fmt.Sprintf("it should fail: %v", c.gates), func(t *testing.T) {
+					assert.Equal(t, c.gates, r.failed)
+				})
+
+				if !c.gates {
+					t.Run("it should log that nothing was measured", func(t *testing.T) {
+						assert.Contains(t, strings.Join(r.logs, "\n"), "no frames measured, reported and not gated: the runner drew none within the window")
+					})
+				}
+			})
+
+			t.Run("and the city drew frames within the window", func(t *testing.T) {
+				r := &barRecorder{}
+				holdToFrames(r, gate, []float64{15.2})
+
+				t.Run("it should not fail", func(t *testing.T) {
+					assert.False(t, r.failed)
+				})
+			})
 		})
 	}
 }

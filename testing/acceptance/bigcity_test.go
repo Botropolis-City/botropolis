@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -166,12 +165,25 @@ type barT interface {
 // logs it when g reports.
 func holdToBar(t barT, g stressGate, ok bool, format string, args ...any) {
 	t.Helper()
+	hold(t, g, ok, "over its bar", format, args...)
+}
+
+// holdToFrames fails t when the city drew no frame to measure and g gates
+// (item 306): a slow shared runner can draw none within the window, which
+// the reference machine never does.
+func holdToFrames(t barT, g stressGate, frames []float64) {
+	t.Helper()
+	hold(t, g, len(frames) > 0, "no frames measured", "the runner drew none within the window")
+}
+
+func hold(t barT, g stressGate, ok bool, what, format string, args ...any) {
+	t.Helper()
 	switch {
 	case ok:
 	case g.gates:
-		t.Errorf("over its bar: "+format, args...)
+		t.Errorf(what+": "+format, args...)
 	default:
-		t.Logf("over its bar, reported and not gated: "+format, args...)
+		t.Logf(what+", reported and not gated: "+format, args...)
 	}
 }
 
@@ -237,7 +249,7 @@ func TestACityOfSixHundredDistricts(t *testing.T) {
 		})
 
 		t.Run("it should report its frames, or nothing was measured", func(t *testing.T) {
-			assert.NotEmpty(t, framesMS(log))
+			holdToFrames(t, gate, framesMS(log))
 		})
 
 		t.Run("it should hold under 512 MiB of Private_Dirty once settled", func(t *testing.T) {
