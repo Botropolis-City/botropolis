@@ -77,19 +77,27 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
 		var office city.Point
 		if l.Office != nil && len(points) > 0 {
 			office = cam.WorldToScreen(l.Office.At)
-			g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width+2), casing)
-			g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width), ink)
 		}
-		for i := 1; i < len(points); i++ {
-			a, b := points[i-1], points[i]
-			if l.Stations[i].Dashed {
-				g.dashed(screen, a, b, width+2, 6*cam.Zoom, casing)
-				g.dashed(screen, a, b, width, 6*cam.Zoom, ink)
-				continue
+		// Its strokes are kept while they are drawn from the same
+		// (item 212); its stations, office and label are drawn after.
+		dash := 6 * cam.Zoom
+		key := g.lineKey(l, points, office, width, dash, [4]uint8{ink.R, ink.G, ink.B, ink.A}, [4]uint8{casing.R, casing.G, casing.B, casing.A})
+		g.keepOverlay(kindLines, key, func() {
+			if l.Office != nil && len(points) > 0 {
+				g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width+2), casing)
+				g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width), ink)
 			}
-			g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width+2), casing)
-			g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), ink)
-		}
+			for i := 1; i < len(points); i++ {
+				a, b := points[i-1], points[i]
+				if l.Stations[i].Dashed {
+					g.dashed(screen, a, b, width+2, dash, casing)
+					g.dashed(screen, a, b, width, dash, ink)
+					continue
+				}
+				g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width+2), casing)
+				g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), ink)
+			}
+		})
 		for i, st := range l.Stations {
 			if g.stationLit(st.District) {
 				continue

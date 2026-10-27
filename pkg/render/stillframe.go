@@ -82,7 +82,12 @@ type stillFrame struct {
 	standing, lastStanding uint64
 	log, lastLog           []heldItem
 	logged, logWhole       bool
-	notedKind              recordKind
+	// overlayRange is where this frame recorded its overlay, and lines
+	// and lastLines where this and the last frame recorded each part of
+	// it they keep, by key (item 212).
+	overlayRange     inked
+	lines, lastLines map[uint64]inked
+	notedKind        recordKind
 }
 
 // stillKey is what the standing city is composed over and through that
@@ -112,6 +117,9 @@ type stillStats struct {
 	// ranKept how many of those were kept; orderBroke whether one
 	// arrived where the last frame had another (item 212).
 	held, ran, ranKept, orderBroke int
+	// linesKept and linesDrawn are how many of the groups' lines kept
+	// their strokes from the last frame, and how many drew them.
+	linesKept, linesDrawn int
 }
 
 // note runs a drawable: onto the frame when nothing is recorded, or in

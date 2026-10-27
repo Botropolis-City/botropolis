@@ -39,12 +39,13 @@ const (
 	kindLandmark
 	kindStack
 	kindTower
+	kindLines
 	kindsKept
 )
 
 var recordKindNames = [kindsKept]string{"", "a district's aged floor", "a district's aged lots", "a building",
 	"a district's monument", "a district's sign", "a tree", "a piece of the bridge", "a bank of fog",
-	"a landmark", "the plant's stack", "a tower"}
+	"a landmark", "the plant's stack", "a tower", "a group's line"}
 
 func (k recordKind) String() string { return recordKindNames[k] }
 
@@ -105,6 +106,11 @@ func (g *Game) keepRecord() {
 	g.fitRecord(l, k)
 	s := &g.still
 	s.lastLog, s.log = s.log, s.lastLog[:0]
+	if s.lines == nil {
+		s.lines, s.lastLines = map[uint64]inked{}, map[uint64]inked{}
+	}
+	s.lastLines, s.lines = s.lines, s.lastLines
+	clear(s.lines)
 	s.lastStanding, s.logged = s.standing, s.logWhole
 	k.entries, g.still.entries = g.still.entries, k.entries
 	g.putJournalAside(&k.jn)
@@ -266,7 +272,6 @@ func (g *Game) keep(k *keptRecord, i int, shift image.Point) {
 func (g *Game) copyRecord(k *keptRecord, i int, shift image.Point) {
 	l := g.rec
 	e := k.entries[i]
-	dx, dy := float32(shift.X), float32(shift.Y)
 	from := len(l.cmds)
 	if shift == (image.Point{}) {
 		g.copyStill(k, e)
@@ -277,52 +282,7 @@ func (g *Game) copyRecord(k *keptRecord, i int, shift image.Point) {
 		})
 		return
 	}
-	// Each command is copied once, onto the end of the list, and moved
-	// there; its options are copied with it.
-	for j := e.from; j < e.to; j++ {
-		l.cmds = append(l.cmds, k.cmds[j])
-		c := &l.cmds[len(l.cmds)-1]
-		c.box = moved(c.box, shift)
-		switch c.kind {
-		case cmdImage:
-			l.imgOps = append(l.imgOps, k.imgOps[c.op])
-			c.op = len(l.imgOps) - 1
-			l.imgOps[c.op].GeoM.Translate(float64(dx), float64(dy))
-		case cmdColorM:
-			l.cmOps = append(l.cmOps, k.cmOps[c.op])
-			c.op = len(l.cmOps) - 1
-			l.cmOps[c.op].opts.GeoM.Translate(float64(dx), float64(dy))
-		case cmdWords:
-			l.textOps = append(l.textOps, k.textOps[c.op])
-			c.op = len(l.textOps) - 1
-			l.textOps[c.op].opts.GeoM.Translate(float64(dx), float64(dy))
-		case cmdFill:
-			l.fills = append(l.fills, k.fills[c.op])
-			c.op = len(l.fills) - 1
-		case cmdMesh:
-			l.triOps = append(l.triOps, k.triOps[c.op])
-			c.op = len(l.triOps) - 1
-			v := len(l.vertices)
-			for _, x := range c.vs {
-				x.DstX += dx
-				x.DstY += dy
-				l.vertices = append(l.vertices, x)
-			}
-			n := len(l.indices)
-			l.indices = append(l.indices, c.is...)
-			c.vs = l.vertices[v:len(l.vertices):len(l.vertices)]
-			c.is = l.indices[n:len(l.indices):len(l.indices)]
-			c.owned = false
-		case cmdRing:
-			l.pathOps = append(l.pathOps, k.pathOps[c.op])
-			c.op = len(l.pathOps) - 1
-			p := len(l.points)
-			for _, x := range k.points[c.p[0]:c.p[1]] {
-				l.points = append(l.points, x.Add(city.Point{X: float64(dx), Y: float64(dy)}))
-			}
-			c.p = [2]int{p, len(l.points)}
-		}
-	}
+	g.copyCmds(k, e.from, e.to, shift)
 	n := len(g.lightOps)
 	g.still.entries = append(g.still.entries, entry{
 		inked:  inked{from: from, to: len(l.cmds), box: moved(e.box, shift), hash: e.hash},
@@ -633,4 +593,56 @@ func (g *Game) kitsGeneration() int {
 		return 0
 	}
 	return g.kits.generation
+}
+
+// copyCmds copies kept commands from to before to onto the end of this
+// frame's record, each moved by shift, with its options and its points
+// and vertices: each copied once, and moved there.
+func (g *Game) copyCmds(k *keptRecord, from, to int, shift image.Point) {
+	l := g.rec
+	dx, dy := float32(shift.X), float32(shift.Y)
+	for j := from; j < to; j++ {
+		l.cmds = append(l.cmds, k.cmds[j])
+		c := &l.cmds[len(l.cmds)-1]
+		c.box = moved(c.box, shift)
+		switch c.kind {
+		case cmdImage:
+			l.imgOps = append(l.imgOps, k.imgOps[c.op])
+			c.op = len(l.imgOps) - 1
+			l.imgOps[c.op].GeoM.Translate(float64(dx), float64(dy))
+		case cmdColorM:
+			l.cmOps = append(l.cmOps, k.cmOps[c.op])
+			c.op = len(l.cmOps) - 1
+			l.cmOps[c.op].opts.GeoM.Translate(float64(dx), float64(dy))
+		case cmdWords:
+			l.textOps = append(l.textOps, k.textOps[c.op])
+			c.op = len(l.textOps) - 1
+			l.textOps[c.op].opts.GeoM.Translate(float64(dx), float64(dy))
+		case cmdFill:
+			l.fills = append(l.fills, k.fills[c.op])
+			c.op = len(l.fills) - 1
+		case cmdMesh:
+			l.triOps = append(l.triOps, k.triOps[c.op])
+			c.op = len(l.triOps) - 1
+			v := len(l.vertices)
+			for _, x := range c.vs {
+				x.DstX += dx
+				x.DstY += dy
+				l.vertices = append(l.vertices, x)
+			}
+			n := len(l.indices)
+			l.indices = append(l.indices, c.is...)
+			c.vs = l.vertices[v:len(l.vertices):len(l.vertices)]
+			c.is = l.indices[n:len(l.indices):len(l.indices)]
+			c.owned = false
+		case cmdRing:
+			l.pathOps = append(l.pathOps, k.pathOps[c.op])
+			c.op = len(l.pathOps) - 1
+			p := len(l.points)
+			for _, x := range k.points[c.p[0]:c.p[1]] {
+				l.points = append(l.points, x.Add(city.Point{X: float64(dx), Y: float64(dy)}))
+			}
+			c.p = [2]int{p, len(l.points)}
+		}
+	}
 }

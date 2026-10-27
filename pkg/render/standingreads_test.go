@@ -92,7 +92,7 @@ func (s *source) keyedSites() []keyedSite {
 					return true
 				}
 				sel, ok := call.Fun.(*ast.SelectorExpr)
-				if !ok || sel.Sel.Name != "noteKeyed" || len(call.Args) != 3 {
+				if !ok || sel.Sel.Name != "noteKeyed" && sel.Sel.Name != "keepOverlay" || len(call.Args) != 3 {
 					return true
 				}
 				kind, _ := call.Args[0].(*ast.Ident)
@@ -125,7 +125,9 @@ func (s *source) keyedSites() []keyedSite {
 					}
 					break
 				}
-				site.passed = s.passedTo(fn, call.Args, map[string]bool{})
+				// What its arguments are worked out from in the blocks around
+				// it, and what its callers pass it.
+				site.passed = append(definitions(fn, call, stack), s.passedTo(fn, call.Args, map[string]bool{})...)
 				sites = append(sites, site)
 				return true
 			})
@@ -260,7 +262,14 @@ func definitions(fn *ast.FuncDecl, call *ast.CallExpr, path []ast.Node) []ast.No
 	for k, n := range path {
 		switch n := n.(type) {
 		case *ast.BlockStmt:
+			// A statement before it gives a name after it only by an
+			// assignment or a declaration: a loop's names are its own.
 			for _, st := range n.List {
+				switch st.(type) {
+				case *ast.AssignStmt, *ast.DeclStmt:
+				default:
+					continue
+				}
 				if st.Pos() < call.Pos() && (k+1 >= len(path) || st != path[k+1]) {
 					givers = append(givers, st)
 				}
@@ -406,7 +415,7 @@ func (s *source) reads(node ast.Node, in string, passed ...ast.Node) (reads, clo
 						if n.Sel.Name == "now" {
 							clocks[in] = "g.now"
 						}
-						if n.Sel.Name != "noteKeyed" && !seen[m] {
+						if n.Sel.Name != "noteKeyed" && n.Sel.Name != "keepOverlay" && !seen[m] {
 							seen[m] = true
 							walk(m.Body, m.Name.Name, m.Type.Params)
 						}
@@ -494,6 +503,7 @@ var standingReasons = map[string]string{
 	"g.fogPuff":         "the puff texture, made once",
 	"g.weedFade":        "worked out by dressing, from mowing and reduced motion, before it is read",
 	"g.linePairs":       "scratch: a buffer of segments",
+	"scene.Lines":       "the groups' lines: each line's key is what its strokes are drawn from, its points on the screen and its colours",
 	"g.theme":           "house-wide: worked out once a frame into g.houseWide, which the standing key folds",
 	"g.faces":           "house-wide: worked out once a frame into g.houseWide, which the standing key folds",
 	"g.signage":         "house-wide: worked out once a frame into g.houseWide, which the standing key folds",

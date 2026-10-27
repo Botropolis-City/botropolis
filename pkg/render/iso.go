@@ -1011,12 +1011,15 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	} else {
 		screen = g.rec.dry
 		g.rec.begin()
+		g.overlaying = true
 		g.fadeAll(&screen, func() { g.groupLines(screen, cam, false) })
+		g.overlaying = false
 		g.groupLines(screen, cam, true)
 		if labelsInLayer {
 			g.drawMapLabels(screen)
 		}
 		lines := g.rec.end()
+		g.still.overlayRange = lines
 		screen = real
 		g.paintOverlay(real, lines)
 	}

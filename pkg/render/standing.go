@@ -27,7 +27,7 @@ func (g *Game) standingKey(selected *city.Building) uint64 {
 		boolBits(s.Detailed()), math.Float64bits(s.PlantLights()), uint64(uintptr(unsafe.Pointer(selected))),
 		// The clinic's plate counts what needs you, which a snooze running
 		// out changes with nothing else (item 280).
-		uint64(s.ClinicCount()))
+		uint64(s.ClinicCount()), maphash.String(inkSeed, s.FocusedGroup()))
 	// Moved by part of a pixel, nothing drawn lands where it did.
 	if g.rec != nil {
 		o := g.rec.origin

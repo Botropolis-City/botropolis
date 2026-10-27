@@ -51,7 +51,7 @@ func newRecordCity(t testing.TB) *recordCity {
 			// Its top course glows until the clock moves on.
 			s.Compactions, s.LastCompactionAt = 2, at.Add(-courseGlow+20*time.Second)
 		}
-		if i%6 == 0 {
+		if i%3 == 0 {
 			s.Group = "g1"
 		}
 		if i == 6 {

@@ -333,7 +333,9 @@ type Game struct {
 	noReuse bool
 	// noKeyed draws every item through its own draw, not its keyed one,
 	// for the tests to hold the keyed draws' hits and lights to.
-	noKeyed     bool
+	noKeyed bool
+	// overlaying is whether the overlay is being recorded (item 212).
+	overlaying  bool
 	verifyEvery int
 	verifyCount int
 	// verifyBudget is how many kept records a frame the net checks in
