@@ -26,6 +26,7 @@ func (g *Game) keepOverlay(kind recordKind, key uint64, draw func()) {
 	if found && !g.checks(key) {
 		from := len(l.cmds)
 		g.copyCmds(k, r.from, r.to, image.Point{})
+		l.adopt(from)
 		s.lines[key] = inked{from: from, to: len(l.cmds)}
 		s.stats.linesKept++
 		return

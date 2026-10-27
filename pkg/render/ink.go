@@ -205,6 +205,20 @@ func (l *drawList) push(c drawCmd, box image.Rectangle) {
 	l.hashInt(uint64(c.fade))
 }
 
+// adopt makes the commands from from on, copied in, the open drawable's
+// as recording them would have: in its fade group, its box grown by
+// theirs, and their hashes folded into its own (item 212).
+func (l *drawList) adopt(from int) {
+	var b [8]byte
+	for i := from; i < len(l.cmds); i++ {
+		c := &l.cmds[i]
+		c.fade = l.fade
+		l.box = l.box.Union(c.box)
+		binary.LittleEndian.PutUint64(b[:], c.hash)
+		l.h.Write(b[:])
+	}
+}
+
 // Image draws img onto dst, or records it.
 func (l *drawList) Image(dst, img *ebiten.Image, op *ebiten.DrawImageOptions) {
 	l.ImageOn(dst, img, nil, op)

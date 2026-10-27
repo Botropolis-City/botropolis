@@ -32,8 +32,10 @@ func TestKeepingTheGroupLines(t *testing.T) {
 	// overlay is the overlay's commands, by where they fall and what
 	// they draw.
 	overlay := func(g *Game) []string {
-		var out []string
 		o := g.still.overlayRange
+		// Its hash and box are what decides whether the overlay is drawn
+		// again.
+		out := []string{fmt.Sprintf("overlay %v %x", o.box, o.hash)}
 		for _, c := range g.rec.cmds[o.from:o.to] {
 			out = append(out, fmt.Sprintf("%v %x", c.box, c.hash))
 		}
