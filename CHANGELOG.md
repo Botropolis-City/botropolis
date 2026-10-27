@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-10-27
+
 ### Added
 
 - **Several districts can be moved at once.**
@@ -55,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Quitting asks in the middle of the window, not in the footer.**
   `q` opens a small panel over the dimmed city with three buttons: *Quit* (`y` or Enter), *Close up…* (`c`) and *Cancel* (`n`, Esc, or `q` again).
   It stays until you answer it, rather than going away on its own after ten seconds, and while it is up the map behind it takes no other key or click.
+- **The city does less work each frame and holds its memory down.**
+  A city whose buildings are standing still now reuses what it drew last frame instead of working each building out again, so a quiet city costs less of a core, at fit and zoomed in.
+  Zoomed in, a frame no longer does work for every building in the city, only for those on screen; the minimap is painted once rather than every frame, and the buildings are put in drawing order without being sorted afresh every frame.
+  The city now keeps the memory Go uses to about 300 MiB, unless `GOMEMLIMIT` is set in its environment; on a staged city of 2,400 sessions in about 600 districts, the map now opens in about 4 seconds where 0.3.2 took about 6, the city settles at under 500 MiB, and the memory cap costs no frame time.
 
 ### Fixed
 
@@ -78,9 +84,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A claude that has not answered within its time, two minutes to start or resume a session and thirty seconds to stop or remove one, is stopped, with a notice saying which.
   Pressing the same action again while it runs says it already is, rather than starting a second claude.
   Close up keeps its panel open while it works and quits once it is done.
-
-### Fixed
-
 - **New session takes typing.**
   Its directory, prompt and group fields ignored the keyboard, and took text only from a `--keys` script.
   They now take typing and input methods the way the finder does.
@@ -89,16 +92,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A paste of several lines becomes one, and a trailing newline is dropped.
   The clipboard is read with the tool copying uses, `wl-paste`, `xclip`, `xsel` or `pbpaste`, beside the map and for at most two seconds, so a tool that hangs shows a notice and never freezes the city.
   With none installed, the notice says what to install.
-
-### Fixed
-
 - **The card's *pack* button packs the session up again.**
   Pressing *pack* on a building's card, or *unpack* on a crate's, did nothing, so a boarded-up building stayed where it stood.
   Both now take the session to the depot and back, as Shift+P always did, and the footer says which.
   A session still working comes back from the depot as soon as it does something, and packing one now says so.
-
-### Fixed
-
 - **Closing up quits the city.**
   Enter in the *Close up* panel noted what was open and paused what you chose, then left the city running, with only the panel closed.
   Now it quits once both are done, as the quit prompt's quit does, and so does Shift+Q when nothing is open.
@@ -987,7 +984,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/Botropolis-City/botropolis/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Botropolis-City/botropolis/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Botropolis-City/botropolis/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Botropolis-City/botropolis/compare/v0.2.3...v0.3.0
