@@ -24,6 +24,10 @@ journal_hours	int
 journal_key	string
 labels	bool
 labels_key	string
+light	string
+light=day
+light=live
+light=night
 liveliness	string
 liveliness=calm
 liveliness=lively

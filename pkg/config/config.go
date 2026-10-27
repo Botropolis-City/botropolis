@@ -52,6 +52,13 @@ const (
 	// OnCloseAsk and OnCloseTray are its two values.
 	OnCloseAsk  = "ask"
 	OnCloseTray = "tray"
+	// KeyLight is the city's light at start: live follows the clock,
+	// night and day hold whatever it says. Item 308.
+	KeyLight = "light"
+	// LightLive, LightNight and LightDay are its three values.
+	LightLive  = "live"
+	LightNight = "night"
+	LightDay   = "day"
 	// KeyDistrictType is how a new district's type is chosen: random,
 	// guess, or one type for all. Item 109.
 	KeyDistrictType = "district_type"
@@ -173,6 +180,8 @@ type Config struct {
 	ScriptedRuns bool
 	// OnClose is what closing the window does (item 293).
 	OnClose string
+	// Light is the light the city starts in (item 308).
+	Light string
 }
 
 // ParseScriptedRuns reads scripted_runs: hidden or shown, true for
@@ -194,6 +203,15 @@ func ParseOnClose(value string) (string, error) {
 		return value, nil
 	}
 	return "", fmt.Errorf("unknown %s %q: use %s or %s", KeyOnClose, value, OnCloseAsk, OnCloseTray)
+}
+
+// ParseLight reads light: live, night or day. Item 308.
+func ParseLight(value string) (string, error) {
+	switch value {
+	case LightLive, LightNight, LightDay:
+		return value, nil
+	}
+	return "", fmt.Errorf("unknown %s %q: use %s, %s or %s", KeyLight, value, LightLive, LightNight, LightDay)
 }
 
 func NewViper() *viper.Viper {
@@ -232,6 +250,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyGlobalShortcut, "")
 	v.SetDefault(KeyScriptedRuns, ScriptedHidden)
 	v.SetDefault(KeyOnClose, OnCloseAsk)
+	v.SetDefault(KeyLight, LightLive)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -357,6 +376,9 @@ func New(v *viper.Viper) (*Config, error) {
 	}
 	cfg.ScriptedRuns = scripted
 	if cfg.OnClose, err = ParseOnClose(v.GetString(KeyOnClose)); err != nil {
+		return nil, err
+	}
+	if cfg.Light, err = ParseLight(v.GetString(KeyLight)); err != nil {
 		return nil, err
 	}
 	if err := checkLadder(cfg.ShutteredDays, cfg.OvergrownDays); err != nil {

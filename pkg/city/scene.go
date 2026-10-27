@@ -404,6 +404,13 @@ func (s *Scene) Light() Light {
 	return s.light
 }
 
+// SetLight sets how night is decided, as the light key does at start.
+// Item 308.
+func (s *Scene) SetLight(l Light) {
+	s.light = l
+	s.applyNight()
+}
+
 func (s *Scene) CycleLight() Light {
 	s.light = (s.light + 1) % 3
 	s.applyNight()

@@ -25,6 +25,7 @@ var unflagged = map[string]string{
 	KeyGoneSessions:   "keep sessions whose transcript Claude Code deleted on the map; their statistics are kept either way",
 	KeyScriptedRuns:   "hidden or shown: the sessions a program started, such as claude -p and the Agent SDK; hidden, they are off the map and out of the finder, and their tokens and spend still count",
 	KeyOnClose:        "ask or tray: what closing the window does; ask shows the quit prompt, and tray hides the city in the desktop's tray, where it keeps running, and asks instead where no tray is found",
+	KeyLight:          "live, night or day: the light the city starts in; live follows the clock, night 21:00 to 06:00, and night or day holds whatever it says, as n does, so a measurement's light does not depend on when it was taken",
 }
 
 // Docs are every config key, sorted, with its help, default and

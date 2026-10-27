@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A `light` setting starts the city in night or day**, held whatever the clock says, as `n` holds it.
+  `live`, the default, follows the clock as before.
+  Set it for one run with `--set light=night`.
+
 ### Changed
 
 - **The clinic's windows light up at night**, as the library's and City Hall's do.

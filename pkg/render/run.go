@@ -128,6 +128,9 @@ type Options struct {
 	// icon that opens a city closed to it, nil where none was found and
 	// TrayErr says why. Item 293.
 	OnClose string
+	// Light is the light the city starts in, the light key's value
+	// (item 308).
+	Light   string
 	Tray    tray.Tray
 	TrayErr error
 	// FindChords are the finder's chords; nil is this system's defaults.
@@ -220,6 +223,7 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.Record != "" {
 		scene.SetClock(game.now, time.Local)
 	}
+	scene.SetLight(startLight(opts.Light))
 	game.recordFrames = int(opts.RecordSeconds * 30)
 	game.recordEvery = 3
 	if opts.RecordFPS > 0 {

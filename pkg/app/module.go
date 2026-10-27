@@ -575,6 +575,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		DesktopErr:     desktopErr,
 		GlobalShortcut: shortcut,
 		OnClose:        c.config.OnClose,
+		Light:          c.config.Light,
 		Tray:           icon,
 		TrayErr:        trayErr,
 		Layout:         layout,

@@ -16,6 +16,7 @@ journal_hours = 5
 journal_key = "shift+j"
 labels = false
 labels_key = "b"
+light = "night"
 liveliness = "lively"
 new_session_key = "shift+b"
 on_close = "tray"

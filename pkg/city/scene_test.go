@@ -890,6 +890,32 @@ func TestWaterCard(t *testing.T) {
 	})
 }
 
+// Item 308: a light set at start holds against the clock.
+func TestSetLight(t *testing.T) {
+	noon := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	evening := time.Date(2026, 9, 18, 22, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		light city.Light
+		clock time.Time
+		night bool
+	}{
+		{city.LightNight, noon, true},
+		{city.LightDay, evening, false},
+		{city.LightAuto, evening, true},
+		{city.LightAuto, noon, false},
+	} {
+		t.Run("when the light is "+c.light.String()+", and the clock reads "+c.clock.Format("15:04"), func(t *testing.T) {
+			s := scene(t, session("a", cinders, state.Working))
+			s.SetClock(func() time.Time { return c.clock }, time.UTC)
+			s.SetLight(c.light)
+
+			t.Run(fmt.Sprintf("it should have night %v", c.night), func(t *testing.T) {
+				assert.Equal(t, c.night, s.City().Night)
+			})
+		})
+	}
+}
+
 func TestCycleLight(t *testing.T) {
 	t.Run("when nothing runs unattended and the light is cycled", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working))

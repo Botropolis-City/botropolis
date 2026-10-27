@@ -12,4 +12,5 @@ var Values = map[string][]string{
 	KeyUsageRefresh: {UsageManual},
 	KeyScriptedRuns: {ScriptedHidden, ScriptedShown},
 	KeyOnClose:      {OnCloseAsk, OnCloseTray},
+	KeyLight:        {LightLive, LightNight, LightDay},
 }
