@@ -1,5 +1,11 @@
 package city
 
+import (
+	"slices"
+
+	"botropolis.city/botropolis/pkg/state"
+)
+
 // LayoutsDone is how many plans the scene has made, and how many
 // groups' orders it has read, rather than remembered (item 197).
 func (s *Scene) LayoutsDone() (plans, orders int) {
@@ -63,3 +69,21 @@ func (c *City) BridgeRoads() []Cell { return c.bridgeRoads }
 // DistrictsLookedAt is how many districts DistrictOf has looked through
 // to find buildings' districts (item 270).
 func (c *City) DistrictsLookedAt() int { return c.districtLooks }
+
+// TriageWalkEveryBuilding is the triage walk taken over every building
+// in the city, as it was before item 270: the oracle the walk is held to.
+func (s *Scene) TriageWalkEveryBuilding() []*Building {
+	var walk []*Building
+	for _, b := range s.city.Buildings() {
+		if s.inTriage(b) {
+			walk = append(walk, b)
+		}
+	}
+	slices.SortFunc(walk, func(a, b *Building) int {
+		return state.LongestWaiting(a.Session, b.Session)
+	})
+	return walk
+}
+
+// TriageLooks is how many buildings the triage walk has looked at.
+func (s *Scene) TriageLooks() int { return s.triageLooks }

@@ -135,3 +135,53 @@ func TestDistrictSignOnceBuilt(t *testing.T) {
 		})
 	})
 }
+
+// Item 270: the chrome asks for the triage walk every frame, and it
+// looked at every building in the city to find the few waiting on you.
+func TestTriageWalkAtScale(t *testing.T) {
+	at := time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
+	open := func(layout *city.Layout) *city.Scene {
+		sessions := scaleSessions("")
+		for k, i := range []int{17, 230, 511} {
+			sessions[i].State = state.NeedsYou
+			sessions[i].LastActivity = at.Add(-time.Duration(k+1) * time.Hour)
+		}
+		s := city.NewScene(layout)
+		s.SetClock(func() time.Time { return at }, time.UTC)
+		s.Resize(800, 600)
+		s.SetSnapshot(snapshot(sessions...))
+		return s
+	}
+	ids := func(walk []*city.Building) []string {
+		var out []string
+		for _, b := range walk {
+			out = append(out, b.Session.ID)
+		}
+		return out
+	}
+
+	t.Run("when a city of 600 buildings has three sessions waiting on you", func(t *testing.T) {
+		s := open(city.NewLayout())
+		before := s.TriageLooks()
+		walk := ids(s.TriageWalk())
+		looked := s.TriageLooks() - before
+
+		t.Run("it should walk those three, the longest waiting first, as the walk over every building does", func(t *testing.T) {
+			assert.Equal(t, ids(s.TriageWalkEveryBuilding()), walk)
+		})
+
+		t.Run("it should look at no building that is not waiting on you", func(t *testing.T) {
+			assert.LessOrEqual(t, looked, 3)
+		})
+	})
+
+	t.Run("when one of the three is set aside", func(t *testing.T) {
+		layout := city.NewLayout()
+		layout.Snoozed = map[string]time.Time{"scale-0230": at.Add(time.Hour)}
+		s := open(layout)
+
+		t.Run("it should walk the other two", func(t *testing.T) {
+			assert.Equal(t, []string{"scale-0511", "scale-0017"}, ids(s.TriageWalk()))
+		})
+	})
+}

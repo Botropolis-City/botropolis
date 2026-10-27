@@ -185,10 +185,13 @@ type Scene struct {
 	// sightings are the new kinds waiting for their first caption, the
 	// first of them captioned since sightingAt.
 	// triageAt is the session triage is on (item 88).
-	triageAt   string
-	sightings  []Kind
-	sightingAt time.Time
-	generated  map[string]Generated
+	triageAt string
+	// triageLooks is how many buildings the triage walk has looked at
+	// (item 270).
+	triageLooks int
+	sightings   []Kind
+	sightingAt  time.Time
+	generated   map[string]Generated
 	// veil is the names the city wears while it is shared, nil when it
 	// wears its own, and real the snapshot as it came (item 168).
 	veil    *Veil

@@ -28,7 +28,10 @@ const triageDone = ActionPack
 // snoozed.
 func (s *Scene) TriageWalk() []*Building {
 	var walk []*Building
-	for _, b := range s.city.Buildings() {
+	// Only a session that needs you is ever in triage, and the city
+	// lists those as it is built: the chrome asks for the walk every
+	// frame (item 270).
+	for _, b := range s.city.waitingOnYou() {
 		if s.inTriage(b) {
 			walk = append(walk, b)
 		}
@@ -40,6 +43,7 @@ func (s *Scene) TriageWalk() []*Building {
 }
 
 func (s *Scene) inTriage(b *Building) bool {
+	s.triageLooks++
 	sess := b.Session
 	if sess.State != state.NeedsYou {
 		return false

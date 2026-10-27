@@ -146,7 +146,12 @@ type City struct {
 	// districtLooks is how many districts DistrictOf has looked through
 	// (item 270).
 	districtLooks int
-	districtOf    map[*Building]*District
+	// needsYou are the buildings whose sessions need you, which the
+	// triage walk takes from, and indexed whether the indexes are built
+	// (item 270).
+	needsYou   []*Building
+	indexed    bool
+	districtOf map[*Building]*District
 	// landings are the street cells the bridges land on, the first
 	// bridge first (items 218 and 220).
 	landings []landing
@@ -584,7 +589,20 @@ func (c *City) indexBuildings() {
 		if _, dup := c.byID[b.Session.ID]; !dup {
 			c.byID[b.Session.ID] = b
 		}
+		if b.Session.State == state.NeedsYou {
+			c.needsYou = append(c.needsYou, b)
+		}
 	}
+	c.indexed = true
+}
+
+// waitingOnYou are the buildings whose sessions need you: those listed
+// once the city is built, or every building before then.
+func (c *City) waitingOnYou() []*Building {
+	if c.indexed {
+		return c.needsYou
+	}
+	return c.Buildings()
 }
 
 // building is the building of a session, or nil.
