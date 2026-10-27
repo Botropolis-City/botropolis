@@ -24,7 +24,10 @@ func (g *Game) standingKey(selected *city.Building) uint64 {
 	key := keyMix(g.frameBase.all, g.frameBase.house, g.houseWide, g.houseWideKey(),
 		uint64(s.Generation()), uint64(s.GroundGeneration()), uint64(s.View()),
 		boolBits(c.Night), boolBits(g.lightsOn), boolBits(g.labelsVisible()), boolBits(s.Scenery()),
-		boolBits(s.Detailed()), math.Float64bits(s.PlantLights()), uint64(uintptr(unsafe.Pointer(selected))))
+		boolBits(s.Detailed()), math.Float64bits(s.PlantLights()), uint64(uintptr(unsafe.Pointer(selected))),
+		// The clinic's plate counts what needs you, which a snooze running
+		// out changes with nothing else (item 280).
+		uint64(s.ClinicCount()))
 	// Moved by part of a pixel, nothing drawn lands where it did.
 	if g.rec != nil {
 		o := g.rec.origin

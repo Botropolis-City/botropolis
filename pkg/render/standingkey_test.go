@@ -116,6 +116,14 @@ func TestTheStandingKey(t *testing.T) {
 				s.Sessions[1].State, s.Sessions[1].LastActivity = state.Working, rc.now
 			})
 		}, 0, 3 * time.Minute, true},
+		// Item 280: the clinic's plate counts what needs you, and a held
+		// frame replays last frame's plate.
+		{"a snooze runs out and the clinic counts one more", func(rc *recordCity) {
+			rc.snap(func(s *state.Snapshot) {
+				s.Sessions[1].State, s.Sessions[1].LastActivity = state.NeedsYou, rc.now.Add(-time.Hour)
+			})
+			rc.scene.Layout().Snoozed = map[string]time.Time{rc.snapshot.Sessions[1].ID: rc.now.Add(time.Minute)}
+		}, 30 * time.Second, time.Minute + 2*time.Second, false},
 	} {
 		t.Run("when "+c.name, func(t *testing.T) {
 			rc := settled(t)

@@ -504,6 +504,7 @@ var standingReasons = map[string]string{
 	"city.Bridges":     "the city, rebuilt with each snapshot, which scene.Generation counts",
 	"city.FogOf":       "the city, rebuilt with each snapshot, which scene.Generation counts",
 	"city.Hall":        "the city, rebuilt with each snapshot, which scene.Generation counts",
+	"city.Clinic":      "the city, rebuilt with each snapshot, which scene.Generation counts",
 	"city.Library":     "the city, rebuilt with each snapshot, which scene.Generation counts",
 	"city.Plant":       "the city, rebuilt with each snapshot, which scene.Generation counts",
 	"city.DistrictOf":  "the city, rebuilt with each snapshot, which scene.Generation counts",
