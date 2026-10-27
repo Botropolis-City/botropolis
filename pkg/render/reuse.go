@@ -84,6 +84,7 @@ type keptRecord struct {
 // found, as the frame check draws each frame straight and then not.
 func (g *Game) keepRecord() {
 	l, k := g.recorder(), &g.still.kept
+	g.still.logged = false
 	if k.held {
 		k.held = g.noStill
 		g.jn.looks, g.jn.lookKeys, g.jn.words = g.jn.looks[:0], g.jn.lookKeys[:0], g.jn.words[:0]
@@ -102,6 +103,9 @@ func (g *Game) keepRecord() {
 	k.textOps, l.textOps = l.textOps, k.textOps
 	k.fills, l.fills = l.fills, k.fills
 	g.fitRecord(l, k)
+	s := &g.still
+	s.lastLog, s.log = s.log, s.lastLog[:0]
+	s.lastStanding, s.logged = s.standing, s.logWhole
 	k.entries, g.still.entries = g.still.entries, k.entries
 	g.putJournalAside(&k.jn)
 	k.origin = l.origin
@@ -125,6 +129,7 @@ func (g *Game) noteKeyed(kind recordKind, key uint64, draw func()) {
 		return
 	}
 	l := g.rec
+	g.still.notedKind = kind
 	key = g.frameKey(kind, key)
 	k := &g.still.kept
 	i, found := k.at[key]

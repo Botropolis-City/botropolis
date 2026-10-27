@@ -930,6 +930,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			}))
 			items[len(items)-1].kept = g.keeps(d)
 			items[len(items)-1].keyed = func() { signed[d] = g.noteDistrictSign(screen, cam, d) }
+			items[len(items)-1].runs = true
 		}
 	}
 	fade := g.fadeUnkept(&screen, items, airborne)
@@ -942,11 +943,15 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	}
 	g.sorted = len(items)
 	g.still.standing = g.standingKey(selected)
+	shift, hold := g.holding(fade)
+	g.still.logWhole = fade == nil && !g.noKeyed && !g.noStill && !g.noReuse
+	n := 0
 	for _, d := range layered(cam, items, airborne) {
 		// While a hovered car fades the city, each draw is wrapped in
 		// its fade group, so nothing keeps its record (item 212).
 		if d.keyed != nil && fade == nil && !g.noKeyed {
-			d.keyed()
+			g.noteItem(d, n, &hold, shift)
+			n++
 			continue
 		}
 		g.note(d.draw, d.moves)

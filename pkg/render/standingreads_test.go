@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -18,6 +19,7 @@ import (
 // source is the package's code, parsed once: its files, and its
 // functions and the game's methods by name.
 type source struct {
+	fset    *token.FileSet
 	files   []*ast.File
 	methods map[string]*ast.FuncDecl
 	funcs   map[string]*ast.FuncDecl
@@ -28,7 +30,7 @@ func parseSource(t *testing.T) *source {
 	names, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 	fset := token.NewFileSet()
-	s := &source{methods: map[string]*ast.FuncDecl{}, funcs: map[string]*ast.FuncDecl{}}
+	s := &source{fset: fset, methods: map[string]*ast.FuncDecl{}, funcs: map[string]*ast.FuncDecl{}}
 	for _, name := range names {
 		if strings.HasSuffix(name, "_test.go") {
 			continue
@@ -396,6 +398,14 @@ func TestStillKeyReads(t *testing.T) {
 		})
 	}
 
+	t.Run("when a keyed draw gives back what the frame goes on to use", func(t *testing.T) {
+		unsaid := s.givesBack()
+
+		t.Run("it should say it runs every frame", func(t *testing.T) {
+			assert.Empty(t, unsaid)
+		})
+	})
+
 	t.Run("when a read is listed with a reason", func(t *testing.T) {
 		var stale []string
 		for r := range standingReasons {
@@ -433,4 +443,59 @@ func (s *source) keptKinds() []string {
 		}
 	}
 	return nil
+}
+
+// givesBack is every keyed draw, as an item sets it, that assigns
+// something besides what it notes, where the block setting it does not
+// also say the item runs: a frame holding the still city would skip
+// the assignment.
+func (s *source) givesBack() []string {
+	var unsaid []string
+	for _, f := range s.files {
+		ast.Inspect(f, func(n ast.Node) bool {
+			block, ok := n.(*ast.BlockStmt)
+			if !ok {
+				return true
+			}
+			runs := false
+			for _, st := range block.List {
+				as, ok := st.(*ast.AssignStmt)
+				if !ok || len(as.Lhs) != 1 {
+					continue
+				}
+				if sel, ok := as.Lhs[0].(*ast.SelectorExpr); ok && sel.Sel.Name == "runs" {
+					runs = true
+				}
+			}
+			for _, st := range block.List {
+				as, ok := st.(*ast.AssignStmt)
+				if !ok || len(as.Lhs) != 1 || len(as.Rhs) != 1 {
+					continue
+				}
+				sel, ok := as.Lhs[0].(*ast.SelectorExpr)
+				if !ok || sel.Sel.Name != "keyed" {
+					continue
+				}
+				lit, ok := as.Rhs[0].(*ast.FuncLit)
+				if !ok {
+					continue
+				}
+				assigns := false
+				ast.Inspect(lit.Body, func(n ast.Node) bool {
+					if _, ok := n.(*ast.FuncLit); ok {
+						return false
+					}
+					if _, ok := n.(*ast.AssignStmt); ok {
+						assigns = true
+					}
+					return true
+				})
+				if assigns && !runs {
+					unsaid = append(unsaid, fmt.Sprint(s.fset.Position(as.Pos())))
+				}
+			}
+			return true
+		})
+	}
+	return unsaid
 }

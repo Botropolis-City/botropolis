@@ -106,10 +106,12 @@ func (rc *recordCity) frame() stillStats {
 
 // recordWalk is a seeded walk over what a frame is drawn from: every
 // kind of change once in a shuffled order, then random ones, each
-// drawn with every kept record checked against one made afresh. It
-// returns how many kept records differed from theirs, and how many
-// were kept.
-func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
+// drawn with every kept record checked against one made afresh, and
+// then, with the net off, drawn until the still city holds, and that
+// frame held to one made afresh. It returns how many kept records
+// differed from theirs and how many were kept, and how many frames held
+// and how many of those differed from theirs (item 212).
+func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused, held, heldStale int) {
 	t.Helper()
 	rc := newRecordCity(t)
 	rc.g.verifyEvery = 1
@@ -244,8 +246,21 @@ func recordWalk(t *testing.T, seed uint64, steps int) (stale, reused int) {
 			stale += st.stale
 			reused += st.reused
 		}
+		rc.g.verifyEvery = 0
+		for range 4 {
+			if rc.frame().held > 0 {
+				held++
+				if notes, fresh := drawn(rc.g), afresh(rc); !assert.ObjectsAreEqual(fresh, notes) {
+					t.Logf("seed %d, step %d (%s): the frame that held differs from the one made afresh: held only %v; afresh only %v", seed, step, changes[k].name,
+						onlyIn(notes, fresh), onlyIn(fresh, notes))
+					heldStale++
+				}
+				break
+			}
+		}
+		rc.g.verifyEvery = 1
 	}
-	return stale, reused
+	return stale, reused, held, heldStale
 }
 
 // Item 212: a still drawable whose key holds keeps last frame's record
@@ -259,13 +274,19 @@ func TestTheRecordKeyWalk(t *testing.T) {
 			seed = s
 		}
 		t.Logf("seed %d (RECORD_WALK_SEED replays it)", seed)
-		stale, reused := recordWalk(t, seed, 60)
+		stale, reused, held, heldStale := recordWalk(t, seed, 60)
 
 		t.Run("it should find no kept record that differs from the one made afresh, after every step", func(t *testing.T) {
 			assert.Zero(t, stale)
 		})
 		t.Run("it should keep records on some step", func(t *testing.T) {
 			assert.Positive(t, reused)
+		})
+		t.Run("it should hold no frame that differs from the one made afresh", func(t *testing.T) {
+			assert.Zero(t, heldStale)
+		})
+		t.Run("it should hold the still city on some step", func(t *testing.T) {
+			assert.Positive(t, held)
 		})
 	})
 
@@ -286,4 +307,23 @@ func TestTheRecordKeyWalk(t *testing.T) {
 			assert.Positive(t, stale)
 		})
 	})
+}
+
+// onlyIn is the notes in a and not in b, at most four.
+func onlyIn(a, b []string) []string {
+	in := map[string]int{}
+	for _, n := range b {
+		in[n]++
+	}
+	var out []string
+	for _, n := range a {
+		if in[n] > 0 {
+			in[n]--
+			continue
+		}
+		if out = append(out, n); len(out) == 4 {
+			break
+		}
+	}
+	return out
 }

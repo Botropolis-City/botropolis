@@ -75,8 +75,14 @@ type stillFrame struct {
 	// frames, and shrinks how many times one was made smaller (item 212).
 	sizes   [10]sizing
 	shrinks int
-	// standing is this frame's standing key (item 212).
-	standing uint64
+	// standing is this frame's standing key, and lastStanding the last
+	// frame's; log is each keyed item as this frame noted it, lastLog
+	// the last frame's, whole when logged; notedKind is the kind
+	// noteKeyed was last asked to note (item 212).
+	standing, lastStanding uint64
+	log, lastLog           []heldItem
+	logged, logWhole       bool
+	notedKind              recordKind
 }
 
 // stillKey is what the standing city is composed over and through that
@@ -101,6 +107,11 @@ type stillStats struct {
 	// framesWorked is how many buildings' frames were worked out, and
 	// checked how many kept records the net made afresh to compare.
 	framesWorked, checked int
+	// held is how many still things a frame noted as the last did,
+	// without running them; ran how many keyed items it ran, and
+	// ranKept how many of those were kept; orderBroke whether one
+	// arrived where the last frame had another (item 212).
+	held, ran, ranKept, orderBroke int
 }
 
 // note runs a drawable: onto the frame when nothing is recorded, or in

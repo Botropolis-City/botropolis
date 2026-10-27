@@ -25,6 +25,10 @@ type drawable struct {
 	// keyed, when set, notes it in place of note, keeping its record
 	// while what it is drawn from holds (item 212).
 	keyed func()
+	// runs is whether its keyed draw must run every frame, as it gives
+	// back what the frame goes on to use, so a frame holding the still
+	// city does not note it as the last did (item 212).
+	runs bool
 	// kept is whether it stays at full strength while a hovered car
 	// fades everything not tied to it (item 108).
 	kept bool
