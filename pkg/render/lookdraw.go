@@ -98,12 +98,29 @@ func (g *Game) paintBuilding(screen *ebiten.Image, cam *city.Camera, f *building
 		}
 	}
 	for _, r := range runsOf(f.present, f.live) {
-		if !r.baked || g.looks == nil || g.noLookCache {
-			g.drawSteps(screen, cam, f, r.from, r.to)
-			continue
-		}
-		g.drawRun(screen, cam, f, r)
+		g.paintRun(screen, cam, f, r)
 	}
+}
+
+// paintRun paints one run of a building's steps: from its baked look, or
+// straight when it is not baked.
+func (g *Game) paintRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame, r run) {
+	if !r.baked || g.looks == nil || g.noLookCache {
+		g.drawSteps(screen, cam, f, r.from, r.to)
+		return
+	}
+	g.drawRun(screen, cam, f, r)
+}
+
+// movesIn is whether a step from from to before to is drawn and moves
+// every frame. Lights are drawn live but do not move.
+func movesIn(f *buildingFrame, from, to step) bool {
+	for i := from; i < to; i++ {
+		if f.live[i] && f.present[i] && i != stepLights {
+			return true
+		}
+	}
+	return false
 }
 
 // buildingWork is what drawIso draws after a building it does not bake:

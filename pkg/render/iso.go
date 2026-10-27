@@ -1793,11 +1793,8 @@ func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 			// Recorded afresh, it is painted from its frame worked out
 			// afresh, so the net compares a kept record with one that owes
 			// nothing to the quiet key.
-			g.noteKeyed(kindHouse, quiet, func() {
-				g.buildingsDrawn++
-				if fresh, ok := g.buildingFrame(cam, b, selected, detailed, seconds); ok {
-					g.paintBuilding(screen, cam, &fresh)
-				}
+			g.noteHouse(screen, cam, &f, quiet, func() (buildingFrame, bool) {
+				return g.buildingFrame(cam, b, selected, detailed, seconds)
 			})
 			return
 		}
@@ -1820,10 +1817,54 @@ func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 		key = g.buildingKey(&f)
 		g.buildingHits(cam, &f)
 	}
-	g.noteKeyed(kindHouse, key, func() {
-		g.buildingsDrawn++
-		g.paintBuilding(screen, cam, &f)
-	})
+	g.noteHouse(screen, cam, &f, key, func() (buildingFrame, bool) { return f, true })
+}
+
+// noteHouse notes a building from its frame under key, painting each
+// record from the frame again gives. One whose steps all stand still is
+// one record. One with a step that moves every frame, a beacon pulsing
+// for its user or trucks at its skip, is noted run by run in its steps'
+// order: each run that stands still kept under key and its place, and
+// each that moves drawn afresh, so what moves does not keep the rest of
+// the building from being kept (item 212).
+//
+// By night a building whose windows are lit is one record: what moves
+// over its windows cuts their light, and a cut does not cross from a
+// part drawn afresh into a kept one, as --check-frames showed.
+func (g *Game) noteHouse(screen *ebiten.Image, cam *city.Camera, f *buildingFrame, key uint64, again func() (buildingFrame, bool)) {
+	if !movesIn(f, 0, stepCount) || g.lightsOn && f.present[stepLights] {
+		g.noteKeyed(kindHouse, key, func() {
+			g.buildingsDrawn++
+			if fr, ok := again(); ok {
+				g.paintBuilding(screen, cam, &fr)
+			}
+		})
+		return
+	}
+	for i, r := range runsOf(f.present, f.live) {
+		first := i == 0
+		if movesIn(f, r.from, r.to) {
+			g.note(func() {
+				if first {
+					g.buildingsDrawn++
+				}
+				g.paintRun(screen, cam, f, r)
+			}, true)
+			continue
+		}
+		g.noteKeyed(kindHouse, keyMix(key, uint64(i)+1), func() {
+			if first {
+				g.buildingsDrawn++
+			}
+			fr, ok := again()
+			if !ok {
+				return
+			}
+			if runs := runsOf(fr.present, fr.live); i < len(runs) {
+				g.paintRun(screen, cam, &fr, runs[i])
+			}
+		})
+	}
 }
 
 // quietFrame is a quiet building's frame, and the quiet key it was

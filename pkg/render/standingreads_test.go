@@ -64,6 +64,10 @@ type keyedSite struct {
 	kind  string
 	in    string
 	scope ast.Node
+	// passed is what the callers of the function it is in hand it,
+	// where its key or draw takes a parameter: the arguments they pass,
+	// and what those are worked out from.
+	passed []ast.Node
 }
 
 // keyedSites is every call of noteKeyed in the package's code, so a kind
@@ -121,6 +125,7 @@ func (s *source) keyedSites() []keyedSite {
 					}
 					break
 				}
+				site.passed = s.passedTo(fn, call.Args, map[string]bool{})
 				sites = append(sites, site)
 				return true
 			})
@@ -129,12 +134,200 @@ func (s *source) keyedSites() []keyedSite {
 	return sites
 }
 
+// passedTo is, where args use a parameter of fn, every argument fn's
+// callers hand it and what each is worked out from in the caller, and so
+// on up through callers whose own parameters those use (item 212).
+func (s *source) passedTo(fn *ast.FuncDecl, args []ast.Expr, seen map[string]bool) []ast.Node {
+	// drawIso is where a frame's still city starts: what it is handed,
+	// the scene's city, the camera, the hover, the selection and the
+	// clock, the standing key covers by name.
+	if seen[fn.Name.Name] || fn.Name.Name == "drawIso" || !usesParams(fn, args) {
+		return nil
+	}
+	seen[fn.Name.Name] = true
+	var out []ast.Node
+	for _, f := range s.files {
+		for _, d := range f.Decls {
+			caller, ok := d.(*ast.FuncDecl)
+			if !ok || caller.Body == nil {
+				continue
+			}
+			var path []ast.Node
+			ast.Inspect(caller.Body, func(n ast.Node) bool {
+				if n == nil {
+					path = path[:len(path)-1]
+					return true
+				}
+				path = append(path, n)
+				call, ok := n.(*ast.CallExpr)
+				if !ok || !calls(call, fn) {
+					return true
+				}
+				for _, a := range call.Args {
+					out = append(out, a)
+				}
+				out = append(out, definitions(caller, call, path)...)
+				out = append(out, s.passedTo(caller, call.Args, seen)...)
+				return true
+			})
+		}
+	}
+	return out
+}
+
+// calls is whether call calls fn: a method of the game, or a function.
+func calls(call *ast.CallExpr, fn *ast.FuncDecl) bool {
+	switch f := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		id, ok := f.X.(*ast.Ident)
+		return fn.Recv != nil && ok && id.Name == "g" && f.Sel.Name == fn.Name.Name
+	case *ast.Ident:
+		return fn.Recv == nil && f.Name == fn.Name.Name
+	}
+	return false
+}
+
+// names is every identifier in nodes.
+func names(nodes ...ast.Node) map[string]bool {
+	out := map[string]bool{}
+	for _, n := range nodes {
+		ast.Inspect(n, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok {
+				out[id.Name] = true
+			}
+			return true
+		})
+	}
+	return out
+}
+
+// usesParams is whether args name a parameter of fn that carries what
+// something is drawn from. The image drawn on and the camera do not:
+// the camera is in the standing key whole, by the frame's base and its
+// origin.
+func usesParams(fn *ast.FuncDecl, args []ast.Expr) bool {
+	used := names(exprs(args)...)
+	for _, f := range fn.Type.Params.List {
+		if drawnWith(f.Type) {
+			continue
+		}
+		for _, name := range f.Names {
+			if used[name.Name] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// drawnWith is whether a parameter's type is what a draw is made with
+// rather than from: the image drawn on, or the camera.
+func drawnWith(t ast.Expr) bool {
+	star, ok := t.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	sel, ok := star.X.(*ast.SelectorExpr)
+	return ok && (sel.Sel.Name == "Image" || sel.Sel.Name == "Camera")
+}
+
+func exprs(es []ast.Expr) []ast.Node {
+	out := make([]ast.Node, len(es))
+	for i, e := range es {
+		out[i] = e
+	}
+	return out
+}
+
+// definitions is what the names call's arguments use are worked out
+// from, where they are given in the blocks around call (path is the
+// nodes from fn's body down to it): the right of each assignment or
+// declaration before it in one of those blocks, or of a range or an if's
+// statement it is inside, and of those that give the names they use in
+// turn. A name given elsewhere in fn is another thing of that name.
+func definitions(fn *ast.FuncDecl, call *ast.CallExpr, path []ast.Node) []ast.Node {
+	want := names(exprs(call.Args)...)
+	for _, f := range fn.Type.Params.List {
+		if drawnWith(f.Type) {
+			for _, name := range f.Names {
+				delete(want, name.Name)
+			}
+		}
+	}
+	delete(want, "screen")
+	// givers is every statement around call that can give a name.
+	var givers []ast.Node
+	for k, n := range path {
+		switch n := n.(type) {
+		case *ast.BlockStmt:
+			for _, st := range n.List {
+				if st.Pos() < call.Pos() && (k+1 >= len(path) || st != path[k+1]) {
+					givers = append(givers, st)
+				}
+			}
+		case *ast.RangeStmt:
+			givers = append(givers, n)
+		case *ast.IfStmt:
+			if n.Init != nil {
+				givers = append(givers, n.Init)
+			}
+		case *ast.ForStmt:
+			if n.Init != nil {
+				givers = append(givers, n.Init)
+			}
+		}
+	}
+	done := map[ast.Node]bool{}
+	var out []ast.Node
+	for grew := true; grew; {
+		grew = false
+		for _, g := range givers {
+			if done[g] {
+				continue
+			}
+			var lhs, rhs []ast.Expr
+			switch g := g.(type) {
+			case *ast.AssignStmt:
+				lhs, rhs = g.Lhs, g.Rhs
+			case *ast.RangeStmt:
+				lhs, rhs = []ast.Expr{g.Key, g.Value}, []ast.Expr{g.X}
+			case *ast.DeclStmt:
+				if gen, ok := g.Decl.(*ast.GenDecl); ok {
+					for _, spec := range gen.Specs {
+						if v, ok := spec.(*ast.ValueSpec); ok {
+							for _, name := range v.Names {
+								lhs = append(lhs, name)
+							}
+							rhs = append(rhs, v.Values...)
+						}
+					}
+				}
+			}
+			for _, l := range lhs {
+				if id, ok := l.(*ast.Ident); ok && want[id.Name] {
+					done[g], grew = true, true
+					for _, r := range rhs {
+						out = append(out, r)
+						for name := range names(r) {
+							if name != "screen" && name != "cam" {
+								want[name] = true
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+	return out
+}
+
 // reads is everything of the game and the scene the code from node reads,
 // through every method of the game and function of the package it
 // calls, each with the function it was first read in, and the functions
 // that read the clock. It does not go into noteKeyed, which keeps or
 // records what it is given.
-func (s *source) reads(node ast.Node, in string) (reads, clocks map[string]string) {
+func (s *source) reads(node ast.Node, in string, passed ...ast.Node) (reads, clocks map[string]string) {
 	reads, clocks = map[string]string{}, map[string]string{}
 	seen := map[*ast.FuncDecl]bool{}
 	note := func(read, in string) {
@@ -252,6 +445,9 @@ func (s *source) reads(node ast.Node, in string) (reads, clocks map[string]strin
 		})
 	}
 	walk(node, in, nil)
+	for _, n := range passed {
+		walk(n, in+" (passed)", nil)
+	}
 	delete(reads, "g.scene")
 	return reads, clocks
 }
@@ -359,7 +555,7 @@ func TestStillKeyReads(t *testing.T) {
 
 	used := map[string]bool{}
 	for _, site := range sites {
-		reads, clocks := s.reads(site.scope, site.in)
+		reads, clocks := s.reads(site.scope, site.in, site.passed...)
 		for r := range reads {
 			if _, ok := covered[r]; !ok {
 				used[r] = true
