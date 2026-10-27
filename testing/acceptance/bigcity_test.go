@@ -71,6 +71,8 @@ func framesMS(log string) []float64 {
 // fitted view, where every building is on screen.
 func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 	performanceTier(t)
+	gate := stressGateFor(os.Getenv)
+	t.Logf("the stress city %s", gate.mode)
 	const (
 		fitted = 16 * time.Millisecond
 		closer = 10 * time.Millisecond
@@ -97,7 +99,7 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 		t.Logf("fitted: %v of CPU a frame, the bar %v", took, fitted)
 
 		t.Run("it should take at most 16 ms of CPU a frame", func(t *testing.T) {
-			assert.LessOrEqual(t, took, fitted, "took %v", took)
+			holdToBar(t, gate, took <= fitted, "fitted took %v, the bar %v", took, fitted)
 		})
 	})
 
@@ -111,7 +113,7 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 		t.Logf("zoomed in: %v of CPU a frame, the bar %v", took, closer)
 
 		t.Run("it should take at most 10 ms of CPU a frame", func(t *testing.T) {
-			assert.LessOrEqual(t, took, closer, "took %v", took)
+			holdToBar(t, gate, took <= closer, "zoomed in took %v, the bar %v", took, closer)
 		})
 
 		t.Run("and it is panned", func(t *testing.T) {
@@ -120,7 +122,7 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 			t.Logf("panning: %v of CPU a frame, the bar %v", took, closer)
 
 			t.Run("it should take at most 10 ms of CPU a frame", func(t *testing.T) {
-				assert.LessOrEqual(t, took, closer, "took %v", took)
+				holdToBar(t, gate, took <= closer, "panning took %v, the bar %v", took, closer)
 			})
 		})
 	})
@@ -137,9 +139,47 @@ func firstMapLimit(getenv func(string) string) (time.Duration, string) {
 	return 5 * time.Second, "5s, the reference machine's limit: CI is not set (item 270)"
 }
 
+// stressGate is whether the city of 600 districts holds its measures to
+// their bars where it runs (Aria, 2026-10-27, item 305): a shared runner
+// varies too much between runs to gate on, so with CI set every measure is
+// logged with its bar, and the gate is the reference machine's quiet
+// make test-performance, which every release runs.
+type stressGate struct {
+	gates bool
+	mode  string
+}
+
+func stressGateFor(getenv func(string) string) stressGate {
+	if getenv("CI") != "" {
+		return stressGate{false, "reports and does not gate: CI is set, and a shared runner's CPU varies too much between runs to hold a bar (item 305); the reference machine's quiet make test-performance gates"}
+	}
+	return stressGate{true, "gates: CI is not set, so this is the reference machine"}
+}
+
+type barT interface {
+	Helper()
+	Errorf(string, ...any)
+	Logf(string, ...any)
+}
+
+// holdToBar fails t when the measure is over its bar and g gates, and only
+// logs it when g reports.
+func holdToBar(t barT, g stressGate, ok bool, format string, args ...any) {
+	t.Helper()
+	switch {
+	case ok:
+	case g.gates:
+		t.Errorf("over its bar: "+format, args...)
+	default:
+		t.Logf("over its bar, reported and not gated: "+format, args...)
+	}
+}
+
 func TestACityOfSixHundredDistricts(t *testing.T) {
 	performanceTier(t)
 	helpers.NeedXvfb(t)
+	gate := stressGateFor(os.Getenv)
+	t.Logf("the stress city %s", gate.mode)
 	firstFrame, why := firstMapLimit(os.Getenv)
 	t.Logf("first-map limit: %s", why)
 	const (
@@ -193,7 +233,7 @@ func TestACityOfSixHundredDistricts(t *testing.T) {
 			drawnIn, top>>20, last>>20, peakHeapMB(log), lastLiveMB(log), framesMS(log))
 
 		t.Run("it should draw its first frame within "+firstFrame.String(), func(t *testing.T) {
-			assert.True(t, drawnIn > 0 && drawnIn <= firstFrame, "first frame after %v", drawnIn)
+			holdToBar(t, gate, drawnIn > 0 && drawnIn <= firstFrame, "first frame after %v, the limit %v", drawnIn, firstFrame)
 		})
 
 		t.Run("it should report its frames, or nothing was measured", func(t *testing.T) {
@@ -201,11 +241,11 @@ func TestACityOfSixHundredDistricts(t *testing.T) {
 		})
 
 		t.Run("it should hold under 512 MiB of Private_Dirty once settled", func(t *testing.T) {
-			assert.Less(t, last, int64(settled), "settled at %d MiB", last>>20)
+			holdToBar(t, gate, last < int64(settled), "settled at %d MiB, the bar 512 MiB", last>>20)
 		})
 
 		t.Run("it should never pass 1 GiB of Private_Dirty", func(t *testing.T) {
-			assert.Less(t, top, int64(peak), "peaked at %d MiB", top>>20)
+			holdToBar(t, gate, top < int64(peak), "peaked at %d MiB, the bar 1 GiB", top>>20)
 		})
 	})
 }

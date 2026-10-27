@@ -29,7 +29,9 @@ jobs:
   # machine, so no push runs them: the performance manager does, on demand
   # and before each release, and this does, before the tag. They hold the
   # budgets in performance/, with instructions counted where a runner has
-  # the counters (item 209), and a dry run runs them too.
+  # the counters (item 209), and a dry run runs them too. The 600-district
+  # stress city only reports here, because a shared runner varies too much
+  # to hold its bars; the reference machine's quiet run gates it (item 305).
   performance:
     runs-on: ubuntu-latest
     permissions:
