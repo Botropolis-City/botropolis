@@ -39,6 +39,7 @@ import (
 	"botropolis.city/botropolis/pkg/script"
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/tray"
 	"botropolis.city/botropolis/pkg/tui"
 	"botropolis.city/botropolis/pkg/ui"
 	"botropolis.city/botropolis/pkg/xvfb"
@@ -559,12 +560,23 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			defer desktop.Close()
 		}
 	}
+	// Only the one city puts an icon in the tray. Item 293.
+	var icon tray.Tray
+	var trayErr error
+	if one != nil {
+		if icon, trayErr = tray.Start(runtime.GOOS, os.Getenv); icon != nil {
+			defer icon.Close()
+		}
+	}
 	return render.Run(cmd.Context(), render.Options{
 		Requests:       requests,
 		OpenFinder:     openFinder,
 		Desktop:        desktop,
 		DesktopErr:     desktopErr,
 		GlobalShortcut: shortcut,
+		OnClose:        c.config.OnClose,
+		Tray:           icon,
+		TrayErr:        trayErr,
 		Layout:         layout,
 		LayoutPath:     layoutPath,
 		Actor:          actor,
@@ -728,6 +740,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyDistrictType, Label: "new districts", Options: withValue(append([]string{}, city.TypingModes...), cfg.DistrictType), Value: cfg.DistrictType},
 		{Key: config.KeyStats, Label: "statistics", Options: []string{"on", "off"}, Value: statsValue(cfg.Stats)},
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
+		{Key: config.KeyOnClose, Label: "closing the window", Options: []string{config.OnCloseAsk, config.OnCloseTray}, Value: cfg.OnClose},
 		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
 	})
 }

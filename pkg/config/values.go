@@ -11,4 +11,5 @@ var Values = map[string][]string{
 	KeyDistrictType: {"random", "guess", "residential", "shopping", "office", "industrial"},
 	KeyUsageRefresh: {UsageManual},
 	KeyScriptedRuns: {ScriptedHidden, ScriptedShown},
+	KeyOnClose:      {OnCloseAsk, OnCloseTray},
 }

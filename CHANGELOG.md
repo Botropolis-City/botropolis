@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shown scripted runs are street stalls.**
   With *scripted runs* shown, a session a program started, such as `claude -p` or the Agent SDK, is no longer a full building: it is a hot-dog cart, a market stall, a coffee kiosk or a food trailer, as its district's type, and opens the same card.
   Its subagents at work queue at its counter as customers, one each, where a building's fly over it as drones.
+- **Closing the window asks before the city quits.**
+  The window's close button, or your window manager's kill (`mod+shift+q` on i3), used to end the city at once.
+  Now it opens the quit panel, as `q` does, so you can quit, close up, or cancel.
+  A new setting, *closing the window* (`on_close` in the config), chooses between `ask`, the default, and `tray`, which will hide the city in your desktop's tray, where it keeps running.
+  The tray icon itself comes in a later release, so for now `tray` asks too, and the settings panel says why.
 
 ### Changed
 

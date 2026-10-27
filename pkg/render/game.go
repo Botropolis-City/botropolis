@@ -551,6 +551,15 @@ type Game struct {
 	// shortcut is the global shortcut, nil where the desktop has none.
 	// Item 84.
 	shortcut shortcutSeam
+	// onClose is what the window manager's close request does, tray the
+	// icon that opens a hidden city again, nil where none was found and
+	// trayErr says why, closing asks whether a close was requested this
+	// tick, and closeAsked holds one until it is answered. Item 293.
+	onClose    string
+	tray       traySeam
+	trayErr    error
+	closing    func() bool
+	closeAsked bool
 	// desktopErr says why the desktop has no shortcut, and
 	// recordingShortcut and pendingShortcut are the settings row
 	// recording one. Item 84.
@@ -654,6 +663,7 @@ func (g *Game) Stop() { g.stopping.Store(true) }
 
 func (g *Game) Update() error {
 	g.glHeld.Do(g.holdTheGL)
+	g.noteClose()
 	if g.stopping.Load() {
 		if g.frames != nil {
 			_ = g.frames.close()

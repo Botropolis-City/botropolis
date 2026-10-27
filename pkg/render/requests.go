@@ -16,6 +16,11 @@ type windowSeam interface {
 	Restore()
 	Raise(time uint32) bool
 	RequestAttention()
+	// Hidden, Hide and Show take the window off the screen and the
+	// taskbar, for a city closed to the tray, and back. Item 293.
+	Hidden() bool
+	Hide()
+	Show()
 }
 
 // shortcutSeam is the global shortcut, where the desktop has one: the
@@ -34,6 +39,9 @@ func (ebitenWindow) Minimized() bool   { return ebiten.IsWindowMinimized() }
 func (ebitenWindow) Restore()          { ebiten.RestoreWindow() }
 func (ebitenWindow) Raise(uint32) bool { return false }
 func (ebitenWindow) RequestAttention() { ebiten.RequestAttention() }
+func (ebitenWindow) Hidden() bool      { return !ebiten.IsWindowVisible() }
+func (ebitenWindow) Hide()             { ebiten.SetWindowVisible(false) }
+func (ebitenWindow) Show()             { ebiten.SetWindowVisible(true) }
 
 // raisedWindow is Ebitengine's window raised through the desktop, where
 // the desktop has a way to. Item 84.
@@ -72,12 +80,21 @@ func (g *Game) answerRequests() {
 	}
 }
 
+// ownWindow is the city's window, Ebitengine's own where the desktop gave
+// none.
+func (g *Game) ownWindow() windowSeam {
+	if g.win == nil {
+		return ebitenWindow{}
+	}
+	return g.win
+}
+
 // comeForward brings the window back from the dock and to the front, or
 // asks for attention where the desktop will not raise it.
 func (g *Game) comeForward(time uint32) {
-	w := g.win
-	if w == nil {
-		w = ebitenWindow{}
+	w := g.ownWindow()
+	if w.Hidden() {
+		w.Show()
 	}
 	if w.Minimized() {
 		w.Restore()

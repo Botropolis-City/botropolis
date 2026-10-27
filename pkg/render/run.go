@@ -20,6 +20,7 @@ import (
 	"botropolis.city/botropolis/pkg/single"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/stats"
+	"botropolis.city/botropolis/pkg/tray"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -123,6 +124,12 @@ type Options struct {
 	Desktop        hotkey.Desktop
 	DesktopErr     error
 	GlobalShortcut string
+	// OnClose is what the window manager's close request does, Tray the
+	// icon that opens a city closed to it, nil where none was found and
+	// TrayErr says why. Item 293.
+	OnClose string
+	Tray    tray.Tray
+	TrayErr error
 	// FindChords are the finder's chords; nil is this system's defaults.
 	FindChords *config.Chords
 	// Paste reads the clipboard's text for a text field; a scripted city
@@ -241,6 +248,11 @@ func Run(ctx context.Context, opts Options) error {
 	game.stats = statsHooks{on: opts.StatsOn, owed: opts.StatsOwed, since: opts.StatsSince, choose: opts.StatsChoose}
 	game.setStatsOn(opts.StatsOn)
 	game.desktopErr = opts.DesktopErr
+	game.onClose, game.trayErr = opts.OnClose, opts.TrayErr
+	if opts.Tray != nil {
+		game.tray = opts.Tray
+	}
+	game.settings.Note = game.onCloseNote()
 	game.useShortcut(opts.GlobalShortcut)
 
 	game.restartDaemon = opts.RestartDaemon
@@ -270,6 +282,9 @@ func Run(ctx context.Context, opts Options) error {
 	// gate on focus, and a window manager is free to leave a hidden
 	// window focused, which is the case that ran away. See watching.go.
 	ebiten.SetRunnableOnUnfocused(true)
+	// The window manager's close request asks first, or goes to the
+	// tray, rather than ending the city at once. Item 293.
+	ebiten.SetWindowClosingHandled(true)
 	// A frame that repeats the one before it is skipped rather than
 	// redrawn, which needs the last frame left on the glass.
 	ebiten.SetScreenClearedEveryFrame(false)

@@ -168,6 +168,8 @@ func (g *Game) answerKeys() error {
 	defer g.showOpenPanels()
 	just := g.just
 	g.answerRequests()
+	g.answerTray()
+	g.answerClose()
 	g.reserveDive()
 	// Sharing takes every key, so nothing behind it opens unseen.
 	if g.share != nil {

@@ -13,7 +13,7 @@ import (
 
 // fakeWindow is a window that keeps what was asked of it.
 type fakeWindow struct {
-	minimized, canRaise              bool
+	minimized, canRaise, hidden      bool
 	restored, raised, attentionAsked int
 	raisedAt                         uint32
 }
@@ -28,6 +28,9 @@ func (w *fakeWindow) Raise(time uint32) bool {
 	return w.canRaise
 }
 func (w *fakeWindow) RequestAttention() { w.attentionAsked++ }
+func (w *fakeWindow) Hidden() bool      { return w.hidden }
+func (w *fakeWindow) Hide()             { w.hidden = true }
+func (w *fakeWindow) Show()             { w.hidden = false }
 
 // fakeShortcut is a desktop's global shortcut that keeps what was
 // grabbed, and fires when a test sends it a time.

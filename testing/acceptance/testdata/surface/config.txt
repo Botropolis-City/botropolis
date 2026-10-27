@@ -30,6 +30,9 @@ liveliness=lively
 liveliness=steady
 liveliness=still
 new_session_key	string
+on_close	string
+on_close=ask
+on_close=tray
 overgrown_days	int
 reduced_motion	bool
 render_scale	float64

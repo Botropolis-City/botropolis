@@ -91,6 +91,9 @@ func (g *Game) applySetting(s ui.Setting) {
 			return
 		}
 		g.scene.SetLadder(ladder)
+	case config.KeyOnClose:
+		g.onClose = s.Value
+		g.settings.Note = g.onCloseNote()
 	case config.KeyUsageRefresh:
 		every, err := config.ParseUsageRefresh(s.Value)
 		if err != nil {

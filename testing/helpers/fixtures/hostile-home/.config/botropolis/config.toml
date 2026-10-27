@@ -18,6 +18,7 @@ labels = false
 labels_key = "b"
 liveliness = "lively"
 new_session_key = "shift+b"
+on_close = "tray"
 overgrown_days = 11
 reduced_motion = true
 render_scale = 3

@@ -46,6 +46,12 @@ const (
 	// ScriptedHidden and ScriptedShown are its two values.
 	ScriptedHidden = "hidden"
 	ScriptedShown  = "shown"
+	// KeyOnClose is what closing the window does: ask, as q does, or
+	// hide the city in the tray. Item 293.
+	KeyOnClose = "on_close"
+	// OnCloseAsk and OnCloseTray are its two values.
+	OnCloseAsk  = "ask"
+	OnCloseTray = "tray"
 	// KeyDistrictType is how a new district's type is chosen: random,
 	// guess, or one type for all. Item 109.
 	KeyDistrictType = "district_type"
@@ -165,6 +171,8 @@ type Config struct {
 	GoneSessions bool
 	// ScriptedRuns shows the sessions a program started (item 273).
 	ScriptedRuns bool
+	// OnClose is what closing the window does (item 293).
+	OnClose string
 }
 
 // ParseScriptedRuns reads scripted_runs: hidden or shown, true for
@@ -177,6 +185,15 @@ func ParseScriptedRuns(value string) (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("unknown %s %q: use %s or %s", KeyScriptedRuns, value, ScriptedHidden, ScriptedShown)
+}
+
+// ParseOnClose reads on_close: ask or tray. Item 293.
+func ParseOnClose(value string) (string, error) {
+	switch value {
+	case OnCloseAsk, OnCloseTray:
+		return value, nil
+	}
+	return "", fmt.Errorf("unknown %s %q: use %s or %s", KeyOnClose, value, OnCloseAsk, OnCloseTray)
 }
 
 func NewViper() *viper.Viper {
@@ -214,6 +231,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyLabelsToggle, DefaultLabelsToggle)
 	v.SetDefault(KeyGlobalShortcut, "")
 	v.SetDefault(KeyScriptedRuns, ScriptedHidden)
+	v.SetDefault(KeyOnClose, OnCloseAsk)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -338,6 +356,9 @@ func New(v *viper.Viper) (*Config, error) {
 		return nil, err
 	}
 	cfg.ScriptedRuns = scripted
+	if cfg.OnClose, err = ParseOnClose(v.GetString(KeyOnClose)); err != nil {
+		return nil, err
+	}
 	if err := checkLadder(cfg.ShutteredDays, cfg.OvergrownDays); err != nil {
 		return nil, err
 	}
