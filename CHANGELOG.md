@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The wheel, or `+` and `-`, zooms the plan about the pointer, up to eight times closer, and a drag moves round it, so a crowded plan can be read district by district.
   Zoomed in, a crowded plan's small badges grow back to full ones, and districts off the window leave their badges off it.
   Wheeling in used to leave the plan at once; now a notch in after a pause at the plan's closest zoom returns to the map.
+- **Shown scripted runs are street stalls.**
+  With *scripted runs* shown, a session a program started, such as `claude -p` or the Agent SDK, is no longer a full building: it is a hot-dog cart, a market stall, a coffee kiosk or a food trailer, as its district's type, and opens the same card.
+  Its subagents at work queue at its counter as customers, one each, where a building's fly over it as drones.
 
 ### Changed
 
