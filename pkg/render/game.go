@@ -61,6 +61,9 @@ type Game struct {
 	// acting counts the desktop calls running beside the loop, so a
 	// clipboard tool that hangs cannot stop the map (item 284).
 	acting sync.WaitGroup
+	// busy is the claude actions among them, one per session and kind,
+	// so a second press does not start a second claude (item 286).
+	busy busy
 	// ledger is the statistics store as this window reads it, nil
 	// while statistics are off (item 116).
 	ledger *stats.Ledger

@@ -153,7 +153,9 @@ func TestQuitPanel(t *testing.T) {
 
 		t.Run("when "+c.name+" with nothing live", func(t *testing.T) {
 			r := opened(t)
-			err := c.answer(t, r.g)
+			require.NoError(t, c.answer(t, r.g))
+			r.g.settle()
+			err := press(r.g, -1)
 
 			t.Run("it should record the close-up", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionCloseUp}}, r.actor.done)

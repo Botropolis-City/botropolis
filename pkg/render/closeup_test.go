@@ -58,7 +58,9 @@ func TestCloseUpPanel(t *testing.T) {
 	t.Run("when nothing is live", func(t *testing.T) {
 		actor := &recorder{}
 		g := game(t, actor)
-		err := pressingShift(g, ebiten.KeyQ)
+		require.NoError(t, pressingShift(g, ebiten.KeyQ))
+		g.settle()
+		err := pressing(g, -1)
 
 		t.Run("Shift+Q should record the close-up without asking", func(t *testing.T) {
 			assert.Equal(t, []city.Action{{Kind: city.ActionCloseUp}}, actor.done)
@@ -76,6 +78,7 @@ func TestCloseUpPanel(t *testing.T) {
 	t.Run("when nothing is live and the close-up cannot be recorded", func(t *testing.T) {
 		g := game(t, &failing{})
 		err := pressingShift(g, ebiten.KeyQ)
+		g.settle()
 
 		t.Run("it should not quit", func(t *testing.T) {
 			assert.NoError(t, err)
@@ -229,7 +232,9 @@ func TestCloseUpPanel(t *testing.T) {
 		pressKey(t, g, ebiten.KeyArrowDown, false)
 		pressKey(t, g, ebiten.KeyArrowDown, false)
 		pressKey(t, g, ebiten.KeySpace, false)
-		err := pressing(g, ebiten.KeyEnter)
+		require.NoError(t, pressing(g, ebiten.KeyEnter))
+		g.settle()
+		err := pressing(g, -1)
 
 		t.Run("it should ask the actor to close up with the open, pinned and paused sessions", func(t *testing.T) {
 			assert.Equal(t, []city.Action{{Kind: city.ActionCloseUp, Open: []string{"bg", "busy", "term"}, Pinned: []string{"term"}, Pause: []string{"bg"}}}, actor.done)
@@ -248,6 +253,58 @@ func TestCloseUpPanel(t *testing.T) {
 		})
 	})
 
+	t.Run("when close-up runs beside the loop", func(t *testing.T) {
+		actor := &blockingActor{release: make(chan struct{}), reached: make(chan city.Action, 1)}
+		g := game(t, actor, live...)
+		t.Cleanup(func() {
+			select {
+			case <-actor.release:
+			default:
+				close(actor.release)
+			}
+			g.settle()
+		})
+		pressShift(t, g, ebiten.KeyQ)
+		onPress := pressing(g, ebiten.KeyEnter)
+		<-actor.reached
+		meanwhile := pressing(g, -1)
+		p, open := g.overlays.top().(*closeUp)
+
+		t.Run("it should not quit on the key press", func(t *testing.T) {
+			assert.NoError(t, onPress)
+		})
+
+		t.Run("it should not quit while it runs", func(t *testing.T) {
+			assert.NoError(t, meanwhile)
+		})
+
+		t.Run("it should keep the panel open while it runs", func(t *testing.T) {
+			assert.True(t, open)
+		})
+
+		t.Run("it should say it is closing up", func(t *testing.T) {
+			require.True(t, open)
+			assert.Equal(t, "closing up…", p.said())
+		})
+
+		t.Run("and Enter is pressed again", func(t *testing.T) {
+			require.NoError(t, pressing(g, ebiten.KeyEnter))
+
+			t.Run("it should not close up twice", func(t *testing.T) {
+				assert.Empty(t, actor.reached)
+			})
+		})
+
+		t.Run("and it completes", func(t *testing.T) {
+			close(actor.release)
+			g.settle()
+
+			t.Run("it should quit the city after", func(t *testing.T) {
+				assert.Equal(t, ebiten.Termination, pressing(g, -1))
+			})
+		})
+	})
+
 	for _, c := range []struct {
 		name  string
 		actor Actor
@@ -259,7 +316,9 @@ func TestCloseUpPanel(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			g := game(t, c.actor, live...)
 			pressShift(t, g, ebiten.KeyQ)
-			err := pressing(g, ebiten.KeyEnter)
+			require.NoError(t, pressing(g, ebiten.KeyEnter))
+			g.settle()
+			err := pressing(g, -1)
 			p, open := g.overlays.top().(*closeUp)
 
 			t.Run("the panel should stay open", func(t *testing.T) {
@@ -268,7 +327,7 @@ func TestCloseUpPanel(t *testing.T) {
 
 			t.Run("it should say why", func(t *testing.T) {
 				require.True(t, open)
-				assert.Equal(t, c.why, p.err)
+				assert.Equal(t, c.why, p.said())
 			})
 
 			t.Run("it should not quit", func(t *testing.T) {
@@ -319,10 +378,11 @@ func TestCloseUpPanel(t *testing.T) {
 			})
 
 			t.Run("and Enter is pressed", func(t *testing.T) {
-				err := pressing(g, ebiten.KeyEnter)
+				require.NoError(t, pressing(g, ebiten.KeyEnter))
+				g.settle()
 
-				t.Run("it should quit the city", func(t *testing.T) {
-					assert.Equal(t, ebiten.Termination, err)
+				t.Run("it should quit the city once it has closed up", func(t *testing.T) {
+					assert.Equal(t, ebiten.Termination, pressing(g, -1))
 				})
 			})
 		})

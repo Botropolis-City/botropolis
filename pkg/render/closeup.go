@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -28,8 +29,28 @@ type closeUp struct {
 	paused   map[string]bool
 	selected int
 	// err is why the last close-up failed, shown on the panel, which
-	// stays open so nothing looks done that was not.
-	err string
+	// stays open so nothing looks done that was not; working is set while
+	// a close-up runs beside the loop (item 286). Both are written from
+	// that run, so mu guards them.
+	mu      sync.Mutex
+	err     string
+	working bool
+}
+
+// said is the panel's line about the close-up: running, or why it failed.
+func (p *closeUp) said() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.working {
+		return running(city.ActionCloseUp, "")
+	}
+	return p.err
+}
+
+func (p *closeUp) settle(working bool, err string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.working, p.err = working, err
 }
 
 // openCloseUp puts the panel on the stack, standing the quit panel down.
@@ -39,25 +60,32 @@ func (g *Game) openCloseUp() {
 	g.standQuitDown()
 	rows := g.scene.OpenSessions()
 	if len(rows) == 0 {
-		if err := g.closeUpWith(city.Action{Kind: city.ActionCloseUp}); err != nil {
-			g.SetStatus(err.Error())
-		}
+		g.closeUpWith(city.Action{Kind: city.ActionCloseUp}, func(err error) { g.SetStatus(err.Error()) })
 		return
 	}
 	g.overlays.push(&closeUp{rows: rows, pinned: map[string]bool{}, paused: map[string]bool{}})
 }
 
-// closeUpWith has the actor record and pause, and marks the city closed
-// up only when both did: a failure quits nothing.
-func (g *Game) closeUpWith(action city.Action) error {
-	if g.actor == nil {
-		return nil
+// closeUpWith has the actor record and pause beside the city's loop,
+// since pausing runs claude stop, and marks the city closed up only when
+// both did: a failure is handed to failed and quits nothing (item 286).
+// It says whether the close-up started.
+func (g *Game) closeUpWith(action city.Action, failed func(error)) bool {
+	if g.actor == nil || !g.busy.begin(action) {
+		return false
 	}
-	if err := g.actor.Do(action); err != nil {
-		return err
-	}
-	g.closedUp.Store(true)
-	return nil
+	actor := g.actor
+	g.acting.Add(1)
+	go func() {
+		defer g.acting.Done()
+		defer g.busy.end(action)
+		if err := actor.Do(action); err != nil {
+			failed(err)
+			return
+		}
+		g.closedUp.Store(true)
+	}()
+	return true
 }
 
 func (p *closeUp) ids() []string {
@@ -128,7 +156,7 @@ func (p *closeUp) plate(g *Game, width, height float64) city.Rect {
 	grid, lineH, _ := g.metrics()
 	w := min(width-8*grid, 760)
 	h := float64(len(p.rows)+6)*(lineH+grid) + 2*grid
-	if p.err != "" {
+	if p.said() != "" {
 		h += lineH
 	}
 	return city.RectAt((width-w)/2, (height-h)/2, w, h)
@@ -186,13 +214,11 @@ func (p *closeUp) keys(g *Game) bool {
 		if g.actor == nil {
 			return false
 		}
-		if err := g.closeUpWith(city.Action{Kind: city.ActionCloseUp, Open: p.ids(), Pinned: p.pinnedIDs(), Pause: p.pausedIDs()}); err != nil {
-			p.err = err.Error()
-			return true
-		}
-		return false
+		action := city.Action{Kind: city.ActionCloseUp, Open: p.ids(), Pinned: p.pinnedIDs(), Pause: p.pausedIDs()}
+		p.settle(true, "")
+		g.closeUpWith(action, func(err error) { p.settle(false, err.Error()) })
 	}
-	return true
+	return !g.closedUp.Load()
 }
 
 // click toggles the pause box or the pin mark under the pointer.
@@ -251,8 +277,8 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.text(screen, city.Point{X: rows[0].Pin.Center().X - pinW/2, Y: head}, "pin", ui.Small, th.Palette.Dim)
 	}
 	y = plate.Max.Y - lineH - 2*grid
-	if p.err != "" {
-		g.text(screen, city.Point{X: x, Y: y - lineH}, p.err, ui.Small, th.Palette.NeedsYou)
+	if said := p.said(); said != "" {
+		g.text(screen, city.Point{X: x, Y: y - lineH}, said, ui.Small, th.Palette.NeedsYou)
 	}
 	g.text(screen, city.Point{X: x, Y: y}, "click a box, or p, to pause  ·  a all  ·  n none  ·  space or click pin  ·  enter close up and quit  ·  esc back", ui.Small, th.Palette.Dim)
 }
