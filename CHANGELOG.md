@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The clinic's windows light up at night**, as the library's and City Hall's do.
   In 0.3.3 it stood dark after nightfall.
+- **The truck taking a packed session to the depot drives at road speed.**
+  It used to cross the city in two seconds, so fast it was easy to miss.
+  It now drives as fast as the city's other trucks, so a far depot takes longer, between two and six seconds.
+  Under reduced motion it is still a short cross-fade.
 
 ## [0.3.3] - 2026-10-27
 

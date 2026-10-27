@@ -45,8 +45,8 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 			return placed{at, dir}
 		},
 		"the depot's haul truck": func(from, to city.Point) placed {
-			h := city.Haul{From: from, To: to, Since: t0, For: city.PackFor}
-			at, dir := haulPlace(h, t0.Add(city.PackFor/3))
+			h := city.Haul{From: from, To: to, Since: t0, For: city.PackMin}
+			at, dir := haulPlace(h, t0.Add(city.PackMin/3))
 			return placed{at, dir}
 		},
 		"a site truck on its way in": func(from, to city.Point) placed {

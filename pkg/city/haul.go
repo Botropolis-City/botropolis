@@ -14,9 +14,22 @@ const (
 )
 
 const (
-	PackFor     = 2 * time.Second
+	PackMin     = 2 * time.Second
+	PackMax     = 6 * time.Second
 	PackFadeFor = 300 * time.Millisecond
 )
+
+// HaulFor is how long a haul from one place to another takes: driven at
+// the city's truck speed, as deliveries are, so a far depot takes
+// longer, but never under PackMin or over PackMax; a cross-fade under
+// reduced motion (Aria, 2026-10-27, item 304).
+func HaulFor(from, to Point, reduced bool) time.Duration {
+	if reduced {
+		return PackFadeFor
+	}
+	driven := time.Duration(pathLength([]Point{from, to}) / TruckSpeed * float64(time.Second))
+	return min(PackMax, max(PackMin, driven))
+}
 
 type Haul struct {
 	SessionID string
@@ -60,10 +73,7 @@ func (s *Scene) noteHauls(now time.Time) {
 		if !b.Packed {
 			kind = HaulUnpack
 		}
-		span := PackFor
-		if s.reduced {
-			span = PackFadeFor
-		}
+		span := HaulFor(was.at, b.Rect.Center(), s.reduced)
 		s.hauls = append(s.hauls, Haul{SessionID: id, Kind: kind, From: was.at, To: b.Rect.Center(), Since: now, For: span, Hue: projectHue(SessionRoot(b.Session))})
 	}
 	s.spots = spots
@@ -71,7 +81,7 @@ func (s *Scene) noteHauls(now time.Time) {
 
 // retargetHauls sends every truck on its way to where its building now
 // stands. A haul's end is laid when it starts, and a re-layout within
-// PackFor can move the building. The truck keeps its place, its
+// its span can move the building. The truck keeps its place, its
 // progress and its arrival: only the start it is eased from is solved
 // again, so it does not jump or speed up. Item 224.
 func (s *Scene) retargetHauls(now time.Time) {

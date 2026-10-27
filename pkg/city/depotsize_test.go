@@ -99,7 +99,7 @@ func TestDepotSize(t *testing.T) {
 		})
 
 		t.Run("and the truck has left", func(t *testing.T) {
-			at = now.Add(city.PackFor)
+			at = now.Add(city.PackMax)
 			s.Animate(0.016)
 
 			t.Run("the depot should go", func(t *testing.T) {
