@@ -31,11 +31,15 @@ func (g *Game) drawSearch(screen *ebiten.Image, top, width float64) {
 }
 
 // dimmed is the tint for a building the search leaves out.
-func dimmed() *ebiten.ColorScale {
-	tint := &ebiten.ColorScale{}
+func dimmed() *ebiten.ColorScale { return &dim }
+
+// dim is the one tint every dimmed thing shares, as nothing changes a
+// tint it is handed.
+var dim = func() ebiten.ColorScale {
+	var tint ebiten.ColorScale
 	tint.Scale(0.35, 0.35, 0.4, 0.35)
 	return tint
-}
+}()
 
 // clickSearch opens the finder on the filter by pressing the key that
 // opens it. The line already reads "/", so the click presses what the

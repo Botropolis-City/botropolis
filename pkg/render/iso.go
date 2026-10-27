@@ -2055,14 +2055,17 @@ func (g *Game) lotFloor(screen *ebiten.Image, cam *city.Camera, b *city.Building
 	}
 }
 
-// blindsTint is a stopped building's: lights off, blinds down.
-func blindsTint() *ebiten.ColorScale {
-	tint := &ebiten.ColorScale{}
+// blindsTint is a stopped building's: lights off, blinds down. It is
+// one tint for them all, as nothing changes a tint it is handed.
+func blindsTint() *ebiten.ColorScale { return &blinds }
+
+var blinds = func() ebiten.ColorScale {
+	var tint ebiten.ColorScale
 	tint.SetR(0.7)
 	tint.SetG(0.7)
 	tint.SetB(0.72)
 	return tint
-}
+}()
 
 const kitTruck = "car-kit/truck"
 

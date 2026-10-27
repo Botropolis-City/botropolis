@@ -21,7 +21,7 @@ func (g *Game) standingKey(selected *city.Building) uint64 {
 	}
 	c := s.City()
 	now := s.Now()
-	key := keyMix(g.frameBase.all, g.frameBase.house, g.houseWide, g.houseWideKey(),
+	key := keyMix(g.frameBase.all, g.frameBase.house, g.houseWide,
 		uint64(s.Generation()), uint64(s.GroundGeneration()), uint64(s.View()),
 		boolBits(c.Night), boolBits(g.lightsOn), boolBits(g.labelsVisible()), boolBits(s.Scenery()),
 		boolBits(s.Detailed()), math.Float64bits(s.PlantLights()), uint64(uintptr(unsafe.Pointer(selected))),
@@ -46,7 +46,8 @@ func (g *Game) standingKey(selected *city.Building) uint64 {
 			boolBits(courseLit(&b.Session, now)), math.Float64bits(s.Rising(id)), math.Float64bits(s.Lights(id)),
 			math.Float64bits(s.Mowing(id)))
 		if site, ok := s.Construction(id); ok {
-			v = keyMix(v, hashOf(&site))
+			v = keyMix(v, math.Float64bits(site.Fence), math.Float64bits(site.Scaffold), math.Float64bits(site.Crane),
+				math.Float64bits(site.Floors), math.Float64bits(site.Lights), math.Float64bits(site.Opacity))
 		}
 		if viewing {
 			if tint, ok := g.viewTint(b); ok {
