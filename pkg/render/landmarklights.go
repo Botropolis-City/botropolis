@@ -20,11 +20,6 @@ func landmarkOn(c *city.City, kit string, plant float64) float64 {
 		return 0
 	case kit == kitPlant:
 		return plant
-	case kit == kitClinic:
-		// Dark for now: its lights are a draw command a frame over item
-		// 236's night ceiling, until they share another landmark's
-		// batch (item 280).
-		return 0
 	}
 	return 1
 }

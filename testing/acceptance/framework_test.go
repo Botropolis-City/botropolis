@@ -66,7 +66,10 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// laid again where movers are, and judged the worst of every
 		// settled frame rather than the first second's, which had ended
 		// just before a run of 40s: 20 and 37, on item 240's scene.
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 20, 22: 37}, "item 236", nil, nil},
+		// Item 280 lit a fourth landmark, the clinic, whose windows are a
+		// draw of their own after the cut of a sprite behind it: Aria
+		// raised the night's to 38 (2026-10-27).
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 20, 22: 38}, "item 280", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
