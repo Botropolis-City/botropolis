@@ -1848,11 +1848,13 @@ func (g *Game) noteBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Buil
 // each that moves drawn afresh, so what moves does not keep the rest of
 // the building from being kept (item 212).
 //
-// By night a building whose windows are lit is one record: what moves
+// By night, where something moves after a lit building's lights, the
+// lights and every run after them are drawn afresh as one: what moves
 // over its windows cuts their light, and a cut does not cross from a
-// part drawn afresh into a kept one, as --check-frames showed.
+// part drawn afresh into a kept one, as --check-frames showed. What
+// stands before the lights is kept as by day.
 func (g *Game) noteHouse(screen *ebiten.Image, cam *city.Camera, f *buildingFrame, key uint64, again func() (buildingFrame, bool)) {
-	if !movesIn(f, 0, stepCount) || g.lightsOn && f.present[stepLights] {
+	if !movesIn(f, 0, stepCount) {
 		g.noteKeyed(kindHouse, key, func() {
 			g.buildingsDrawn++
 			if fr, ok := again(); ok {
@@ -1861,8 +1863,25 @@ func (g *Game) noteHouse(screen *ebiten.Image, cam *city.Camera, f *buildingFram
 		})
 		return
 	}
-	for i, r := range runsOf(f.present, f.live) {
+	tail := stepCount
+	if g.lightsOn && f.present[stepLights] && movesIn(f, stepLights+1, stepCount) {
+		tail = stepLights
+	}
+	runs := runsOf(f.present, f.live)
+	for i, r := range runs {
 		first := i == 0
+		if r.to > tail {
+			rest := runs[i:]
+			g.note(func() {
+				if first {
+					g.buildingsDrawn++
+				}
+				for _, r := range rest {
+					g.paintRun(screen, cam, f, r)
+				}
+			}, true)
+			return
+		}
 		if movesIn(f, r.from, r.to) {
 			g.note(func() {
 				if first {

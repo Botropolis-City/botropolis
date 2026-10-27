@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -60,6 +61,40 @@ func TestTheTwoPartBuilding(t *testing.T) {
 			assert.Zero(t, st.freshBy[kindHouse])
 		})
 		t.Run("it should draw what moves in it afresh, as showing activity", func(t *testing.T) {
+			assert.Greater(t, moving, before)
+		})
+		t.Run("it should hold the frame made afresh", func(t *testing.T) {
+			assert.Equal(t, afresh(rc), held)
+		})
+	})
+
+	t.Run("when a building's beacon pulses by night, over its lit windows", func(t *testing.T) {
+		rc := waiting(t)
+		for night := rc.scene.City().Night; rc.scene.City().Night == night; {
+			rc.scene.CycleLight()
+		}
+		for range 3 {
+			rc.frame()
+		}
+		lit := 0
+		// Asked with the lights on, as the frame asks while it lays them.
+		rc.g.lightsOn = true
+		for _, b := range rc.scene.City().Buildings() {
+			if f, ok := rc.g.buildingFrame(rc.scene.Camera(), b, false, true, 0); ok && b.Pulse && f.present[stepLights] {
+				lit++
+			}
+		}
+		rc.g.lightsOn = false
+		require.Positive(t, lit, "precondition: the pulsing building's windows are lit")
+		rc.now = rc.now.Add(100 * time.Millisecond)
+		st := rc.frame()
+		moving := active(rc.g)
+		held := drawn(rc.g)
+
+		t.Run("it should keep the records of what stands before its lights", func(t *testing.T) {
+			assert.Zero(t, st.freshBy[kindHouse])
+		})
+		t.Run("it should draw its lights and what moves over them afresh, as showing activity", func(t *testing.T) {
 			assert.Greater(t, moving, before)
 		})
 		t.Run("it should hold the frame made afresh", func(t *testing.T) {
