@@ -181,6 +181,11 @@ func TestXEmbed(t *testing.T) {
 				geometry, err := xproto.GetGeometry(m.conn, xproto.Drawable(popup)).Reply()
 				require.NoError(t, err)
 
+				t.Run("it should open beside the icon, not over it", func(t *testing.T) {
+					top, bottom := int(geometry.Y), int(geometry.Y)+int(geometry.Height)
+					assert.True(t, bottom <= iconAt || top >= iconAt+iconSide, "menu spans %d-%d, icon %d-%d", top, bottom, iconAt, iconAt+iconSide)
+				})
+
 				t.Run("and the menu's "+c.name+" is clicked", func(t *testing.T) {
 					m.click(t, 1, geometry.X+int16(geometry.Width)/2, c.row(geometry))
 					got, ok := next(t, icon)

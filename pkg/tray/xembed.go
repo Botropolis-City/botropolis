@@ -14,7 +14,10 @@ import (
 	"github.com/jezek/xgb/xproto"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
+
+	"botropolis.city/botropolis/pkg/assets/fonts"
 )
 
 // xgb logs every connection and every server that goes away to stderr;
@@ -247,7 +250,11 @@ func (x *xembed) press(e xproto.ButtonPressEvent) {
 	case xproto.ButtonIndex1:
 		x.send(Open)
 	case xproto.ButtonIndex3:
-		x.menu = openTrayMenu(x.conn, x.screen, e.RootX, e.RootY)
+		top, bottom := e.RootY, e.RootY
+		if at, err := xproto.TranslateCoordinates(x.conn, x.win, x.screen.Root, 0, 0).Reply(); err == nil {
+			top, bottom = at.DstY, at.DstY+int16(x.h)
+		}
+		x.menu = openTrayMenu(x.conn, x.screen, e.RootX, top, bottom)
 	}
 }
 
@@ -292,16 +299,19 @@ type trayMenu struct {
 	hovered int
 }
 
-func openTrayMenu(conn *xgb.Conn, screen *xproto.ScreenInfo, rootX, rootY int16) *trayMenu {
-	face := basicfont.Face7x13
+// openTrayMenu opens the menu at the pointer's x, under the icon, or
+// over it where the icon sits at the foot of the screen, so it covers
+// neither the icon nor the bar.
+func openTrayMenu(conn *xgb.Conn, screen *xproto.ScreenInfo, rootX, iconTop, iconBottom int16) *trayMenu {
+	face := menuFace()
 	m := &trayMenu{conn: conn, depth: screen.RootDepth, hovered: -1, rowH: face.Metrics().Height.Ceil() + 2*menuPadY}
 	for _, e := range entries {
 		m.w = max(m.w, font.MeasureString(face, e.label).Ceil()+2*menuPadX)
 	}
 	h := m.rowH * len(entries)
-	x, y := int(rootX), int(rootY)
+	x, y := int(rootX), int(iconBottom)
 	if y+h > int(screen.HeightInPixels) {
-		y -= h
+		y = int(iconTop) - h
 	}
 	if x+m.w > int(screen.WidthInPixels) {
 		x -= m.w
@@ -358,7 +368,7 @@ func (m *trayMenu) draw() {
 	}
 	img := image.NewRGBA(image.Rect(0, 0, m.w, m.rowH*len(entries)))
 	draw.Draw(img, img.Bounds(), image.NewUniform(menuPlate), image.Point{}, draw.Src)
-	face := basicfont.Face7x13
+	face := menuFace()
 	for i, e := range entries {
 		top := i * m.rowH
 		if i == m.hovered {
@@ -378,3 +388,22 @@ func (m *trayMenu) close() {
 	_ = xproto.UngrabPointerChecked(m.conn, xproto.TimeCurrentTime).Check()
 	_ = xproto.DestroyWindowChecked(m.conn, m.win).Check()
 }
+
+// menuFace is the face the menu's labels are set in: Inter, the city's
+// own, at the size of its body text; the fixed face only if the
+// embedded font cannot be read.
+var menuFace = sync.OnceValue(func() font.Face {
+	data, err := fonts.Inter()
+	if err != nil {
+		return basicfont.Face7x13
+	}
+	f, err := opentype.Parse(data)
+	if err != nil {
+		return basicfont.Face7x13
+	}
+	face, err := opentype.NewFace(f, &opentype.FaceOptions{Size: 10, DPI: 96, Hinting: font.HintingFull})
+	if err != nil {
+		return basicfont.Face7x13
+	}
+	return face
+})
