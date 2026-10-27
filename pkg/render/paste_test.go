@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"errors"
+	"runtime"
 	"testing"
 	"time"
 
@@ -120,17 +121,26 @@ func TestPaste(t *testing.T) {
 		}
 		g.scriptedRune = 0
 	}
-	ctrlV := func(t *testing.T, g *Game) {
+	chords := pasteChords(runtime.GOOS)
+	chord := chords[0]
+	pressChord := func(t *testing.T, g *Game, c config.Chord) {
 		t.Helper()
-		g.scriptedCtrl = true
-		press(t, g, ebiten.KeyV)
-		g.scriptedCtrl = false
+		key, ok := keyByName(c.Key)
+		require.True(t, ok)
+		g.scriptedCtrl, g.scriptedCmd, g.scriptedShift = c.Ctrl, c.Cmd, c.Shift
+		press(t, g, key)
+		g.scriptedCtrl, g.scriptedCmd, g.scriptedShift = false, false, false
 	}
-	// pasted presses Ctrl+V, lets the clipboard answer, and takes the
-	// frame after, which is the one the answer arrives on.
+	pressPaste := func(t *testing.T, g *Game) {
+		t.Helper()
+		pressChord(t, g, chord)
+	}
+	// pasted presses the platform's paste chord, lets the clipboard
+	// answer, and takes the frame after, which is the one the answer
+	// arrives on.
 	pasted := func(t *testing.T, g *Game) {
 		t.Helper()
-		ctrlV(t, g)
+		pressPaste(t, g)
 		g.settle()
 		require.NoError(t, g.handleKeys())
 	}
@@ -175,7 +185,7 @@ func TestPaste(t *testing.T) {
 
 	for _, f := range fields {
 		t.Run("when "+f.name+" is focused", func(t *testing.T) {
-			t.Run("and Ctrl+V is pressed with /w/api on the clipboard", func(t *testing.T) {
+			t.Run("and "+chord.String()+" is pressed with /w/api on the clipboard", func(t *testing.T) {
 				g := newGame(t, &fakeClipboard{text: "/w/api"})
 				f.open(t, g)
 				typed(t, g, "x")
@@ -198,7 +208,7 @@ func TestPaste(t *testing.T) {
 		})
 	}
 
-	t.Run("when New session's prompt is focused and Ctrl+V is pressed", func(t *testing.T) {
+	t.Run("when New session's prompt is focused and "+chord.String()+" is pressed", func(t *testing.T) {
 		g := newGame(t, &fakeClipboard{text: "/w/api"})
 		g.openNewSession()
 		press(t, g, ebiten.KeyArrowDown)
@@ -210,19 +220,19 @@ func TestPaste(t *testing.T) {
 		})
 	})
 
-	t.Run("when Shift+Insert is pressed in the finder", func(t *testing.T) {
-		g := newGame(t, &fakeClipboard{text: "/w/api"})
-		g.openFinder()
-		g.scriptedShift = true
-		press(t, g, ebiten.KeyInsert)
-		g.scriptedShift = false
-		g.settle()
-		require.NoError(t, g.handleKeys())
+	for _, c := range chords {
+		t.Run("when "+c.String()+" is pressed in the finder", func(t *testing.T) {
+			g := newGame(t, &fakeClipboard{text: "/w/api"})
+			g.openFinder()
+			pressChord(t, g, c)
+			g.settle()
+			require.NoError(t, g.handleKeys())
 
-		t.Run("it should paste", func(t *testing.T) {
-			assert.Equal(t, "/w/api", g.overlays.top().(*finder).field.query())
+			t.Run("it should paste", func(t *testing.T) {
+				assert.Equal(t, "/w/api", g.overlays.top().(*finder).field.query())
+			})
 		})
-	})
+	}
 
 	t.Run("when the clipboard tool does not answer", func(t *testing.T) {
 		clip := &fakeClipboard{release: make(chan struct{}), failure: errors.New("the clipboard did not answer within 2s (xclip)")}
@@ -230,7 +240,7 @@ func TestPaste(t *testing.T) {
 		g.openFinder()
 		returned := make(chan struct{})
 		go func() {
-			ctrlV(t, g)
+			pressPaste(t, g)
 			close(returned)
 		}()
 
@@ -257,12 +267,12 @@ func TestPaste(t *testing.T) {
 		})
 	})
 
-	t.Run("when Ctrl+V is pressed again before the clipboard answers", func(t *testing.T) {
+	t.Run("when "+chord.String()+" is pressed again before the clipboard answers", func(t *testing.T) {
 		clip := &fakeClipboard{text: "/w/api", release: make(chan struct{})}
 		g := newGame(t, clip)
 		g.openFinder()
-		ctrlV(t, g)
-		ctrlV(t, g)
+		pressPaste(t, g)
+		pressPaste(t, g)
 		close(clip.release)
 		g.settle()
 
@@ -275,7 +285,7 @@ func TestPaste(t *testing.T) {
 		clip := &fakeClipboard{text: "/w/api", release: make(chan struct{})}
 		g := newGame(t, clip)
 		g.openFinder()
-		ctrlV(t, g)
+		pressPaste(t, g)
 		press(t, g, ebiten.KeyEscape)
 		g.openNewSession()
 		close(clip.release)
