@@ -154,12 +154,16 @@ func TestKitLevelPick(t *testing.T) {
 	}
 }
 
+// Below zoom 1.75 the city holds z1 alone, whose second page holds 20
+// MiB once it passes 256 rows: Aria raised that level from 18 to 20 so
+// City Hall and the stalls keep the sizes she approved (2026-10-26,
+// item 280).
 func TestKitResidentCost(t *testing.T) {
 	for _, tc := range []struct {
 		zoom float64
 		mib  int
 	}{
-		{1.5, 18}, {1.75, 40}, {2, 40},
+		{1.5, 20}, {1.75, 40}, {2, 40},
 	} {
 		t.Run(fmt.Sprintf("when the camera settles at zoom %g", tc.zoom), func(t *testing.T) {
 			k, err := loadKitsLazily()
