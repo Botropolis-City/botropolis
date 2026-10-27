@@ -31,6 +31,11 @@ land-probe-slow ::
 land-probe-fail ::
 	@exit 1
 
+land-probe-hold ::
+	@echo "${PROBE_NAME} start" >> ${PROBE_LOG}
+	@while [ ! -e ${PROBE_RELEASE} ]; do sleep 0.1; done
+	@echo "${PROBE_NAME} end" >> ${PROBE_LOG}
+
 land-probe-hang ::
 	@echo "${PROBE_NAME} start" >> ${PROBE_LOG}
 	@sleep 600
@@ -77,7 +82,7 @@ func newLandRig(t *testing.T) *landRig {
 	r.git(t, dir, "init", "-q", "--bare", "-b", "main", r.remote)
 	seed := filepath.Join(dir, "seed")
 	root := repoRoot(t)
-	for _, name := range []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod", "tools/ci-status"} {
+	for _, name := range []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod", "tools/ci-status", "tools/land-queue/main.go"} {
 		data, err := os.ReadFile(filepath.Join(root, name))
 		require.NoError(t, err)
 		info, err := os.Stat(filepath.Join(root, name))
@@ -172,12 +177,39 @@ func (r *landRig) waitForStart(t *testing.T, name string) {
 	t.Fatalf("%s's gate never started", name)
 }
 
+// waitForTickets waits for the queue beside the rig's lock to hold n tickets.
+func (r *landRig) waitForTickets(t *testing.T, n int) {
+	t.Helper()
+	queue := strings.TrimSuffix(r.lock, filepath.Ext(r.lock)) + ".queue"
+	deadline := time.Now().Add(2 * time.Minute)
+	for time.Now().Before(deadline) {
+		entries, _ := os.ReadDir(queue)
+		count := 0
+		for _, e := range entries {
+			if strings.Trim(e.Name(), "0123456789") == "" {
+				count++
+			}
+		}
+		if count == n {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("the landing queue never held %d tickets", n)
+}
+
+func (r *landRig) listQueue(t *testing.T, dir string) string {
+	t.Helper()
+	cmd := exec.Command("make", "-s", "-C", dir, "land-queue")
+	cmd.Env = r.env
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	return string(out)
+}
+
 func TestLand(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs make land in scratch repositories")
-	}
-	if _, err := exec.LookPath("flock"); err != nil {
-		t.Skip("flock is not installed, so make land went untested")
 	}
 	t.Parallel()
 
@@ -270,23 +302,47 @@ func TestLand(t *testing.T) {
 		})
 	})
 
-	t.Run("when flock is not on the PATH", func(t *testing.T) {
+	// Item 295: the queue serves landings in arrival order. The tool's own
+	// tests prove the order against a waiter slow to wake; this proves make
+	// land goes through it.
+	t.Run("when three sessions run make land behind one holding the lock", func(t *testing.T) {
 		t.Parallel()
 		r := newLandRig(t)
-		before := r.remoteMain(t)
-		a := r.session(t, "a", "a.txt", "a\n")
-		out, err := r.land(a, "a", "land-probe-slow", "PATH="+pathWithout(t, "flock")).CombinedOutput()
+		release := filepath.Join(r.dir, "release")
+		holder := r.land(r.session(t, "a", "a.txt", "a\n"), "a", "land-probe-hold", "PROBE_RELEASE="+release)
+		holderOut, holderErr := runAsync(holder)
+		r.waitForStart(t, "a")
+		type waiter struct {
+			out  *lockedBuffer
+			done <-chan error
+		}
+		var waiters []waiter
+		for i, name := range []string{"b", "c", "d"} {
+			out, done := runAsync(r.land(r.session(t, name, name+".txt", name+"\n"), name, "land-probe-slow"))
+			waiters = append(waiters, waiter{out, done})
+			r.waitForTickets(t, i+2)
+		}
+		listing := r.listQueue(t, r.session(t, "lister", "e.txt", "e\n"))
+		require.NoError(t, os.WriteFile(release, nil, 0o644))
+		require.NoError(t, <-holderErr, holderOut.String())
+		for _, w := range waiters {
+			require.NoError(t, <-w.done, w.out.String())
+		}
 
-		t.Run("it should exit non-zero", func(t *testing.T) {
-			assert.Error(t, err, string(out))
+		t.Run("it should run their gates in arrival order", func(t *testing.T) {
+			assert.Equal(t, []string{"a_start", "a_end", "b_start", "b_end", "c_start", "c_end", "d_start", "d_end"}, r.probeLog(t))
 		})
 
-		t.Run("it should say how to install flock on either platform", func(t *testing.T) {
-			assert.Contains(t, string(out), "make land needs flock (util-linux on Linux, brew install flock on macOS)")
+		t.Run("it should land every commit on the remote's main, in that order", func(t *testing.T) {
+			assert.Equal(t, []string{"d", "c", "b", "a", "seed"}, r.remoteSubjects(t))
 		})
 
-		t.Run("it should leave the remote's main where it was", func(t *testing.T) {
-			assert.Equal(t, before, r.remoteMain(t))
+		t.Run("it should list the holder's worktree in make land-queue", func(t *testing.T) {
+			assert.Contains(t, listing, filepath.Join(r.dir, "a"))
+		})
+
+		t.Run("it should list every waiter in make land-queue", func(t *testing.T) {
+			assert.Equal(t, 3, strings.Count(listing, "waiting"))
 		})
 	})
 
@@ -304,6 +360,20 @@ func TestLand(t *testing.T) {
 		t.Run("it should pipe nothing, so the gate's exit code decides the push", func(t *testing.T) {
 			assert.Empty(t, piped)
 		})
+
+		// Item 295: a bare flock serves its waiters in no order.
+		for _, target := range []string{"land", "test-acceptance-locked", "test-performance", "demo-media-locked"} {
+			lines := makeRecipes(t, filepath.Join(repoRoot(t), "Makefile"), target)
+			joined := strings.Join(lines, "\n")
+
+			t.Run("it should queue "+target+" for the lock through land-queue", func(t *testing.T) {
+				assert.Contains(t, joined, "${LAND_QUEUED} --name "+target+" -- ")
+			})
+
+			t.Run("it should take no bare flock in "+target, func(t *testing.T) {
+				assert.NotContains(t, joined, "flock")
+			})
+		}
 
 		// Item 202: main's CI was red for two days and no landing said so.
 		t.Run("it should report main's CI after the fetch and before the gate", func(t *testing.T) {
@@ -335,9 +405,6 @@ func (r *landRig) locked(dir, name, gate string, extra ...string) *exec.Cmd {
 func TestAcceptanceLocked(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs make in scratch repositories")
-	}
-	if _, err := exec.LookPath("flock"); err != nil {
-		t.Skip("flock is not installed, so make test-acceptance-locked went untested")
 	}
 	t.Parallel()
 
@@ -433,9 +500,6 @@ func TestPerformanceLocked(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs make in scratch repositories")
 	}
-	if _, err := exec.LookPath("flock"); err != nil {
-		t.Skip("flock is not installed, so make test-performance's lock went untested")
-	}
 	t.Parallel()
 
 	t.Run("when another session holds the landing lock", func(t *testing.T) {
@@ -511,29 +575,6 @@ func runAsync(cmd *exec.Cmd) (*lockedBuffer, <-chan error) {
 	return out, done
 }
 
-// pathWithout is a PATH holding every program on this one except name.
-func pathWithout(t *testing.T, name string) string {
-	t.Helper()
-	bin := t.TempDir()
-	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if e.Name() == name {
-				continue
-			}
-			link := filepath.Join(bin, e.Name())
-			if _, err := os.Lstat(link); err == nil {
-				continue
-			}
-			_ = os.Symlink(filepath.Join(dir, e.Name()), link)
-		}
-	}
-	return bin
-}
-
 // makeRecipes is the recipe lines of the named rules, as written.
 func makeRecipes(t *testing.T, makefile string, targets ...string) []string {
 	t.Helper()
@@ -578,9 +619,6 @@ func (r *landRig) filmLocked(dir, name, gate string, extra ...string) *exec.Cmd 
 func TestDemoMediaLocked(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs make in scratch repositories")
-	}
-	if _, err := exec.LookPath("flock"); err != nil {
-		t.Skip("flock is not installed, so make demo-media-locked went untested")
 	}
 	t.Parallel()
 

@@ -166,9 +166,8 @@ demo-media :: build-dev demo-tool demo-image
 DEMO_MEDIA_GATE ?= demo-media
 
 demo-media-locked ::
-	@command -v flock >/dev/null || { echo "make demo-media-locked needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
-	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
-	@flock ${LAND_LOCK} ${MAKE} --no-print-directory ${DEMO_MEDIA_GATE} DEMO_SCENARIOS='${DEMO_SCENARIOS}' DEMO_OUT='${DEMO_OUT}'
+	@${MAKE} --no-print-directory land-queue-tool
+	@${LAND_QUEUED} --name demo-media-locked -- ${MAKE} --no-print-directory ${DEMO_MEDIA_GATE} DEMO_SCENARIOS='${DEMO_SCENARIOS}' DEMO_OUT='${DEMO_OUT}'
 
 # Files every cached shot under the current key without filming anything:
 # for after the key's own recipe changes, when the pictures cannot have. A
@@ -234,9 +233,8 @@ PERFORMANCE_GATE ?= test-performance-run
 
 test-performance ::
 	$(LOG) "Running the acceptance tests that measure CPU and memory"
-	@command -v flock >/dev/null || { echo "make test-performance needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
-	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
-	@flock ${LAND_LOCK} ${MAKE} --no-print-directory ${PERFORMANCE_GATE} RUN='${RUN}'
+	@${MAKE} --no-print-directory land-queue-tool
+	@${LAND_QUEUED} --name test-performance -- ${MAKE} --no-print-directory ${PERFORMANCE_GATE} RUN='${RUN}'
 
 test-performance-run ::
 	@pattern=$$(go run ./tools/acceptance-targets tier performance -run '${RUN}') && \
@@ -311,10 +309,23 @@ LAND_REMOTE ?= github
 LAND_BRANCH ?= main
 LAND_GATE ?= lint test-landing
 
-land ::
-	@command -v flock >/dev/null || { echo "make land needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
-	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
-	@flock ${LAND_LOCK} ${MAKE} --no-print-directory land-under-lock
+# Item 295: flock hands a released lock to any waiter, so a landing could wait
+# behind later arrivals. Everything that takes the lock queues for it through
+# tools/land-queue and is served in arrival order, with the flock kept beneath.
+# The queue sits beside the lock, so a test that moves the lock moves it too.
+LAND_QUEUE ?= $(basename ${LAND_LOCK}).queue
+LAND_QUEUE_TOOL := .cache/land-queue/land-queue
+LAND_QUEUED = ${LAND_QUEUE_TOOL} run --lock ${LAND_LOCK} --queue ${LAND_QUEUE}
+
+land-queue-tool ::
+	@go build -o ${LAND_QUEUE_TOOL} ./tools/land-queue
+
+# Who holds the landing lock and who waits for it, from which worktree.
+land-queue :: land-queue-tool
+	@${LAND_QUEUE_TOOL} list --lock ${LAND_LOCK} --queue ${LAND_QUEUE}
+
+land :: land-queue-tool
+	@${LAND_QUEUED} --name land -- ${MAKE} --no-print-directory land-under-lock
 
 # Item 226: acceptance tests run beside a landing's gate slow it and fail it,
 # so a session runs them holding the same lock. A worktree session cannot run
@@ -325,9 +336,8 @@ LOCKED_GATE ?= test-acceptance-run
 
 test-acceptance-locked ::
 	@test -n "${RUN}" || { echo "make test-acceptance-locked needs the tests to run: RUN='^TestName\$$'"; exit 2; }
-	@command -v flock >/dev/null || { echo "make test-acceptance-locked needs flock (util-linux on Linux, brew install flock on macOS)"; exit 1; }
-	@flock -n ${LAND_LOCK} true || echo "Waiting for the landing in progress to finish (${LAND_LOCK})"
-	@flock ${LAND_LOCK} ${MAKE} --no-print-directory ${LOCKED_GATE} RUN='${RUN}'
+	@${MAKE} --no-print-directory land-queue-tool
+	@${LAND_QUEUED} --name test-acceptance-locked -- ${MAKE} --no-print-directory ${LOCKED_GATE} RUN='${RUN}'
 
 test-acceptance-run ::
 	@go build -tags devtools -o ${ACCEPTANCE_BINARY} ./cmd/botropolis
