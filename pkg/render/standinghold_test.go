@@ -214,3 +214,27 @@ func afresh(rc *recordCity) []string {
 	rc.frame()
 	return drawn(rc.g)
 }
+
+// Item 212: the frame test leaves out every entry that shows activity
+// after the frame is noted, and the log names entries by their place.
+func TestDroppingActiveEntries(t *testing.T) {
+	s := stillFrame{
+		entries: []entry{{key: 1}, {key: 2, active: true}, {key: 3}},
+		log:     []heldItem{{entry: 0}, {entry: 1}, {entry: 2}, {entry: -1}},
+	}
+	s.entries = s.dropActive()
+	var keys []uint64
+	for _, it := range s.log {
+		if it.entry < 0 {
+			keys = append(keys, 0)
+			continue
+		}
+		keys = append(keys, s.entries[it.entry].key)
+	}
+
+	t.Run("when the entries that show activity are left out", func(t *testing.T) {
+		t.Run("it should point each logged item at its own entry, or at none", func(t *testing.T) {
+			assert.Equal(t, []uint64{1, 0, 3, 0}, keys)
+		})
+	})
+}

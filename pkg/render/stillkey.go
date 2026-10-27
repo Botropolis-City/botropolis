@@ -110,16 +110,3 @@ func markOf(hash uint64, box image.Rectangle) uint64 {
 	}
 	return maphash.Bytes(inkSeed, b[:])
 }
-
-// withoutActivity is entries without what shows activity, in place:
-// the frame the frame test compares two cities by, with the same
-// activity, none (item 193).
-func withoutActivity(entries []entry) []entry {
-	out := entries[:0]
-	for _, e := range entries {
-		if !e.active {
-			out = append(out, e)
-		}
-	}
-	return out
-}

@@ -960,7 +960,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	if !g.noStill {
 		screen = real
 		if framesWithoutMovers {
-			g.still.entries = withoutActivity(g.still.entries)
+			g.still.entries = g.still.dropActive()
 		}
 		g.paintStill(real, under, stillKey{under: g.static.whole, viewing: g.viewing()})
 	}

@@ -182,3 +182,25 @@ func (g *Game) passCheck() {
 		g.verifySeen++
 	}
 }
+
+// dropActive is the frame's entries without those that show activity, in
+// place: the frame the frame test compares two cities by, with the same
+// activity, none (item 193); with the log pointed at where each entry it names
+// went, or at none, so the next frame holds nothing in another's place.
+func (s *stillFrame) dropActive() []entry {
+	at := make([]int, len(s.entries))
+	out := s.entries[:0]
+	for i, e := range s.entries {
+		at[i] = -1
+		if !e.active {
+			at[i] = len(out)
+			out = append(out, e)
+		}
+	}
+	for i := range s.log {
+		if e := s.log[i].entry; e >= 0 && e < len(at) {
+			s.log[i].entry = at[e]
+		}
+	}
+	return out
+}
