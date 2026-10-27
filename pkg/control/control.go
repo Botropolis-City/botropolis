@@ -275,13 +275,23 @@ func (execRunner) Feed(ctx context.Context, input string, name string, args ...s
 
 const feedWaitDelay = time.Second
 
+// runWaitDelay is how long Run reads on once claude has exited: claude
+// --bg starts a session that may keep claude's output open, and the job
+// id is printed by then, so a clean exit with its pipes still held is a
+// success (item 286).
+const runWaitDelay = time.Second
+
 func (execRunner) Run(ctx context.Context, dir string, name string, args ...string) (string, error) {
 	keepFromChildren()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
+	cmd.WaitDelay = runWaitDelay
 	out, err := cmd.Output()
+	if errors.Is(err, exec.ErrWaitDelay) {
+		err = nil
+	}
 	if err != nil {
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {

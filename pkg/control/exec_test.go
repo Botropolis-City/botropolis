@@ -80,6 +80,46 @@ func TestExecRunner(t *testing.T) {
 		})
 	})
 
+	t.Run("when claude prints its job id and exits while a child it started keeps stdout open", func(t *testing.T) {
+		pidFile := filepath.Join(t.TempDir(), "child")
+		killOnCleanup(t, pidFile)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		start := time.Now()
+		out, err := runner.Run(ctx, "", "sh", "-c", `echo "backgrounded · 16daefa1"; sleep 30 & echo $! >"$0"; exit 0`, pidFile)
+		took := time.Since(start)
+
+		t.Run("it should return soon after claude exits", func(t *testing.T) {
+			assert.Less(t, took, 3*time.Second)
+		})
+
+		t.Run("it should return what claude printed", func(t *testing.T) {
+			assert.Contains(t, out, "backgrounded · 16daefa1")
+		})
+
+		t.Run("it should not call it a failure", func(t *testing.T) {
+			assert.NoError(t, err)
+		})
+	})
+
+	t.Run("when claude never exits", func(t *testing.T) {
+		pidFile := filepath.Join(t.TempDir(), "child")
+		killOnCleanup(t, pidFile)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		_, err := runner.Run(ctx, "", "sh", "-c", `sleep 30 & echo $! >"$0"; wait`, pidFile)
+		took := time.Since(start)
+
+		t.Run("it should return within the deadline plus the wait delay", func(t *testing.T) {
+			assert.Less(t, took, 3*time.Second)
+		})
+
+		t.Run("it should return an error", func(t *testing.T) {
+			assert.Error(t, err)
+		})
+	})
+
 	t.Run("when the city holds a descriptor opened without close-on-exec", func(t *testing.T) {
 		t.Run("and the system has no close_range, so the descriptors are swept one by one", func(t *testing.T) {
 			fd, err := syscall.Open(os.DevNull, syscall.O_RDONLY, 0)
