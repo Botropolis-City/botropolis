@@ -136,6 +136,7 @@ func (d *detection) pair(i, j int) (edge, bool) {
 	}
 	when, gap := timing(a, b)
 	var weak []Reason
+	d.weighed++
 	if d.wording.Related(a.ID, b.ID) {
 		words, _ := d.wording.Shared(a.ID, b.ID)
 		weak = append(weak, Reason{Signal: SignalWording, Detail: strings.Join(words, " ")})

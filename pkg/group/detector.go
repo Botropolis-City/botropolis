@@ -35,6 +35,9 @@ type Detector struct {
 	names map[string]named
 	// common are the last run's keys too common to be evidence.
 	common map[indexKey]bool
+	// weighed is how many pairs the detector has weighed the wording of
+	// (item 270).
+	weighed int
 }
 
 type scored struct {
@@ -116,6 +119,8 @@ func (dt *Detector) run(members []Member, memory Memory) (*detection, []edge) {
 // scoreChanged scores each changed session against its candidates, each
 // pair once, and ties those that score.
 func (dt *Detector) scoreChanged(d *detection, changed map[string]bool) {
+	weighed := d.weighed
+	defer func() { dt.weighed += d.weighed - weighed }()
 	c := d.candidates(dt.index)
 	for id := range changed {
 		i := d.index[id]

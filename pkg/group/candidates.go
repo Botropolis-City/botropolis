@@ -20,6 +20,15 @@ type candidates struct {
 	ix   *candidateIndex
 	seen []int
 	out  []int
+	// keyed is which candidates the last of found by a key other than a
+	// word, and shared the rarity of the words each shares, which is
+	// what the wording weighs the pair at (item 270).
+	keyed            []int
+	shared, sharedSq []float64
+	// weights are each member's words' squared rarities summed, once
+	// weighed.
+	weights []float64
+	weighed []bool
 }
 
 // The kinds of key a member is indexed under. dirAt and visitAt are a
@@ -224,7 +233,9 @@ func without(ids []string, id string) []string {
 }
 
 func (d *detection) candidates(ix *candidateIndex) *candidates {
-	return &candidates{d: d, ix: ix, seen: make([]int, len(d.members))}
+	n := len(d.members)
+	return &candidates{d: d, ix: ix, seen: make([]int, n), keyed: make([]int, n), shared: make([]float64, n),
+		sharedSq: make([]float64, n), weights: make([]float64, n), weighed: make([]bool, n)}
 }
 
 // of is member i's candidates, each once, in no particular order, valid
@@ -234,10 +245,17 @@ func (c *candidates) of(i int) []int {
 	stamp := i + 1
 	out := c.out[:0]
 	defer func() { c.out = out }()
-	addAt := func(j int) {
-		if j != i && c.seen[j] != stamp {
+	found := func(j int) {
+		if c.seen[j] != stamp {
 			c.seen[j] = stamp
+			c.shared[j], c.sharedSq[j] = 0, 0
 			out = append(out, j)
+		}
+	}
+	addAt := func(j int) {
+		if j != i {
+			found(j)
+			c.keyed[j] = stamp
 		}
 	}
 	add := func(ids []string) {
@@ -249,9 +267,18 @@ func (c *candidates) of(i int) []int {
 	}
 	d.looksUp(i, func(kind int, key string) {
 		if kind == wordKey {
-			if _, rare := d.wording.idf[key]; !rare {
+			idf, rare := d.wording.idf[key]
+			if !rare {
 				return
 			}
+			for _, id := range c.ix.keys[indexKey{kind, key}] {
+				if j, ok := d.index[id]; ok && j != i {
+					found(j)
+					c.shared[j] += idf
+					c.sharedSq[j] += idf * idf
+				}
+			}
+			return
 		}
 		if d.isCommon(kind, key) {
 			return
@@ -270,7 +297,38 @@ func (c *candidates) of(i int) []int {
 		c.startedWithin(m.Ended, m.Ended.Add(continuing), addAt)
 	}
 	add(c.ix.endedWithin(m.Started.Add(-continuing), m.Started))
-	return out
+	// A candidate found only through words can be tied only by its
+	// wording, Wording.Related, and every other signal a pair is scored
+	// on has a key of its own. The walk above adds up what Related reads,
+	// the rarity the two share and its square, so a candidate that falls
+	// short of either of its thresholds is left unscored; one within a
+	// rounding of them is scored, so the sums' order can change nothing.
+	// On a heavy history, words each in a sixth of the sessions made
+	// nearly every pair a candidate (item 270).
+	const margin = 1e-9
+	return slices.DeleteFunc(out, func(j int) bool {
+		if c.keyed[j] == stamp {
+			return false
+		}
+		if c.shared[j] < wordingThreshold-margin {
+			return true
+		}
+		return c.sharedSq[j] < (wordingOverlap-margin)*math.Sqrt(c.weight(i)*c.weight(j))
+	})
+}
+
+// weight is what Wording.overlap weighs a member's words at: the sum of
+// their rarities' squares, worked out once a run.
+func (c *candidates) weight(i int) float64 {
+	if !c.weighed[i] {
+		sum := 0.0
+		for tok := range c.d.wording.words[c.d.members[i].ID] {
+			idf := c.d.wording.idf[tok]
+			sum += idf * idf
+		}
+		c.weights[i], c.weighed[i] = sum, true
+	}
+	return c.weights[i]
 }
 
 // startedWithin gives the members started from one moment to another,

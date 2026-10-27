@@ -195,4 +195,7 @@ type detection struct {
 	capped []Capped
 	// common are the keys too many members share to be evidence.
 	common map[indexKey]bool
+	// weighed is how many pairs the wording has been weighed for
+	// (item 270).
+	weighed int
 }

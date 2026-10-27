@@ -74,3 +74,25 @@ func (w *Wording) Counts() map[string]int { return w.df }
 // Moved is whether every word's rarity moved in the last Next, and
 // otherwise the words whose rarity moved, sorted.
 func (w *Wording) Moved() (bool, []string) { return w.allMoved, sortedKeys(w.moved) }
+
+// IndexSums gives, for two sessions among members, the rarity the
+// candidate index adds up as the first's candidates are found, and what
+// the wording weighs the pair at (item 270).
+func IndexSums(members []Member) func(a, b string) (sum, shared float64) {
+	dt := NewDetector()
+	d, _ := dt.run(members, Memory{})
+	c := d.candidates(dt.index)
+	return func(a, b string) (float64, float64) {
+		i, j := d.index[a], d.index[b]
+		c.of(i)
+		sum := 0.0
+		if c.seen[j] == i+1 {
+			sum = c.shared[j]
+		}
+		return sum, d.wording.sharedScore(a, b)
+	}
+}
+
+// WordingWeighed is how many pairs the detector has weighed the wording
+// of.
+func (dt *Detector) WordingWeighed() int { return dt.weighed }
