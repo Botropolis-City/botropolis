@@ -432,7 +432,28 @@ func (d *Drive) Tick() error {
 	}
 	g.Draw(d.screen)
 	dropDeferred()
-	return nil
+	return d.settle()
+}
+
+// driveSettleLimit is how long a tick waits for what it sent beside the
+// loop before failing.
+var driveSettleLimit = 5 * time.Second
+
+// settle waits for what the tick sent beside the loop, so an action is
+// counted on the tick the city handed it over on, not the tick its
+// goroutine happened to run on (item 298).
+func (d *Drive) settle() error {
+	done := make(chan struct{})
+	go func() {
+		d.game.settle()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-time.After(driveSettleLimit):
+		return fmt.Errorf("an action beside the loop did not finish within %s", driveSettleLimit)
+	}
 }
 
 // Run delivers what is queued and then runs n more ticks.
