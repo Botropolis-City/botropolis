@@ -23,7 +23,7 @@ func sweepOnExec() {
 	if err != nil {
 		return
 	}
-	defer dir.Close()
+	defer func() { _ = dir.Close() }()
 	names, _ := dir.Readdirnames(-1)
 	for _, name := range names {
 		if fd, err := strconv.Atoi(name); err == nil && fd > 2 {

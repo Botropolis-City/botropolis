@@ -229,8 +229,8 @@ func (execRunner) Feed(ctx context.Context, input string, name string, args ...s
 	if err != nil {
 		return err
 	}
-	defer os.Remove(stderr.Name())
-	defer stderr.Close()
+	defer func() { _ = os.Remove(stderr.Name()) }()
+	defer func() { _ = stderr.Close() }()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Stderr = stderr
