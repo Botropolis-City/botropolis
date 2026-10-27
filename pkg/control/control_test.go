@@ -27,10 +27,23 @@ type fakeRunner struct {
 	failure error
 
 	feedDeadline time.Time
+	// hang makes Run wait out its context, as a claude that never
+	// answers would, killed at the deadline.
+	hang      bool
+	deadlines []time.Time
 }
 
-func (f *fakeRunner) Run(_ context.Context, dir string, name string, args ...string) (string, error) {
+func (f *fakeRunner) Run(ctx context.Context, dir string, name string, args ...string) (string, error) {
 	f.runs = append(f.runs, call{dir, append([]string{name}, args...)})
+	deadline, _ := ctx.Deadline()
+	f.deadlines = append(f.deadlines, deadline)
+	if f.hang {
+		select {
+		case <-ctx.Done():
+		case <-time.After(5 * time.Second):
+		}
+		return "", errors.New("signal: killed")
+	}
 	if len(args) > 0 && args[0] == "agents" {
 		return f.agents, f.failure
 	}

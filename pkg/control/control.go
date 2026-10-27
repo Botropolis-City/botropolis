@@ -38,14 +38,44 @@ type Runner interface {
 }
 
 type Control struct {
-	runner  Runner
-	desktop Desktop
-	getenv  func(string) string
-	onPath  func(string) bool
+	runner   Runner
+	desktop  Desktop
+	getenv   func(string) string
+	onPath   func(string) bool
+	timeouts timeouts
+}
+
+type timeouts struct {
+	start, end, list time.Duration
 }
 
 func New(runner Runner, desktop Desktop, getenv func(string) string, onPath func(string) bool) *Control {
-	return &Control{runner: runner, desktop: desktop, getenv: getenv, onPath: onPath}
+	return &Control{runner: runner, desktop: desktop, getenv: getenv, onPath: onPath, timeouts: defaultTimeouts}
+}
+
+// defaultTimeouts are how long each kind of claude call gets before it is
+// stopped and its failure said, so no claude that stalls can hold up
+// whoever asked (item 286): starting or resuming a session, ending one,
+// and listing them.
+var defaultTimeouts = timeouts{start: 2 * time.Minute, end: 30 * time.Second, list: 20 * time.Second}
+
+// claude runs one claude call within its time limit; one that runs out
+// says so by the verb it was asked.
+func (c *Control) claude(ctx context.Context, verb string, limit time.Duration, dir string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	out, err := c.runner.Run(ctx, dir, claudeBinary, args...)
+	if err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return out, fmt.Errorf("claude %s did not answer within %s: %w", verb, within(limit), err)
+	}
+	return out, err
+}
+
+func within(d time.Duration) string {
+	if s := d.String(); strings.HasSuffix(s, "m0s") {
+		return strings.TrimSuffix(s, "0s")
+	}
+	return d.String()
 }
 
 func Default(terminal string) *Control {
@@ -66,21 +96,21 @@ func (c *Control) New(ctx context.Context, dir, prompt string) (string, error) {
 	if prompt != "" {
 		args = append(args, prompt)
 	}
-	return c.background(ctx, dir, args)
+	return c.background(ctx, "new", dir, args)
 }
 
 func (c *Control) Resume(ctx context.Context, dir, sessionID string) (string, error) {
-	return c.background(ctx, dir, []string{"--bg", "--resume", sessionID})
+	return c.background(ctx, "resume", dir, []string{"--bg", "--resume", sessionID})
 }
 
 // Fork starts a fresh session from a copy of another's conversation,
 // leaving the original as it was.
 func (c *Control) Fork(ctx context.Context, dir, sessionID string) (string, error) {
-	return c.background(ctx, dir, []string{"--bg", "--resume", sessionID, "--fork-session"})
+	return c.background(ctx, "fork", dir, []string{"--bg", "--resume", sessionID, "--fork-session"})
 }
 
-func (c *Control) background(ctx context.Context, dir string, args []string) (string, error) {
-	out, err := c.runner.Run(ctx, dir, claudeBinary, args...)
+func (c *Control) background(ctx context.Context, verb, dir string, args []string) (string, error) {
+	out, err := c.claude(ctx, verb, c.timeouts.start, dir, args...)
 	if err != nil && untrustedPattern.MatchString(err.Error()) {
 		return "", untrustedError{err}
 	}
@@ -116,7 +146,7 @@ func (c *Control) Agents(ctx context.Context, all bool) ([]Agent, error) {
 	if all {
 		args = []string{"agents", "--all", "--json"}
 	}
-	out, err := c.runner.Run(ctx, "", claudeBinary, args...)
+	out, err := c.claude(ctx, "agents", c.timeouts.list, "", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +158,7 @@ func (c *Control) Agents(ctx context.Context, all bool) ([]Agent, error) {
 }
 
 func (c *Control) newestJob(ctx context.Context, dir string) (string, error) {
-	out, err := c.runner.Run(ctx, "", claudeBinary, "agents", "--json")
+	out, err := c.claude(ctx, "agents", c.timeouts.list, "", "agents", "--json")
 	if err != nil {
 		return "", fmt.Errorf("claude started a session but printed no job id, and listing agents failed: %w", err)
 	}
@@ -204,7 +234,7 @@ func (c *Control) simple(ctx context.Context, verb, id string) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.runner.Run(ctx, "", claudeBinary, verb, jobID)
+	_, err = c.claude(ctx, verb, c.timeouts.end, "", verb, jobID)
 	return err
 }
 
