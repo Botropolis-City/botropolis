@@ -98,6 +98,7 @@ func TestSurface(t *testing.T) {
 			config.KeyDistrictType: func(v string) bool { _, ok := city.ParseTyping(v); return ok },
 			config.KeyUsageRefresh: func(v string) bool { _, err := config.ParseUsageRefresh(v); return err == nil },
 			config.KeyScriptedRuns: func(v string) bool { _, err := config.ParseScriptedRuns(v); return err == nil },
+			config.KeyOnClose:      func(v string) bool { _, err := config.ParseOnClose(v); return err == nil },
 		}
 		for key, values := range config.Values {
 			parse, ok := parsers[key]
