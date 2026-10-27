@@ -80,11 +80,16 @@ var (
 	kitSignGantry = "city-kit-roads/sign-highway"
 	kitSignPost   = "city-kit-roads/road-sign-empty"
 	kitSignArm    = "city-kit-roads/road-sign-empty-hanging"
-	kitHall       = "city-kit-commercial/building-n"
-	kitLibrary    = "city-kit-commercial/building-l"
-	kitTower      = "city-kit-industrial/water-tower"
-	kitLamp       = "city-kit-roads/light-square"
-	kitDrone      = "botropolis/drone"
+	// City Hall is modelled in the pipeline (item 280): the kit's
+	// building-n carries a clinic's green cross.
+	kitHall = "botropolis/city-hall"
+	// The clinic, where what needs you stands (item 280), is the
+	// kit's building-n, which City Hall was drawn with.
+	kitClinic  = "city-kit-commercial/building-n"
+	kitLibrary = "city-kit-commercial/building-l"
+	kitTower   = "city-kit-industrial/water-tower"
+	kitLamp    = "city-kit-roads/light-square"
+	kitDrone   = "botropolis/drone"
 	// The plaza's fountain, modelled in the pipeline like the drone:
 	// three frames of spray, cycled slowly.
 	kitFountain = []string{"botropolis/fountain-a", "botropolis/fountain-b", "botropolis/fountain-c"}

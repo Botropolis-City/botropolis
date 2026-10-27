@@ -18,7 +18,7 @@ import (
 func TestLandmarkPanes(t *testing.T) {
 	atlases, err := assets.LoadKits()
 	require.NoError(t, err)
-	landmarks := []string{"city-kit-industrial/building-a", "city-kit-commercial/building-l", "city-kit-commercial/building-n"}
+	landmarks := []string{"city-kit-industrial/building-a", "city-kit-commercial/building-l", "city-kit-commercial/building-n", "botropolis/city-hall"}
 
 	for _, atlas := range atlases {
 		pages := map[int]*image.NRGBA{}

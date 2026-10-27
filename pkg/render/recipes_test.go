@@ -13,6 +13,16 @@ import (
 	"botropolis.city/botropolis/pkg/state"
 )
 
+// Item 280: the kit's building-n carries a green cross, a clinic's sign,
+// and City Hall was drawn with it.
+func TestHallPiece(t *testing.T) {
+	t.Run("when City Hall is drawn", func(t *testing.T) {
+		t.Run("it should be the modelled civic building, not the kit's clinic", func(t *testing.T) {
+			assert.Equal(t, "botropolis/city-hall", kitHall)
+		})
+	})
+}
+
 func TestTreePiece(t *testing.T) {
 	t.Run("when the plan may ask for a species", func(t *testing.T) {
 		t.Run("it should have a park piece for every one", func(t *testing.T) {

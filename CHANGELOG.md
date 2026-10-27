@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **City Hall looks like a town hall.**
+  It was drawn as a building with a green cross on its side, which is a clinic's sign.
+  It is now a stone hall with a six-column portico, a pediment over its steps and a clock tower whose face shows from every side.
 - **A session in a temporary directory joins the district its work is tied to.**
   Since 0.3.2 every session in `/tmp`, `$TMPDIR` or another temporary directory stands in one *Temporary* district.
   Now one whose transcript ties it to a project on the map stands in that project's district instead: Claude Code's scratchpad for the project, a team or a lead it works with, subagents that worked in its folder, a message either way, or files it edited there.

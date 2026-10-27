@@ -96,6 +96,16 @@ PALETTE = {
     "coat-plum": "#8a4f7d",
     "coat-mustard": "#d0a23a",
     "hair": "#4a3428",
+    "stone": "#e2d6c1",
+    "stone-trim": "#f4eee2",
+    "stone-shade": "#c7b9a1",
+    "column": "#f7f3ea",
+    "slate": "#5b6470",
+    "hall-glass": "#5a8fd0",
+    "clock-face": "#f4f1ea",
+    "clock-hand": "#2b2f36",
+    "gilt": "#d4a83a",
+    "flag": "#d9473a",
 }
 
 
@@ -795,3 +805,85 @@ def build(name, at=(0, 0)):
     root = m.done()
     root["roof"] = round(roof_height(root, m.body[2]), 4)
     return root
+
+
+# City Hall: a stone civic block behind a six-column portico and its
+# pediment, with a clock tower on the roof whose face shows on all four
+# sides, so it reads as a town hall from every heading. Item 280: the
+# kit's building-n it replaced carries a green cross, a clinic's sign.
+# Its glass is the kit's blue, so the landmarks' pane rule finds it.
+HALL = "city-hall"
+
+
+def is_hall(name):
+    return name == HALL
+
+
+def hall(at=(0, 0)):
+    m = Model(f"botropolis/{HALL}")
+    w, d = 2.0, 1.2
+    front = -d / 2
+    storey = 0.42
+    base = 0.08
+    # A plain frieze above the upper windows, where the map letters the
+    # hall's name.
+    frieze = 0.16
+    body = storey * 2 + frieze
+    m.box((w + 0.3, d + 0.7, base / 2), (0, -0.2, 0), "stone-shade")
+    m.box((w + 0.16, d + 0.5, base / 2), (0, -0.16, base / 2), "stone-trim")
+    m.box((w, d, body), (0, 0, base), "stone")
+    m.band(w, d, base + storey - 0.02, 0.04, "stone-trim")
+    m.band(w, d, base + body, 0.07, "stone-trim", out=0.03)
+    for i in range(2):
+        z = base + storey * i + 0.12
+        m.windows(w, d, z, 6, 4, (0.12, 0.2), key="hall-glass", emission=0.0)
+    m.box((w * 0.9, d * 0.9, 0.06), (0, 0, base + body + 0.07), "slate")
+
+    # The portico: steps up to six columns, an entablature and the
+    # pediment, standing out from the front wall.
+    pw, pd = 1.3, 0.42
+    py = front - pd / 2
+    for k in range(3):
+        m.box((pw + 0.2 - k * 0.06, pd + 0.14 - k * 0.05, 0.03), (0, py - 0.04 + k * 0.025, base + k * 0.03), "stone-trim")
+    floor = base + 0.09
+    top = base + body - 0.02
+    for i in range(6):
+        x = -pw / 2 + 0.08 + (pw - 0.16) * i / 5
+        m.cylinder(0.045, top - floor, (x, py - pd / 2 + 0.08, floor), "column", vertices=12)
+        m.cylinder(0.045, top - floor, (x, py + pd / 2 - 0.04, floor), "column", vertices=12)
+    m.box((0.22, 0.03, 0.44), (0, front - 0.012, base), "clock-hand")
+    m.box((pw + 0.06, pd + 0.06, 0.09), (0, py, top), "stone-trim")
+    m.gable(pw + 0.06, pd + 0.06, top + 0.09, 0.26, "stone", along="y", at=(0, py), overhang=0.02)
+
+    # The clock tower, from the middle of the roof.
+    t = 0.46
+    tz = base + body + 0.07
+    m.box((t + 0.06, t + 0.06, 0.08), (0, 0, tz), "stone-trim")
+    m.box((t, t, 0.62), (0, 0, tz + 0.08), "stone")
+    cz = tz + 0.08 + 0.34
+    face, out = 0.15, t / 2 + 0.008
+    for axis, sign in (("y", -1), ("y", 1), ("x", -1), ("x", 1)):
+        at_face = (0, sign * out, cz) if axis == "y" else (sign * out, 0, cz)
+        disc = m.cylinder(face, 0.012, (at_face[0], at_face[1], cz), "clock-face", axis=axis, vertices=24)
+        disc.location.z = cz
+        rim = m.cylinder(face + 0.02, 0.008, (at_face[0] - (sign * 0.004 if axis == "x" else 0), at_face[1] - (sign * 0.004 if axis == "y" else 0), cz), "gilt", axis=axis, vertices=24)
+        rim.location.z = cz
+        hx = 0.006 if axis == "y" else 0.012
+        hy = 0.012 if axis == "y" else 0.006
+        hand_at = (at_face[0] + (sign * 0.008 if axis == "x" else 0), at_face[1] + (sign * 0.008 if axis == "y" else 0))
+        m.box((hx if axis == "x" else 0.02, hy if axis == "y" else 0.02, 0.11), (hand_at[0], hand_at[1], cz - 0.01), "clock-hand")
+        m.box((hx if axis == "x" else 0.08, hy if axis == "y" else 0.08, 0.02), (hand_at[0] + (0.03 if axis == "y" else 0), hand_at[1] + (0.03 if axis == "x" else 0), cz - 0.01), "clock-hand")
+    m.band(t, t, tz + 0.66, 0.05, "stone-trim", out=0.02)
+    cap = tz + 0.71
+    m.mesh([(-t / 2 - 0.03, -t / 2 - 0.03, cap), (t / 2 + 0.03, -t / 2 - 0.03, cap), (t / 2 + 0.03, t / 2 + 0.03, cap),
+            (-t / 2 - 0.03, t / 2 + 0.03, cap), (0, 0, cap + 0.4)],
+           [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4), (0, 3, 2, 1)], "slate")
+    m.cylinder(0.008, 0.22, (0, 0, cap + 0.38), "gilt", vertices=8)
+    m.box((0.004, 0.12, 0.07), (0, 0.06, cap + 0.52), "flag")
+    m.body = (w, d, 0.0)
+    m.root.location = Vector((at[0], at[1], 0))
+    # Built facing -y, then turned to face +y, where the kit's buildings
+    # have their entrance, so the map's landmark turn puts the portico
+    # where the old hall's door was.
+    m.root.rotation_euler = (0, 0, math.pi)
+    return m.done()

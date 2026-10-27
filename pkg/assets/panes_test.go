@@ -19,7 +19,7 @@ func TestKitPanes(t *testing.T) {
 	atlases, err := assets.LoadKits()
 	require.NoError(t, err)
 	building := func(name string) bool {
-		if strings.HasPrefix(name, "city-kit-commercial/building") || name == "city-kit-industrial/building-a" {
+		if strings.HasPrefix(name, "city-kit-commercial/building") || name == "city-kit-industrial/building-a" || name == "botropolis/city-hall" {
 			return true
 		}
 		return regexp.MustCompile(`^botropolis/(residential|shopping|office|industrial)-[1-5]$`).MatchString(name)

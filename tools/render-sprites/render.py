@@ -134,7 +134,9 @@ PIECES = {
                        "boat-speed-j"],
     # Item 109: the city's own buildings, one kind per district type and
     # storey count, modelled in buildings.py.
-    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names() + buildings.course_names() + buildings.site_names() + buildings.ruins_names() + buildings.stall_names() + buildings.customer_names(),
+    "botropolis": ["drone", "fountain-a", "fountain-b", "fountain-c"] + buildings.names() + buildings.course_names() + buildings.site_names() + buildings.ruins_names() + buildings.stall_names() + buildings.customer_names()
+                  # Item 280: City Hall, modelled in buildings.py.
+                  + [buildings.HALL],
 }
 
 # Kits that are not modelled at one unit per cell are scaled on import:
@@ -148,6 +150,14 @@ PIECES = {
 # times): 0.35 is about a tenth off each, and 0.40 makes the body wider
 # than a real wagon. pkg/assets/kits_test.go holds the ratios.
 SCALE = {"car-kit": 0.12, "train-kit": 0.35, "watercraft-kit": 0.25}
+
+# Single pieces drawn smaller than their kit. The clinic is building-n,
+# which City Hall was drawn with, and a lesser landmark than the hall
+# beside it (item 280). At full size it took z1.5's third page to 1,109
+# rows, past the 1,024 at which Ebitengine doubles it to 2,048 and the
+# level costs 48 MiB rather than 40; at 0.7 it is 958, item 273's stalls
+# included, where 0.8 left three rows to spare.
+PIECE_SCALE = {("city-kit-commercial", "building-n"): 0.7}
 
 # Kits whose pieces are vehicles, modelled facing along y: the atlas
 # records their footprint, so the map spaces a train by its wagons' own
@@ -356,6 +366,8 @@ def piece(kits, kit, name, at, turn=0.0):
             return buildings.stall(name, at)
         if buildings.is_customer(name):
             return buildings.customer(name, at)
+        if buildings.is_hall(name):
+            return buildings.hall(at)
         raise FileNotFoundError(f"botropolis/{name} is not a piece we model")
     before = set(bpy.context.scene.objects)
     bpy.ops.import_scene.gltf(filepath=model_path(kits, kit, name))
@@ -367,7 +379,7 @@ def piece(kits, kit, name, at, turn=0.0):
             o.parent = root
     root.location = Vector((at[0], at[1], at[2] if len(at) > 2 else 0))
     root.rotation_euler = (0, 0, math.radians(turn))
-    k = SCALE.get(kit, 1.0)
+    k = SCALE.get(kit, 1.0) * PIECE_SCALE.get((kit, name), 1.0)
     if kit == "nature-kit":
         repaint(new, NATURE_TINT)
         k = nature_scale(root, name)
@@ -659,8 +671,9 @@ def kit_core(r, g, b, a):
 
 
 # The landmarks, whose windows the map lights at night: the library, City
-# Hall and the power plant. Item 185.
-LANDMARKS = {("city-kit-commercial", "building-l"), ("city-kit-commercial", "building-n"), ("city-kit-industrial", "building-a")}
+# Hall, the clinic and the power plant. Items 185 and 280.
+LANDMARKS = {("city-kit-commercial", "building-l"), ("city-kit-commercial", "building-n"), ("city-kit-industrial", "building-a"),
+             ("botropolis", buildings.HALL)}
 
 
 # How our own buildings' lit windows are told in a rendered sprite, as
