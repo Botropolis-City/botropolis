@@ -45,9 +45,11 @@ jobs:
         run: sudo apt-get install -y zsh fish bash-completion
       # The X server and window manager the global shortcut is tested
       # against (item 84). That test fails rather than skips without them
-      # under CI, because it is the whole proof the X11 part works.
-      - name: An X server and i3 for the global shortcut test
-        run: sudo apt-get install -y xvfb i3-wm
+      # under CI, because it is the whole proof the X11 part works. The tray
+      # is tested the same way, against Xvfb and a private session bus
+      # (item 293).
+      - name: An X server, i3 and a session bus for the shortcut and tray tests
+        run: sudo apt-get install -y xvfb i3-wm dbus
       # The Makefile's 40m is for loaded local machines (item 131). Here the
       # acceptance suite took 380-540 s through 2026-10-22, and past 600 s
       # once item 197 added a two-minute measuring test, which the old 10m

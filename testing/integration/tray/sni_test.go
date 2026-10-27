@@ -30,9 +30,7 @@ const (
 // the test reads nothing of the desktop it runs on.
 func privateBus(t *testing.T) string {
 	t.Helper()
-	if _, err := exec.LookPath("dbus-daemon"); err != nil {
-		t.Skip("dbus-daemon is not installed, so there is no bus to register a StatusNotifierItem on")
-	}
+	need(t, "dbus-daemon", "test the StatusNotifierItem against a session bus")
 	// A socket's path is capped near 108 bytes, and t.TempDir's carries
 	// the test's whole name.
 	dir, err := os.MkdirTemp("", "tray")

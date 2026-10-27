@@ -1,6 +1,11 @@
 package tray
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/jezek/xgb"
+)
 
 // Start puts the city's icon in the desktop's tray, or says why there is
 // none: StatusNotifierItem where a panel hosts it, the XEmbed tray where
@@ -13,20 +18,37 @@ func Start(goos string, getenv func(string) string) (Tray, error) {
 	default:
 		return nil, fmt.Errorf("%w on %s", ErrNoTray, goos)
 	}
-	conn := sessionBus(getenv)
+	bus := sessionBus(getenv)
+	var x *xgb.Conn
+	if display := getenv("DISPLAY"); display != "" {
+		x, _ = xgb.NewConnDisplay(display)
+	}
 	var f found
-	f.watcher, f.host = probeWatcher(conn)
+	f.watcher, f.host = probeWatcher(bus)
+	f.manager = probeXEmbed(x)
 	k, err := choose(f)
-	if k == kindSNI {
-		icon, err := startSNI(conn)
-		if err == nil {
-			return icon, nil
+	var icon Tray
+	switch k {
+	case kindSNI:
+		if icon, err = startSNI(bus); err == nil {
+			bus = nil
 		}
-		_ = conn.Close()
-		return nil, fmt.Errorf("%w: %v", ErrNoTray, err)
+	case kindXEmbed:
+		if icon, err = startXEmbed(x); err == nil {
+			x = nil
+		}
 	}
-	if conn != nil {
-		_ = conn.Close()
+	if bus != nil {
+		_ = bus.Close()
 	}
-	return nil, err
+	if x != nil {
+		x.Close()
+	}
+	switch {
+	case err == nil:
+		return icon, nil
+	case errors.Is(err, ErrNoTray):
+		return nil, err
+	}
+	return nil, fmt.Errorf("%w: %v", ErrNoTray, err)
 }
