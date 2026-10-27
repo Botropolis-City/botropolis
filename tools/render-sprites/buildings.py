@@ -505,6 +505,9 @@ def ruins(name, at=(0, 0)):
 # and under a storey, one kind per district type (Aria, 2026-10-26, item
 # 273). Its front, where it serves, faces -y, toward the camera's corner.
 STALL_W = 0.24
+# Drawn at this size, a stall reads on its lot and still stands lower
+# than a one-storey house.
+STALL_SCALE = 1.35
 
 
 def stall_names():
@@ -537,10 +540,10 @@ def hot_dog_cart(m):
         m.cylinder(0.035, 0.012, (x, -d / 2 - 0.007, 0.035), "tyre", axis="y", vertices=12)
     m.box((0.012, 0.012, 0.06), (w / 2 + 0.04, 0, 0.1), "steel")
     m.box((0.05, 0.012, 0.012), (w / 2 + 0.02, 0, 0.12), "steel")
-    m.box((0.008, 0.008, 0.2), (0, 0, 0.16), "mast")
+    m.box((0.008, 0.008, 0.13), (0, 0, 0.16), "mast")
     for k in range(8):
         a0, a1 = 2 * math.pi * k / 8, 2 * math.pi * (k + 1) / 8
-        r, top, rim = 0.16, 0.39, 0.33
+        r, top, rim = 0.15, 0.31, 0.26
         v = [(0, 0, top), (r * math.cos(a0), r * math.sin(a0), rim), (r * math.cos(a1), r * math.sin(a1), rim)]
         m.mesh(v, [(0, 1, 2)], "awning-red" if k % 2 == 0 else "sign-white")
 
@@ -598,8 +601,9 @@ STALLS = {"residential": hot_dog_cart, "shopping": bazaar_stall, "office": coffe
 def stall(name, at=(0, 0)):
     m = Model(f"botropolis/{name}")
     STALLS[name[: -len("-stall")]](m)
+    m.root.scale = (STALL_SCALE, STALL_SCALE, STALL_SCALE)
     m.root.location = Vector((at[0], at[1], 0))
-    m.root["body"] = [round(v, 4) for v in m.body]
+    m.root["body"] = [round(v * STALL_SCALE, 4) for v in m.body]
     return m.done()
 
 

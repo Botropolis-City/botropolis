@@ -230,6 +230,9 @@ func stageTranscript(rec Recorded, dir string, end, begin time.Time, o overlay) 
 			return stagedTranscript{}, err
 		}
 	}
+	if err := o.writeSubagents(folder, end, cwd); err != nil {
+		return stagedTranscript{}, err
+	}
 	return stagedTranscript{started: started, cwd: cwd, path: path, pending: pending}, nil
 }
 
@@ -378,6 +381,15 @@ func (o overlay) lines(at time.Time) ([][]byte, error) {
 	if o.Team != "" {
 		out = append(out, map[string]any{"type": "system", "subtype": "informational", "timestamp": stamp, "teamName": o.Team, "agentName": o.Agent})
 	}
+	if o.Subagents > 0 {
+		var calls []map[string]any
+		for k := range o.Subagents {
+			calls = append(calls, map[string]any{"type": "tool_use", "id": o.subagentCall(k), "name": "Agent",
+				"input": map[string]any{"description": fmt.Sprintf("Helper %d", k+1), "prompt": "help", "subagent_type": "general-purpose"}})
+		}
+		out = append(out, map[string]any{"type": "assistant", "timestamp": stamp, "isSidechain": false,
+			"message": map[string]any{"id": "msg_" + o.id + "_helpers", "role": "assistant", "content": calls}})
+	}
 	lines := make([][]byte, 0, len(out))
 	for _, m := range out {
 		m["sessionId"] = o.id
@@ -388,6 +400,34 @@ func (o overlay) lines(at time.Time) ([][]byte, error) {
 		lines = append(lines, data)
 	}
 	return lines, nil
+}
+
+// subagentCall is the id of the agent call that keeps subagent k at work.
+func (o overlay) subagentCall(k int) string {
+	return fmt.Sprintf("toolu_helper_%s_%d", strings.ReplaceAll(o.id, "-", ""), k)
+}
+
+// writeSubagents writes a subagent at work for each agent call the
+// placement keeps waiting, beside the transcript at path.
+func (o overlay) writeSubagents(folder string, at time.Time, cwd string) error {
+	stamp := at.UTC().Format("2006-01-02T15:04:05.000Z07:00")
+	for k := range o.Subagents {
+		agent := fmt.Sprintf("agent-helper%d", k)
+		base := filepath.Join(folder, o.id, "subagents", agent)
+		line, err := json.Marshal(map[string]any{"type": "user", "isSidechain": true, "sessionId": o.id, "agentId": agent,
+			"cwd": cwd, "timestamp": stamp, "message": map[string]any{"role": "user", "content": "help"}})
+		if err != nil {
+			return err
+		}
+		if err := writeJSONL(base+".jsonl", [][]byte{line}); err != nil {
+			return err
+		}
+		if err := writeJSON(base+".meta.json", map[string]any{"agentType": "general-purpose", "description": fmt.Sprintf("Helper %d", k+1),
+			"toolUseId": o.subagentCall(k)}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // prRef is the number and URL of a session's PR at position i, the same

@@ -3,6 +3,7 @@ package city_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,9 @@ import (
 func TestStall(t *testing.T) {
 	shown := func(t *testing.T, sessions ...state.Session) *city.Scene {
 		t.Helper()
-		s := scene(t)
+		s := city.NewScene(city.NewLayout())
+		s.SetClock(func() time.Time { return now }, time.UTC)
+		s.Resize(800, 600)
 		s.SetShown(city.Shown{Scripted: true})
 		s.SetSnapshot(snapshot(sessions...))
 		return s
@@ -80,6 +83,22 @@ func TestStall(t *testing.T) {
 
 		t.Run("it should queue as many as it holds", func(t *testing.T) {
 			assert.Len(t, s.Queue(find(t, s, "a")), city.MaxQueue)
+		})
+	})
+
+	t.Run("when a scripted session is mid-turn", func(t *testing.T) {
+		s := shown(t, busy("a", "sdk-cli", 0))
+
+		t.Run("it should raise no roof scaffold, its state light saying it works", func(t *testing.T) {
+			assert.Zero(t, s.Scaffold(find(t, s, "a")))
+		})
+	})
+
+	t.Run("when an interactive session is mid-turn", func(t *testing.T) {
+		s := shown(t, busy("a", "cli", 0))
+
+		t.Run("it should raise its roof scaffold", func(t *testing.T) {
+			assert.Equal(t, 1.0, s.Scaffold(find(t, s, "a")))
 		})
 	})
 

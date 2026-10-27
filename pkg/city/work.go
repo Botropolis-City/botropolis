@@ -34,7 +34,9 @@ type Load struct {
 // while it is mid-turn, coming down for ScaffoldDownFor after the turn
 // ends, and not there otherwise.
 func (s *Scene) Scaffold(b *Building) float64 {
-	if b == nil || b.Blinds {
+	// A stall has no roof to scaffold; its state light says it is at
+	// work (item 273).
+	if b == nil || b.Blinds || b.Stall() {
 		return 0
 	}
 	// A building still going up has its site's scaffolding; the roof's

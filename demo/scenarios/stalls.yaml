@@ -11,6 +11,7 @@ sessions:
   - ref: tidepool/50b7
     state: working
     scripted: true
+    subagents: 2
     arrive: 1s
     replay: {over: 14s}
   - ref: tidepool/48b5
@@ -31,6 +32,7 @@ sessions:
   - ref: quillmark/282a
     state: working
     scripted: true
+    subagents: 3
     ago: 1m
   - ref: lanternfish/2f68
     state: needs-you
@@ -74,8 +76,9 @@ shots:
     record: {seconds: 16, fps: 30}
     timeline: true
     script:
-      - {at: 0.5, pan_to: "district:tidepool", over: 2}
+      - {at: 0.5, pan_to: "district:quillmark", over: 2}
       - {at: 2.5, wheel: 3, over: 2}
+      - {at: 7.0, pan_to: "district:tidepool", over: 2}
   - name: hidden
     title: Scripted runs hidden
     description: The default, with scripted runs off the map; their tokens and spend still count in the power plant.

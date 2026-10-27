@@ -26,6 +26,30 @@ func TestStagedEntrypoint(t *testing.T) {
 		scripted("user", "2026-09-01T10:00:00.000Z")+"\n"+scripted("assistant", "2026-09-01T10:10:00.000Z")+"\n")
 	corpus := Corpus{Dir: dir}
 
+	t.Run("when a placement keeps two subagents at work", func(t *testing.T) {
+		got := stage(t, corpus, Scenario{Sessions: []Placement{{
+			Ref: "tidepool/6f1d", State: state.Working, Ago: Duration(time.Minute), Subagents: 2,
+		}}}, now)
+		require.NoError(t, got.err)
+		path := filepath.Join(got.home, ".claude", "projects", claude.ProjectFolder(Root+"/tidepool"), recordedID+".jsonl")
+		tr, err := claude.ReadTranscript(path)
+		require.NoError(t, err)
+		subs, _, err := claude.ReadSubagents(path)
+		require.NoError(t, err)
+		var linked []string
+		for _, s := range subs {
+			linked = append(linked, s.ToolUseID)
+		}
+
+		t.Run("it should leave two agent calls waiting at the transcript's end", func(t *testing.T) {
+			assert.Len(t, tr.Tail.PendingToolIDs, 2)
+		})
+
+		t.Run("it should give each waiting call a subagent of its own", func(t *testing.T) {
+			assert.ElementsMatch(t, tr.Tail.PendingToolIDs, linked)
+		})
+	})
+
 	for _, c := range []struct {
 		when     string
 		scripted bool

@@ -73,6 +73,11 @@ type Placement struct {
 	// Agent SDK; otherwise it is someone's, whatever its recording says
 	// (item 273).
 	Scripted bool `yaml:"scripted"`
+	// Subagents keeps that many subagents at work: agent calls waiting at
+	// the transcript's end, each with a subagent of its own, made up
+	// rather than recorded, since a recording's finish before it ends
+	// (item 273).
+	Subagents int `yaml:"subagents"`
 
 	// A clip that plays the timeline sees the session arrive Arrive
 	// into it, leave at Leave, and change as Changes say. A still, and
