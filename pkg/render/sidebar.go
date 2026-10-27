@@ -23,6 +23,7 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	g.pinnedKinds = nil
 	g.cardOver = ui.Card{}
 	if card, _, ok := g.scene.SelectedCard(); ok {
+		card.Hints = nil
 		window := float64(screen.Bounds().Dx())
 		panel := city.RectAt(0, top, width, bottom-top)
 		room := city.RectAt(width, top, window-width, bottom-top)
