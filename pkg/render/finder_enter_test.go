@@ -52,6 +52,7 @@ func TestFinderEnterBeforeTheAnswer(t *testing.T) {
 				run()
 			}
 			require.NoError(t, g.handleKeys())
+			g.settle()
 
 			t.Run("it should open its top result", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionResume, SessionID: "stopped"}}, actor.done)

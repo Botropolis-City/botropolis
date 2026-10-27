@@ -142,7 +142,6 @@ func (n *newSession) keys(g *Game) bool {
 		action := n.choice()
 		action.Kind, action.Dir, action.Prompt = city.ActionNewSession, dir, n.fields[fieldPrompt].query()
 		g.act(action)
-		g.SetStatus("starting a session in " + dir)
 		n.endComposing()
 		return false
 	case g.just(ebiten.KeyTab):

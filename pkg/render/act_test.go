@@ -78,13 +78,4 @@ func TestActOffTheLoop(t *testing.T) {
 		})
 	}
 
-	t.Run("when an action that is not a desktop call is chosen, such as stop", func(t *testing.T) {
-		g, actor := newGame(t, errors.New("claude stop: no such job"))
-		close(actor.release)
-		g.act(city.Action{Kind: city.ActionStop, SessionID: "a"})
-
-		t.Run("it should have its answer by the time act returns", func(t *testing.T) {
-			assert.Equal(t, "claude stop: no such job", g.notice.Text(timeNow()))
-		})
-	})
 }

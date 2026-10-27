@@ -495,6 +495,10 @@ func (g *Game) act(action city.Action) {
 	if action.Kind == city.ActionNone || g.actor == nil {
 		return
 	}
+	if runsClaude[action.Kind] {
+		g.actBeside(action)
+		return
+	}
 	if besideTheLoop[action.Kind] {
 		actor := g.actor
 		g.acting.Add(1)
@@ -518,6 +522,75 @@ var besideTheLoop = map[city.ActionKind]bool{
 	city.ActionCopyPath: true,
 	city.ActionReveal:   true,
 	city.ActionOpenPR:   true,
+}
+
+// runsClaude is every action that waits on claude, which can stall on
+// the network or a lock, or be held by a session it starts: each runs
+// beside the loop, once at a time per session, saying what it is doing
+// until it is done (item 286). Move, mute and review stay on the loop,
+// since they only write the groups file, in the order they were asked.
+var runsClaude = map[city.ActionKind]bool{
+	city.ActionResume:     true,
+	city.ActionNew:        true,
+	city.ActionNewSession: true,
+	city.ActionFork:       true,
+	city.ActionStop:       true,
+	city.ActionDemolish:   true,
+	city.ActionRestore:    true,
+}
+
+// actBeside runs a claude action beside the loop. A second press while it
+// runs is told so rather than starting a second claude; a failure
+// replaces what it was doing, and success clears it, since the building
+// changing is the answer.
+func (g *Game) actBeside(action city.Action) {
+	name := g.nameFor(action)
+	if !g.busy.begin(action) {
+		g.SetStatus(already(action.Kind, name))
+		return
+	}
+	doing := running(action.Kind, name)
+	g.SetStatus(doing)
+	actor := g.actor
+	g.acting.Add(1)
+	go func() {
+		defer g.acting.Done()
+		defer g.busy.end(action)
+		if err := actor.Do(action); err != nil {
+			g.SetStatus(err.Error())
+			return
+		}
+		g.clearStatus(doing)
+	}()
+}
+
+// nameFor is what a notice calls the subject of an action: its session's
+// title, or its directory's district.
+func (g *Game) nameFor(a city.Action) string {
+	if c := g.scene.City(); c != nil {
+		if a.SessionID != "" {
+			for _, b := range c.Buildings() {
+				if b.Session.ID == a.SessionID && b.Session.Title != "" {
+					return b.Session.Title
+				}
+			}
+		} else if a.Dir != "" {
+			return c.DistrictName(city.ProjectRoot(a.Dir))
+		}
+	}
+	if a.SessionID != "" {
+		return a.SessionID[:min(8, len(a.SessionID))]
+	}
+	return filepath.Base(a.Dir)
+}
+
+// clearStatus takes text off the footer if it is still what is shown.
+func (g *Game) clearStatus(text string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.notice.Text(timeNow()) == text {
+		g.notice.Clear()
+	}
 }
 
 // settle waits for the desktop calls act sent beside the loop.

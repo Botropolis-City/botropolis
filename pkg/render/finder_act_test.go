@@ -63,6 +63,7 @@ func TestFinderActs(t *testing.T) {
 		t.Run("and Enter is pressed on a stopped session", func(t *testing.T) {
 			g, actor := finderOver(t, 1, live, stopped)
 			pressKey(t, g, ebiten.KeyEnter, false)
+			g.settle()
 
 			t.Run("it should resume it as the card does", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionResume, SessionID: "stopped"}}, actor.done)
@@ -90,6 +91,7 @@ func TestFinderActs(t *testing.T) {
 
 			t.Run("and Enter is pressed again", func(t *testing.T) {
 				pressKey(t, g, ebiten.KeyEnter, false)
+				g.settle()
 
 				t.Run("it should start a new session there, as the card's new session here does", func(t *testing.T) {
 					assert.Equal(t, []city.Action{{Kind: city.ActionNew, Dir: "/src/orchard"}}, actor.done)

@@ -210,6 +210,7 @@ func TestReadingPane(t *testing.T) {
 			t.Run("and Enter is pressed on a "+c.id+" session", func(t *testing.T) {
 				g, actor, _ := opened(t, c.id, five, nil)
 				pressKey(t, g, ebiten.KeyEnter, false)
+				g.settle()
 
 				t.Run("it should close the pane", func(t *testing.T) {
 					assert.False(t, g.reading())
@@ -263,6 +264,7 @@ func TestReadingPane(t *testing.T) {
 
 		t.Run("and Enter is pressed", func(t *testing.T) {
 			pressKey(t, g, ebiten.KeyEnter, false)
+			g.settle()
 
 			t.Run("it should start a new session in its directory", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionNew, Dir: "/src/kiln"}}, actor.done)

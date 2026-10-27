@@ -96,6 +96,7 @@ func TestTriageKeys(t *testing.T) {
 				g, actor := walking(t)
 				light := g.scene.Light()
 				press(t, g, tc.key)
+				g.settle()
 
 				t.Run("it should do triage's thing", func(t *testing.T) {
 					assert.True(t, tc.triage(g, actor))

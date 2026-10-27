@@ -183,6 +183,7 @@ func TestRestoreDesk(t *testing.T) {
 	t.Run("when R is pressed in the journal", func(t *testing.T) {
 		g, actor := game(t, &state.CloseUp{At: at.Add(-64 * time.Hour), Open: []string{"paused", "still"}}, nil)
 		pressKey(t, g, ebiten.KeyR, false)
+		g.settle()
 
 		t.Run("it should resume in the background each session open at close and not live now", func(t *testing.T) {
 			assert.Equal(t, []city.Action{restore}, actor.done)
@@ -201,6 +202,7 @@ func TestRestoreDesk(t *testing.T) {
 
 		t.Run("and the button is clicked", func(t *testing.T) {
 			g.overlays.top().click(g, button.Rect.Center())
+			g.settle()
 
 			t.Run("the button should do what R does", func(t *testing.T) {
 				assert.Equal(t, []city.Action{restore}, actor.done)
@@ -224,6 +226,7 @@ func TestRestoreDesk(t *testing.T) {
 	t.Run("when you did not close up", func(t *testing.T) {
 		g, actor := game(t, nil, []string{"paused", "still"})
 		pressKey(t, g, ebiten.KeyR, false)
+		g.settle()
 
 		t.Run("it should use the sessions the map last saw live", func(t *testing.T) {
 			assert.Equal(t, []city.Action{restore}, actor.done)

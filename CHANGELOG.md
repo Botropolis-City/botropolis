@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A copy now runs beside the map, and a clipboard tool that has not finished within two seconds is stopped, with a notice saying why.
   Revealing a folder and opening a pull request run beside the map too.
   Tools the city starts no longer inherit its open files, such as its input devices.
+- **Resume, New, Fork, Stop, Remove, Restore and Close up no longer freeze the city while claude runs.**
+  Each used to stop the whole map until claude answered, and a claude that stalled on the network, or a session that kept its output open, stopped it for good.
+  They now run beside the map, and the footer says what each is doing, such as *resuming Fix the queue…*, until the building changes or a failure replaces it.
+  A claude that has not answered within its time, two minutes to start or resume a session and thirty seconds to stop or remove one, is stopped, with a notice saying which.
+  Pressing the same action again while it runs says it already is, rather than starting a second claude.
+  Close up keeps its panel open while it works and quits once it is done.
 
 ### Fixed
 

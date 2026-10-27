@@ -1,6 +1,7 @@
 package render
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -174,9 +175,26 @@ func TestNewSession(t *testing.T) {
 			press(t, g, ebiten.KeyEnter, false)
 			typed(t, g, "carry on with LOG-4")
 			press(t, g, ebiten.KeyEnter, false)
+			g.settle()
 
 			t.Run("it should hand the actor the directory, prompt and group", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionNewSession, Dir: "/w/infra", Prompt: "carry on with LOG-4", Group: idOf("c")}}, actor.done)
+			})
+		})
+
+		t.Run("and enter starts it, and claude fails at once", func(t *testing.T) {
+			g, _ := opened(t)
+			actor := &blockingActor{release: make(chan struct{}), reached: make(chan city.Action, 1), failure: errors.New("claude new: workspace not trusted")}
+			close(actor.release)
+			g.actor = actor
+			typed(t, g, "/w/infra")
+			press(t, g, ebiten.KeyEnter, false)
+			typed(t, g, "go")
+			press(t, g, ebiten.KeyEnter, false)
+			g.settle()
+
+			t.Run("it should show the failure, not that it is starting", func(t *testing.T) {
+				assert.Equal(t, "claude new: workspace not trusted", g.notice.Text(timeNow()))
 			})
 		})
 
