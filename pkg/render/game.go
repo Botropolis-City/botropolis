@@ -159,10 +159,17 @@ type Game struct {
 	// looks are buildings' looks baked into images, lookFrame counts the
 	// frames they are kept across, and baking is set while one is being
 	// baked, when nothing drawn is noted for the frame (item 192).
-	looks     *lookCache[lookKey, *bakedLook]
-	lookFrame int
-	baking    bool
-	lookStats lookStats
+	looks *lookCache[lookKey, *bakedLook]
+	// lookBakedAt is the frame each run was last baked, and backoffUntil
+	// the frame until which a building whose looks thrashed is drawn
+	// straight (item 212).
+	lookBakedAt  map[runID]bakedLookAt
+	backoffUntil map[string]int
+	// backoffFor is how long each building last backed off for.
+	backoffFor map[string]int
+	lookFrame  int
+	baking     bool
+	lookStats  lookStats
 	// buildingsDrawn is how many buildings the frame drew (item 161).
 	buildingsDrawn int
 	// sorted is how many drawables the frame put in depth order

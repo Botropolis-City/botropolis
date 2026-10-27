@@ -42,7 +42,7 @@ func (g *Game) standingKey(selected *city.Building) uint64 {
 	viewing := g.viewing()
 	for _, b := range c.Buildings() {
 		id := b.Session.ID
-		v := keyMix(boolBits(s.Dimmed(b)), boolBits(g.unlit(b)), math.Float64bits(s.Scaffold(b)),
+		v := keyMix(boolBits(s.Dimmed(b)), boolBits(g.unlit(b)), boolBits(g.backingOff(id)), math.Float64bits(s.Scaffold(b)),
 			boolBits(courseLit(&b.Session, now)), math.Float64bits(s.Rising(id)), math.Float64bits(s.Lights(id)),
 			math.Float64bits(s.Mowing(id)))
 		if site, ok := s.Construction(id); ok {

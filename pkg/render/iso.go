@@ -1964,7 +1964,7 @@ func (g *Game) quietKey(b *city.Building, selected, detailed bool) (uint64, bool
 		return 0, false
 	}
 	scaffold := s.Scaffold(b)
-	key := keyMix(g.buildingValue(b), boolBits(selected), boolBits(detailed), boolBits(s.Dimmed(b)), boolBits(g.unlit(b)),
+	key := keyMix(g.buildingValue(b), boolBits(selected), boolBits(detailed), boolBits(s.Dimmed(b)), boolBits(g.unlit(b)), boolBits(g.backingOff(b.Session.ID)),
 		math.Float64bits(scaffold), g.titleHash(b), boolBits(courseLit(&b.Session, s.Now())), g.houseWide,
 		g.frameBase.all, boolBits(g.lightsOn), boolBits(g.reduced))
 	if g.viewing() {
@@ -2004,10 +2004,12 @@ func (g *Game) buildingKey(f *buildingFrame) uint64 {
 		title     string
 		courseLit bool
 		frameWide uint64
+		straight  bool
 	}{
 		building: g.buildingValue(b),
 		scaffold: g.scene.Scaffold(b), title: g.titleOf(b),
 		courseLit: courseLit(&b.Session, g.scene.Now()), frameWide: g.houseWide,
+		straight: g.backingOff(b.Session.ID),
 	}
 	for i := range min(f.state.flags, len(k.hoists)) {
 		k.hoists[i] = g.flagHoist(b, i)

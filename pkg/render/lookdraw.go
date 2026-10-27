@@ -526,7 +526,20 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	key := g.keyOf(cam, f, r)
 	g.jn.lookKeys = append(g.jn.lookKeys, key)
 	cell := lookCell(g.footOf(cam, f.b))
+	id := runID{id: f.b.Session.ID, run: r.from}
+	// While its building backs off, it is drawn straight, which is exact,
+	// and its record kept (item 212).
+	if g.backingOff(f.b.Session.ID) {
+		g.lookStats.misses++
+		g.drawSteps(screen, cam, f, r.from, r.to)
+		return
+	}
 	look, ok := g.looks.get(key)
+	if !ok && g.thrashed(id, key) {
+		g.lookStats.misses++
+		g.drawSteps(screen, cam, f, r.from, r.to)
+		return
+	}
 	switch {
 	case ok && look.inexact && g.wholeOnFrame(cam, f, screen):
 		// Baked while it ran off the frame, it is baked again, exactly,
@@ -555,10 +568,11 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 		for _, w := range look.words {
 			g.seeText(w)
 		}
-	case g.looks.steady(runID{id: f.b.Session.ID, run: r.from}, key, g.lookFrame):
+	case g.looks.steady(id, key, g.lookFrame):
 		look = g.bake(cam, f, r, cell, g.bakeFrame(screen))
 		if look != nil {
 			g.rec.unsettle()
+			g.bakedRun(id, key)
 		}
 		if look == nil {
 			g.lookStats.misses++
@@ -727,4 +741,62 @@ func (g *Game) nextLookFrame() {
 	if g.lookFrame%lookForget == 0 {
 		g.looks.forget(g.lookFrame - lookForget)
 	}
+}
+
+// lookBackoff is how many frames a look evicted soon after it was baked
+// is drawn straight before it is baked again: two seconds at liveTPS. A
+// look the pages have no room for is then baked once in two seconds
+// rather than every frame, and one that has room again is baked within
+// two seconds. A building whose looks thrash again soon after its
+// backoff ends backs off twice as long each time, to lookBackoffMost, so
+// pressure that never lifts costs less and less rather than settling
+// into a slower thrash (item 212).
+const (
+	lookBackoff     = 2 * liveTPS
+	lookBackoffMost = 16 * lookBackoff
+)
+
+// bakedLookAt is when a run was last baked, and under what key.
+type bakedLookAt struct {
+	frame int
+	key   lookKey
+}
+
+// bakedRun notes that run id was baked this frame, under key.
+func (g *Game) bakedRun(id runID, key lookKey) {
+	if g.lookBakedAt == nil {
+		g.lookBakedAt = map[runID]bakedLookAt{}
+	}
+	g.lookBakedAt[id] = bakedLookAt{frame: g.lookFrame, key: key}
+}
+
+// thrashed is whether run id's look under key, missing from the looks,
+// was baked under that key within lookBackoff frames: evicted by the
+// bakes around it, not changed. Its building then backs off, drawn
+// straight.
+func (g *Game) thrashed(id runID, key lookKey) bool {
+	at, ok := g.lookBakedAt[id]
+	if !ok || at.key != key || g.lookFrame-at.frame > lookBackoff {
+		return false
+	}
+	delete(g.lookBakedAt, id)
+	if g.backoffUntil == nil {
+		g.backoffUntil, g.backoffFor = map[string]int{}, map[string]int{}
+	}
+	// Thrashed again within its last backoff's length of its ending, it
+	// backs off twice as long; otherwise as long as at first.
+	span := lookBackoff
+	if ended, ok := g.backoffUntil[id.id]; ok && g.lookFrame-ended <= g.backoffFor[id.id] {
+		span = min(2*g.backoffFor[id.id], lookBackoffMost)
+	}
+	g.backoffFor[id.id] = span
+	g.backoffUntil[id.id] = g.lookFrame + span
+	return true
+}
+
+// backingOff is whether session id's building is drawn straight this
+// frame, its looks thrashed. Its keys fold it, so its record is made
+// again the frame it ends.
+func (g *Game) backingOff(id string) bool {
+	return g.backoffUntil[id] > g.lookFrame
 }
