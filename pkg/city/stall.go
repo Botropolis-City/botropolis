@@ -10,6 +10,10 @@ const (
 	MaxQueue = 5
 	// stallShare is how much of its lot's width a stall takes.
 	stallShare = 1.0 / 3
+	// queueStep is how far apart a stall's customers stand, in world
+	// units: a little more than one is wide on screen, so a full queue
+	// still fits across its lot.
+	queueStep = 5.0
 )
 
 // Stall is whether the building is a stall: its session a scripted run.
@@ -33,8 +37,9 @@ func (b *Building) StallBody() Rect {
 }
 
 // Queue is where a stall's customers stand, one per subagent in flight,
-// in a line out from the stall's front, the face toward +y, to its lot's
-// edge. A building that is not a stall has none.
+// in a row along the stall's front, the face toward +y, a customer's
+// width or more apart so that none hides another. A building that is not
+// a stall has none.
 func (s *Scene) Queue(b *Building) []Point {
 	if b == nil || !b.Stall() {
 		return nil
@@ -44,13 +49,11 @@ func (s *Scene) Queue(b *Building) []Point {
 		return nil
 	}
 	body := b.StallBody()
-	front, edge := body.Max.Y, b.Rect.Max.Y
-	room := edge - front
-	step := room / float64(MaxQueue+1)
-	x := body.Center().X
+	y := (body.Max.Y + b.Rect.Max.Y) / 2
+	first := body.Center().X - queueStep*float64(n-1)/2
 	out := make([]Point, n)
 	for i := range out {
-		out[i] = Point{X: x + float64(i%2)*step*0.6 - step*0.3, Y: front + step*float64(i+1)}
+		out[i] = Point{X: first + queueStep*float64(i), Y: y}
 	}
 	return out
 }

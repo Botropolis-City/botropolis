@@ -2,6 +2,7 @@ package city_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -83,6 +84,28 @@ func TestStall(t *testing.T) {
 
 		t.Run("it should queue as many as it holds", func(t *testing.T) {
 			assert.Len(t, s.Queue(find(t, s, "a")), city.MaxQueue)
+		})
+
+		t.Run("it should stand no customer within a customer's width of another", func(t *testing.T) {
+			q := s.Queue(find(t, s, "a"))
+			closest := math.Inf(1)
+			for i := range q {
+				for j := i + 1; j < len(q); j++ {
+					closest = math.Min(closest, math.Hypot(q[i].X-q[j].X, q[i].Y-q[j].Y))
+				}
+			}
+			assert.GreaterOrEqual(t, closest, 4.0)
+		})
+
+		t.Run("it should still stand every customer on its lot", func(t *testing.T) {
+			b := find(t, s, "a")
+			var astray int
+			for _, p := range s.Queue(b) {
+				if !b.Rect.Contains(p) || b.StallBody().Contains(p) {
+					astray++
+				}
+			}
+			assert.Zero(t, astray)
 		})
 	})
 
