@@ -196,16 +196,29 @@ func TestControl(t *testing.T) {
 
 	t.Run("when a session is attached", func(t *testing.T) {
 		runner := &fakeRunner{}
-		err := newControl(runner).Attach(jobID)
+		err := newControl(runner).Attach(jobID, dir)
 		require.NoError(t, err)
 		require.Len(t, runner.starts, 1)
 
-		t.Run("it should spawn a terminal running claude attach", func(t *testing.T) {
+		t.Run("it should spawn a terminal running only claude attach, with nothing after it", func(t *testing.T) {
 			assert.Equal(t, []string{"kitty", "claude", "attach", jobID}, runner.starts[0].argv)
+		})
+
+		t.Run("it should start the terminal in the session's directory", func(t *testing.T) {
+			assert.Equal(t, dir, runner.starts[0].dir)
 		})
 
 		t.Run("it should not block on the terminal", func(t *testing.T) {
 			assert.Empty(t, runner.runs)
+		})
+	})
+
+	t.Run("when a session is attached with no directory known", func(t *testing.T) {
+		runner := &fakeRunner{}
+
+		t.Run("it should still spawn the terminal", func(t *testing.T) {
+			require.NoError(t, newControl(runner).Attach(jobID, ""))
+			assert.Len(t, runner.starts, 1)
 		})
 	})
 

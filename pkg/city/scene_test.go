@@ -249,7 +249,7 @@ func TestScene(t *testing.T) {
 		})
 
 		t.Run("it should still attach when the selection is activated", func(t *testing.T) {
-			assert.Equal(t, city.Action{Kind: city.ActionAttach, SessionID: "a"}, s.Activate())
+			assert.Equal(t, city.Action{Kind: city.ActionAttach, SessionID: "a", Dir: cinders}, s.Activate())
 		})
 	})
 
@@ -522,7 +522,7 @@ func TestActivate(t *testing.T) {
 		require.NotNil(t, s.JumpTo(state.NeedsYou))
 
 		t.Run("it should ask to attach it", func(t *testing.T) {
-			assert.Equal(t, city.Action{Kind: city.ActionAttach, SessionID: "a"}, s.Activate())
+			assert.Equal(t, city.Action{Kind: city.ActionAttach, SessionID: "a", Dir: cinders}, s.Activate())
 		})
 	})
 

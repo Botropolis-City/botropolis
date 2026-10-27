@@ -28,6 +28,8 @@ const DemolishArmFor = 3 * time.Second
 type Action struct {
 	Kind      ActionKind
 	SessionID string
+	// Dir is the session's directory, where its terminal opens.
+	Dir string
 }
 
 type Model struct {
@@ -167,7 +169,7 @@ func (m *Model) Key(key string, now time.Time) Action {
 			if s.State == state.Resting {
 				return Action{Kind: ActionResume, SessionID: s.ID}
 			}
-			return Action{Kind: ActionAttach, SessionID: s.ID}
+			return Action{Kind: ActionAttach, SessionID: s.ID, Dir: s.CWD}
 		}
 	case "s":
 		if s, ok := m.Selected(); ok && s.State != state.Resting {

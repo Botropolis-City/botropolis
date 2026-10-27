@@ -204,7 +204,7 @@ func TestReadingPane(t *testing.T) {
 			id   string
 			want city.Action
 		}{
-			{"live", city.Action{Kind: city.ActionAttach, SessionID: "live"}},
+			{"live", city.Action{Kind: city.ActionAttach, SessionID: "live", Dir: "/src/kiln"}},
 			{"parked", city.Action{Kind: city.ActionResume, SessionID: "parked"}},
 		} {
 			t.Run("and Enter is pressed on a "+c.id+" session", func(t *testing.T) {

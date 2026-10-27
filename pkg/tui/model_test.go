@@ -95,7 +95,7 @@ func TestModel(t *testing.T) {
 		m := model(session("a", state.NeedsYou, 0))
 
 		t.Run("it should attach", func(t *testing.T) {
-			assert.Equal(t, tui.Action{Kind: tui.ActionAttach, SessionID: "a"}, m.Key("enter", now))
+			assert.Equal(t, tui.Action{Kind: tui.ActionAttach, SessionID: "a", Dir: "/home/avesta/workspaces/github/mCedar/cinders"}, m.Key("enter", now))
 		})
 	})
 

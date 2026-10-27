@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It now drives as fast as the city's other trucks, so a far depot takes longer, between two and six seconds.
   Under reduced motion it is still a short cross-fade.
 
+### Fixed
+
+- **`c` on a district now opens the new session in a terminal**, once Claude Code has started it, instead of only raising a building.
+  The few seconds before it opens are Claude Code starting the session; the city's own part of the hand-off takes milliseconds.
+- **Exiting a session opened from the city no longer asks whether to trust your home folder.**
+  Every terminal the city opens on a session now starts in that session's folder.
+  When you exit, Claude Code shows its agent view in that terminal, and that view now opens in a folder it already trusts.
+  The terminal stays open with the agent view rather than closing, because Claude Code has no setting to turn that off.
+
 ## [0.3.3] - 2026-10-27
 
 ### Added

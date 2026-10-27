@@ -170,7 +170,7 @@ var errNoDaemon = errors.New("packing up needs the daemon, which keeps the ledge
 func (a Actor) Do(action city.Action) error {
 	switch action.Kind {
 	case city.ActionAttach:
-		return a.Sessions.Attach(action.SessionID)
+		return a.Sessions.Attach(action.SessionID, action.Dir)
 	case city.ActionResume:
 		_, err := a.Sessions.Resume(context.Background(), "", action.SessionID)
 		return err
@@ -179,8 +179,11 @@ func (a Actor) Do(action city.Action) error {
 	case city.ActionStop:
 		return a.Sessions.Stop(context.Background(), action.SessionID)
 	case city.ActionNew:
-		_, err := a.Sessions.New(context.Background(), action.Dir, "")
-		return err
+		id, err := a.Sessions.New(context.Background(), action.Dir, "")
+		if err != nil {
+			return err
+		}
+		return a.Sessions.Attach(id, action.Dir)
 	case city.ActionReveal:
 		return a.Sessions.Reveal(action.Dir)
 	case city.ActionFork:

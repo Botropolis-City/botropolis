@@ -36,9 +36,11 @@ func (f *fakeSource) Snapshot(direct bool) (state.Snapshot, error) {
 }
 
 type fakeController struct {
-	calls  []string
-	id     string
-	agents []control.Agent
+	calls []string
+	id    string
+	// attachedIn is the directory each attach was asked to open in.
+	attachedIn []string
+	agents     []control.Agent
 	// liveAgents, when set, is what agents without --all lists.
 	liveAgents []control.Agent
 	failure    error
@@ -49,8 +51,9 @@ func (f *fakeController) New(_ context.Context, dir, prompt string) (string, err
 	return f.id, f.failure
 }
 
-func (f *fakeController) Attach(id string) error {
+func (f *fakeController) Attach(id, dir string) error {
 	f.calls = append(f.calls, "attach "+id)
+	f.attachedIn = append(f.attachedIn, dir)
 	return f.failure
 }
 

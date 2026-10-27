@@ -12,7 +12,7 @@ import (
 )
 
 func TestSessionsOpen(t *testing.T) {
-	live := []control.Agent{{ID: "0898d7e4", SessionID: "0898d7e4-f2cb-45fe-833e-1921c1f4bcaa", Kind: "background"}}
+	live := []control.Agent{{ID: "0898d7e4", SessionID: "0898d7e4-f2cb-45fe-833e-1921c1f4bcaa", Kind: "background", CWD: cwd}}
 	open := func(t *testing.T, ctl *fakeController, id, dir string, here bool) error {
 		t.Helper()
 		home := helpers.NewHome(t)
@@ -43,6 +43,10 @@ func TestSessionsOpen(t *testing.T) {
 
 				t.Run("it should open a terminal on it without resuming", func(t *testing.T) {
 					assert.Equal(t, []string{"agents all=false", "attach 0898d7e4"}, ctl.calls)
+				})
+
+				t.Run("it should open that terminal in the job's directory", func(t *testing.T) {
+					assert.Equal(t, []string{cwd}, ctl.attachedIn)
 				})
 			})
 		})

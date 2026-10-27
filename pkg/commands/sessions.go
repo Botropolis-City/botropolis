@@ -14,7 +14,7 @@ import (
 
 type Controller interface {
 	New(ctx context.Context, dir, prompt string) (string, error)
-	Attach(id string) error
+	Attach(id, dir string) error
 	AttachHere(id string) error
 	Stop(ctx context.Context, id string) error
 	Remove(ctx context.Context, id string) error
@@ -126,8 +126,28 @@ func (s *Sessions) New(ctx context.Context, dir, prompt string) (string, error) 
 	return s.ctl.New(ctx, abs, prompt)
 }
 
-func (s *Sessions) Attach(id string) error {
-	return s.ctl.Attach(id)
+// Attach opens a terminal on a job in its directory, dir, or in the live
+// job's own when dir is empty (item 302).
+func (s *Sessions) Attach(id, dir string) error {
+	if dir == "" {
+		dir = s.liveDir(id)
+	}
+	return s.ctl.Attach(id, dir)
+}
+
+// liveDir is the directory of the live job id names, or empty when the
+// listing fails or has no such job, which attaches where the city runs.
+func (s *Sessions) liveDir(id string) string {
+	agents, err := s.ctl.Agents(context.Background(), false)
+	if err != nil {
+		return ""
+	}
+	for _, agent := range agents {
+		if agent.ID == id || agent.SessionID == id {
+			return agent.CWD
+		}
+	}
+	return ""
 }
 
 func (s *Sessions) Stop(ctx context.Context, id string) error {
@@ -189,7 +209,7 @@ func (s *Sessions) Resume(ctx context.Context, dir, sessionID string) (string, e
 	if err != nil {
 		return "", err
 	}
-	return id, s.ctl.Attach(id)
+	return id, s.ctl.Attach(id, dir)
 }
 
 // Open attaches to a session, here or in a new terminal, resuming it
@@ -201,12 +221,12 @@ func (s *Sessions) Open(ctx context.Context, id, dir string, here bool) error {
 	}
 	for _, agent := range live {
 		if agent.ID == id || agent.SessionID == id {
-			return s.attach(agent.ID, here)
+			return s.attach(agent.ID, agent.CWD, here)
 		}
 	}
 	sessionID, err := s.sessionNamed(ctx, id)
 	if errors.Is(err, errUnlisted) {
-		return s.attach(id, here)
+		return s.attach(id, dir, here)
 	}
 	if err != nil {
 		return err
@@ -220,14 +240,14 @@ func (s *Sessions) Open(ctx context.Context, id, dir string, here bool) error {
 	if err != nil {
 		return err
 	}
-	return s.attach(job, here)
+	return s.attach(job, dir, here)
 }
 
-func (s *Sessions) attach(job string, here bool) error {
+func (s *Sessions) attach(job, dir string, here bool) error {
 	if here {
 		return s.ctl.AttachHere(job)
 	}
-	return s.ctl.Attach(job)
+	return s.ctl.Attach(job, dir)
 }
 
 // errUnlisted is a job id no listing has. A job started a moment ago may
@@ -277,7 +297,7 @@ func (s *Sessions) Fork(ctx context.Context, dir, sessionID string) (string, err
 	if err != nil {
 		return "", err
 	}
-	return id, s.ctl.Attach(id)
+	return id, s.ctl.Attach(id, dir)
 }
 
 func (s *Sessions) sessionDir(sessionID string) (string, error) {

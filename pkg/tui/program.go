@@ -12,7 +12,7 @@ import (
 )
 
 type Controller interface {
-	Attach(id string) error
+	Attach(id, dir string) error
 	Stop(ctx context.Context, id string) error
 	Resume(ctx context.Context, dir, sessionID string) (string, error)
 	Remove(ctx context.Context, id string) error
@@ -113,7 +113,7 @@ func (p *program) perform(action Action) {
 	var err error
 	switch action.Kind {
 	case ActionAttach:
-		err = p.controller.Attach(action.SessionID)
+		err = p.controller.Attach(action.SessionID, action.Dir)
 		p.model.SetStatus("attached " + action.SessionID[:8])
 	case ActionStop:
 		err = p.controller.Stop(ctx, action.SessionID)

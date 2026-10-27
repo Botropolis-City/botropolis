@@ -1405,7 +1405,7 @@ func (s *Scene) Activate() Action {
 	if s.selected.Session.State == state.Resting {
 		return Action{Kind: ActionResume, SessionID: s.selected.Session.ID}
 	}
-	return Action{Kind: ActionAttach, SessionID: s.selected.Session.ID}
+	return Action{Kind: ActionAttach, SessionID: s.selected.Session.ID, Dir: s.selected.Session.CWD}
 }
 
 func (s *Scene) Demolish(now time.Time) (Action, string) {

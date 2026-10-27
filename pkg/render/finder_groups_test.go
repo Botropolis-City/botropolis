@@ -83,7 +83,7 @@ func TestFinderGroups(t *testing.T) {
 			pressKey(t, g, ebiten.KeyEnter, false)
 
 			t.Run("it should open the first session hit", func(t *testing.T) {
-				assert.Equal(t, []city.Action{{Kind: city.ActionAttach, SessionID: "a"}}, actor.done)
+				assert.Equal(t, []city.Action{{Kind: city.ActionAttach, SessionID: "a", Dir: "/w/lib"}}, actor.done)
 			})
 		})
 

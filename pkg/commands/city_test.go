@@ -15,6 +15,7 @@ import (
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/daemon"
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/state"
@@ -228,10 +229,65 @@ func TestActor(t *testing.T) {
 	t.Run("when a running session is clicked", func(t *testing.T) {
 		ctl := &fakeController{id: "0898d7e4"}
 		actor := commands.Actor{Sessions: commands.NewSessions(t.TempDir(), ctl)}
-		require.NoError(t, actor.Do(city.Action{Kind: city.ActionAttach, SessionID: "0898d7e4"}))
+		require.NoError(t, actor.Do(city.Action{Kind: city.ActionAttach, SessionID: "0898d7e4", Dir: cwd}))
 
 		t.Run("it should attach it", func(t *testing.T) {
 			assert.Equal(t, []string{"attach 0898d7e4"}, ctl.calls)
+		})
+
+		t.Run("it should open the terminal in the session's directory", func(t *testing.T) {
+			assert.Equal(t, []string{cwd}, ctl.attachedIn)
+		})
+	})
+
+	t.Run("when a running session is attached with no directory, as the needs-you line does", func(t *testing.T) {
+		ctl := &fakeController{agents: []control.Agent{{ID: "0898d7e4", CWD: cwd, Kind: "background"}}}
+		actor := commands.Actor{Sessions: commands.NewSessions(t.TempDir(), ctl)}
+		require.NoError(t, actor.Do(city.Action{Kind: city.ActionAttach, SessionID: "0898d7e4"}))
+
+		t.Run("it should open the terminal in the live job's directory", func(t *testing.T) {
+			assert.Equal(t, []string{cwd}, ctl.attachedIn)
+		})
+	})
+
+	t.Run("when a session is forked", func(t *testing.T) {
+		ctl := &fakeController{id: "1a2b3c4d"}
+		actor := commands.Actor{Sessions: commands.NewSessions(t.TempDir(), ctl)}
+		require.NoError(t, actor.Do(city.Action{Kind: city.ActionFork, SessionID: sid, Dir: cwd}))
+
+		t.Run("it should open the fork's terminal in its directory", func(t *testing.T) {
+			assert.Equal(t, []string{cwd}, ctl.attachedIn)
+		})
+	})
+
+	// Item 302: c starts a session and opens it, in its own directory.
+	t.Run("when c asks for a new session in a directory", func(t *testing.T) {
+		t.Run("and the start succeeds", func(t *testing.T) {
+			ctl := &fakeController{id: "1a2b3c4d"}
+			actor := commands.Actor{Sessions: commands.NewSessions(t.TempDir(), ctl)}
+			require.NoError(t, actor.Do(city.Action{Kind: city.ActionNew, Dir: cwd}))
+
+			t.Run("it should start it there, then attach to the job the start printed", func(t *testing.T) {
+				assert.Equal(t, []string{"new " + cwd + " ", "attach 1a2b3c4d"}, ctl.calls)
+			})
+
+			t.Run("it should open the terminal in that directory", func(t *testing.T) {
+				assert.Equal(t, []string{cwd}, ctl.attachedIn)
+			})
+		})
+
+		t.Run("and the start fails", func(t *testing.T) {
+			ctl := &fakeController{failure: errors.New("workspace not trusted")}
+			actor := commands.Actor{Sessions: commands.NewSessions(t.TempDir(), ctl)}
+			err := actor.Do(city.Action{Kind: city.ActionNew, Dir: cwd})
+
+			t.Run("it should attach nothing", func(t *testing.T) {
+				assert.Equal(t, []string{"new " + cwd + " "}, ctl.calls)
+			})
+
+			t.Run("it should return the start's error", func(t *testing.T) {
+				assert.ErrorContains(t, err, "workspace not trusted")
+			})
 		})
 	})
 
@@ -244,6 +300,10 @@ func TestActor(t *testing.T) {
 
 		t.Run("it should resume it in its own directory and attach", func(t *testing.T) {
 			assert.Equal(t, []string{"resume " + cwd + " " + sid, "attach 08b1d655"}, ctl.calls)
+		})
+
+		t.Run("it should open the terminal in that directory", func(t *testing.T) {
+			assert.Equal(t, []string{cwd}, ctl.attachedIn)
 		})
 	})
 

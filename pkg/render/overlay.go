@@ -333,7 +333,7 @@ func (f *finder) open(g *Game, h find.Hit) bool {
 	case h.Packed:
 		g.act(city.Action{Kind: city.ActionUnpack, SessionID: h.SessionID})
 	case find.Live(h.State):
-		g.act(city.Action{Kind: city.ActionAttach, SessionID: h.SessionID})
+		g.act(city.Action{Kind: city.ActionAttach, SessionID: h.SessionID, Dir: h.Dir})
 	default:
 		g.act(city.Action{Kind: city.ActionResume, SessionID: h.SessionID})
 	}

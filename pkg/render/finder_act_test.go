@@ -52,7 +52,7 @@ func TestFinderActs(t *testing.T) {
 			pressKey(t, g, ebiten.KeyEnter, false)
 
 			t.Run("it should attach to it", func(t *testing.T) {
-				assert.Equal(t, []city.Action{{Kind: city.ActionAttach, SessionID: "live"}}, actor.done)
+				assert.Equal(t, []city.Action{{Kind: city.ActionAttach, SessionID: "live", Dir: "/src/kiln"}}, actor.done)
 			})
 
 			t.Run("it should close the finder and keep the map dimmed to what was found", func(t *testing.T) {

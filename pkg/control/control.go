@@ -180,7 +180,12 @@ func (c *Control) newestJob(ctx context.Context, dir string) (string, error) {
 	return newest.ID, nil
 }
 
-func (c *Control) Attach(id string) error {
+// Attach opens a terminal on a session, started in the session's
+// directory, dir: when the session ends, claude attach turns into Claude
+// Code's agent view in that terminal's directory, which must be one the
+// session already trusts rather than wherever the city was started
+// (item 302). Empty dir starts it where the city runs.
+func (c *Control) Attach(id, dir string) error {
 	jobID, err := JobID(id)
 	if err != nil {
 		return err
@@ -189,7 +194,7 @@ func (c *Control) Attach(id string) error {
 	if err != nil {
 		return err
 	}
-	return c.runner.Start("", argv[0], argv[1:]...)
+	return c.runner.Start(dir, argv[0], argv[1:]...)
 }
 
 // AttachHere attaches to a session in the terminal botropolis runs in.

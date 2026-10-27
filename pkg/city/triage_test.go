@@ -158,7 +158,7 @@ func TestTriage(t *testing.T) {
 		action, _ := s.TriageAct()
 
 		t.Run("it should do the card's first action", func(t *testing.T) {
-			assert.Equal(t, city.Action{Kind: city.ActionAttach, SessionID: "b"}, action)
+			assert.Equal(t, city.Action{Kind: city.ActionAttach, SessionID: "b", Dir: botropolis}, action)
 		})
 	})
 
