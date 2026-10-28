@@ -17,6 +17,33 @@ const loadingEvery = 250 * time.Millisecond
 // measures the wait.
 const sweepEvery = 1500 * time.Millisecond
 
+// openingEvery is how often a city with no display to pace it draws its
+// opening (item 311).
+const openingEvery = 100 * time.Millisecond
+
+// paceOpening waits out the rest of openingEvery since the opening was
+// last drawn, for a city whose display does not pace it: headless, or a
+// capture, whose clock runs a tick a draw. On Xvfb nothing waits for a
+// vsync, and an unopened recording kept five cores drawing the opening
+// (item 311). A windowed city's display paces it already, and its sweep
+// would stutter at this rate.
+func (g *Game) paceOpening(now time.Time) {
+	if !g.headless && !g.capturing() {
+		return
+	}
+	if !g.openingAt.IsZero() {
+		if wait := g.openingAt.Add(openingEvery).Sub(now); wait > 0 {
+			sleep := g.openingSleep
+			if sleep == nil {
+				sleep = time.Sleep
+			}
+			sleep(wait)
+			now = now.Add(wait)
+		}
+	}
+	g.openingAt = now
+}
+
 // openingWait is what the city is waiting on before it can draw the
 // city: its atlas pages, and the first snapshot.
 type openingWait struct {
@@ -58,6 +85,7 @@ func (g *Game) drawOpening(screen *ebiten.Image, pagesUp, pages int) bool {
 	if pagesUp >= pages && opened {
 		return false
 	}
+	g.paceOpening(timeNow())
 	screen.Fill(colorVoid)
 	w := openingWait{pagesUp: pagesUp, pages: pages, opened: opened, waited: time.Since(g.started)}
 	if load := g.loading.Load(); load != nil {

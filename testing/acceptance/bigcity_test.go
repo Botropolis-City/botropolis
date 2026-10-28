@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -258,6 +259,67 @@ func TestACityOfSixHundredDistricts(t *testing.T) {
 
 		t.Run("it should never pass 1 GiB of Private_Dirty", func(t *testing.T) {
 			holdToBar(t, gate, top < int64(peak), "peaked at %d MiB, the bar 1 GiB", top>>20)
+		})
+	})
+}
+
+// recordStressCity records the city of 600 districts headless on its own
+// daemon, calls sample with the drawing child's pid every tenth of a
+// second until the first frame is written or giveUp passes, and returns
+// when the first frame came, zero for none, and what the city said.
+func recordStressCity(t *testing.T, giveUp time.Duration, sample func(pid int)) (time.Duration, string) {
+	t.Helper()
+	r := newStateRun(t)
+	home := bigHistory(t, time.Now())
+	daemon, err := botropolisd()
+	require.NoError(t, err)
+	sock := shortSocket(t)
+	d := exec.Command(daemon, "--home", home, "--socket", sock)
+	d.Env = append(os.Environ(), "XDG_STATE_HOME="+filepath.Join(r.tmp, "daemon-state"), "PATH=/nonexistent")
+	require.NoError(t, d.Start())
+	t.Cleanup(func() { _ = d.Process.Kill(); _ = d.Wait() })
+	require.Eventually(t, func() bool { _, err := os.Stat(sock); return err == nil }, time.Minute, 20*time.Millisecond)
+	frames := filepath.Join(r.tmp, "frames")
+	cmd := exec.Command(botropolis, "city", "--headless", "--home", home, "--socket", sock,
+		"--record", frames, "--fps", "1", "--seconds", "60")
+	cmd.Env = r.env()
+	var out syncBuffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	start := time.Now()
+	require.NoError(t, cmd.Start())
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	var firstIn time.Duration
+	tick := time.NewTicker(100 * time.Millisecond)
+	for firstIn == 0 && time.Since(start) < giveUp {
+		<-tick.C
+		if kids := children(cmd.Process.Pid); len(kids) > 0 {
+			sample(kids[len(kids)-1])
+		}
+		if entries, _ := os.ReadDir(frames); len(entries) > 0 {
+			firstIn = time.Since(start)
+		}
+	}
+	tick.Stop()
+	stopCity(t, cmd, done)
+	return firstIn, out.String()
+}
+
+// Item 311: a recording of the city of 600 districts wrote no frame in
+// twelve minutes: its first tick came before the daemon's first snapshot,
+// and its clock then waited for a paint that the unopened city never made.
+// The bound is a hang detector, not a target.
+func TestARecordingCityOfSixHundredDistricts(t *testing.T) {
+	helpers.NeedXvfb(t)
+	const giveUp = 2 * time.Minute
+
+	t.Run("when a recording city of 2,400 sessions in 600 districts opens headless on its daemon", func(t *testing.T) {
+		firstIn, log := recordStressCity(t, giveUp, func(int) {})
+		t.Logf("first recorded frame after %v; the city said:\n%s", firstIn, log)
+
+		t.Run("it should write a frame", func(t *testing.T) {
+			assert.NotZero(t, firstIn, "no frame within %v", giveUp)
 		})
 	})
 }

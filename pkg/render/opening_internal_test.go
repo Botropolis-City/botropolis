@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -78,6 +79,64 @@ func TestWatchLoading(t *testing.T) {
 			t.Run("it should stop asking", func(t *testing.T) {
 				assert.Equal(t, before, asks.Load())
 			})
+		})
+	})
+}
+
+// Item 311: a headless display and a capture have no vsync to wait on,
+// so their opening drew as fast as the software rasteriser could, on
+// five cores; a windowed city's display paces it already.
+func TestTheOpeningPaces(t *testing.T) {
+	at := time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		name  string
+		make  func(g *Game)
+		paced bool
+	}{
+		{"a headless city", func(g *Game) { g.headless = true }, true},
+		{"a recording", func(g *Game) { g.record = "/frames" }, true},
+		{"a screenshot", func(g *Game) { g.screenshot = "/frame.png" }, true},
+		{"a windowed city", func(g *Game) {}, false},
+	} {
+		// pace draws the opening at at, then again after since, and says
+		// how long the second draw waited.
+		pace := func(since time.Duration) time.Duration {
+			var waited time.Duration
+			g := &Game{openingSleep: func(d time.Duration) { waited += d }}
+			c.make(g)
+			g.paceOpening(at)
+			g.paceOpening(at.Add(since))
+			return waited
+		}
+
+		t.Run("when "+c.name+" draws its opening twice within its interval", func(t *testing.T) {
+			want := time.Duration(0)
+			if c.paced {
+				want = openingEvery - 30*time.Millisecond
+			}
+
+			t.Run("it should wait out the rest of the interval only if paced", func(t *testing.T) {
+				assert.Equal(t, want, pace(30*time.Millisecond))
+			})
+		})
+
+		t.Run("when "+c.name+" draws its opening again after its interval", func(t *testing.T) {
+			t.Run("it should not wait", func(t *testing.T) {
+				assert.Zero(t, pace(openingEvery+time.Millisecond))
+			})
+		})
+	}
+
+	t.Run("when a headless city that has opened draws twice at once", func(t *testing.T) {
+		s := city.NewScene(city.NewLayout())
+		s.SetSnapshot(state.Snapshot{At: at})
+		var waited time.Duration
+		g := &Game{scene: s, headless: true, openingSleep: func(d time.Duration) { waited += d }}
+		g.drawOpening(nil, 1, 1)
+		g.drawOpening(nil, 1, 1)
+
+		t.Run("it should not wait", func(t *testing.T) {
+			assert.Zero(t, waited)
 		})
 	})
 }

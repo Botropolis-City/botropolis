@@ -63,6 +63,9 @@ type Options struct {
 	// perfectly good place to point.
 	Hover    city.Point
 	HoverSet bool
+	// Headless is a city drawn on a display with no vsync, whose opening
+	// paces itself (item 311).
+	Headless bool
 	// Record, when set, writes a frame every tenth of a second into the
 	// directory for RecordSeconds, pressing Keys two seconds apart, then
 	// exits.
@@ -212,6 +215,7 @@ func Run(ctx context.Context, opts Options) error {
 			scene.MarkSighted(city.Kinds)
 		}
 	}
+	game.headless = opts.Headless
 	game.screenshot = opts.Screenshot
 	game.anchorsPath = opts.Anchors
 	game.script = opts.Keys

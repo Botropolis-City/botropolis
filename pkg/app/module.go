@@ -594,6 +594,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		FindChords:     &chords,
 		Paste:          control.Default("").Paste,
 		Search:         commands.NewFind(c.config.Socket, c.config.Home, c.services.source(c.config), time.Now).Search,
+		Headless:       cli.Headless(cmd),
 		Screenshot:     cli.Screenshot(cmd),
 		Anchors:        cli.Anchors(cmd),
 		Keys:           cli.Keys(cmd),

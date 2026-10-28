@@ -5,10 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // Item 202: a capture opens the city once its history is read. Item 240:
@@ -69,15 +73,39 @@ func TestACaptureFailsAtTheCeiling(t *testing.T) {
 
 		// A daemon of another release sends nothing, and its dialog is
 		// what the frame shows (item 152), so there is no read to wait for.
-		t.Run("when a "+kind.name+" has ticked and no snapshot has come", func(t *testing.T) {
+		// The dialog can come after the first tick, so the wait takes it
+		// as it takes snapshots (item 311).
+		t.Run("when a "+kind.name+" has ticked, and no snapshot has come, and its daemon is out of sync", func(t *testing.T) {
+			s := city.NewScene(city.NewLayout())
+			s.SetOpenOnRead(true)
+			g := &Game{scene: s, started: at, ticks: 1, pendingSync: &proto.Mismatch{}, syncChanged: true}
+			kind.make(t, g)
+			held, err := g.holdUnopened(at.Add(time.Second))
+
+			t.Run("it should not hold", func(t *testing.T) {
+				assert.False(t, held)
+			})
+
+			t.Run("it should not fail", func(t *testing.T) {
+				assert.NoError(t, err)
+			})
+
+			t.Run("it should show the dialog", func(t *testing.T) {
+				assert.False(t, g.cityShown())
+			})
+		})
+
+		// Item 311: a recording ticks only once its last tick is painted,
+		// so one that ticked before its first snapshot waits for it here.
+		t.Run("when a "+kind.name+" has ticked, and nothing has come", func(t *testing.T) {
 			s := city.NewScene(city.NewLayout())
 			s.SetOpenOnRead(true)
 			g := &Game{scene: s, started: at, ticks: 1}
 			kind.make(t, g)
 			held, err := g.holdUnopened(at.Add(time.Second))
 
-			t.Run("it should not hold", func(t *testing.T) {
-				assert.False(t, held)
+			t.Run("it should hold", func(t *testing.T) {
+				assert.True(t, held)
 			})
 
 			t.Run("it should not fail", func(t *testing.T) {
@@ -207,6 +235,65 @@ func TestOpenCeilingMode(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("when BOTROPOLIS_FRAME_OPEN_CEILING is %q, it should choose %s", c.value, c.want), func(t *testing.T) {
 			assert.Equal(t, c.want, openCeilingMode(c.value))
+		})
+	}
+}
+
+// Item 311: a recording ticks only once its last tick is painted, and an
+// unopened city paints nothing of the city, so one whose first tick came
+// before any snapshot never took the snapshot that would open it.
+func TestACaptureWhoseFirstTickComesBeforeAnySnapshot(t *testing.T) {
+	at := time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)
+	th := ui.NewTheme(1)
+	f, err := newFaces(th)
+	require.NoError(t, err)
+	for _, kind := range []struct {
+		name string
+		make func(t *testing.T, g *Game)
+	}{
+		{"recording", func(t *testing.T, g *Game) { g.record = t.TempDir() }},
+		{"screenshot", func(t *testing.T, g *Game) { g.screenshot = t.TempDir() + "/frame.png" }},
+	} {
+		// early has the capture tick and draw its opening with no snapshot
+		// yet, then has arrive come from the feed.
+		early := func(t *testing.T, arrive state.Snapshot) *Game {
+			t.Helper()
+			s := city.NewScene(city.NewLayout())
+			s.SetClock(func() time.Time { return at }, time.UTC)
+			s.Resize(800, 600)
+			s.SetOpenOnRead(true)
+			g := NewGame(s, &recordingActor{}, th, f, nil)
+			g.started = at
+			kind.make(t, g)
+			screen := ebiten.NewImage(800, 600)
+			t.Cleanup(screen.Deallocate)
+			require.NoError(t, g.Update())
+			g.Draw(screen)
+			g.Offer(arrive)
+			return g
+		}
+
+		t.Run("when a "+kind.name+" ticks and draws its opening before any snapshot, and a read one then arrives", func(t *testing.T) {
+			g := early(t, state.Snapshot{At: at, HeftsRead: true})
+			require.NoError(t, g.Update())
+			require.NoError(t, g.Update())
+
+			t.Run("it should open the city", func(t *testing.T) {
+				assert.True(t, g.scene.Opened())
+			})
+
+			t.Run("it should start the capture", func(t *testing.T) {
+				assert.Equal(t, 1, g.shotFrames)
+			})
+		})
+
+		t.Run("when a "+kind.name+" ticks and draws its opening before any snapshot, and an unread one arrives, and it has waited past the ceiling", func(t *testing.T) {
+			g := early(t, state.Snapshot{At: at})
+			_, err := g.holdUnopened(at.Add(openCeiling + time.Second))
+
+			t.Run("it should fail the capture, naming the history not read within the ceiling", func(t *testing.T) {
+				assert.ErrorContains(t, err, "the history was not read within 30s")
+			})
 		})
 	}
 }

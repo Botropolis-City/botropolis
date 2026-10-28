@@ -92,9 +92,16 @@ func (p *readProgress) note(snapshot *state.Snapshot, now time.Time) {
 // has not opened, without ticking, and reports whether it is still to
 // wait. A recording's clock waits for each tick to be painted, and an
 // unopened city paints nothing of the city, so a wait inside the tick
-// would never end. At the ceiling it fails the capture instead.
+// would never end. That holds before the first snapshot too: a capture
+// whose first tick came before any would otherwise never take one
+// (item 311). At the ceiling it fails the capture instead.
 func (g *Game) holdUnopened(now time.Time) (bool, error) {
-	if g.scene == nil || !g.capturing() || g.ticks == 0 || !g.scene.WaitingForRead() {
+	if g.scene == nil || !g.capturing() || g.ticks == 0 || g.scene.Opened() {
+		return false, nil
+	}
+	// A daemon out of sync sends no snapshot, and its dialog is the frame
+	// (item 152), so the capture ticks on to draw it.
+	if g.takeSync(); !g.cityShown() {
 		return false, nil
 	}
 	g.mu.Lock()
