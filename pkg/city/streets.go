@@ -1,6 +1,7 @@
 package city
 
 import (
+	"container/heap"
 	"maps"
 	"math"
 	"slices"
@@ -603,35 +604,33 @@ func (c *City) walkStreets(from, to map[Cell]bool) []Cell {
 
 // walkCosting is walkStreets with an extra cost for stepping onto a
 // cell, or none for a nil extra.
+//
+// The cheapest entry is taken off a heap, and of entries that cost the
+// same, the first added, which is the one a scan of the whole frontier
+// took, so every walk is the one it always was. The scan cost the
+// 600-district city 0.15 CPU-seconds of its opening (item 315).
 func (c *City) walkCosting(from, to map[Cell]bool, extra func(Cell) float64) []Cell {
-	type entry struct {
-		node routeNode
-		cost float64
-	}
 	best := map[routeNode]float64{}
 	prev := map[routeNode]routeNode{}
 	nearest := math.MinInt
 	for _, st := range c.plan.Streets {
 		nearest = max(nearest, c.depth(toCell(st.Cell)))
 	}
-	var frontier []entry
+	starts := make([]Cell, 0, len(from))
 	for cell := range from {
-		frontier = append(frontier, entry{routeNode{cell, 0}, 0})
+		starts = append(starts, cell)
+	}
+	sort.Slice(starts, func(i, j int) bool { return lessCell(starts[i], starts[j]) })
+	var frontier walkFrontier
+	for _, cell := range starts {
+		frontier.add(routeNode{cell, 0}, 0)
 		best[routeNode{cell, 0}] = 0
 	}
-	sort.Slice(frontier, func(i, j int) bool { return lessCell(frontier[i].node.cell, frontier[j].node.cell) })
 	steps := []struct {
 		dc, dr, dir int
 	}{{1, 0, DirE}, {-1, 0, DirW}, {0, 1, DirS}, {0, -1, DirN}}
-	for len(frontier) > 0 {
-		k := 0
-		for i := range frontier {
-			if frontier[i].cost < frontier[k].cost {
-				k = i
-			}
-		}
-		cur := frontier[k]
-		frontier = append(frontier[:k], frontier[k+1:]...)
+	for frontier.Len() > 0 {
+		cur := heap.Pop(&frontier).(walkEntry)
 		if cur.cost > best[cur.node] {
 			continue
 		}
@@ -655,10 +654,50 @@ func (c *City) walkCosting(from, to map[Cell]bool, extra func(Cell) float64) []C
 			}
 			best[next] = cost
 			prev[next] = cur.node
-			frontier = append(frontier, entry{next, cost})
+			frontier.add(next, cost)
 		}
 	}
 	return nil
+}
+
+// walkEntry is a step of a walk on its frontier: where, what it cost,
+// and when it was added.
+type walkEntry struct {
+	node routeNode
+	cost float64
+	seq  int
+}
+
+// walkFrontier is a walk's frontier, cheapest first, and of equal cost
+// the first added.
+type walkFrontier struct {
+	entries []walkEntry
+	added   int
+}
+
+func (f *walkFrontier) add(node routeNode, cost float64) {
+	heap.Push(f, walkEntry{node: node, cost: cost, seq: f.added})
+	f.added++
+}
+
+func (f *walkFrontier) Len() int { return len(f.entries) }
+
+func (f *walkFrontier) Less(i, j int) bool {
+	a, b := f.entries[i], f.entries[j]
+	if a.cost != b.cost {
+		return a.cost < b.cost
+	}
+	return a.seq < b.seq
+}
+
+func (f *walkFrontier) Swap(i, j int) { f.entries[i], f.entries[j] = f.entries[j], f.entries[i] }
+
+func (f *walkFrontier) Push(x any) { f.entries = append(f.entries, x.(walkEntry)) }
+
+func (f *walkFrontier) Pop() any {
+	last := f.entries[len(f.entries)-1]
+	f.entries = f.entries[:len(f.entries)-1]
+	return last
 }
 
 func lessCell(a, b Cell) bool {
