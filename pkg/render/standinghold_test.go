@@ -42,6 +42,12 @@ func TestHoldingTheStillCity(t *testing.T) {
 		t.Run("it should run the draw of no still thing it keeps", func(t *testing.T) {
 			assert.Zero(t, st.ranKept)
 		})
+		t.Run("it should hold its aged lots", func(t *testing.T) {
+			assert.Positive(t, st.agedHeld)
+		})
+		t.Run("it should work out no aged lot's key", func(t *testing.T) {
+			assert.Zero(t, st.agedRan)
+		})
 		t.Run("it should hold the frame made afresh", func(t *testing.T) {
 			assert.Equal(t, afresh(rc), held)
 		})
@@ -64,6 +70,12 @@ func TestHoldingTheStillCity(t *testing.T) {
 		{"a search dims buildings", func(rc *recordCity) { rc.scene.SetFilter("s01") }, false},
 		{"the labels are hidden", func(rc *recordCity) { rc.scene.SetLabels(false) }, false},
 		{"a building is selected", func(rc *recordCity) { rc.scene.Select("s01") }, false},
+		{"an overgrown lot starts being mowed", func(rc *recordCity) {
+			rc.snap(func(s *state.Snapshot) {
+				s.At = rc.now
+				s.Sessions[1].State, s.Sessions[1].LastActivity = state.Working, rc.now
+			})
+		}, false},
 		{"the camera pans by whole pixels", func(rc *recordCity) { rc.scene.Pan(city.Point{X: 9, Y: -7}) }, true},
 		{"a course's glow ends", func(rc *recordCity) {
 			rc.snap(func(s *state.Snapshot) {
@@ -160,6 +172,54 @@ func TestHoldingTheStillCity(t *testing.T) {
 		})
 	})
 
+	t.Run("when an overgrown lot is being mowed, frame after frame", func(t *testing.T) {
+		rc := settled(t)
+		rc.snap(func(s *state.Snapshot) {
+			s.At = rc.now
+			s.Sessions[1].State, s.Sessions[1].LastActivity = state.Working, rc.now
+		})
+		rc.frame()
+		require.GreaterOrEqual(t, rc.scene.Mowing("s01"), 0.0, "precondition: the lot is being mowed")
+		var differ int
+		for range 3 {
+			rc.now = rc.now.Add(time.Second)
+			rc.frame()
+			if held := drawn(rc.g); !assert.ObjectsAreEqual(afresh(rc), held) {
+				differ++
+			}
+		}
+
+		t.Run("it should hold no frame that differs from the one made afresh", func(t *testing.T) {
+			assert.Zero(t, differ)
+		})
+	})
+
+	t.Run("when the aged lots' order changes while the key holds", func(t *testing.T) {
+		rc := settled(t)
+		log := rc.g.still.agedLog
+		require.Greater(t, len(log), 2, "precondition: the frame logged its aged lots")
+		i := len(log) / 2
+		log[i], log[i+1] = log[i+1], log[i]
+		st := rc.frame()
+		held := drawn(rc.g)
+
+		t.Run("it should count the order broken", func(t *testing.T) {
+			assert.Equal(t, 1, st.orderBroke)
+		})
+		t.Run("it should hold no aged lot from where it broke", func(t *testing.T) {
+			var after int
+			for _, it := range rc.g.still.agedLog[i:] {
+				if it.held {
+					after++
+				}
+			}
+			assert.Zero(t, after)
+		})
+		t.Run("it should hold the frame made afresh", func(t *testing.T) {
+			assert.Equal(t, afresh(rc), held)
+		})
+	})
+
 	t.Run("when the net checks eight a frame while the key holds", func(t *testing.T) {
 		rc := settled(t)
 		rc.g.verifyBudget = releaseVerifyBudget
@@ -221,20 +281,29 @@ func TestDroppingActiveEntries(t *testing.T) {
 	s := stillFrame{
 		entries: []entry{{key: 1}, {key: 2, active: true}, {key: 3}},
 		log:     []heldItem{{entry: 0}, {entry: 1}, {entry: 2}, {entry: -1}},
+		agedLog: []agedItem{{entry: 2}, {entry: 1}, {entry: 0}, {entry: -1}},
 	}
 	s.entries = s.dropActive()
-	var keys []uint64
-	for _, it := range s.log {
-		if it.entry < 0 {
-			keys = append(keys, 0)
-			continue
+	keyOf := func(entry int) uint64 {
+		if entry < 0 {
+			return 0
 		}
-		keys = append(keys, s.entries[it.entry].key)
+		return s.entries[entry].key
+	}
+	var keys, aged []uint64
+	for _, it := range s.log {
+		keys = append(keys, keyOf(it.entry))
+	}
+	for _, it := range s.agedLog {
+		aged = append(aged, keyOf(it.entry))
 	}
 
 	t.Run("when the entries that show activity are left out", func(t *testing.T) {
 		t.Run("it should point each logged item at its own entry, or at none", func(t *testing.T) {
 			assert.Equal(t, []uint64{1, 0, 3, 0}, keys)
+		})
+		t.Run("it should point each logged aged lot at its own entry, or at none", func(t *testing.T) {
+			assert.Equal(t, []uint64{3, 0, 1, 0}, aged)
 		})
 	})
 }

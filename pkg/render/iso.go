@@ -607,6 +607,9 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		screen = g.rec.dry
 	}
 	g.note(func() { g.overgrowth(screen, cam) }, true)
+	// Worked out once, before the aged lots, which hold by it as the
+	// city's still things do (item 212).
+	g.still.standing = g.standingKey(selected)
 	g.noteAgedLots(screen, cam, c)
 	// Drones stand in the depth sort on their shadows' ground points,
 	// and their shadows go on the ground first (item 89).
@@ -950,7 +953,6 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 		items = onScreen(cam, items, frame)
 	}
 	g.sorted = len(items)
-	g.still.standing = g.standingKey(selected)
 	shift, hold := g.holding(fade)
 	g.still.logWhole = fade == nil && !g.noKeyed && !g.noStill && !g.noReuse
 	n := 0
@@ -1586,32 +1588,41 @@ func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 // records and a change records one lot again, not the city's (item 212).
 func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	g.valuesFor(c)
+	g.still.agedWhole = !g.noKeyed && !g.noStill && !g.noReuse
+	shift, hold := g.holdingAged()
+	n := 0
 	for _, d := range c.Districts {
-		ground := g.dresser.dress(d)
-		if ground.Wear == 0 {
-			continue
-		}
-		key := valueHash(struct {
-			root string
-			gen  int
-			rect city.Rect
-		}{d.Root, g.dresser.generation(d), d.Rect})
-		g.noteKeyed(kindDistrictFloor, key, func() { g.districtFloor(screen, cam, d.Rect, ground) })
+		g.noteAged(n, d.Root, true, &hold, shift, func() {
+			ground := g.dresser.dress(d)
+			if ground.Wear == 0 {
+				return
+			}
+			key := valueHash(struct {
+				root string
+				gen  int
+				rect city.Rect
+			}{d.Root, g.dresser.generation(d), d.Rect})
+			g.noteKeyed(kindDistrictFloor, key, func() { g.districtFloor(screen, cam, d.Rect, ground) })
+		})
+		n++
 	}
 	// A district's lots are one drawable, drawn as they always were, in
 	// turn, so a frame keeps one record a district rather than one a lot.
 	for _, d := range c.Districts {
-		key, lots := uint64(0), 0
-		for _, b := range d.Buildings {
-			dimmed := g.scene.Dimmed(b)
-			key = keyMix(key, g.buildingValue(b), boolBits(dimmed), math.Float64bits(g.scene.Mowing(b.Session.ID)))
-			if !dimmed {
-				lots++
+		g.noteAged(n, d.Root, false, &hold, shift, func() {
+			key, lots := uint64(0), 0
+			for _, b := range d.Buildings {
+				dimmed := g.scene.Dimmed(b)
+				key = keyMix(key, g.buildingValue(b), boolBits(dimmed), math.Float64bits(g.scene.Mowing(b.Session.ID)))
+				if !dimmed {
+					lots++
+				}
 			}
-		}
-		if lots > 0 {
-			g.noteKeyed(kindLotFloor, key, func() { g.lotFloors(screen, cam, d) })
-		}
+			if lots > 0 {
+				g.noteKeyed(kindLotFloor, key, func() { g.lotFloors(screen, cam, d) })
+			}
+		})
+		n++
 	}
 }
 

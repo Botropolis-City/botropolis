@@ -415,7 +415,7 @@ func (s *source) reads(node ast.Node, in string, passed ...ast.Node) (reads, clo
 						if n.Sel.Name == "now" {
 							clocks[in] = "g.now"
 						}
-						if n.Sel.Name != "noteKeyed" && n.Sel.Name != "keepOverlay" && !seen[m] {
+						if n.Sel.Name != "noteKeyed" && n.Sel.Name != "keepOverlay" && n.Sel.Name != "noteAged" && !seen[m] {
 							seen[m] = true
 							walk(m.Body, m.Name.Name, m.Type.Params)
 						}
@@ -504,6 +504,7 @@ var standingReasons = map[string]string{
 	"g.fogPuff":         "the puff texture, made once",
 	"g.weedFade":        "worked out by dressing, from mowing and reduced motion, before it is read",
 	"g.linePairs":       "scratch: a buffer of segments",
+	"g.lightsOn":        "on exactly while a lit city is drawn, which the standing key folds as city.Night",
 	"scene.Lines":       "the groups' lines: each line's key is what its strokes are drawn from, its points on the screen and its colours",
 	"g.theme":           "house-wide: worked out once a frame into g.houseWide, which the standing key folds",
 	"g.faces":           "house-wide: worked out once a frame into g.houseWide, which the standing key folds",

@@ -85,7 +85,7 @@ type keptRecord struct {
 // found, as the frame check draws each frame straight and then not.
 func (g *Game) keepRecord() {
 	l, k := g.recorder(), &g.still.kept
-	g.still.logged = false
+	g.still.logged, g.still.agedLogged = false, false
 	if k.held {
 		k.held = g.noStill
 		g.jn.looks, g.jn.lookKeys, g.jn.words = g.jn.looks[:0], g.jn.lookKeys[:0], g.jn.words[:0]
@@ -106,6 +106,8 @@ func (g *Game) keepRecord() {
 	g.fitRecord(l, k)
 	s := &g.still
 	s.lastLog, s.log = s.log, s.lastLog[:0]
+	s.lastAgedLog, s.agedLog = s.agedLog, s.lastAgedLog[:0]
+	s.agedLogged = s.agedWhole
 	if s.lines == nil {
 		s.lines, s.lastLines = map[uint64]inked{}, map[uint64]inked{}
 	}

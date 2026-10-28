@@ -23,7 +23,7 @@ func (g *Game) standingKey(selected *city.Building) uint64 {
 	now := s.Now()
 	key := keyMix(g.frameBase.all, g.frameBase.house, g.houseWide,
 		uint64(s.Generation()), uint64(s.GroundGeneration()), uint64(s.View()),
-		boolBits(c.Night), boolBits(g.lightsOn), boolBits(g.labelsVisible()), boolBits(s.Scenery()),
+		boolBits(c.Night), boolBits(g.labelsVisible()), boolBits(s.Scenery()),
 		boolBits(s.Detailed()), math.Float64bits(s.PlantLights()), uint64(uintptr(unsafe.Pointer(selected))),
 		// The clinic's plate counts what needs you, which a snooze running
 		// out changes with nothing else (item 280).
@@ -222,5 +222,91 @@ func (s *stillFrame) dropActive() []entry {
 			s.log[i].entry = at[e]
 		}
 	}
+	for i := range s.agedLog {
+		if e := s.agedLog[i].entry; e >= 0 && e < len(at) {
+			s.agedLog[i].entry = at[e]
+		}
+	}
 	return out
+}
+
+// agedItem is an aged lot's drawable as a frame noted it: its
+// district's root, whether it is the district's floor or its lots,
+// the entry its record became (-1 when it was not one to keep), and
+// whether it drew nothing at all (item 212).
+type agedItem struct {
+	root  string
+	floor bool
+	entry int
+	none  bool
+	held  bool
+}
+
+// holdingAged is whether this frame notes the aged lots as the last did:
+// as holding is for the city's still things, but before the items are
+// made, so without their fade.
+func (g *Game) holdingAged() (image.Point, bool) {
+	s := &g.still
+	if !s.agedLogged || s.standing != s.lastStanding || g.noKeyed || g.noStill || g.noReuse {
+		return image.Point{}, false
+	}
+	return pixelShift(s.kept.origin, g.rec.origin)
+}
+
+// noteAged notes aged item n, root's floor or lots, as the last frame
+// noted it while hold lasts and it arrives where the last frame had it,
+// otherwise by running it.
+func (g *Game) noteAged(n int, root string, floor bool, hold *bool, shift image.Point, run func()) {
+	s := &g.still
+	if *hold {
+		if n >= len(s.lastAgedLog) || s.lastAgedLog[n].root != root || s.lastAgedLog[n].floor != floor {
+			*hold = false
+			s.stats.orderBroke++
+		} else if g.holdAged(&s.lastAgedLog[n], shift) {
+			return
+		}
+	}
+	entries := len(s.entries)
+	run()
+	it := agedItem{root: root, floor: floor, entry: -1, none: len(s.entries) == entries}
+	if len(s.entries) == entries+1 && s.entries[entries].keeps {
+		it.entry = entries
+	}
+	s.agedLog = append(s.agedLog, it)
+	s.stats.agedRan++
+}
+
+// holdAged notes an aged lot as the last frame did, moved by shift: its
+// kept record, or nothing where it drew nothing, which only a snapshot
+// changes. It does not when its record was not kept, when the net checks
+// it this frame, or when its looks have gone.
+func (g *Game) holdAged(it *agedItem, shift image.Point) bool {
+	s := &g.still
+	held := *it
+	held.held = true
+	if it.none {
+		s.agedLog = append(s.agedLog, held)
+		s.stats.agedHeld++
+		return true
+	}
+	k := &s.kept
+	if it.entry < 0 || it.entry >= len(k.entries) {
+		return false
+	}
+	e := k.entries[it.entry]
+	if !e.keeps || !k.within(e) || g.wouldCheck(e.key) || !g.looksHeld(&k.jn, e.jn, shift) {
+		return false
+	}
+	g.passCheck()
+	g.keep(k, it.entry, shift)
+	held.entry = len(s.entries) - 1
+	s.agedLog = append(s.agedLog, held)
+	s.stats.agedHeld++
+	s.stats.reused++
+	kind := kindLotFloor
+	if it.floor {
+		kind = kindDistrictFloor
+	}
+	s.stats.keptBy[kind]++
+	return true
 }

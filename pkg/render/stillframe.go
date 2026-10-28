@@ -81,7 +81,11 @@ type stillFrame struct {
 	// noteKeyed was last asked to note (item 212).
 	standing, lastStanding uint64
 	log, lastLog           []heldItem
-	logged, logWhole       bool
+	// agedLog and lastAgedLog are the aged lots as this and the last
+	// frame noted them, agedLogged whether the last frame's is whole.
+	agedLog, lastAgedLog  []agedItem
+	agedLogged, agedWhole bool
+	logged, logWhole      bool
 	// overlayRange is where this frame recorded its overlay, and lines
 	// and lastLines where this and the last frame recorded each part of
 	// it they keep, by key (item 212).
@@ -120,6 +124,8 @@ type stillStats struct {
 	// linesKept and linesDrawn are how many of the groups' lines kept
 	// their strokes from the last frame, and how many drew them.
 	linesKept, linesDrawn int
+	// agedHeld and agedRan are how many aged lots a frame held and ran.
+	agedHeld, agedRan int
 }
 
 // note runs a drawable: onto the frame when nothing is recorded, or in
