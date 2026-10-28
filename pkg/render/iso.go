@@ -610,6 +610,7 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	// Worked out once, before the aged lots, which hold by it as the
 	// city's still things do (item 212).
 	g.still.standing = g.standingKey(selected)
+	g.still.ground = g.groundKey()
 	g.noteAgedLots(screen, cam, c)
 	// Drones stand in the depth sort on their shadows' ground points,
 	// and their shadows go on the ground first (item 89).

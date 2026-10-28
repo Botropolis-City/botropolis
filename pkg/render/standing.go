@@ -247,7 +247,7 @@ type agedItem struct {
 // made, so without their fade.
 func (g *Game) holdingAged() (image.Point, bool) {
 	s := &g.still
-	if !s.agedLogged || s.standing != s.lastStanding || g.noKeyed || g.noStill || g.noReuse {
+	if !s.agedLogged || s.ground != s.lastGround || g.noKeyed || g.noStill || g.noReuse {
 		return image.Point{}, false
 	}
 	return pixelShift(s.kept.origin, g.rec.origin)
@@ -309,4 +309,30 @@ func (g *Game) holdAged(it *agedItem, shift image.Point) bool {
 	}
 	s.stats.keptBy[kind]++
 	return true
+}
+
+// groundKey is what the aged lots are drawn from, folded once a frame as
+// the standing key is, but of only what they read: the frame's base,
+// the house-wide key, the scene's generations and view, night, where the
+// camera falls within a pixel, and each building's dimming and mowing.
+// It leaves out what only buildings read, the stirring sessions among it,
+// so a tool call's load does not stop the ground holding (item 212).
+// TestStillKeyReads holds the aged lots' keys and draws to what it reads.
+func (g *Game) groundKey() uint64 {
+	s := g.scene
+	if !g.frameBase.ok {
+		g.frameBase = g.frameBaseKey()
+	}
+	c := s.City()
+	key := keyMix(g.frameBase.all, g.frameBase.house, g.houseWide,
+		uint64(s.Generation()), uint64(s.GroundGeneration()), uint64(s.View()), boolBits(c.Night))
+	if g.rec != nil {
+		o := g.rec.origin
+		frac := func(v float64) uint64 { return uint64(math.Round((v-math.Floor(v))*64)) % 64 }
+		key = keyMix(key, frac(o.X), frac(o.Y))
+	}
+	for _, b := range c.Buildings() {
+		key = keyMix(key, boolBits(s.Dimmed(b)), math.Float64bits(s.Mowing(b.Session.ID)))
+	}
+	return key
 }

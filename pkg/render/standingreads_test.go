@@ -555,9 +555,16 @@ var standingClocks = map[string]string{
 // new kind is held to it the moment it is drawn.
 func TestStillKeyReads(t *testing.T) {
 	s := parseSource(t)
-	key, ok := s.methods["standingKey"]
-	require.True(t, ok, "precondition: the standing key is a method of the game")
-	covered, coveredClocks := s.reads(key.Body, key.Name.Name)
+	// Each kind is held to the key the frame holds it by: the aged lots
+	// to the ground's, everything else to the standing key.
+	keyOf := map[string]string{"kindDistrictFloor": "groundKey", "kindLotFloor": "groundKey"}
+	coveredBy := map[string]map[string]string{}
+	clocksBy := map[string]map[string]string{}
+	for _, name := range []string{"standingKey", "groundKey"} {
+		key, ok := s.methods[name]
+		require.True(t, ok, "precondition: %s is a method of the game", name)
+		coveredBy[name], clocksBy[name] = s.reads(key.Body, key.Name.Name)
+	}
 	sites := s.keyedSites()
 
 	t.Run("when the package's code keeps records", func(t *testing.T) {
@@ -572,6 +579,11 @@ func TestStillKeyReads(t *testing.T) {
 
 	used := map[string]bool{}
 	for _, site := range sites {
+		name := keyOf[site.kind]
+		if name == "" {
+			name = "standingKey"
+		}
+		covered, coveredClocks := coveredBy[name], clocksBy[name]
 		reads, clocks := s.reads(site.scope, site.in, site.passed...)
 		for r := range reads {
 			if _, ok := covered[r]; !ok {
@@ -591,7 +603,7 @@ func TestStillKeyReads(t *testing.T) {
 			}
 			sort.Strings(uncovered)
 
-			t.Run("it should be read by the standing key, or listed with a reason", func(t *testing.T) {
+			t.Run("it should be read by "+name+", or listed with a reason", func(t *testing.T) {
 				assert.Empty(t, uncovered)
 			})
 		})

@@ -80,7 +80,9 @@ type stillFrame struct {
 	// the last frame's, whole when logged; notedKind is the kind
 	// noteKeyed was last asked to note (item 212).
 	standing, lastStanding uint64
-	log, lastLog           []heldItem
+	// ground and lastGround are this and the last frame's ground key.
+	ground, lastGround uint64
+	log, lastLog       []heldItem
 	// agedLog and lastAgedLog are the aged lots as this and the last
 	// frame noted them, agedLogged whether the last frame's is whole.
 	agedLog, lastAgedLog  []agedItem

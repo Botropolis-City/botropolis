@@ -172,6 +172,64 @@ func TestHoldingTheStillCity(t *testing.T) {
 		})
 	})
 
+	t.Run("when a tool call starts and ends a load, and nothing on the ground changes", func(t *testing.T) {
+		rc := settled(t)
+		// A load stirs its session, which the standing key folds and
+		// the ground's does not.
+		rc.snap(func(s *state.Snapshot) {
+			s.At = rc.now
+			s.Sessions[0].ToolCalls++
+		})
+		for range 3 {
+			rc.frame()
+		}
+		require.Positive(t, len(rc.g.stirring), "precondition: a session stirs")
+		// The frame its load ends, the stirring set changes, and the
+		// standing key with it.
+		var st stillStats
+		changed := false
+		for range 300 {
+			rc.now = rc.now.Add(100 * time.Millisecond)
+			before := len(rc.g.stirring)
+			st = rc.frame()
+			if len(rc.g.stirring) != before {
+				changed = true
+				break
+			}
+		}
+		require.True(t, changed, "precondition: the load ends")
+		held := drawn(rc.g)
+
+		t.Run("it should hold none of the still things the standing key holds", func(t *testing.T) {
+			assert.Zero(t, st.held)
+		})
+		t.Run("it should hold its aged lots", func(t *testing.T) {
+			assert.Positive(t, st.agedHeld)
+		})
+		t.Run("it should hold the frame made afresh", func(t *testing.T) {
+			assert.Equal(t, afresh(rc), held)
+		})
+	})
+
+	t.Run("when night falls, and nothing else changes", func(t *testing.T) {
+		rc := settled(t)
+		for night := rc.scene.City().Night; rc.scene.City().Night == night; {
+			rc.scene.CycleLight()
+		}
+		st := rc.frame()
+
+		t.Run("it should hold no aged lot that frame", func(t *testing.T) {
+			assert.Zero(t, st.agedHeld)
+		})
+		for range 3 {
+			rc.frame()
+		}
+		held := drawn(rc.g)
+		t.Run("and it has settled again, it should hold the frame made afresh", func(t *testing.T) {
+			assert.Equal(t, afresh(rc), held)
+		})
+	})
+
 	t.Run("when an overgrown lot is being mowed, frame after frame", func(t *testing.T) {
 		rc := settled(t)
 		rc.snap(func(s *state.Snapshot) {
