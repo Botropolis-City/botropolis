@@ -18,7 +18,7 @@ func (g *Game) logLooks() {
 	if g.looks == nil {
 		return
 	}
-	fmt.Printf("looks: hits=%d misses=%d bakes=%d bytes=%d\n", g.lookStats.hits, g.lookStats.misses, g.lookStats.bakes, g.looks.bytes())
+	fmt.Printf("looks: hits=%d misses=%d bakes=%d bytes=%d straight=%d\n", g.lookStats.hits, g.lookStats.misses, g.lookStats.bakes, g.looks.bytes(), g.lookStats.straight)
 }
 
 // logStill writes what the standing city cost this frame, and the tick
@@ -49,7 +49,11 @@ func (g *Game) logMiss(id string, run step, key lookKey) {
 	if g.looks == nil {
 		return
 	}
-	fmt.Printf("look-miss: frame=%d tick=%d id=%s run=%d changed=%s\n", g.lookFrame, g.ticks, state.ShortID(id), run, lookChanged(g.looks.replaced, g.looks.hadReplaced, key))
+	changed := lookChanged(g.looks.replaced, g.looks.hadReplaced, key)
+	if g.backoffEnded(id) {
+		changed = "backoff"
+	}
+	fmt.Printf("look-miss: frame=%d tick=%d id=%s run=%d changed=%s\n", g.lookFrame, g.ticks, state.ShortID(id), run, changed)
 }
 
 // logReading writes the footer's reading line, for item 159's first
@@ -95,11 +99,6 @@ func (g *Game) keepOpening(screen *ebiten.Image) {
 // to compare two cities with the same movers (item 193; Aria,
 // 2026-10-21: "Hold movers equal").
 var framesWithoutMovers = os.Getenv("BOTROPOLIS_FRAME_MOVERS") == "none"
-
-// lookCacheBytes is the look cache's cap, which the performance tests
-// can set in MiB by BOTROPOLIS_LOOK_CACHE_CAP to run it under pressure
-// (item 212).
-func lookCacheBytes() int { return lookCacheCapFrom(os.Getenv("BOTROPOLIS_LOOK_CACHE_CAP")) }
 
 // framesOpenUnread is whether a recording opens on its first snapshot
 // instead of waiting for a read history. A recording waits so its heights

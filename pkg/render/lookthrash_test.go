@@ -48,10 +48,27 @@ func TestLookThrash(t *testing.T) {
 
 	t.Run("when the look pages hold about half the city's looks, so bakes evict one another", func(t *testing.T) {
 		rc := thrashing(t)
-		frames(rc, 4)
-		bakes, _ := frames(rc, lookBackoff/2)
+		// The frames the backoffs begin on draw what thrashed straight.
+		var straight, misses int
+		for range 4 {
+			rc.frame()
+			straight += rc.g.lookStats.straight
+		}
+		bakes := 0
+		for range lookBackoff / 2 {
+			rc.frame()
+			bakes += rc.g.lookStats.bakes
+			misses += rc.g.lookStats.misses
+		}
 		st := rc.frame()
 		held := drawn(rc.g)
+
+		t.Run("it should count a backed-off look's drawing as straight", func(t *testing.T) {
+			assert.Positive(t, straight)
+		})
+		t.Run("it should count no miss while it backs off", func(t *testing.T) {
+			assert.Zero(t, misses)
+		})
 
 		t.Run("it should bake no look again within its backoff", func(t *testing.T) {
 			assert.LessOrEqual(t, bakes, buildings(rc))
@@ -77,6 +94,28 @@ func TestLookThrash(t *testing.T) {
 		})
 		t.Run("it should make fewer records as the pressure goes on, its backoffs growing", func(t *testing.T) {
 			assert.Less(t, later, first)
+		})
+	})
+
+	t.Run("when a building's backoff ends", func(t *testing.T) {
+		rc := thrashing(t)
+		frames(rc, 2)
+		var id string
+		for b, until := range rc.g.backoffUntil {
+			id = b
+			for rc.g.lookFrame < until {
+				rc.frame()
+			}
+			break
+		}
+		require.NotEmpty(t, id, "precondition: a building backs off")
+
+		t.Run("it should say so, so its look's miss is not taken for an eviction", func(t *testing.T) {
+			assert.True(t, rc.g.backoffEnded(id))
+		})
+		t.Run("and a frame later, it should not", func(t *testing.T) {
+			rc.frame()
+			assert.False(t, rc.g.backoffEnded(id))
 		})
 	})
 

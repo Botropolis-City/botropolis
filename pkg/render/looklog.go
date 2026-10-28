@@ -32,10 +32,6 @@ func filmingOpening() bool { return false }
 // framesWithoutMovers is never so outside the debug build.
 const framesWithoutMovers = false
 
-// lookCacheBytes is the look cache's cap: outside the debug build,
-// always lookCacheCap.
-func lookCacheBytes() int { return lookCacheCap }
-
 // framesOpenUnread is never so outside the debug build: a recording
 // always waits for a read history.
 const framesOpenUnread = false

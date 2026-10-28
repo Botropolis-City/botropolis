@@ -1,4 +1,4 @@
-//go:build !ebitenginedebug
+//go:build !ebitenginedebug && !devtools
 
 package render
 

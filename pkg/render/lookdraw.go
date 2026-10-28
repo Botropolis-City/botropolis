@@ -52,6 +52,10 @@ type lookStats struct {
 	hits, misses, bakes int
 	// runs is how many baked runs were asked for (item 161).
 	runs int
+	// straight is how many were drawn straight while their building
+	// backed off, its looks thrashed: not missed, but not asked of the
+	// cache (item 212).
+	straight int
 }
 
 // buildingFrame is everything a building's steps read this frame, worked
@@ -530,13 +534,13 @@ func (g *Game) drawRun(screen *ebiten.Image, cam *city.Camera, f *buildingFrame,
 	// While its building backs off, it is drawn straight, which is exact,
 	// and its record kept (item 212).
 	if g.backingOff(f.b.Session.ID) {
-		g.lookStats.misses++
+		g.lookStats.straight++
 		g.drawSteps(screen, cam, f, r.from, r.to)
 		return
 	}
 	look, ok := g.looks.get(key)
 	if !ok && g.thrashed(id, key) {
-		g.lookStats.misses++
+		g.lookStats.straight++
 		g.drawSteps(screen, cam, f, r.from, r.to)
 		return
 	}
@@ -799,4 +803,13 @@ func (g *Game) thrashed(id runID, key lookKey) bool {
 // again the frame it ends.
 func (g *Game) backingOff(id string) bool {
 	return g.backoffUntil[id] > g.lookFrame
+}
+
+// backoffEnded is whether session id's building's backoff ended this
+// frame: its looks, unused while it was drawn straight, are missing
+// without having changed, which the debug log says rather than taking
+// it for an eviction (item 212).
+func (g *Game) backoffEnded(id string) bool {
+	until, ok := g.backoffUntil[id]
+	return ok && g.lookFrame == until
 }
