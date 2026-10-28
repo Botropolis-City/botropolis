@@ -25,6 +25,10 @@ func (g *Game) logOpening(string) {}
 // keepOpening keeps no frame outside the debug build.
 func (g *Game) keepOpening(*ebiten.Image) {}
 
+// filmingOpening is never so outside the debug build: no frame of the
+// opening panel is asked for.
+func filmingOpening() bool { return false }
+
 // framesWithoutMovers is never so outside the debug build.
 const framesWithoutMovers = false
 

@@ -82,10 +82,13 @@ type Game struct {
 	scene  *city.Scene
 	// headless is a city on a display with no vsync, whose opening paces
 	// itself; openingAt is when that opening was last drawn, and
-	// openingSleep how it waits, nil being time.Sleep (item 311).
+	// openingSleep how it waits, nil being time.Sleep (item 311);
+	// openingVoid is whether an opening nobody sees has laid the void
+	// (item 315).
 	headless     bool
 	openingAt    time.Time
 	openingSleep func(time.Duration)
+	openingVoid  bool
 	// home is the directory holding .claude, the one the city is drawn
 	// from; see Options.Home.
 	home string

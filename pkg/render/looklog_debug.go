@@ -74,6 +74,10 @@ var openingFrame = os.Getenv("BOTROPOLIS_OPENING_FRAME")
 // process.
 var openingKept bool
 
+// filmingOpening is whether a frame of the opening panel is asked for
+// and not yet kept, so even a headless city draws its panel (item 315).
+func filmingOpening() bool { return openingFrame != "" && !openingKept }
+
 // keepOpening writes the opening panel's frame to openingFrame once the
 // city has waited two seconds, so the panel is up and its bar has moved.
 func (g *Game) keepOpening(screen *ebiten.Image) {

@@ -140,3 +140,53 @@ func TestTheOpeningPaces(t *testing.T) {
 		})
 	})
 }
+
+// Item 315: nobody sees a headless city's screen until it opens, as a
+// recording or a screenshot starts only then (item 202), and drawing its
+// opening panel cost the software rasteriser about 1.5 CPU-seconds on
+// six hundred districts. A window, or a frame of the panel asked for,
+// still draws it.
+func TestTheOpeningIsDrawnOnlyWhereSeen(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		make func(g *Game)
+		seen bool
+	}{
+		{"a headless city", func(g *Game) { g.headless = true }, false},
+		{"a headless recording", func(g *Game) { g.headless, g.record = true, "/frames" }, false},
+		{"a windowed city", func(g *Game) {}, true},
+		{"a windowed recording", func(g *Game) { g.record = "/frames" }, true},
+	} {
+		t.Run("when "+c.name+" waits to open", func(t *testing.T) {
+			g := &Game{}
+			c.make(g)
+
+			t.Run("it should say whether its opening is seen", func(t *testing.T) {
+				assert.Equal(t, c.seen, g.openingSeen())
+			})
+		})
+	}
+
+	for _, c := range []struct {
+		name               string
+		seen, laid         bool
+		wantVoid, wantShow bool
+	}{
+		{"an opening nobody sees, before the void is laid", false, false, true, false},
+		{"an opening nobody sees, once the void is laid", false, true, false, false},
+		{"an opening that is seen", true, false, true, true},
+		{"an opening that is seen, drawn again", true, true, true, true},
+	} {
+		t.Run("when "+c.name+" is drawn", func(t *testing.T) {
+			void, panel := openingLays(c.seen, c.laid)
+
+			t.Run("it should lay the void only where it must", func(t *testing.T) {
+				assert.Equal(t, c.wantVoid, void)
+			})
+
+			t.Run("it should draw the panel only where it is seen", func(t *testing.T) {
+				assert.Equal(t, c.wantShow, panel)
+			})
+		})
+	}
+}

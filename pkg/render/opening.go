@@ -44,6 +44,23 @@ func (g *Game) paceOpening(now time.Time) {
 	g.openingAt = now
 }
 
+// openingSeen is whether anyone can see the opening: not on a headless
+// city's display, as a recording or a screenshot starts only once the
+// city opens (item 202), unless a frame of the panel is asked for. Its
+// panel cost the software rasteriser about 1.5 CPU-seconds to the first
+// frame of six hundred districts (item 315).
+func (g *Game) openingSeen() bool { return !g.headless || filmingOpening() }
+
+// openingLays is what a draw of the opening lays: the void and the panel
+// where it is seen, and where it is not, the void once, since the screen
+// is not cleared between frames.
+func openingLays(seen, voidLaid bool) (void, panel bool) {
+	if seen {
+		return true, true
+	}
+	return !voidLaid, false
+}
+
 // openingWait is what the city is waiting on before it can draw the
 // city: its atlas pages, and the first snapshot.
 type openingWait struct {
@@ -86,13 +103,21 @@ func (g *Game) drawOpening(screen *ebiten.Image, pagesUp, pages int) bool {
 		return false
 	}
 	g.paceOpening(timeNow())
-	screen.Fill(colorVoid)
+	void, panel := openingLays(g.openingSeen(), g.openingVoid)
+	if void {
+		screen.Fill(colorVoid)
+		g.openingVoid = true
+	}
 	w := openingWait{pagesUp: pagesUp, pages: pages, opened: opened, waited: time.Since(g.started)}
 	if load := g.loading.Load(); load != nil {
 		w.load = *load
 	}
 	line, fill, shown := openingFor(w)
 	if !shown {
+		return true
+	}
+	if !panel {
+		g.logOpening(line)
 		return true
 	}
 	th := g.theme
