@@ -355,3 +355,38 @@ func TestARecordingCityOfSixHundredDistricts(t *testing.T) {
 		})
 	})
 }
+
+// Item 311: the unopened recording spent about six cores drawing its
+// opening. Opening costs building the scene and one fitted frame, baking
+// every look cold, and the wait for the daemon nothing but the log's
+// progress line, so the city's own process has 2.5 CPU-seconds to its
+// first frame headless (performance/budgets.md, First launch; Aria,
+// 2026-10-28, item 315: "2.5 CPU-s"), and firstMapLimit to get there.
+func TestARecordingCityOfSixHundredDistrictsOpening(t *testing.T) {
+	performanceTier(t)
+	helpers.NeedXvfb(t)
+	gate := stressGateFor(os.Getenv)
+	t.Logf("the stress city %s", gate.mode)
+	firstFrame, why := firstMapLimit(os.Getenv)
+	t.Logf("first-map limit: %s", why)
+	const (
+		giveUp        = 2 * time.Minute
+		budget        = 2500 * time.Millisecond
+		clockTicksSec = 100
+	)
+
+	t.Run("when a recording city of 2,400 sessions in 600 districts opens headless on its daemon", func(t *testing.T) {
+		var ticks int64
+		firstIn, log := recordStressCity(t, giveUp, func(pid int) { ticks = cpuTicks(t, pid) })
+		spent := time.Duration(ticks) * time.Second / clockTicksSec
+		t.Logf("first recorded frame after %v, %v of the city's CPU; the city said:\n%s", firstIn, spent, log)
+
+		t.Run("it should write its first frame within "+firstFrame.String(), func(t *testing.T) {
+			holdToBar(t, gate, firstIn > 0 && firstIn <= firstFrame, "first recorded frame after %v (0 is none within %v), the limit %v", firstIn, giveUp, firstFrame)
+		})
+
+		t.Run("it should spend at most 2.5 CPU-seconds before its first frame", func(t *testing.T) {
+			holdToBar(t, gate, firstIn > 0 && spent <= budget, "%v of CPU to the first frame (written after %v), the bar %v", spent, firstIn, budget)
+		})
+	})
+}
