@@ -48,7 +48,11 @@ const (
 // drawCmd is one recorded draw.
 type drawCmd struct {
 	kind cmdKind
-	src  *ebiten.Image
+	// owned and at are beside kind, where they take no more room than
+	// kind alone did; see vs.
+	owned bool
+	at    [2]int32
+	src   *ebiten.Image
 	// page is the image src was cut from, when its caller cut it: the
 	// texture the draw reads, and batches by (item 161).
 	page *ebiten.Image
@@ -57,12 +61,12 @@ type drawCmd struct {
 	op int
 	// vs and is are a mesh's vertices and indices: in the list's
 	// buffers as recorded, and its own once it is kept, so a kept mesh is
-	// copied once and not every frame (item 212); owned says which. p is
-	// a ring's range in the list's points.
-	vs    []ebiten.Vertex
-	is    []uint32
-	owned bool
-	p     [2]int
+	// copied once and not every frame (item 212); owned says which, and
+	// at where an unowned mesh's are in the list's buffers (item 315). p
+	// is a ring's range in the list's points.
+	vs []ebiten.Vertex
+	is []uint32
+	p  [2]int
 	// fade is the hover fade group the draw belongs to, 0 for none: the
 	// draws of one group are laid on the fade layer together and the
 	// layer put down when the group ends (item 108).
@@ -268,7 +272,9 @@ func (l *drawList) Mesh(dst *ebiten.Image, vertices []ebiten.Vertex, indices []u
 	}
 	l.triOps = append(l.triOps, *op)
 	c := drawCmd{kind: cmdMesh, src: src, op: len(l.triOps) - 1}
+	l.roomForMesh(len(vertices), len(indices))
 	v, i := len(l.vertices), len(l.indices)
+	c.at = [2]int32{int32(v), int32(i)}
 	l.vertices = append(l.vertices, vertices...)
 	l.indices = append(l.indices, indices...)
 	c.vs, c.is = l.vertices[v:len(l.vertices):len(l.vertices)], l.indices[i:len(l.indices):len(l.indices)]

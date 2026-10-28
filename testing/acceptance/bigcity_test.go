@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"botropolis.city/botropolis/pkg/app"
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/demo"
 	"botropolis.city/botropolis/pkg/measure"
@@ -81,6 +83,26 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 	home := bigHistory(t, time.Now())
 	d, err := render.NewDrive(render.DriveOptions{Home: home, Width: 1600, Height: 900})
 	require.NoError(t, err)
+	// Item 315: the collector's own goal is twice the live heap, so a
+	// live heap over half the city's limit leaves the limit, not the
+	// goal, driving every collection; at the limit it ran flat out.
+	const liveBar = app.CityMemoryLimit / 2
+	var live []uint64
+	for range 3 {
+		require.NoError(t, d.Tick())
+		runtime.GC()
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		live = append(live, m.HeapAlloc)
+	}
+	t.Logf("live Go heap after each of the first frames: %v MiB, the bar %d MiB", mib(live), liveBar>>20)
+
+	t.Run("when the city of 600 districts draws its first three frames", func(t *testing.T) {
+		t.Run("it should hold its live Go heap at or under 150 MiB, half the city's 300 MiB limit, so the collector's own goal stays under the limit", func(t *testing.T) {
+			holdToBar(t, gate, slices.Max(live) <= liveBar, "live Go heap %v MiB, the bar %d MiB", mib(live), liveBar>>20)
+		})
+	})
+
 	require.NoError(t, d.Run(settleTicks))
 	// median is the middle CPU a tick took of frames ticks, each after
 	// step.
@@ -126,6 +148,15 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 			})
 		})
 	})
+}
+
+// mib is each of bytes in MiB.
+func mib(bytes []uint64) []uint64 {
+	out := make([]uint64, len(bytes))
+	for i, b := range bytes {
+		out[i] = b >> 20
+	}
+	return out
 }
 
 // firstMapLimit is how long the city of 600 districts has to draw its
@@ -265,7 +296,8 @@ func TestACityOfSixHundredDistricts(t *testing.T) {
 
 // recordStressCity records the city of 600 districts headless on its own
 // daemon, calls sample with the drawing child's pid every tenth of a
-// second until the first frame is written or giveUp passes, and returns
+// second until the first frame is written or giveUp passes, the last
+// time once the frame is there, and returns
 // when the first frame came, zero for none, and what the city said.
 func recordStressCity(t *testing.T, giveUp time.Duration, sample func(pid int)) (time.Duration, string) {
 	t.Helper()
@@ -294,11 +326,11 @@ func recordStressCity(t *testing.T, giveUp time.Duration, sample func(pid int)) 
 	tick := time.NewTicker(100 * time.Millisecond)
 	for firstIn == 0 && time.Since(start) < giveUp {
 		<-tick.C
-		if kids := children(cmd.Process.Pid); len(kids) > 0 {
-			sample(kids[len(kids)-1])
-		}
 		if entries, _ := os.ReadDir(frames); len(entries) > 0 {
 			firstIn = time.Since(start)
+		}
+		if kids := children(cmd.Process.Pid); len(kids) > 0 {
+			sample(kids[len(kids)-1])
 		}
 	}
 	tick.Stop()

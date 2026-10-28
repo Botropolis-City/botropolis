@@ -604,6 +604,11 @@ func (g *Game) copyCmds(k *keptRecord, from, to int, shift image.Point) {
 	l := g.rec
 	dx, dy := float32(shift.X), float32(shift.Y)
 	for j := from; j < to; j++ {
+		if k.cmds[j].kind == cmdMesh {
+			// Before the command joins the list, whose meshes a grown
+			// buffer moves.
+			l.roomForMesh(len(k.cmds[j].vs), len(k.cmds[j].is))
+		}
 		l.cmds = append(l.cmds, k.cmds[j])
 		c := &l.cmds[len(l.cmds)-1]
 		c.box = moved(c.box, shift)
@@ -636,6 +641,7 @@ func (g *Game) copyCmds(k *keptRecord, from, to int, shift image.Point) {
 			l.indices = append(l.indices, c.is...)
 			c.vs = l.vertices[v:len(l.vertices):len(l.vertices)]
 			c.is = l.indices[n:len(l.indices):len(l.indices)]
+			c.at = [2]int32{int32(v), int32(n)}
 			c.owned = false
 		case cmdRing:
 			l.pathOps = append(l.pathOps, k.pathOps[c.op])
