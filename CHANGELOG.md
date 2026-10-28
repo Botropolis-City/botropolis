@@ -26,8 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It used to cross the city in two seconds, so fast it was easy to miss.
   It now drives as fast as the city's other trucks, so a far depot takes longer, between two and six seconds.
   Under reduced motion it is still a short cross-fade.
+- **Zoomed far out, the floors of quiet districts no longer show cracks.**
+  Below a quarter zoom they were specks a few pixels long, and drawing them slowed every frame; zoom in and they are there as before.
 
 ### Fixed
+
+- **A city of hundreds of projects opens with half the work and less memory.**
+  On a history of 600 projects, the city spends about half the CPU it did before its first map, and its memory at the start peaks about a quarter lower.
+  A city opened with `--headless` no longer draws the loading panel, which no one can see.
 
 - **`c` on a district now opens the new session in a terminal**, once Claude Code has started it, instead of only raising a building.
   The few seconds before it opens are Claude Code starting the session; the city's own part of the hand-off takes milliseconds.
