@@ -1,6 +1,9 @@
 package render
 
-import "container/list"
+import (
+	"container/list"
+	"strconv"
+)
 
 // A building's look changes far less often than it is drawn, so it is
 // baked once into an image and kept (item 192). The cache holds as many
@@ -150,4 +153,16 @@ func (c *lookCache[K, V]) forget(before int) {
 			delete(c.seen, id)
 		}
 	}
+}
+
+// lookCacheCapFrom is the look cache's cap the debug build is given, as
+// a number of MiB, or lookCacheCap when it is given none it can use: the
+// performance tests run the cache at half its size from the same tree
+// (item 212).
+func lookCacheCapFrom(env string) int {
+	mib, err := strconv.Atoi(env)
+	if err != nil || mib <= 0 {
+		return lookCacheCap
+	}
+	return mib << 20
 }

@@ -729,7 +729,7 @@ func (g *Game) nextLookFrame() {
 	}
 	if g.looks == nil {
 		// A new cache holds no looks, so nothing is on the pages.
-		g.looks = newLookCache[lookKey, *bakedLook](lookCacheCap)
+		g.looks = newLookCache[lookKey, *bakedLook](lookCacheBytes())
 		g.lookPages.release()
 		g.lookPages = nil
 	}

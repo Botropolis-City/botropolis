@@ -92,6 +92,11 @@ func (g *Game) keepOpening(screen *ebiten.Image) {
 // 2026-10-21: "Hold movers equal").
 var framesWithoutMovers = os.Getenv("BOTROPOLIS_FRAME_MOVERS") == "none"
 
+// lookCacheBytes is the look cache's cap, which the performance tests
+// can set in MiB by BOTROPOLIS_LOOK_CACHE_CAP to run it under pressure
+// (item 212).
+func lookCacheBytes() int { return lookCacheCapFrom(os.Getenv("BOTROPOLIS_LOOK_CACHE_CAP")) }
+
 // framesOpenUnread is whether a recording opens on its first snapshot
 // instead of waiting for a read history. A recording waits so its heights
 // do not change mid-shot (item 202), but item 159's first-launch test
