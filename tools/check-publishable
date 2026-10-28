@@ -354,6 +354,8 @@ docs/screenshots/r766-item-151-tug-hull-from-above.png
 docs/screenshots/r769-item-153-cars-keep-right.png
 docs/screenshots/r1126-item-282-plan-widest.png
 docs/screenshots/r1126-item-282-plan-zoomed.png
+docs/screenshots/r1200-item-293-tray-icon.png
+docs/screenshots/r1200-item-293-tray-menu.png
 LIST
 )
 while read -r img; do

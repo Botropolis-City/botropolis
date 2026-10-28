@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A `light` setting starts the city in night or day**, held whatever the clock says, as `n` holds it.
   `live`, the default, follows the clock as before.
   Set it for one run with `--set light=night`.
+- **The city has a tray icon, and closing the window can send it there.**
+  While the city runs, its icon sits in your desktop's tray: on KDE, Waybar or GNOME with its AppIndicator extension, and on i3bar or polybar.
+  Click it to open the city; its menu offers *Open the city* and *Quit…*, which shows the window and asks as `q` does.
+  With *closing the window* set to `tray`, closing the window hides the city there, where it keeps running, instead of asking; in 0.3.3 it always asked.
+  Where no tray is found, it still asks, and the settings panel says why.
 
 ### Changed
 
