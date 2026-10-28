@@ -1286,9 +1286,18 @@ func (g *Game) dashed(screen *ebiten.Image, a, b city.Point, width, dash float64
 	g.linePairs = pairs[:0]
 }
 
+// crackZoomLeast is the least zoom a crack is stroked at: below it a tile
+// is under 4 pixels, and a crack a speck (Aria, 2026-10-28, item 315:
+// "Yes, take S4").
+const crackZoomLeast = 0.25
+
 // cracks strokes polylines in world points, width wide at zoom 1, as one
-// mesh (item 207): what g.line drew for each segment in turn.
+// mesh (item 207): what g.line drew for each segment in turn. Below
+// crackZoomLeast it strokes none.
 func (g *Game) cracks(screen *ebiten.Image, cam *city.Camera, cracks [][]city.Point, width float32, col color.NRGBA) {
+	if cam.Zoom < crackZoomLeast {
+		return
+	}
 	pairs := g.linePairs[:0]
 	for _, crack := range cracks {
 		for i := 1; i < len(crack); i++ {
