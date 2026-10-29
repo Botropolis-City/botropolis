@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-10-28
+
 ### Added
 
 - **A `light` setting starts the city in night or day**, held whatever the clock says, as `n` holds it.
@@ -34,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A city of hundreds of projects opens with half the work and less memory.**
   On a history of 600 projects, the city spends about half the CPU it did before its first map, and its memory at the start peaks about a quarter lower.
   A city opened with `--headless` no longer draws the loading panel, which no one can see.
-
 - **`c` on a district now opens the new session in a terminal**, once Claude Code has started it, instead of only raising a building.
   The few seconds before it opens are Claude Code starting the session; the city's own part of the hand-off takes milliseconds.
 - **Exiting a session opened from the city no longer asks whether to trust your home folder.**
@@ -1019,7 +1020,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/Botropolis-City/botropolis/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/Botropolis-City/botropolis/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Botropolis-City/botropolis/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Botropolis-City/botropolis/compare/v0.3.0...v0.3.1
