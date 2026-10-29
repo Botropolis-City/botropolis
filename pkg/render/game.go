@@ -1140,6 +1140,7 @@ func writePNG(path string, img image.Image) error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	memoryLog.Sample()
 	if !g.idle() {
 		if !g.dashboardFrame() {
 			// Nobody is watching this frame. Holding here is what keeps
