@@ -46,7 +46,7 @@ A building's height is how much work its session has done, one to five storeys o
 While a session is mid-turn its roof is scaffolded with work lights, and each tool call runs a load up a hoist on the building's corner.
 A drone works on the building for each subagent in flight and flies to the project it works in, and smoke rises per API error.
 A flag flies per PR, an inspector's car parks outside while one is open, and a merge sends a truck off the island by the bridge.
-Each message one session sends another drives a van along the road between their projects.
+What drives a road between two projects says what crossed it: a car is a session working in both right now, a van one message one session sent another, a box truck one file edited across, and a motorbike one subagent sent over.
 A vacant plot is a session nothing has been typed into yet: never counted, and `botropolis rm --older-than` clears it after an hour.
 
 The plant on the plaza is the API — click it for the breakdown by model, project and session over an hour, a day or a week.

@@ -184,12 +184,8 @@ func carPlace(path []city.Point, phase float64, inBlock func(city.Point) bool) (
 	return pointAlong(loop, phase*pathLength(loop))
 }
 
-// messagePlace is where a message's van stands; a carriage on the rails
-// keeps to the line.
-func messagePlace(m city.Message, now time.Time, inBlock func(city.Point) bool) (city.Point, city.Point) {
-	if m.Train {
-		return m.At(now), m.At(now.Add(100 * time.Millisecond)).Sub(m.At(now))
-	}
+// trafficPlace is where a vehicle on a road stands, in its lane.
+func trafficPlace(m city.Traffic, now time.Time, inBlock func(city.Point) bool) (city.Point, city.Point) {
 	share := m.Progress(now)
 	if m.Fades {
 		share = 1

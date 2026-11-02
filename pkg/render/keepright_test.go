@@ -35,8 +35,8 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 			return placed{at, dir}
 		},
 		"a message van": func(from, to city.Point) placed {
-			m := city.Message{Path: []city.Point{from, to}, Since: t0}
-			at, dir := messagePlace(m, t0.Add(m.For()/2), nil)
+			m := city.Traffic{Path: []city.Point{from, to}, Since: t0}
+			at, dir := trafficPlace(m, t0.Add(m.For()/2), nil)
 			return placed{at, dir}
 		},
 		"the delivery truck": func(from, to city.Point) placed {
@@ -160,16 +160,6 @@ func TestEveryRoadVehicleKeepsRight(t *testing.T) {
 		t.Run("it should ride as high as it would on the centre line", func(t *testing.T) {
 			unit := func(h city.Height) float64 { return float64(h) }
 			assert.Equal(t, bridge.Lift(d.At(now), unit), bridge.Lift(at, unit))
-		})
-	})
-
-	t.Run("when a message rides the rails", func(t *testing.T) {
-		m := city.Message{Path: []city.Point{{}, {X: run}}, Since: t0, Train: true}
-		now := t0.Add(m.For() / 2)
-		at, _ := messagePlace(m, now, nil)
-
-		t.Run("it should stay on the rails' centre line", func(t *testing.T) {
-			assert.Equal(t, m.At(now), at)
 		})
 	})
 }

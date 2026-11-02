@@ -81,6 +81,11 @@ PALETTE = {
     "drum": "#eceff1",
     "drum-band": "#e0b23c",
     "chute": "#6b7280",
+    "lorry-cab": "#e8892c",
+    "lorry-box": "#d9dde2",
+    "lorry-band": "#3c6fb0",
+    "bike": "#c8402f",
+    "helmet": "#f4f1ea",
     "cart": "#e9e4d8",
     "steel": "#a7adb5",
     "wood": "#9a6a3f",
@@ -452,7 +457,11 @@ def names():
 # as every kit's vehicles are, so the map turns them all by one rule
 # (item 151).
 SKIP_FILLS = 4
-VEHICLES = ["skip-truck", "skip-truck-loaded", "mixer-truck"]
+# The road's box truck, a file edited in another project, and its
+# motorbike, a subagent's visit (item 255), are built here too: the Car
+# Kit's own box truck is the pull request's delivery, and no kit has a
+# motorbike.
+VEHICLES = ["skip-truck", "skip-truck-loaded", "mixer-truck", "box-truck", "motorbike"]
 
 
 # A building whose session's transcript is gone: abandoned and fallen
@@ -729,13 +738,46 @@ def mixer_truck(m):
     wheels(m, length, width, (length / 2 - 0.06, -length / 2 + 0.08, -length / 2 + 0.14))
 
 
+def box_truck(m):
+    """A rigid box lorry, longer and taller than the Car Kit's delivery
+    truck: a short cab at the front (+y), a tall box over three axles."""
+    width, length = 0.15, 0.5
+    m.box((width, length, 0.03), (0, 0, 0.03), "chassis")
+    m.box((width, 0.11, 0.11), (0, length / 2 - 0.055, 0.05), "lorry-cab")
+    m.box((width * 0.92, 0.012, 0.05), (0, length / 2 + 0.001, 0.1), "window", 0.3)
+    box_len = length - 0.13
+    m.box((width + 0.01, box_len, 0.17), (0, -length / 2 + box_len / 2, 0.06), "lorry-box")
+    m.box((width + 0.014, box_len + 0.004, 0.025), (0, -length / 2 + box_len / 2, 0.15), "lorry-band")
+    wheels(m, length, width, (length / 2 - 0.06, -length / 2 + 0.07, -length / 2 + 0.13))
+
+
+def motorbike(m):
+    """A motorbike and its rider, nose at +y: two wheels, a tank and seat
+    between them, and a rider in a white helmet leaning over the bars."""
+    length = 0.15
+    for y in (length / 2 - 0.028, -length / 2 + 0.028):
+        m.cylinder(0.028, 0.014, (0, y, 0.028), "tyre", axis="x", vertices=12)
+    m.box((0.022, length - 0.05, 0.03), (0, 0, 0.032), "chassis")
+    m.box((0.034, 0.05, 0.028), (0, 0.02, 0.05), "bike")
+    m.box((0.05, 0.008, 0.008), (0, length / 2 - 0.035, 0.085), "hook")
+    m.box((0.04, 0.035, 0.05), (0, -0.015, 0.06), "trousers")
+    torso = m.box((0.04, 0.03, 0.055), (0, 0.005, 0.1), "coat-blue")
+    torso.rotation_euler.x = 0.45
+    m.cylinder(0.019, 0.034, (0, 0.025, 0.148), "helmet", vertices=14)
+
+
 def site(name, at=(0, 0)):
-    """botropolis/<skip-k | skip-truck | skip-truck-loaded | mixer-truck>."""
+    """botropolis/<skip-k | skip-truck | skip-truck-loaded | mixer-truck
+    | box-truck | motorbike>."""
     m = Model(f"botropolis/{name}")
     if name.startswith("skip-") and name[len("skip-"):].isdigit():
         skip(m, int(name[len("skip-"):]))
     elif name == "mixer-truck":
         mixer_truck(m)
+    elif name == "box-truck":
+        box_truck(m)
+    elif name == "motorbike":
+        motorbike(m)
     else:
         skip_truck(m, name.endswith("loaded"))
     m.root.location = Vector((at[0], at[1], 0))

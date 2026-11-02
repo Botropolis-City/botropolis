@@ -1279,4 +1279,17 @@ func TestConnections(t *testing.T) {
 			})
 		})
 	})
+
+	// Item 255: a motorbike rides from the project whose subagent went.
+	t.Run("when a subagent visits the way the road's other traffic comes back", func(t *testing.T) {
+		roads := state.Roads([]state.Session{
+			{ID: "a", CWD: "/w/a", Touches: map[string]int{"/w/b/f.go": 1}},
+			{ID: "b", CWD: "/w/b", Visits: map[string]int{"/w/a": 2}},
+		}, nil)
+		require.Len(t, roads, 1)
+
+		t.Run("it should count the visits back, and none forward", func(t *testing.T) {
+			assert.Equal(t, [2]int{0, 2}, [2]int{roads[0].Visits, roads[0].BackVisits})
+		})
+	})
 }

@@ -35,13 +35,17 @@ const (
 	KindVan
 	// KindClinic is the clinic, where what needs you stands (item 280).
 	KindClinic
+	// KindBoxTruck and KindMotorbike are a road's other two kinds of
+	// traffic, beside the car and the van (item 255).
+	KindBoxTruck
+	KindMotorbike
 )
 
 // Kinds is every kind, in the order the reference lists them.
 var Kinds = []Kind{
-	KindSession, KindProject, KindStation, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery, KindVan,
+	KindSession, KindProject, KindStation, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery,
 	KindPlant, KindWire, KindTrain, KindTower, KindBeam, KindLibrary, KindHall, KindClinic,
-	KindRoad, KindCar, KindRiver, KindGauge, KindTug, KindLaunch, KindFountain, KindPlaza,
+	KindRoad, KindCar, KindVan, KindBoxTruck, KindMotorbike, KindRiver, KindGauge, KindTug, KindLaunch, KindFountain, KindPlaza,
 }
 
 type kindText struct {
@@ -64,8 +68,12 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindSession, KindInspector, KindDelivery}},
 	KindInspector: {"inspector", "pull requests waiting on review", "An inspector's car parks outside a session's building while the session has a pull request open, and drives off when none is.",
 		[]Kind{KindFlag, KindSession}},
-	KindVan: {"van", "a message between sessions", "A van drives the road from one project to another for each message one session sends another. Between two stations on a group's line, a carriage runs the line instead.",
-		[]Kind{KindRoad, KindCar}},
+	KindVan: {"van", "a message between sessions", "A van drives the road from one project to another for each message one session sends another.",
+		[]Kind{KindRoad, KindCar, KindBoxTruck, KindMotorbike}},
+	KindBoxTruck: {"box truck", "a file edited in another project", "A box truck drives the road from one project to another for each file a session there edited in the other.",
+		[]Kind{KindRoad, KindVan, KindMotorbike}},
+	KindMotorbike: {"motorbike", "a subagent's visit to another project", "A motorbike rides the road from one project to another for each subagent a session there sent to work in the other.",
+		[]Kind{KindRoad, KindVan, KindBoxTruck, KindDrone}},
 	KindDelivery: {"delivery truck", "a merged pull request", "When a pull request merges, a truck takes a crate away over the bridge. When the merge leaves its group with nothing open, the group's ribbon is cut.",
 		[]Kind{KindFlag, KindInspector}},
 	KindPlant: {"power plant", "where the tokens go", "The power plant is the city's spend: tokens and cost across every session. Select it to see where the spend went.",
@@ -84,10 +92,10 @@ var kindTexts = map[Kind]kindText{
 		[]Kind{KindStation}},
 	KindClinic: {"clinic", "what needs you, and what is in trouble", "The clinic counts the sessions waiting on you and the ones in trouble: one whose last reply was an error from the API, one that stopped mid-turn in the last day, or one whose last three tool calls or more failed. Click it, or press a, for the list: the ones needing you first, then the troubled ones, each a key away.",
 		[]Kind{KindSession, KindSmoke}},
-	KindRoad: {"road", "traffic between two projects", "A road joins two projects that sessions crossed between, by messages or by files. Roads appear only where traffic runs.",
-		[]Kind{KindProject, KindCar}},
+	KindRoad: {"road", "traffic between two projects", "A road joins two projects that sessions crossed between, by messages, by files or by subagents. Roads appear only where traffic runs, and what drives one says which: a car, a van, a box truck or a motorbike.",
+		[]Kind{KindProject, KindCar, KindVan, KindBoxTruck, KindMotorbike}},
 	KindCar: {"car", "a session crossing to another project", "A car on a road is a session working across two projects right now.",
-		[]Kind{KindRoad}},
+		[]Kind{KindRoad, KindVan, KindBoxTruck, KindMotorbike}},
 	KindRiver: {"river", "your usage, and sessions coming and going", "The river runs through the island to the sea. Its boats carry your usage and the sessions arriving and leaving.",
 		[]Kind{KindGauge, KindTug, KindLaunch}},
 	KindGauge: {"gauge boat", "your share of a usage limit", "Each big boat on the river is one usage limit. It holds station between the buoys at the share you have used.",
@@ -130,8 +138,8 @@ func KindOf(h Hit) Kind {
 		return KindFlag
 	case h.Delivery != nil:
 		return KindDelivery
-	case h.Message != nil:
-		return KindVan
+	case h.Traffic != nil:
+		return h.Traffic.Cargo.Kind()
 	case h.Inspector != nil:
 		return KindInspector
 	case h.Subagent != nil:

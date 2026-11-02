@@ -268,7 +268,7 @@ func TestRoadVehiclesStayOnTheirGround(t *testing.T) {
 		}
 
 		for i, st := range c.Streets {
-			m := city.Message{Path: st.Path, Since: t0}
+			m := city.Traffic{Path: st.Path, Since: t0}
 			for _, v := range []struct {
 				name   string
 				places []placed
@@ -276,7 +276,7 @@ func TestRoadVehiclesStayOnTheirGround(t *testing.T) {
 			}{
 				{"a traffic car", drive(n, 1, func(p float64) (city.Point, city.Point) { return carPlace(st.Path, p, c.InBlock) }), feet[kitCars[0]]},
 				{"a message van", drive(n, 1, func(p float64) (city.Point, city.Point) {
-					return messagePlace(m, t0.Add(time.Duration(p*float64(m.For()))), c.InBlock)
+					return trafficPlace(m, t0.Add(time.Duration(p*float64(m.For()))), c.InBlock)
 				}), feet[kitVan]},
 			} {
 				t.Run(fmt.Sprintf("when %s drives street %d with the camera at %d", v.name, i, heading), func(t *testing.T) {

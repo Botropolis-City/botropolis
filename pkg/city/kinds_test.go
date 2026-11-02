@@ -30,6 +30,13 @@ func TestKinds(t *testing.T) {
 		})
 	})
 
+	// Item 255: a group's line carries nothing.
+	t.Run("when it is a van", func(t *testing.T) {
+		t.Run("it should not say a carriage runs a group's line", func(t *testing.T) {
+			assert.NotContains(t, city.KindVan.About(), "carriage")
+		})
+	})
+
 	t.Run("for every hit the map can return", func(t *testing.T) {
 		a := session("a", cinders, state.Working)
 		a.PRs = []claude.PR{{Number: 1, Repository: "o/r"}}
@@ -68,7 +75,10 @@ func TestKinds(t *testing.T) {
 			// Item 89.
 			city.KindInspector: {Building: b, Inspector: b},
 			city.KindDelivery:  {Delivery: &city.Delivery{PR: a.PRs[0]}},
-			city.KindVan:       {Message: &city.Message{}},
+			city.KindVan:       {Traffic: &city.Traffic{Cargo: city.CargoMessage}},
+			// Item 255.
+			city.KindBoxTruck:  {Traffic: &city.Traffic{Cargo: city.CargoFiles}},
+			city.KindMotorbike: {Traffic: &city.Traffic{Cargo: city.CargoVisit}},
 		}
 
 		t.Run("it should have a hit for every kind", func(t *testing.T) {

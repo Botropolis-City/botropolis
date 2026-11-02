@@ -928,7 +928,7 @@ def atlas(args):
                         sprites[key][str(heading)]["body"] = list(root["body"]) + [root["roof"]]
                     if kit == "botropolis" and buildings.is_course(name):
                         sprites[key][str(heading)]["body"] = list(root["body"])
-                    if kit in VEHICLES:
+                    if kit in VEHICLES or (kit == "botropolis" and name in buildings.VEHICLES):
                         sprites[key][str(heading)]["foot"] = [round(hi.x - lo.x, 4), round(hi.y - lo.y, 4)]
                     if has_nose(kit, name):
                         ndc = world_to_camera_view(bpy.context.scene, bpy.context.scene.camera, Vector(((lo.x + hi.x) / 2, lo.y, ground.z)))

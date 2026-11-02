@@ -277,10 +277,10 @@ type Scene struct {
 	deliveries []Delivery
 	ribbons    []ribbon
 	celebrated map[string]bool
-	// mail is each road's message counts at the last snapshot, and
-	// messages the vans their rises sent (item 89).
-	mail     map[string]mailCount
-	messages []Message
+	// counted is each road's traffic at the last snapshot, and traffic
+	// the vehicles its rises sent (items 89 and 255).
+	counted map[string]roadCount
+	traffic []Traffic
 	// drag is the district being dragged to another slot. Item 85.
 	drag *districtDrag
 	// chosen is the districts selected to move together. Item 283.
@@ -386,7 +386,7 @@ func (s *Scene) face() {
 	}
 	was := s.city.StreetCells
 	s.city.Face(s.camera.Heading)
-	s.rerouteMessages(s.now())
+	s.rerouteTraffic(s.now())
 	s.noteOvergrowth(was, s.now())
 	s.noteGround()
 }
@@ -395,7 +395,7 @@ func (s *Scene) face() {
 // this one. Item 224.
 func (s *Scene) carryOn(now time.Time) {
 	s.retargetHauls(now)
-	s.rerouteMessages(now)
+	s.rerouteTraffic(now)
 }
 
 // ToggleNight forces night on or off regardless of what is running, to
@@ -833,7 +833,7 @@ func (s *Scene) apply(snapshot state.Snapshot) {
 	s.noteDrones(s.now())
 	s.rerouteDeliveries(s.now())
 	s.notePRs(s.now())
-	s.noteMessages(s.now())
+	s.noteTraffic(s.now())
 	s.holdDepot()
 	s.carryOn(s.now())
 	s.city.Plant.BudgetUSD = s.budget
@@ -905,7 +905,7 @@ func (h Hit) Ground() bool {
 // allowed to win or it can never be pointed at at all.
 func (h Hit) Mover() bool {
 	return h.Subagent != nil || h.Smoke != nil || h.Car != nil || h.Flag != nil || h.Gauge != nil ||
-		h.Inspector != nil || h.Delivery != nil || h.Message != nil
+		h.Inspector != nil || h.Delivery != nil || h.Traffic != nil
 }
 
 func (h Hit) ground() bool {
@@ -1458,8 +1458,8 @@ func (s *Scene) cardFor(h Hit) (Card, bool) {
 		return FlagCard(h.Flag.PR), true
 	case h.Delivery != nil:
 		return DeliveryCard(*h.Delivery), true
-	case h.Message != nil:
-		return MessageCard(*h.Message), true
+	case h.Traffic != nil:
+		return TrafficCard(*h.Traffic), true
 	case h.Inspector != nil:
 		return InspectorCard(h.Inspector), true
 	case h.Subagent != nil:

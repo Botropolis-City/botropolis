@@ -1,5 +1,5 @@
 name: team
-description: An agent team at work across two districts. A lead in tidepool asks its teammate in kiln to read kiln's log reader, and their messages to each other cross the city as vans, or as carriages along the team's line.
+description: An agent team at work across two districts. A lead in tidepool asks its teammate in kiln to read kiln's log reader, and their messages to each other cross the city as vans on the road between them, with the team's line drawn or not.
 clock: "15:30"
 mcp: [tracker]
 usage: {session: 18, weekly: 37}
@@ -40,9 +40,9 @@ shots:
     script:
       - {at: 0.5, pan_to: plant, over: 2}
       - {at: 2.5, wheel: 3, over: 2}
-  - name: team-train
-    title: A team's messages along its line
-    description: The same team with its group's line drawn. Each message between them rides the line as a carriage from one station to the other.
+  - name: team-line
+    title: A team's messages with its line drawn
+    description: The same team with its group's line drawn. Each message between them still drives the road as a van, and the line carries nothing.
     group_lines: true
     record: {seconds: 18, fps: 30}
     timeline: true

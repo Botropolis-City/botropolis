@@ -83,11 +83,11 @@ type PowerLine struct {
 // Label is what the road sign says: its message and file traffic.
 func (r RoadLine) Label() string {
 	label := roadTraffic(r.Messages+r.BackMessages, r.Files+r.BackFiles)
-	if r.Visits > 0 {
+	if visits := r.Visits + r.BackVisits; visits > 0 {
 		if label != "" {
 			label += ", "
 		}
-		label += plural(r.Visits, "subagent")
+		label += plural(visits, "subagent")
 	}
 	return label
 }
@@ -118,6 +118,7 @@ type RoadLine struct {
 	BackMessages int
 	BackFiles    int
 	Visits       int
+	BackVisits   int
 	Sessions     int
 	Active       int
 	Paths        []string
@@ -130,8 +131,8 @@ func (r RoadLine) Card() Card {
 			"to       " + r.To.Name + " " + roadTraffic(r.Messages, r.Files),
 			"to       " + r.From.Name + " " + back,
 		}
-		if r.Visits > 0 {
-			lines = append(lines, "visits   "+plural(r.Visits, "subagent"))
+		if visits := r.Visits + r.BackVisits; visits > 0 {
+			lines = append(lines, "visits   "+plural(visits, "subagent"))
 		}
 	}
 	lines = append(lines, "sessions "+fmt.Sprint(r.Sessions))
@@ -193,13 +194,14 @@ func (c *City) placeRoads(roads []state.Road) {
 			i, seen = index[pair{to, from}]
 			if seen {
 				r.Messages, r.Files, r.BackMessages, r.BackFiles = r.BackMessages, r.BackFiles, r.Messages, r.Files
+				r.Visits, r.BackVisits = r.BackVisits, r.Visits
 			}
 		}
 		if !seen {
 			index[pair{from, to}] = len(c.Roads)
 			c.Roads = append(c.Roads, RoadLine{A: from.Rect.Center(), B: to.Rect.Center(), From: from, To: to,
 				Messages: r.Messages, Files: r.Files, BackMessages: r.BackMessages, BackFiles: r.BackFiles,
-				Visits: r.Visits, Sessions: r.Sessions, Active: r.Active, Paths: r.Paths})
+				Visits: r.Visits, BackVisits: r.BackVisits, Sessions: r.Sessions, Active: r.Active, Paths: r.Paths})
 			continue
 		}
 		line := &c.Roads[i]
@@ -208,6 +210,7 @@ func (c *City) placeRoads(roads []state.Road) {
 		line.BackMessages += r.BackMessages
 		line.BackFiles += r.BackFiles
 		line.Visits += r.Visits
+		line.BackVisits += r.BackVisits
 		line.Sessions += r.Sessions
 		line.Active += r.Active
 		line.Paths = append(line.Paths, r.Paths...)

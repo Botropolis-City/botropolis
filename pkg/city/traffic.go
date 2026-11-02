@@ -6,29 +6,51 @@ import (
 	"time"
 )
 
-// Messages between sessions on the map. Item 89.
+// Traffic on the roads between districts. Items 89 and 255.
 //
-// The roads already count the messages passed between two districts,
-// each way. Every message one snapshot adds sends a van along the road
-// from the sender's district to the recipient's, or a carriage along
-// the group's line when both are stations on a drawn one. The first
-// snapshot sends nothing, so opening the map does not replay history,
-// and at still a van fades in at the recipient's end with no drive.
+// The roads already count what passed between two districts, each way:
+// messages, files edited across, and subagents' visits. Every unit one
+// snapshot adds sends a vehicle of its kind along the road's street path
+// from where it started to the other end: a van for a message, a box
+// truck for a file, a motorbike for a visit. A group's line carries
+// nothing. The first snapshot sends nothing, so opening the map does not
+// replay history, and at still a vehicle fades in at its far end with no
+// drive.
 
-// VanGap is how far apart vans for messages in one snapshot leave.
+// VanGap is how far apart vehicles sent in one snapshot leave.
 const VanGap = 400 * time.Millisecond
 
-// Message is one message on its way: a van, or a carriage on a line.
-type Message struct {
+// Cargo is what a vehicle on a road carries.
+type Cargo int
+
+const (
+	CargoMessage Cargo = iota
+	CargoFiles
+	CargoVisit
+)
+
+// Kind is the kind of vehicle that carries the load.
+func (l Cargo) Kind() Kind {
+	switch l {
+	case CargoFiles:
+		return KindBoxTruck
+	case CargoVisit:
+		return KindMotorbike
+	}
+	return KindVan
+}
+
+// Traffic is one vehicle on its way along a road.
+type Traffic struct {
+	Cargo    Cargo
 	From, To *District
 	Path     []Point
 	Since    time.Time
-	Train    bool
 	Fades    bool
 }
 
 // For is how long the trip takes.
-func (m Message) For() time.Duration {
+func (m Traffic) For() time.Duration {
 	if m.Fades {
 		return PRFadeFor
 	}
@@ -36,7 +58,7 @@ func (m Message) For() time.Duration {
 }
 
 // Progress is how far along it is, from 0 to 1.
-func (m Message) Progress(now time.Time) float64 {
+func (m Traffic) Progress(now time.Time) float64 {
 	span := m.For()
 	if span <= 0 {
 		return 1
@@ -44,8 +66,8 @@ func (m Message) Progress(now time.Time) float64 {
 	return min(1, max(0, float64(now.Sub(m.Since))/float64(span)))
 }
 
-// At is where the van is.
-func (m Message) At(now time.Time) Point {
+// At is where the vehicle is.
+func (m Traffic) At(now time.Time) Point {
 	if m.Fades || len(m.Path) == 0 {
 		if len(m.Path) == 0 {
 			return Point{}
@@ -55,8 +77,15 @@ func (m Message) At(now time.Time) Point {
 	return alongPath(m.Path, m.Progress(now))
 }
 
-// MessageCard is one van: one message, from one district to another.
-func MessageCard(m Message) Card {
+var trafficCards = map[Cargo][2]string{
+	CargoMessage: {"message", "one message between two sessions"},
+	CargoFiles:   {"file edit", "one file a session edited in another project"},
+	CargoVisit:   {"subagent", "one subagent working in another project"},
+}
+
+// TrafficCard is one vehicle: what it carries, from one district to
+// another.
+func TrafficCard(m Traffic) Card {
 	from, to := "", ""
 	if m.From != nil {
 		from = m.From.Name
@@ -64,81 +93,62 @@ func MessageCard(m Message) Card {
 	if m.To != nil {
 		to = m.To.Name
 	}
-	card := Card{Title: "message" + arrow + from + " → " + to, Lines: []string{"one message between two sessions"}}
-	if m.Train {
-		card.Lines = append(card.Lines, "along the group's line")
-	}
-	return card
+	text := trafficCards[m.Cargo]
+	return Card{Title: text[0] + arrow + from + " → " + to, Lines: []string{text[1]}}
 }
 
-type mailCount struct{ messages, back int }
+// roadCount is a road's traffic of each load, each way, at a snapshot.
+type roadCount map[Cargo][2]int
 
-// noteMessages sends a van for every message each road gained.
-func (s *Scene) noteMessages(now time.Time) {
+func countsOf(r *RoadLine) roadCount {
+	return roadCount{
+		CargoMessage: {r.Messages, r.BackMessages},
+		CargoFiles:   {r.Files, r.BackFiles},
+		CargoVisit:   {r.Visits, r.BackVisits},
+	}
+}
+
+// noteTraffic sends a vehicle for every unit of traffic each road gained.
+func (s *Scene) noteTraffic(now time.Time) {
 	first := !s.opened
-	seen := map[string]mailCount{}
+	seen := map[string]roadCount{}
 	for i := range s.city.Roads {
 		road := &s.city.Roads[i]
 		if road.From == nil || road.To == nil {
 			continue
 		}
 		key := road.From.Root + "\x00" + road.To.Root
-		now := mailCount{road.Messages, road.BackMessages}
-		seen[key] = now
+		counts := countsOf(road)
+		seen[key] = counts
 		if first {
 			continue
 		}
-		was := s.mail[key]
-		s.send(road, road.From, road.To, now.messages-was.messages)
-		s.send(road, road.To, road.From, now.back-was.back)
-	}
-	s.mail = seen
-}
-
-func (s *Scene) send(road *RoadLine, from, to *District, n int) {
-	if n <= 0 {
-		return
-	}
-	path, train := s.messagePath(road, from, to)
-	start := s.now()
-	for k := 0; k < n; k++ {
-		s.messages = append(s.messages, Message{From: from, To: to, Path: path, Since: start.Add(time.Duration(k) * VanGap), Train: train, Fades: s.reduced})
-	}
-}
-
-// messagePath is the way a message goes: along the group's line between
-// the two stations when one is drawn through both, and otherwise the
-// road's street path, turned to run from the sender to the recipient.
-func (s *Scene) messagePath(road *RoadLine, from, to *District) ([]Point, bool) {
-	if !s.linesHidden {
-		for _, line := range s.city.Lines {
-			i, j := -1, -1
-			for k, st := range line.Stations {
-				if st.District == from {
-					i = k
-				}
-				if st.District == to {
-					j = k
-				}
-			}
-			if i < 0 || j < 0 {
-				continue
-			}
-			var path []Point
-			for k := i; ; {
-				path = append(path, line.Stations[k].At)
-				if k == j {
-					break
-				}
-				if j > i {
-					k++
-				} else {
-					k--
-				}
-			}
-			return path, true
+		was := s.counted[key]
+		var out, back int
+		for _, load := range []Cargo{CargoMessage, CargoFiles, CargoVisit} {
+			out = s.send(load, road, road.From, road.To, counts[load][0]-was[load][0], out)
+			back = s.send(load, road, road.To, road.From, counts[load][1]-was[load][1], back)
 		}
 	}
+	s.counted = seen
+}
+
+// send sends n vehicles carrying load, queued behind the ones already
+// leaving that way, and says how many are queued now.
+func (s *Scene) send(load Cargo, road *RoadLine, from, to *District, n, queued int) int {
+	if n <= 0 {
+		return queued
+	}
+	path := s.roadPath(road, from)
+	start := s.now()
+	for k := 0; k < n; k++ {
+		s.traffic = append(s.traffic, Traffic{Cargo: load, From: from, To: to, Path: path, Since: start.Add(time.Duration(queued+k) * VanGap), Fades: s.reduced})
+	}
+	return queued + n
+}
+
+// roadPath is the road's street path, turned to run from the given end.
+func (s *Scene) roadPath(road *RoadLine, from *District) []Point {
 	path := []Point{road.From.Rect.Center(), road.To.Rect.Center()}
 	for _, st := range s.city.Streets {
 		if st.Road == road {
@@ -148,15 +158,15 @@ func (s *Scene) messagePath(road *RoadLine, from, to *District) ([]Point, bool) 
 	if from != road.From {
 		slices.Reverse(path)
 	}
-	return path, false
+	return path
 }
 
-// rerouteMessages sends every van on its way by the road as it now
-// stands, to its districts as they now stand. A van's path is laid when
-// the message is sent, and a re-layout can move the road out from under
-// it. Item 224, after item 217's trucks.
-func (s *Scene) rerouteMessages(now time.Time) {
-	for i, m := range s.messages {
+// rerouteTraffic sends every vehicle on its way by the road as it now
+// stands, to its districts as they now stand. A vehicle's path is laid
+// when it is sent, and a re-layout can move the road out from under it.
+// Item 224, after item 217's trucks.
+func (s *Scene) rerouteTraffic(now time.Time) {
+	for i, m := range s.traffic {
 		if m.From == nil || m.To == nil || m.Progress(now) >= 1 {
 			continue
 		}
@@ -165,21 +175,16 @@ func (s *Scene) rerouteMessages(now time.Time) {
 		if road == nil {
 			continue
 		}
-		want, train := s.messagePath(road, from, to)
+		want := s.roadPath(road, from)
 		m.From, m.To = from, to
 		switch rest := ahead(m.Path, m.Progress(now)*pathLength(m.Path)); {
 		case m.Fades || !now.After(m.Since):
-			m.Path, m.Train = want, train
-		case isTail(rest, want) && m.Train == train:
-		case train && m.Train && len(want) == len(m.Path):
-			m.Path = append([]Point{m.At(now)}, want[len(want)-len(rest):]...)
-			m.Since = now
-		case train:
-			m.Path, m.Since, m.Train = []Point{m.At(now), want[len(want)-1]}, now, true
+			m.Path = want
+		case isTail(rest, want):
 		default:
-			m.Path, m.Since, m.Train = s.city.rejoin(m.At(now), want), now, false
+			m.Path, m.Since = s.city.rejoin(m.At(now), want), now
 		}
-		s.messages[i] = m
+		s.traffic[i] = m
 	}
 }
 
@@ -265,15 +270,15 @@ func (c *City) roadBetween(a, b *District) *RoadLine {
 	return nil
 }
 
-// Messages is every message still on its way.
-func (s *Scene) Messages() []Message {
+// Traffic is every vehicle still on its way along a road.
+func (s *Scene) Traffic() []Traffic {
 	now := s.now()
-	kept := s.messages[:0]
-	for _, m := range s.messages {
+	kept := s.traffic[:0]
+	for _, m := range s.traffic {
 		if m.Progress(now) < 1 {
 			kept = append(kept, m)
 		}
 	}
-	s.messages = kept
-	return append([]Message(nil), kept...)
+	s.traffic = kept
+	return append([]Traffic(nil), kept...)
 }

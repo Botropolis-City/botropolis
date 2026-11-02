@@ -103,13 +103,23 @@ func TestMoverCards(t *testing.T) {
 		})
 	})
 
-	t.Run("when a van is pointed at", func(t *testing.T) {
-		card := city.MessageCard(city.Message{From: &city.District{Name: "cinders"}, To: &city.District{Name: "mullet"}})
+	// Items 89 and 255.
+	for _, tc := range []struct {
+		load        city.Cargo
+		title, line string
+	}{
+		{city.CargoMessage, "message -> cinders → mullet", "one message between two sessions"},
+		{city.CargoFiles, "file edit -> cinders → mullet", "one file a session edited in another project"},
+		{city.CargoVisit, "subagent -> cinders → mullet", "one subagent working in another project"},
+	} {
+		t.Run("when a "+city.KindOf(city.Hit{Traffic: &city.Traffic{Cargo: tc.load}}).Name()+" is pointed at", func(t *testing.T) {
+			card := city.TrafficCard(city.Traffic{Cargo: tc.load, From: &city.District{Name: "cinders"}, To: &city.District{Name: "mullet"}})
 
-		t.Run("it should say it is one message, from where to where", func(t *testing.T) {
-			assert.Equal(t, "message -> cinders → mullet", card.Title)
+			t.Run("it should say what one it carries, from where to where", func(t *testing.T) {
+				assert.Equal(t, [2]string{tc.title, tc.line}, [2]string{card.Title, card.Lines[0]})
+			})
 		})
-	})
+	}
 
 	t.Run("when a delivery truck is pointed at", func(t *testing.T) {
 		card := city.DeliveryCard(city.Delivery{PR: claude.PR{Number: 7, Repository: "o/r", State: claude.PRMerged}})

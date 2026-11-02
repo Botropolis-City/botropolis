@@ -245,8 +245,10 @@ type Road struct {
 	Files        int    `json:"files"`
 	BackMessages int    `json:"backMessages,omitempty"`
 	BackFiles    int    `json:"backFiles,omitempty"`
-	// Visits is how many subagents worked across the pair.
-	Visits int `json:"visits,omitempty"`
+	// Visits is how many subagents of a session in From worked in To,
+	// and BackVisits the other way (item 255).
+	Visits     int `json:"visits,omitempty"`
+	BackVisits int `json:"backVisits,omitempty"`
 	// Sessions is every session that crossed, either way, and Active
 	// the ones among them working right now.
 	Sessions int `json:"sessions"`
@@ -703,13 +705,13 @@ func Roads(sessions []Session, teams []claude.Team) []Road {
 		if back {
 			p.road.BackMessages += c.messages
 			p.road.BackFiles += c.files
+			p.road.BackVisits += c.visits
 		} else {
-			p = &pair{road: &Road{From: k.from, To: k.to, Messages: c.messages, Files: c.files},
+			p = &pair{road: &Road{From: k.from, To: k.to, Messages: c.messages, Files: c.files, Visits: c.visits},
 				travellers: map[string]State{}, touched: map[string]int{}}
 			pairs[k] = p
 			order = append(order, k)
 		}
-		p.road.Visits += c.visits
 		for id, st := range c.travellers {
 			p.travellers[id] = st
 		}

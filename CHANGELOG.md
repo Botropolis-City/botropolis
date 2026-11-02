@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **What drives a road says what kind of traffic it is.**
+  A car is still a session working in both projects right now, and a van still one message.
+  A box truck is now one file a session edited in the other project, and a motorbike one subagent it sent to work there.
+  Point at one, or press `?`, to read which.
+- **Messages between members of a group drive the road as vans.**
+  In 0.3.4 they ran as red carriages straight along the group's line, over the city with no track under them, and looked like the freight trains that mean a model's spend.
+  A group's line now carries nothing; it only marks who is grouped.
+
 ### Fixed
 
 - **Right after the daemon restarts, statistics stay on.**

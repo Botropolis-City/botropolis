@@ -20,9 +20,33 @@ const (
 	// not the depot's packing truck.
 	kitDelivery  = "car-kit/delivery"
 	kitInspector = "car-kit/suv"
-	// kitVan carries one message between sessions, and nothing else.
-	kitVan = "car-kit/van"
+	// kitVan carries one message between sessions, kitBoxTruck one file
+	// edited across, and kitMotorbike one subagent's visit, and each
+	// nothing else (items 89 and 255).
+	kitVan       = "car-kit/van"
+	kitBoxTruck  = "botropolis/box-truck"
+	kitMotorbike = "botropolis/motorbike"
 )
+
+// trafficModel is the vehicle that carries a cargo on a road.
+func trafficModel(c city.Cargo) string {
+	switch c {
+	case city.CargoFiles:
+		return kitBoxTruck
+	case city.CargoVisit:
+		return kitMotorbike
+	}
+	return kitVan
+}
+
+// trafficShrink is the scale a road vehicle is drawn at: the kit's van a
+// little under its cut, as it always was, and our own at theirs.
+func trafficShrink(model string) float64 {
+	if model == kitVan {
+		return 0.9
+	}
+	return 1
+}
 
 var colorRibbon = color.NRGBA{0xd8, 0x3a, 0x3a, 0xff}
 
@@ -63,24 +87,19 @@ func deliveryAlpha(d city.Delivery, bridge city.Bridge, now time.Time) float64 {
 	return bridge.Alpha(d.At(now))
 }
 
-// drawMessage draws a message on its way: a van on the road, or a
-// carriage on the group's line, fading in at its end at still.
-func (g *Game) drawMessage(screen *ebiten.Image, cam *city.Camera, m city.Message) {
+// drawTraffic draws a vehicle on its way along a road, fading in at its
+// end at still.
+func (g *Game) drawTraffic(screen *ebiten.Image, cam *city.Camera, m city.Traffic) {
 	now := g.scene.Clock()
 	var tint *ebiten.ColorScale
 	if m.Fades {
 		tint = &ebiten.ColorScale{}
 		tint.ScaleAlpha(float32(m.Progress(now)))
 	}
-	at, dir := messagePlace(m, now, g.scene.City().InBlock)
-	turn := vehicleTurn(dir)
-	model, shrink := kitVan, 0.9
-	if m.Train {
-		model = kitWagons[0]
-		shrink = messageShrink(model)
-	}
-	r := g.kitScaled(screen, cam, model, turn, at, shrink, tint)
-	g.noteHit(r, city.Hit{Message: &m})
+	at, dir := trafficPlace(m, now, g.scene.City().InBlock)
+	model := trafficModel(m.Cargo)
+	r := g.kitScaled(screen, cam, model, vehicleTurn(dir), at, trafficShrink(model), tint)
+	g.noteHit(r, city.Hit{Traffic: &m})
 }
 
 // drawRibbon cuts a group's ribbon over a building: a ribbon that parts

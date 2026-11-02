@@ -700,11 +700,11 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 			items[len(items)-1].kept = g.keeps(c.DistrictOf(b))
 		}
 	}
-	for _, m := range g.scene.Messages() {
+	for _, m := range g.scene.Traffic() {
 		m := m
-		at, _ := messagePlace(m, g.scene.Clock(), c.InBlock)
+		at, _ := trafficPlace(m, g.scene.Clock(), c.InBlock)
 		items = append(items, standingAt(cam, at, func() {
-			g.drawMessage(screen, cam, m)
+			g.drawTraffic(screen, cam, m)
 		}))
 		items[len(items)-1].moves = true
 	}

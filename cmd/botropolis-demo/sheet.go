@@ -19,7 +19,7 @@ const sheetDisplayEnv = "BOTROPOLIS_SHEET_DISPLAY"
 
 func sheetCommand() *cobra.Command {
 	out, zoom, check, looks := "", 1.0, false, false
-	framesHome, hour, frames, dumpDir, writeDir := "", 14, 30, "", ""
+	framesHome, hour, frames, dumpDir, writeDir, traffic := "", 14, 30, "", "", ""
 	cmd := &cobra.Command{
 		Use:   "sheet",
 		Short: "Draw every building piece, lived in and boarded up, by day and by night, to a PNG",
@@ -27,10 +27,17 @@ func sheetCommand() *cobra.Command {
 			"map's own drawing, on a private virtual display (Xvfb). Item 166.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if out == "" && !check && !looks && framesHome == "" {
+			if out == "" && !check && !looks && framesHome == "" && traffic == "" {
 				return fmt.Errorf("--out is required")
 			}
 			if os.Getenv(sheetDisplayEnv) != "" {
+				if traffic != "" {
+					wrote, err := render.TrafficFrames(traffic)
+					for _, path := range wrote {
+						fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", path)
+					}
+					return err
+				}
 				if framesHome != "" {
 					now := time.Now()
 					at := time.Date(now.Year(), now.Month(), now.Day(), hour, 0, 0, 0, time.Local)
@@ -102,6 +109,7 @@ func sheetCommand() *cobra.Command {
 				return err
 			}
 			switch {
+			case traffic != "":
 			case framesHome != "":
 				fmt.Fprintln(cmd.OutOrStdout(), "every frame drawn through the standing city matches the city drawn straight")
 			case looks:
@@ -119,6 +127,7 @@ func sheetCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&check, "check-lights", check, "draw no sheet; check every building's night lights fall on its panes")
 	cmd.Flags().BoolVar(&looks, "check-looks", looks, "draw no sheet; check every building drawn through the look cache matches it drawn directly")
 	cmd.Flags().StringVar(&framesHome, "check-frames", framesHome, "draw no sheet; check the city staged in this home drawn through the standing city matches it drawn straight, frame by frame")
+	cmd.Flags().StringVar(&traffic, "traffic", traffic, "draw no sheet; draw a road carrying a car, a van, a box truck and a motorbike, fit and full zoom, day and night, into this directory")
 	cmd.Flags().IntVar(&hour, "hour", hour, "with --check-frames, the local hour the city is shown at")
 	cmd.Flags().IntVar(&frames, "frames", frames, "with --check-frames, how many frames to check each way the city is shown")
 	cmd.Flags().StringVar(&dumpDir, "dump", dumpDir, "with --check-frames, a directory to write both drawings of each frame that differs to")
