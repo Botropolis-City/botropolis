@@ -356,6 +356,12 @@ docs/screenshots/r1126-item-282-plan-widest.png
 docs/screenshots/r1126-item-282-plan-zoomed.png
 docs/screenshots/r1200-item-293-tray-icon.png
 docs/screenshots/r1200-item-293-tray-menu.png
+docs/screenshots/r1218-item-255-road-fit-day.png
+docs/screenshots/r1218-item-255-road-fit-night.png
+docs/screenshots/r1218-item-255-road-full-zoom-day.png
+docs/screenshots/r1218-item-255-road-full-zoom-night.png
+docs/screenshots/r1218-item-255-team-line.png
+docs/screenshots/r1218-item-255-team-vans.png
 LIST
 )
 while read -r img; do
