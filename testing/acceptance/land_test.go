@@ -82,7 +82,15 @@ func newLandRig(t *testing.T) *landRig {
 	r.git(t, dir, "init", "-q", "--bare", "-b", "main", r.remote)
 	seed := filepath.Join(dir, "seed")
 	root := repoRoot(t)
-	for _, name := range []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod", "tools/ci-status", "tools/land-queue/main.go"} {
+	sources, err := filepath.Glob(filepath.Join(root, "tools/land-queue/*.go"))
+	require.NoError(t, err)
+	seeded := []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod", "tools/ci-status"}
+	for _, path := range sources {
+		if !strings.HasSuffix(path, "_test.go") {
+			seeded = append(seeded, filepath.Join("tools/land-queue", filepath.Base(path)))
+		}
+	}
+	for _, name := range seeded {
 		data, err := os.ReadFile(filepath.Join(root, name))
 		require.NoError(t, err)
 		info, err := os.Stat(filepath.Join(root, name))
