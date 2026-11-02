@@ -21,6 +21,7 @@ liveliness = "lively"
 new_session_key = "shift+b"
 on_close = "tray"
 overgrown_days = 11
+quiet_days = 5
 reduced_motion = true
 render_scale = 3
 scripted_runs = "shown"
