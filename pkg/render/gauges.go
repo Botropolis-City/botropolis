@@ -1,7 +1,6 @@
 package render
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
 	"os"
 
 	"context"
@@ -293,13 +292,14 @@ func riverRun(c *city.City) (from, to city.Point, width float64, ok bool) {
 	return c.GaugeRun(gaugeEndroom)
 }
 
-// drawGauge floats one boat at its reading, bow pointing at 100%.
-func (g *Game) drawGauge(screen *ebiten.Image, cam *city.Camera, at city.Point, size city.GaugeSize, turn int) city.Rect {
+// gaugeHullOf is the hull a boat of a size floats as, the smallest for
+// a size it does not know.
+func gaugeHullOf(size city.GaugeSize) gaugeHull {
 	hull, ok := gaugeHulls[size]
 	if !ok {
 		hull = gaugeHulls[city.GaugeSmall]
 	}
-	return g.kitSized(screen, cam, hull.piece, turn, at, hull.extent, nil)
+	return hull
 }
 
 // usageAge is how old the reading the boats carry is.

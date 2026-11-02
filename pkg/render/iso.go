@@ -801,6 +801,10 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	// Item 79: they drive between readings and sail in and out, so where
 	// a boat is comes from the scene's track for it, and a river with no
 	// boat on it has no markers either.
+	//
+	// Item 259: a hull reaching past a raised deck's edge is drawn in
+	// pieces around it, each sorted on its own stretch of the hull.
+	bridges := c.Bridges()
 	if boats := g.scene.GaugeBoats(); len(boats) > 0 {
 		if from, to, width, ok := riverRun(c); ok {
 			age := g.usageAge()
@@ -832,11 +836,11 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 					lane = lanes[gauge.Lane]
 				}
 				at := gaugeTrackAt(cam, from, to, lane, boat.Track, back, ahead)
-				items = append(items, standingAt(cam, at, func() {
-					r := g.drawGauge(screen, cam, at, gauge.Size, facing)
-					g.noteHit(r, city.Hit{Gauge: &city.GaugeHit{Gauge: gauge, Age: age}})
-				}))
-				items[len(items)-1].moves = true
+				hull := gaugeHullOf(gauge.Size)
+				items = append(items, g.hullItems(screen, cam, hullDraw{
+					piece: hull.piece, turn: facing, at: at, along: gaugeUpstream(cam, from, to), extent: hull.extent,
+					hit: func(r city.Rect) { g.noteHit(r, city.Hit{Gauge: &city.GaugeHit{Gauge: gauge, Age: age}}) },
+				}, bridges)...)
 			}
 		}
 	}
@@ -846,12 +850,11 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	for _, courier := range g.scene.Couriers() {
 		courier := courier
 		at := courier.At(g.scene.Clock())
-		items = append(items, standingAt(cam, at, func() {
-			dir := city.Point{X: courier.To.X - courier.From.X, Y: courier.To.Y - courier.From.Y}
-			r := g.kitSized(screen, cam, kitCourier, bowTurn(unit(dir)), at, courierExtent, nil)
-			g.noteHit(r, city.Hit{Courier: courier})
-		}))
-		items[len(items)-1].moves = true
+		dir := unit(city.Point{X: courier.To.X - courier.From.X, Y: courier.To.Y - courier.From.Y})
+		items = append(items, g.hullItems(screen, cam, hullDraw{
+			piece: kitCourier, turn: bowTurn(dir), at: at, along: dir, extent: courierExtent,
+			hit: func(r city.Rect) { g.noteHit(r, city.Hit{Courier: courier}) },
+		}, bridges)...)
 	}
 	// A project's sign is an object on the ground, so it sorts with
 	// everything else rather than being painted over the scene. Bug 44.
