@@ -477,8 +477,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		layout = city.NewLayout()
 	}
 	layout.SetTyping(typingFor(c.config.DistrictType, cmd.ErrOrStderr()))
-	actor := &liveActor{home: c.config.Home, groups: appd.GroupsPath(c.config), socket: c.config.Socket, demolished: demolisher(c.config)}
-	actor.terminal.Store(c.config.Terminal)
+	actor := cityActor(c.config)
 	recording, _ := cli.Record(cmd)
 	feed := commands.Feed{
 		Socket:  c.config.Socket,
@@ -665,9 +664,32 @@ type liveActor struct {
 	demolished func(string) error
 }
 
+// errNoOwnDaemon is why a city under --home without --socket refuses
+// what only a daemon records: the default socket's daemon keeps the
+// person's own ledger (item 334).
+var errNoOwnDaemon = errors.New("this home has no daemon of its own; start one and pass its --socket")
+
+// ownSocket is the daemon a run may write through: none for a home it
+// was pointed at without a socket of its own (item 334).
+func ownSocket(cfg *config.Config) string {
+	if cfg.HomeSet && !cfg.SocketSet {
+		return ""
+	}
+	return cfg.Socket
+}
+
+func cityActor(cfg *config.Config) *liveActor {
+	actor := &liveActor{home: cfg.Home, groups: appd.GroupsPath(cfg), socket: ownSocket(cfg), demolished: demolisher(cfg)}
+	actor.terminal.Store(cfg.Terminal)
+	return actor
+}
+
 // closeUp asks the daemon at the actor's socket to record a close-up
 // (item 86).
 func (a *liveActor) closeUp(open, pinned []string) error {
+	if a.socket == "" {
+		return fmt.Errorf("closing up needs the daemon: %w", errNoOwnDaemon)
+	}
 	client, err := proto.Dial(a.socket)
 	if err != nil {
 		return fmt.Errorf("closing up needs the daemon: %w", err)
@@ -679,6 +701,9 @@ func (a *liveActor) closeUp(open, pinned []string) error {
 // pack asks the daemon at the actor's socket to pack a session up or
 // unpack it (item 86).
 func (a *liveActor) pack(id string, packed bool) error {
+	if a.socket == "" {
+		return fmt.Errorf("packing up needs the daemon: %w", errNoOwnDaemon)
+	}
 	client, err := proto.Dial(a.socket)
 	if err != nil {
 		return fmt.Errorf("packing up needs the daemon: %w", err)
@@ -855,13 +880,18 @@ func statsChoice(file, dir string, now func() time.Time) func(stats.Prompt, bool
 // demolisher has the daemon forget a demolished session from the ledger,
 // or with no daemon to ask, notes it beside the ledger for the daemon's
 // next start, since only the daemon writes the ledger. A home the run was
-// pointed at keeps no ledger, so there is nothing to forget. Item 144.
+// pointed at keeps no ledger, so there is nothing to forget, and one
+// without a socket of its own never asks the default daemon. Items 144
+// and 334.
 func demolisher(cfg *config.Config) func(string) error {
 	if cfg.HomeSet && !statedir.IsPrivate() {
 		return func(string) error { return nil }
 	}
-	ledger, socket := state.LedgerPath(), cfg.Socket
+	ledger, socket := state.LedgerPath(), ownSocket(cfg)
 	return func(session string) error {
+		if socket == "" {
+			return state.NoteForgotten(ledger, session)
+		}
 		client, err := proto.Dial(socket)
 		if err != nil {
 			return state.NoteForgotten(ledger, session)
