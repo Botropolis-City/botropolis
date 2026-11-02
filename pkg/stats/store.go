@@ -273,20 +273,28 @@ func openWith(path, driver string) (*Store, error) {
 	if err := sound(path); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open(driver, path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=cache_size(-"+strconv.Itoa(CacheKiB)+")")
+	dsn := path + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=cache_size(-" + strconv.Itoa(CacheKiB) + ")"
+	if err := migrate(driver, dsn, path); err != nil {
+		return nil, err
+	}
+	db, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{db: db, index: claude.NewIndex()}
-	if err := s.migrate(path); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-	return s, nil
+	return &Store{db: db, index: claude.NewIndex()}, nil
 }
 
-func (s *Store) migrate(path string) error {
-	tx, err := s.db.Begin()
+// migrate takes the write lock as its transaction begins, waiting out the
+// busy timeout: a deferred one reads first, and SQLite does not wait when
+// a read must become a write, so a daemon starting while another still
+// wrote found the database locked and turned statistics off (item 324).
+func migrate(driver, dsn, path string) error {
+	db, err := sql.Open(driver, dsn+"&_txlock=immediate")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}

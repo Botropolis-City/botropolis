@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Right after the daemon restarts, statistics stay on.**
+  Starting while the stopping daemon still wrote, it could find the database locked and report *statistics are off: database is locked*.
+  It now waits for the lock, and says statistics are off only when the database cannot be opened.
+
 ## [0.3.4] - 2026-10-28
 
 ### Added

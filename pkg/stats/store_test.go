@@ -1,11 +1,13 @@
 package stats_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -327,6 +329,51 @@ func TestOpen(t *testing.T) {
 			var readTo int64
 			require.NoError(t, again.DB().QueryRow("SELECT read_to FROM transcripts").Scan(&readTo))
 			assert.Equal(t, int64(10), readTo)
+		})
+	})
+
+	t.Run("when another connection holds the write lock on the database", func(t *testing.T) {
+		hold := func(t *testing.T) (string, func()) {
+			path := filepath.Join(t.TempDir(), "stats.db")
+			require.NoError(t, open(t, path).Close())
+			db, err := sql.Open("sqlite", path)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			conn, err := db.Conn(context.Background())
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = conn.Close() })
+			_, err = conn.ExecContext(context.Background(), "BEGIN IMMEDIATE")
+			require.NoError(t, err)
+			_, err = conn.ExecContext(context.Background(), "INSERT INTO dirs (path) VALUES ('/home/someone/project')")
+			require.NoError(t, err)
+			release := func() { _, _ = conn.ExecContext(context.Background(), "COMMIT") }
+			t.Cleanup(release)
+			return path, release
+		}
+
+		t.Run("and releases it within the busy timeout", func(t *testing.T) {
+			path, release := hold(t)
+			time.AfterFunc(300*time.Millisecond, release)
+			s, err := stats.Open(path)
+			if err == nil {
+				t.Cleanup(func() { _ = s.Close() })
+			}
+
+			t.Run("it should open the store", func(t *testing.T) {
+				assert.NoError(t, err)
+			})
+		})
+
+		t.Run("and holds it past the busy timeout", func(t *testing.T) {
+			path, _ := hold(t)
+			s, err := stats.Open(path)
+			if err == nil {
+				t.Cleanup(func() { _ = s.Close() })
+			}
+
+			t.Run("it should refuse, naming the lock", func(t *testing.T) {
+				assert.ErrorContains(t, err, "database is locked")
+			})
 		})
 	})
 
