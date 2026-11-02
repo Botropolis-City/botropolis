@@ -180,3 +180,11 @@ func (c *ProcessCounter) Close() error {
 	c.fds = nil
 	return nil
 }
+
+func currentCPU() int {
+	var cpu uint32
+	if _, _, errno := unix.Syscall(unix.SYS_GETCPU, uintptr(unsafe.Pointer(&cpu)), 0, 0); errno != 0 {
+		return -1
+	}
+	return int(cpu)
+}

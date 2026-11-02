@@ -203,7 +203,7 @@ test-unit ::
 	export HOME="$$home" XDG_CONFIG_HOME="$$home/.config"; \
 	export BOTROPOLIS_CONFIG="$$XDG_CONFIG_HOME/botropolis/config.toml"; \
 	eval "$$(awk -F' = ' '/^[a-z_]+ = / { gsub(/"/, "", $$2); print "export BOTROPOLIS_" toupper($$1) "='\''" $$2 "'\''" }' "$$BOTROPOLIS_CONFIG")"; \
-	go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/acceptance-targets/...; \
+	go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/acceptance-targets/... ./tools/settle/...; \
 	go test -timeout ${TEST_TIMEOUT} ${DEV_TAGS} ./pkg/cli/... ./pkg/memlog/...
 
 test-integration ::
@@ -231,10 +231,20 @@ test-acceptance ::
 # pattern that matches none of them.
 PERFORMANCE_GATE ?= test-performance-run
 
+# Item 330: it waits for a quiet machine once it holds the lock, since a
+# check taken before the queue let a landing run between it and the reading.
+SETTLE_TOOL := .cache/settle/settle
+SETTLE_FLAGS ?=
+
 test-performance ::
 	$(LOG) "Running the acceptance tests that measure CPU and memory"
 	@${MAKE} --no-print-directory land-queue-tool
-	@${LAND_QUEUED} --name test-performance -- ${MAKE} --no-print-directory ${PERFORMANCE_GATE} RUN='${RUN}'
+	@go build -o ${SETTLE_TOOL} ./tools/settle
+	@${LAND_QUEUED} --name test-performance -- ${MAKE} --no-print-directory test-performance-settled RUN='${RUN}'
+
+test-performance-settled ::
+	@${SETTLE_TOOL} ${SETTLE_FLAGS}
+	@${MAKE} --no-print-directory ${PERFORMANCE_GATE} RUN='${RUN}'
 
 test-performance-run ::
 	@pattern=$$(go run ./tools/acceptance-targets tier performance -run '${RUN}') && \

@@ -170,7 +170,7 @@ func TestTotal(t *testing.T) {
 		total.Add(Cost{CPU: 2 * time.Millisecond, Instructions: 20, Counted: true})
 
 		t.Run("it should sum them, counted", func(t *testing.T) {
-			assert.Equal(t, Cost{CPU: 3 * time.Millisecond, Instructions: 30, Counted: true}, total.Cost())
+			assert.Equal(t, Cost{CPU: 3 * time.Millisecond, Instructions: 30, Counted: true, EndedOn: -1}, total.Cost())
 		})
 
 		t.Run("and one that was not counted", func(t *testing.T) {

@@ -78,13 +78,14 @@ func newLandRig(t *testing.T) *landRig {
 		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
 		"LAND_LOCK="+r.lock,
 		"PROBE_LOG="+r.log,
+		"SETTLE_FLAGS=--limit=0s",
 	)
 	r.git(t, dir, "init", "-q", "--bare", "-b", "main", r.remote)
 	seed := filepath.Join(dir, "seed")
 	root := repoRoot(t)
 	sources, err := filepath.Glob(filepath.Join(root, "tools/land-queue/*.go"))
 	require.NoError(t, err)
-	seeded := []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod", "tools/ci-status"}
+	seeded := []string{"Makefile", "go.mod", "VERSION", "tools/lint/go.mod", "tools/ci-status", "tools/settle/main.go"}
 	for _, path := range sources {
 		if !strings.HasSuffix(path, "_test.go") {
 			seeded = append(seeded, filepath.Join("tools/land-queue", filepath.Base(path)))
@@ -527,6 +528,13 @@ func TestPerformanceLocked(t *testing.T) {
 
 		t.Run("it should say it is waiting", func(t *testing.T) {
 			assert.Contains(t, string(out), "Waiting for the landing in progress")
+		})
+
+		// Item 330: a quiet check taken before the queue let a landing run
+		// between the check and the reading.
+		t.Run("it should look for a quiet machine only once it holds the lock", func(t *testing.T) {
+			waiting, settled := strings.Index(string(out), "Waiting for the landing in progress"), strings.Index(string(out), "settle: ")
+			assert.True(t, waiting >= 0 && settled > waiting, "waiting at %d, settled at %d:\n%s", waiting, settled, out)
 		})
 	})
 

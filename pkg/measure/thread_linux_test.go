@@ -40,3 +40,28 @@ func TestThreadLeavesALock(t *testing.T) {
 		})
 	})
 }
+
+// Item 330: a reading's thread CPU depends on the kind of core it ran on,
+// so a measure says which core it ended on.
+func TestThreadNamesItsCore(t *testing.T) {
+	for _, core := range []int{0, runtime.NumCPU() - 1} {
+		t.Run("when the thread is pinned to core "+strconv.Itoa(core), func(t *testing.T) {
+			var ended int
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				runtime.LockOSThread()
+				defer runtime.UnlockOSThread()
+				var only unix.CPUSet
+				only.Set(core)
+				require.NoError(t, unix.SchedSetaffinity(0, &only))
+				ended = Thread(func() {}).EndedOn
+			}()
+			<-done
+
+			t.Run("it should name that core", func(t *testing.T) {
+				assert.Equal(t, core, ended)
+			})
+		})
+	}
+}

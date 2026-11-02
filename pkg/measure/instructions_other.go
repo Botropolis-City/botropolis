@@ -34,3 +34,5 @@ func Process(int) (*ProcessCounter, error) { return nil, errUnsupported }
 func (c *ProcessCounter) Instructions() uint64 { return 0 }
 
 func (c *ProcessCounter) Close() error { return nil }
+
+func currentCPU() int { return -1 }

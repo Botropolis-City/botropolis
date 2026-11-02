@@ -56,6 +56,9 @@ type Cost struct {
 	Instructions uint64
 	// Counted is whether its instructions were counted.
 	Counted bool
+	// EndedOn is the core the work ended on, or -1 where that cannot be
+	// read: thread CPU differs by the kind of core (item 330).
+	EndedOn int
 }
 
 // Core is the cost as time on a core: its user-space instructions at
@@ -92,6 +95,7 @@ func (t *Total) Cost() Cost {
 		Kernel:       time.Duration(t.kernel.Load()),
 		Instructions: uint64(t.instructions.Load()),
 		Counted:      t.uncounted.Load() == 0,
+		EndedOn:      -1,
 	}
 }
 
@@ -121,7 +125,7 @@ func thread(f func(), count bool) Cost {
 	start := counters.read()
 	f()
 	end := counters.read()
-	c := Cost{CPU: threadCPU() - before, Kernel: threadKernel() - kernel}
+	c := Cost{CPU: threadCPU() - before, Kernel: threadKernel() - kernel, EndedOn: currentCPU()}
 	if counters != nil {
 		c.Instructions, c.Counted = end-start, true
 		counters.close()

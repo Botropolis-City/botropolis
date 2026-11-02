@@ -104,20 +104,31 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 	})
 
 	require.NoError(t, d.Run(settleTicks))
+	// Item 330: each reading says the machine's load as it began, and the
+	// instructions its ticks retired and the cores they ended on, so a
+	// spike can be told from more work. The counters' reads are the only
+	// cost they add inside a tick's measure.
+	was := measure.CountInstructions.Swap(true)
+	t.Cleanup(func() { measure.CountInstructions.Store(was) })
 	// median is the middle CPU a tick took of frames ticks, each after
 	// step.
-	median := func(step func()) time.Duration {
+	median := func(what string, step func()) time.Duration {
+		load := loadAverage()
+		costs := make([]measure.Cost, 0, frames)
 		cpu := make([]time.Duration, 0, frames)
 		for range frames {
 			step()
-			cpu = append(cpu, measure.Thread(func() { require.NoError(t, d.Tick()) }).CPU)
+			c := measure.Thread(func() { require.NoError(t, d.Tick()) })
+			costs = append(costs, c)
+			cpu = append(cpu, c.CPU)
 		}
+		t.Logf("%s ticks: %s; load %s as they began", what, measure.Tally(costs), load)
 		slices.Sort(cpu)
 		return cpu[frames/2]
 	}
 
 	t.Run("when the city of 600 districts is fitted", func(t *testing.T) {
-		took := median(func() {})
+		took := median("fitted", func() {})
 		t.Logf("fitted: %v of CPU a frame, the bar %v", took, fitted)
 
 		t.Run("it should take at most 16 ms of CPU a frame", func(t *testing.T) {
@@ -131,7 +142,7 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 			require.NoError(t, d.Run(3))
 		}
 		require.NoError(t, d.Run(settleTicks))
-		took := median(func() {})
+		took := median("zoomed in", func() {})
 		t.Logf("zoomed in: %v of CPU a frame, the bar %v", took, closer)
 
 		t.Run("it should take at most 10 ms of CPU a frame", func(t *testing.T) {
@@ -140,7 +151,7 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 
 		t.Run("and it is panned", func(t *testing.T) {
 			require.NoError(t, d.Press("hold+ArrowRight"))
-			took := median(func() {})
+			took := median("panning", func() {})
 			t.Logf("panning: %v of CPU a frame, the bar %v", took, closer)
 
 			t.Run("it should take at most 10 ms of CPU a frame", func(t *testing.T) {
@@ -148,6 +159,20 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 			})
 		})
 	})
+}
+
+// loadAverage is the machine's three load averages, or why they cannot be
+// read.
+func loadAverage() string {
+	b, err := os.ReadFile("/proc/loadavg")
+	if err != nil {
+		return "unread: " + err.Error()
+	}
+	f := strings.Fields(string(b))
+	if len(f) < 3 {
+		return "unread: /proc/loadavg reads " + strconv.Quote(string(b))
+	}
+	return strings.Join(f[:3], " ")
 }
 
 // mib is each of bytes in MiB.
