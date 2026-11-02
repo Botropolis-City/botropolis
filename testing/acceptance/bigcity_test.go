@@ -110,29 +110,77 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 	// cost they add inside a tick's measure.
 	was := measure.CountInstructions.Swap(true)
 	t.Cleanup(func() { measure.CountInstructions.Store(was) })
-	// median is the middle CPU a tick took of frames ticks, each after
-	// step.
-	median := func(what string, step func()) time.Duration {
+	// Item 330: the same tick's thread CPU moved from 14.9 ms on a P-core
+	// to 21.3 on an E-core, and the scheduler moved it between them, so a
+	// reading held to a bar runs on the fastest cores, and the same measure
+	// on the next-fastest is reported beside it and held to nothing (Aria,
+	// 2026-11-03).
+	classes, classErr := measure.CoreClasses(measure.CPUSysfs)
+	var fastest, slower []int
+	switch {
+	case classErr != nil:
+		t.Logf("the cores cannot be told apart, so each reading runs where the scheduler puts it: %v", classErr)
+	case len(classes) == 1:
+		fastest = classes[0]
+		t.Logf("every core runs at one speed, so readings run on cores %v and none is reported on slower cores", fastest)
+	default:
+		fastest, slower = classes[0], classes[1]
+		t.Logf("readings held to a bar run on the fastest cores, %v, and are reported on the next-fastest, %v", fastest, slower)
+	}
+	// measured is the middle CPU a tick took of frames ticks on cores, or
+	// wherever they ran when cores is nil, each after step, and the ticks'
+	// costs.
+	measured := func(what string, cores []int, step func()) (time.Duration, []measure.Cost) {
 		load := loadAverage()
 		costs := make([]measure.Cost, 0, frames)
 		cpu := make([]time.Duration, 0, frames)
-		for range frames {
-			step()
-			c := measure.Thread(func() { require.NoError(t, d.Tick()) })
-			costs = append(costs, c)
-			cpu = append(cpu, c.CPU)
+		ticks := func() {
+			for range frames {
+				step()
+				c := measure.Thread(func() { require.NoError(t, d.Tick()) })
+				costs = append(costs, c)
+				cpu = append(cpu, c.CPU)
+			}
+		}
+		if cores == nil {
+			ticks()
+		} else {
+			require.NoError(t, measure.Pinned(cores, ticks))
 		}
 		t.Logf("%s ticks: %s; load %s as they began", what, measure.Tally(costs), load)
 		slices.Sort(cpu)
-		return cpu[frames/2]
+		return cpu[frames/2], costs
+	}
+	// median is measured on the fastest cores, with the same measure on the
+	// next-fastest logged after it.
+	median := func(what string, step func()) (time.Duration, []measure.Cost) {
+		took, costs := measured(what, fastest, step)
+		if slower != nil {
+			on, _ := measured(what+" on the next-fastest cores", slower, step)
+			t.Logf("%s on the next-fastest cores %v: %v of CPU a frame, reported and held to no bar", what, slower, on)
+		}
+		return took, costs
+	}
+	// allOn is whether every tick ended on one of cores.
+	allOn := func(costs []measure.Cost, cores []int) bool {
+		for _, c := range costs {
+			if !slices.Contains(cores, c.EndedOn) {
+				return false
+			}
+		}
+		return true
 	}
 
 	t.Run("when the city of 600 districts is fitted", func(t *testing.T) {
-		took := median("fitted", func() {})
+		took, costs := median("fitted", func() {})
 		t.Logf("fitted: %v of CPU a frame, the bar %v", took, fitted)
 
 		t.Run("it should take at most 16 ms of CPU a frame", func(t *testing.T) {
 			holdToBar(t, gate, took <= fitted, "fitted took %v, the bar %v", took, fitted)
+		})
+
+		t.Run("it should run every tick on the fastest cores", func(t *testing.T) {
+			holdToBar(t, gate, fastest != nil && allOn(costs, fastest), "fitted ticks on the fastest cores %v: %s", fastest, measure.Tally(costs))
 		})
 	})
 
@@ -142,7 +190,7 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 			require.NoError(t, d.Run(3))
 		}
 		require.NoError(t, d.Run(settleTicks))
-		took := median("zoomed in", func() {})
+		took, _ := median("zoomed in", func() {})
 		t.Logf("zoomed in: %v of CPU a frame, the bar %v", took, closer)
 
 		t.Run("it should take at most 10 ms of CPU a frame", func(t *testing.T) {
@@ -151,7 +199,7 @@ func TestACityOfSixHundredDistrictsFrames(t *testing.T) {
 
 		t.Run("and it is panned", func(t *testing.T) {
 			require.NoError(t, d.Press("hold+ArrowRight"))
-			took := median("panning", func() {})
+			took, _ := median("panning", func() {})
 			t.Logf("panning: %v of CPU a frame, the bar %v", took, closer)
 
 			t.Run("it should take at most 10 ms of CPU a frame", func(t *testing.T) {

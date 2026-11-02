@@ -36,3 +36,10 @@ func (c *ProcessCounter) Instructions() uint64 { return 0 }
 func (c *ProcessCounter) Close() error { return nil }
 
 func currentCPU() int { return -1 }
+
+// CPUSysfs is where Linux lays out the cores.
+const CPUSysfs = ""
+
+func CoreClasses(string) ([][]int, error) { return nil, errUnsupported }
+
+func Pinned([]int, func()) error { return errUnsupported }
