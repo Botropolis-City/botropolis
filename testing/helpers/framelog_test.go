@@ -31,13 +31,30 @@ func TestFrameLog(t *testing.T) {
 		t.Run("it should count a switch each time the destination changes", func(t *testing.T) {
 			assert.Equal(t, []int{3, 1}, []int{frames[0].Switches, frames[1].Switches})
 		})
+
+		// Item 212: a draw count over its ceiling says which batch split.
+		t.Run("it should keep each draw's destination, source, blend, shader and indices", func(t *testing.T) {
+			assert.Equal(t, []Batch{{Dst: "4", Src: "5", Blend: "(source-over)", Shader: "1", Indices: 600}}, frames[1].Batches)
+		})
+		t.Run("it should write a batch as one line", func(t *testing.T) {
+			assert.Equal(t, "dst 4 <- src 5, (source-over), shader 1: 600 indices", frames[1].Batches[0].String())
+		})
+	})
+
+	t.Run("when frames issue different numbers of draws", func(t *testing.T) {
+		frames := ParseFrameLog(strings.NewReader("----\n" + cmd("3", "6") + "----\n" + cmd("3", "6") + cmd("4", "6") +
+			"----\n" + cmd("5", "6") + cmd("5", "12")))
+
+		t.Run("it should name the earliest frame that issued the most", func(t *testing.T) {
+			assert.Equal(t, 1, MostCommands(frames))
+		})
 	})
 
 	t.Run("when commands come before the first frame", func(t *testing.T) {
 		frames := ParseFrameLog(strings.NewReader(cmd("3", "6") + "----\n" + cmd("3", "6")))
 
 		t.Run("it should not count them", func(t *testing.T) {
-			assert.Equal(t, []Frame{{Commands: 1, Indices: 6, Switches: 1}}, frames)
+			assert.Equal(t, []Frame{{Commands: 1, Indices: 6, Switches: 1, Batches: []Batch{{Dst: "3", Src: "5", Blend: "(source-over)", Shader: "1", Indices: 6}}}}, frames)
 		})
 	})
 
@@ -45,7 +62,7 @@ func TestFrameLog(t *testing.T) {
 		frames := ParseFrameLog(strings.NewReader("----\n" + cmd("3", "6") + "    first-caller: pkg/render/kits.go:101\n"))
 
 		t.Run("it should not count it as a command", func(t *testing.T) {
-			assert.Equal(t, []Frame{{Commands: 1, Indices: 6, Switches: 1}}, frames)
+			assert.Equal(t, []Frame{{Commands: 1, Indices: 6, Switches: 1, Batches: []Batch{{Dst: "3", Src: "5", Blend: "(source-over)", Shader: "1", Indices: 6}}}}, frames)
 		})
 	})
 

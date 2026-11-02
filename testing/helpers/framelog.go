@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"regexp"
 	"strconv"
@@ -29,6 +30,32 @@ type Frame struct {
 	// Tick is the city's tick the frame drew, which a recording advances
 	// once a frame however busy the machine (items 113 and 260).
 	Tick int
+	// Batches is each draw command in turn, with what it reads, so a
+	// count over its ceiling says which batch split (item 212).
+	Batches []Batch
+}
+
+// Batch is one draw command: where it draws, the first image it reads,
+// how it blends, its shader, and how many indices it draws.
+type Batch struct {
+	Dst, Src, Blend, Shader string
+	Indices                 int
+}
+
+func (b Batch) String() string {
+	return fmt.Sprintf("dst %s <- src %s, %s, shader %s: %d indices", b.Dst, b.Src, b.Blend, b.Shader, b.Indices)
+}
+
+// MostCommands is the index of the earliest of frames that issued the
+// most draw commands.
+func MostCommands(frames []Frame) int {
+	most := 0
+	for i, f := range frames {
+		if f.Commands > frames[most].Commands {
+			most = i
+		}
+	}
+	return most
 }
 
 // OpenedEarly is whether the city opened at its ceiling, on a history
@@ -74,6 +101,8 @@ var stillLine = regexp.MustCompile(`^still: composes=(\d+) redos=(\d+) overlays=
 var looksLine = regexp.MustCompile(`^looks: hits=(\d+) misses=(\d+) bakes=(\d+) bytes=(\d+)`)
 
 var drawTriangles = regexp.MustCompile(`^  draw-triangles: dst: (\d+).*, num of indices: (\d+),`)
+
+var drawBatch = regexp.MustCompile(`^  draw-triangles: dst: (\d+)[^<]*<- src: \[([^,\]]*).*, num of indices: (\d+), blend: (.*?), shader: (.*)$`)
 
 // ParseFrameLog splits Ebitengine's debug log at each "----" into
 // frames and counts each frame's draw commands, their indices, and how
@@ -122,6 +151,9 @@ func ParseFrameLog(r io.Reader) []Frame {
 		f.Commands++
 		n, _ := strconv.Atoi(m[2])
 		f.Indices += n
+		if b := drawBatch.FindStringSubmatch(line); b != nil {
+			f.Batches = append(f.Batches, Batch{Dst: b[1], Src: b[2], Blend: b[4], Shader: b[5], Indices: n})
+		}
 		if m[1] != dst {
 			f.Switches++
 			dst = m[1]

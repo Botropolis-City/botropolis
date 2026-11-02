@@ -138,7 +138,9 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 				t.Logf("%s: %d a frame; ceiling %d, target %d", c.name, got, c.ceiling[light.hour], c.target)
 
 				t.Run(fmt.Sprintf("it should issue no more %s a frame than it did at %s", c.name, c.ceilingAt), func(t *testing.T) {
-					assert.LessOrEqual(t, got, c.ceiling[light.hour])
+					if !assert.LessOrEqual(t, got, c.ceiling[light.hour]) {
+						logBatches(t, settled)
+					}
 				})
 
 				t.Run(fmt.Sprintf("it should issue no more than %d %s a frame", c.target, c.name), func(t *testing.T) {
@@ -239,6 +241,26 @@ func recordedSettledFrames(t *testing.T, demo string, hour int) []helpers.Frame 
 	})
 	require.Len(t, settled, recordSettled, "the frames of ticks %d to %d, in %g s of the city", from, from+recordSettled-1, recordSeconds)
 	return settled
+}
+
+// logBatches logs, batch by batch, the settled frame that issued the most
+// draw commands, so a count over its ceiling says which batch split: a
+// diff against the same log from the last commit that passed names it
+// (item 212).
+func logBatches(t *testing.T, runs [][]helpers.Frame) {
+	t.Helper()
+	var all []helpers.Frame
+	for _, frames := range runs {
+		all = append(all, frames...)
+	}
+	if len(all) == 0 {
+		return
+	}
+	f := all[helpers.MostCommands(all)]
+	t.Logf("tick %d issued %d draw commands:", f.Tick, f.Commands)
+	for i, b := range f.Batches {
+		t.Logf("  %2d %s", i, b)
+	}
 }
 
 // logOffCount logs every settled frame whose draw count is not the most
