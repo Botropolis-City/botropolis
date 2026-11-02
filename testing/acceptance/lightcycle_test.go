@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/script"
@@ -144,6 +143,8 @@ sample:
 func TestLightCycleGivesItsMemoryBack(t *testing.T) {
 	performanceTier(t)
 	helpers.NeedXvfb(t)
+	gate := stressGateFor(os.Getenv)
+	t.Logf("the light cycle %s", gate.mode)
 
 	t.Run("when the city of 600 districts goes night, day, night and day by its scrubbed clock", func(t *testing.T) {
 		memory := filepath.Join(t.TempDir(), "memory.log")
@@ -183,7 +184,7 @@ func TestLightCycleGivesItsMemoryBack(t *testing.T) {
 		} {
 			for _, measure := range measures {
 				t.Run("it should settle the second "+light.name+"'s "+measure+" within 4 MiB of the first", func(t *testing.T) {
-					assert.LessOrEqual(t, means[light.second][measure]-means[light.first][measure], int64(cycleMargin))
+					holdCycle(t, gate, light.name, measure, means[light.first][measure], means[light.second][measure])
 				})
 			}
 		}
@@ -196,6 +197,8 @@ func TestLightCycleOnARealGPU(t *testing.T) {
 		t.Skip("set BOTROPOLIS_REAL_GPU=1 to cycle the light windowed on this machine's GPU (item 318)")
 	}
 	require.NotEmpty(t, os.Getenv("DISPLAY"), "the real-GPU cycle opens a window, and there is no DISPLAY")
+	gate := stressGateFor(os.Getenv)
+	t.Logf("the light cycle %s", gate.mode)
 
 	t.Run("when the city goes night, day, night and day on a real GPU", func(t *testing.T) {
 		means := lightCycle(t, true, nil, func(pids []int) cycleReading {
@@ -214,10 +217,19 @@ func TestLightCycleOnARealGPU(t *testing.T) {
 			{"day", 2, 4},
 		} {
 			t.Run("it should settle the second "+light.name+" within 4 MiB of the first", func(t *testing.T) {
-				assert.LessOrEqual(t, means[light.second]["Private_Dirty and GPU"]-means[light.first]["Private_Dirty and GPU"], int64(cycleMargin))
+				holdCycle(t, gate, light.name, "Private_Dirty and GPU", means[light.first]["Private_Dirty and GPU"], means[light.second]["Private_Dirty and GPU"])
 			})
 		}
 	})
+}
+
+// holdCycle holds the second light's settled measure to within the
+// margin of the first's where g gates, and reports it where g does not
+// (item 329).
+func holdCycle(t barT, g stressGate, light, measure string, first, second int64) {
+	t.Helper()
+	holdToBar(t, g, second-first <= cycleMargin, "the second %s's %s settled at %d MiB against the first's %d MiB, the margin %d MiB",
+		light, measure, second>>20, first>>20, cycleMargin>>20)
 }
 
 // tiedToTest kills a process the cycle starts when the test's own
