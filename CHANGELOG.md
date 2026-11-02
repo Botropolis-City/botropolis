@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-03
+
 ### Changed
 
 - **What drives a road says what kind of traffic it is.**
@@ -1043,7 +1045,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/Botropolis-City/botropolis/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/Botropolis-City/botropolis/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/Botropolis-City/botropolis/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Botropolis-City/botropolis/compare/v0.3.1...v0.3.2
