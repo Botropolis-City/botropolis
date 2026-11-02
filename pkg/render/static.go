@@ -59,6 +59,9 @@ type layerKey struct {
 	// atlas is the kit atlas the ground is drawn from, which changes as
 	// its pages finish going up (item 207).
 	atlas *kitAtlas
+	// aged is what the aged lots painted here are drawn from, or 0 when
+	// they are noted with the standing city instead (item 212).
+	aged uint64
 }
 
 // staticLayer is the composed image and the key it was composed for.
@@ -105,6 +108,10 @@ func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layer
 	}
 	if hover.Beam != nil {
 		key.hoverBeamFrom, key.hoverBeamTo = hover.Beam.Building, hover.Beam.Tower
+	}
+	g.agedLayer = !g.agedApart && len(g.scene.Overgrowth()) == 0 && !g.scene.Mows() && !g.viewing() && !g.lit.RecedesGround()
+	if g.agedLayer {
+		key.aged = g.agedLayerKey(g.scene.City())
 	}
 	if g.kits != nil {
 		key.atlas = g.kits.pick(cam.Zoom)
@@ -265,4 +272,7 @@ func (g *Game) composeStatic(dst *ebiten.Image, c *city.City, cam *city.Camera, 
 	g.drivewayPads(dst, c, cam)
 	g.fadeAll(&dst, func() { g.isoPlaza(dst, cam, c) })
 	g.camps(dst, c, cam)
+	if g.agedLayer {
+		g.layeredAgedLots(dst, cam, c)
+	}
 }

@@ -30,9 +30,20 @@ func TestHoldingTheStillCity(t *testing.T) {
 		}
 		return rc
 	}
+	// settledApart is a settled city with its aged lots noted with the
+	// standing city, as they are while a road overgrows or a lot is
+	// mowed, rather than painted in the ground (item 212).
+	settledApart := func(t *testing.T) *recordCity {
+		rc := settled(t)
+		rc.g.agedApart = true
+		for range 2 {
+			rc.frame()
+		}
+		return rc
+	}
 
 	t.Run("when a settled city is drawn again with nothing still changed", func(t *testing.T) {
-		rc := settled(t)
+		rc := settledApart(t)
 		st := rc.frame()
 		held := drawn(rc.g)
 
@@ -194,7 +205,7 @@ func TestHoldingTheStillCity(t *testing.T) {
 	})
 
 	t.Run("when a tool call starts and ends a load, and nothing on the ground changes", func(t *testing.T) {
-		rc := settled(t)
+		rc := settledApart(t)
 		// A load stirs its session, which the standing key folds and
 		// the ground's does not.
 		rc.snap(func(s *state.Snapshot) {
@@ -263,7 +274,9 @@ func TestHoldingTheStillCity(t *testing.T) {
 		for range 3 {
 			rc.now = rc.now.Add(time.Second)
 			rc.frame()
-			if held := drawn(rc.g); !assert.ObjectsAreEqual(afresh(rc), held) {
+			// The frame the mowing ends composes the ground again, which
+			// is counted and not drawn.
+			if held := uncounted(drawn(rc.g)); !assert.ObjectsAreEqual(uncounted(afresh(rc)), held) {
 				differ++
 			}
 		}
@@ -274,7 +287,7 @@ func TestHoldingTheStillCity(t *testing.T) {
 	})
 
 	t.Run("when the aged lots' order changes while the key holds", func(t *testing.T) {
-		rc := settled(t)
+		rc := settledApart(t)
 		log := rc.g.still.agedLog
 		require.Greater(t, len(log), 2, "precondition: the frame logged its aged lots")
 		i := len(log) / 2

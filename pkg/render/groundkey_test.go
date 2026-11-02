@@ -344,6 +344,16 @@ func TestTheGroundKey(t *testing.T) {
 				s.Teams = append(s.Teams, claude.Team{Name: name, LeadSessionID: lead.ID})
 			},
 			func(s *state.Snapshot) {
+				// A session rests for some days, which ages its lot, or
+				// wakes, which mows it if it was overgrown (item 212).
+				sess := &s.Sessions[rnd.IntN(len(s.Sessions))]
+				if sess.State == state.Resting && rnd.IntN(2) == 0 {
+					sess.State, sess.LastActivity = state.Working, s.At
+					return
+				}
+				sess.State, sess.LastActivity = state.Resting, s.At.Add(-time.Duration(1+rnd.IntN(60))*24*time.Hour)
+			},
+			func(s *state.Snapshot) {
 				if len(s.Sessions) > 5 && rnd.IntN(2) == 0 {
 					s.Sessions = s.Sessions[:len(s.Sessions)-1]
 					return
@@ -353,7 +363,7 @@ func TestTheGroundKey(t *testing.T) {
 			},
 		}
 		ids := []string{"", "a", "a2", "c"}
-		t.Cleanup(func() { gc.scene.SetView(city.ViewAttention); gc.scene.Select("") })
+		t.Cleanup(func() { gc.scene.SetView(city.ViewAttention); gc.scene.Select(""); gc.scene.SetFilter("") })
 		// Each view keeps a ground of its own, as each draws different
 		// networks, and every step asks each of them.
 		games := make([]*Game, len(groundViews))
@@ -386,6 +396,8 @@ func TestTheGroundKey(t *testing.T) {
 				if id := ids[rnd.IntN(len(ids))]; gc.scene.Select(id) && rnd.IntN(2) == 0 {
 					gc.scene.Act(city.ActionShowRoad)
 				}
+				// A search dims every lot it does not find (item 212).
+				gc.scene.SetFilter(ids[rnd.IntN(len(ids))])
 				all := hits()
 				hover = all[rnd.IntN(len(all))]
 			default:

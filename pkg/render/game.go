@@ -205,6 +205,10 @@ type Game struct {
 	noLookCache    bool
 	// dresser keeps each district's aged floor while it holds (item 207).
 	dresser districtDresser
+	// agedLayer is whether this frame paints the aged lots into the
+	// ground layer rather than noting them, and agedApart keeps them
+	// noted, as a test draws them to hold the layer to (item 212).
+	agedLayer, agedApart bool
 	// linePairs is a buffer of segments drawn as one mesh (item 207).
 	linePairs []city.Point
 

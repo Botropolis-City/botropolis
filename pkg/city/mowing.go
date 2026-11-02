@@ -53,6 +53,9 @@ func (s *Scene) mowFor() time.Duration {
 	return MowFor
 }
 
+// Mows reports whether any lot is being mowed.
+func (s *Scene) Mows() bool { return s.mowingAny() }
+
 func (s *Scene) mowingAny() bool {
 	now, span := s.now(), s.mowFor()
 	for _, since := range s.mowing {

@@ -1597,12 +1597,63 @@ func (g *Game) agedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	}
 }
 
+// layeredAgedLots paints the aged lots into the ground layer, in
+// noteAgedLots's order. It runs only while nothing overgrows, as the
+// overgrowth is painted before the aged lots and can lie under them;
+// nothing is mowed, which moves every frame; and no view or car's fade
+// is up, which put the ground down drained or receded and the aged lots
+// over it as they are (item 212).
+func (g *Game) layeredAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
+	for _, d := range c.Districts {
+		if ground := g.dresser.dress(d); ground.Wear > 0 {
+			g.districtFloor(screen, cam, d.Rect, ground)
+		}
+	}
+	for _, d := range c.Districts {
+		g.lotFloors(screen, cam, d)
+	}
+}
+
+// agedLayerKey is what layeredAgedLots paints from: each district's
+// floor, and each building's value and whether a search dims it. Never
+// 0, which is no aged lots.
+func (g *Game) agedLayerKey(c *city.City) uint64 {
+	g.valuesFor(c)
+	key := keyMix(1, g.houseWide)
+	for _, d := range c.Districts {
+		gen := 0
+		if g.dresser.dress(d).Wear > 0 {
+			gen = g.dresser.generation(d)
+		}
+		key = keyMix(key, uint64(gen))
+		for _, b := range d.Buildings {
+			key = keyMix(key, lotValue(b), boolBits(g.scene.Dimmed(b)))
+		}
+	}
+	return key | 1
+}
+
+// lotValue is what dressLot and lotFloor read of a building that is not
+// being mowed: the session it seeds its cracks and growth from, its
+// rect, its rung, and whether it is boarded up or overgrown. Not its
+// activity, which a snapshot moves without moving its lot.
+func lotValue(b *city.Building) uint64 {
+	r := b.Rect
+	return keyMix(maphash.String(inkSeed, b.Session.ID),
+		math.Float64bits(r.Min.X), math.Float64bits(r.Min.Y), math.Float64bits(r.Max.X), math.Float64bits(r.Max.Y),
+		maphash.String(inkSeed, string(b.Rung)), boolBits(b.BoardedUp), boolBits(b.Overgrown))
+}
+
 // noteAgedLots notes the aged lots as agedLots draws them, in its
 // order, each district's floor and each building's lot a drawable of
 // its own, keyed by what it is drawn from, so a frame keeps their
 // records and a change records one lot again, not the city's (item 212).
 func (g *Game) noteAgedLots(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	g.valuesFor(c)
+	if g.agedLayer {
+		g.still.agedWhole = false
+		return
+	}
 	g.still.agedWhole = !g.noKeyed && !g.noStill && !g.noReuse
 	shift, hold := g.holdingAged()
 	n := 0

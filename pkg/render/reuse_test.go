@@ -152,8 +152,10 @@ func TestRecordReuse(t *testing.T) {
 		})
 		st := rc.frame()
 
-		t.Run("it should record afresh only that session's lot and building", func(t *testing.T) {
-			assert.Equal(t, 2, st.fresh)
+		// Its lot is painted in the ground, which its activity does not
+		// move (item 212).
+		t.Run("it should record afresh only that session's building", func(t *testing.T) {
+			assert.Equal(t, 1, st.fresh)
 		})
 		t.Run("it should hold the record made afresh", func(t *testing.T) {
 			assert.Zero(t, st.stale)
