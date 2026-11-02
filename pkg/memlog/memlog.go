@@ -15,22 +15,30 @@ import (
 // every is how often a log samples.
 const every = 5 * time.Second
 
+// Sources are what a log reads of the city: what its images take, and
+// the slack its record holds and the half of it, if any, that broke the
+// rule it is cut back by.
+type Sources struct {
+	Images  func() int64
+	Records func() (slack int64, broken string)
+}
+
 // Log samples a city's memory at most once every 5 s.
 type Log struct {
-	path   string
-	images func() int64
-	heap   func() uint64
-	now    func() time.Time
-	last   time.Time
+	path    string
+	sources Sources
+	heap    func() uint64
+	now     func() time.Time
+	last    time.Time
 }
 
 // New is a log written to path, nil when none is asked for or the build
-// makes none; images reads what the city's images take.
-func New(path string, images func() int64) *Log {
+// makes none.
+func New(path string, s Sources) *Log {
 	if !enabled || path == "" {
 		return nil
 	}
-	return &Log{path: path, images: images, heap: liveHeap, now: time.Now}
+	return &Log{path: path, sources: s, heap: liveHeap, now: time.Now}
 }
 
 // Sample appends a line of the images and the live heap when one is due.
@@ -48,7 +56,15 @@ func (l *Log) Sample() {
 		return
 	}
 	defer func() { _ = f.Close() }()
-	_, _ = fmt.Fprintf(f, "images=%d heap=%d\n", l.images(), l.heap())
+	line := fmt.Sprintf("images=%d heap=%d", l.sources.Images(), l.heap())
+	if l.sources.Records != nil {
+		slack, broken := l.sources.Records()
+		line += fmt.Sprintf(" slack=%d", slack)
+		if broken != "" {
+			line += " broken=" + broken
+		}
+	}
+	_, _ = fmt.Fprintln(f, line)
 }
 
 // liveHeap is the Go heap's live bytes: what is allocated right after a

@@ -1,3 +1,5 @@
+//go:build linux
+
 package acceptance_test
 
 import (
@@ -7,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -59,6 +62,7 @@ func lightCycle(t *testing.T, windowed bool, env []string, read func(pids []int)
 	sock := shortSocket(t)
 	d := exec.Command(daemon, "--home", home, "--socket", sock)
 	d.Env = append(os.Environ(), "XDG_STATE_HOME="+filepath.Join(r.tmp, "daemon-state"), "PATH=/nonexistent")
+	d.SysProcAttr = tiedToTest()
 	require.NoError(t, d.Start())
 	t.Cleanup(func() { _ = d.Process.Kill(); _ = d.Wait() })
 	require.Eventually(t, func() bool { _, err := os.Stat(sock); return err == nil }, time.Minute, 20*time.Millisecond)
@@ -82,6 +86,7 @@ func lightCycle(t *testing.T, windowed bool, env []string, read func(pids []int)
 	}
 	cmd := exec.Command(botropolis, args...)
 	cmd.Env = cmdEnv
+	cmd.SysProcAttr = tiedToTest()
 	var out syncBuffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	require.NoError(t, cmd.Start())
@@ -150,18 +155,24 @@ func TestLightCycleGivesItsMemoryBack(t *testing.T) {
 			}
 			fresh := memoryLines(memory)
 			if len(fresh) > lines {
-				for k, v := range fresh[len(fresh)-1] {
-					reading[k] = v
+				last := fresh[len(fresh)-1]
+				reading["images"] = last["images"]
+				if heap, ok := last["heap"]; ok {
+					if slack, ok := last["slack"]; ok {
+						reading[heapLessSlack] = heap - slack
+					}
 				}
 				lines = len(fresh)
 			}
 			return reading
 		})
+		measures := []string{"images", heapLessSlack}
 		for i, phase := range means {
-			for _, measure := range []string{"images", "heap"} {
+			for _, measure := range measures {
 				require.Contains(t, phase, measure, "the city logged no %s in the %s", measure, cycleNames[i])
 			}
 		}
+		require.Empty(t, memoryBroken(memory), "a half of the record held more than its rule allows, so its slack cannot be subtracted")
 
 		for _, light := range []struct {
 			name          string
@@ -170,7 +181,7 @@ func TestLightCycleGivesItsMemoryBack(t *testing.T) {
 			{"night", 1, 3},
 			{"day", 2, 4},
 		} {
-			for _, measure := range []string{"images", "heap"} {
+			for _, measure := range measures {
 				t.Run("it should settle the second "+light.name+"'s "+measure+" within 4 MiB of the first", func(t *testing.T) {
 					assert.LessOrEqual(t, means[light.second][measure]-means[light.first][measure], int64(cycleMargin))
 				})
@@ -207,6 +218,31 @@ func TestLightCycleOnARealGPU(t *testing.T) {
 			})
 		}
 	})
+}
+
+// tiedToTest kills a process the cycle starts when the test's own
+// process dies: a test that times out panics past its cleanups, and on
+// 2026-10-28 the cycle's daemon outlived one for four days, holding the
+// landing lock its test had inherited (item 318).
+func tiedToTest() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
+}
+
+// heapLessSlack is the live Go heap less the slack the record's two
+// halves hold, which recordsize.go permits and which moves from run to
+// run with no growth behind it (item 318).
+const heapLessSlack = "heap less the records' slack"
+
+// memoryBroken is the first half and buffer of the record the city's
+// memory log names as having broken its rule, or nothing.
+func memoryBroken(path string) string {
+	data, _ := os.ReadFile(path)
+	for _, field := range strings.Fields(string(data)) {
+		if half, ok := strings.CutPrefix(field, "broken="); ok {
+			return half
+		}
+	}
+	return ""
 }
 
 // memoryLines reads the city's memory log, one reading a line.

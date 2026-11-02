@@ -407,6 +407,9 @@ type Game struct {
 	// lookPages the pages building looks are baked on.
 	labelLooks *labelCache
 	lookPages  *lookPages
+	// recordRule is the record's slack and rule, held only while the
+	// memory log is asked for (item 318).
+	recordRule recordRule
 	// lookDrawn is the look frame a look was last drawn or baked on.
 	lookDrawn int
 
@@ -1140,7 +1143,7 @@ func writePNG(path string, img image.Image) error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	memoryLog.Sample()
+	g.logMemory()
 	if !g.idle() {
 		if !g.dashboardFrame() {
 			// Nobody is watching this frame. Holding here is what keeps
