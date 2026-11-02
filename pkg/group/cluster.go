@@ -522,7 +522,7 @@ func (d *detection) suggest(groups []Group, edges []edge) []Suggestion {
 		group string
 	}
 	var out []Suggestion
-	seen := map[suggested]bool{}
+	seen := map[suggested]int{}
 	groupOf := d.firstGroups(groups)
 	for _, e := range edges {
 		if e.tier != Possible {
@@ -534,16 +534,42 @@ func (d *detection) suggest(groups []Group, edges []edge) []Suggestion {
 				continue
 			}
 			gi := groupOf[member]
-			if gi < 0 || seen[suggested{loose, groups[gi].ID}] {
+			if gi < 0 {
 				continue
 			}
-			seen[suggested{loose, groups[gi].ID}] = true
 			reason := e.reason
 			reason.With = d.members[member].ID
-			out = append(out, Suggestion{Session: d.members[loose].ID, Group: groups[gi].ID, Reason: reason})
+			out, seen = keepSuggestion(out, seen, suggested{loose, groups[gi].ID},
+				Suggestion{Session: d.members[loose].ID, Group: groups[gi].ID, Reason: reason})
 		}
 	}
 	return out
+}
+
+// keepSuggestion adds s, or puts it in place of the suggestion already
+// made for its session and group when its reason comes first: the
+// strongest signal, then the member it matched, so the suggestion does
+// not depend on the order equal ties were found in (item 333).
+func keepSuggestion[K comparable](out []Suggestion, seen map[K]int, key K, s Suggestion) ([]Suggestion, map[K]int) {
+	at, ok := seen[key]
+	if !ok {
+		seen[key] = len(out)
+		return append(out, s), seen
+	}
+	if before(s.Reason, out[at].Reason) {
+		out[at] = s
+	}
+	return out, seen
+}
+
+func before(a, b Reason) bool {
+	if ra, rb := signalRank[a.Signal], signalRank[b.Signal]; ra != rb {
+		return ra < rb
+	}
+	if a.With != b.With {
+		return a.With < b.With
+	}
+	return a.Detail < b.Detail
 }
 
 // firstGroups is, by member, the first of groups it is a member of, as

@@ -46,7 +46,15 @@ const (
 	// ActionMove moves it, to Group or to none (item 87).
 	ActionMoveToGroup ActionKind = "move to group"
 	ActionMove        ActionKind = "move"
-	ActionGenerate    ActionKind = "generate summary"
+	// ActionJoinSuggested moves the selection into the group its card
+	// suggests; ActionTakeOut takes it out of its group, remembered as
+	// not related to the rest; ActionRenameGroup asks for its group's new
+	// name, and ActionRename stores GroupName as Group's name (item 333).
+	ActionJoinSuggested ActionKind = "join suggested group"
+	ActionTakeOut       ActionKind = "take out of group"
+	ActionRenameGroup   ActionKind = "rename group"
+	ActionRename        ActionKind = "rename"
+	ActionGenerate      ActionKind = "generate summary"
 	// Read opens the reading pane, the level below the card's sentence.
 	// Item 83.
 	ActionRead ActionKind = "read"
@@ -1142,11 +1150,13 @@ func (s *Scene) Actions() []ActionKind {
 		kinds = append(kinds, ActionStar)
 	}
 	kinds = append(kinds, ActionDistrictType)
-	if s.selected.Session.State != state.Resting {
+	if s.selected.Suggested != nil {
+		kinds = append(kinds, ActionJoinSuggested, ActionMoveToGroup)
+	} else if s.selected.Session.State != state.Resting {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
 	if s.selected.Group != nil {
-		kinds = append(kinds, ActionCopyStandup)
+		kinds = append(kinds, ActionTakeOut, ActionRenameGroup, ActionCopyStandup)
 	}
 	if s.selected.Group != nil && len(s.selected.Session.GroupWords) > 0 {
 		kinds = append(kinds, ActionMuteWord)
@@ -1229,6 +1239,21 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		return Action{Kind: ActionGenerate, SessionID: b.Session.ID}, "summarising " + b.Card(s.city.Time).Title
 	case ActionMoveToGroup:
 		return Action{Kind: ActionMoveToGroup, SessionID: b.Session.ID}, ""
+	case ActionJoinSuggested:
+		if b.Suggested == nil {
+			return Action{}, "no group suggested"
+		}
+		return Action{Kind: ActionMove, SessionID: b.Session.ID, Group: b.Suggested.ID}, "moved into " + b.Suggested.Name
+	case ActionTakeOut:
+		if b.Group == nil {
+			return Action{}, "not in a group"
+		}
+		return Action{Kind: ActionTakeOut, SessionID: b.Session.ID, Group: b.Group.ID}, "took " + b.Card(s.city.Time).Title + " out of " + b.Group.Name
+	case ActionRenameGroup:
+		if b.Group == nil {
+			return Action{}, "not in a group"
+		}
+		return Action{Kind: ActionRenameGroup, Group: b.Group.ID, GroupName: b.Group.Name}, ""
 	case ActionRead:
 		return Action{Kind: ActionRead, SessionID: b.Session.ID}, ""
 	case ActionFocusLine:

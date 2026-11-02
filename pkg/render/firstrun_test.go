@@ -20,12 +20,27 @@ func TestFirstRun(t *testing.T) {
 		{ID: "g2", Name: "LOG-88 · buffer", Reason: "mentions LOG-88",
 			Members: []string{"d", "e"}, MemberDirs: []string{"/w/logs", "/w/config"}},
 	}
+	// onMap is a session for every member, carrying its group, since a
+	// group is offered only for members the map draws (item 333).
+	onMap := func(groups []state.Group) []state.Session {
+		sessions := []state.Session{{ID: "a", CWD: "/w/lib", State: state.Working}}
+		for _, g := range groups {
+			for i, id := range g.Members {
+				if id == "a" {
+					sessions[0].Group = g.ID
+					continue
+				}
+				sessions = append(sessions, state.Session{ID: id, CWD: g.MemberDirs[i], State: state.Working, Group: g.ID})
+			}
+		}
+		return sessions
+	}
 	newGame := func(groups []state.Group, reviewed bool) (*Game, *recordingActor) {
 		s := city.NewScene(city.NewLayout())
 		s.SetClock(func() time.Time { return now }, time.UTC)
 		s.Resize(800, 600)
 		s.SetSnapshot(state.Snapshot{At: now, Groups: groups, GroupsReviewed: reviewed,
-			Sessions: []state.Session{{ID: "a", CWD: "/w/lib", State: state.Working}}})
+			Sessions: onMap(groups)})
 		actor := &recordingActor{}
 		return &Game{scene: s, actor: actor, scripted: -1, clicked: -1}, actor
 	}

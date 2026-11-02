@@ -199,6 +199,10 @@ func (a Actor) Do(action city.Action) error {
 		return a.move(action.SessionID, action.Group, action.GroupName)
 	case city.ActionMute:
 		return a.mute(action.Text)
+	case city.ActionRename:
+		return a.editGroups(func(m group.Memory) group.Memory { return m.WithRename(action.Group, action.GroupName) })
+	case city.ActionTakeOut:
+		return a.editGroups(func(m group.Memory) group.Memory { return m.WithTakenOut(action.SessionID, action.Group) })
 	case city.ActionCloseUp:
 		return a.closeUp(action)
 	case city.ActionRestore:
@@ -236,6 +240,15 @@ func (a Actor) move(session, to, name string) error {
 		}
 		return m.WithMove(session, into)
 	})
+}
+
+// editGroups writes a correction into the groups' memory; the daemon
+// sees the file change and groups again with it (item 333).
+func (a Actor) editGroups(edit func(group.Memory) group.Memory) error {
+	if a.GroupStore == "" {
+		return errNoGroups
+	}
+	return editGroups(a.GroupStore, edit)
 }
 
 // mute writes a muted word into the groups' memory; the daemon sees the

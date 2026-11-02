@@ -36,6 +36,8 @@ func (b *Building) face(now time.Time, v View, generated string) Card {
 		if b.Station > 0 {
 			card.Group += fmt.Sprintf(" — station %d of %d", b.Station, b.Stations)
 		}
+	} else if g := b.Suggested; g != nil {
+		card.Group = "perhaps " + g.Name + ", " + s.SuggestedWhy
 	}
 	return card
 }

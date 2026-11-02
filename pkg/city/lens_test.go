@@ -21,11 +21,13 @@ func connected(t *testing.T) *city.Scene {
 	a.Group = "g1"
 	a.PRs = []claude.PR{{Number: 882, URL: "https://example.com/pr/882", Repository: "o/api", State: claude.PROpen}}
 	b := session("b", botropolis, state.Working)
+	a2 := session("a2", cinders, state.Resting)
+	a2.Group = "g1"
 	s := city.NewScene(city.NewLayout())
 	s.SetClock(func() time.Time { return now }, time.UTC)
 	s.Resize(800, 600)
-	s.SetSnapshot(state.Snapshot{At: now, Sessions: []state.Session{a, b},
-		Groups: []state.Group{{ID: "g1", Name: "Rate-limit headers", Members: []string{"a"}, Move: state.MoveYours}},
+	s.SetSnapshot(state.Snapshot{At: now, Sessions: []state.Session{a, b, a2},
+		Groups: []state.Group{{ID: "g1", Name: "Rate-limit headers", Members: []string{"a", "a2"}, Move: state.MoveYours}},
 		Roads:  []state.Road{{From: cinders, To: botropolis, Messages: 3}}})
 	s.Click(centreOf(t, s, "a"))
 	require.NotNil(t, s.Selected())

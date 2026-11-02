@@ -1,6 +1,11 @@
 package city
 
-import "botropolis.city/botropolis/pkg/state"
+import (
+	"fmt"
+	"strings"
+
+	"botropolis.city/botropolis/pkg/state"
+)
 
 // placeGroups hands each building its group (item 87), draws the
 // groups' lines, and tells each building which station on its line its
@@ -14,6 +19,10 @@ func (c *City) placeGroups(groups []state.Group) {
 	}
 	for _, b := range c.Buildings() {
 		b.Group = byID[b.Session.Group]
+		b.Suggested = nil
+		if b.Group == nil && b.Session.Suggested != "" {
+			b.Suggested = byID[b.Session.Suggested]
+		}
 		b.Station, b.Stations = 0, 0
 	}
 	c.placeLines()
@@ -32,4 +41,13 @@ func (c *City) placeGroups(groups []state.Group) {
 			}
 		}
 	}
+}
+
+// MemberList names up to n of a group's members, and how many more
+// there are (item 333).
+func MemberList(titles []string, n int) string {
+	if len(titles) <= n {
+		return strings.Join(titles, ", ")
+	}
+	return fmt.Sprintf("%s +%d more", strings.Join(titles[:n], ", "), len(titles)-n)
 }

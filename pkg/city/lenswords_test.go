@@ -57,7 +57,7 @@ func TestLensPanelWords(t *testing.T) {
 
 	t.Run("when Work is up", func(t *testing.T) {
 		group := func(id string, move state.Move) state.Group {
-			return state.Group{ID: id, Name: id, Members: []string{"a"}, Move: move}
+			return state.Group{ID: id, Name: id, Members: []string{id + "a", id + "b"}, Move: move}
 		}
 		cases := []struct {
 			name, want string
@@ -72,6 +72,13 @@ func TestLensPanelWords(t *testing.T) {
 		for _, c := range cases {
 			t.Run(c.name, func(t *testing.T) {
 				snap := snapshot(session("a", cinders, state.NeedsYou), session("b", cinders, state.NeedsYou))
+				for _, g := range c.groups {
+					for _, id := range g.Members {
+						s := session(id, cinders, state.NeedsYou)
+						s.Group = g.ID
+						snap.Sessions = append(snap.Sessions, s)
+					}
+				}
 				snap.Groups = c.groups
 				assert.Equal(t, c.want, panel(city.LensWork, snap, nil).Aggregate)
 			})

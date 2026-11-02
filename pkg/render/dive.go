@@ -7,6 +7,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/format"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -78,7 +79,7 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 	}
 	g.text(screen, city.Point{X: x, Y: y}, g.clip(name, inner, ui.Title), ui.Title, th.Palette.Text)
 	y += title
-	g.text(screen, city.Point{X: x, Y: y}, g.clip("j k step   enter reads   esc leaves", inner, ui.Small), ui.Small, th.Palette.Dim)
+	g.text(screen, city.Point{X: x, Y: y}, g.clip(g.diveHint(), inner, ui.Small), ui.Small, th.Palette.Dim)
 	y += small + grid
 	rowHeight := body + small*2 + grid
 	for i, row := range g.scene.Dive() {
@@ -99,6 +100,25 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 		y += rowHeight
 	}
 	return dock
+}
+
+// diveHint is the dive's keys, naming the session - would take out of
+// the group while a row is stepped (item 333).
+func (g *Game) diveHint() string {
+	hint := "j k step   enter reads   esc leaves"
+	if lead := g.diveLead(); lead != "" {
+		hint += "   - takes " + state.TitleOf(g.scene.Snapshot().Sessions)(lead) + " out"
+	}
+	return hint
+}
+
+// diveLead is the stepped row's session, or none.
+func (g *Game) diveLead() string {
+	rows, step := g.scene.Dive(), g.scene.DiveStep()
+	if step < 0 || step >= len(rows) {
+		return ""
+	}
+	return rows[step].Session
 }
 
 // diveColumns are a row's two heads: the site on the left, and whose
@@ -129,6 +149,10 @@ func (g *Game) diveKeys() bool {
 		g.scene.StepDive(-1)
 	case (g.just(ebiten.KeyEnter) || g.just(ebiten.KeyKPEnter)) && g.scene.DiveStep() >= 0:
 		g.openReader()
+	case (g.just(ebiten.KeyMinus) || g.just(ebiten.KeyKPSubtract)) && g.diveLead() != "":
+		lead := g.diveLead()
+		g.act(city.Action{Kind: city.ActionTakeOut, SessionID: lead, Group: g.scene.FocusedGroup()})
+		g.SetStatus("took " + state.TitleOf(g.scene.Snapshot().Sessions)(lead) + " out of the group")
 	case g.just(ebiten.KeyEscape):
 		g.scene.LeaveDive()
 		g.scene.Fit()

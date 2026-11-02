@@ -17,8 +17,10 @@ func TestMuteVerb(t *testing.T) {
 		t.Helper()
 		a := session("a", cinders, state.Working)
 		a.Group, a.GroupWords = "g1", words
-		snap := snapshot(a, session("d", orchard, state.Working))
-		snap.Groups = []state.Group{{ID: "g1", Name: "PROJ-1", Members: []string{"a"}}}
+		d := session("d", orchard, state.Working)
+		d.Group = "g1"
+		snap := snapshot(a, d)
+		snap.Groups = []state.Group{{ID: "g1", Name: "PROJ-1", Members: []string{"a", "d"}}}
 		s := city.NewScene(city.NewLayout())
 		s.SetClock(func() time.Time { return now }, time.UTC)
 		s.Resize(800, 600)

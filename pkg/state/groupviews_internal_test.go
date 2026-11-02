@@ -31,3 +31,26 @@ func TestGroupViewsKeepGroupsApart(t *testing.T) {
 		})
 	})
 }
+
+// Item 333: a loose session's card offers the group it might belong to.
+func TestGroupViewsCarrySuggestions(t *testing.T) {
+	t.Run("when a loose session has a possible-tier suggestion", func(t *testing.T) {
+		sessions := []Session{
+			{ID: "aaaaaaaa-0000-4333-8000-000000000001", Title: "Limiter", State: Working},
+			{ID: "aaaaaaaa-0000-4333-8000-000000000002", Title: "Client", State: Working},
+			{ID: "aaaaaaaa-0000-4333-8000-000000000003", Title: "Loose", State: Working},
+		}
+		result := group.Result{
+			Groups: []group.Group{{ID: "g1", Name: "headers", Members: []group.Membership{
+				{Session: sessions[0].ID}, {Session: sessions[1].ID}}}},
+			Suggestions: []group.Suggestion{{Session: sessions[2].ID, Group: "g1",
+				Reason: group.Reason{Signal: group.SignalTiming, With: sessions[0].ID}}},
+		}
+		groupViews(result, sessions)
+
+		t.Run("it should carry the suggested group and why on the session", func(t *testing.T) {
+			assert.Equal(t, [2]string{"g1", group.Reason{Signal: group.SignalTiming, With: sessions[0].ID}.Describe(TitleOf(sessions))},
+				[2]string{sessions[2].Suggested, sessions[2].SuggestedWhy})
+		})
+	})
+}

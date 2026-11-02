@@ -56,6 +56,9 @@ type Building struct {
 	Vacant bool
 	// Group is the group the session belongs to, if any (item 87).
 	Group *state.Group
+	// Suggested is the group a loose session might belong to, if it is
+	// on the map (item 333).
+	Suggested *state.Group
 	// Station is where the building's project stands on its group's
 	// line, counting from 1, of Stations.
 	Station, Stations int
@@ -739,6 +742,9 @@ func (b *Building) table(now time.Time) []string {
 		lines = append(lines, "group    "+g.Name+", "+string(g.Move)+": "+g.Why)
 		if s.GroupJoined != "" {
 			lines = append(lines, "joined   "+s.GroupJoined)
+		}
+		if len(g.MemberTitles) > 0 {
+			lines = append(lines, "members  "+MemberList(g.MemberTitles, 6))
 		}
 	}
 	if b.Vacant {

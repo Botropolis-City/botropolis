@@ -78,9 +78,9 @@ func TestFocusGroup(t *testing.T) {
 
 	t.Run("when the group runs through one small district", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working), session("b", botropolis, state.Working))
-		snap := snapshot(session("a", cinders, state.Working), session("b", botropolis, state.Working))
-		snap.Sessions[0].Group = "g1"
-		snap.Groups = []state.Group{{ID: "g1", Members: []string{"a"}}}
+		snap := snapshot(session("a", cinders, state.Working), session("a2", cinders, state.Working), session("b", botropolis, state.Working))
+		snap.Sessions[0].Group, snap.Sessions[1].Group = "g1", "g1"
+		snap.Groups = []state.Group{{ID: "g1", Members: []string{"a", "a2"}}}
 		s.SetSnapshot(snap)
 		require.True(t, s.FocusGroup("g1"))
 

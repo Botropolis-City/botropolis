@@ -32,11 +32,14 @@ type picker struct {
 	// naming is set once new group… is chosen: the picker asks for the
 	// new group's name in name, and refused says why enter did nothing
 	// (item 288).
-	naming  bool
-	name    field
-	refused string
-	ime     *textinput.Composer
-	caret   city.Rect
+	naming bool
+	// renaming is the group being renamed, when the panel was opened
+	// to rename one rather than to move a session (item 333).
+	renaming string
+	name     field
+	refused  string
+	ime      *textinput.Composer
+	caret    city.Rect
 }
 
 func (g *Game) picker() *picker {
@@ -56,11 +59,39 @@ func (g *Game) openPicker(session string) {
 	g.overlays.push(p)
 }
 
+// openRenamer opens the panel on a group's name, to rename it.
+func (g *Game) openRenamer(id, name string) {
+	if g.picker() != nil {
+		return
+	}
+	p := &picker{renaming: id}
+	g.startNaming(p)
+	p.name.insert(name)
+	g.overlays.push(p)
+}
+
+// renameRefusal is why a group cannot be renamed to the name typed: none,
+// or one another group already has (item 288's rule, item 333).
+func (g *Game) renameRefusal(id, name string) string {
+	if name == "" {
+		return "a group needs a name"
+	}
+	for _, gr := range g.scene.Groups() {
+		if gr.ID != id && strings.EqualFold(strings.TrimSpace(gr.Name), name) {
+			return gr.Name + " is already a group"
+		}
+	}
+	return ""
+}
+
 func (p *picker) labels() []string {
 	return p.names
 }
 
 func (p *picker) title() string {
+	if p.renaming != "" {
+		return "rename group   type a name, enter keeps it, esc cancels"
+	}
 	if p.naming {
 		return "new group   type a name, enter makes it, esc goes back"
 	}
@@ -131,7 +162,16 @@ func (p *picker) nameKeys(g *Game) bool {
 	switch {
 	case g.just(ebiten.KeyEscape):
 		p.stopNaming()
-		return true
+		return p.renaming == ""
+	case p.renaming != "" && (g.just(ebiten.KeyEnter) || g.just(ebiten.KeyKPEnter)):
+		name := strings.TrimSpace(p.name.query())
+		if p.refused = g.renameRefusal(p.renaming, name); p.refused != "" {
+			return true
+		}
+		p.stopNaming()
+		g.act(city.Action{Kind: city.ActionRename, Group: p.renaming, GroupName: name})
+		g.SetStatus("renamed the group " + name)
+		return false
 	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
 		name := strings.TrimSpace(p.name.query())
 		if p.refused = g.refusal(name); p.refused != "" {

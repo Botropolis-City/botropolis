@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"maps"
 	"slices"
+	"time"
 )
 
 // signatureParts keeps each session's share of the group signature
@@ -18,6 +19,7 @@ type signatureParts struct {
 type signaturePart struct {
 	cwd, branch, team, job string
 	resting                bool
+	ended                  time.Time
 	visits                 map[string]int
 	messaged               []string
 	sum                    [sha256.Size]byte
@@ -41,7 +43,7 @@ func (p *signatureParts) signature(sessions []Session) [sha256.Size]byte {
 				return groupSignature(sessions)
 			}
 			part = &signaturePart{cwd: s.CWD, branch: s.Branch, team: s.Team, job: s.Job, resting: s.State == Resting,
-				visits: s.Visits, messaged: s.Messaged, sum: sha256.Sum256([]byte(signatureLine(*s)))}
+				ended: endedAt(s), visits: s.Visits, messaged: s.Messaged, sum: sha256.Sum256([]byte(signatureLine(*s)))}
 			p.parts[s.ID] = part
 		}
 		part.gen = p.gen
@@ -57,7 +59,16 @@ func (p *signatureParts) signature(sessions []Session) [sha256.Size]byte {
 
 func (part *signaturePart) same(s *Session) bool {
 	return part.cwd == s.CWD && part.branch == s.Branch && part.team == s.Team && part.job == s.Job &&
-		part.resting == (s.State == Resting) && maps.Equal(part.visits, s.Visits) && slices.Equal(part.messaged, s.Messaged)
+		part.resting == (s.State == Resting) && part.ended.Equal(endedAt(s)) && maps.Equal(part.visits, s.Visits) && slices.Equal(part.messaged, s.Messaged)
+}
+
+// endedAt is when a resting session stopped, which grouping reads as
+// its end, or zero for one still running (item 333).
+func endedAt(s *Session) time.Time {
+	if s.State == Resting {
+		return s.LastActivity
+	}
+	return time.Time{}
 }
 
 func addTo(total *[sha256.Size]byte, sum [sha256.Size]byte) {

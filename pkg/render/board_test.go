@@ -21,7 +21,7 @@ func TestBoard(t *testing.T) {
 		{ID: "g1", Name: "PROJ-123 · rate-limit headers", Short: "PROJ-123", Members: []string{"a", "b"},
 			Move: state.MoveYours, Why: "a needs you",
 			Journal: state.Journal{LastTime: "finished the client", Next: "tag v1.4.0", Active: now.Add(-3 * time.Hour)}},
-		{ID: "g2", Name: "LOG-88 · buffer", Short: "LOG-88", Members: []string{"c"},
+		{ID: "g2", Name: "LOG-88 · buffer", Short: "LOG-88", Members: []string{"c", "e"},
 			Move: state.MoveAgents, Why: "c is working",
 			Journal: state.Journal{LastTime: "capped the buffer", Next: "not recorded", Active: now.Add(-time.Hour)}},
 	}
@@ -31,7 +31,7 @@ func TestBoard(t *testing.T) {
 		s.Resize(800, 600)
 		s.SetSnapshot(state.Snapshot{At: now, Groups: groups, Sessions: []state.Session{
 			member("a", "/w/lib", "g1"), member("b", "/w/api", "g1"), member("c", "/w/config", "g2"),
-			member("d", "/w/site", ""), member("e", "/w/docs", ""),
+			member("d", "/w/site", ""), member("e", "/w/docs", "g2"),
 		}})
 		return &Game{scene: s, scripted: -1, clicked: -1}
 	}
@@ -70,8 +70,8 @@ func TestBoard(t *testing.T) {
 	t.Run("when the board is open", func(t *testing.T) {
 		t.Run("it should have one row per group, saying whose move it is, how long it has waited, last time and next", func(t *testing.T) {
 			assert.Equal(t, []boardRow{
-				{Name: "PROJ-123 · rate-limit headers", Move: "yours: a needs you", Waited: "3h00m", LastTime: "finished the client", Next: "tag v1.4.0"},
-				{Name: "LOG-88 · buffer", Move: "the agents': c is working", Waited: "1h00m", LastTime: "capped the buffer", Next: "not recorded"},
+				{Name: "PROJ-123 · rate-limit headers", Count: "2 sessions", Move: "yours: a needs you", Waited: "3h00m", LastTime: "finished the client", Next: "tag v1.4.0"},
+				{Name: "LOG-88 · buffer", Count: "2 sessions", Move: "the agents': c is working", Waited: "1h00m", LastTime: "capped the buffer", Next: "not recorded"},
 			}, boardRows(groups, now))
 		})
 
@@ -136,7 +136,7 @@ func TestBoard(t *testing.T) {
 
 	t.Run("when there are groups", func(t *testing.T) {
 		t.Run("it should say how to use the board", func(t *testing.T) {
-			assert.Equal(t, "2 groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, esc closes", boardStatus(boardRows(groups, now)))
+			assert.Equal(t, "2 groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, F2 renames it, esc closes", boardStatus(boardRows(groups, now)))
 		})
 	})
 }
@@ -149,9 +149,9 @@ func TestBoardStandup(t *testing.T) {
 	s.SetClock(func() time.Time { return now }, time.UTC)
 	s.Resize(800, 600)
 	s.SetSnapshot(state.Snapshot{At: now,
-		Groups: []state.Group{{ID: "g1", Name: "PROJ-123", Short: "PROJ-123", Members: []string{"a"}}},
+		Groups: []state.Group{{ID: "g1", Name: "PROJ-123", Short: "PROJ-123", Members: []string{"a", "d"}}},
 		Sessions: []state.Session{{ID: "a", CWD: "/w/lib", State: state.Working, Group: "g1", StartedAt: now, LastActivity: now},
-			{ID: "d", CWD: "/w/site", State: state.Working}}})
+			{ID: "d", CWD: "/w/site", State: state.Working, Group: "g1", StartedAt: now.Add(time.Minute), LastActivity: now}}})
 	g := &Game{scene: s, actor: actor, scripted: -1, clicked: -1}
 	pressKey(t, g, ebiten.KeyG, false)
 	require.NotNil(t, g.board(), "the board should be open")
@@ -161,7 +161,7 @@ func TestBoardStandup(t *testing.T) {
 		g.settle()
 
 		t.Run("it should copy the selected row's stand-up", func(t *testing.T) {
-			assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "lib in progress"}}, actor.done)
+			assert.Equal(t, []city.Action{{Kind: city.ActionCopy, Text: "lib in progress; site in progress"}}, actor.done)
 		})
 	})
 }

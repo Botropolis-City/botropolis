@@ -115,7 +115,7 @@ func oracleMatchStored(comp []int, d *detection, memory Memory, taken map[string
 
 func (d *detection) oracleSuggest(groups []Group, edges []edge) []Suggestion {
 	var out []Suggestion
-	seen := map[[2]string]bool{}
+	seen := map[[2]string]int{}
 	for _, e := range edges {
 		if e.tier != Possible {
 			continue
@@ -126,13 +126,12 @@ func (d *detection) oracleSuggest(groups []Group, edges []edge) []Suggestion {
 				continue
 			}
 			g, ok := Result{Groups: groups}.GroupOf(member)
-			if !ok || seen[[2]string{loose, g.ID}] {
+			if !ok {
 				continue
 			}
-			seen[[2]string{loose, g.ID}] = true
 			reason := e.reason
 			reason.With = member
-			out = append(out, Suggestion{Session: loose, Group: g.ID, Reason: reason})
+			out, seen = keepSuggestion(out, seen, [2]string{loose, g.ID}, Suggestion{Session: loose, Group: g.ID, Reason: reason})
 		}
 	}
 	return out

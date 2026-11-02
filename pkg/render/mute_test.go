@@ -25,8 +25,9 @@ func TestMutePicker(t *testing.T) {
 		s := city.NewScene(city.NewLayout())
 		s.Resize(800, 600)
 		s.SetSnapshot(state.Snapshot{
-			Groups:   []state.Group{{ID: "g1", Name: "PROJ-1", Members: []string{"a"}}},
-			Sessions: []state.Session{{ID: "a", CWD: "/w/lib", State: state.Working, Group: "g1", GroupWords: []string{"kiln", "shelves"}}}})
+			Groups: []state.Group{{ID: "g1", Name: "PROJ-1", Members: []string{"a", "b"}}},
+			Sessions: []state.Session{{ID: "a", CWD: "/w/lib", State: state.Working, Group: "g1", GroupWords: []string{"kiln", "shelves"}},
+				{ID: "b", CWD: "/w/api", State: state.Working, Group: "g1"}}})
 		require.True(t, s.Select("a"))
 		g := &Game{scene: s, actor: actor, scripted: -1, clicked: -1}
 		action, _ := s.Act(city.ActionMuteWord)

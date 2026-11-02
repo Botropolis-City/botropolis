@@ -31,10 +31,13 @@ type Group struct {
 	// MemberDirs is each member's directory, in Members' order, and
 	// Reason why the group formed, from its strongest tie.
 	MemberDirs []string `json:"memberDirs"`
-	Reason     string   `json:"reason,omitempty"`
-	Move       Move     `json:"move"`
-	Why        string   `json:"why"`
-	Journal    Journal  `json:"journal"`
+	// MemberTitles is each member's name as the city says it, in
+	// Members' order (item 333).
+	MemberTitles []string `json:"memberTitles,omitempty"`
+	Reason       string   `json:"reason,omitempty"`
+	Move         Move     `json:"move"`
+	Why          string   `json:"why"`
+	Journal      Journal  `json:"journal"`
 }
 
 type groupCache struct {
@@ -253,15 +256,12 @@ func signatureLine(s Session) string {
 		visits = append(visits, dir)
 	}
 	sort.Strings(visits)
-	return strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, boolString(s.State == Resting),
-		strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00")
-}
-
-func boolString(b bool) string {
-	if b {
-		return "1"
+	ended := ""
+	if at := endedAt(&s); !at.IsZero() {
+		ended = at.UTC().Format(time.RFC3339Nano)
 	}
-	return "0"
+	return strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, ended,
+		strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00")
 }
 
 // memberTexts are a session's prompts and pastes as detection reads
@@ -393,6 +393,7 @@ func groupViews(result group.Result, sessions []Session) []Group {
 	index := map[string]int{}
 	for i, s := range sessions {
 		index[s.ID] = i
+		sessions[i].Suggested, sessions[i].SuggestedWhy = "", ""
 	}
 	titleOf := TitleOf(sessions)
 	views := make([]Group, 0, len(result.Groups))
@@ -405,6 +406,7 @@ func groupViews(result group.Result, sessions []Session) []Group {
 		for _, m := range g.Members {
 			view.Members = append(view.Members, m.Session)
 			view.MemberDirs = append(view.MemberDirs, m.Dir)
+			view.MemberTitles = append(view.MemberTitles, titleOf(m.Session))
 			if view.Reason == "" && m.Reason.Signal != "" {
 				view.Reason = m.Reason.Describe(titleOf)
 			}
@@ -427,6 +429,31 @@ func groupViews(result group.Result, sessions []Session) []Group {
 		view.Journal = GroupJournal(present)
 		views = append(views, view)
 	}
+	for _, sg := range firstSuggestions(result.Suggestions) {
+		if i, ok := index[sg.Session]; ok && sessions[i].Group == "" {
+			sessions[i].Suggested, sessions[i].SuggestedWhy = sg.Group, sg.Reason.Describe(titleOf)
+		}
+	}
 	sort.SliceStable(views, func(i, j int) bool { return views[i].Journal.Active.After(views[j].Journal.Active) })
 	return views
+}
+
+// firstSuggestions is one suggestion per session, the same one however
+// detection ordered them: by group, then signal, then the session it
+// matched.
+func firstSuggestions(all []group.Suggestion) []group.Suggestion {
+	best := map[string]group.Suggestion{}
+	key := func(s group.Suggestion) string {
+		return s.Group + "\x00" + string(s.Reason.Signal) + "\x00" + s.Reason.With + "\x00" + s.Reason.Detail
+	}
+	for _, s := range all {
+		if b, ok := best[s.Session]; !ok || key(s) < key(b) {
+			best[s.Session] = s
+		}
+	}
+	out := make([]group.Suggestion, 0, len(best))
+	for _, s := range best {
+		out = append(out, s)
+	}
+	return out
 }

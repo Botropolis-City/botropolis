@@ -65,6 +65,50 @@ func (m Memory) WithNewGroup(name, seed string) (Memory, string) {
 	return m, id
 }
 
+// WithRename is memory with a group renamed by hand, so detection never
+// names it again (item 333).
+func (m Memory) WithRename(id, name string) Memory {
+	name = strings.TrimSpace(name)
+	m.Groups = slices.Clone(m.Groups)
+	for i := range m.Groups {
+		if m.Groups[i].ID == id {
+			m.Groups[i].Name, m.Groups[i].Renamed = name, true
+			return m
+		}
+	}
+	m.Groups = append(m.Groups, Stored{ID: id, Name: name, Renamed: true})
+	return m
+}
+
+// WithTakenOut is memory with a session taken out of a group: not
+// related to any other of its stored members, as a drop is, and any
+// move of it into that group undone (item 333).
+func (m Memory) WithTakenOut(session, id string) Memory {
+	var members []string
+	for _, s := range m.Groups {
+		if s.ID == id {
+			members = s.Members
+		}
+	}
+	m.NotRelated = slices.Clone(m.NotRelated)
+	for _, other := range members {
+		if other != session {
+			m.NotRelated = append(m.NotRelated, Pair{session, other})
+		}
+	}
+	moves := make([]Move, 0, len(m.Moves))
+	for _, mv := range m.Moves {
+		if mv.Session != session || mv.Group != id {
+			moves = append(moves, mv)
+		}
+	}
+	m.Moves = moves
+	if len(m.Moves) == 0 {
+		m.Moves = nil
+	}
+	return m
+}
+
 // WithMuted is memory with a word muted, so it no longer joins sessions
 // by their wording; a word already muted is muted once (item 90).
 func (m Memory) WithMuted(word string) Memory {

@@ -35,6 +35,10 @@ func TestStandup(t *testing.T) {
 		return s
 	}
 	pr := func(state string) claude.PR { return claude.PR{Number: 41, Repository: "lib", State: state} }
+	// A group needs two members on the map to be one (item 333), so
+	// each single site has a companion, last on the line.
+	companion := member("z", orchard, state.Working, -time.Minute, 0)
+	const after = "; orchard in progress"
 
 	for _, c := range []struct {
 		when string
@@ -51,7 +55,7 @@ func TestStandup(t *testing.T) {
 	} {
 		t.Run("when "+c.when, func(t *testing.T) {
 			t.Run("it should say "+c.want, func(t *testing.T) {
-				assert.Equal(t, c.want, grouped(t, c.site).Standup("g1"))
+				assert.Equal(t, c.want+after, grouped(t, c.site, companion).Standup("g1"))
 			})
 		})
 	}
@@ -69,7 +73,7 @@ func TestStandup(t *testing.T) {
 	})
 
 	t.Run("when a building in a group is selected", func(t *testing.T) {
-		s := grouped(t, member("a", cinders, state.Working, -time.Hour, 0))
+		s := grouped(t, member("a", cinders, state.Working, -time.Hour, 0), companion)
 		require.True(t, s.Select("a"))
 
 		t.Run("its verbs should include copy stand-up", func(t *testing.T) {
@@ -80,7 +84,7 @@ func TestStandup(t *testing.T) {
 			action, _ := s.Act(city.ActionCopyStandup)
 
 			t.Run("it should copy the group's line", func(t *testing.T) {
-				assert.Equal(t, city.Action{Kind: city.ActionCopy, Text: "cinders in progress"}, action)
+				assert.Equal(t, city.Action{Kind: city.ActionCopy, Text: "cinders in progress" + after}, action)
 			})
 		})
 	})

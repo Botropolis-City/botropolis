@@ -41,11 +41,13 @@ func TestKinds(t *testing.T) {
 		a := session("a", cinders, state.Working)
 		a.PRs = []claude.PR{{Number: 1, Repository: "o/r"}}
 		a.Group = "g"
+		mate := session("b", botropolis, state.Working)
+		mate.Group = "g"
 		s := city.NewScene(city.NewLayout())
 		s.SetClock(func() time.Time { return now }, time.UTC)
 		s.Resize(800, 600)
-		s.SetSnapshot(state.Snapshot{At: now, Sessions: []state.Session{a, session("b", botropolis, state.Working)},
-			Groups: []state.Group{{ID: "g", Name: "G", Members: []string{"a"}}}})
+		s.SetSnapshot(state.Snapshot{At: now, Sessions: []state.Session{a, mate},
+			Groups: []state.Group{{ID: "g", Name: "G", Members: []string{"a", "b"}}}})
 		c := s.City()
 		b := buildingOf(t, s, "a")
 		require.NotEmpty(t, c.Lines)

@@ -29,6 +29,8 @@ func TestMoveToGroup(t *testing.T) {
 		s.SetSnapshot(state.Snapshot{At: now, Groups: groups, Sessions: []state.Session{
 			{ID: "a", CWD: "/w/lib", State: state.Working, Group: "g1"},
 			{ID: "b", CWD: "/w/api", State: state.Working, Group: "g2"},
+			{ID: "a2", CWD: "/w/lib", State: state.Working, Group: "g1"},
+			{ID: "b2", CWD: "/w/api", State: state.Working, Group: "g2"},
 		}})
 		actor := &recordingActor{}
 		return &Game{scene: s, actor: actor, scripted: -1, clicked: -1}, actor

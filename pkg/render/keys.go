@@ -50,6 +50,8 @@ var bindings = []ui.Key{
 	{Key: "x", Action: "power breakdown (also click the plant)"},
 	{Key: "u", Action: "fetch the plan's usage again; the launch carries it down the river"},
 	{Key: "g", Action: "groups board (also click City Hall)"},
+	{Key: "F2", Action: "on the groups board: rename the chosen group"},
+	{Key: "- in a group's list", Action: "take the stepped site's session out of the group"},
 	{Key: "shift+n", Action: "New session, in any directory (also on the board)"},
 	{Key: "t", Action: "timeline; enter jumps to the session"},
 	{Key: "b", Action: "sidebar"},
@@ -481,6 +483,10 @@ func (g *Game) leave() error {
 func (g *Game) act(action city.Action) {
 	if action.Kind == city.ActionMoveToGroup {
 		g.openPicker(action.SessionID)
+		return
+	}
+	if action.Kind == city.ActionRenameGroup {
+		g.openRenamer(action.Group, action.GroupName)
 		return
 	}
 	if action.Kind == city.ActionMuteWord {

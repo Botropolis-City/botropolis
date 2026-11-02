@@ -25,7 +25,11 @@ type board struct {
 }
 
 type boardRow struct {
-	Name     string
+	Name string
+	// Members names the members on the map, and Count how many they are
+	// (item 333).
+	Members  string
+	Count    string
 	Move     string
 	Waited   string
 	LastTime string
@@ -37,6 +41,8 @@ func boardRows(groups []state.Group, now time.Time) []boardRow {
 	for _, g := range groups {
 		rows = append(rows, boardRow{
 			Name:     g.Name,
+			Members:  city.MemberList(g.MemberTitles, 4),
+			Count:    plural(len(g.Members), "session"),
 			Move:     string(g.Move) + ": " + g.Why,
 			Waited:   format.Age(now.Sub(g.Journal.Active)),
 			LastTime: g.Journal.LastTime,
@@ -50,7 +56,7 @@ func boardStatus(rows []boardRow) string {
 	if len(rows) == 0 {
 		return "no groups yet: sessions join one when they share a ticket, a link or their wording"
 	}
-	return fmt.Sprintf("%d groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, esc closes", len(rows))
+	return fmt.Sprintf("%d groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, F2 renames it, esc closes", len(rows))
 }
 
 func (g *Game) board() *board {
@@ -96,6 +102,10 @@ func (b *board) keys(g *Game) bool {
 		}
 	case g.just(ebiten.KeyP):
 		g.sweepQuiet()
+	case g.just(ebiten.KeyF2):
+		if b.selected < len(groups) {
+			g.openRenamer(groups[b.selected].ID, groups[b.selected].Name)
+		}
 	case g.just(ebiten.KeyArrowDown):
 		b.selected = max(0, min(b.selected+1, len(groups)-1))
 	case g.just(ebiten.KeyArrowUp):
@@ -137,7 +147,7 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	_, title := g.faces.Measure("", ui.Title)
 	_, body := g.faces.Measure("", ui.Body)
 	_, small := g.faces.Measure("", ui.Small)
-	rowHeight := body + small*2 + grid
+	rowHeight := body + small*3 + grid
 	panelWidth := min(width-grid*8, grid*120)
 	shown := min(len(rows), max(1, int((height-grid*16-title-small)/rowHeight)))
 	panel := city.RectAt((width-panelWidth)/2, grid*6, panelWidth, grid*4+title+small+grid+float64(shown)*rowHeight)
@@ -177,13 +187,14 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		if i == b.selected {
 			g.roundRect(screen, city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2), 0, th.Palette.Hairline)
 		}
-		head := g.clip(row.Name, inner*0.45, ui.Body)
+		head := g.clip(row.Name+"  · "+row.Count, inner*0.45, ui.Body)
 		g.text(screen, city.Point{X: x, Y: y}, head, ui.Body, th.Palette.Text)
 		move := g.clip(row.Move+"   waited "+row.Waited, inner*0.53, ui.Small)
 		mw, _ := g.faces.Measure(move, ui.Small)
 		g.text(screen, city.Point{X: x + inner - mw, Y: y}, move, ui.Small, th.Color(ui.MoveTone(g.scene.Groups()[i].Move)))
-		g.text(screen, city.Point{X: x, Y: y + body}, g.clip("last time  "+row.LastTime, inner, ui.Small), ui.Small, th.Palette.Dim)
-		g.text(screen, city.Point{X: x, Y: y + body + small}, g.clip("next       "+row.Next, inner, ui.Small), ui.Small, th.Palette.Dim)
+		g.text(screen, city.Point{X: x, Y: y + body}, g.clip("members    "+row.Members, inner, ui.Small), ui.Small, th.Palette.Dim)
+		g.text(screen, city.Point{X: x, Y: y + body + small}, g.clip("last time  "+row.LastTime, inner, ui.Small), ui.Small, th.Palette.Dim)
+		g.text(screen, city.Point{X: x, Y: y + body + small*2}, g.clip("next       "+row.Next, inner, ui.Small), ui.Small, th.Palette.Dim)
 		y += rowHeight
 	}
 }
