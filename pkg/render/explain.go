@@ -44,6 +44,13 @@ func (g *Game) explainHeld() bool {
 // is, once. Those are labels, so z hides them (item 102); explain mode
 // was asked for, and does not.
 func (g *Game) explainCaptions(held, drawing bool, width, height float64) []ui.Caption {
+	// Under a scrim nobody can read a first sighting, so nothing is
+	// sighted and the caption up waits for the city again (item 268).
+	covered := g.cityCovered()
+	g.scene.HoldSightings(covered)
+	if covered && !held {
+		return nil
+	}
 	if !held && !g.scene.Labels() {
 		return nil
 	}

@@ -37,15 +37,32 @@ func (s *Scene) Sight(visible []Kind) {
 // Sightings are the kinds whose first-sighting caption is up now: one
 // at most.
 func (s *Scene) Sightings() []Kind {
+	now := s.now()
+	if !s.sightingsHeldAt.IsZero() {
+		now = s.sightingsHeldAt
+	}
 	step := SightingFor + SightingGap
-	for len(s.sightings) > 0 && s.now().Sub(s.sightingAt) >= step {
+	for len(s.sightings) > 0 && now.Sub(s.sightingAt) >= step {
 		s.sightings = s.sightings[1:]
 		s.sightingAt = s.sightingAt.Add(step)
 	}
-	if len(s.sightings) == 0 || s.now().Sub(s.sightingAt) >= SightingFor {
+	if len(s.sightings) == 0 || now.Sub(s.sightingAt) >= SightingFor {
 		return nil
 	}
 	return s.sightings[:1:1]
+}
+
+// HoldSightings stops the first sightings' clock while something
+// covers the city, and starts it again when nothing does, so a caption
+// nobody could read under the cover is shown once it closes (item 268).
+func (s *Scene) HoldSightings(held bool) {
+	switch {
+	case held && s.sightingsHeldAt.IsZero():
+		s.sightingsHeldAt = s.now()
+	case !held && !s.sightingsHeldAt.IsZero():
+		s.sightingAt = s.sightingAt.Add(s.now().Sub(s.sightingsHeldAt))
+		s.sightingsHeldAt = time.Time{}
+	}
 }
 
 // MarkSighted records kinds as captioned already, without captioning

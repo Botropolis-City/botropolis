@@ -194,7 +194,10 @@ type Scene struct {
 	clinicLooks int
 	sightings   []Kind
 	sightingAt  time.Time
-	generated   map[string]Generated
+	// sightingsHeldAt is when the city was covered, while it is: the
+	// caption up then waits for it to close (item 268).
+	sightingsHeldAt time.Time
+	generated       map[string]Generated
 	// veil is the names the city wears while it is shared, nil when it
 	// wears its own, and real the snapshot as it came (item 168).
 	veil    *Veil
