@@ -132,10 +132,13 @@ func TestHoldingTheStillCity(t *testing.T) {
 			s.Sessions[3].Compactions++
 			s.Sessions[3].LastCompactionAt = rc.now
 		})
+		// Past the course's pour, which ends with its building's
+		// stirring and so changes the key that frame (item 294).
+		rc.now = rc.now.Add(city.CompactionFor)
 		for range 3 {
 			rc.frame()
 		}
-		rc.now = rc.now.Add(courseGlow - time.Second)
+		rc.now = rc.now.Add(courseGlow - city.CompactionFor - time.Second)
 
 		t.Run("it should still hold the frame before", func(t *testing.T) {
 			assert.Positive(t, rc.frame().held)
