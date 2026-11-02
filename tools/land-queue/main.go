@@ -34,9 +34,14 @@ Usage:
   land-queue --help
 
 run takes a ticket in <dir>, waits until every live ticket ahead of it is
-gone, takes the flock on <file>, runs the command holding both, and exits with
-the command's code. A waiter that dies leaves the queue: its ticket's flock is
+gone, takes the flock on <file>, runs the command while it holds both, and
+exits with the command's code. The command does not inherit either lock, so
+nothing it leaves running can hold them; on Linux it is sent SIGTERM if
+land-queue dies. A waiter that dies leaves the queue: its ticket's flock is
 released with it, and the next waiter to look clears the ticket.
+
+A wait that passes a minute names every process holding the lock open, or
+after LAND_QUEUE_NAME_HOLDER_AFTER, a Go duration such as 30s.
 
 list prints who holds the lock and who waits, since when, for which target,
 from which worktree and at which commit. It takes no lock beyond non-blocking
@@ -44,6 +49,34 @@ probes and changes nothing.
 `
 
 const poll = 250 * time.Millisecond
+
+func nameHolderAfter() time.Duration {
+	if d, err := time.ParseDuration(os.Getenv("LAND_QUEUE_NAME_HOLDER_AFTER")); err == nil {
+		return d
+	}
+	return time.Minute
+}
+
+// waiting says once that the wait has passed the threshold, and who holds it.
+type waiting struct {
+	lockPath string
+	after    time.Duration
+	start    time.Time
+	named    bool
+}
+
+func (w *waiting) check() {
+	if w.named || time.Since(w.start) < w.after {
+		return
+	}
+	w.named = true
+	who := holders(w.lockPath)
+	if len(who) == 0 {
+		fmt.Printf("Still waiting after %s; nothing else has %s open\n", w.after, w.lockPath)
+		return
+	}
+	fmt.Printf("Still waiting after %s; %s is open in %s\n", w.after, w.lockPath, strings.Join(who, ", "))
+}
 
 type ticket struct {
 	PID      int       `json:"pid"`
@@ -101,6 +134,7 @@ func run(lockPath, queue, name string, command []string) int {
 	defer func() { _ = os.Remove(ticketPath) }()
 
 	told := false
+	wait := &waiting{lockPath: lockPath, after: nameHolderAfter(), start: time.Now()}
 	for {
 		ahead, err := clearAhead(queue, mine)
 		if err != nil {
@@ -114,6 +148,7 @@ func run(lockPath, queue, name string, command []string) int {
 			fmt.Printf("Waiting for the landing in progress to finish (%s); %d ahead in the queue\n", lockPath, ahead)
 			told = true
 		}
+		wait.check()
 		time.Sleep(poll)
 	}
 
@@ -123,29 +158,36 @@ func run(lockPath, queue, name string, command []string) int {
 		return 1
 	}
 	defer func() { _ = lockFile.Close() }()
-	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		if !told {
-			fmt.Printf("Waiting for the landing in progress to finish (%s)\n", lockPath)
+	for {
+		err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			break
 		}
-		if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX); err != nil {
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
 			fmt.Fprintf(os.Stderr, "land-queue: locking %s: %v\n", lockPath, err)
 			return 1
 		}
+		if !told {
+			fmt.Printf("Waiting for the landing in progress to finish (%s)\n", lockPath)
+			told = true
+		}
+		wait.check()
+		time.Sleep(poll)
 	}
 	_ = lockFile.Truncate(0)
 	_, _ = lockFile.WriteAt([]byte(mine+"\n"), 0)
 	defer func() { _ = lockFile.Truncate(0) }()
 
-	return execHolding(command, lockFile, ticketFile)
+	return execHolding(command)
 }
 
-// execHolding runs the command with both locks' descriptors inherited, as
-// flock(1) does, so the lock lasts as long as the command even if this
-// process is killed alone.
-func execHolding(command []string, files ...*os.File) int {
+// execHolding runs the command while this process holds both locks. Unlike
+// flock(1), it passes the command no descriptor to either, so a daemon the
+// command leaves behind cannot hold the lock after the run ends (item 326).
+func execHolding(command []string) int {
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	cmd.ExtraFiles = files
+	cmd.SysProcAttr = dieWithMe()
 	signals := make(chan os.Signal, 4)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer signal.Stop(signals)

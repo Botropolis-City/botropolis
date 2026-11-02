@@ -97,8 +97,15 @@ func (r *rig) worktree(t *testing.T, name string, withHead bool) string {
 // run starts the tool in its own worktree. script runs as the queued command.
 func (r *rig) run(t *testing.T, name, script string) *proc {
 	t.Helper()
+	return r.runWith(t, name, script)
+}
+
+// runWith is run with extra environment.
+func (r *rig) runWith(t *testing.T, name, script string, env ...string) *proc {
+	t.Helper()
 	cmd := exec.Command(tool, "run", "--lock", r.lock, "--queue", r.queue, "--name", "land", "--", "sh", "-c", script)
 	cmd.Dir = r.worktree(t, name, false)
+	cmd.Env = append(os.Environ(), env...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	p := &proc{cmd: cmd, out: &buffer{}, done: make(chan error, 1)}
 	cmd.Stdout, cmd.Stderr = p.out, p.out
