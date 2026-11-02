@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **A session stopped on a permission prompt needs you.**
-  A background session waiting for you to approve a tool read as working, for as long as it waited.
-  It now raises the needs-you beacon, and `botropolis bar` and `status` say so, until you answer it.
-
 ## [0.3.5] - 2026-11-03
 
 ### Changed
@@ -27,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A session stopped on a permission prompt needs you.**
+  A background session waiting for you to approve a tool read as working, for as long as it waited.
+  It now raises the needs-you beacon, and `botropolis bar` and `status` say so, until you answer it.
 - **Right after the daemon restarts, statistics stay on.**
   Starting while the stopping daemon still wrote, it could find the database locked and report *statistics are off: database is locked*.
   It now waits for the lock, and says statistics are off only when the database cannot be opened.
