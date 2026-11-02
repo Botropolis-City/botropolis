@@ -175,6 +175,24 @@ func TestHoldingTheStillCity(t *testing.T) {
 		})
 	})
 
+	// The oracle: a frame made afresh is the same moment to the look cache
+	// as the frame it is held to, or a look the frame drew straight, its
+	// key new, is baked in it, and the two differ only by how a look is
+	// drawn (item 212, the record walk's seed 1793612153554785110).
+	t.Run("when the looks are new, as after a zoom, and the frame is made afresh", func(t *testing.T) {
+		rc := settled(t)
+		rc.scene.Camera().Zoom *= 1.25
+		rc.frame()
+		require.Positive(t, rc.g.lookStats.misses, "precondition: the looks are new")
+		// A look the zoom brings wholly on is baked that frame, which is
+		// counted and not drawn.
+		held := uncounted(drawn(rc.g))
+
+		t.Run("it should draw them as the frame did", func(t *testing.T) {
+			assert.Equal(t, uncounted(afresh(rc)), held)
+		})
+	})
+
 	t.Run("when a tool call starts and ends a load, and nothing on the ground changes", func(t *testing.T) {
 		rc := settled(t)
 		// A load stirs its session, which the standing key folds and
@@ -327,11 +345,14 @@ func uncounted(notes []string) []string {
 }
 
 // afresh is the record city's moment drawn again with nothing kept, at
-// the same tick, so what animates stands where it did.
+// the same tick, so what animates stands where it did, and the same frame
+// to the look cache, so a look the frame drew straight is not baked in
+// it, as the frame check draws its two drawings (item 192).
 func afresh(rc *recordCity) []string {
 	rc.g.noReuse = true
 	defer func() { rc.g.noReuse = false }()
 	rc.g.ticks--
+	rc.g.lookFrame--
 	rc.frame()
 	return drawn(rc.g)
 }
