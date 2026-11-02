@@ -558,6 +558,8 @@ func (g *Game) noteHit(r city.Rect, hit city.Hit) {
 // drawIso is the isometric frame: ground, lines, district floors, then
 // every building and landmark painted back to front.
 func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hover city.Hit, selected *city.Building, width, height float64, seconds float64) {
+	// Before anything of the frame reads a timed state (item 294).
+	g.scene.Expire()
 	detailed := g.scene.Detailed()
 	labels := g.labelsVisible()
 	defer frames.start()()

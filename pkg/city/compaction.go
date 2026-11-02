@@ -112,7 +112,6 @@ func (s *Scene) CompactionJob(id string) (Job, bool) {
 	}
 	t := s.now().Sub(j.since)
 	if t >= CompactionFor || t < 0 {
-		delete(s.jobs, id)
 		return Job{}, false
 	}
 	job := Job{SkipLevel: j.level, SkipAtKerb: t < jobSkipHooked}

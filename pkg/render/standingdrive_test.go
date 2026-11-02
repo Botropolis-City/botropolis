@@ -48,26 +48,29 @@ func TestAScaffoldComingDownOnTheTick(t *testing.T) {
 	offer(func(s *state.Snapshot) { s.Sessions[0].State = state.NeedsYou })
 	var finished, after stillStats
 	var held, fresh []string
+	var finishedStirring bool
 	ok := false
 	for range int(2*city.ScaffoldDownFor*liveTPS/time.Second) + 10 {
 		was := g.scene.Scaffold(building())
 		require.NoError(t, d.Tick())
 		if was > 0 && g.scene.Scaffold(building()) == 0 {
 			finished, ok = g.still.stats, true
-			// The frame it finishes on is drawn while the scene lets go of
-			// the strike, part way through, so it draws the building
-			// otherwise than the frames after (item 294); the frame after
-			// is the first drawn from what the scaffold left, and the one
-			// after that the first whose stirring holds too.
-			require.NoError(t, d.Run(2))
-			require.Positive(t, g.scene.PlantLights(), "precondition: the plant's lights still fade")
-			after = g.still.stats
+			// The scene lets go of the strike on its tick, so the frame it
+			// finishes on already reads it gone (item 294). That frame
+			// draws the building's new look straight, as every look whose
+			// key is new is drawn, and the frame after bakes it; so the
+			// frame after is the first to compare with one drawn afresh.
+			finishedStirring = g.stirring[id]
+			require.NoError(t, d.Run(1))
 			held = drawn(g)
 			g.noReuse = true
 			g.ticks--
 			g.Draw(d.screen)
 			g.noReuse = false
 			fresh = drawn(g)
+			require.NoError(t, d.Run(1))
+			require.Positive(t, g.scene.PlantLights(), "precondition: the plant's lights still fade")
+			after = g.still.stats
 			break
 		}
 	}
@@ -82,13 +85,16 @@ func TestAScaffoldComingDownOnTheTick(t *testing.T) {
 	}
 
 	t.Run("when the scaffold has come down", func(t *testing.T) {
+		t.Run("it should not count the building as stirring the frame it finishes", func(t *testing.T) {
+			assert.False(t, finishedStirring)
+		})
 		t.Run("it should not hold the still city the frame it finishes", func(t *testing.T) {
 			assert.Zero(t, finished.held)
 		})
 		t.Run("it should not hold it two frames after, while the plant's lights still fade", func(t *testing.T) {
 			assert.Zero(t, after.held)
 		})
-		t.Run("it should draw that frame as one made with nothing kept", func(t *testing.T) {
+		t.Run("it should draw the frame after it finishes as one made with nothing kept", func(t *testing.T) {
 			assert.Equal(t, fresh, held)
 		})
 		t.Run("it should hold it again once it has settled", func(t *testing.T) {

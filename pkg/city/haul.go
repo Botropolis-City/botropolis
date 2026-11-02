@@ -105,14 +105,13 @@ func (s *Scene) retargetHauls(now time.Time) {
 // Hauls is every truck still on its way.
 func (s *Scene) Hauls() []Haul {
 	now := s.now()
-	kept := s.hauls[:0]
+	var kept []Haul
 	for _, h := range s.hauls {
 		if now.Sub(h.Since) < h.For {
 			kept = append(kept, h)
 		}
 	}
-	s.hauls = kept
-	return append([]Haul(nil), kept...)
+	return kept
 }
 
 // Hauling is whether a session's crate, or its building, is still on a

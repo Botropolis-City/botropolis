@@ -189,24 +189,19 @@ func titleOrID(sess state.Session) string {
 // simply moves the run under it.
 func (s *Scene) Voyages() []*Voyage {
 	now := s.now()
-	kept := s.voyages[:0]
+	var kept []*Voyage
 	for _, v := range s.voyages {
-		if v.Kind == Departure && v.Progress(now) >= 1 {
-			continue
+		if !s.voyageDone(v, now) {
+			kept = append(kept, v)
 		}
-		if v.Kind == Arrival && now.Sub(v.StartedAt) >= SailFor+s.buildFor() {
-			continue
-		}
-		kept = append(kept, v)
 	}
-	s.voyages = kept
 	north, south, ok := s.city.riverEnds()
 	if !ok {
 		// No river, no boats. Better than sailing them across the land
 		// on the last coordinates anyone happened to compute.
 		return nil
 	}
-	for _, v := range s.voyages {
+	for _, v := range kept {
 		dock := s.city.dock(v.Root)
 		if v.Kind == Arrival {
 			v.From, v.To = north, dock
@@ -223,7 +218,16 @@ func (s *Scene) Voyages() []*Voyage {
 		}
 		v.From, v.To = from, south
 	}
-	return append([]*Voyage(nil), s.voyages...)
+	return kept
+}
+
+// voyageDone is whether a tug has left the map, or docked and its
+// building risen.
+func (s *Scene) voyageDone(v *Voyage, now time.Time) bool {
+	if v.Kind == Departure {
+		return v.Progress(now) >= 1
+	}
+	return now.Sub(v.StartedAt) >= SailFor+s.buildFor()
 }
 
 // Rising is how far a session's building has risen: 0 while its tug is

@@ -53,7 +53,6 @@ func (s *Scene) Scaffold(b *Building) float64 {
 	}
 	p := float64(s.now().Sub(ended)) / float64(ScaffoldDownFor)
 	if p >= 1 {
-		delete(s.struck, b.Session.ID)
 		return 0
 	}
 	return 1 - max(0, p)
@@ -139,34 +138,28 @@ func (s *Scene) loadFor() time.Duration {
 func (s *Scene) Loads(id string) []Load {
 	now, span := s.now(), s.loadFor()
 	var out []Load
-	kept := s.loads[id][:0]
 	for _, p := range s.loads[id] {
-		t := float64(now.Sub(p.since)) / float64(span)
-		if t >= 1 {
-			continue
-		}
-		kept = append(kept, p)
-		if t >= 0 {
+		if t := float64(now.Sub(p.since)) / float64(span); t >= 0 && t < 1 {
 			out = append(out, Load{P: t, Flash: s.reduced, Merged: p.merged})
 		}
-	}
-	if len(kept) == 0 {
-		delete(s.loads, id)
-	} else {
-		s.loads[id] = kept
 	}
 	return out
 }
 
 // hoisting is whether a load climbs or a scaffold comes down.
 func (s *Scene) hoisting() bool {
-	for id := range s.loads {
-		s.Loads(id)
-	}
-	for id, ended := range s.struck {
-		if s.now().Sub(ended) >= ScaffoldDownFor {
-			delete(s.struck, id)
+	now, span := s.now(), s.loadFor()
+	for _, loads := range s.loads {
+		for _, p := range loads {
+			if now.Sub(p.since) < span {
+				return true
+			}
 		}
 	}
-	return len(s.loads) > 0 || len(s.struck) > 0
+	for _, ended := range s.struck {
+		if now.Sub(ended) < ScaffoldDownFor {
+			return true
+		}
+	}
+	return false
 }

@@ -58,7 +58,6 @@ func (s *Scene) Settling(id string) (Settle, float64) {
 	}
 	p := float64(s.now().Sub(t.since)) / float64(s.settleFor(t.kind))
 	if p >= 1 {
-		delete(s.settling, id)
 		return SettleNone, 0
 	}
 	return t.kind, max(0, p)

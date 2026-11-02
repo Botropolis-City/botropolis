@@ -994,6 +994,7 @@ func (s *Scene) SetReducedMotion(reduced bool) {
 // of the way each tick, and all the way once it is close. It also lets
 // the light follow the clock.
 func (s *Scene) Animate(dt float64) {
+	s.Expire()
 	s.applyNight()
 	s.releaseDepot()
 	s.fadePlan(dt)
@@ -1320,7 +1321,6 @@ func (s *Scene) Celebration(id string) float64 {
 	}
 	p := float64(s.now().Sub(at)) / float64(CelebrateFor)
 	if p >= 1 {
-		delete(s.celebrating, id)
 		return -1
 	}
 	return p
