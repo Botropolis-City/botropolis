@@ -203,7 +203,7 @@ test-unit ::
 	export HOME="$$home" XDG_CONFIG_HOME="$$home/.config"; \
 	export BOTROPOLIS_CONFIG="$$XDG_CONFIG_HOME/botropolis/config.toml"; \
 	eval "$$(awk -F' = ' '/^[a-z_]+ = / { gsub(/"/, "", $$2); print "export BOTROPOLIS_" toupper($$1) "='\''" $$2 "'\''" }' "$$BOTROPOLIS_CONFIG")"; \
-	go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/acceptance-targets/... ./tools/settle/...; \
+	go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/...; \
 	go test -timeout ${TEST_TIMEOUT} ${DEV_TAGS} ./pkg/cli/... ./pkg/memlog/...
 
 test-integration ::
@@ -300,7 +300,7 @@ bench ::
 	$(LOG) "Benchmarking the bar's tasks"
 	@go test ./testing/acceptance -run '^$$' -bench . -benchtime ${BENCH_TIME} -count ${BENCH_COUNT}
 
-lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check asset-sources-check antialias-check
+lint :: go-version-check lint-version-check docs-check version-check workflows-check demo-check darwin-check asset-sources-check antialias-check tools-tests-check
 	$(LOG) "Linting"
 	@go vet ./...
 	@go vet ${DEV_TAGS} ./...
@@ -404,6 +404,11 @@ version-check ::
 workflows-check ::
 	$(LOG) "Checking the workflows parse"
 	@tools/check-workflows
+
+# Item 332: land-queue's tests sat under no target, so nothing ran them.
+tools-tests-check ::
+	$(LOG) "Checking make test runs every Go test under tools/"
+	@tools/check-tools-tests
 
 packages-check ::
 	$(LOG) "Checking the three packages carry the same files"

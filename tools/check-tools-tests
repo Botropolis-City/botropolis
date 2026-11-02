@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Item 332: tools/land-queue had tests that no make target ran, so they could
+# not fail. Every package under tools/ with test files must be matched by a
+# `go test` pattern that `make test` runs.
+set -euo pipefail
+
+usage() {
+    cat <<'USAGE'
+check-tools-tests — assert make test runs every Go test under tools/
+
+Usage: tools/check-tools-tests [--help]
+
+Expands every `go test` package pattern in `make -n test` with go list, and
+exits 1 naming each package under tools/ with test files that none matches.
+USAGE
+}
+
+[ "${1:-}" = "--help" ] && { usage; exit 0; }
+
+cd "$(dirname "$0")/.." >/dev/null
+
+plan="$(make --no-print-directory -n test)"
+mapfile -t patterns < <(grep -E '(^|[^[:alnum:]_-])go test ' <<<"$plan" | grep -oE '(^|[[:space:]])\./[^[:space:];]+' | sed 's/^[[:space:]]*//' | sort -u)
+
+if [ "${#patterns[@]}" -eq 0 ]; then
+    echo "  make -n test names no go test package patterns; cannot check tools/"
+    exit 1
+fi
+
+mapfile -t wanted < <(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./tools/... | sed '/^$/d' | sort -u)
+
+if [ "${#wanted[@]}" -eq 0 ]; then
+    echo "  go list finds no tested packages under tools/; cannot check"
+    exit 1
+fi
+
+reached="$(go list "${patterns[@]}" | sort -u)"
+
+missing=()
+for pkg in "${wanted[@]}"; do
+    grep -qxF "$pkg" <<<"$reached" || missing+=("$pkg")
+done
+
+if [ "${#missing[@]}" -gt 0 ]; then
+    echo "  make test runs no tests for:"
+    printf '    %s\n' "${missing[@]}"
+    exit 1
+fi
+
+echo "  make test reaches all ${#wanted[@]} tested packages under tools/"
