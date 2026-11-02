@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It now waits for the lock, and says statistics are off only when the database cannot be opened.
 - **A thing first seen while a panel covers the city is captioned once the panel closes.**
   Before, its one caption was drawn under the panel's dim, where nobody could read it, and never came again.
+- **A boat passing under the second bridge is drawn in front of the deck where it sticks out in front, and behind it where it sticks out behind.**
+  The usage liner is longer than the deck is wide, and it used to be drawn either all in front of the bridge or all behind it, so a pier could cover its bow or its stern could cover the road.
 
 ## [0.3.4] - 2026-10-28
 
