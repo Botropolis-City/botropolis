@@ -981,6 +981,32 @@ func TestRecordStatus(t *testing.T) {
 		})
 	})
 
+	t.Run("when an unattached background record says waiting for a permission prompt while the tail has a tool call in flight", func(t *testing.T) {
+		waiting := record(sidA, claude.KindBackground, claude.StatusWaiting)
+		waiting.WaitingFor = "permission prompt"
+		session := build(t, []claude.SessionRecord{waiting},
+			[]claude.Transcript{transcript(sidA, claude.TurnWorking)}, nil, alive)[0]
+
+		t.Run("it should need you", func(t *testing.T) {
+			assert.Equal(t, state.NeedsYou, session.State)
+		})
+
+		t.Run("it should carry what the record is waiting for", func(t *testing.T) {
+			assert.Equal(t, "permission prompt", session.WaitingFor)
+		})
+	})
+
+	t.Run("when an interactive record says waiting for input while the tail is mid-turn", func(t *testing.T) {
+		waiting := record(sidA, claude.KindInteractive, claude.StatusWaiting)
+		waiting.WaitingFor = "input needed"
+		session := build(t, []claude.SessionRecord{waiting},
+			[]claude.Transcript{transcript(sidA, claude.TurnWorking)}, nil, alive)[0]
+
+		t.Run("it should need you", func(t *testing.T) {
+			assert.Equal(t, state.NeedsYou, session.State)
+		})
+	})
+
 	t.Run("when the record says a word this build has never seen while the tail awaits the user", func(t *testing.T) {
 		session := build(t,
 			[]claude.SessionRecord{record(sidA, claude.KindInteractive, "compacting")},

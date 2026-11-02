@@ -59,6 +59,7 @@ var VeilTable = map[string]VeilKind{
 	"Session.State":                       VeilKeep,
 	"Session.Turn":                        VeilKeep,
 	"Session.RecordStatus":                VeilKeep,
+	"Session.WaitingFor":                  VeilKeep,
 	"Session.Tool":                        VeilTool,
 	"Session.Note":                        VeilText,
 	"Session.Subject":                     VeilText,

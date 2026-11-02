@@ -480,7 +480,8 @@ func (d *Daemon) view() state.Snapshot {
 		base := &d.base.Sessions[i]
 		hooked := d.hooked[base.ID]
 		o, ok := d.overlays[base.ID]
-		applies := ok && o.at.After(base.LastActivity) && (!o.turnEnded || base.RecordStatus != claude.StatusShell)
+		applies := ok && o.at.After(base.LastActivity) && (!o.turnEnded || base.RecordStatus != claude.StatusShell) &&
+			(o.state != state.Working || base.RecordStatus != claude.StatusWaiting)
 		if hooked == base.Hooked && !applies {
 			continue
 		}

@@ -23,6 +23,9 @@ const (
 	// StatusShell is a session running a shell command; the CLI counts it
 	// as busy, and so does the map: only idle means idle.
 	StatusShell Status = "shell"
+	// StatusWaiting is a session stopped on a person: a permission prompt
+	// or a question, named by the record's waitingFor.
+	StatusWaiting Status = "waiting"
 )
 
 type SessionRecord struct {
@@ -31,6 +34,7 @@ type SessionRecord struct {
 	CWD        string
 	Kind       Kind
 	Status     Status
+	WaitingFor string
 	Name       string
 	StartedAt  time.Time
 	Version    string
@@ -77,6 +81,7 @@ type sessionRecordJSON struct {
 	CWD        string `json:"cwd"`
 	Kind       Kind   `json:"kind"`
 	Status     Status `json:"status"`
+	WaitingFor string `json:"waitingFor"`
 	Name       string `json:"name"`
 	StartedAt  int64  `json:"startedAt"`
 	Version    string `json:"version"`
@@ -108,6 +113,7 @@ func ReadSessionRecords(dir string) ([]SessionRecord, []SkippedFile, error) {
 			CWD:        raw.CWD,
 			Kind:       raw.Kind,
 			Status:     raw.Status,
+			WaitingFor: raw.WaitingFor,
 			Name:       raw.Name,
 			StartedAt:  time.UnixMilli(raw.StartedAt).UTC(),
 			Version:    raw.Version,

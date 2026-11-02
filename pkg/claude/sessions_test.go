@@ -3,6 +3,7 @@ package claude_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +69,23 @@ func TestReadSessionRecords(t *testing.T) {
 
 		t.Run("it should remember the path it was read from", func(t *testing.T) {
 			assert.Equal(t, filepath.Join(dir, "1646630.json"), record.Path)
+		})
+	})
+
+	t.Run("when a record says it is waiting for a permission prompt", func(t *testing.T) {
+		dir := t.TempDir()
+		writeFile(t, dir, "1646630.json", strings.Replace(wellFormedRecord, `"status":"busy"`, `"status":"waiting","waitingFor":"permission prompt"`, 1))
+
+		records, _, err := claude.ReadSessionRecords(dir)
+		require.NoError(t, err)
+		require.Len(t, records, 1)
+
+		t.Run("it should read the status as waiting", func(t *testing.T) {
+			assert.Equal(t, claude.StatusWaiting, records[0].Status)
+		})
+
+		t.Run("it should read what it is waiting for", func(t *testing.T) {
+			assert.Equal(t, "permission prompt", records[0].WaitingFor)
 		})
 	})
 

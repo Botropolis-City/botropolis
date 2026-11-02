@@ -44,6 +44,17 @@ func (h *Home) Session(pid int, sessionID, cwd, kind, status string) *Home {
 	return h
 }
 
+// WaitingSession is a record stopped on a person, as the CLI writes it
+// for a permission prompt or a question (item 331).
+func (h *Home) WaitingSession(pid int, sessionID, cwd, kind, waitingFor string) *Home {
+	h.t.Helper()
+	record := fmt.Sprintf(`{"pid":%d,"sessionId":%q,"cwd":%q,"startedAt":1789617482873,"version":"2.1.273",`+
+		`"kind":%q,"entrypoint":"cli","name":"record name","status":"waiting","waitingFor":%q,"jobId":"0898d7e4"}`,
+		pid, sessionID, cwd, kind, waitingFor)
+	h.write(filepath.Join("sessions", strconv.Itoa(pid)+".json"), record)
+	return h
+}
+
 func (h *Home) Transcript(sessionID, cwd string, lines ...string) string {
 	h.t.Helper()
 	return h.write(filepath.Join("projects", ProjectSlug(cwd), sessionID+".jsonl"), strings.Join(lines, "\n")+"\n")

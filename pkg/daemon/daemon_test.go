@@ -189,6 +189,25 @@ func TestDaemon(t *testing.T) {
 		})
 	})
 
+	t.Run("when a PreToolUse event arrives for a session whose record says waiting", func(t *testing.T) {
+		home := homeWithRecord(t, "bg", "waiting")
+		d := newDaemon(t, home)
+		d.Apply(event(claude.HookPreToolUse, "Bash"), now)
+
+		t.Run("it should need you", func(t *testing.T) {
+			assert.Equal(t, state.NeedsYou, only(t, d).State)
+		})
+
+		t.Run("and the record then turns busy", func(t *testing.T) {
+			home.Session(pid, sid, cwd, "bg", "busy")
+			require.NoError(t, d.Rescan())
+
+			t.Run("it should be working unattended", func(t *testing.T) {
+				assert.Equal(t, state.Unattended, only(t, d).State)
+			})
+		})
+	})
+
 	t.Run("when a Stop event arrives for an unattached background session whose record says shell", func(t *testing.T) {
 		d := newDaemon(t, homeWithRecord(t, "bg", "shell"))
 		d.Apply(event(claude.HookStop, ""), now)

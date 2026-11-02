@@ -66,6 +66,9 @@ type Session struct {
 	// RecordStatus is the CLI's own word for the session, which the
 	// daemon's hook overlay yields to while it says shell (item 250).
 	RecordStatus claude.Status `json:"-"`
+	// WaitingFor is what a waiting record says the session waits on
+	// (item 331).
+	WaitingFor string `json:"-"`
 	// Hooked is whether the daemon has ever seen a hook event from the
 	// session; without one it is reading files, and the map draws no
 	// wire to it.
@@ -426,6 +429,7 @@ func buildSession(r claude.SessionRecord, t claude.Transcript, hasTranscript boo
 		Alive:        isAlive,
 		Attached:     isAttached,
 		RecordStatus: r.Status,
+		WaitingFor:   r.WaitingFor,
 		StartedAt:    r.StartedAt,
 		LastActivity: r.StartedAt,
 	}
@@ -989,6 +993,8 @@ func derive(r claude.SessionRecord, turn claude.Turn, hasConversation, isAlive, 
 		if turn == claude.TurnWaiting {
 			return Waiting
 		}
+		return NeedsYou
+	case claude.StatusWaiting:
 		return NeedsYou
 	case "":
 	default:
