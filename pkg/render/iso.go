@@ -117,9 +117,9 @@ func footprint(cam *city.Camera, r city.Rect) (top city.Point, width float64) {
 // building cell.
 // isoGround tiles the plan's ground: grass inside the map's edge, the
 // river down the east side, and a tree on every cell the plan planted;
-// beyond the edge there is nothing to see.
+// beyond the drawn sea the ground is the sea's own colour.
 func (g *Game) isoGround(screen *ebiten.Image, cam *city.Camera, c *city.City, width, height float64) {
-	g.recorder().fill(screen, colorVoid)
+	g.recorder().fill(screen, groundClear(c))
 	bounds := c.Bounds()
 	if bounds.Area() == 0 {
 		return

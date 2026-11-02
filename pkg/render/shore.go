@@ -161,3 +161,13 @@ func (g *Game) shore(screen *ebiten.Image, cam *city.Camera, c *city.City) {
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, GeoM: shoreGeoM(cam, s.sea)}
 	g.recorder().Image(screen, s.img, op)
 }
+
+// groundClear is the colour the ground is cleared to under the shore.
+// Past the sea texture's edge the frame shows this colour, so once there
+// is a sea it is the sea's own, and no pan or zoom finds its end (item 323).
+func groundClear(c *city.City) color.NRGBA {
+	if c.Bounds().Area() == 0 {
+		return colorVoid
+	}
+	return shorePaletteFor(c.Night).sea
+}

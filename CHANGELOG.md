@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Before, its one caption was drawn under the panel's dim, where nobody could read it, and never came again.
 - **A boat passing under the second bridge is drawn in front of the deck where it sticks out in front, and behind it where it sticks out behind.**
   The usage liner is longer than the deck is wide, and it used to be drawn either all in front of the bridge or all behind it, so a pier could cover its bow or its stern could cover the road.
+- **The sea reaches the edge of the window wherever you look.**
+  Panned or zoomed far enough from the island, a corner of the window showed black where the drawn sea ended; the website's hero video showed it too.
+  Past its edge the ground is now the sea's own colour, by day and by night.
 
 ## [0.3.4] - 2026-10-28
 
