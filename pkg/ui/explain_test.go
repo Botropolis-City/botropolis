@@ -30,7 +30,11 @@ func TestLayoutExplain(t *testing.T) {
 		for i, k := range city.Kinds {
 			seen = append(seen, at(k, 60+float64(i%4)*280, 60+float64(i/4)*120))
 		}
-		caps := ui.LayoutExplain(th, seen, window, true, measure7)
+		// The window holds the grid with a row to spare, however many
+		// kinds there are (item 255 added two).
+		rows := float64((len(city.Kinds) + 3) / 4)
+		spread := city.RectAt(0, 0, window.Width(), max(window.Height(), 60+(rows+1)*120))
+		caps := ui.LayoutExplain(th, seen, spread, true, measure7)
 		got := map[city.Kind]bool{}
 		for _, c := range caps {
 			got[c.Kind] = true
