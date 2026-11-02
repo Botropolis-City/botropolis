@@ -603,6 +603,11 @@ type Game struct {
 	moving  bool
 	boxing  bool
 	pressAt city.Point
+	// quietFor is how long a loose session rests before Pack up
+	// everything quiet packs it, and sweep asks the daemon to pack them
+	// and answers how many it did (item 333).
+	quietFor time.Duration
+	sweep    func(ids []string, quietFor time.Duration) (int, error)
 	// journalHours is how long away the map must have been for the
 	// journal to open by itself, and journalChecked whether the first
 	// snapshot has been looked at for it; lastCloseUp reads the last

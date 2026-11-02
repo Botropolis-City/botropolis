@@ -38,6 +38,7 @@ on_close	string
 on_close=ask
 on_close=tray
 overgrown_days	int
+quiet_days	int
 reduced_motion	bool
 render_scale	float64
 scripted_runs	string

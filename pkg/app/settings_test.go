@@ -93,7 +93,7 @@ func TestUsageRefreshSetting(t *testing.T) {
 // Item 86: how long a stopped session rests before it is shuttered, and
 // before it is overgrown, are rows in the settings panel.
 func TestLadderSettings(t *testing.T) {
-	cfg := &config.Config{ShutteredDays: 7, OvergrownDays: 30}
+	cfg := &config.Config{ShutteredDays: 7, OvergrownDays: 30, QuietDays: 14}
 	rows := map[string]ui.Setting{}
 	for _, s := range settingsFor(cfg).Items {
 		rows[s.Key] = s
@@ -107,6 +107,7 @@ func TestLadderSettings(t *testing.T) {
 		for _, c := range []struct{ key, label, value string }{
 			{config.KeyShutteredDays, "shuttered days", "7"},
 			{config.KeyOvergrownDays, "overgrown days", "30"},
+			{config.KeyQuietDays, "quiet days", "14"},
 		} {
 			t.Run("it should label the "+c.key+" row", func(t *testing.T) {
 				assert.Equal(t, c.label, rows[c.key].Label)
@@ -119,7 +120,7 @@ func TestLadderSettings(t *testing.T) {
 	})
 
 	t.Run("when the panel picks a number of days", func(t *testing.T) {
-		for _, k := range []string{config.KeyShutteredDays, config.KeyOvergrownDays} {
+		for _, k := range []string{config.KeyShutteredDays, config.KeyOvergrownDays, config.KeyQuietDays} {
 			key, value := settingValue(ui.Setting{Key: k, Value: "14"})
 
 			t.Run("it should save "+k+" as a number", func(t *testing.T) {

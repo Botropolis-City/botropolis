@@ -26,6 +26,9 @@ const (
 	OpFind = "find"
 	// OpPack packs a session up, or unpacks it (item 86).
 	OpPack = "pack"
+	// OpPackQuiet packs up, in one move, the sessions a client counted as
+	// quiet (item 333).
+	OpPackQuiet = "pack-quiet"
 	// OpCloseUp records that you closed up (item 86).
 	OpCloseUp = "closeup"
 	// OpForget forgets a demolished session from the ledger (item 144).
@@ -53,6 +56,8 @@ type Request struct {
 	Find *find.Query `json:"find,omitempty"`
 	// Pack is a pack request's session and whether to pack it or unpack.
 	Pack *Pack `json:"pack,omitempty"`
+	// PackQuiet is a quiet sweep's sessions and threshold.
+	PackQuiet *PackQuiet `json:"packQuiet,omitempty"`
 	// CloseUp is a close-up's open and pinned sessions.
 	CloseUp *CloseUp `json:"closeUp,omitempty"`
 	// Forget is the session a forget request names.
@@ -73,6 +78,13 @@ type Pack struct {
 	Packed    bool   `json:"packed"`
 }
 
+// PackQuiet is a request to pack up those of the sessions named that are
+// still quiet for at least QuietFor.
+type PackQuiet struct {
+	IDs      []string      `json:"ids"`
+	QuietFor time.Duration `json:"quietFor"`
+}
+
 type Response struct {
 	// Peer is the daemon's release and protocol, on every response; a
 	// daemon from before the exchange sends none (item 149).
@@ -84,6 +96,8 @@ type Response struct {
 	Delta  *Delta         `json:"delta,omitempty"`
 	Events []events.Event `json:"events,omitempty"`
 	Found  []find.Hit     `json:"found,omitempty"`
+	// Packed is how many sessions a quiet sweep packed up.
+	Packed int `json:"packed,omitempty"`
 	// Loading is a loading request's answer.
 	Loading *state.LoadProgress `json:"loading,omitempty"`
 	// Store is a peer request's answer for what became of the daemon's

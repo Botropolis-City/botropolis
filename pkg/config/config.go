@@ -24,6 +24,9 @@ const (
 	KeyHookCommand   = "hook_command"
 	KeyShutteredDays = "shuttered_days"
 	KeyOvergrownDays = "overgrown_days"
+	// KeyQuietDays is how long a session in no group rests before the
+	// quiet sweep packs it up; 0 follows shuttered_days. Item 333.
+	KeyQuietDays     = "quiet_days"
 	KeyCodexHome     = "codex_home"
 	KeyRenderScale   = "render_scale"
 	KeyReducedMotion = "reduced_motion"
@@ -133,6 +136,9 @@ type Config struct {
 	HookCommand   string
 	ShutteredDays int
 	OvergrownDays int
+	// QuietDays is how long a loose session rests before the quiet sweep
+	// packs it up, shuttered_days when the key is 0 (item 333).
+	QuietDays     int
 	CodexHome     string
 	RenderScale   float64
 	ReducedMotion bool
@@ -224,6 +230,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyHookCommand, "botropolis-hook")
 	v.SetDefault(KeyShutteredDays, DefaultShutteredDays)
 	v.SetDefault(KeyOvergrownDays, DefaultOvergrownDays)
+	v.SetDefault(KeyQuietDays, 0)
 	v.SetDefault(KeyCodexHome, "")
 	v.SetDefault(KeyRenderScale, 0.0)
 	v.SetDefault(KeyReducedMotion, false)
@@ -338,6 +345,7 @@ func New(v *viper.Viper) (*Config, error) {
 		HookCommand:    v.GetString(KeyHookCommand),
 		ShutteredDays:  v.GetInt(KeyShutteredDays),
 		OvergrownDays:  v.GetInt(KeyOvergrownDays),
+		QuietDays:      v.GetInt(KeyQuietDays),
 		CodexHome:      v.GetString(KeyCodexHome),
 		RenderScale:    v.GetFloat64(KeyRenderScale),
 		ReducedMotion:  v.GetBool(KeyReducedMotion),
@@ -383,6 +391,12 @@ func New(v *viper.Viper) (*Config, error) {
 	}
 	if err := checkLadder(cfg.ShutteredDays, cfg.OvergrownDays); err != nil {
 		return nil, err
+	}
+	if cfg.QuietDays < 0 {
+		return nil, fmt.Errorf("%s (%d) must be at least 1, or 0 to follow %s", KeyQuietDays, cfg.QuietDays, KeyShutteredDays)
+	}
+	if cfg.QuietDays == 0 {
+		cfg.QuietDays = cfg.ShutteredDays
 	}
 	if cfg.Home == "" {
 		home, err := os.UserHomeDir()

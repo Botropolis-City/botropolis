@@ -70,6 +70,39 @@ func (d *Daemon) Pack(id string, packed bool) error {
 	return d.Rescan()
 }
 
+// Sweeper is a loader that can pack sessions up as the quiet sweep.
+type Sweeper interface {
+	Sweep(ids []string, at time.Time) error
+}
+
+// PackQuiet packs up, in one move, those of ids its own snapshot still
+// holds quiet for at least quietFor, rescans, and says how many it
+// packed (item 333).
+func (d *Daemon) PackQuiet(ids []string, quietFor time.Duration) (int, error) {
+	sw, ok := d.loader.(Sweeper)
+	if !ok {
+		return 0, state.ErrNoLedger
+	}
+	asked := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		asked[id] = true
+	}
+	now := d.clock()
+	var quiet []string
+	for _, s := range d.Snapshot().Sessions {
+		if asked[s.ID] && s.QuietFor(now, quietFor) {
+			quiet = append(quiet, s.ID)
+		}
+	}
+	d.scanMu.Lock()
+	err := sw.Sweep(quiet, now)
+	d.scanMu.Unlock()
+	if err != nil || len(quiet) == 0 {
+		return 0, err
+	}
+	return len(quiet), d.Rescan()
+}
+
 // Forgetter is a loader that can forget a demolished session.
 type Forgetter interface {
 	Forget(id string) error

@@ -35,6 +35,7 @@ func (s *Status) Run(out io.Writer, direct, all, asJSON bool) error {
 	if err != nil {
 		return err
 	}
+	swept := sweptCount(snapshot.Sessions)
 	if !all {
 		snapshot = LiveOnly(snapshot)
 	}
@@ -42,7 +43,25 @@ func (s *Status) Run(out io.Writer, direct, all, asJSON bool) error {
 		return RenderJSON(out, snapshot)
 	}
 	Render(out, snapshot)
+	switch {
+	case swept == 1:
+		fmt.Fprintln(out, "1 session packed up by the quiet sweep is in the depot; unpack it from the map")
+	case swept > 1:
+		fmt.Fprintf(out, "%d sessions packed up by the quiet sweep are in the depot; unpack any from the map\n", swept)
+	}
 	return nil
+}
+
+// sweptCount is how many sessions the quiet sweep packed up that are
+// still in the depot (item 333).
+func sweptCount(sessions []state.Session) int {
+	n := 0
+	for _, s := range sessions {
+		if s.Packed && s.Swept {
+			n++
+		}
+	}
+	return n
 }
 
 // RenderJSON writes the sessions as they are modelled, which is how the

@@ -91,6 +91,18 @@ func (d *Daemon) handle(ctx context.Context, conn net.Conn) {
 			if err := d.respond(conn, response); err != nil {
 				return
 			}
+		case proto.OpPackQuiet:
+			response := proto.Response{}
+			if request.PackQuiet == nil {
+				response.Error = "the quiet sweep names no sessions"
+			} else if packed, err := d.PackQuiet(request.PackQuiet.IDs, request.PackQuiet.QuietFor); err != nil {
+				response.Error = err.Error()
+			} else {
+				response.Packed = packed
+			}
+			if err := d.respond(conn, response); err != nil {
+				return
+			}
 		case proto.OpForget:
 			response := proto.Response{}
 			if request.Forget == "" {

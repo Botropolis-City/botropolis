@@ -123,6 +123,19 @@ func (c *Client) Pack(id string, packed bool) error {
 	return err
 }
 
+// PackQuiet has the daemon pack up those of ids still quiet for at least
+// quietFor, and answers how many it packed (item 333).
+func (c *Client) PackQuiet(ids []string, quietFor time.Duration) (int, error) {
+	if err := c.send(Request{Op: OpPackQuiet, PackQuiet: &PackQuiet{IDs: ids, QuietFor: quietFor}}); err != nil {
+		return 0, err
+	}
+	response, err := c.readResponse()
+	if err != nil {
+		return 0, err
+	}
+	return response.Packed, nil
+}
+
 // Forget has the daemon forget a demolished session (item 144).
 func (c *Client) Forget(id string) error {
 	if err := c.send(Request{Op: OpForget, Forget: id}); err != nil {

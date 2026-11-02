@@ -17,7 +17,20 @@ const (
 	PackMin     = 2 * time.Second
 	PackMax     = 6 * time.Second
 	PackFadeFor = 300 * time.Millisecond
+	// ConvoyGap is how long after one truck the next of a convoy
+	// leaves, and ConvoyMax the latest the last of one leaves, so a
+	// sweep of hundreds is still gone in seconds (item 333).
+	ConvoyGap = 400 * time.Millisecond
+	ConvoyMax = 4 * time.Second
 )
+
+// convoyGap is the gap between trucks when n leave together.
+func convoyGap(n int) time.Duration {
+	if n < 2 {
+		return 0
+	}
+	return min(ConvoyGap, ConvoyMax/time.Duration(n-1))
+}
 
 // HaulFor is how long a haul from one place to another takes: driven at
 // the city's truck speed, as deliveries are, so a far depot takes
@@ -59,8 +72,11 @@ type spot struct {
 
 // noteHauls compares where each session stood at the last snapshot with
 // where it stands now, and starts a haul for each that was packed up or
-// unpacked between them.
+// unpacked between them. Several packed up together leave as a convoy,
+// one after another; under reduced motion they cross-fade at once.
 func (s *Scene) noteHauls(now time.Time) {
+	first := len(s.hauls)
+	defer func() { s.convoy(first, now) }()
 	spots := map[string]spot{}
 	for _, b := range s.city.Buildings() {
 		id := b.Session.ID
@@ -77,6 +93,23 @@ func (s *Scene) noteHauls(now time.Time) {
 		s.hauls = append(s.hauls, Haul{SessionID: id, Kind: kind, From: was.at, To: b.Rect.Center(), Since: now, For: span, Hue: projectHue(SessionRoot(b.Session))})
 	}
 	s.spots = spots
+}
+
+// convoy staggers the pack hauls started from index first on.
+func (s *Scene) convoy(first int, now time.Time) {
+	if s.reduced {
+		return
+	}
+	var packs []int
+	for i := first; i < len(s.hauls); i++ {
+		if s.hauls[i].Kind == HaulPack {
+			packs = append(packs, i)
+		}
+	}
+	gap := convoyGap(len(packs))
+	for n, i := range packs {
+		s.hauls[i].Since = now.Add(time.Duration(n) * gap)
+	}
 }
 
 // retargetHauls sends every truck on its way to where its building now

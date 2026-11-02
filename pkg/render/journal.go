@@ -203,7 +203,9 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	x, y := plate.Min.X+2*grid, plate.Min.Y+2*grid
 	g.text(screen, city.Point{X: x, Y: y}, "Where you were", ui.Body, th.Palette.Text)
 	y += lineH + grid
-	g.text(screen, city.Point{X: x, Y: y}, sinceStrip(j.since, g.scene.Away(j.since), len(g.scene.ResetsDuring(j.since)), g.scene.Now().Location()), ui.Small, th.Palette.Dim)
+	strip := sinceStrip(j.since, g.scene.Away(j.since), len(g.scene.ResetsDuring(j.since)), g.scene.Now().Location())
+	strip = withSwept(strip, sweptSince(g.scene.Snapshot().Sessions, j.since))
+	g.text(screen, city.Point{X: x, Y: y}, strip, ui.Small, th.Palette.Dim)
 	y += lineH + 2*grid
 	j.drawn = 0
 	for i := range j.entries {

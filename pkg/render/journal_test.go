@@ -149,6 +149,30 @@ func TestComingBack(t *testing.T) {
 				assert.Contains(t, sinceStrip(at.Add(-64*time.Hour), nil, 1, time.UTC), "1 usage window reset")
 			})
 		})
+
+		// Item 333: what the quiet sweep did is counted beside the rest.
+		t.Run("when the quiet sweep packed sessions up", func(t *testing.T) {
+			since := at.Add(-64 * time.Hour)
+			packed := func(id string, ago time.Duration, swept bool) state.Session {
+				return state.Session{ID: id, Packed: true, Swept: swept, PackedAt: at.Add(-ago)}
+			}
+			sessions := []state.Session{
+				packed("in-gap", time.Hour, true), packed("also-in-gap", 2*time.Hour, true),
+				packed("before-gap", 70*time.Hour, true), packed("by-hand", time.Hour, false),
+			}
+
+			t.Run("it should count only those swept since you left", func(t *testing.T) {
+				assert.Equal(t, 2, sweptSince(sessions, since))
+			})
+
+			t.Run("the strip should say how many were packed up as quiet", func(t *testing.T) {
+				assert.Equal(t, "since Friday 17:00  ·  2 packed up as quiet", withSwept(sinceStrip(since, nil, 0, time.UTC), 2))
+			})
+
+			t.Run("and none were, the strip should say nothing of it", func(t *testing.T) {
+				assert.Equal(t, "since Friday 17:00", withSwept(sinceStrip(since, nil, 0, time.UTC), 0))
+			})
+		})
 	})
 }
 

@@ -106,6 +106,11 @@ type Options struct {
 	// Ladder is how long a stopped session rests before it is shuttered,
 	// and before it is overgrown; zero keeps the defaults. Item 86.
 	Ladder state.Thresholds
+	// QuietFor is how long a loose session rests before Pack up
+	// everything quiet packs it, and Sweep asks the daemon to pack the
+	// sessions counted and answers how many it did (item 333).
+	QuietFor time.Duration
+	Sweep    func(ids []string, quietFor time.Duration) (int, error)
 	// UsageRefresh is how often the city probes for usage on its own;
 	// zero leaves it to the u key, and the boats away until called.
 	// Item 79.
@@ -239,6 +244,7 @@ func Run(ctx context.Context, opts Options) error {
 	scene.SetLabels(!opts.HideLabels)
 	scene.SetShown(city.Shown{Gone: opts.ShowGone, Scripted: opts.ShowScripted})
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
+	game.quietFor, game.sweep = opts.QuietFor, opts.Sweep
 	if opts.Ladder != (state.Thresholds{}) {
 		scene.SetLadder(opts.Ladder)
 	}

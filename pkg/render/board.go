@@ -18,8 +18,10 @@ import (
 type board struct {
 	selected int
 	rect     city.Rect
-	// newButton is New session's button on the board.
-	newButton city.Rect
+	// newButton is New session's button on the board, and quietButton
+	// Pack up everything quiet's (item 333).
+	newButton   city.Rect
+	quietButton city.Rect
 }
 
 type boardRow struct {
@@ -92,6 +94,8 @@ func (b *board) keys(g *Game) bool {
 			g.SetStatus("copied stand-up: " + line)
 			g.act(city.Action{Kind: city.ActionCopy, Text: line})
 		}
+	case g.just(ebiten.KeyP):
+		g.sweepQuiet()
 	case g.just(ebiten.KeyArrowDown):
 		b.selected = max(0, min(b.selected+1, len(groups)-1))
 	case g.just(ebiten.KeyArrowUp):
@@ -110,10 +114,14 @@ func (b *board) keys(g *Game) bool {
 // click closes the board when the press lands outside it.
 func (b *board) click(g *Game, at city.Point) bool {
 	g.mu.Lock()
-	panel, button := b.rect, b.newButton
+	panel, button, quiet := b.rect, b.newButton, b.quietButton
 	g.mu.Unlock()
 	if button.Contains(at) {
 		g.openNewSession()
+		return true
+	}
+	if quiet.Contains(at) {
+		g.sweepQuiet()
 		return true
 	}
 	return panel.Contains(at)
@@ -148,6 +156,14 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.mu.Unlock()
 	g.roundRect(screen, button, th.Radius()/2, th.Palette.Hairline)
 	g.text(screen, city.Point{X: button.Min.X + grid, Y: button.Min.Y + grid/4}, label, ui.Small, th.Palette.Accent)
+	quietText := quietLabel(len(g.quietIDs())) + "  p"
+	qw, qh := g.faces.Measure(quietText, ui.Small)
+	quiet := city.RectAt(button.Min.X-grid-qw-grid*2, y, qw+grid*2, qh+grid/2)
+	g.mu.Lock()
+	b.quietButton = quiet
+	g.mu.Unlock()
+	g.roundRect(screen, quiet, th.Radius()/2, th.Palette.Hairline)
+	g.text(screen, city.Point{X: quiet.Min.X + grid, Y: quiet.Min.Y + grid/4}, quietText, ui.Small, th.Palette.Accent)
 	y += title
 	status := boardStatus(rows)
 	if len(rows) > 0 && !g.scene.Snapshot().GroupsReviewed {

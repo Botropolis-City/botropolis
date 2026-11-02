@@ -35,6 +35,9 @@ type LedgerEntry struct {
 	// when you last unpacked it (item 86, slice 3).
 	PackedAt   time.Time `json:"packedAt,omitempty"`
 	UnpackedAt time.Time `json:"unpackedAt,omitempty"`
+	// SweptAt is when the quiet sweep packed the session up, cleared by
+	// any later pack or unpack (item 333).
+	SweptAt time.Time `json:"sweptAt,omitempty"`
 	// DemolishedAt is when you demolished the session: claude rm keeps
 	// its transcript, so the ledger keeps it off the map (item 145).
 	DemolishedAt time.Time `json:"demolishedAt,omitempty"`
@@ -61,17 +64,30 @@ func (e LedgerEntry) Packed() bool {
 	return !e.PackedAt.IsZero() && e.PackedAt.After(e.UnpackedAt)
 }
 
+// Swept is whether the quiet sweep packed the session up and it has
+// stayed packed since (item 333).
+func (e LedgerEntry) Swept() bool {
+	return e.Packed() && !e.SweptAt.IsZero()
+}
+
 // Pack packs a session up at a time.
 func (l Ledger) Pack(id string, at time.Time) {
 	e := l[id]
-	e.PackedAt = at
+	e.PackedAt, e.SweptAt = at, time.Time{}
+	l[id] = e
+}
+
+// Sweep packs a session up at a time as the quiet sweep (item 333).
+func (l Ledger) Sweep(id string, at time.Time) {
+	e := l[id]
+	e.PackedAt, e.SweptAt = at, at
 	l[id] = e
 }
 
 // Unpack brings a session back at a time.
 func (l Ledger) Unpack(id string, at time.Time) {
 	e := l[id]
-	e.UnpackedAt = at
+	e.UnpackedAt, e.SweptAt = at, time.Time{}
 	l[id] = e
 }
 
@@ -94,7 +110,7 @@ func (l Ledger) record(s *Session) (changed, more bool) {
 		return false, false
 	}
 	was, ok := l[s.ID]
-	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt, DemolishedAt: was.DemolishedAt, Harness: ledgerHarness(s.Harness)}
+	entry := LedgerEntry{CWD: s.CWD, StartedAt: s.StartedAt, LastActivity: s.LastActivity, PackedAt: was.PackedAt, UnpackedAt: was.UnpackedAt, SweptAt: was.SweptAt, DemolishedAt: was.DemolishedAt, Harness: ledgerHarness(s.Harness)}
 	more = !ok || was.CWD != entry.CWD || !was.StartedAt.Equal(entry.StartedAt) || was.Harness != entry.Harness
 	if !more && was.LastActivity.Equal(entry.LastActivity) {
 		return false, false

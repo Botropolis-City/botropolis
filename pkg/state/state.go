@@ -155,6 +155,8 @@ type Session struct {
 	// once it had stopped: it is off the map, in the depot (item 86).
 	Packed   bool      `json:"packed,omitempty"`
 	PackedAt time.Time `json:"packedAt,omitzero"`
+	// Swept is a session the quiet sweep packed up (item 333).
+	Swept bool `json:"swept,omitempty"`
 	// Hourly is the session's usage by unix hour over its last week,
 	// for sparklines and the plant's breakdown.
 	Hourly      map[int64]claude.Usage `json:"hourly,omitempty"`

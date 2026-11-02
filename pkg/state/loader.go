@@ -774,6 +774,7 @@ func (l *Loader) markPacks(sessions []Session, now time.Time) bool {
 		if s.Packed {
 			s.PackedAt = e.PackedAt
 		}
+		s.Swept = e.Swept()
 	}
 	return changed
 }
@@ -848,6 +849,23 @@ func (l *Loader) Pack(id string, packed bool, at time.Time) error {
 		l.ledger.Pack(id, at)
 	} else {
 		l.ledger.Unpack(id, at)
+	}
+	return l.saveLedger()
+}
+
+// Sweep packs sessions up as the quiet sweep, in one save (item 333).
+func (l *Loader) Sweep(ids []string, at time.Time) error {
+	if l.ledgerPath == "" {
+		return ErrNoLedger
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	if err := l.loadLedger(); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		l.ledger.Sweep(id, at)
 	}
 	return l.saveLedger()
 }

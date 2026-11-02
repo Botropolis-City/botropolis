@@ -78,6 +78,9 @@ func (g *Game) applySetting(s ui.Setting) {
 		shown := g.scene.Shown()
 		shown.Scripted = s.Value == config.ScriptedShown
 		g.scene.SetShown(shown)
+	case config.KeyQuietDays:
+		days, _ := strconv.Atoi(s.Value)
+		g.quietFor = time.Duration(days) * 24 * time.Hour
 	case config.KeyShutteredDays, config.KeyOvergrownDays:
 		days, _ := strconv.Atoi(s.Value)
 		ladder := g.scene.Ladder()

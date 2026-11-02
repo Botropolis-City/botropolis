@@ -617,6 +617,8 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		JournalHours:   c.config.JournalHours,
 		LastCloseUp:    func() (state.CloseUp, error) { return state.LoadCloseUp(state.CloseUpPath()) },
 		Ladder:         state.Thresholds{Shuttered: time.Duration(c.config.ShutteredDays) * 24 * time.Hour, Overgrown: time.Duration(c.config.OvergrownDays) * 24 * time.Hour},
+		QuietFor:       time.Duration(c.config.QuietDays) * 24 * time.Hour,
+		Sweep:          sweeper(c.config),
 		UsageRefresh:   usageEvery,
 		Signage:        signage,
 		Settings:       settingsFor(c.config),
@@ -759,6 +761,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyDetail, Label: "detail", Options: []string{"full", "plain"}, Value: cfg.Detail},
 		{Key: config.KeyShutteredDays, Label: "shuttered days", Options: withValue([]string{"1", "3", "7", "14", "30"}, strconv.Itoa(cfg.ShutteredDays)), Value: strconv.Itoa(cfg.ShutteredDays)},
 		{Key: config.KeyOvergrownDays, Label: "overgrown days", Options: withValue([]string{"7", "14", "30", "60", "90", "180"}, strconv.Itoa(cfg.OvergrownDays)), Value: strconv.Itoa(cfg.OvergrownDays)},
+		{Key: config.KeyQuietDays, Label: "quiet days", Options: withValue([]string{"1", "3", "7", "14", "30"}, strconv.Itoa(cfg.QuietDays)), Value: strconv.Itoa(cfg.QuietDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
@@ -818,7 +821,7 @@ func settingValue(s ui.Setting) (string, any) {
 		}
 		f, _ := strconv.ParseFloat(s.Value, 64)
 		return s.Key, f
-	case config.KeyShutteredDays, config.KeyOvergrownDays:
+	case config.KeyShutteredDays, config.KeyOvergrownDays, config.KeyQuietDays:
 		n, _ := strconv.Atoi(s.Value)
 		return s.Key, n
 	case config.KeyTerminal:
@@ -898,6 +901,26 @@ func demolisher(cfg *config.Config) func(string) error {
 		}
 		defer func() { _ = client.Close() }()
 		return client.Forget(session)
+	}
+}
+
+var errSweepHome = errors.New("the quiet sweep packs up only your own sessions, not those of a home --home points at")
+
+// sweeper asks the daemon to pack up everything quiet the map counted,
+// and refuses for a home the run was pointed at, which writes nothing
+// (item 333).
+func sweeper(cfg *config.Config) func([]string, time.Duration) (int, error) {
+	if cfg.HomeSet {
+		return func([]string, time.Duration) (int, error) { return 0, errSweepHome }
+	}
+	socket := cfg.Socket
+	return func(ids []string, quietFor time.Duration) (int, error) {
+		client, err := proto.Dial(socket)
+		if err != nil {
+			return 0, fmt.Errorf("packing up needs the daemon: %w", err)
+		}
+		defer func() { _ = client.Close() }()
+		return client.PackQuiet(ids, quietFor)
 	}
 }
 
