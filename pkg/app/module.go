@@ -33,6 +33,7 @@ import (
 	"botropolis.city/botropolis/pkg/control"
 	"botropolis.city/botropolis/pkg/daemonctl"
 	"botropolis.city/botropolis/pkg/events"
+	"botropolis.city/botropolis/pkg/find"
 	"botropolis.city/botropolis/pkg/group"
 	"botropolis.city/botropolis/pkg/hotkey"
 	"botropolis.city/botropolis/pkg/render"
@@ -479,14 +480,10 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 	layout.SetTyping(typingFor(c.config.DistrictType, cmd.ErrOrStderr()))
 	actor := cityActor(c.config)
 	recording, _ := cli.Record(cmd)
-	feed := commands.Feed{
-		Socket:  c.config.Socket,
-		Source:  c.services.sourceAt(c.config, readSpeed(cli.Screenshot(cmd), recording)),
-		Poll:    2 * time.Second,
-		Retry:   5 * time.Second,
-		OnError: func(err error) { fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v\n", err) },
-		Since:   func() time.Time { return layout.Seen },
-	}
+	daemon := newCityDaemon(c.config, c.services.sourceAt(c.config, readSpeed(cli.Screenshot(cmd), recording)))
+	feed := daemon.feed()
+	feed.OnError = func(err error) { fmt.Fprintf(cmd.ErrOrStderr(), "botropolis: %v\n", err) }
+	feed.Since = func() time.Time { return layout.Seen }
 	detail, ok := city.ParseDetail(c.config.Detail)
 	if !ok {
 		return fmt.Errorf("unknown detail %q: use full or plain", c.config.Detail)
@@ -585,14 +582,12 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 			feed.Mismatch = outOfSync
 			feed.Run(ctx, offer)
 		},
-		Loading: func() (state.LoadProgress, error) { return proto.Loading(c.config.Socket) },
-		RestartDaemon: func(ctx context.Context) error {
-			return daemonctl.Restart(ctx, daemonctl.Native(), c.config.Socket, proto.Self())
-		},
+		Loading:        daemon.loading,
+		RestartDaemon:  daemon.restart,
 		Home:           c.config.Home,
 		FindChords:     &chords,
 		Paste:          control.Default("").Paste,
-		Search:         commands.NewFind(c.config.Socket, c.config.Home, c.services.source(c.config), time.Now).Search,
+		Search:         newCityDaemon(c.config, c.services.source(c.config)).search,
 		Headless:       cli.Headless(cmd),
 		Screenshot:     cli.Screenshot(cmd),
 		Anchors:        cli.Anchors(cmd),
@@ -678,6 +673,38 @@ func ownSocket(cfg *config.Config) string {
 		return ""
 	}
 	return cfg.Socket
+}
+
+// cityDaemon is what the city asks of a daemon besides its actions,
+// all of it through ownSocket (item 334).
+type cityDaemon struct {
+	socket string
+	source commands.SnapshotSource
+	finder *commands.Find
+	system daemonctl.System
+}
+
+func newCityDaemon(cfg *config.Config, source commands.SnapshotSource) cityDaemon {
+	socket := ownSocket(cfg)
+	finder := commands.NewFind(socket, cfg.Home, source, time.Now)
+	return cityDaemon{socket: socket, source: source, finder: finder, system: daemonctl.Native()}
+}
+
+func (d cityDaemon) feed() commands.Feed {
+	return commands.Feed{Socket: d.socket, Source: d.source, Poll: 2 * time.Second, Retry: 5 * time.Second}
+}
+
+func (d cityDaemon) loading() (state.LoadProgress, error) { return proto.Loading(d.socket) }
+
+func (d cityDaemon) restart(ctx context.Context) error {
+	if d.socket == "" {
+		return fmt.Errorf("restarting needs the daemon: %w", errNoOwnDaemon)
+	}
+	return daemonctl.Restart(ctx, d.system, d.socket, proto.Self())
+}
+
+func (d cityDaemon) search(q find.Query) ([]find.Hit, error) {
+	return d.finder.Search(q)
 }
 
 func cityActor(cfg *config.Config) *liveActor {

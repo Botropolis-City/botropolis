@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A city started with `--home` never writes your own daemon's ledger.**
-  Packing up, closing up or demolishing a session there went to your own daemon, which could mark a real session, or one that does not exist, in your depot.
-  Without a `--socket` of its own, the city now refuses to pack or close up, and says why.
+- **A city started with `--home` leaves your own daemon alone.**
+  It showed your own daemon's sessions, searched through it, and could restart it from the settings, and packing up, closing up or demolishing a session there could mark a real session, or one that does not exist, in your depot.
+  Without a `--socket` of its own, it now reads only the home it was given, and refuses to pack, close up or restart, saying why.
 
 ## [0.3.5] - 2026-11-03
 
