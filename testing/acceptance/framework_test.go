@@ -69,7 +69,13 @@ func TestTheWorkAFrameTakes(t *testing.T) {
 		// Item 280 lit a fourth landmark, the clinic, whose windows are a
 		// draw of their own after the cut of a sprite behind it: Aria
 		// raised the night's to 38 (2026-10-27).
-		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 20, 22: 38}, "item 280", nil, nil},
+		// Item 212 painted the aged lots in the ground layer, which took
+		// the zoomed desk's dry pass from 2.3–2.6% of a core to 1.3–1.7%,
+		// and left the standing city's fills to start after a sprite
+		// batch that one sprite over a fill then splits: Aria raised the
+		// night's to 39 (2026-11-03) until item 335's batcher brings it
+		// back to 38.
+		{"draw commands", func(f helpers.Frame) int { return f.Commands }, 70, map[int]int{14: 20, 22: 39}, "item 212", nil, nil},
 		{"render-target switches", func(f helpers.Frame) int { return f.Switches }, 30, map[int]int{14: 2, 22: 4}, "item 193", nil, nil},
 	}
 
