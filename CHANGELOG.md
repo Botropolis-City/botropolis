@@ -7,13 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **`botropolis rm` removes a session Claude Code has already dropped.**
-  Since Claude Code 2.1.310, stopping a background session removes its job, and `rm` then failed with *No job matching* and left the building standing.
-  Now it forgets the session anyway, from the CLI, the card and `status --live`, and says Claude Code had already dropped it.
-  Any other failure from Claude Code still stops the remove.
-
 ## [0.4.0] - 2026-11-03
 
 ### Added
@@ -52,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Without a `--socket` they showed your real sessions; they now read the home they were given, and `events`, whose log lives only in a daemon, says to pass `--socket`.
 - **The city no longer grows by several MiB at its second nightfall.**
   Redrawing the whole standing city, as it does when the light changes, now takes about a sixth of the draw calls, so the graphics library keeps less memory and the frame costs less.
+- **`botropolis rm` removes a session Claude Code has already dropped.**
+  Since Claude Code 2.1.310, stopping a background session removes its job, and `rm` then failed with *No job matching* and left the building standing.
+  Now it forgets the session anyway, from the CLI, the card and `status --live`, and says Claude Code had already dropped it.
+  Any other failure from Claude Code still stops the remove.
 
 ## [0.3.5] - 2026-11-03
 
