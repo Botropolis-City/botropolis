@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`botropolis rm` removes a session Claude Code has already dropped.**
+  Since Claude Code 2.1.310, stopping a background session removes its job, and `rm` then failed with *No job matching* and left the building standing.
+  Now it forgets the session anyway, from the CLI, the card and `status --live`, and says Claude Code had already dropped it.
+  Any other failure from Claude Code still stops the remove.
+
 ## [0.4.0] - 2026-11-03
 
 ### Added

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"time"
 
@@ -96,6 +97,14 @@ type Sessions struct {
 	ctl        Controller
 	forget     func(session string) error
 	demolished func(session string) error
+	notices    io.Writer
+}
+
+// WithNotices is where a remove says what it did that was not asked,
+// such as forgetting a session Claude Code had already dropped. Item 341.
+func (s *Sessions) WithNotices(w io.Writer) *Sessions {
+	s.notices = w
+	return s
 }
 
 // WithDemolished is told the session id of every session a remove or a
@@ -164,19 +173,31 @@ func (s *Sessions) Copy(ctx context.Context, text string) error {
 
 func (s *Sessions) Remove(ctx context.Context, id string) error {
 	if s.demolished == nil {
-		return s.ctl.Remove(ctx, id)
+		return s.dropped(id, s.ctl.Remove(ctx, id))
 	}
 	session, err := s.sessionOf(ctx, id)
 	if err != nil {
 		return err
 	}
-	if err := s.ctl.Remove(ctx, id); err != nil {
+	if err := s.dropped(id, s.ctl.Remove(ctx, id)); err != nil {
 		return err
 	}
 	if session == "" {
 		return nil
 	}
 	return s.demolished(session)
+}
+
+// dropped lets a remove carry on when Claude Code has no job left for the
+// session, saying so, and passes every other failure through. Item 341.
+func (s *Sessions) dropped(id string, err error) error {
+	if !errors.Is(err, control.ErrNoJob) {
+		return err
+	}
+	if s.notices != nil {
+		_, _ = fmt.Fprintf(s.notices, "%s: Claude Code had already dropped it; forgetting it\n", id)
+	}
+	return nil
 }
 
 // sessionOf is the session id a remove names: itself when it is one,

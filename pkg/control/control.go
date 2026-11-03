@@ -232,8 +232,16 @@ func (c *Control) Stop(ctx context.Context, id string) error {
 	return c.simple(ctx, "stop", id)
 }
 
+// ErrNoJob is claude rm saying it has no job by that id: Claude Code
+// 2.1.310's claude stop drops a job outright. Item 341.
+var ErrNoJob = errors.New("Claude Code has no job for that session")
+
 func (c *Control) Remove(ctx context.Context, id string) error {
-	return c.simple(ctx, "rm", id)
+	err := c.simple(ctx, "rm", id)
+	if err != nil && strings.Contains(err.Error(), "No job matching") {
+		return fmt.Errorf("%w: %w", ErrNoJob, err)
+	}
+	return err
 }
 
 func (c *Control) simple(ctx context.Context, verb, id string) error {

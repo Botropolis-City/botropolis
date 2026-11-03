@@ -252,7 +252,7 @@ func (s *services) Daemon(cfg *config.Config) cli.DaemonRunner {
 }
 
 func (s *services) Sessions(cfg *config.Config) cli.SessionsRunner {
-	return commands.NewSessions(cfg.Home, control.Default(cfg.Terminal)).WithForget(pruneForgetter(cfg)).WithDemolished(demolisher(cfg))
+	return commands.NewSessions(cfg.Home, control.Default(cfg.Terminal)).WithForget(pruneForgetter(cfg)).WithDemolished(demolisher(cfg)).WithNotices(os.Stderr)
 }
 
 func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
