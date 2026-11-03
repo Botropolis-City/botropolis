@@ -21,8 +21,10 @@ import (
 
 // Item 308: the switch to night costs about 49 MiB, within the settled
 // budgets only if it is paid once. The city of 600 districts follows its
-// clock, scrubbed day → night → day → night → day, and each light's
-// settled memory is held to the same light's before it. A phase is 180 s
+// clock, scrubbed day → night → day → night → day → night → day, and
+// the second of each light's settled memory is held to the first. A
+// third night and day are logged and not judged, so a step reads apart
+// from a ratchet (item 328). A phase is 180 s
 // and judged on its last 30 s: 40 s phases had not settled, and read a
 // ratchet as memory given back.
 //
@@ -41,8 +43,8 @@ const (
 // at each phase's start, 22:00 for night and 10:00 for day, an hour a
 // press.
 var (
-	cyclePresses = []int{0, 10, 12, 12, 12}
-	cycleNames   = []string{"warm-up day", "first night", "first day", "second night", "second day"}
+	cyclePresses = []int{0, 10, 12, 12, 12, 12, 12}
+	cycleNames   = []string{"warm-up day", "first night", "first day", "second night", "second day", "third night", "third day"}
 )
 
 // cycleReading is one settled reading, per measure, of the city.
@@ -94,6 +96,7 @@ func lightCycle(t *testing.T, windowed bool, env []string, read func(pids []int)
 
 	sums := make([]cycleReading, len(cyclePresses))
 	counts := make([]cycleReading, len(cyclePresses))
+	loads, loadCounts := make([]float64, len(cyclePresses)), make([]int, len(cyclePresses))
 	for i := range sums {
 		sums[i], counts[i] = cycleReading{}, cycleReading{}
 	}
@@ -125,6 +128,10 @@ sample:
 			sums[i][k] += v
 			counts[i][k]++
 		}
+		if l, ok := oneMinuteLoad(); ok {
+			loads[i] += l
+			loadCounts[i]++
+		}
 	}
 	means := make([]cycleReading, len(cyclePresses))
 	for i := range cyclePresses {
@@ -134,6 +141,9 @@ sample:
 		for k, n := range counts[i] {
 			means[i][k] = sums[i][k] / n
 			parts = append(parts, k+" "+strconv.FormatInt(means[i][k]>>20, 10)+" MiB")
+		}
+		if loadCounts[i] > 0 {
+			parts = append(parts, "load "+strconv.FormatFloat(loads[i]/float64(loadCounts[i]), 'f', 1, 64))
 		}
 		t.Logf("%s settled at %s", cycleNames[i], strings.Join(parts, ", "))
 	}
@@ -146,7 +156,7 @@ func TestLightCycleGivesItsMemoryBack(t *testing.T) {
 	gate := stressGateFor(os.Getenv)
 	t.Logf("the light cycle %s", gate.mode)
 
-	t.Run("when the city of 600 districts goes night, day, night and day by its scrubbed clock", func(t *testing.T) {
+	t.Run("when the city of 600 districts goes night, day, night, day, night and day by its scrubbed clock", func(t *testing.T) {
 		memory := filepath.Join(t.TempDir(), "memory.log")
 		var lines int
 		means := lightCycle(t, false, []string{"BOTROPOLIS_MEMORY_LOG=" + memory}, func(pids []int) cycleReading {
@@ -200,7 +210,7 @@ func TestLightCycleOnARealGPU(t *testing.T) {
 	gate := stressGateFor(os.Getenv)
 	t.Logf("the light cycle %s", gate.mode)
 
-	t.Run("when the city goes night, day, night and day on a real GPU", func(t *testing.T) {
+	t.Run("when the city goes night, day, night, day, night and day on a real GPU", func(t *testing.T) {
 		means := lightCycle(t, true, nil, func(pids []int) cycleReading {
 			gpu := drmTotal(pids[0])
 			return cycleReading{"Private_Dirty and GPU": privateDirty(pids[0]) + gpu, "GPU": gpu}
@@ -230,6 +240,21 @@ func holdCycle(t barT, g stressGate, light, measure string, first, second int64)
 	t.Helper()
 	holdToBar(t, g, second-first <= cycleMargin, "the second %s's %s settled at %d MiB against the first's %d MiB, the margin %d MiB",
 		light, measure, second>>20, first>>20, cycleMargin>>20)
+}
+
+// oneMinuteLoad is the machine's one-minute load average: how far a
+// second night stepped depended on what else the machine ran (item 328).
+func oneMinuteLoad() (float64, bool) {
+	data, err := os.ReadFile("/proc/loadavg")
+	if err != nil {
+		return 0, false
+	}
+	fields := strings.Fields(string(data))
+	if len(fields) == 0 {
+		return 0, false
+	}
+	l, err := strconv.ParseFloat(fields[0], 64)
+	return l, err == nil
 }
 
 // tiedToTest kills a process the cycle starts when the test's own
