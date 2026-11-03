@@ -65,6 +65,9 @@ type Shot struct {
 	// Script is the clip's choreography: the pointer gliding to things
 	// and clicking them, the wheel zooming, arrows panning.
 	Script []script.Cue `yaml:"script"`
+	// Daemon runs the shot against a daemon of its own, in its scratch
+	// directory, for a city that packs sessions up (item 333).
+	Daemon bool `yaml:"daemon"`
 }
 
 // Recording is how long a clip runs and at what frame rate.
@@ -320,10 +323,13 @@ func shotMedia(scenario Scenario, shot Shot) Media {
 type Filmer struct {
 	Corpus     Corpus
 	Botropolis string
-	FFmpeg     string
-	Out        string
-	Version    string
-	Log        io.Writer
+	// Daemon is the botropolisd a daemon shot starts; empty is the one
+	// beside Botropolis.
+	Daemon  string
+	FFmpeg  string
+	Out     string
+	Version string
+	Log     io.Writer
 	// Progress is told how far the run has got; nil reports nothing.
 	Progress *Progress
 	// Self is this binary, whose staging every shot depends on as much as
@@ -348,6 +354,7 @@ func (f Filmer) Film(paths []string) (Manifest, error) {
 	}
 	var scenarios []Scenario
 	total := 0
+	daemon := false
 	for _, path := range paths {
 		scenario, err := LoadScenario(path)
 		if err != nil {
@@ -358,6 +365,7 @@ func (f Filmer) Film(paths []string) (Manifest, error) {
 		}
 		for _, shot := range scenario.Shots {
 			total += shotUnits(shot)
+			daemon = daemon || shot.Daemon
 		}
 		scenarios = append(scenarios, scenario)
 	}
@@ -369,6 +377,9 @@ func (f Filmer) Film(paths []string) (Manifest, error) {
 	binaries := []string{f.Botropolis}
 	if f.Self != "" {
 		binaries = append(binaries, f.Self)
+	}
+	if daemon {
+		binaries = append(binaries, f.daemonPath())
 	}
 	inputs, err := inputsKey(f.Corpus.Dir, f.Source, binaries...)
 	if err != nil {
@@ -484,11 +495,20 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 		return nil, err
 	}
 	media := shotMedia(scenario, shot)
+	var opts []cityOption
+	if shot.Daemon {
+		sock, stop, err := f.startDaemon(work, tz)
+		if err != nil {
+			return nil, err
+		}
+		defer stop()
+		opts = append(opts, withDaemon(sock))
+	}
 	fmt.Fprintf(f.Log, "filming %s/%s\n", scenario.Name, shot.Name)
 	progress.Detail("filming")
 	if shot.Record == nil {
 		still := filepath.Join(dir, shot.Name+".png")
-		if err := f.city(work, tz, cityArgs(shot, home, still, "", withAnchors(anchorsFile(still)))); err != nil {
+		if err := f.city(work, tz, cityArgs(shot, home, still, "", append(opts, withAnchors(anchorsFile(still)))...)); err != nil {
 			return nil, err
 		}
 		if media.Anchors, err = readAnchors(anchorsFile(still)); err != nil {
@@ -509,7 +529,7 @@ func (f Filmer) shoot(scenario Scenario, shot Shot, progress *Progress) ([]Media
 		}
 	}
 	stop := watchFrames(frames, shotUnits(shot), progress)
-	err = f.record(work, tz, cityArgs(shot, home, "", frames), frames, fpsOf(shot.Record), director, shot.Timeline)
+	err = f.record(work, tz, cityArgs(shot, home, "", frames, opts...), frames, fpsOf(shot.Record), director, shot.Timeline)
 	stop()
 	if err != nil {
 		return nil, err
@@ -627,22 +647,7 @@ func (f Filmer) record(work, tz string, args []string, frames string, fps int, d
 
 func (f Filmer) cityCommand(work, tz string, args []string) *exec.Cmd {
 	cmd := exec.Command(f.Botropolis, args...)
-	env := []string{
-		"HOME=" + filepath.Join(work, "home"),
-		"XDG_STATE_HOME=" + filepath.Join(work, "state"),
-		"XDG_CONFIG_HOME=" + filepath.Join(work, "config"),
-		"XDG_CACHE_HOME=" + filepath.Join(work, "cache"),
-		"XDG_RUNTIME_DIR=" + filepath.Join(work, "run"),
-		"TZ=" + tz,
-	}
-	for _, kv := range os.Environ() {
-		key, _, _ := strings.Cut(kv, "=")
-		switch key {
-		case "PATH", "LANG", "LC_ALL", "TMPDIR":
-			env = append(env, kv)
-		}
-	}
-	cmd.Env = env
+	cmd.Env = filmEnv(work, tz)
 	return cmd
 }
 

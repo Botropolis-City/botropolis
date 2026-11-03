@@ -193,6 +193,26 @@ func (m *Multi) Pack(id string, packed bool, at time.Time) error {
 	return err
 }
 
+// Sweeper is a harness that can pack sessions up as the quiet sweep
+// (item 333).
+type Sweeper interface {
+	Sweep(ids []string, at time.Time) error
+}
+
+// Sweep packs sessions up as the quiet sweep through the first harness
+// that keeps the ledger, as Pack does.
+func (m *Multi) Sweep(ids []string, at time.Time) error {
+	err := state.ErrNoLedger
+	for _, h := range m.harnesses {
+		if s, ok := h.(Sweeper); ok {
+			if err = s.Sweep(ids, at); err == nil {
+				return nil
+			}
+		}
+	}
+	return err
+}
+
 // Forgetter is a harness that can forget a demolished session (item 144).
 type Forgetter interface {
 	Forget(id string) error

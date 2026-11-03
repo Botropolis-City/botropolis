@@ -135,6 +135,23 @@ func TestPackingOverHarnesses(t *testing.T) {
 			})
 		})
 
+		// Item 333: the daemon's loader is the harnesses together, so the
+		// quiet sweep has to reach the ledger through them as a pack does.
+		t.Run("when the "+h.name+" session is packed up by the quiet sweep through the daemon", func(t *testing.T) {
+			city := newLedgerCity(t, nil)
+			city.load(t)
+			require.NoError(t, city.multi.Sweep([]string{h.id}, now))
+			snapshot := city.load(t)
+
+			t.Run("it should mark it packed", func(t *testing.T) {
+				assert.True(t, onlySession(t, snapshot, h.id).Packed)
+			})
+
+			t.Run("it should mark it swept", func(t *testing.T) {
+				assert.True(t, onlySession(t, snapshot, h.id).Swept)
+			})
+		})
+
 		t.Run("when a packed-up "+h.name+" session does something new", func(t *testing.T) {
 			city := newLedgerCity(t, state.Ledger{h.id: {CWD: ledgerCWD, Harness: h.recordedAs, PackedAt: h.lastActivity.Add(-10 * time.Minute)}})
 			snapshot := city.load(t)

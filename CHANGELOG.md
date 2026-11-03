@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Tidy up: a quick walk through what changed while you were away.**
+  When a city opens for the first time, or after more than a week away (`tidy_days`), and there is something to tidy, a short walk opens, one card at a time.
+  The first card offers *Start clean*, which packs up what had gone quiet before you left and keeps the groups the city found, all in one step.
+  It also offers *Walk through it* and *Later*.
+  Walking through, each group gets its own card, the busiest and largest first, with its members listed and the camera on its line.
+  Keep it, rename it, drop it, split it by directory, or take one member out.
+  A last card offers to pack up every session in no group that has been quiet for a week.
+  `Esc` keeps what you decided and leaves the rest as the city's guesses until the next long gap.
+  City Hall's board opens the walk any time with *Tidy up* (`t`), and so does the journal when it has something to offer.
+- **Pack up everything quiet.**
+  One button on City Hall (`p`) packs every session in no group that has rested for `quiet_days` into the depot as a convoy, saying how many before and after.
+  Unpack any of them from the depot, or just use one again, and it comes back.
+- **Groups can be renamed, closed and corrected.**
+  Rename a group from its board row (`F2`) or a member's card, and the name sticks.
+  *Close group* packs every session in it into the depot and takes it off the board, and unpacking any of them brings it back.
+  A group whose every pull request has merged offers it first.
+  Take a session out of a group from its card, or from the group's list with `-`, and it stays out.
+  A session in no group that looks like it belongs to one says which on its card, with *join* beside *move to group*.
+
+### Changed
+
+- **A group counts only the sessions on the map.**
+  Board rows and cards name the members and leave out sessions the map hides, such as scripted runs and deleted transcripts.
+  A group with fewer than two sessions on the map is no longer shown.
+
 ### Fixed
 
 - **A city started with `--home` leaves your own daemon alone.**
