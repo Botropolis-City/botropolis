@@ -29,7 +29,7 @@ func (stubClaude) Read(context.Context, string, ...string) (string, error) { ret
 // claude rm then has no job for it, and rm still forgets the session.
 func TestRemoveWhenTheCLIHasNoJob(t *testing.T) {
 	session := "abcdef12-0000-0000-0000-000000000000"
-	removing := func(rm error) (error, []string, string) {
+	removing := func(rm error) ([]string, string, error) {
 		var told []string
 		var said strings.Builder
 		ctl := control.New(stubClaude{rm: rm}, control.Native(), func(string) string { return "" }, func(string) bool { return false })
@@ -38,11 +38,11 @@ func TestRemoveWhenTheCLIHasNoJob(t *testing.T) {
 			return nil
 		})
 		err := sessions.Remove(context.Background(), session)
-		return err, told, said.String()
+		return told, said.String(), err
 	}
 
 	t.Run("when claude rm says no job matches", func(t *testing.T) {
-		err, told, said := removing(errors.New("claude rm abcdef12: exit status 1: No job matching 'abcdef12'"))
+		told, said, err := removing(errors.New("claude rm abcdef12: exit status 1: No job matching 'abcdef12'"))
 
 		t.Run("it should succeed", func(t *testing.T) {
 			assert.NoError(t, err)
@@ -58,7 +58,7 @@ func TestRemoveWhenTheCLIHasNoJob(t *testing.T) {
 	})
 
 	t.Run("when claude rm fails any other way", func(t *testing.T) {
-		err, told, _ := removing(errors.New("claude rm abcdef12: exit status 1: permission denied"))
+		told, _, err := removing(errors.New("claude rm abcdef12: exit status 1: permission denied"))
 
 		t.Run("it should fail", func(t *testing.T) {
 			assert.Error(t, err)
