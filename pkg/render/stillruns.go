@@ -59,20 +59,12 @@ func (l *drawList) playRun(dst *ebiten.Image, i int) {
 	switch c.kind {
 	case cmdImage:
 		o := &l.imgOps[c.op]
-		if o.CompositeMode != ebiten.CompositeModeCustom || !identityColorM(&o.ColorM) {
-			l.playAlone(dst, c)
-			return
-		}
 		op.Filter, op.Blend = o.Filter, o.Blend
 	case cmdColorM:
 		o := &l.cmOps[c.op]
 		op.Filter, op.Blend, cm = o.opts.Filter, o.opts.Blend, &o.cm
 	case cmdMesh:
 		o := &l.triOps[c.op]
-		if o.CompositeMode != ebiten.CompositeModeCustom || !identityColorM(&o.ColorM) || o.AntiAlias || o.FillRule != ebiten.FillRuleFillAll {
-			l.playAlone(dst, c)
-			return
-		}
 		op.Filter, op.Blend, op.Address = o.Filter, o.Blend, o.Address
 	default:
 		l.playAlone(dst, c)
@@ -185,23 +177,6 @@ func (l *drawList) flushRun() {
 		Blend:          r.op.Blend,
 		Filter:         r.op.Filter,
 	})
-}
-
-// identityColorM is whether m, a deprecated option's colour matrix,
-// changes nothing.
-func identityColorM(m *ebiten.ColorM) bool {
-	for i := range 4 {
-		for j := range 5 {
-			want := 0.0
-			if i == j {
-				want = 1
-			}
-			if m.Element(i, j) != want {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // sameColorM is whether two colour matrices are the same matrix.
