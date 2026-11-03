@@ -46,7 +46,8 @@ func (g *Game) maybeFirstRun() {
 	if g.firstRunAsked || g.share != nil || g.screenshot != "" || g.record != "" || g.driven {
 		return
 	}
-	if g.openFirstRun() {
+	// The first run is the tidy-up walk (item 333).
+	if !g.scene.Snapshot().GroupsReviewed && g.openWalk() {
 		g.firstRunAsked = true
 	}
 }
@@ -71,7 +72,11 @@ func reviewOf(groups []state.Group) group.Review {
 			if i < len(gr.MemberDirs) {
 				dir = gr.MemberDirs[i]
 			}
-			row.Members = append(row.Members, group.ReviewMember{Session: id, Dir: dir})
+			title := id
+			if i < len(gr.MemberTitles) {
+				title = gr.MemberTitles[i]
+			}
+			row.Members = append(row.Members, group.ReviewMember{Session: id, Dir: dir, Title: title})
 		}
 		r.Rows = append(r.Rows, row)
 	}

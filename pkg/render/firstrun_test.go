@@ -53,8 +53,7 @@ func TestFirstRun(t *testing.T) {
 	opened := func(t *testing.T) (*Game, *recordingActor) {
 		t.Helper()
 		g, actor := newGame(groups, false)
-		g.maybeFirstRun()
-		require.NotNil(t, g.firstRun(), "the first run should be open")
+		require.True(t, g.openFirstRun(), "the first run should open")
 		return g, actor
 	}
 
@@ -73,8 +72,8 @@ func TestFirstRun(t *testing.T) {
 			g, _ := newGame(c.groups, c.reviewed)
 			g.maybeFirstRun()
 
-			t.Run("it should open the first run only when there is something to review", func(t *testing.T) {
-				assert.Equal(t, c.open, g.firstRun() != nil)
+			t.Run("it should open the tidy-up walk only when there is something to review (item 333)", func(t *testing.T) {
+				assert.Equal(t, c.open, g.walk() != nil)
 			})
 		})
 	}
@@ -84,8 +83,8 @@ func TestFirstRun(t *testing.T) {
 		g.screenshot = "/tmp/never-written.png"
 		g.maybeFirstRun()
 
-		t.Run("it should not open the first run over the frame", func(t *testing.T) {
-			assert.Nil(t, g.firstRun())
+		t.Run("it should not open the walk over the frame", func(t *testing.T) {
+			assert.Nil(t, g.walk())
 		})
 	})
 
@@ -200,11 +199,13 @@ func TestFirstRun(t *testing.T) {
 					assert.Empty(t, actor.done)
 				})
 
-				t.Run("it should not open again in this run", func(t *testing.T) {
-					g, _ := opened(t)
-					press(t, g, key)
+				t.Run("and the walk it became is left the same way, it should not open again in this run", func(t *testing.T) {
+					g, _ := newGame(groups, false)
 					g.maybeFirstRun()
-					assert.Nil(t, g.firstRun())
+					require.NotNil(t, g.walk())
+					press(t, g, ebiten.KeyEscape)
+					g.maybeFirstRun()
+					assert.Nil(t, g.walk())
 				})
 			})
 		}

@@ -2,6 +2,8 @@ package group
 
 import (
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -13,6 +15,9 @@ type Review struct {
 	// Apart are sets of sessions a split has separated, which must not be
 	// joined again: each part, and each session left loose, is one set.
 	Apart [][][]string
+	// Out are the pairs a member taken out of a row makes with the rest
+	// of it, remembered as not related (item 333).
+	Out []Pair
 }
 
 type ReviewRow struct {
@@ -24,11 +29,18 @@ type ReviewRow struct {
 	// Changed is a row a merge or a split made, whose members have to be
 	// put in it by hand because detection would not put them there.
 	Changed bool
+	// Renamed is a row given its name by hand, and Decided one a choice
+	// was made about, which is all leaving the walk for now writes
+	// (item 333).
+	Renamed bool
+	Decided bool
 }
 
 type ReviewMember struct {
 	Session string
 	Dir     string
+	// Title is the member's name as the city says it (item 333).
+	Title string
 }
 
 // NewReview proposes every group found, each kept.
@@ -61,7 +73,57 @@ func (r ReviewRow) Dirs() []string {
 func (r *Review) Toggle(i int) {
 	if i >= 0 && i < len(r.Rows) {
 		r.Rows[i].Keep = !r.Rows[i].Keep
+		r.Rows[i].Decided = true
 	}
+}
+
+// Decide marks a row decided as it stands: kept, or dropped.
+func (r *Review) Decide(i int) {
+	if i >= 0 && i < len(r.Rows) {
+		r.Rows[i].Decided = true
+	}
+}
+
+// Rename names a row by hand (item 333).
+func (r *Review) Rename(i int, name string) {
+	if i >= 0 && i < len(r.Rows) {
+		r.Rows[i].Name, r.Rows[i].Renamed, r.Rows[i].Decided = strings.TrimSpace(name), true, true
+	}
+}
+
+// TakeOut takes a member out of a row, not related to the rest of it
+// (item 333).
+func (r *Review) TakeOut(i int, session string) {
+	if i < 0 || i >= len(r.Rows) {
+		return
+	}
+	row := &r.Rows[i]
+	at := slices.IndexFunc(row.Members, func(m ReviewMember) bool { return m.Session == session })
+	if at < 0 {
+		return
+	}
+	row.Members = slices.Delete(slices.Clone(row.Members), at, at+1)
+	for _, m := range row.Members {
+		r.Out = append(r.Out, Pair{session, m.Session})
+	}
+	row.Decided = true
+}
+
+// AnyDecided is whether any choice has been made in the review.
+func (r Review) AnyDecided() bool {
+	return len(r.Apart) > 0 || len(r.Out) > 0 || slices.ContainsFunc(r.Rows, func(row ReviewRow) bool { return row.Decided })
+}
+
+// DecidedOnly is the review with only the rows a choice was made about,
+// and every split and take-out.
+func (r Review) DecidedOnly() Review {
+	out := Review{Apart: r.Apart, Out: r.Out}
+	for _, row := range r.Rows {
+		if row.Decided {
+			out.Rows = append(out.Rows, row)
+		}
+	}
+	return out
 }
 
 // Merge moves row from's members into row into, and removes from.
@@ -70,7 +132,7 @@ func (r *Review) Merge(from, into int) {
 		return
 	}
 	r.Rows[into].Members = append(r.Rows[into].Members, r.Rows[from].Members...)
-	r.Rows[into].Changed = true
+	r.Rows[into].Changed, r.Rows[into].Decided = true, true
 	r.Rows = append(r.Rows[:from], r.Rows[from+1:]...)
 }
 
@@ -99,7 +161,7 @@ func (r *Review) Split(i int) {
 		}
 		apart = append(apart, ids)
 		parts = append(parts, ReviewRow{ID: newID(row.ID + "/" + dir), Name: row.Name + " · " + filepath.Base(dir),
-			Reason: row.Reason, Members: ms, Keep: true, Changed: true})
+			Reason: row.Reason, Members: ms, Keep: true, Changed: true, Decided: true})
 	}
 	r.Apart = append(r.Apart, apart)
 	r.Rows = append(r.Rows[:i], append(parts, r.Rows[i+1:]...)...)
@@ -118,13 +180,14 @@ func (m Memory) Confirm(r Review, at time.Time) Memory {
 			m.NotRelated = append(m.NotRelated, pairsWithin(ids)...)
 			continue
 		}
-		m.Groups = upsert(m.Groups, Stored{ID: row.ID, Name: row.Name, Members: ids})
+		m.Groups = upsert(m.Groups, Stored{ID: row.ID, Name: row.Name, Renamed: row.Renamed, Members: ids})
 		if row.Changed {
 			for _, id := range ids {
 				m = m.WithMove(id, row.ID)
 			}
 		}
 	}
+	m.NotRelated = append(m.NotRelated, r.Out...)
 	for _, apart := range r.Apart {
 		for i := range apart {
 			for j := i + 1; j < len(apart); j++ {
@@ -141,6 +204,13 @@ func (m Memory) Confirm(r Review, at time.Time) Memory {
 	return m
 }
 
+// ConfirmDecided is memory with only the review's decisions accepted,
+// leaving every row nobody chose about to detection's guesses, and the
+// tidy-up marked reviewed (item 333).
+func (m Memory) ConfirmDecided(r Review, at time.Time) Memory {
+	return m.Confirm(r.DecidedOnly(), at)
+}
+
 func pairsWithin(ids []string) []Pair {
 	var pairs []Pair
 	for i := range ids {
@@ -154,7 +224,7 @@ func pairsWithin(ids []string) []Pair {
 func upsert(groups []Stored, s Stored) []Stored {
 	for i := range groups {
 		if groups[i].ID == s.ID {
-			if groups[i].Renamed {
+			if groups[i].Renamed && !s.Renamed {
 				s.Name, s.Renamed = groups[i].Name, true
 			}
 			groups[i] = s

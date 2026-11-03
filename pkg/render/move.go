@@ -36,10 +36,13 @@ type picker struct {
 	// renaming is the group being renamed, when the panel was opened
 	// to rename one rather than to move a session (item 333).
 	renaming string
-	name     field
-	refused  string
-	ime      *textinput.Composer
-	caret    city.Rect
+	// named, when set, takes the new name instead of the actor: the
+	// walk keeps it until it is left (item 333).
+	named   func(name string)
+	name    field
+	refused string
+	ime     *textinput.Composer
+	caret   city.Rect
 }
 
 func (g *Game) picker() *picker {
@@ -60,11 +63,14 @@ func (g *Game) openPicker(session string) {
 }
 
 // openRenamer opens the panel on a group's name, to rename it.
-func (g *Game) openRenamer(id, name string) {
+func (g *Game) openRenamer(id, name string) { g.openRenamerFor(id, name, nil) }
+
+// openRenamerFor opens it handing the name to named, when given.
+func (g *Game) openRenamerFor(id, name string, named func(string)) {
 	if g.picker() != nil {
 		return
 	}
-	p := &picker{renaming: id}
+	p := &picker{renaming: id, named: named}
 	g.startNaming(p)
 	p.name.insert(name)
 	g.overlays.push(p)
@@ -169,6 +175,10 @@ func (p *picker) nameKeys(g *Game) bool {
 			return true
 		}
 		p.stopNaming()
+		if p.named != nil {
+			p.named(name)
+			return false
+		}
 		g.act(city.Action{Kind: city.ActionRename, Group: p.renaming, GroupName: name})
 		g.SetStatus("renamed the group " + name)
 		return false

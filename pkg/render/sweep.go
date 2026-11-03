@@ -44,6 +44,14 @@ func (g *Game) sweepQuiet() {
 		g.SetStatus(fmt.Sprintf("nothing in no group has been quiet for %s", daysPhrase(quietFor)))
 		return
 	}
+	g.sweepIDs(ids, quietFor)
+}
+
+// sweepIDs packs sessions up as the quiet sweep, beside the loop.
+func (g *Game) sweepIDs(ids []string, quietFor time.Duration) {
+	if len(ids) == 0 {
+		return
+	}
 	if g.sweep == nil {
 		g.SetStatus("packing up needs the daemon, which keeps the ledger of what is packed; start botropolisd")
 		return

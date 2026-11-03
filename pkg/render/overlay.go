@@ -73,6 +73,16 @@ func (s overlays) top() overlay {
 
 func (s *overlays) push(o overlay) { *s = append(*s, o) }
 
+// remove takes one overlay off the stack, wherever it is.
+func (s *overlays) remove(o overlay) {
+	for i := len(*s) - 1; i >= 0; i-- {
+		if (*s)[i] == o {
+			*s = append((*s)[:i], (*s)[i+1:]...)
+			return
+		}
+	}
+}
+
 // pop takes the top modal overlay off the stack.
 func (s *overlays) pop() {
 	for i := len(*s) - 1; i >= 0; i-- {

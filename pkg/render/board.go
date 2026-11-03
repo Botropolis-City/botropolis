@@ -106,6 +106,13 @@ func (b *board) keys(g *Game) bool {
 		}
 	case g.just(ebiten.KeyP):
 		g.sweepQuiet()
+	case g.just(ebiten.KeyT):
+		// Tidy up takes the board's place on the stack (item 333).
+		g.overlays.pop()
+		if !g.openWalk() {
+			g.overlays.push(b)
+			g.SetStatus("nothing to tidy: every group was seen and nothing in no group is quiet")
+		}
 	case g.just(ebiten.KeyDelete):
 		if b.selected < len(groups) {
 			b.closeKey(g, groups[b.selected])

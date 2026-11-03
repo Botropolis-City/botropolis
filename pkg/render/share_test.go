@@ -450,7 +450,7 @@ func TestSharingLeavesNothingBehind(t *testing.T) {
 		r.g.scene.SetSnapshot(owed)
 		r.press(t, ebiten.KeyS, true)
 		r.g.maybeFirstRun()
-		_, opened := r.g.overlays.top().(*firstRun)
+		_, opened := r.g.overlays.top().(*walk)
 
 		t.Run("it should not open while sharing", func(t *testing.T) {
 			assert.False(t, opened)
@@ -459,8 +459,8 @@ func TestSharingLeavesNothingBehind(t *testing.T) {
 		t.Run("and sharing ends", func(t *testing.T) {
 			r.press(t, ebiten.KeyEscape, false)
 			r.g.maybeFirstRun()
-			review, ok := r.g.overlays.top().(*firstRun)
-			require.True(t, ok, "the first run should open once sharing ends")
+			review, ok := r.g.overlays.top().(*walk)
+			require.True(t, ok, "the tidy-up walk should open once sharing ends (item 333)")
 
 			t.Run("it should review the groups by their own names", func(t *testing.T) {
 				require.NotEmpty(t, review.review.Rows)
