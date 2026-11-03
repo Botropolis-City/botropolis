@@ -51,6 +51,7 @@ var bindings = []ui.Key{
 	{Key: "u", Action: "fetch the plan's usage again; the launch carries it down the river"},
 	{Key: "g", Action: "groups board (also click City Hall)"},
 	{Key: "F2", Action: "on the groups board: rename the chosen group"},
+	{Key: "delete delete", Action: "on the groups board: close the chosen group, packing its sessions into the depot"},
 	{Key: "- in a group's list", Action: "take the stepped site's session out of the group"},
 	{Key: "shift+n", Action: "New session, in any directory (also on the board)"},
 	{Key: "t", Action: "timeline; enter jumps to the session"},

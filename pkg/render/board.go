@@ -22,6 +22,10 @@ type board struct {
 	// Pack up everything quiet's (item 333).
 	newButton   city.Rect
 	quietButton city.Rect
+	// closing is the group Delete was pressed on, and closingAt when:
+	// a second press within the arming time closes it (item 333).
+	closing   string
+	closingAt time.Time
 }
 
 type boardRow struct {
@@ -56,7 +60,7 @@ func boardStatus(rows []boardRow) string {
 	if len(rows) == 0 {
 		return "no groups yet: sessions join one when they share a ticket, a link or their wording"
 	}
-	return fmt.Sprintf("%d groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, F2 renames it, esc closes", len(rows))
+	return fmt.Sprintf("%d groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, F2 renames it, Delete closes it, esc closes", len(rows))
 }
 
 func (g *Game) board() *board {
@@ -102,6 +106,10 @@ func (b *board) keys(g *Game) bool {
 		}
 	case g.just(ebiten.KeyP):
 		g.sweepQuiet()
+	case g.just(ebiten.KeyDelete):
+		if b.selected < len(groups) {
+			b.closeKey(g, groups[b.selected])
+		}
 	case g.just(ebiten.KeyF2):
 		if b.selected < len(groups) {
 			g.openRenamer(groups[b.selected].ID, groups[b.selected].Name)
@@ -119,6 +127,31 @@ func (b *board) keys(g *Game) bool {
 		}
 	}
 	return true
+}
+
+// closeKey closes the chosen group on a second Delete, on the same row
+// and within the arming time, so one key never packs a group up
+// (item 333).
+func (b *board) closeKey(g *Game, gr state.Group) {
+	now := g.now()
+	if b.closing == gr.ID && now.Sub(b.closingAt) <= city.DemolishArmFor {
+		b.closing = ""
+		action, note := g.scene.CloseGroup(gr.ID)
+		g.act(action)
+		g.SetStatus(note)
+		return
+	}
+	b.closing, b.closingAt = gr.ID, now
+	g.SetStatus("press Delete again to close " + gr.Name + ": " + city.ActionCloseGroup.Describe())
+}
+
+// closeOffer is what a group's row says when closing it is the next
+// thing to do: every pull request in it merged (item 333).
+func (g *Game) closeOffer(id string) string {
+	if g.scene.AllMerged(id) {
+		return "every pull request merged: Delete closes it"
+	}
+	return ""
 }
 
 // click closes the board when the press lands outside it.
@@ -192,7 +225,11 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		move := g.clip(row.Move+"   waited "+row.Waited, inner*0.53, ui.Small)
 		mw, _ := g.faces.Measure(move, ui.Small)
 		g.text(screen, city.Point{X: x + inner - mw, Y: y}, move, ui.Small, th.Color(ui.MoveTone(g.scene.Groups()[i].Move)))
-		g.text(screen, city.Point{X: x, Y: y + body}, g.clip("members    "+row.Members, inner, ui.Small), ui.Small, th.Palette.Dim)
+		members := "members    " + row.Members
+		if offer := g.closeOffer(g.scene.Groups()[i].ID); offer != "" {
+			members += "   " + offer
+		}
+		g.text(screen, city.Point{X: x, Y: y + body}, g.clip(members, inner, ui.Small), ui.Small, th.Palette.Dim)
 		g.text(screen, city.Point{X: x, Y: y + body + small}, g.clip("last time  "+row.LastTime, inner, ui.Small), ui.Small, th.Palette.Dim)
 		g.text(screen, city.Point{X: x, Y: y + body + small*2}, g.clip("next       "+row.Next, inner, ui.Small), ui.Small, th.Palette.Dim)
 		y += rowHeight

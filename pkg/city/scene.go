@@ -54,7 +54,10 @@ const (
 	ActionTakeOut       ActionKind = "take out of group"
 	ActionRenameGroup   ActionKind = "rename group"
 	ActionRename        ActionKind = "rename"
-	ActionGenerate      ActionKind = "generate summary"
+	// ActionCloseGroup packs every session in Sessions up and stores
+	// Group closed (item 333).
+	ActionCloseGroup ActionKind = "close group"
+	ActionGenerate   ActionKind = "generate summary"
 	// Read opens the reading pane, the level below the card's sentence.
 	// Item 83.
 	ActionRead ActionKind = "read"
@@ -102,6 +105,8 @@ type Action struct {
 	// pinned to start with next time, and Pause the ones you chose to
 	// pause; every other session is left running (item 86).
 	Open, Pinned, Pause []string
+	// Sessions are what ActionCloseGroup packs up (item 333).
+	Sessions []string
 }
 
 // Light is how the scene decides night: from the sessions, or forced
@@ -1156,7 +1161,7 @@ func (s *Scene) Actions() []ActionKind {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
 	if s.selected.Group != nil {
-		kinds = append(kinds, ActionTakeOut, ActionRenameGroup, ActionCopyStandup)
+		kinds = append(kinds, ActionTakeOut, ActionRenameGroup, ActionCloseGroup, ActionCopyStandup)
 	}
 	if s.selected.Group != nil && len(s.selected.Session.GroupWords) > 0 {
 		kinds = append(kinds, ActionMuteWord)
@@ -1166,7 +1171,54 @@ func (s *Scene) Actions() []ActionKind {
 	} else {
 		kinds = append(kinds, ActionDetails)
 	}
-	return s.lensFirst(kinds)
+	kinds = s.lensFirst(kinds)
+	if s.selected.Group != nil && s.AllMerged(s.selected.Group.ID) {
+		i := slices.Index(kinds, ActionCloseGroup)
+		kinds = append([]ActionKind{ActionCloseGroup}, slices.Delete(kinds, i, i+1)...)
+	}
+	return kinds
+}
+
+// AllMerged is whether a group's sessions on the map have pull requests
+// and every one of them merged, when closing it is offered first
+// (item 333).
+func (s *Scene) AllMerged(id string) bool {
+	some := false
+	for _, b := range s.city.Buildings() {
+		if b.Group == nil || b.Group.ID != id {
+			continue
+		}
+		for _, pr := range b.Session.PRs {
+			if !pr.Merged() {
+				return false
+			}
+			some = true
+		}
+	}
+	return some
+}
+
+// CloseGroup is the action that closes a group, packing every session
+// the snapshot has in it, on the map or not, and what to say of it
+// (item 333).
+func (s *Scene) CloseGroup(id string) (Action, string) {
+	name := ""
+	for _, g := range s.snapshot.Groups {
+		if g.ID == id {
+			name = g.Name
+		}
+	}
+	if name == "" {
+		return Action{}, "no such group"
+	}
+	var members []string
+	for _, rg := range s.real.Groups {
+		if rg.ID == id {
+			members = slices.Clone(rg.Members)
+		}
+	}
+	return Action{Kind: ActionCloseGroup, Group: id, Sessions: members},
+		fmt.Sprintf("closed %s, packing %s into the depot", name, plural(len(members), "session"))
 }
 
 // lensFirst moves the lens's first action to the front of the card, or
@@ -1249,6 +1301,11 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 			return Action{}, "not in a group"
 		}
 		return Action{Kind: ActionTakeOut, SessionID: b.Session.ID, Group: b.Group.ID}, "took " + b.Card(s.city.Time).Title + " out of " + b.Group.Name
+	case ActionCloseGroup:
+		if b.Group == nil {
+			return Action{}, "not in a group"
+		}
+		return s.CloseGroup(b.Group.ID)
 	case ActionRenameGroup:
 		if b.Group == nil {
 			return Action{}, "not in a group"

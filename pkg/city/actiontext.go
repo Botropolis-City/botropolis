@@ -26,6 +26,7 @@ var actionText = map[ActionKind]string{
 	ActionTakeOut:       "Takes this session out of its group, and keeps it out.",
 	ActionRenameGroup:   "Gives this session's group a name you choose, which the city keeps.",
 	ActionRename:        "Gives the group the name you typed.",
+	ActionCloseGroup:    "Packs every session in this group into the depot and takes the group off the board. Unpack any of them to bring it back.",
 	ActionGenerate:      "Asks Claude for a short summary of this session. This uses tokens.",
 	ActionRead:          "Opens the conversation here, to read without leaving the city.",
 	ActionCopy:          "Copies this line.",

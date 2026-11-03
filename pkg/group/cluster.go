@@ -30,9 +30,19 @@ func (d *detection) detect(memory Memory, edges []edge) Result {
 	groups := d.groups(comps, edges, memory)
 	groups = d.placeMoved(groups, memory)
 	groups = d.joinStarted(groups, memory)
+	groups = withoutClosed(groups, memory)
 	result := Result{Groups: groups, Capped: d.capped, Common: d.commonNames()}
 	result.Suggestions = d.suggest(groups, edges)
 	return result
+}
+
+// withoutClosed is groups but those closed by hand, whose members are
+// left in no group (item 333).
+func withoutClosed(groups []Group, memory Memory) []Group {
+	if len(memory.Closed) == 0 {
+		return groups
+	}
+	return slices.DeleteFunc(groups, func(g Group) bool { return slices.Contains(memory.Closed, g.ID) })
 }
 
 func newDetection(members []Member, memory Memory, prior *Detector) *detection {

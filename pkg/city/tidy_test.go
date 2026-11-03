@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/state"
 )
 
@@ -134,6 +135,47 @@ func TestGroupsOnTheMap(t *testing.T) {
 			t.Run("it should ask for the group's new name", func(t *testing.T) {
 				assert.Equal(t, city.Action{Kind: city.ActionRenameGroup, Group: "g1", GroupName: "group g1"}, action)
 			})
+		})
+	})
+
+	t.Run("when the selection is in a group with a member off the map", func(t *testing.T) {
+		s := scene([]state.Session{member("a", "/w/a", "g1"), member("b", "/w/b", "g1"), scripted(member("c", "/w/c", "g1"))},
+			groupOf("g1", "a", "b", "c"))
+		selected(t, s, "a")
+
+		t.Run("it should offer to close the group", func(t *testing.T) {
+			assert.Contains(t, s.Actions(), city.ActionCloseGroup)
+		})
+
+		t.Run("it should say plainly what closing does", func(t *testing.T) {
+			assert.Equal(t, "Packs every session in this group into the depot and takes the group off the board. Unpack any of them to bring it back.",
+				city.ActionCloseGroup.Describe())
+		})
+
+		t.Run("and close is chosen", func(t *testing.T) {
+			action, _ := s.Act(city.ActionCloseGroup)
+
+			t.Run("it should close the group, packing every member, on the map or not", func(t *testing.T) {
+				assert.Equal(t, city.Action{Kind: city.ActionCloseGroup, Group: "g1", Sessions: []string{"a", "b", "c"}}, action)
+			})
+		})
+
+		t.Run("and not every pull request merged, close should not come first", func(t *testing.T) {
+			assert.NotEqual(t, city.ActionCloseGroup, s.Actions()[0])
+		})
+	})
+
+	t.Run("when the selection is in a group whose every pull request merged", func(t *testing.T) {
+		merged := func(s state.Session, n int) state.Session {
+			s.PRs = []claude.PR{{Number: n, Repository: "o/r", State: claude.PRMerged}}
+			return s
+		}
+		s := scene([]state.Session{merged(member("a", "/w/a", "g1"), 1), merged(member("b", "/w/b", "g1"), 2), member("x", "/w/x", "")},
+			groupOf("g1", "a", "b"))
+		selected(t, s, "a")
+
+		t.Run("close should come first on its card", func(t *testing.T) {
+			assert.Equal(t, city.ActionCloseGroup, s.Actions()[0])
 		})
 	})
 

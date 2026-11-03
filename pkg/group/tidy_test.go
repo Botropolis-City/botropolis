@@ -70,6 +70,53 @@ func TestCorrectMembership(t *testing.T) {
 		})
 	})
 
+	t.Run("when a group is closed", func(t *testing.T) {
+		first := detect(group.Memory{}, trio()...)
+		id := idOf(first, "a")
+		memory := group.Memory{}.Remember(first).WithClosed(id)
+
+		t.Run("it should store the group as closed", func(t *testing.T) {
+			assert.Equal(t, []string{id}, memory.Closed)
+		})
+
+		t.Run("and memory is remembered again", func(t *testing.T) {
+			t.Run("it should still hold it closed", func(t *testing.T) {
+				assert.Equal(t, []string{id}, memory.Remember(first).Closed)
+			})
+		})
+
+		t.Run("and detection runs again", func(t *testing.T) {
+			loose := member("x", "/w/docs", 90*time.Minute, "unrelated work on the docs")
+			again := detect(memory, append(trio(), loose)...)
+
+			t.Run("it should not form the group", func(t *testing.T) {
+				assert.Empty(t, members(again, id))
+			})
+
+			t.Run("it should leave its members in no group", func(t *testing.T) {
+				assert.Empty(t, idOf(again, "a"))
+			})
+
+			t.Run("it should suggest nothing into it", func(t *testing.T) {
+				for _, s := range again.Suggestions {
+					assert.NotEqual(t, id, s.Group)
+				}
+			})
+		})
+
+		t.Run("and it is reopened", func(t *testing.T) {
+			reopened := memory.WithReopened(id)
+
+			t.Run("it should no longer be closed", func(t *testing.T) {
+				assert.Empty(t, reopened.Closed)
+			})
+
+			t.Run("and detection runs again, it should form the group again", func(t *testing.T) {
+				assert.Equal(t, []string{"a", "b", "c"}, members(detect(reopened, trio()...), id))
+			})
+		})
+	})
+
 	t.Run("when a session is taken out of a group", func(t *testing.T) {
 		first := detect(group.Memory{}, trio()...)
 		id := idOf(first, "a")

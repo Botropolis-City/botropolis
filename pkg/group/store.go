@@ -35,6 +35,9 @@ type Memory struct {
 	// StartedFrom is the group each session New session started was
 	// started in, by its background job.
 	StartedFrom map[string]string `json:"startedFrom,omitempty"`
+	// Closed are the groups closed by hand, which detection does not
+	// form again until one is reopened (item 333).
+	Closed []string `json:"closed,omitempty"`
 }
 
 // Move puts a session in a group by hand; an empty Group is no group.
@@ -109,6 +112,27 @@ func (m Memory) WithTakenOut(session, id string) Memory {
 	return m
 }
 
+// WithClosed is memory with a group closed, once (item 333).
+func (m Memory) WithClosed(id string) Memory {
+	if slices.Contains(m.Closed, id) {
+		return m
+	}
+	m.Closed = append(slices.Clone(m.Closed), id)
+	return m
+}
+
+// WithReopened is memory with a closed group open again (item 333).
+func (m Memory) WithReopened(id string) Memory {
+	if !slices.Contains(m.Closed, id) {
+		return m
+	}
+	m.Closed = slices.DeleteFunc(slices.Clone(m.Closed), func(c string) bool { return c == id })
+	if len(m.Closed) == 0 {
+		m.Closed = nil
+	}
+	return m
+}
+
 // WithMuted is memory with a word muted, so it no longer joins sessions
 // by their wording; a word already muted is muted once (item 90).
 func (m Memory) WithMuted(word string) Memory {
@@ -136,7 +160,7 @@ type Pair [2]string
 // Remember is memory with a detection's groups in it, keeping the
 // stored groups the detection did not see.
 func (m Memory) Remember(r Result) Memory {
-	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted, Moves: m.Moves, Confirmed: m.Confirmed, LikelySince: m.LikelySince, Reviewed: m.Reviewed, StartedFrom: m.StartedFrom}
+	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted, Moves: m.Moves, Confirmed: m.Confirmed, LikelySince: m.LikelySince, Reviewed: m.Reviewed, StartedFrom: m.StartedFrom, Closed: m.Closed}
 	seen := map[string]bool{}
 	for _, g := range r.Groups {
 		seen[g.ID] = true

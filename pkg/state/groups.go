@@ -122,7 +122,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 		if err != nil {
 			return err
 		}
-		if err := c.detect(c.members(history, snapshot.Sessions, now), history, now); err != nil {
+		if err := c.detect(c.members(history, snapshot.Sessions, now), history, unpacked(snapshot.Sessions), now); err != nil {
 			return err
 		}
 		c.historyKey, c.signature = key, signature
@@ -141,7 +141,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 	return nil
 }
 
-func (c *groupCache) detect(members []group.Member, history map[string][]claude.Prompt, now time.Time) error {
+func (c *groupCache) detect(members []group.Member, history map[string][]claude.Prompt, open map[string]bool, now time.Time) error {
 	memory := group.Memory{}
 	if c.path != "" {
 		loaded, err := group.Load(c.path)
@@ -150,6 +150,8 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 		}
 		memory = loaded
 	}
+	saved := memory
+	memory = reopened(memory, open)
 	if c.detector == nil {
 		c.detector = group.NewDetector()
 	}
@@ -165,10 +167,35 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 		remembered = remembered.Remember(c.result)
 	}
 	c.reviewed = remembered.Reviewed != nil
-	if !reflect.DeepEqual(remembered, memory) {
+	if !reflect.DeepEqual(remembered, saved) {
 		return group.Save(c.path, remembered)
 	}
 	return nil
+}
+
+// unpacked is the sessions on hand that are not packed up.
+func unpacked(sessions []Session) map[string]bool {
+	open := make(map[string]bool, len(sessions))
+	for _, s := range sessions {
+		if !s.Packed {
+			open[s.ID] = true
+		}
+	}
+	return open
+}
+
+// reopened is memory with every closed group reopened that has a session
+// on hand not packed up: unpacking one, by hand or by its doing something
+// new, brings the group back (item 333).
+func reopened(memory group.Memory, open map[string]bool) group.Memory {
+	for _, id := range slices.Clone(memory.Closed) {
+		for _, s := range memory.Groups {
+			if s.ID == id && slices.ContainsFunc(s.Members, func(m string) bool { return open[m] }) {
+				memory = memory.WithReopened(id)
+			}
+		}
+	}
+	return memory
 }
 
 // reportCapped logs, rather than draws, the sessions detection left out
@@ -260,7 +287,11 @@ func signatureLine(s Session) string {
 	if at := endedAt(&s); !at.IsZero() {
 		ended = at.UTC().Format(time.RFC3339Nano)
 	}
-	return strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, ended,
+	packed := ""
+	if s.Packed {
+		packed = "packed"
+	}
+	return strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, ended, packed,
 		strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00")
 }
 

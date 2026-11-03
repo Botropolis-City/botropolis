@@ -136,7 +136,7 @@ func TestBoard(t *testing.T) {
 
 	t.Run("when there are groups", func(t *testing.T) {
 		t.Run("it should say how to use the board", func(t *testing.T) {
-			assert.Equal(t, "2 groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, F2 renames it, esc closes", boardStatus(boardRows(groups, now)))
+			assert.Equal(t, "2 groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, F2 renames it, Delete closes it, esc closes", boardStatus(boardRows(groups, now)))
 		})
 	})
 }

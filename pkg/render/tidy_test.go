@@ -210,6 +210,67 @@ func TestCorrectGroups(t *testing.T) {
 		})
 	})
 
+	t.Run("when Delete is pressed on the board", func(t *testing.T) {
+		armed := func(t *testing.T) (*Game, *recordingActor) {
+			t.Helper()
+			g, actor := newGame(t)
+			g.scene.SetClock(func() time.Time { return now }, time.UTC)
+			press(t, g, ebiten.KeyG)
+			require.NotNil(t, g.board())
+			press(t, g, ebiten.KeyDelete)
+			return g, actor
+		}
+		g, actor := armed(t)
+
+		t.Run("it should close nothing yet", func(t *testing.T) {
+			assert.Empty(t, actor.done)
+		})
+
+		t.Run("it should ask for Delete again, saying what closing does", func(t *testing.T) {
+			assert.Equal(t, "press Delete again to close PROJ-9 · limiter: "+city.ActionCloseGroup.Describe(), g.notice.Text(timeNow()))
+		})
+
+		t.Run("and Delete is pressed again", func(t *testing.T) {
+			g, actor := armed(t)
+			press(t, g, ebiten.KeyDelete)
+
+			t.Run("it should close the group, packing every member", func(t *testing.T) {
+				assert.Equal(t, []city.Action{{Kind: city.ActionCloseGroup, Group: "g1", Sessions: []string{"a", "b", "c"}}}, actor.done)
+			})
+		})
+
+		t.Run("and another row is chosen before Delete is pressed again", func(t *testing.T) {
+			g, actor := armed(t)
+			press(t, g, ebiten.KeyArrowDown)
+			press(t, g, ebiten.KeyDelete)
+
+			t.Run("it should close neither", func(t *testing.T) {
+				assert.Empty(t, actor.done)
+			})
+		})
+	})
+
+	t.Run("when a group's every pull request merged", func(t *testing.T) {
+		g, _ := newGame(t)
+		snap := g.scene.RealSnapshot()
+		snap.Sessions = append([]state.Session(nil), snap.Sessions...)
+		for i := range snap.Sessions {
+			if snap.Sessions[i].Group == "g2" {
+				snap.Sessions[i].PRs = []claude.PR{{Number: i, Repository: "o/r", State: claude.PRMerged}}
+			}
+		}
+		g.scene.SetSnapshot(snap)
+		rows := boardRows(g.scene.Groups(), now)
+
+		t.Run("its row should offer to close it", func(t *testing.T) {
+			assert.Equal(t, "every pull request merged: Delete closes it", g.closeOffer(g.scene.Groups()[1].ID))
+		})
+
+		t.Run("a row with work still open should offer nothing", func(t *testing.T) {
+			assert.Empty(t, g.closeOffer(g.scene.Groups()[0].ID), "%v", rows)
+		})
+	})
+
 	t.Run("when the help lists the keys", func(t *testing.T) {
 		actions := map[string]string{}
 		for _, k := range bindings {

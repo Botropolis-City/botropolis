@@ -201,6 +201,8 @@ func (a Actor) Do(action city.Action) error {
 		return a.mute(action.Text)
 	case city.ActionRename:
 		return a.editGroups(func(m group.Memory) group.Memory { return m.WithRename(action.Group, action.GroupName) })
+	case city.ActionCloseGroup:
+		return a.closeGroup(action.Group, action.Sessions)
 	case city.ActionTakeOut:
 		return a.editGroups(func(m group.Memory) group.Memory { return m.WithTakenOut(action.SessionID, action.Group) })
 	case city.ActionCloseUp:
@@ -249,6 +251,29 @@ func (a Actor) editGroups(edit func(group.Memory) group.Memory) error {
 		return errNoGroups
 	}
 	return editGroups(a.GroupStore, edit)
+}
+
+// closeGroup packs every session of a group up, then stores the group
+// closed. The packs go first, so the loader never sees the group closed
+// with a session of it still out, which would reopen it; a pack that
+// fails leaves the group open (item 333).
+func (a Actor) closeGroup(id string, sessions []string) error {
+	if a.GroupStore == "" {
+		return errNoGroups
+	}
+	if a.Pack == nil {
+		return errNoDaemon
+	}
+	var errs []error
+	for _, s := range sessions {
+		if err := a.Pack(s, true); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", s, err))
+		}
+	}
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
+	return a.editGroups(func(m group.Memory) group.Memory { return m.WithClosed(id) })
 }
 
 // mute writes a muted word into the groups' memory; the daemon sees the
