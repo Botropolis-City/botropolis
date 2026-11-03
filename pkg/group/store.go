@@ -38,6 +38,9 @@ type Memory struct {
 	// Closed are the groups closed by hand, which detection does not
 	// form again until one is reopened (item 333).
 	Closed []string `json:"closed,omitempty"`
+	// ReviewedGroups are the groups a tidy-up walk has settled, which a
+	// later walk does not ask about again (item 333).
+	ReviewedGroups []string `json:"reviewedGroups,omitempty"`
 }
 
 // Move puts a session in a group by hand; an empty Group is no group.
@@ -160,7 +163,7 @@ type Pair [2]string
 // Remember is memory with a detection's groups in it, keeping the
 // stored groups the detection did not see.
 func (m Memory) Remember(r Result) Memory {
-	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted, Moves: m.Moves, Confirmed: m.Confirmed, LikelySince: m.LikelySince, Reviewed: m.Reviewed, StartedFrom: m.StartedFrom, Closed: m.Closed}
+	out := Memory{NotRelated: m.NotRelated, Muted: m.Muted, Moves: m.Moves, Confirmed: m.Confirmed, LikelySince: m.LikelySince, Reviewed: m.Reviewed, StartedFrom: m.StartedFrom, Closed: m.Closed, ReviewedGroups: m.ReviewedGroups}
 	seen := map[string]bool{}
 	for _, g := range r.Groups {
 		seen[g.ID] = true

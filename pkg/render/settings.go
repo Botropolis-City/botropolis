@@ -81,6 +81,9 @@ func (g *Game) applySetting(s ui.Setting) {
 	case config.KeyQuietDays:
 		days, _ := strconv.Atoi(s.Value)
 		g.quietFor = time.Duration(days) * 24 * time.Hour
+	case config.KeyTidyDays:
+		days, _ := strconv.Atoi(s.Value)
+		g.tidyAfter = time.Duration(days) * 24 * time.Hour
 	case config.KeyShutteredDays, config.KeyOvergrownDays:
 		days, _ := strconv.Atoi(s.Value)
 		ladder := g.scene.Ladder()

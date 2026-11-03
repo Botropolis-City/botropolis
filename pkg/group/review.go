@@ -172,6 +172,9 @@ func (r *Review) Split(i int) {
 // members remembered as not related, and the first run marked reviewed.
 func (m Memory) Confirm(r Review, at time.Time) Memory {
 	for _, row := range r.Rows {
+		if !slices.Contains(m.ReviewedGroups, row.ID) {
+			m.ReviewedGroups = append(slices.Clone(m.ReviewedGroups), row.ID)
+		}
 		ids := make([]string, 0, len(row.Members))
 		for _, mm := range row.Members {
 			ids = append(ids, mm.Session)

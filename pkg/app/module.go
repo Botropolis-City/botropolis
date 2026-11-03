@@ -623,6 +623,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		ShowScripted:   c.config.ScriptedRuns,
 		GroupSource:    groupSource(c.config),
 		JournalHours:   c.config.JournalHours,
+		TidyAfter:      time.Duration(c.config.TidyDays) * 24 * time.Hour,
 		LastCloseUp:    func() (state.CloseUp, error) { return state.LoadCloseUp(state.CloseUpPath()) },
 		Ladder:         state.Thresholds{Shuttered: time.Duration(c.config.ShutteredDays) * 24 * time.Hour, Overgrown: time.Duration(c.config.OvergrownDays) * 24 * time.Hour},
 		QuietFor:       time.Duration(c.config.QuietDays) * 24 * time.Hour,
@@ -802,6 +803,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyShutteredDays, Label: "shuttered days", Options: withValue([]string{"1", "3", "7", "14", "30"}, strconv.Itoa(cfg.ShutteredDays)), Value: strconv.Itoa(cfg.ShutteredDays)},
 		{Key: config.KeyOvergrownDays, Label: "overgrown days", Options: withValue([]string{"7", "14", "30", "60", "90", "180"}, strconv.Itoa(cfg.OvergrownDays)), Value: strconv.Itoa(cfg.OvergrownDays)},
 		{Key: config.KeyQuietDays, Label: "quiet days", Options: withValue([]string{"1", "3", "7", "14", "30"}, strconv.Itoa(cfg.QuietDays)), Value: strconv.Itoa(cfg.QuietDays)},
+		{Key: config.KeyTidyDays, Label: "tidy-up after days away", Options: withValue([]string{"2", "3", "7", "14", "30"}, strconv.Itoa(cfg.TidyDays)), Value: strconv.Itoa(cfg.TidyDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
 		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
@@ -861,7 +863,7 @@ func settingValue(s ui.Setting) (string, any) {
 		}
 		f, _ := strconv.ParseFloat(s.Value, 64)
 		return s.Key, f
-	case config.KeyShutteredDays, config.KeyOvergrownDays, config.KeyQuietDays:
+	case config.KeyShutteredDays, config.KeyOvergrownDays, config.KeyQuietDays, config.KeyTidyDays:
 		n, _ := strconv.Atoi(s.Value)
 		return s.Key, n
 	case config.KeyTerminal:

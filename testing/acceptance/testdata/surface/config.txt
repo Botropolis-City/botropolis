@@ -49,6 +49,7 @@ socket	string
 stats	bool
 stream_key	string
 terminal	string
+tidy_days	int
 triage_key	string
 usage_refresh	string
 usage_refresh=manual

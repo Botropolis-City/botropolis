@@ -12,6 +12,39 @@ import (
 	"botropolis.city/botropolis/pkg/state"
 )
 
+// Item 333: a group a tidy-up walk settled says so in the snapshot.
+func TestLoaderReviewedGroups(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		settled bool
+	}{
+		{"when a walk settled the group", true},
+		{"when no walk has settled it", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			home := groupedHome(t)
+			store := filepath.Join(t.TempDir(), "groups.json")
+			loader := state.NewLoader(home.Path, dead).WithGroups(store)
+			first, err := loader.Load(now)
+			require.NoError(t, err)
+			require.Len(t, first.Groups, 1)
+			if c.settled {
+				memory, err := group.Load(store)
+				require.NoError(t, err)
+				memory.ReviewedGroups = []string{first.Groups[0].ID}
+				require.NoError(t, group.Save(store, memory))
+			}
+			snapshot, err := loader.Load(now.Add(time.Minute))
+			require.NoError(t, err)
+
+			t.Run("it should say whether the group is settled", func(t *testing.T) {
+				require.Len(t, snapshot.Groups, 1)
+				assert.Equal(t, c.settled, snapshot.Groups[0].Reviewed)
+			})
+		})
+	}
+}
+
 // Item 333: a closed group stays closed while its sessions are packed,
 // and re-forms once one of them is unpacked.
 func TestLoaderClosedGroups(t *testing.T) {

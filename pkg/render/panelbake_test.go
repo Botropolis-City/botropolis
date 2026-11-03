@@ -110,7 +110,7 @@ func TestPanelsAreBakedWhileTheyHold(t *testing.T) {
 		}
 	})
 
-	t.Run("when the group-review panel is open", func(t *testing.T) {
+	t.Run("when the tidy-up walk is open", func(t *testing.T) {
 		d, err := NewDrive(DriveOptions{Home: home, Now: now})
 		require.NoError(t, err)
 		snapshot, err := driveSnapshot(home, now)
@@ -123,7 +123,7 @@ func TestPanelsAreBakedWhileTheyHold(t *testing.T) {
 		snapshot.Groups = []state.Group{{ID: "g1", Name: "PROJ-1 · review", Short: "PROJ-1", Reason: "mentions PROJ-1", Members: members}}
 		d.game.Offer(snapshot)
 		require.NoError(t, d.Run(1))
-		require.True(t, d.game.openFirstRun(), "the group review did not open")
+		require.True(t, d.game.openWalk(), "the tidy-up walk did not open")
 		settled(t, d)
 
 		t.Run("and 10 frames pass with nothing changing", func(t *testing.T) {

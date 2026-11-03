@@ -205,7 +205,7 @@ func (g *Game) checkPanels(straight, composed *ebiten.Image, dump, write string)
 			_, ok := g.overlays.top().(*journal)
 			return ok
 		}, panels},
-		{"the group review", "group-review", func() bool {
+		{"the tidy-up walk", "tidy-walk", func() bool {
 			snap := g.scene.Snapshot()
 			if len(snap.Sessions) < 2 {
 				return false
@@ -218,7 +218,7 @@ func (g *Game) checkPanels(straight, composed *ebiten.Image, dump, write string)
 			snap.Groups = []state.Group{{ID: "check", Name: "CHECK-1 · panels", Short: "CHECK-1", Reason: "the frame check", Members: ids}}
 			snap.GroupsReviewed = false
 			g.scene.SetSnapshot(snap)
-			return g.openFirstRun()
+			return g.openWalk()
 		}, panels},
 		// The strip, the stream column and the timeline, each
 		// baked while it holds: the chrome drawn whole.

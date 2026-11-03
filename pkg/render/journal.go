@@ -57,6 +57,9 @@ func (g *Game) maybeJournal() {
 	if g.scene.Now().Sub(g.awaySince) < time.Duration(g.journalHours)*time.Hour {
 		return
 	}
+	if g.tidyAfterGap() {
+		return
+	}
 	g.openJournal()
 }
 
@@ -150,6 +153,13 @@ func (j *journal) keys(g *Game) bool {
 		j.fill(j.selected)
 	case g.just(ebiten.KeyR):
 		j.restore(g)
+	case g.just(ebiten.KeyT):
+		// The walk takes the journal's place (item 333).
+		g.overlays.remove(j)
+		if !g.openWalk() {
+			g.overlays.push(j)
+			g.SetStatus("nothing to tidy")
+		}
 	case g.just(ebiten.KeyEnter) || g.just(ebiten.KeyKPEnter):
 		if len(j.entries) > 0 {
 			g.scene.Select(j.entries[j.selected].Fly)
@@ -206,6 +216,10 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	strip := sinceStrip(j.since, g.scene.Away(j.since), len(g.scene.ResetsDuring(j.since)), g.scene.Now().Location())
 	strip = withSwept(strip, sweptSince(g.scene.Snapshot().Sessions, j.since))
 	g.text(screen, city.Point{X: x, Y: y}, strip, ui.Small, th.Palette.Dim)
+	if offer := g.tidyOffer(j.since); offer != "" {
+		y += lineH
+		g.text(screen, city.Point{X: x, Y: y}, offer, ui.Small, th.Palette.Accent)
+	}
 	y += lineH + 2*grid
 	j.drawn = 0
 	for i := range j.entries {

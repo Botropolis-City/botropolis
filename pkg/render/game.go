@@ -608,6 +608,9 @@ type Game struct {
 	// and answers how many it did (item 333).
 	quietFor time.Duration
 	sweep    func(ids []string, quietFor time.Duration) (int, error)
+	// tidyAfter is how long away the map must have been for the tidy-up
+	// walk to open by itself (item 333).
+	tidyAfter time.Duration
 	// journalHours is how long away the map must have been for the
 	// journal to open by itself, and journalChecked whether the first
 	// snapshot has been looked at for it; lastCloseUp reads the last

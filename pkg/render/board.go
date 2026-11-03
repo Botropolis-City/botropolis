@@ -22,6 +22,8 @@ type board struct {
 	// Pack up everything quiet's (item 333).
 	newButton   city.Rect
 	quietButton city.Rect
+	// tidyButton opens the tidy-up walk (item 333).
+	tidyButton city.Rect
 	// closing is the group Delete was pressed on, and closingAt when:
 	// a second press within the arming time closes it (item 333).
 	closing   string
@@ -107,12 +109,7 @@ func (b *board) keys(g *Game) bool {
 	case g.just(ebiten.KeyP):
 		g.sweepQuiet()
 	case g.just(ebiten.KeyT):
-		// Tidy up takes the board's place on the stack (item 333).
-		g.overlays.pop()
-		if !g.openWalk() {
-			g.overlays.push(b)
-			g.SetStatus("nothing to tidy: every group was seen and nothing in no group is quiet")
-		}
+		b.tidyUp(g)
 	case g.just(ebiten.KeyDelete):
 		if b.selected < len(groups) {
 			b.closeKey(g, groups[b.selected])
@@ -125,15 +122,18 @@ func (b *board) keys(g *Game) bool {
 		b.selected = max(0, min(b.selected+1, len(groups)-1))
 	case g.just(ebiten.KeyArrowUp):
 		b.selected = max(0, b.selected-1)
-	case g.just(ebiten.KeyR):
-		// The first run takes the board's place on the stack, so the
-		// board stays closed behind it.
-		g.overlays.pop()
-		if !g.openFirstRun() {
-			g.overlays.push(b)
-		}
 	}
 	return true
+}
+
+// tidyUp opens the walk in the board's place, or says there is nothing
+// to tidy (item 333).
+func (b *board) tidyUp(g *Game) {
+	g.overlays.remove(b)
+	if !g.openWalk() {
+		g.overlays.push(b)
+		g.SetStatus("nothing to tidy: every group was settled and nothing in no group is quiet")
+	}
 }
 
 // closeKey closes the chosen group on a second Delete, on the same row
@@ -164,8 +164,12 @@ func (g *Game) closeOffer(id string) string {
 // click closes the board when the press lands outside it.
 func (b *board) click(g *Game, at city.Point) bool {
 	g.mu.Lock()
-	panel, button, quiet := b.rect, b.newButton, b.quietButton
+	panel, button, quiet, tidy := b.rect, b.newButton, b.quietButton, b.tidyButton
 	g.mu.Unlock()
+	if tidy.Contains(at) {
+		b.tidyUp(g)
+		return true
+	}
 	if button.Contains(at) {
 		g.openNewSession()
 		return true
@@ -212,13 +216,18 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.mu.Lock()
 	b.quietButton = quiet
 	g.mu.Unlock()
+	tidyText := "Tidy up  t"
+	tw, th2 := g.faces.Measure(tidyText, ui.Small)
+	tidy := city.RectAt(quiet.Min.X-grid-tw-grid*2, y, tw+grid*2, th2+grid/2)
+	g.mu.Lock()
+	b.tidyButton = tidy
+	g.mu.Unlock()
+	g.roundRect(screen, tidy, th.Radius()/2, th.Palette.Hairline)
+	g.text(screen, city.Point{X: tidy.Min.X + grid, Y: tidy.Min.Y + grid/4}, tidyText, ui.Small, th.Palette.Accent)
 	g.roundRect(screen, quiet, th.Radius()/2, th.Palette.Hairline)
 	g.text(screen, city.Point{X: quiet.Min.X + grid, Y: quiet.Min.Y + grid/4}, quietText, ui.Small, th.Palette.Accent)
 	y += title
 	status := boardStatus(rows)
-	if len(rows) > 0 && !g.scene.Snapshot().GroupsReviewed {
-		status += ", r reviews what was found"
-	}
 	g.text(screen, city.Point{X: x, Y: y}, status, ui.Small, th.Palette.Dim)
 	y += small + grid
 	first := max(0, min(b.selected-shown+1, len(rows)-shown))

@@ -26,8 +26,8 @@ type bakesPanel interface {
 	bakes()
 }
 
-func (*journal) bakes()  {}
-func (*firstRun) bakes() {}
+func (*journal) bakes() {}
+func (*walk) bakes()    {}
 
 // bakeKey names a region of the chrome that is baked while it holds, as
 // the panels are (item 161). The footer is not one: its words went down

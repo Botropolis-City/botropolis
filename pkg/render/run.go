@@ -110,7 +110,10 @@ type Options struct {
 	// everything quiet packs it, and Sweep asks the daemon to pack the
 	// sessions counted and answers how many it did (item 333).
 	QuietFor time.Duration
-	Sweep    func(ids []string, quietFor time.Duration) (int, error)
+	// TidyAfter is how long away the map must have been for the tidy-up
+	// walk to open by itself (item 333).
+	TidyAfter time.Duration
+	Sweep     func(ids []string, quietFor time.Duration) (int, error)
 	// UsageRefresh is how often the city probes for usage on its own;
 	// zero leaves it to the u key, and the boats away until called.
 	// Item 79.
@@ -245,6 +248,7 @@ func Run(ctx context.Context, opts Options) error {
 	scene.SetShown(city.Shown{Gone: opts.ShowGone, Scripted: opts.ShowScripted})
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
 	game.quietFor, game.sweep = opts.QuietFor, opts.Sweep
+	game.tidyAfter = opts.TidyAfter
 	if opts.Ladder != (state.Thresholds{}) {
 		scene.SetLadder(opts.Ladder)
 	}

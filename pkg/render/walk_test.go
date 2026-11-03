@@ -376,6 +376,134 @@ func TestTidyWalk(t *testing.T) {
 		})
 	})
 
+	// returning is a city reviewed before, back after a gap, with the
+	// groups named settled and, unless quiet is kept, nothing quiet.
+	returning := func(t *testing.T, gap time.Duration, keepQuiet bool, settled ...string) (*Game, *recordingActor) {
+		t.Helper()
+		g, actor, _ := newGame(t, now.Add(-gap))
+		g.tidyAfter = 7 * day
+		snap := g.scene.RealSnapshot()
+		snap.GroupsReviewed = true
+		snap.Groups = append([]state.Group(nil), snap.Groups...)
+		for i := range snap.Groups {
+			for _, id := range settled {
+				if snap.Groups[i].ID == id {
+					snap.Groups[i].Reviewed = true
+				}
+			}
+		}
+		if !keepQuiet {
+			var kept []state.Session
+			for _, s := range snap.Sessions {
+				if s.Group != "" || s.LastActivity.After(now.Add(-5*day)) {
+					kept = append(kept, s)
+				}
+			}
+			snap.Sessions = kept
+		}
+		g.scene.SetSnapshot(snap)
+		return g, actor
+	}
+	everyGroup := []string{"live", "four", "sure3", "likely3", "pair", "weak"}
+	opened := func(g *Game) string {
+		switch g.overlays.top().(type) {
+		case *walk:
+			return "walk"
+		case *journal:
+			return "journal"
+		case nil:
+			return "nothing"
+		}
+		return "other"
+	}
+
+	for _, c := range []struct {
+		name      string
+		gap       time.Duration
+		keepQuiet bool
+		settled   []string
+		want      string
+	}{
+		{"when the city comes back after more than tidy_days, with something quiet", 7*day + time.Hour, true, everyGroup, "walk"},
+		{"when the city comes back after more than tidy_days, with a group no walk settled", 7*day + time.Hour, false, []string{"live", "four"}, "walk"},
+		{"when the city comes back after less than tidy_days", 7*day - time.Hour, true, nil, "journal"},
+		{"when the city comes back after more than tidy_days with nothing to tidy", 7*day + time.Hour, false, everyGroup, "journal"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			g, _ := returning(t, c.gap, c.keepQuiet, c.settled...)
+			g.maybeJournal()
+
+			t.Run("it should open the "+c.want, func(t *testing.T) {
+				assert.Equal(t, c.want, opened(g))
+			})
+		})
+	}
+
+	t.Run("when a walk opened by a long return asks about groups", func(t *testing.T) {
+		g, _ := returning(t, 8*day, false, "live", "four")
+		g.maybeJournal()
+		require.NotNil(t, g.walk())
+
+		t.Run("it should skip the groups a walk already settled", func(t *testing.T) {
+			assert.Equal(t, []string{"start", "sure3", "likely3", "pair"}, g.walk().cardKeys())
+		})
+
+		t.Run("and it is left with Later", func(t *testing.T) {
+			press(t, g, ebiten.KeyL)
+
+			t.Run("the journal should follow", func(t *testing.T) {
+				assert.Equal(t, "journal", opened(g))
+			})
+		})
+	})
+
+	t.Run("when a long return is driven or shot", func(t *testing.T) {
+		g, _ := returning(t, 8*day, true, everyGroup...)
+		g.driven = true
+		g.maybeJournal()
+
+		t.Run("it should open the journal, never the walk by itself", func(t *testing.T) {
+			assert.Equal(t, "journal", opened(g))
+		})
+	})
+
+	t.Run("when the journal opens after a gap with sessions gone quiet in it", func(t *testing.T) {
+		g, _ := returning(t, 6*day, true, everyGroup...)
+		g.openJournal()
+
+		t.Run("its strip should offer to tidy up", func(t *testing.T) {
+			assert.Equal(t, "2 sessions went quiet while you were away — tidy up?  t", g.tidyOffer(g.awaySince))
+		})
+
+		t.Run("and t is pressed", func(t *testing.T) {
+			press(t, g, ebiten.KeyT)
+
+			t.Run("it should open the walk", func(t *testing.T) {
+				assert.Equal(t, "walk", opened(g))
+			})
+		})
+	})
+
+	t.Run("when the journal opens with nothing to tidy", func(t *testing.T) {
+		g, _ := returning(t, 6*day, false, everyGroup...)
+
+		t.Run("its strip should offer nothing", func(t *testing.T) {
+			assert.Empty(t, g.tidyOffer(g.awaySince))
+		})
+	})
+
+	t.Run("when the walk the first run opened is left with esc", func(t *testing.T) {
+		g, _, _ := newGame(t, time.Time{})
+		g.maybeFirstRun()
+		require.NotNil(t, g.walk())
+		press(t, g, ebiten.KeyEscape)
+		g.maybeFirstRun()
+
+		t.Run("it should not open again in this run", func(t *testing.T) {
+			assert.Nil(t, g.walk())
+		})
+	})
+
 	t.Run("when the city opens unreviewed", func(t *testing.T) {
 		for _, c := range []struct {
 			name string

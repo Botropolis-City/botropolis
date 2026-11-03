@@ -96,6 +96,33 @@ func TestWalkReview(t *testing.T) {
 		})
 	})
 
+	t.Run("when the walk is confirmed", func(t *testing.T) {
+		r := proposal()
+		memory := group.Memory{}.Confirm(r, reviewed)
+
+		t.Run("it should remember every group it showed as settled", func(t *testing.T) {
+			assert.ElementsMatch(t, rowIDs(r), memory.ReviewedGroups)
+		})
+
+		t.Run("and memory is remembered again, it should still hold them", func(t *testing.T) {
+			assert.ElementsMatch(t, rowIDs(r), memory.Remember(detect(memory, members...)).ReviewedGroups)
+		})
+
+		t.Run("and confirmed again, it should hold each once", func(t *testing.T) {
+			assert.Len(t, memory.Confirm(r, reviewed).ReviewedGroups, len(r.Rows))
+		})
+	})
+
+	t.Run("when the walk is left for now with one row decided", func(t *testing.T) {
+		r := proposal()
+		r.Decide(rowOf(r, "a"))
+		memory := group.Memory{}.ConfirmDecided(r, reviewed)
+
+		t.Run("it should remember only that group as settled", func(t *testing.T) {
+			assert.Equal(t, []string{r.Rows[rowOf(r, "a")].ID}, memory.ReviewedGroups)
+		})
+	})
+
 	for _, c := range []struct {
 		name   string
 		change func(r *group.Review, row int)
@@ -114,4 +141,12 @@ func TestWalkReview(t *testing.T) {
 			})
 		})
 	}
+}
+
+func rowIDs(r group.Review) []string {
+	var ids []string
+	for _, row := range r.Rows {
+		ids = append(ids, row.ID)
+	}
+	return ids
 }

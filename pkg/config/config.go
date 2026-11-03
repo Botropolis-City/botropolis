@@ -81,8 +81,12 @@ const (
 	DefaultShutteredDays = 7
 	// KeyJournalHours is how long away the map must have been for the
 	// journal to open by itself (item 86).
-	KeyJournalHours      = "journal_hours"
-	DefaultJournalHours  = 8
+	KeyJournalHours     = "journal_hours"
+	DefaultJournalHours = 8
+	// KeyTidyDays is how long away the map must have been for the
+	// tidy-up walk to open by itself (item 333).
+	KeyTidyDays          = "tidy_days"
+	DefaultTidyDays      = 7
 	DefaultOvergrownDays = 30
 )
 
@@ -164,6 +168,9 @@ type Config struct {
 	// (item 86).
 	JournalKey   string
 	JournalHours int
+	// TidyDays is how long away the map must have been for the tidy-up
+	// walk to open by itself, when there is something to tidy (item 333).
+	TidyDays int
 	// GlobalShortcut opens the finder from any application; empty is off
 	// (item 84).
 	GlobalShortcut string
@@ -248,6 +255,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyTriage, DefaultTriage)
 	v.SetDefault(KeyJournal, DefaultJournal)
 	v.SetDefault(KeyJournalHours, DefaultJournalHours)
+	v.SetDefault(KeyTidyDays, DefaultTidyDays)
 	v.SetDefault(KeyStream, DefaultStream)
 	v.SetDefault(KeyCityPlan, DefaultCityPlan)
 	v.SetDefault(KeyGroupLines, true)
@@ -363,6 +371,7 @@ func New(v *viper.Viper) (*Config, error) {
 		TriageKey:      v.GetString(KeyTriage),
 		JournalKey:     v.GetString(KeyJournal),
 		JournalHours:   v.GetInt(KeyJournalHours),
+		TidyDays:       v.GetInt(KeyTidyDays),
 		StreamKey:      v.GetString(KeyStream),
 		CityPlanKey:    v.GetString(KeyCityPlan),
 		LabelsKey:      v.GetString(KeyLabelsToggle),
@@ -398,6 +407,9 @@ func New(v *viper.Viper) (*Config, error) {
 	if cfg.QuietDays == 0 {
 		cfg.QuietDays = cfg.ShutteredDays
 	}
+	if err := checkTidy(cfg.TidyDays, cfg.JournalHours); err != nil {
+		return nil, err
+	}
 	if cfg.Home == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -412,6 +424,18 @@ func New(v *viper.Viper) (*Config, error) {
 		cfg.CodexHome = filepath.Join(cfg.Home, ".codex")
 	}
 	return cfg, nil
+}
+
+// checkTidy refuses a tidy-up gap that is not longer than the journal's,
+// which would open the walk where only the journal belongs (item 333).
+func checkTidy(days, journalHours int) error {
+	if days < 1 {
+		return fmt.Errorf("%s (%d) must be at least 1", KeyTidyDays, days)
+	}
+	if days*24 <= journalHours {
+		return fmt.Errorf("%s (%d, %d hours) must be longer than %s (%d)", KeyTidyDays, days, days*24, KeyJournalHours, journalHours)
+	}
+	return nil
 }
 
 // checkLadder refuses thresholds that would overgrow a session before

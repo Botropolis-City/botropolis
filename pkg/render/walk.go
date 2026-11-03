@@ -46,8 +46,11 @@ type walk struct {
 	answered  bool
 	pack      bool
 	districts bool
-	rect      city.Rect
-	buttons   []walkButton
+	// journal is whether the journal follows the walk however it is
+	// left: it opened in the journal's place, after a long return.
+	journal bool
+	rect    city.Rect
+	buttons []walkButton
 }
 
 type walkButton struct {
@@ -85,6 +88,48 @@ func (g *Game) openWalk() bool {
 	return true
 }
 
+// looking is whether someone is watching the city, rather than a
+// screenshot, a recording, a share or a driven run, which the walk never
+// opens over by itself.
+func (g *Game) looking() bool {
+	return g.share == nil && g.screenshot == "" && g.record == "" && !g.driven
+}
+
+// tidyAfterGap opens the walk in the journal's place after a gap longer
+// than tidy_days, when there is something to tidy, and reports whether
+// it did; the journal follows it.
+func (g *Game) tidyAfterGap() bool {
+	if !g.looking() || g.awaySince.IsZero() || g.tidyAfter <= 0 || g.scene.Now().Sub(g.awaySince) < g.tidyAfter {
+		return false
+	}
+	if !g.openWalk() {
+		return false
+	}
+	g.walk().journal = true
+	g.firstRunAsked = true
+	return true
+}
+
+// tidyOffer is the journal strip's offer of the walk, when there is
+// something to tidy: how many sessions went quiet while you were away,
+// or how many groups no walk has settled.
+func (g *Game) tidyOffer(since time.Time) string {
+	quietFor := g.quietDays()
+	went := 0
+	for _, s := range g.quietSessions(quietFor) {
+		if s.LastActivity.After(since.Add(-quietFor)) {
+			went++
+		}
+	}
+	if went > 0 {
+		return fmt.Sprintf("%s went quiet while you were away — tidy up?  t", plural(went, "session"))
+	}
+	if n := len(g.walkGroups()); n > 0 {
+		return fmt.Sprintf("%s the city found are waiting — tidy up?  t", plural(n, "group"))
+	}
+	return ""
+}
+
 // walkGroups are the groups the walk asks about, strongest first: those
 // with a session at work, then the larger, then those held by more sure
 // ties. A pair joined by a likely tie is never asked about; it stays a
@@ -100,6 +145,9 @@ func (g *Game) walkGroups() []state.Group {
 	}
 	var ws []weighed
 	for _, gr := range g.scene.Groups() {
+		if gr.Reviewed {
+			continue
+		}
 		w := weighed{g: gr, size: len(gr.Members)}
 		for _, id := range gr.Members {
 			s := byID[id]
@@ -275,7 +323,7 @@ func (w *walk) keys(g *Game) bool {
 			return true
 		}
 		g.SetStatus("tidy up later: nothing was changed")
-		return false
+		w.leave(g, w.journal)
 	case g.just(ebiten.KeyJ):
 		w.member++
 		if n := len(w.memberTitles()); w.member >= n {
@@ -303,7 +351,7 @@ func (w *walk) press(g *Game, key ebiten.Key) bool {
 			w.step(g, 1)
 		case ebiten.KeyL:
 			g.SetStatus("tidy up later: nothing was changed")
-			return false
+			w.leave(g, w.journal)
 		}
 		return true
 	case cardQuiet:
@@ -380,7 +428,7 @@ func (w *walk) doneForNow(g *Game) {
 		g.sweepIDs(w.quietIDs(), w.quietFor)
 	}
 	g.SetStatus("done for now: what you decided is kept, the rest stays as guesses")
-	w.leave(g, false)
+	w.leave(g, w.journal)
 }
 
 // startClean packs up everything in no group that was resting before

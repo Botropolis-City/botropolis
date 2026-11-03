@@ -34,10 +34,13 @@ type Group struct {
 	// MemberTitles is each member's name as the city says it, in
 	// Members' order (item 333).
 	MemberTitles []string `json:"memberTitles,omitempty"`
-	Reason       string   `json:"reason,omitempty"`
-	Move         Move     `json:"move"`
-	Why          string   `json:"why"`
-	Journal      Journal  `json:"journal"`
+	// Reviewed is whether a tidy-up walk has settled the group, so a
+	// later one does not ask about it again (item 333).
+	Reviewed bool    `json:"reviewed,omitempty"`
+	Reason   string  `json:"reason,omitempty"`
+	Move     Move    `json:"move"`
+	Why      string  `json:"why"`
+	Journal  Journal `json:"journal"`
 }
 
 type groupCache struct {
@@ -53,8 +56,10 @@ type groupCache struct {
 	// lastPrompts is each session's newest prompt in the history, for a
 	// session whose transcript carries no last-prompt record.
 	lastPrompts map[string]string
-	// reviewed is whether the first run's proposal has been confirmed.
+	// reviewed is whether the first run's proposal has been confirmed,
+	// and settled the groups a tidy-up walk has settled (item 333).
 	reviewed bool
+	settled  map[string]bool
 	texts    map[string]memberTexts
 	parts    signatureParts
 	// logf reports, and capped is how many sessions it last reported
@@ -137,6 +142,9 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 		}
 	}
 	snapshot.Groups = groupViews(c.result, snapshot.Sessions)
+	for i := range snapshot.Groups {
+		snapshot.Groups[i].Reviewed = c.settled[snapshot.Groups[i].ID]
+	}
 	snapshot.GroupsReviewed = c.reviewed
 	return nil
 }
@@ -167,6 +175,10 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 		remembered = remembered.Remember(c.result)
 	}
 	c.reviewed = remembered.Reviewed != nil
+	c.settled = make(map[string]bool, len(remembered.ReviewedGroups))
+	for _, id := range remembered.ReviewedGroups {
+		c.settled[id] = true
+	}
 	if !reflect.DeepEqual(remembered, saved) {
 		return group.Save(c.path, remembered)
 	}
