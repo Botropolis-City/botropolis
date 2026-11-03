@@ -249,9 +249,13 @@ func (g *Game) paintStill(real, under *ebiten.Image, key stillKey) {
 		s.ok = false
 		g.blitBase(real, under)
 		f := g.newFadePlay(real)
+		if f == nil {
+			g.rec.beginRuns(real)
+		}
 		for _, e := range s.entries {
 			g.rec.play(real, e.inked, f)
 		}
+		g.rec.endRuns()
 		f.done()
 		s.rects = s.rects[:0]
 		s.stats.direct = 1
@@ -329,11 +333,15 @@ func (g *Game) composeStill(r image.Rectangle, under *ebiten.Image) {
 	sub := s.img.SubImage(r).(*ebiten.Image)
 	g.blitBase(sub, under)
 	f := g.newFadePlay(sub)
+	if f == nil {
+		g.rec.beginRuns(sub)
+	}
 	for _, e := range s.entries {
 		if !e.moves && e.box.Overlaps(r) {
 			g.rec.play(sub, e.inked, f)
 		}
 	}
+	g.rec.endRuns()
 	f.done()
 	if g.lightsOn {
 		lights := s.lights.SubImage(r).(*ebiten.Image)

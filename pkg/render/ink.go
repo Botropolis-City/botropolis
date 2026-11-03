@@ -128,6 +128,12 @@ type drawList struct {
 	shiftedPts []city.Point
 	// batchKeys numbers the sources draws read, for grouping them.
 	batchKeys map[batchSource]int
+	// calls counts the draw calls played into Ebitengine, and runDst
+	// is the image played onto a run at a time, run the run gathered
+	// (item 328).
+	calls  int
+	runDst *ebiten.Image
+	run    stillRun
 	// origin is where the camera puts the world's origin this frame:
 	// positions are hashed relative to it, so a pan by whole pixels
 	// changes no hash (item 193).
@@ -378,6 +384,12 @@ func (l *drawList) fill(dst *ebiten.Image, c color.Color) {
 // play draws the commands of a drawable onto dst, sending each fade group's
 // to layer, put down at alpha when the group ends.
 func (l *drawList) play(dst *ebiten.Image, s inked, f *fadePlay) {
+	if f == nil && dst == l.runDst {
+		for i := s.from; i < s.to; i++ {
+			l.playRun(dst, i)
+		}
+		return
+	}
 	for _, c := range l.cmds[s.from:s.to] {
 		target := dst
 		if f != nil {
@@ -483,6 +495,7 @@ func (l *drawList) since(m listMark) inked {
 func (l *drawList) cmdBox(i int) image.Rectangle { return l.cmds[i].box }
 
 func (l *drawList) playCmd(dst *ebiten.Image, c *drawCmd) {
+	l.calls++
 	switch c.kind {
 	case cmdImage:
 		dst.DrawImage(c.src, &l.imgOps[c.op])
