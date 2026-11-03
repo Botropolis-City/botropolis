@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -210,6 +211,10 @@ func (g *Game) checkPanels(straight, composed *ebiten.Image, dump, write string)
 				return false
 			}
 			ids := []string{snap.Sessions[0].ID, snap.Sessions[1].ID}
+			// A group is offered only when its sessions on the map carry
+			// it (item 333).
+			snap.Sessions = slices.Clone(snap.Sessions)
+			snap.Sessions[0].Group, snap.Sessions[1].Group = "check", "check"
 			snap.Groups = []state.Group{{ID: "check", Name: "CHECK-1 · panels", Short: "CHECK-1", Reason: "the frame check", Members: ids}}
 			snap.GroupsReviewed = false
 			g.scene.SetSnapshot(snap)
