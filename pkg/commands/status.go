@@ -133,7 +133,7 @@ type DaemonOrDirect struct {
 }
 
 func (d DaemonOrDirect) Snapshot(direct bool) (state.Snapshot, error) {
-	if !direct {
+	if !direct && d.Socket != "" {
 		snapshot, err := fromDaemon(d.Socket)
 		if err == nil {
 			return snapshot, nil

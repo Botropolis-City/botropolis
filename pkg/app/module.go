@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,11 +201,14 @@ func (s *services) Status(cfg *config.Config) cli.StatusRunner {
 }
 
 func (s *services) Events(cfg *config.Config) cli.EventsRunner {
+	if ownSocket(cfg) == "" {
+		return refusedEvents{}
+	}
 	return commands.NewEvents(cfg.Socket)
 }
 
 func (s *services) Find(cfg *config.Config) cli.FindRunner {
-	return commands.NewFind(cfg.Socket, cfg.Home, s.source(cfg), time.Now).WithCity(single.SocketPath(), startCityWithFinder)
+	return commands.NewFind(ownSocket(cfg), cfg.Home, s.source(cfg), time.Now).WithCity(single.SocketPath(), startCityWithFinder)
 }
 
 // openFinderEnv asks a city started by botropolis find to open with the
@@ -257,7 +261,7 @@ func (s *services) source(cfg *config.Config) commands.DaemonOrDirect {
 
 func (s *services) sourceAt(cfg *config.Config, speed appd.Speed) commands.DaemonOrDirect {
 	return commands.DaemonOrDirect{
-		Home: cfg.Home, Socket: cfg.Socket, Probes: s.probes,
+		Home: cfg.Home, Socket: ownSocket(cfg), Probes: s.probes,
 		Direct: appd.Harnesses(cfg, s.probes, speed).Load, Now: time.Now, Notice: os.Stderr,
 	}
 }
@@ -272,10 +276,21 @@ func readSpeed(screenshot, record string) appd.Speed {
 	return appd.Paced
 }
 
+// refusedEvents is events under --home without --socket: the log lives
+// only in a daemon, and the default one's is the person's own (item 336).
+type refusedEvents struct{}
+
+func (refusedEvents) Run(io.Writer, time.Time) error {
+	return fmt.Errorf("the event log lives in the daemon: %w", errNoOwnDaemon)
+}
+
+// feed is the live feed bar, notify and the TUI follow.
+func (s *services) feed(cfg *config.Config) commands.Feed {
+	return commands.Feed{Socket: ownSocket(cfg), Source: s.source(cfg), Poll: 2 * time.Second, Retry: 5 * time.Second}
+}
+
 func (s *services) Bar(cfg *config.Config) cli.BarRunner {
-	source := s.source(cfg)
-	feed := commands.Feed{Socket: cfg.Socket, Source: source, Poll: 2 * time.Second, Retry: 5 * time.Second}
-	return commands.NewBar(source, feed.RunRefusing).WithTriage(barLayout, time.Now)
+	return commands.NewBar(s.source(cfg), s.feed(cfg).RunRefusing).WithTriage(barLayout, time.Now)
 }
 
 // barLayout is the city's triage marks; a layout that cannot be read
@@ -289,8 +304,7 @@ func barLayout() *city.Layout {
 }
 
 func (s *services) Notify(cfg *config.Config) cli.NotifyRunner {
-	feed := commands.Feed{Socket: cfg.Socket, Source: s.source(cfg), Poll: 2 * time.Second, Retry: 5 * time.Second}
-	n := commands.NewNotify(feed.RunRefusing, commands.NotifierFor(runtime.GOOS))
+	n := commands.NewNotify(s.feed(cfg).RunRefusing, commands.NotifierFor(runtime.GOOS))
 	n.OnError = func(err error) { fmt.Fprintf(os.Stderr, "botropolis notify: %v\n", err) }
 	return n
 }
@@ -327,9 +341,8 @@ type tuiRunner struct {
 }
 
 func (r *tuiRunner) Run(ctx context.Context) error {
-	feed := commands.Feed{Socket: r.config.Socket, Source: r.services.source(r.config), Poll: 2 * time.Second, Retry: 5 * time.Second}
 	sessions := commands.NewSessions(r.config.Home, control.Default(r.config.Terminal)).WithDemolished(demolisher(r.config))
-	return tui.Run(ctx, feed.RunRefusing, sessions)
+	return tui.Run(ctx, r.services.feed(r.config).RunRefusing, sessions)
 }
 
 func (s *services) City(cfg *config.Config) cli.CityRunner {

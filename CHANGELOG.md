@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A city started with `--home` leaves your own daemon alone.**
   It showed your own daemon's sessions, searched through it, and could restart it from the settings, and packing up, closing up or demolishing a session there could mark a real session, or one that does not exist, in your depot.
   Without a `--socket` of its own, it now reads only the home it was given, and refuses to pack, close up or restart, saying why.
+- **`find`, `bar --watch`, `notify` and the live session table under `--home` read that home, not your own daemon.**
+  Without a `--socket` they showed your real sessions; they now read the home they were given, and `events`, whose log lives only in a daemon, says to pass `--socket`.
 
 ## [0.3.5] - 2026-11-03
 
