@@ -25,7 +25,7 @@ func (w cancelOnWrite) Write(p []byte) (int, error) { w.cancel(); return len(p),
 // daemon, or the home itself, and never the default socket's.
 func TestHomeSubcommandSocket(t *testing.T) {
 	stage := func(t *testing.T, home bool, socket string) (*services, *config.Config, *fakeDaemon) {
-		t.Setenv("XDG_RUNTIME_DIR", shortDir(t))
+		stageDefaultSocket(t)
 		t.Setenv("XDG_STATE_HOME", t.TempDir())
 		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 		real := listenAt(t, proto.SocketPath())

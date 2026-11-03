@@ -33,7 +33,7 @@ func (d *fakeDaemon) received() []string {
 
 func shortDir(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "b334")
+	dir, err := os.MkdirTemp("/tmp", "b334")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	return dir
@@ -41,6 +41,7 @@ func shortDir(t *testing.T) string {
 
 func listenAt(t *testing.T, path string) *fakeDaemon {
 	t.Helper()
+	requireBindable(t, path)
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
 	l, err := net.Listen("unix", path)
 	require.NoError(t, err)
@@ -69,7 +70,7 @@ func TestCityActorSocket(t *testing.T) {
 	const session = "33400000-0000-0000-0000-000000000000"
 
 	stage := func(t *testing.T, home bool, socket string) (*liveActor, *fakeDaemon) {
-		t.Setenv("XDG_RUNTIME_DIR", shortDir(t))
+		stageDefaultSocket(t)
 		t.Setenv("XDG_STATE_HOME", t.TempDir())
 		cleanup, err := statedir.MakePrivate("")
 		require.NoError(t, err)
@@ -143,7 +144,7 @@ func (stagedSource) Snapshot(bool) (state.Snapshot, error) { return state.Snapsh
 // to that home's daemon too.
 func TestCityDaemon(t *testing.T) {
 	stage := func(t *testing.T, home bool, socket string) (cityDaemon, *fakeDaemon) {
-		t.Setenv("XDG_RUNTIME_DIR", shortDir(t))
+		stageDefaultSocket(t)
 		real := listenAt(t, proto.SocketPath())
 		cfg := &config.Config{Home: t.TempDir(), HomeSet: home, Socket: proto.SocketPath()}
 		if socket != "" {
