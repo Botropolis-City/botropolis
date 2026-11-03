@@ -1,9 +1,12 @@
 package render
 
 import (
+	"fmt"
 	"hash/maphash"
 	"image"
 	"math"
+	"strconv"
+	"strings"
 	"unsafe"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -14,53 +17,147 @@ import (
 // while it holds from one frame to the next, nothing still on the map
 // would be drawn otherwise (item 212). TestStillKeyReads holds every
 // still drawable's key and draw to what this reads.
-func (g *Game) standingKey(selected *city.Building) uint64 {
+// Where why is not nil, each input is appended to it by name.
+func (g *Game) standingKey(selected *city.Building, why *[]standingInput) uint64 {
 	s := g.scene
 	if !g.frameBase.ok {
 		g.frameBase = g.frameBaseKey()
 	}
 	c := s.City()
 	now := s.Now()
-	key := keyMix(g.frameBase.all, g.frameBase.house, g.houseWide,
-		uint64(s.Generation()), uint64(s.GroundGeneration()), uint64(s.View()),
-		boolBits(c.Night), boolBits(g.labelsVisible()), boolBits(s.Scenery()),
-		boolBits(s.Detailed()), math.Float64bits(s.PlantLights()), uint64(uintptr(unsafe.Pointer(selected))),
-		// The clinic's plate counts what needs you, which a snooze running
-		// out changes with nothing else (item 280).
-		uint64(s.ClinicCount()), maphash.String(inkSeed, s.FocusedGroup()))
+	f := standingFold{why: why}
+	f.put("base", g.frameBase.all)
+	f.put("house", g.frameBase.house)
+	f.put("house-wide", g.houseWide)
+	f.put("generation", uint64(s.Generation()))
+	f.put("ground", uint64(s.GroundGeneration()))
+	f.put("view", uint64(s.View()))
+	f.put("night", boolBits(c.Night))
+	f.put("labels", boolBits(g.labelsVisible()))
+	f.put("scenery", boolBits(s.Scenery()))
+	f.put("detailed", boolBits(s.Detailed()))
+	f.put("plant lights", math.Float64bits(s.PlantLights()))
+	f.put("selected", uint64(uintptr(unsafe.Pointer(selected))))
+	// The clinic's plate counts what needs you, which a snooze running
+	// out changes with nothing else (item 280).
+	f.put("clinics", uint64(s.ClinicCount()))
+	f.put("focused", maphash.String(inkSeed, s.FocusedGroup()))
 	// Moved by part of a pixel, nothing drawn lands where it did.
 	if g.rec != nil {
 		o := g.rec.origin
 		frac := func(v float64) uint64 { return uint64(math.Round((v-math.Floor(v))*64)) % 64 }
-		key = keyMix(key, frac(o.X), frac(o.Y))
+		f.put("origin", keyMix(frac(o.X), frac(o.Y)))
 	}
 	var stirring uint64
 	for id := range g.stirring {
 		stirring ^= maphash.String(inkSeed, id)
 	}
-	key = keyMix(key, stirring)
+	f.put("stirring", stirring)
 	viewing := g.viewing()
 	for _, b := range c.Buildings() {
 		id := b.Session.ID
-		v := keyMix(boolBits(s.Dimmed(b)), boolBits(g.unlit(b)), boolBits(g.backingOff(id)), math.Float64bits(s.Scaffold(b)),
-			boolBits(courseLit(&b.Session, now)), math.Float64bits(s.Rising(id)), math.Float64bits(s.Lights(id)),
-			math.Float64bits(s.Mowing(id)))
+		f.putFor(id, "dimmed", boolBits(s.Dimmed(b)))
+		f.putFor(id, "unlit", boolBits(g.unlit(b)))
+		f.putFor(id, "backing off", boolBits(g.backingOff(id)))
+		f.putFor(id, "scaffold", math.Float64bits(s.Scaffold(b)))
+		f.putFor(id, "course", boolBits(courseLit(&b.Session, now)))
+		f.putFor(id, "rising", math.Float64bits(s.Rising(id)))
+		f.putFor(id, "lights", math.Float64bits(s.Lights(id)))
+		f.putFor(id, "mowing", math.Float64bits(s.Mowing(id)))
 		if site, ok := s.Construction(id); ok {
-			v = keyMix(v, math.Float64bits(site.Fence), math.Float64bits(site.Scaffold), math.Float64bits(site.Crane),
-				math.Float64bits(site.Floors), math.Float64bits(site.Lights), math.Float64bits(site.Opacity))
+			f.putFor(id, "site", keyMix(math.Float64bits(site.Fence), math.Float64bits(site.Scaffold), math.Float64bits(site.Crane),
+				math.Float64bits(site.Floors), math.Float64bits(site.Lights), math.Float64bits(site.Opacity)))
 		}
 		if viewing {
 			if tint, ok := g.viewTint(b); ok {
-				v = keyMix(v, 1, uint64(tint.R)<<24|uint64(tint.G)<<16|uint64(tint.B)<<8|uint64(tint.A))
+				f.putFor(id, "tint", uint64(tint.R)<<24|uint64(tint.G)<<16|uint64(tint.B)<<8|uint64(tint.A))
 			}
 		}
 		for i := range min(b.Flags, 3) {
-			v = keyMix(v, math.Float64bits(g.flagHoist(b, i)))
+			f.putFor(id, hoistNames[i], math.Float64bits(g.flagHoist(b, i)))
 		}
-		key = keyMix(key, v)
 	}
-	return key
+	return f.key
 }
+
+// whyHoldDefault is whether a new game keeps its standing key input by
+// input: a debug build's does, for the frame log (item 212).
+var whyHoldDefault = false
+
+// hoistNames name a building's three flags among the standing key's
+// inputs.
+var hoistNames = [3]string{"hoist 0", "hoist 1", "hoist 2"}
+
+// standingInput is one input of the standing key: the building it is
+// of, if any, its name, and its value.
+type standingInput struct {
+	id, name string
+	v        uint64
+}
+
+// standingFold folds the standing key's inputs in turn, and keeps them
+// by name where why is set.
+type standingFold struct {
+	key uint64
+	why *[]standingInput
+}
+
+func (f *standingFold) put(name string, v uint64) { f.putFor("", name, v) }
+
+func (f *standingFold) putFor(id, name string, v uint64) {
+	f.key = keyMix(f.key, v)
+	if f.why != nil {
+		*f.why = append(*f.why, standingInput{id: id, name: name, v: v})
+	}
+}
+
+// holdBroke is the first of the standing key's inputs that changed
+// since the last frame, named as the frame log names it, or nothing
+// when the key held or its inputs were not kept. A building come or
+// gone is "buildings".
+func (g *Game) holdBroke() string {
+	s := &g.still
+	if s.standing == s.lastStanding || len(s.why) == 0 || len(s.lastWhy) == 0 {
+		return ""
+	}
+	for i, in := range s.why {
+		if i >= len(s.lastWhy) {
+			return "buildings"
+		}
+		was := s.lastWhy[i]
+		if was.id != in.id || was.name != in.name {
+			return "buildings"
+		}
+		if was.v == in.v {
+			continue
+		}
+		if in.id == "" {
+			return in.name
+		}
+		return in.id + " " + in.name
+	}
+	return "buildings"
+}
+
+// holdLine is what a frame held and ran, by kind where it recorded
+// afresh, and what broke its hold, as one line of the frame log.
+func holdLine(st stillStats, broke string) string {
+	var fresh []string
+	for k, n := range st.freshBy {
+		if n > 0 {
+			fresh = append(fresh, kindTags[k]+":"+strconv.Itoa(n))
+		}
+	}
+	if broke == "" {
+		broke = "nothing"
+	}
+	return fmt.Sprintf("hold: held=%d ran=%d ran-kept=%d aged-held=%d fresh=%s broke=%s",
+		st.held, st.ran, st.ranKept, st.agedHeld, strings.Join(fresh, ","), broke)
+}
+
+// kindTags name the kinds in the frame log.
+var kindTags = [kindsKept]string{"", "district-floor", "lot-floor", "house", "monument", "sign", "tree", "bridge",
+	"fog", "landmark", "stack", "tower", "lines"}
 
 // heldItem is a still thing as a frame noted it: who it is, the entry its
 // record became (-1 when it was not one to keep), its kind, and the hits

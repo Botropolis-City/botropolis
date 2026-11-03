@@ -29,7 +29,12 @@ func (g *Game) logStill() {
 	}
 	s := g.still.stats
 	fmt.Printf("still: composes=%d redos=%d overlays=%d rects=%d ground=%d direct=%d shifts=%d tick=%d\n", s.composes, s.redos, s.overlays, s.rects, g.static.composes, s.direct, s.shifts+g.static.shifts, g.ticks)
+	fmt.Println(holdLine(s, g.holdBroke()))
 }
+
+// The debug build keeps the standing key input by input, so the hold
+// line can say what broke it (item 212).
+func init() { whyHoldDefault = true }
 
 // logOpened writes that a recording's city opened, on a read history,
 // for a frame test to count from (item 202). One that reaches the

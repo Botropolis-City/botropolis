@@ -611,7 +611,11 @@ func (g *Game) drawIso(screen *ebiten.Image, c *city.City, cam *city.Camera, hov
 	g.note(func() { g.overgrowth(screen, cam) }, true)
 	// Worked out once, before the aged lots, which hold by it as the
 	// city's still things do (item 212).
-	g.still.standing = g.standingKey(selected)
+	var why *[]standingInput
+	if g.whyHold {
+		why = &g.still.why
+	}
+	g.still.standing = g.standingKey(selected, why)
 	g.still.ground = g.groundKey()
 	g.noteAgedLots(screen, cam, c)
 	// Drones stand in the depth sort on their shadows' ground points,

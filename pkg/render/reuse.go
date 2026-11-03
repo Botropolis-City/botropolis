@@ -114,6 +114,7 @@ func (g *Game) keepRecord() {
 	s.lastLines, s.lines = s.lines, s.lastLines
 	clear(s.lines)
 	s.lastStanding, s.logged = s.standing, s.logWhole
+	s.lastWhy, s.why = s.why, s.lastWhy[:0]
 	s.lastGround = s.ground
 	k.entries, g.still.entries = g.still.entries, k.entries
 	g.putJournalAside(&k.jn)

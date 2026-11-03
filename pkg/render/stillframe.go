@@ -80,6 +80,9 @@ type stillFrame struct {
 	// the last frame's, whole when logged; notedKind is the kind
 	// noteKeyed was last asked to note (item 212).
 	standing, lastStanding uint64
+	// why and lastWhy are this and the last frame's standing key, input
+	// by input, kept when the game's whyHold asks (item 212).
+	why, lastWhy []standingInput
 	// ground and lastGround are this and the last frame's ground key.
 	ground, lastGround uint64
 	log, lastLog       []heldItem

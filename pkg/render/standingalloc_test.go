@@ -35,7 +35,7 @@ func TestTheStandingKeysAllocations(t *testing.T) {
 	}{
 		{"the standing key", func() {
 			rc.g.frameBase.ok = false
-			rc.g.standingKey(nil)
+			rc.g.standingKey(nil, nil)
 		}},
 		// Kept, as a building's frame keeps its tint.
 		{"a stopped building's tint", func() { kept = blindsTint() }},

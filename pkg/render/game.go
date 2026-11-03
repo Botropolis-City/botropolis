@@ -209,6 +209,10 @@ type Game struct {
 	// ground layer rather than noting them, and agedApart keeps them
 	// noted, as a test draws them to hold the layer to (item 212).
 	agedLayer, agedApart bool
+	// whyHold keeps the standing key input by input, for the debug frame
+	// log to say what broke the hold (item 212). A debug build sets
+	// whyHoldDefault.
+	whyHold bool
 	// linePairs is a buffer of segments drawn as one mesh (item 207).
 	linePairs []city.Point
 
@@ -659,7 +663,7 @@ func NewGame(scene *city.Scene, actor Actor, theme ui.Theme, faces *faces, saveL
 	if scene.Projection() != city.Isometric {
 		scene.SetProjection(city.Isometric)
 	}
-	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, started: time.Now(), focused: true, ime: true, verifyBudget: releaseVerifyBudget}
+	g := &Game{scene: scene, actor: actor, theme: theme, faces: faces, saveState: saveLayout, started: time.Now(), focused: true, ime: true, verifyBudget: releaseVerifyBudget, whyHold: whyHoldDefault}
 	g.overlays.push(&lensPanel{})
 	// A window that was closed owes the away list from when it was last
 	// seen, the way a blurred one does from when it lost focus.
