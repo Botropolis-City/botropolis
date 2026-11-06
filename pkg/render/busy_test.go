@@ -59,24 +59,26 @@ func TestBusy(t *testing.T) {
 		for _, c := range []struct {
 			kind    city.ActionKind
 			running string
-			already string
+			button  string
 		}{
-			{city.ActionResume, "resuming Kiln…", "already resuming Kiln"},
-			{city.ActionNew, "starting a session in Kiln…", "already starting a session in Kiln"},
-			{city.ActionNewSession, "starting a session in Kiln…", "already starting a session in Kiln"},
-			{city.ActionFork, "forking Kiln…", "already forking Kiln"},
-			{city.ActionStop, "stopping Kiln…", "already stopping Kiln"},
-			{city.ActionDemolish, "removing Kiln…", "already removing Kiln"},
-			{city.ActionRestore, "restoring the desk…", "already restoring the desk"},
-			{city.ActionCloseUp, "closing up…", "already closing up"},
+			{city.ActionResume, "resuming Kiln…", "resuming…"},
+			{city.ActionNew, "starting a session in Kiln…", "starting…"},
+			{city.ActionNewSession, "starting a session in Kiln…", "starting…"},
+			{city.ActionFork, "forking Kiln…", "forking…"},
+			{city.ActionStop, "stopping Kiln…", "stopping…"},
+			{city.ActionDemolish, "removing Kiln…", "removing…"},
+			{city.ActionRestore, "restoring the desk…", "restoring…"},
+			{city.ActionCloseUp, "closing up…", "closing…"},
 		} {
 			t.Run("and it is "+string(c.kind), func(t *testing.T) {
 				t.Run("it should say it is running", func(t *testing.T) {
 					assert.Equal(t, c.running, running(c.kind, "Kiln"))
 				})
 
-				t.Run("it should say it is already running", func(t *testing.T) {
-					assert.Equal(t, c.already, already(c.kind, "Kiln"))
+				// Item 352: its button says the doing word alone, on the
+				// card that already names the session.
+				t.Run("its button should say what it is doing", func(t *testing.T) {
+					assert.Equal(t, c.button, progress(c.kind))
 				})
 			})
 		}

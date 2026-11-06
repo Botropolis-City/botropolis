@@ -1,6 +1,7 @@
 package render
 
 import (
+	"strings"
 	"sync"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -42,6 +43,13 @@ func (b *busy) begin(a city.Action) bool {
 	return true
 }
 
+// is whether an action is running.
+func (b *busy) is(a city.Action) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.running[keyOf(a)]
+}
+
 func (b *busy) end(a city.Action) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -67,12 +75,19 @@ func doingWhat(kind city.ActionKind, name string) string {
 	return d
 }
 
-// running is the notice shown while an action runs beside the loop.
-func running(kind city.ActionKind, name string) string {
-	return doingWhat(kind, name) + "…"
+// progress is what a button says while its action runs: the doing
+// word alone, since the card it is on already names the session (item
+// 352).
+func progress(kind city.ActionKind) string {
+	words := strings.Fields(doing[kind])
+	if len(words) == 0 {
+		return string(kind)
+	}
+	return words[0] + "…"
 }
 
-// already is the notice a second press of a running action gets.
-func already(kind city.ActionKind, name string) string {
-	return "already " + doingWhat(kind, name)
+// running is the notice shown while an action runs beside the loop with
+// no button on screen to say so.
+func running(kind city.ActionKind, name string) string {
+	return doingWhat(kind, name) + "…"
 }

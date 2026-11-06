@@ -108,7 +108,7 @@ Three meanings on one waterway is past what colour alone can carry, so each is h
 
 Each also passes the test above, but the third passes it differently and that is worth saying.
 A tug and a gauge boat appear unbidden, so they have to explain themselves to someone who did not ask for them.
-**The courier appears because a key was pressed one frame earlier**, with a status line already naming what it is doing — it is feedback for a deliberate action, not ambient motion, and the action is most of its explanation.
+**The courier appears because a key was pressed one frame earlier**, with a notice under the strip already naming what it is doing — it is feedback for a deliberate action, not ambient motion, and the action is most of its explanation.
 Its card still teaches the key, because Aria had not realised the refresh existed at all: a thing that only appears when you already know the trick is no use for learning the trick.
 
 **The honest limit.** All three are hoverable in principle and hard to hover in practice, because two of them are moving and the courier lives five seconds. Pointing at a moving object is a real cost that the "it can answer for itself" test does not measure, and the river is where that cost has accumulated. A fourth meaning should not be added here.

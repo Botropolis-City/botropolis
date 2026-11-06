@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The line at the bottom naming who has waited longest is gone.
   Clicking the count in the top bar now attaches that session in one click, as the line did, and hovering it lists who needs you, longest-waiting first.
   `tab` still walks them one at a time.
+- **A button says what it is doing.**
+  While stop, resume, fork or remove runs, its button on the session's card reads *stopping…*, *resuming…* and so on until it is done, and *Pack up everything quiet* reads *packing up…*.
+  When nothing on screen carries it, such as a new session started from its panel, one message under the top bar says what was started.
+  A failure says what went wrong there; a success needs no message, since the building changes.
 
 ### Fixed
 

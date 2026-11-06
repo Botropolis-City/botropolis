@@ -16,7 +16,7 @@ the strip, the window title, the bar and the TUI rows walk it,
 and a zero count drops out without moving the others.
 
 Phase 7 finished the same day.
-`pkg/ui` holds the strip, the plate (every in-world label sits on one), the card, the footer with its key row, the minimap's box,
+`pkg/ui` holds the strip, the plate (every in-world label sits on one), the card, the footer with its key row, the notice plate and the dialog (item 352), the minimap's box,
 the help overlay, the settings panel and its model, and a button row for the cards to come;
 each is a pure layout with its own tests.
 Keys: `?` help, `h` hide the UI, `p` save a frame to `~/Pictures` from the game's own buffer, `0` resets the view and `f` is Skyline (the whole city if it reads at the zoom-out floor, otherwise the floor centred on it), the wheel stops at Skyline and one notch further, after the wheel has rested, opens the City Plan (item 106), whose own wheel zooms it about the pointer and a drag pans it, with a rested notch in at its closest returning to the map (item 282), which `m` (`city_plan_key`) toggles from anywhere, Esc closes back to where the camera was, and a click on a badge leaves by flying into its district, arrows pan, `+`/`-` zoom, `s` settings.

@@ -44,17 +44,6 @@ func TestNotify(t *testing.T) {
 		})
 	})
 
-	t.Run("when SetStatus is called", func(t *testing.T) {
-		g := newGame(t)
-		g.SetStatus("saved city.png")
-		current, ok := g.notice.Current(timeNow())
-		require.True(t, ok)
-
-		t.Run("it should be a notice with no tone and no key", func(t *testing.T) {
-			assert.Equal(t, ui.Message{Text: "saved city.png"}, current)
-		})
-	})
-
 	t.Run("when a notice line with no session is clicked in the stream", func(t *testing.T) {
 		g := newGame(t)
 		line := ui.NoticeEvent(ui.Message{Text: "saved city.png"}, time.Now())

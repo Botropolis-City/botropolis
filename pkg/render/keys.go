@@ -237,7 +237,7 @@ func (g *Game) answerKeys() error {
 			// press inside the debounce fetches nothing, so it launches
 			// nothing and the status line says why. Item 56.
 			g.scene.SendCourier()
-			g.SetStatus("reading usage…")
+			g.Notify("reading usage…", ui.ToneNone, "")
 		} else {
 			// By hand, the boats are away until called, so a press
 			// inside the debounce still calls them up with the figures
@@ -554,29 +554,73 @@ var runsClaude = map[city.ActionKind]bool{
 	city.ActionRestore:    true,
 }
 
-// actBeside runs a claude action beside the loop. A second press while it
-// runs is told so rather than starting a second claude; a failure
-// replaces what it was doing, and success clears it, since the building
-// changing is the answer.
+// actBeside runs a claude action beside the loop. Its button says what
+// it is doing until it is done; with no such button on screen, one
+// notice says what it started (item 352). A second press while it runs
+// starts no second claude. A failure is a notice, and success says
+// nothing more, since the building changing is the answer.
 func (g *Game) actBeside(action city.Action) {
-	name := g.nameFor(action)
 	if !g.busy.begin(action) {
-		g.SetStatus(already(action.Kind, name))
 		return
 	}
-	doing := running(action.Kind, name)
-	g.SetStatus(doing)
+	doing := ""
+	if !g.buttonCarries(action) {
+		doing = running(action.Kind, g.nameFor(action))
+		g.Notify(doing, ui.ToneNone, "")
+	}
 	actor := g.actor
 	g.acting.Add(1)
 	go func() {
 		defer g.acting.Done()
 		defer g.busy.end(action)
 		if err := actor.Do(action); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
-		g.clearStatus(doing)
+		if doing != "" {
+			g.clearStatus(doing)
+		}
 	}()
+}
+
+// cardAction is the action a card's button runs beside the loop for a
+// building, as busy keys it.
+func cardAction(kind city.ActionKind, b *city.Building) city.Action {
+	switch kind {
+	case city.ActionNew:
+		return city.Action{Kind: city.ActionNew, Dir: b.Session.CWD}
+	case city.ActionAttach:
+		kind = city.ActionResume
+	}
+	return city.Action{Kind: kind, SessionID: b.Session.ID}
+}
+
+// buttonCarries is whether a button on screen says an action's progress:
+// the selected session's card, as last drawn, with that action's button.
+func (g *Game) buttonCarries(action city.Action) bool {
+	b := g.scene.Selected()
+	if b == nil || g.pinned.Rect.Area() == 0 {
+		return false
+	}
+	for _, kind := range g.pinnedKinds {
+		if keyOf(cardAction(kind, b)) == keyOf(action) {
+			return true
+		}
+	}
+	return false
+}
+
+// progressLabels are a card's button labels, each running action's in
+// its doing word (item 352).
+func (g *Game) progressLabels(kinds []city.ActionKind, b *city.Building) []string {
+	labels := make([]string, len(kinds))
+	for i, kind := range kinds {
+		labels[i] = string(kind)
+		if b != nil && runsClaude[cardAction(kind, b).Kind] && g.busy.is(cardAction(kind, b)) {
+			labels[i] = progress(cardAction(kind, b).Kind)
+		}
+	}
+	return labels
 }
 
 // nameFor is what a notice calls the subject of an action: its session's
@@ -599,7 +643,7 @@ func (g *Game) nameFor(a city.Action) string {
 	return filepath.Base(a.Dir)
 }
 
-// clearStatus takes text off the footer if it is still what is shown.
+// clearStatus takes a notice down if it is still the one shown.
 func (g *Game) clearStatus(text string) {
 	g.mu.Lock()
 	defer g.mu.Unlock()

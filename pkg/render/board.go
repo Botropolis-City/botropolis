@@ -196,7 +196,7 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.mu.Unlock()
 	g.roundRect(screen, button, th.Radius()/2, th.Palette.Hairline)
 	g.text(screen, city.Point{X: button.Min.X + grid, Y: button.Min.Y + grid/4}, label, ui.Small, th.Palette.Accent)
-	quietText := quietLabel(len(g.quietIDs())) + "  p"
+	quietText := g.quietButtonLabel(len(g.quietIDs())) + "  p"
 	qw, qh := g.faces.Measure(quietText, ui.Small)
 	quiet := city.RectAt(button.Min.X-grid-qw-grid*2, y, qw+grid*2, qh+grid/2)
 	g.mu.Lock()

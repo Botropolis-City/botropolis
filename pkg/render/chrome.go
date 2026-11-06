@@ -76,6 +76,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	}
 	if card, b, ok := g.scene.SelectedCard(); ok && !g.sidebar {
 		card.Hint = hint
+		card.Actions = g.progressLabels(g.scene.Actions(), b)
 		if step, ok := g.scene.TriageStep(); ok && triaging {
 			card.Kind = step.Header()
 		}
@@ -158,8 +159,10 @@ func (g *Game) clickCard(at city.Point) bool {
 		for i, kind := range g.pinnedKinds {
 			if i < len(g.pinned.Buttons) && g.pinned.Buttons[i].Label.Text == btn.Label.Text {
 				action, note := g.scene.Act(kind)
-				if note != "" {
-					g.SetStatus(note)
+				// What runs beside the loop says so on this button
+				// (item 352); every other note is a notice.
+				if note != "" && !runsClaude[action.Kind] {
+					g.Notify(note, ui.ToneNone, "")
 				}
 				g.act(action)
 				break

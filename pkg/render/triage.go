@@ -70,7 +70,7 @@ func (t *triage) keys(g *Game) bool {
 
 func (g *Game) noteAndAct(action city.Action, note string) {
 	if note != "" {
-		g.SetStatus(note)
+		g.Notify(note, ui.ToneNone, "")
 	}
 	g.act(action)
 }

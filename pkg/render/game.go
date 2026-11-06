@@ -621,6 +621,9 @@ type Game struct {
 	// and answers how many it did (item 333).
 	quietFor time.Duration
 	sweep    func(ids []string, quietFor time.Duration) (int, error)
+	// sweeping is whether the quiet sweep is running, which its button
+	// says (item 352).
+	sweeping atomic.Bool
 	// tidyAfter is how long away the map must have been for the tidy-up
 	// walk to open by itself (item 333).
 	tidyAfter time.Duration
@@ -691,13 +694,6 @@ func (g *Game) AddEvents(fresh []events.Event) {
 	defer g.mu.Unlock()
 	g.pendingEvents = append(g.pendingEvents, fresh...)
 	g.pendingBatches++
-}
-
-// SetStatus is the plain notice: no tone, no key. Its callers become a
-// Notify, a dialog or feedback at the point of action as item 352
-// lands, and then it goes.
-func (g *Game) SetStatus(status string) {
-	g.Notify(status, ui.ToneNone, "")
 }
 
 // Notify says what just happened: one plate under the strip for a few

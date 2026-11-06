@@ -152,7 +152,7 @@ func (g *Game) recordFrame(screen *ebiten.Image) {
 	share := g.share
 	share.rec, share.last = nil, rec
 	share.saved = filepath.Dir(rec.path)
-	g.SetStatus("writing the " + rec.kind + "…")
+	g.Notify("writing the "+rec.kind+"…", ui.ToneNone, "")
 	done := rec.sink.finish()
 	share.encoding.Add(1)
 	go func() {

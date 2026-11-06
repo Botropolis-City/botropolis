@@ -68,15 +68,17 @@ func TestActClaudeBesideTheLoop(t *testing.T) {
 					assert.True(t, back)
 				})
 
-				t.Run("it should say what it is doing", func(t *testing.T) {
+				t.Run("it should say what it is doing, with no card on screen to say it", func(t *testing.T) {
 					assert.Equal(t, c.running, g.notice.Text(timeNow()))
 				})
 
 				t.Run("and it is chosen again", func(t *testing.T) {
 					g.act(c.action)
 
-					t.Run("it should say it already is", func(t *testing.T) {
-						assert.Equal(t, "already "+c.running[:len(c.running)-len("…")], g.notice.Text(timeNow()))
+					// Item 352: the second press is told nothing new; what is
+					// running already says so.
+					t.Run("it should still say only what it is doing", func(t *testing.T) {
+						assert.Equal(t, c.running, g.notice.Text(timeNow()))
 					})
 				})
 			})

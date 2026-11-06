@@ -58,10 +58,13 @@ func (g *Game) sweepIDs(ids []string, quietFor time.Duration) {
 		return
 	}
 	sweep := g.sweep
-	g.SetStatus(fmt.Sprintf("packing up %s…", quietCount(len(ids))))
+	if !g.sweeping.CompareAndSwap(false, true) {
+		return
+	}
 	g.acting.Add(1)
 	go func() {
 		defer g.acting.Done()
+		defer g.sweeping.Store(false)
 		packed, err := sweep(ids, quietFor)
 		if err != nil {
 			g.failed(err)
@@ -69,6 +72,15 @@ func (g *Game) sweepIDs(ids []string, quietFor time.Duration) {
 		}
 		g.Notify(fmt.Sprintf("packed up %s; unpack any from the depot", quietCount(packed)), ui.ToneNone, "")
 	}()
+}
+
+// quietButtonLabel is the board's Pack up button: what it would pack,
+// or what it is doing while the sweep runs (item 352).
+func (g *Game) quietButtonLabel(n int) string {
+	if g.sweeping.Load() {
+		return "packing up…"
+	}
+	return quietLabel(n)
 }
 
 // sweptSince is how many sessions the quiet sweep packed up since a time
