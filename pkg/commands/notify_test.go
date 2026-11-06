@@ -4,11 +4,64 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
+	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/daemon"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 	"github.com/stretchr/testify/assert"
 )
+
+// Item 346: a pause of a second or two between turns is no change into
+// needing you, so it sends nothing; the hold passing does.
+func TestNotifyInsideTheHold(t *testing.T) {
+	t.Run("when a working session pauses inside the hold and works again", func(t *testing.T) {
+		d, _ := servedDaemon(t)
+		clock := helpers.NewFakeClock(daemonNow)
+		d.SetReleaseClock(clock)
+		notifier := &fakeNotifier{}
+		n := commands.NewNotify(nil, notifier)
+		updates, cancel := d.Subscribe()
+		defer cancel()
+		offer := func() {
+			for {
+				select {
+				case update := <-updates:
+					n.Offer(update.Snapshot)
+				default:
+					return
+				}
+			}
+		}
+		d.Apply(claude.HookEvent{Name: claude.HookPreToolUse, SessionID: sid, ToolName: "Grep"}, daemonNow)
+		offer()
+		d.Apply(claude.HookEvent{Name: claude.HookStop, SessionID: sid}, daemonNow.Add(time.Second))
+		offer()
+		clock.Advance(time.Second)
+		offer()
+		d.Apply(claude.HookEvent{Name: claude.HookPreToolUse, SessionID: sid, ToolName: "Bash"}, daemonNow.Add(2*time.Second))
+		offer()
+		clock.Advance(2 * daemon.IdleHold)
+		offer()
+
+		t.Run("it should send no notification", func(t *testing.T) {
+			assert.Empty(t, notifier.sent)
+		})
+
+		t.Run("and its turn ends and the hold passes", func(t *testing.T) {
+			d.Apply(claude.HookEvent{Name: claude.HookStop, SessionID: sid}, daemonNow.Add(3*time.Second))
+			offer()
+			clock.Advance(daemon.IdleHold)
+			offer()
+
+			t.Run("it should send one", func(t *testing.T) {
+				assert.Len(t, notifier.sent, 1)
+			})
+		})
+	})
+}
 
 type fakeNotifier struct {
 	sent []string

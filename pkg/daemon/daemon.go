@@ -191,6 +191,12 @@ type Daemon struct {
 	// store is what became of the statistics store (item 190).
 	store    *state.StatsStore
 	overlays map[string]overlay
+	// shown is what each session last showed, and holds the sessions the
+	// idle hold keeps showing as they were; shownAt counts presentations
+	// so a session that is gone is forgotten (item 346).
+	shown   map[string]shown
+	holds   map[string]*hold
+	shownAt uint64
 	// hooked is every session a hook event has ever arrived for; a
 	// session without one is only read from files, and the map says so.
 	hooked      map[string]bool
@@ -207,16 +213,23 @@ type Daemon struct {
 	settleAfter time.Duration
 	ceiling     time.Duration
 	unreleased  time.Time
-	settle      stopper
+	settle      Stopper
 	// releaseClock is what the release timer reads and arms, the real
 	// clock but in tests (item 205).
-	releaseClock releaseClock
+	releaseClock ReleaseClock
 	// peer is what this daemon tells every client it is (item 149).
 	peer atomic.Pointer[proto.Peer]
 	// progressEvery and progressing pace and guard watchProgress.
 	progressEvery time.Duration
 	progressing   atomic.Bool
 }
+
+// IdleHold is how long a session that was working keeps showing so once
+// its turn ends, so a pause of a second or two between turns does not
+// flip it to needing you, log the event and send the notification. A
+// permission prompt, a question, the session ending and the session
+// working again all show at once. Item 346.
+const IdleHold = 3 * time.Second
 
 // SetPeer replaces the release and protocol the daemon says it is, for
 // tests.
@@ -293,6 +306,8 @@ func NewWith(loader Snapshotter, clock func() time.Time) *Daemon {
 		watching:    make(chan struct{}),
 		wake:        make(chan struct{}, 1),
 		overlays:    map[string]overlay{},
+		shown:       map[string]shown{},
+		holds:       map[string]*hold{},
 		hooked:      map[string]bool{},
 		subscribers: map[chan proto.Update]struct{}{},
 		log:         events.NewLog(),
@@ -319,20 +334,32 @@ func (d *Daemon) SetRelease(after time.Duration, release func()) {
 	d.settleAfter, d.release = after, release
 }
 
-// stopper is a timer that can be stopped.
-type stopper interface{ Stop() bool }
+// Stopper is a timer that can be stopped.
+type Stopper interface{ Stop() bool }
 
-// releaseClock is the time the release timer reads, and how it arms.
-type releaseClock interface {
+// ReleaseClock is the time the release timer and the idle hold read, and
+// how each arms.
+type ReleaseClock interface {
 	Now() time.Time
-	AfterFunc(d time.Duration, f func()) stopper
+	AfterFunc(d time.Duration, f func()) Stopper
+}
+
+// SetReleaseClock replaces the clock the release timer and the idle hold
+// read and arm, dropping what the old one had armed, for tests.
+func (d *Daemon) SetReleaseClock(clock ReleaseClock) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.settle != nil {
+		d.settle.Stop()
+	}
+	d.releaseClock, d.settle, d.unreleased = clock, nil, time.Time{}
 }
 
 type realClock struct{}
 
 func (realClock) Now() time.Time { return time.Now() }
 
-func (realClock) AfterFunc(d time.Duration, f func()) stopper { return time.AfterFunc(d, f) }
+func (realClock) AfterFunc(d time.Duration, f func()) Stopper { return time.AfterFunc(d, f) }
 
 func (realClock) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
@@ -389,7 +416,7 @@ func (d *Daemon) Rescan() error {
 	}
 	d.base = snapshot
 	d.pruneOverlays()
-	view := d.view()
+	view := d.present()
 	d.scheduleRelease()
 	d.mu.Unlock()
 	d.notify(view)
@@ -451,7 +478,7 @@ func (d *Daemon) Apply(event claude.HookEvent, at time.Time) {
 		o.state, o.tool, o.subject, o.note = state.Resting, "", "", ""
 	case claude.HookSessionStart:
 		delete(d.overlays, event.SessionID)
-		view := d.view()
+		view := d.present()
 		d.mu.Unlock()
 		d.notify(view)
 		return
@@ -462,7 +489,7 @@ func (d *Daemon) Apply(event claude.HookEvent, at time.Time) {
 		}
 	}
 	d.overlays[event.SessionID] = o
-	view := d.view()
+	view := d.present()
 	d.scheduleRelease()
 	d.mu.Unlock()
 	d.notify(view)
@@ -505,16 +532,140 @@ func (d *Daemon) Events(since time.Time) []events.Event {
 	return d.log.Since(since)
 }
 
+// shown is what a session showed: what the idle hold keeps.
+type shown struct {
+	state               state.State
+	tool, subject, note string
+	at                  uint64
+}
+
+// hold is a session the idle hold keeps showing as it was, and the timer
+// that ends the hold (item 346).
+type hold struct {
+	shown shown
+	timer Stopper
+}
+
+// view is what every client reads: the base the files gave, the hook
+// overlays that speak for sessions, and the sessions the idle hold still
+// shows as they were. Call it with mu held.
 func (d *Daemon) view() state.Snapshot {
+	view, copied := d.raw()
+	d.applyHolds(&view, copied)
+	return view
+}
+
+// present is view where state has changed: it decides, from what the
+// view would show against what each session last showed, which sessions
+// the idle hold keeps as they were, so a session going from working to
+// idle shows working until IdleHold passes with nothing new, and
+// anything else shows at once (item 346). Call it with mu held, from
+// wherever the base, an overlay or a hold changes; Snapshot only reads.
+func (d *Daemon) present() state.Snapshot {
+	view, copied := d.raw()
+	d.shownAt++
+	for i := range view.Sessions {
+		s := &view.Sessions[i]
+		h, holding := d.holds[s.ID]
+		idle := s.State == state.NeedsYou && !d.prompted(i)
+		switch {
+		case holding && !idle:
+			h.timer.Stop()
+			delete(d.holds, s.ID)
+			holding = false
+		case !holding && idle:
+			was, known := d.shown[s.ID]
+			if known && (was.state == state.Working || was.state == state.Unattended) {
+				id := s.ID
+				h = &hold{shown: was}
+				h.timer = d.releaseClock.AfterFunc(IdleHold, func() { d.holdPassed(id, h) })
+				d.holds[id] = h
+				holding = true
+			}
+		}
+		now := shown{state: s.State, tool: s.Tool, subject: s.Subject, note: s.Note, at: d.shownAt}
+		if holding {
+			now = h.shown
+			now.at = d.shownAt
+		}
+		d.shown[s.ID] = now
+	}
+	for id, was := range d.shown {
+		if was.at != d.shownAt {
+			delete(d.shown, id)
+			if h, ok := d.holds[id]; ok {
+				h.timer.Stop()
+				delete(d.holds, id)
+			}
+		}
+	}
+	d.applyHolds(&view, copied)
+	return view
+}
+
+// prompted is whether the session at i in the base needs you for
+// something a hold must not delay: a permission prompt or a question,
+// rather than a turn that ended.
+func (d *Daemon) prompted(i int) bool {
+	base := &d.base.Sessions[i]
+	if base.RecordStatus == claude.StatusWaiting || base.Turn == claude.TurnNeedsInput {
+		return true
+	}
+	o, applies := d.applying(base)
+	return applies && o.state == state.NeedsYou && !o.turnEnded
+}
+
+// holdPassed ends a session's hold once IdleHold has passed with nothing
+// new, and shows what it has been holding back.
+func (d *Daemon) holdPassed(id string, h *hold) {
+	d.mu.Lock()
+	if d.holds[id] != h {
+		d.mu.Unlock()
+		return
+	}
+	delete(d.holds, id)
+	d.shown[id] = shown{state: state.NeedsYou, at: d.shownAt}
+	view := d.present()
+	d.mu.Unlock()
+	d.notify(view)
+}
+
+// applyHolds shows every held session as it was, copying the sessions
+// first if the raw view still shares them with the base.
+func (d *Daemon) applyHolds(view *state.Snapshot, copied bool) {
+	if len(d.holds) == 0 {
+		return
+	}
+	for i := range view.Sessions {
+		h, ok := d.holds[view.Sessions[i].ID]
+		if !ok {
+			continue
+		}
+		if !copied {
+			view.Sessions, copied = slices.Clone(view.Sessions), true
+		}
+		s := &view.Sessions[i]
+		s.State, s.Tool, s.Subject, s.Note = h.shown.state, h.shown.tool, h.shown.subject, h.shown.note
+	}
+}
+
+// applying is the hook overlay that speaks for a session, if one does.
+func (d *Daemon) applying(base *state.Session) (overlay, bool) {
+	o, ok := d.overlays[base.ID]
+	return o, ok && o.at.After(base.LastActivity) && (!o.turnEnded || base.RecordStatus != claude.StatusShell) &&
+		(o.state != state.Working || base.RecordStatus != claude.StatusWaiting)
+}
+
+// raw is the base with the hook overlays applied and no hold, and
+// whether its sessions were copied from the base's or still share them.
+func (d *Daemon) raw() (state.Snapshot, bool) {
 	view := d.base
 	view.Store = d.store
 	copied := false
 	for i := range d.base.Sessions {
 		base := &d.base.Sessions[i]
 		hooked := d.hooked[base.ID]
-		o, ok := d.overlays[base.ID]
-		applies := ok && o.at.After(base.LastActivity) && (!o.turnEnded || base.RecordStatus != claude.StatusShell) &&
-			(o.state != state.Working || base.RecordStatus != claude.StatusWaiting)
+		o, applies := d.applying(base)
 		if hooked == base.Hooked && !applies {
 			continue
 		}
@@ -547,7 +698,7 @@ func (d *Daemon) view() state.Snapshot {
 			s.State = o.state
 		}
 	}
-	return view
+	return view, copied
 }
 
 func (d *Daemon) pruneOverlays() {

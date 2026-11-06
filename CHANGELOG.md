@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The sessions that call the server lit up while the lines to them stayed as they were, among every other tower's.
   Now the tower's lines light with it and the other towers' lines fade with the rest of the city;
   pointing at a session lights its own lines the same way.
+- **A session that pauses for a second or two mid-work stays working.**
+  Each turn's end flipped the building to needing you at once, so a session that ended one turn and started the next a moment later pulsed, logged a `needs-you` line and sent a desktop notification for a pause nobody needed to see.
+  The daemon now holds a working session as it was for three seconds after its turn ends, and shows it needing you, logs the event and notifies only if nothing new has happened by then; the map, `status`, `bar`, `notify` and `events` all read the same hold.
+  A permission prompt, a question, a session ending and a session working again still show at once.
 
 ## [0.4.0] - 2026-11-03
 

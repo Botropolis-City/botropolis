@@ -114,8 +114,11 @@ func TestFeed(t *testing.T) {
 
 	t.Run("when a daemon streams updates", func(t *testing.T) {
 		d, sock := servedDaemon(t)
+		clock := helpers.NewFakeClock(daemonNow)
+		d.SetReleaseClock(clock)
 		d.Apply(claude.HookEvent{Name: claude.HookPreToolUse, SessionID: sid, ToolName: "Grep"}, daemonNow)
 		d.Apply(claude.HookEvent{Name: claude.HookStop, SessionID: sid}, daemonNow.Add(time.Minute))
+		clock.Advance(daemon.IdleHold)
 		var mu sync.Mutex
 		var calls []string
 		feed := commands.Feed{Socket: sock, Source: &fakeSource{}, Poll: time.Millisecond, Retry: 20 * time.Millisecond,
@@ -143,6 +146,7 @@ func TestFeed(t *testing.T) {
 		t.Run("and the daemon logs more", func(t *testing.T) {
 			d.Apply(claude.HookEvent{Name: claude.HookPreToolUse, SessionID: sid, ToolName: "Bash"}, daemonNow.Add(2*time.Minute))
 			d.Apply(claude.HookEvent{Name: claude.HookStop, SessionID: sid}, daemonNow.Add(3*time.Minute))
+			clock.Advance(daemon.IdleHold)
 
 			t.Run("it should stream the fresh events", func(t *testing.T) {
 				assert.Eventually(t, func() bool {

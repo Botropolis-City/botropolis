@@ -7,6 +7,8 @@ import (
 
 	"botropolis.city/botropolis/pkg/claude"
 	"botropolis.city/botropolis/pkg/commands"
+	"botropolis.city/botropolis/pkg/daemon"
+	"botropolis.city/botropolis/testing/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,8 +16,11 @@ import (
 func TestEvents(t *testing.T) {
 	t.Run("when the daemon holds events", func(t *testing.T) {
 		d, sock := servedDaemon(t)
+		clock := helpers.NewFakeClock(daemonNow)
+		d.SetReleaseClock(clock)
 		d.Apply(claude.HookEvent{Name: claude.HookPreToolUse, SessionID: sid, ToolName: "Grep"}, daemonNow)
 		d.Apply(claude.HookEvent{Name: claude.HookStop, SessionID: sid}, daemonNow.Add(time.Minute))
+		clock.Advance(daemon.IdleHold)
 		var out bytes.Buffer
 		require.NoError(t, commands.NewEvents(sock).Run(&out, daemonT0))
 

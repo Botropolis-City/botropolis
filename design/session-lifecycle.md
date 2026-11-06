@@ -11,3 +11,9 @@
 | **Gone** | transcript aged out, or you demolished it (`claude rm`) | nothing | — |
 
 "Done" uses both signals: the `SessionEnd` hook when it arrives, inference (pid gone + turn handed back) when it does not.
+
+**Working to needs you is held for three seconds** (`daemon.IdleHold`, item 346).
+A session whose turn ends keeps showing as it was, tool and all, and needs you only if nothing new has happened by then,
+so a pause of a second or two between turns is never seen: not on the map, not by `status`, `bar` or `notify`, and not in the event log, which all read the daemon's view after the hold.
+Working again cancels the hold.
+A permission prompt, a question, a session ending or resting, and a session that was not working all show at once, because a delay there is the worse defect.

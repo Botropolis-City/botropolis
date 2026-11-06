@@ -1,9 +1,7 @@
 package daemon_test
 
 import (
-	"sort"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -160,10 +158,10 @@ func TestDaemon(t *testing.T) {
 		})
 	})
 
-	t.Run("when a Stop event arrives on a working session", func(t *testing.T) {
-		d := newDaemon(t, idleHome(t, "interactive"))
-		d.Apply(event(claude.HookPreToolUse, "Bash"), now)
+	t.Run("when a Stop event arrives on a working session, and the idle hold passes", func(t *testing.T) {
+		d, clock, _ := workingDaemon(t)
 		d.Apply(event(claude.HookStop, ""), now.Add(time.Second))
+		clock.Advance(daemon.IdleHold)
 
 		t.Run("it should need you", func(t *testing.T) {
 			assert.Equal(t, state.NeedsYou, only(t, d).State)
@@ -173,15 +171,18 @@ func TestDaemon(t *testing.T) {
 	t.Run("when a Stop event arrives for a session whose record says shell", func(t *testing.T) {
 		home := homeWithRecord(t, "interactive", "shell")
 		d := newDaemon(t, home)
+		clock := helpers.NewFakeClock(now)
+		d.SetReleaseClock(clock)
 		d.Apply(event(claude.HookStop, ""), now)
 
 		t.Run("it should not need you", func(t *testing.T) {
 			assert.Equal(t, state.Working, only(t, d).State)
 		})
 
-		t.Run("and the record then turns idle with the turn awaiting the user", func(t *testing.T) {
+		t.Run("and the record then turns idle with the turn awaiting the user, and the idle hold passes", func(t *testing.T) {
 			home.Session(pid, sid, cwd, "interactive", "idle")
 			require.NoError(t, d.Rescan())
+			clock.Advance(daemon.IdleHold)
 
 			t.Run("it should need you", func(t *testing.T) {
 				assert.Equal(t, state.NeedsYou, only(t, d).State)
@@ -245,14 +246,13 @@ func TestDaemon(t *testing.T) {
 		})
 	})
 
-	t.Run("when the transcript catches up after an event", func(t *testing.T) {
-		home := idleHome(t, "interactive")
-		d := newDaemon(t, home)
-		d.Apply(event(claude.HookPreToolUse, "Bash"), now)
+	t.Run("when the transcript catches up after an event, and the idle hold passes", func(t *testing.T) {
+		d, clock, home := workingDaemon(t)
 		home.AppendTranscript(sid, cwd,
 			helpers.UserPrompt(sid, cwd, now.Add(time.Second).Format(time.RFC3339Nano)),
 			helpers.AssistantReply(sid, "msg_02", now.Add(2*time.Second).Format(time.RFC3339Nano)))
 		require.NoError(t, d.Rescan())
+		clock.Advance(daemon.IdleHold)
 
 		t.Run("it should trust the files again", func(t *testing.T) {
 			assert.Equal(t, state.NeedsYou, only(t, d).State)
@@ -282,12 +282,12 @@ func TestDaemon(t *testing.T) {
 		})
 	})
 
-	t.Run("when a Stop event follows a PreToolUse after the first scan", func(t *testing.T) {
-		d := newDaemon(t, idleHome(t, "interactive"))
-		d.Apply(event(claude.HookPreToolUse, "Bash"), now)
+	t.Run("when a Stop event follows a PreToolUse after the first scan, and the idle hold passes", func(t *testing.T) {
+		d, clock, _ := workingDaemon(t)
 		updates, cancel := d.Subscribe()
 		defer cancel()
 		d.Apply(event(claude.HookStop, ""), now.Add(time.Minute))
+		clock.Advance(daemon.IdleHold)
 
 		t.Run("it should log a needs-you event", func(t *testing.T) {
 			logged := d.Events(time.Time{})
@@ -389,11 +389,11 @@ func TestDaemon(t *testing.T) {
 	t.Run("when rescans arrive in a burst, closer together than the settle time", func(t *testing.T) {
 		d := newDaemon(t, idleHome(t, "interactive"))
 		count := releases(t, d, 100*time.Millisecond, time.Minute)
-		clock := &fakeReleaseClock{now: now}
-		daemon.SetReleaseClock(d, clock)
+		clock := helpers.NewFakeClock(now)
+		d.SetReleaseClock(clock)
 		for i := 0; i < 10; i++ {
 			require.NoError(t, d.Rescan())
-			clock.advance(10 * time.Millisecond)
+			clock.Advance(10 * time.Millisecond)
 		}
 		during := count()
 
@@ -402,12 +402,12 @@ func TestDaemon(t *testing.T) {
 		})
 
 		t.Run("it should release memory once they settle", func(t *testing.T) {
-			clock.advance(100 * time.Millisecond)
+			clock.Advance(100 * time.Millisecond)
 			assert.Equal(t, 1, count())
 		})
 
 		t.Run("it should not keep releasing after that", func(t *testing.T) {
-			clock.advance(250 * time.Millisecond)
+			clock.Advance(250 * time.Millisecond)
 			assert.Equal(t, 1, count())
 		})
 	})
@@ -421,11 +421,11 @@ func TestDaemon(t *testing.T) {
 		)
 		d := newDaemon(t, idleHome(t, "interactive"))
 		count := releases(t, d, settle, ceiling)
-		clock := &fakeReleaseClock{now: now}
-		daemon.SetReleaseClock(d, clock)
+		clock := helpers.NewFakeClock(now)
+		d.SetReleaseClock(clock)
 		for elapsed := time.Duration(0); elapsed < stream; elapsed += every {
 			require.NoError(t, d.Rescan())
-			clock.advance(every)
+			clock.Advance(every)
 		}
 		during := count()
 
@@ -449,57 +449,4 @@ func TestDaemon(t *testing.T) {
 			assert.False(t, open)
 		})
 	})
-}
-
-// fakeReleaseClock is a clock for the release timer that only moves when
-// the test advances it, firing each timer that comes due on the way.
-type fakeReleaseClock struct {
-	mu     sync.Mutex
-	now    time.Time
-	timers []*fakeTimer
-}
-
-type fakeTimer struct {
-	at      time.Time
-	f       func()
-	stopped atomic.Bool
-}
-
-func (t *fakeTimer) Stop() bool { return !t.stopped.Swap(true) }
-
-func (c *fakeReleaseClock) Now() time.Time {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.now
-}
-
-func (c *fakeReleaseClock) AfterFunc(d time.Duration, f func()) daemon.Stopper {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	t := &fakeTimer{at: c.now.Add(d), f: f}
-	c.timers = append(c.timers, t)
-	return t
-}
-
-func (c *fakeReleaseClock) advance(by time.Duration) {
-	c.mu.Lock()
-	c.now = c.now.Add(by)
-	var due, kept []*fakeTimer
-	for _, t := range c.timers {
-		switch {
-		case t.stopped.Load():
-		case !t.at.After(c.now):
-			due = append(due, t)
-		default:
-			kept = append(kept, t)
-		}
-	}
-	c.timers = kept
-	c.mu.Unlock()
-	sort.Slice(due, func(i, j int) bool { return due[i].at.Before(due[j].at) })
-	for _, t := range due {
-		if !t.stopped.Swap(true) {
-			t.f()
-		}
-	}
 }

@@ -14,6 +14,7 @@ import (
 	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/proto"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/testing/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -117,8 +118,11 @@ func TestServe(t *testing.T) {
 
 	t.Run("when a client asks for events", func(t *testing.T) {
 		d := newDaemon(t, idleHome(t, "interactive"))
+		clock := helpers.NewFakeClock(now)
+		d.SetReleaseClock(clock)
 		d.Apply(claude.HookEvent{Name: claude.HookPreToolUse, SessionID: sid, ToolName: "Grep"}, now)
 		d.Apply(claude.HookEvent{Name: claude.HookStop, SessionID: sid}, now.Add(time.Minute))
+		clock.Advance(daemon.IdleHold)
 		client, err := proto.Dial(serve(t, d))
 		require.NoError(t, err)
 		defer func() { _ = client.Close() }()
@@ -145,8 +149,11 @@ func TestServe(t *testing.T) {
 
 	t.Run("when a client subscribes with a since", func(t *testing.T) {
 		d := newDaemon(t, idleHome(t, "interactive"))
+		clock := helpers.NewFakeClock(now)
+		d.SetReleaseClock(clock)
 		d.Apply(claude.HookEvent{Name: claude.HookPreToolUse, SessionID: sid, ToolName: "Grep"}, now)
 		d.Apply(claude.HookEvent{Name: claude.HookStop, SessionID: sid}, now.Add(time.Minute))
+		clock.Advance(daemon.IdleHold)
 		client, err := proto.Dial(serve(t, d))
 		require.NoError(t, err)
 		defer func() { _ = client.Close() }()
