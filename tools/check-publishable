@@ -368,6 +368,11 @@ docs/screenshots/r1267-item-347-servers-tower-buildings.png
 docs/screenshots/r1267-item-347-servers-tower-depot.png
 docs/screenshots/r1277-item-359-attention-group-hover.png
 docs/screenshots/r1277-item-359-servers-group-hover.png
+docs/screenshots/r1279-item-359-dim-building.png
+docs/screenshots/r1279-item-359-dim-filter.png
+docs/screenshots/r1279-item-359-dim-focus.png
+docs/screenshots/r1279-item-359-dim-group.png
+docs/screenshots/r1279-item-359-dim-tower.png
 LIST
 )
 while read -r img; do

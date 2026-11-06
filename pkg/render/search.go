@@ -37,9 +37,19 @@ func dimmed() *ebiten.ColorScale { return &dim }
 // tint it is handed.
 var dim = func() ebiten.ColorScale {
 	var tint ebiten.ColorScale
-	tint.Scale(0.35, 0.35, 0.4, 0.35)
+	tint.Scale(dimLight, dimLight, dimLight, dimAlpha)
 	return tint
 }()
+
+// dimLight is how much of its own light a dimmed thing keeps, and
+// dimAlpha how much of the ground it covers. Light well under alpha is
+// what darkens it; equal, they only ghosted a pale building over a pale
+// lot (item 359). One grey for all three channels, so the dim adds no
+// hue. Aria judges the pair on frames.
+const (
+	dimLight = 0.2
+	dimAlpha = 0.55
+)
 
 // clickSearch opens the finder on the filter by pressing the key that
 // opens it. The line already reads "/", so the click presses what the
