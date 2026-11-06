@@ -28,6 +28,10 @@ type Member struct {
 	Pasted  []string
 	Parent  string
 	Team    string
+	// Lead is the session leading this one's team, when it is a
+	// teammate: it sits out detection and is in its lead's group, always
+	// (item 343). Empty on the lead itself and on a session in no team.
+	Lead string
 	// Messaged are the sessions this one sent messages to, and Visited
 	// the directories outside its own where its subagents worked.
 	Messaged []string
@@ -70,6 +74,9 @@ const (
 	SignalFiles       Signal = "files"
 	SignalTiming      Signal = "timing"
 	SignalMoved       Signal = "moved"
+	// SignalTeam is a teammate in its lead's group, or a lead in its
+	// team's: With names the lead, and Detail the team (item 343).
+	SignalTeam Signal = "team"
 )
 
 // Reason is why a session joined, or is suggested: the signal, what it
@@ -181,9 +188,15 @@ type detection struct {
 	wording *Wording
 	blocked map[[2]string]bool
 	// moved are the sessions put in a group, or none, by hand; they sit
-	// out detection and are placed where they were put.
+	// out detection and are placed where they were put. moves are the
+	// moves as they count, a team's being the latest recorded on any of
+	// its sessions, applied to its lead (item 343).
 	moved     map[string]bool
+	moves     []Move
 	confirmed map[string]bool
+	// follows are the teammates, by session, each to its lead: they sit
+	// out detection and are in their lead's group (item 343).
+	follows map[string]string
 	// started are the sessions started from a group, by session; like
 	// the moved, they sit out detection and join where they were started.
 	started map[string]string

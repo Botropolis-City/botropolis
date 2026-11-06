@@ -12,9 +12,7 @@ func detectEveryPair(members []Member, memory Memory) Result {
 	edges := d.oracleEdges()
 	comps := d.oracleCluster(edges)
 	groups := d.oracleGroups(comps, edges, memory)
-	groups = d.placeMoved(groups, memory)
-	groups = d.joinStarted(groups, memory)
-	groups = withoutClosed(groups, memory)
+	groups = d.place(groups, memory)
 	result := Result{Groups: groups, Capped: d.capped}
 	result.Suggestions = d.oracleSuggest(groups, edges)
 	return result

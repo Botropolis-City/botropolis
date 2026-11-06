@@ -138,19 +138,22 @@ func (dt *Detector) scoreChanged(d *detection, changed map[string]bool) {
 }
 
 // apart is what decides which sessions sit out and which pairs are
-// kept apart, besides the sessions themselves.
+// kept apart, besides the sessions themselves: the moves and the pairs
+// as they count, which a teammate's lead stands in (item 343).
 type apart struct {
 	moves       []Move
-	notRelated  []Pair
+	blocked     map[[2]string]bool
+	follows     map[string]string
 	startedFrom map[string]string
 }
 
-func apartOf(memory Memory) apart {
-	return apart{moves: slices.Clone(memory.Moves), notRelated: slices.Clone(memory.NotRelated), startedFrom: maps.Clone(memory.StartedFrom)}
+func apartOf(d *detection, memory Memory) apart {
+	return apart{moves: slices.Clone(d.moves), blocked: maps.Clone(d.blocked), follows: maps.Clone(d.follows),
+		startedFrom: maps.Clone(memory.StartedFrom)}
 }
 
-func (a apart) same(memory Memory) bool {
-	return slices.Equal(a.moves, memory.Moves) && slices.Equal(a.notRelated, memory.NotRelated) &&
+func (a apart) same(d *detection, memory Memory) bool {
+	return slices.Equal(a.moves, d.moves) && maps.Equal(a.blocked, d.blocked) && maps.Equal(a.follows, d.follows) &&
 		maps.Equal(a.startedFrom, memory.StartedFrom)
 }
 
@@ -160,8 +163,8 @@ func (a apart) same(memory Memory) bool {
 // sits out or is kept apart anew, the last run's edges are kept but for
 // the changed sessions', whose ties are taken again and merged in.
 func (dt *Detector) edges(d *detection, memory Memory, changed map[string]bool) []edge {
-	patch := dt.order != nil && dt.apart.same(memory) && slices.EqualFunc(dt.order, d.members, func(id string, m Member) bool { return id == m.ID })
-	dt.apart = apartOf(memory)
+	patch := dt.order != nil && dt.apart.same(d, memory) && slices.EqualFunc(dt.order, d.members, func(id string, m Member) bool { return id == m.ID })
+	dt.apart = apartOf(d, memory)
 	dt.order = dt.order[:0]
 	for _, m := range d.members {
 		dt.order = append(dt.order, m.ID)
@@ -353,7 +356,7 @@ func usesAny(words, moved map[string]bool) bool {
 
 func sameMember(a, b Member) bool {
 	return a.ID == b.ID && a.Dir == b.Dir && a.Branch == b.Branch && a.Started.Equal(b.Started) &&
-		a.Ended.Equal(b.Ended) && a.Parent == b.Parent && a.Team == b.Team &&
+		a.Ended.Equal(b.Ended) && a.Parent == b.Parent && a.Team == b.Team && a.Lead == b.Lead &&
 		a.StartedFrom == b.StartedFrom && a.Job == b.Job &&
 		slices.Equal(a.Prompts, b.Prompts) && slices.Equal(a.Pasted, b.Pasted) &&
 		slices.Equal(a.Messaged, b.Messaged) && slices.Equal(a.Files, b.Files) &&

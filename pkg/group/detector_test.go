@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -385,6 +386,77 @@ func TestDetector(t *testing.T) {
 		t.Run("it should find the edges scoring every pair finds at every step", func(t *testing.T) {
 			assert.Equal(t, -1, firstDiffering)
 		})
+	})
+
+	// Item 343: a session's lead changing between two runs changes which
+	// edges count, its own and its lead's, with the sessions in the same
+	// order as before.
+	t.Run("when a session's team changes between two runs", func(t *testing.T) {
+		base := append(fillers(),
+			group.Member{ID: "a", Dir: "/w/lib", Started: t0, Team: "crew", Prompts: []string{"PROJ-7 start"}},
+			member("x", "/w/api", 2*time.Hour, "PROJ-7 client"),
+			member("b", "/w/b", 3*time.Hour, "LOG-4 follow"),
+			member("c", "/w/logs", 6*time.Hour, "LOG-4 buffer"))
+		joined := slices.Clone(base)
+		joined[len(fillers())+2].Team, joined[len(fillers())+2].Lead = "crew", "a"
+		groupIDs := func(result group.Result, ids ...string) []string {
+			var out []string
+			for _, id := range ids {
+				g, _ := result.GroupOf(id)
+				out = append(out, g.ID)
+			}
+			return out
+		}
+		cases := []struct {
+			scenario    string
+			first, then []group.Member
+			memory      group.Memory
+			expect      func(t *testing.T, result group.Result)
+		}{
+			{
+				scenario: "and a session joins a team",
+				first:    base, then: joined,
+				expect: func(t *testing.T, result group.Result) {
+					t.Run("it should follow its lead and leave its old group", func(t *testing.T) {
+						ids := groupIDs(result, "a", "b", "c")
+						assert.Equal(t, []string{ids[0], ""}, []string{ids[1], ids[2]})
+					})
+				},
+			},
+			{
+				scenario: "and a session leaves a team",
+				first:    joined, then: base,
+				expect: func(t *testing.T, result group.Result) {
+					t.Run("it should group by its own evidence again", func(t *testing.T) {
+						ids := groupIDs(result, "a", "b", "c")
+						assert.True(t, ids[1] != "" && ids[1] == ids[2] && ids[1] != ids[0], "%v", ids)
+					})
+				},
+			},
+			{
+				scenario: "and a session whose pair with an outsider is not related joins a team",
+				first:    base, then: joined,
+				memory: group.Memory{NotRelated: []group.Pair{{"b", "x"}}},
+				expect: func(t *testing.T, result group.Result) {
+					t.Run("it should keep its lead apart from that outsider", func(t *testing.T) {
+						_, ok := result.GroupOf("x")
+						assert.False(t, ok)
+					})
+				},
+			},
+		}
+		for _, c := range cases {
+			t.Run(c.scenario, func(t *testing.T) {
+				d := group.NewDetector()
+				d.Detect(c.first, c.memory)
+				result := d.Detect(c.then, c.memory)
+				c.expect(t, result)
+
+				t.Run("it should find the same result as scoring every pair", func(t *testing.T) {
+					assert.Equal(t, group.DetectEveryPair(c.then, c.memory), result)
+				})
+			})
+		}
 	})
 }
 

@@ -62,9 +62,9 @@ func TestDetect(t *testing.T) {
 				scenario: "it is a teammate in the same agent team",
 				members: []group.Member{
 					{ID: "a", Dir: "/w/lib", Started: t0, Team: "crew", Prompts: []string{"lead"}},
-					{ID: "b", Dir: "/w/api", Started: t0.Add(3 * time.Hour), Team: "crew", Prompts: []string{"follow"}},
+					{ID: "b", Dir: "/w/api", Started: t0.Add(3 * time.Hour), Team: "crew", Lead: "a", Prompts: []string{"follow"}},
 				},
-				signal: group.SignalParentage,
+				signal: group.SignalTeam,
 			},
 			{
 				scenario: "it was forked from the other",

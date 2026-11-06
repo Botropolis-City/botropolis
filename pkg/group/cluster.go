@@ -28,12 +28,30 @@ func Detect(members []Member, memory Memory) Result {
 func (d *detection) detect(memory Memory, edges []edge) Result {
 	comps := d.cluster(edges)
 	groups := d.groups(comps, edges, memory)
-	groups = d.placeMoved(groups, memory)
-	groups = d.joinStarted(groups, memory)
-	groups = withoutClosed(groups, memory)
+	groups = d.place(groups, memory)
 	result := Result{Groups: groups, Capped: d.capped, Common: d.commonNames()}
 	result.Suggestions = d.suggest(groups, edges)
 	return result
+}
+
+// place adds to the detected groups the sessions that sit out detection,
+// each where it belongs: the moved where they were put, the started
+// where they were started from, and teammates with their lead; then
+// drops the groups closed by hand.
+func (d *detection) place(groups []Group, memory Memory) []Group {
+	groups = d.placeMoved(groups, memory)
+	groups = d.joinStarted(groups, memory)
+	groups = d.followLeads(groups, memory)
+	sortMembers(groups)
+	return withoutClosed(groups, memory)
+}
+
+func sortMembers(groups []Group) {
+	for gi := range groups {
+		sort.SliceStable(groups[gi].Members, func(x, y int) bool {
+			return groups[gi].Members[x].Started.Before(groups[gi].Members[y].Started)
+		})
+	}
 }
 
 // withoutClosed is groups but those closed by hand, whose members are
@@ -47,8 +65,15 @@ func withoutClosed(groups []Group, memory Memory) []Group {
 
 func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 	d := &detection{members: members, index: make(map[string]int, len(members)), blocked: map[[2]string]bool{},
-		moved: map[string]bool{}, confirmed: map[string]bool{}, refs: make([][]string, 0, len(members))}
-	for _, mv := range memory.Moves {
+		moved: map[string]bool{}, confirmed: map[string]bool{}, refs: make([][]string, 0, len(members)),
+		follows: map[string]string{}}
+	for _, m := range members {
+		if m.Lead != "" && m.Lead != m.ID {
+			d.follows[m.ID] = m.Lead
+		}
+	}
+	d.moves = teamMoves(memory.Moves, d.follows)
+	for _, mv := range d.moves {
 		d.moved[mv.Session] = true
 	}
 	d.started = map[string]string{}
@@ -57,7 +82,7 @@ func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 		if from == "" && m.Job != "" {
 			from = memory.StartedFrom[m.Job]
 		}
-		if from != "" && !d.moved[m.ID] {
+		if from != "" && !d.moved[m.ID] && d.follows[m.ID] == "" {
 			d.started[m.ID] = from
 		}
 	}
@@ -89,10 +114,51 @@ func newDetection(members []Member, memory Memory, prior *Detector) *detection {
 	d.wording = wording.Next(prompts, memory.Muted)
 	d.common = d.commonKeys()
 	for _, p := range memory.NotRelated {
-		d.blocked[[2]string{p[0], p[1]}] = true
-		d.blocked[[2]string{p[1], p[0]}] = true
+		a, b := d.leadOf(p[0]), d.leadOf(p[1])
+		if a == b {
+			continue
+		}
+		d.blocked[[2]string{a, b}] = true
+		d.blocked[[2]string{b, a}] = true
 	}
 	return d
+}
+
+// leadOf is the session that stands for id in detection: its lead when
+// it is a teammate, else itself. A pair marked not related inside a team
+// counts for nothing, and one between a teammate and an outsider counts
+// for its lead, since a teammate's take-out acts on the team (item 343).
+func (d *detection) leadOf(id string) string {
+	if lead, ok := d.follows[id]; ok {
+		return lead
+	}
+	return id
+}
+
+// teamMoves are the moves as they count: a teammate's is its team's, so
+// it is read as its lead's, and of the moves one session carries the
+// latest recorded wins, as WithMove already keeps it. This is what keeps
+// a move written by hand on each teammate working (item 343).
+func teamMoves(moves []Move, follows map[string]string) []Move {
+	out := make([]Move, 0, len(moves))
+	for _, mv := range moves {
+		if lead, ok := follows[mv.Session]; ok {
+			mv.Session = lead
+		}
+		out = slices.DeleteFunc(out, func(o Move) bool { return o.Session == mv.Session })
+		out = append(out, mv)
+	}
+	return out
+}
+
+// moveOf is the move that counts for session, if any.
+func (d *detection) moveOf(session string) (Move, bool) {
+	for _, mv := range d.moves {
+		if mv.Session == session {
+			return mv, true
+		}
+	}
+	return Move{}, false
 }
 
 type keyedEdge struct {
@@ -421,28 +487,131 @@ func (d *detection) membership(i int, e *edge) Membership {
 // placeMoved puts each session moved by hand into the group it was put
 // in, made from memory when detection did not find it, or in none.
 func (d *detection) placeMoved(groups []Group, memory Memory) []Group {
-	for _, mv := range memory.Moves {
+	for _, mv := range d.moves {
 		i, ok := d.index[mv.Session]
 		if !ok || mv.Group == "" {
 			continue
 		}
-		m := d.members[i]
-		g := groupByID(groups, mv.Group)
-		if g == nil {
-			for _, s := range memory.Groups {
-				if s.ID == mv.Group {
-					groups = append(groups, Group{ID: s.ID, Name: s.Name, Renamed: s.Renamed, Anchor: s.Anchor})
-					g = &groups[len(groups)-1]
-				}
-			}
+		var g *Group
+		if groups, g = groupFrom(groups, memory, mv.Group); g == nil {
+			continue
 		}
+		g.Members = append(g.Members, d.placed(i, Reason{Signal: SignalMoved}))
+	}
+	return groups
+}
+
+// placed is member i's membership as a session placed rather than
+// detected: sure, for the reason given.
+func (d *detection) placed(i int, reason Reason) Membership {
+	m := d.members[i]
+	return Membership{Session: m.ID, Dir: m.Dir, Started: m.Started, Tier: Sure, Reason: reason}
+}
+
+// groupFrom is the group with id among groups, made from memory when
+// detection did not find it, or nil when memory does not hold it either.
+func groupFrom(groups []Group, memory Memory, id string) ([]Group, *Group) {
+	if g := groupByID(groups, id); g != nil {
+		return groups, g
+	}
+	for _, s := range memory.Groups {
+		if s.ID == id {
+			groups = append(groups, Group{ID: s.ID, Name: s.Name, Renamed: s.Renamed, Anchor: s.Anchor})
+			return groups, &groups[len(groups)-1]
+		}
+	}
+	return groups, nil
+}
+
+// followLeads puts every teammate in its lead's group, whatever
+// detection, the moves and the pairs marked not related did with it: the
+// group the lead is in; when the lead is in none and was not moved to
+// none, a group of the team, under the stored group holding the lead
+// when one is free; when the lead is not among the members, the group
+// the lead's move or a stored group records it in; else none. So a
+// team is always in one group or in none together (item 343).
+func (d *detection) followLeads(groups []Group, memory Memory) []Group {
+	if len(d.follows) == 0 {
+		return groups
+	}
+	var leads []string
+	teams := map[string][]int{}
+	for i, m := range d.members {
+		if lead, ok := d.follows[m.ID]; ok {
+			if teams[lead] == nil {
+				leads = append(leads, lead)
+			}
+			teams[lead] = append(teams[lead], i)
+		}
+	}
+	for _, lead := range leads {
+		var g *Group
+		groups, g = d.teamGroup(groups, memory, lead)
 		if g == nil {
 			continue
 		}
-		g.Members = append(g.Members, Membership{Session: m.ID, Dir: m.Dir, Started: m.Started, Tier: Sure,
-			Reason: Reason{Signal: SignalMoved}})
+		team := d.members[teams[lead][0]].Team
+		fresh := len(g.Members) == 0
+		for _, i := range teams[lead] {
+			g.Members = append(g.Members, d.placed(i, Reason{Signal: SignalTeam, Detail: team, With: lead}))
+		}
+		if li, ok := d.index[lead]; ok && g.Member(lead).Session == "" {
+			g.Members = append(g.Members, d.placed(li, Reason{Signal: SignalTeam, Detail: team}))
+		}
+		if fresh {
+			d.nameTeam(g)
+		}
 	}
 	return groups
+}
+
+// teamGroup is the group a lead's team goes in, made when it has to be,
+// or nil for none.
+func (d *detection) teamGroup(groups []Group, memory Memory, lead string) ([]Group, *Group) {
+	if _, ok := d.index[lead]; ok {
+		if g, found := (Result{Groups: groups}).GroupOf(lead); found {
+			return groups, groupByID(groups, g.ID)
+		}
+		if mv, ok := d.moveOf(lead); ok && mv.Group == "" {
+			return groups, nil
+		}
+		if id, ok := storedHolding(memory, lead, groups); ok {
+			return groupFrom(groups, memory, id)
+		}
+		groups = append(groups, Group{ID: newID(lead)})
+		return groups, &groups[len(groups)-1]
+	}
+	if mv, ok := d.moveOf(lead); ok {
+		if mv.Group == "" {
+			return groups, nil
+		}
+		return groupFrom(groups, memory, mv.Group)
+	}
+	if id, ok := storedHolding(memory, lead, nil); ok {
+		return groupFrom(groups, memory, id)
+	}
+	return groups, nil
+}
+
+// storedHolding is the first stored group holding session that is not
+// among groups already, if any.
+func storedHolding(memory Memory, session string, groups []Group) (string, bool) {
+	for _, s := range memory.Groups {
+		if slices.Contains(s.Members, session) && groupByID(groups, s.ID) == nil {
+			return s.ID, true
+		}
+	}
+	return "", false
+}
+
+// nameTeam names a group made of a team, as groups names a detected one,
+// keeping a name given by hand.
+func (d *detection) nameTeam(g *Group) {
+	name, renamed := g.Name, g.Renamed
+	d.names.name(d, g)
+	if renamed {
+		g.Name, g.Renamed = name, true
+	}
 }
 
 // storedBySession is, by session, the remembered groups it is in, by
@@ -501,27 +670,15 @@ func newID(seed string) string {
 // joinStarted adds the loose sessions that were started from a group,
 // making the group from memory when detection did not find it.
 func (d *detection) joinStarted(groups []Group, memory Memory) []Group {
-	for _, m := range d.members {
+	for i, m := range d.members {
 		from := d.started[m.ID]
 		if from == "" || inAny(groups, m.ID) {
 			continue
 		}
-		if groupByID(groups, from) == nil {
-			for _, s := range memory.Groups {
-				if s.ID == from {
-					groups = append(groups, Group{ID: s.ID, Name: s.Name, Renamed: s.Renamed, Anchor: s.Anchor})
-				}
-			}
+		var g *Group
+		if groups, g = groupFrom(groups, memory, from); g != nil {
+			g.Members = append(g.Members, d.placed(i, Reason{Signal: SignalStartedFrom, Detail: g.Name}))
 		}
-		if g := groupByID(groups, from); g != nil {
-			g.Members = append(g.Members, Membership{Session: m.ID, Dir: m.Dir, Started: m.Started, Tier: Sure,
-				Reason: Reason{Signal: SignalStartedFrom, Detail: g.Name}})
-		}
-	}
-	for gi := range groups {
-		sort.SliceStable(groups[gi].Members, func(x, y int) bool {
-			return groups[gi].Members[x].Started.Before(groups[gi].Members[y].Started)
-		})
 	}
 	return groups
 }
@@ -643,8 +800,8 @@ func sortedKeys(set map[string]bool) []string {
 	return keys
 }
 
-// sitsOut reports whether a session is placed by hand or by where it was
-// started rather than by detection.
+// sitsOut reports whether a session is placed by hand, by where it was
+// started or by its lead rather than by detection.
 func (d *detection) sitsOut(id string) bool {
-	return d.moved[id] || d.started[id] != ""
+	return d.moved[id] || d.started[id] != "" || d.follows[id] != ""
 }

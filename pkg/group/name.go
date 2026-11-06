@@ -57,6 +57,11 @@ func (r Reason) Describe(title func(id string) string) string {
 		return "continued from " + with
 	case SignalMoved:
 		return "you moved it here"
+	case SignalTeam:
+		if with != "" {
+			return "follows its lead " + with
+		}
+		return "leads the team " + r.Detail
 	}
 	return string(r.Signal)
 }
