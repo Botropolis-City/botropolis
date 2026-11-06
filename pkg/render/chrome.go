@@ -58,7 +58,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	g.baked(bakeStream, screen, func(dst *ebiten.Image) { bounds.Max.X = g.drawStream(dst, width, height, top, streamFoot) })
 	hint := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
-	g.pinnedKinds = nil
+	g.pinnedVerbs, g.pinnedHints = city.Verbs{}, nil
 	g.cardOver = ui.Card{}
 	if g.sidebar {
 		g.drawSidebar(screen, top, min(height-bottom, footer.Rect.Min.Y))
@@ -76,7 +76,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	}
 	if card, b, ok := g.scene.SelectedCard(); ok && !g.sidebar {
 		card.Hint = hint
-		card.Actions = g.progressLabels(g.scene.Actions(), b)
+		card.Actions = g.progressLabels(g.scene.Verbs(), b)
 		if step, ok := g.scene.TriageStep(); ok && triaging {
 			card.Kind = step.Header()
 		}
@@ -84,7 +84,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		pinned := ui.LayoutCard(th, card, bounds, g.faces.Measure).PinTo(beside, bounds, th.Grid())
 		g.card(screen, pinned)
 		g.pinned = pinned
-		g.pinnedKinds = g.scene.Actions()
+		g.pinnedVerbs, g.pinnedHints = g.scene.Verbs(), card.Hints
 	}
 	g.stripCard = nil
 	if st, ok := g.stripHover(pointer); ok {
@@ -149,24 +149,31 @@ func (g *Game) buildingOnScreen(b *city.Building) city.Rect {
 	return r
 }
 
-// clickCard is a click on the pinned card: a button runs its action and
-// the click stops there; anywhere else on the card is swallowed too.
+// clickCard is a click on the pinned card: the first button runs the
+// direct verb, each other opens the menu on its column under the button,
+// the numbers row folds the details, and the click stops there; anywhere
+// else on the card is swallowed too (item 350).
 func (g *Game) clickCard(at city.Point) bool {
 	if g.pinned.Rect.Area() == 0 || !g.pinned.Rect.Contains(at) {
 		return false
 	}
 	if btn, ok := ui.HitButton(g.pinned.Buttons, at); ok {
-		for i, kind := range g.pinnedKinds {
-			if i < len(g.pinned.Buttons) && g.pinned.Buttons[i].Label.Text == btn.Label.Text {
-				action, note := g.scene.Act(kind)
-				// What runs beside the loop says so on this button
-				// (item 352); every other note is a notice.
-				if note != "" && !runsClaude[action.Kind] {
-					g.Notify(note, ui.ToneNone, "")
-				}
-				g.act(action)
-				break
+		for i, b := range g.pinned.Buttons {
+			if b.Label.Text != btn.Label.Text {
+				continue
 			}
+			if i == 0 {
+				g.runVerb(g.pinnedVerbs.Direct)
+			} else {
+				g.openMenu(g.pinnedVerbs.All(), city.Point{X: b.Rect.Min.X, Y: b.Rect.Max.Y + g.theme.Grid()}, i-1)
+			}
+			break
+		}
+		return true
+	}
+	if g.pinned.NumbersRect.Contains(at) {
+		if _, note := g.scene.ToggleDetails(); note != "" {
+			g.Notify(note, ui.ToneNone, "")
 		}
 	}
 	return true
@@ -185,14 +192,20 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 	for _, line := range c.Sentence {
 		g.run(screen, line, th.Palette.Text)
 	}
+	at := g.pointer()
+	// The numbers row is the click that folds the details, so it reads
+	// as the buttons do: in the accent, on a plate under the pointer
+	// (item 350).
+	if c.NumbersRect.Area() > 0 && c.NumbersRect.Contains(at) {
+		g.roundRect(screen, c.NumbersRect, th.Radius()/2, buttonHover(th.Palette.Hairline))
+	}
 	for _, line := range c.Numbers {
-		g.run(screen, line, th.Palette.Text)
+		g.run(screen, line, th.Palette.Accent)
 	}
 	for _, line := range c.Para {
 		g.run(screen, line, th.Palette.Text)
 	}
 	g.sparkline(screen, c.Spark)
-	at := g.pointer()
 	for _, b := range c.Buttons {
 		g.button(screen, b.Rect, b.Label, th.Palette.Accent, b.Rect.Contains(at))
 	}
@@ -224,11 +237,16 @@ func buttonHover(c color.NRGBA) color.NRGBA {
 }
 
 // buttonHint is what the pinned card's button under the pointer does,
-// from the card as last drawn (item 88).
+// from the card as last drawn (item 88), or what its numbers row does.
 func (g *Game) buttonHint(at city.Point) string {
 	for i, b := range g.pinned.Buttons {
-		if b.Rect.Contains(at) && i < len(g.pinnedKinds) {
-			return g.pinnedKinds[i].Describe()
+		if b.Rect.Contains(at) && i < len(g.pinnedHints) {
+			return g.pinnedHints[i]
+		}
+	}
+	if g.pinned.NumbersRect.Area() > 0 && g.pinned.NumbersRect.Contains(at) {
+		if _, _, ok := g.scene.SelectedCard(); ok && len(g.pinnedHints) > len(g.pinned.Buttons) {
+			return g.pinnedHints[len(g.pinnedHints)-1]
 		}
 	}
 	return ""

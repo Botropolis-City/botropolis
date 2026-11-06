@@ -548,7 +548,7 @@ func TestSelectionActions(t *testing.T) {
 		require.NotNil(t, s.JumpTo(state.NeedsYou))
 
 		t.Run("it should offer the way in, the session, then the project", func(t *testing.T) {
-			assert.Equal(t, []city.ActionKind{city.ActionAttach, city.ActionStop, city.ActionRead, city.ActionGenerate, city.ActionPack, city.ActionNew, city.ActionReveal, city.ActionCopyPath, city.ActionHide, city.ActionStar, city.ActionDistrictType, city.ActionMoveToGroup, city.ActionDetails}, s.Actions())
+			assert.Equal(t, []city.ActionKind{city.ActionAttach, city.ActionStop, city.ActionRead, city.ActionGenerate, city.ActionPack, city.ActionDemolish, city.ActionNew, city.ActionReveal, city.ActionCopyPath, city.ActionHide, city.ActionStar, city.ActionDistrictType, city.ActionMoveToGroup, city.ActionDetails}, s.Actions())
 		})
 
 		t.Run("it should ask to stop it by id", func(t *testing.T) {
@@ -579,13 +579,9 @@ func TestSelectionActions(t *testing.T) {
 			assert.Equal(t, "attach", card.Actions[0])
 		})
 
-		t.Run("it should carry one hint per action, each that action's description", func(t *testing.T) {
+		t.Run("it should carry one hint per face button and one for the numbers row, the first its verb's description", func(t *testing.T) {
 			card, _, _ := s.SelectedCard()
-			var want []string
-			for _, kind := range s.Actions() {
-				want = append(want, kind.Describe())
-			}
-			assert.Equal(t, want, card.Hints)
+			assert.Equal(t, []any{len(card.Actions) + 1, city.ActionAttach.Describe()}, []any{len(card.Hints), card.Hints[0]})
 		})
 	})
 

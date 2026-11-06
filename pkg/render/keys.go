@@ -27,7 +27,7 @@ var bindings = []ui.Key{
 	{Key: "drag a selected district", Action: "move every selected district with it"},
 	{Key: "ctrl+click", Action: "select a district to move with others, or unselect it (cmd on a Mac)"},
 	{Key: "ctrl+drag", Action: "select every district in a box; esc clears the selection"},
-	{Key: "enter", Action: "attach the selection"},
+	{Key: "enter", Action: "run the card's first button: attach, or the lens's own verb"},
 	{Key: "i", Action: "the selection's details"},
 	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
@@ -372,8 +372,10 @@ func (g *Game) answerKeys() error {
 	if just(ebiten.KeyTab) {
 		g.jump(state.NeedsYou)
 	}
-	if just(ebiten.KeyEnter) {
-		g.act(g.scene.Activate())
+	// Enter runs the card's first button, the lens's direct verb (item
+	// 350): attach in Attention, which is what it always did there.
+	if just(ebiten.KeyEnter) && g.scene.Selected() != nil {
+		g.runVerb(g.scene.Verbs().Direct)
 	}
 	if just(ebiten.KeyO) {
 		g.openReader()
@@ -485,6 +487,12 @@ func (g *Game) act(action city.Action) {
 	}
 	if action.Kind == city.ActionAskWhere {
 		g.openNewSession()
+		return
+	}
+	// Demolish from the card or the menu asks through the dialog d opens
+	// (items 350 and 352).
+	if action.Kind == city.ActionAskDemolish {
+		g.askDemolish()
 		return
 	}
 	if action.Kind == city.ActionRenameGroup {
@@ -602,7 +610,9 @@ func (g *Game) buttonCarries(action city.Action) bool {
 	if b == nil || g.pinned.Rect.Area() == 0 {
 		return false
 	}
-	for _, kind := range g.pinnedKinds {
+	// Every verb on the face carries its progress: the direct one on its
+	// own button, the rest on their column's (item 350).
+	for _, kind := range append([]city.ActionKind{g.pinnedVerbs.Direct}, g.pinnedVerbs.All()...) {
 		if keyOf(cardAction(kind, b)) == keyOf(action) {
 			return true
 		}
@@ -611,14 +621,28 @@ func (g *Game) buttonCarries(action city.Action) bool {
 }
 
 // progressLabels are a card's button labels, each running action's in
-// its doing word (item 352).
-func (g *Game) progressLabels(kinds []city.ActionKind, b *city.Building) []string {
-	labels := make([]string, len(kinds))
-	for i, kind := range kinds {
-		labels[i] = string(kind)
+// its doing word (item 352): the direct verb's button for itself, and a
+// column's button for whichever of its verbs is running (item 350).
+func (g *Game) progressLabels(v city.Verbs, b *city.Building) []string {
+	running := func(kind city.ActionKind) (string, bool) {
 		if b != nil && runsClaude[cardAction(kind, b).Kind] && g.busy.is(cardAction(kind, b)) {
-			labels[i] = progress(cardAction(kind, b).Kind)
+			return progress(cardAction(kind, b).Kind), true
 		}
+		return "", false
+	}
+	labels := []string{string(v.Direct)}
+	if p, ok := running(v.Direct); ok {
+		labels[0] = p
+	}
+	for i, col := range city.VerbColumns {
+		label := col.Title + " ▾"
+		for _, kind := range v.Columns()[i] {
+			if p, ok := running(kind); ok {
+				label = p
+				break
+			}
+		}
+		labels = append(labels, label)
 	}
 	return labels
 }

@@ -121,6 +121,15 @@ type Shown struct {
 	// each empty when it was not (item 140).
 	SidebarRows        int
 	CardRect, LensRect city.Rect
+	// CardButtons is the card's buttons as drawn, CardHint the line under
+	// them for what the pointer is on, Menu whether the action menu is up,
+	// MenuRect where it was drawn and MenuFocus the row its keyboard is
+	// on (item 350).
+	CardButtons []ShownButton
+	CardHint    string
+	Menu        bool
+	MenuRect    city.Rect
+	MenuFocus   ui.MenuFocus
 	// StripBottom is where the strip along the top ends, FooterTop where
 	// the footer begins, and KeyRowTop where its key row does.
 	StripBottom, FooterTop, KeyRowTop float64
@@ -171,6 +180,12 @@ type Shown struct {
 	// Glows is where each glow was drawn: a lamp's, a monument's
 	// (item 185).
 	Glows []city.Point
+}
+
+// ShownButton is one of the card's buttons as drawn: its label and where.
+type ShownButton struct {
+	Label string
+	Rect  city.Rect
 }
 
 // ShownLabel is one drawn label: its kind, "sign", "plate", "caption",
@@ -292,7 +307,9 @@ func (d *Drive) Acted() []city.Action { return d.acted }
 // Press queues a key for the next tick the way --keys names one: a key
 // by its name, "ctrl+" and a key, or a typed character. It is one step.
 func (d *Drive) Press(name string) error {
-	if why, ok := undriven[name]; ok {
+	// A key the action menu takes goes to the menu, not to the map, so
+	// what it does there cannot happen (item 350).
+	if why, ok := undriven[name]; ok && d.game.menu() == nil {
 		return fmt.Errorf("the harness does not press %s: it %s", name, why)
 	}
 	key := name
@@ -658,10 +675,23 @@ func (g *Game) noteShown() {
 	}
 	if !g.hidden {
 		s.CardRect = g.pinned.Rect
+		for _, b := range g.pinned.Buttons {
+			s.CardButtons = append(s.CardButtons, ShownButton{Label: b.Label.Text, Rect: b.Rect})
+		}
+		var hint []string
+		for _, line := range g.pinned.Hint {
+			hint = append(hint, line.Text)
+		}
+		s.CardHint = strings.Join(hint, " ")
 		for _, o := range g.overlays {
 			if p, ok := o.(*lensPanel); ok {
 				s.LensRect = p.laid.Rect
 			}
+		}
+		if m := g.menu(); m != nil {
+			size := g.scene.Size()
+			laid := m.layout(g, size.X, size.Y)
+			s.Menu, s.MenuRect, s.MenuFocus = true, laid.Rect, m.focus
 		}
 	}
 	g.mu.Lock()

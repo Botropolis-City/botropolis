@@ -41,13 +41,14 @@ func TestCardProgress(t *testing.T) {
 	}
 	selected := func(g *Game) *city.Building { return g.scene.Selected() }
 	labels := func(g *Game) []string {
-		return g.progressLabels([]city.ActionKind{city.ActionStop, city.ActionFork}, selected(g))
+		return g.progressLabels(g.pinnedVerbs, selected(g))
 	}
-	// shown puts the selected session's card on screen with stop and fork,
+	// shown puts the selected session's card on screen, attach direct and
+	// stop and fork in its Session menu (item 350),
 	// as the frame draws it.
 	shown := func(g *Game) {
 		g.pinned = ui.Card{Rect: city.RectAt(0, 0, 400, 200)}
-		g.pinnedKinds = []city.ActionKind{city.ActionStop, city.ActionFork}
+		g.pinnedVerbs = city.Verbs{Direct: city.ActionAttach, Session: []city.ActionKind{city.ActionAttach, city.ActionStop, city.ActionFork}}
 	}
 
 	t.Run("when stop is running for the selected session", func(t *testing.T) {
@@ -57,7 +58,7 @@ func TestCardProgress(t *testing.T) {
 		<-actor.reached
 
 		t.Run("its stop button should say what it is doing, and fork keep its label", func(t *testing.T) {
-			assert.Equal(t, []string{"stopping…", string(city.ActionFork)}, labels(g))
+			assert.Equal(t, []string{"attach", "stopping…", "Project ▾", "Group ▾"}, labels(g))
 		})
 
 		t.Run("it should show no notice, since the button says it", func(t *testing.T) {
@@ -68,8 +69,8 @@ func TestCardProgress(t *testing.T) {
 			close(actor.release)
 			g.settle()
 
-			t.Run("the button should read stop again", func(t *testing.T) {
-				assert.Equal(t, []string{"stop", string(city.ActionFork)}, labels(g))
+			t.Run("the button should read Session again", func(t *testing.T) {
+				assert.Equal(t, []string{"attach", "Session ▾", "Project ▾", "Group ▾"}, labels(g))
 			})
 		})
 	})
@@ -80,8 +81,8 @@ func TestCardProgress(t *testing.T) {
 		g.act(city.Action{Kind: city.ActionStop, SessionID: "b"})
 		<-actor.reached
 
-		t.Run("the selected card's stop button should keep its label", func(t *testing.T) {
-			assert.Equal(t, []string{"stop", string(city.ActionFork)}, labels(g))
+		t.Run("the selected card's buttons should keep their labels", func(t *testing.T) {
+			assert.Equal(t, []string{"attach", "Session ▾", "Project ▾", "Group ▾"}, labels(g))
 		})
 
 		t.Run("it should say what it started, since no button on screen does", func(t *testing.T) {

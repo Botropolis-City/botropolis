@@ -40,6 +40,7 @@ var actionText = map[ActionKind]string{
 	ActionShowRoad:      "Lights the roads from this project to the projects it works with.",
 	ActionFork:          "Starts a fresh session from a copy of this conversation. This one stays as it is.",
 	ActionAskWhere:      "Asks which directory to start a session in.",
+	ActionAskDemolish:   "Asks before this session is demolished.",
 	ActionNewSession:    "Starts a session in the directory you chose, in the group you chose.",
 }
 

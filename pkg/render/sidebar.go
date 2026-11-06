@@ -20,9 +20,10 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	g.paint.Box(screen, float32(width-th.Hairline()), float32(top), float32(th.Hairline()), float32(bottom-top), th.Palette.Hairline)
 	foot := bottom
 	g.pinned = ui.Card{}
-	g.pinnedKinds = nil
+	g.pinnedVerbs, g.pinnedHints = city.Verbs{}, nil
 	g.cardOver = ui.Card{}
 	if card, _, ok := g.scene.SelectedCard(); ok {
+		hints := card.Hints
 		card.Hints = nil
 		window := float64(screen.Bounds().Dx())
 		panel := city.RectAt(0, top, width, bottom-top)
@@ -35,7 +36,7 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 			g.card(screen, dock.Card)
 		}
 		g.pinned = dock.Card
-		g.pinnedKinds = g.scene.Actions()
+		g.pinnedVerbs, g.pinnedHints = g.scene.Verbs(), hints
 	}
 	selected := ""
 	if b := g.scene.Selected(); b != nil {

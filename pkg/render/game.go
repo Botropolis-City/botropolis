@@ -457,8 +457,11 @@ type Game struct {
 	stats   statsHooks
 
 	// pinned is the selection's card as last drawn, for clicks on it.
-	pinned      ui.Card
-	pinnedKinds []city.ActionKind
+	pinned ui.Card
+	// pinnedVerbs is what the pinned card's buttons run, and pinnedHints
+	// one line per button and one for the numbers row (item 350).
+	pinnedVerbs city.Verbs
+	pinnedHints []string
 
 	sidebar       bool
 	sidebarLayout ui.Sidebar
@@ -912,6 +915,24 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 			}
 		}
 		return city.Point{}, false
+	}
+	if label, ok := strings.CutPrefix(target, "menu:"); ok {
+		m := g.menu()
+		if m == nil {
+			return city.Point{}, false
+		}
+		size := g.scene.Size()
+		for _, rows := range m.layout(g, size.X, size.Y).Rows {
+			for _, item := range rows {
+				if item.Label.Text == label {
+					return item.Rect.Center(), true
+				}
+			}
+		}
+		return city.Point{}, false
+	}
+	if target == "numbers" && g.pinned.NumbersRect.Area() > 0 {
+		return g.pinned.NumbersRect.Center(), true
 	}
 	if target == homeTarget {
 		if g.clipHome == nil {

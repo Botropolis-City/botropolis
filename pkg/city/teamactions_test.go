@@ -33,13 +33,13 @@ func TestTeamActions(t *testing.T) {
 		require.True(t, s.Select(selected))
 		return s
 	}
+	// hintFor is the line the action menu shows for a verb on the
+	// selection, which is where the card's verbs are since item 350.
 	hintFor := func(t *testing.T, s *city.Scene, kind city.ActionKind) string {
 		t.Helper()
-		card, _, ok := s.SelectedCard()
-		require.True(t, ok)
-		for i, a := range card.Actions {
-			if a == string(kind) {
-				return card.Hints[i]
+		for _, k := range s.Verbs().All() {
+			if k == kind {
+				return s.DescribeVerb(kind)
 			}
 		}
 		require.Fail(t, "no action "+string(kind))

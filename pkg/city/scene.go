@@ -82,6 +82,9 @@ const (
 	// opening New session on its directory field: c with nothing
 	// selected and no district under the pointer (item 345).
 	ActionAskWhere ActionKind = "ask where"
+	// ActionAskDemolish asks whether to demolish SessionID, which the
+	// renderer answers with its confirm dialog (item 350).
+	ActionAskDemolish ActionKind = "ask to demolish"
 	// ActionNewSession starts a session from New session, in Group or a
 	// new group named GroupName, or in none (item 87).
 	ActionNewSession ActionKind = "start a session"
@@ -1151,7 +1154,7 @@ func (s *Scene) Actions() []ActionKind {
 	root := SessionRoot(s.selected.Session)
 	var kinds []ActionKind
 	if s.selected.Packed {
-		kinds = append(kinds, ActionUnpack, ActionResume)
+		kinds = append(kinds, ActionUnpack, ActionResume, ActionDemolish)
 		if s.detailsOpen() {
 			return append(kinds, ActionDetailsHide)
 		}
@@ -1163,7 +1166,7 @@ func (s *Scene) Actions() []ActionKind {
 		kinds = append(kinds, ActionAttach, ActionStop)
 	}
 	kinds = append(kinds, s.summaryActions()...)
-	kinds = append(kinds, ActionPack, ActionNew, ActionReveal, ActionCopyPath, ActionHide)
+	kinds = append(kinds, ActionPack, ActionDemolish, ActionNew, ActionReveal, ActionCopyPath, ActionHide)
 	if s.layout.IsStarred(root) {
 		kinds = append(kinds, ActionUnstar)
 	} else {
@@ -1285,6 +1288,10 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 		return Action{Kind: ActionStop, SessionID: b.Session.ID}, "stopping " + b.Card(s.city.Time).Title
 	case ActionPack, ActionUnpack:
 		return s.TogglePack(), s.packNote(b)
+	case ActionDemolish:
+		// The renderer asks before anything is destroyed (item 352), so
+		// demolish from the card or the menu is a question (item 350).
+		return Action{Kind: ActionAskDemolish, SessionID: b.Session.ID}, ""
 	case ActionNew:
 		return Action{Kind: ActionNew, Dir: b.Session.CWD}, "new session in " + b.Session.CWD
 	case ActionReveal:
@@ -1501,12 +1508,25 @@ func (s *Scene) SelectedCard() (Card, *Building, bool) {
 	}
 	card := s.buildingCard(s.selected)
 	card.Open = s.detailsOpen()
-	_, inTeam := s.teamLead(s.selected.Session)
-	for _, kind := range s.Actions() {
-		card.Actions = append(card.Actions, string(kind))
-		card.Hints = append(card.Hints, kind.describeFor(inTeam))
+	verbs := s.Verbs()
+	card.Actions, card.Hints = verbs.faceButtons(), verbs.faceHints(s.DescribeVerb)
+	// The last hint is the numbers row's, which folds the details.
+	if card.Open {
+		card.Hints = append(card.Hints, ActionDetailsHide.Describe())
+	} else {
+		card.Hints = append(card.Hints, ActionDetails.Describe())
 	}
 	return card, s.selected, true
+}
+
+// DescribeVerb is what a verb does for the selection: on a session in
+// an agent team, the group's verbs move its team with it.
+func (s *Scene) DescribeVerb(kind ActionKind) string {
+	inTeam := false
+	if s.selected != nil {
+		_, inTeam = s.teamLead(s.selected.Session)
+	}
+	return kind.describeFor(inTeam)
 }
 
 // teamLead is the session leading the team of session, and whether it is

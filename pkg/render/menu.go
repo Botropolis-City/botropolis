@@ -15,74 +15,69 @@ import (
 // right-click, and the same table gives each row the key it shows and
 // the key it answers, so the two cannot disagree.
 
-// menuRow is one row of the table: the key it shows, and the kinds that
-// take the row, one at a time by the selection's state (attach or
-// resume; pack up or unpack).
-type menuRow struct {
-	key   string
-	kinds []city.ActionKind
+// menuColumnKeys is the key that chooses each of city.VerbColumns, in
+// the same order.
+var menuColumnKeys = []string{"s", "p", "g"}
+
+// menuKeys is the key each verb's row shows and answers, the one table
+// (rules/two-things-that-must-agree.md): the menu reads a row's key from
+// here to draw it and from here to answer it. Letters are unique within
+// a column among the kinds that can show together, and mnemonic where
+// they can be; "d d" is demolish's, whose second press confirms at the
+// map. The columns themselves are city.VerbColumns, which the card's
+// face reads too.
+var menuKeys = map[city.ActionKind]string{
+	city.ActionAttach:    "a",
+	city.ActionResume:    "a",
+	city.ActionStop:      "s",
+	city.ActionRead:      "r",
+	city.ActionGenerate:  "g",
+	city.ActionFork:      "f",
+	city.ActionPack:      "p",
+	city.ActionUnpack:    "p",
+	city.ActionBreakdown: "b",
+	city.ActionOpenPR:    "o",
+	city.ActionDemolish:  "d d",
+
+	city.ActionNew:          "n",
+	city.ActionReveal:       "f",
+	city.ActionCopyPath:     "c",
+	city.ActionStar:         "s",
+	city.ActionUnstar:       "s",
+	city.ActionHide:         "h",
+	city.ActionDistrictType: "d",
+	city.ActionShowRoad:     "r",
+
+	city.ActionMoveToGroup:   "m",
+	city.ActionJoinSuggested: "a",
+	city.ActionTakeOut:       "t",
+	city.ActionRenameGroup:   "n",
+	city.ActionCloseGroup:    "c",
+	city.ActionCopyStandup:   "s",
+	city.ActionMuteWord:      "w",
+	city.ActionFocusLine:     "f",
 }
 
-// menuColumn is one column of the table, with the key that chooses it.
-type menuColumn struct {
-	title, key string
-	rows       []menuRow
-}
-
-// menuTable is the one table (rules/two-things-that-must-agree.md): the
-// menu shows each row's key from here, and answers the same key from
-// here. Letters are unique within a column and mnemonic where they can
-// be; "d d" is demolish's, whose second press confirms at the map.
-var menuTable = []menuColumn{
-	{"Session", "s", []menuRow{
-		{"a", []city.ActionKind{city.ActionAttach, city.ActionResume}},
-		{"s", []city.ActionKind{city.ActionStop}},
-		{"r", []city.ActionKind{city.ActionRead}},
-		{"g", []city.ActionKind{city.ActionGenerate}},
-		{"f", []city.ActionKind{city.ActionFork}},
-		{"p", []city.ActionKind{city.ActionPack, city.ActionUnpack}},
-		{"d d", []city.ActionKind{city.ActionDemolish}},
-	}},
-	{"Project", "p", []menuRow{
-		{"n", []city.ActionKind{city.ActionNew}},
-		{"f", []city.ActionKind{city.ActionReveal}},
-		{"c", []city.ActionKind{city.ActionCopyPath}},
-		{"s", []city.ActionKind{city.ActionStar, city.ActionUnstar}},
-		{"h", []city.ActionKind{city.ActionHide}},
-		{"d", []city.ActionKind{city.ActionDistrictType}},
-		{"r", []city.ActionKind{city.ActionShowRoad}},
-	}},
-	{"Group", "g", []menuRow{
-		{"m", []city.ActionKind{city.ActionMoveToGroup, city.ActionJoinSuggested}},
-		{"t", []city.ActionKind{city.ActionTakeOut}},
-		{"n", []city.ActionKind{city.ActionRenameGroup}},
-		{"c", []city.ActionKind{city.ActionCloseGroup}},
-		{"s", []city.ActionKind{city.ActionCopyStandup}},
-		{"w", []city.ActionKind{city.ActionMuteWord}},
-		{"f", []city.ActionKind{city.ActionFocusLine}},
-	}},
-}
-
-// menuColumns is the table cut down to the kinds offered, in the
-// table's order: the columns for the layout, and beside them the kind
+// menuColumns is city.VerbColumns cut down to the kinds offered, in
+// their order: the columns for the layout, and beside them the kind
 // each row runs.
-func menuColumns(offered []city.ActionKind) ([]ui.MenuColumn, [][]city.ActionKind) {
+func menuColumns(offered []city.ActionKind, describe func(city.ActionKind) string) ([]ui.MenuColumn, [][]city.ActionKind) {
 	has := map[city.ActionKind]bool{}
 	for _, k := range offered {
 		has[k] = true
 	}
 	var columns []ui.MenuColumn
 	var kinds [][]city.ActionKind
-	for _, col := range menuTable {
-		column := ui.MenuColumn{Title: col.title, Key: col.key}
+	for i, col := range city.VerbColumns {
+		column := ui.MenuColumn{Title: col.Title}
+		if i < len(menuColumnKeys) {
+			column.Key = menuColumnKeys[i]
+		}
 		var runs []city.ActionKind
-		for _, row := range col.rows {
-			for _, kind := range row.kinds {
-				if has[kind] {
-					column.Rows = append(column.Rows, ui.MenuRow{Label: string(kind), Key: row.key, Describe: kind.Describe()})
-					runs = append(runs, kind)
-					break
-				}
+		for _, kind := range col.Kinds {
+			if has[kind] {
+				column.Rows = append(column.Rows, ui.MenuRow{Label: string(kind), Key: menuKeys[kind], Describe: describe(kind)})
+				runs = append(runs, kind)
 			}
 		}
 		columns = append(columns, column)
@@ -124,7 +119,7 @@ func (g *Game) openMenu(offered []city.ActionKind, at city.Point, column int) {
 	if g.menu() != nil {
 		return
 	}
-	columns, kinds := menuColumns(offered)
+	columns, kinds := menuColumns(offered, g.scene.DescribeVerb)
 	p := &menuPanel{columns: columns, kinds: kinds, at: at, focus: ui.MenuFocus{Column: 0, Row: -1}, choose: g.runVerb}
 	if column >= 0 && column < len(columns) {
 		p.focus, p.armed = ui.MenuFocus{Column: column, Row: 0}, true

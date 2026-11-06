@@ -18,12 +18,15 @@ type Card struct {
 	Group    Text
 	Sentence []Text
 	Numbers  []Text
-	Details  []Text
-	Hint     []Text
-	Lines    []Text
-	Para     []Text
-	Spark    Sparkline
-	Buttons  []Button
+	// NumbersRect spans the numbers row, which is the click that folds
+	// the details out and back (item 350).
+	NumbersRect city.Rect
+	Details     []Text
+	Hint        []Text
+	Lines       []Text
+	Para        []Text
+	Spark       Sparkline
+	Buttons     []Button
 }
 
 // LayoutCard sizes a card to its content and parks it in the top-right
@@ -106,6 +109,7 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 			grow(x + w - pad)
 			x += w + 3*grid
 		}
+		c.NumbersRect = city.RectAt(pad-grid, y-grid/2, x-3*grid-pad+2*grid, lineH+grid)
 		y += lineH
 	}
 	if card.Para != "" {
@@ -220,6 +224,9 @@ func (c Card) MoveTo(at city.Point) Card {
 	by := at.Sub(c.Rect.Min)
 	moved := Card{Rect: city.Rect{Min: at, Max: c.Rect.Max.Add(by)}, Title: c.Title.moved(by),
 		Kind: c.Kind.moved(by), Move: c.Move.moved(by), Group: c.Group.moved(by)}
+	if c.NumbersRect.Area() > 0 {
+		moved.NumbersRect = shifted(c.NumbersRect, by)
+	}
 	for _, line := range c.Lines {
 		moved.Lines = append(moved.Lines, line.moved(by))
 	}

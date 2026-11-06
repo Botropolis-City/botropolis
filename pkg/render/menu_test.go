@@ -253,65 +253,65 @@ func TestMenuTable(t *testing.T) {
 	at := time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC)
 	live := state.Session{ID: "live", Title: "Fix the queue", CWD: "/src/kiln", State: state.NeedsYou, LastActivity: at, StartedAt: at.Add(-time.Hour)}
 
-	for c, column := range menuTable {
-		for _, row := range column.rows {
-			for _, kind := range row.kinds {
-				t.Run("when the "+column.title+" column shows "+string(kind)+" and its key "+row.key+" is pressed", func(t *testing.T) {
-					scene := city.NewScene(city.NewLayout())
-					scene.Resize(1280, 800)
-					scene.SetSnapshot(state.Snapshot{At: at, Sessions: []state.Session{live}})
-					require.True(t, scene.Select("live"))
-					g := &Game{scene: scene, actor: &recorder{}, scripted: -1, clicked: -1}
-					g.openMenu([]city.ActionKind{kind}, city.Point{X: 300, Y: 300}, c)
-					var chosen []city.ActionKind
-					g.menu().choose = func(k city.ActionKind) { chosen = append(chosen, k) }
-					shown := g.menu().layout(g, 1280, 800).Rows[c][0].Cap.Label.Text
-					key, ok := menuKey(shown)
-					require.True(t, ok, "the row shows %q, which is no key", shown)
-					g.scripted = key
-					require.NoError(t, g.handleKeys())
-					g.scripted = -1
+	for c, column := range city.VerbColumns {
+		for _, kind := range column.Kinds {
+			t.Run("when the "+column.Title+" column shows "+string(kind)+" and the key it shows is pressed", func(t *testing.T) {
+				scene := city.NewScene(city.NewLayout())
+				scene.Resize(1280, 800)
+				scene.SetSnapshot(state.Snapshot{At: at, Sessions: []state.Session{live}})
+				require.True(t, scene.Select("live"))
+				g := &Game{scene: scene, actor: &recorder{}, scripted: -1, clicked: -1}
+				g.openMenu([]city.ActionKind{kind}, city.Point{X: 300, Y: 300}, c)
+				var chosen []city.ActionKind
+				g.menu().choose = func(k city.ActionKind) { chosen = append(chosen, k) }
+				shown := g.menu().layout(g, 1280, 800).Rows[c][0].Cap.Label.Text
+				key, ok := menuKey(shown)
+				require.True(t, ok, "the row shows %q, which is no key", shown)
+				g.scripted = key
+				require.NoError(t, g.handleKeys())
+				g.scripted = -1
 
-					t.Run("it should run that row's action", func(t *testing.T) {
-						assert.Equal(t, []city.ActionKind{kind}, chosen)
-					})
+				t.Run("it should run that row's action", func(t *testing.T) {
+					assert.Equal(t, []city.ActionKind{kind}, chosen)
 				})
-			}
+			})
 		}
 	}
 
 	t.Run("when the table is read as a whole", func(t *testing.T) {
-		t.Run("it should give every verb the card offers today a row", func(t *testing.T) {
-			rows := map[city.ActionKind]bool{}
-			for _, column := range menuTable {
-				for _, row := range column.rows {
-					for _, kind := range row.kinds {
-						rows[kind] = true
-					}
-				}
-			}
-			var missing []city.ActionKind
-			for _, kind := range []city.ActionKind{
-				city.ActionAttach, city.ActionResume, city.ActionStop, city.ActionRead, city.ActionGenerate, city.ActionFork, city.ActionPack, city.ActionUnpack, city.ActionDemolish,
-				city.ActionNew, city.ActionReveal, city.ActionCopyPath, city.ActionStar, city.ActionUnstar, city.ActionHide, city.ActionDistrictType, city.ActionShowRoad,
-				city.ActionMoveToGroup, city.ActionJoinSuggested, city.ActionTakeOut, city.ActionRenameGroup, city.ActionCloseGroup, city.ActionCopyStandup, city.ActionMuteWord, city.ActionFocusLine,
-			} {
-				if !rows[kind] {
-					missing = append(missing, kind)
-				}
-			}
-			assert.Empty(t, missing)
+		// alternates never show together, so they may share a key.
+		alternates := map[city.ActionKind]city.ActionKind{
+			city.ActionAttach: city.ActionResume, city.ActionResume: city.ActionAttach,
+			city.ActionPack: city.ActionUnpack, city.ActionUnpack: city.ActionPack,
+			city.ActionStar: city.ActionUnstar, city.ActionUnstar: city.ActionStar,
+		}
+
+		t.Run("it should give one key to each column", func(t *testing.T) {
+			assert.Len(t, menuColumnKeys, len(city.VerbColumns))
 		})
 
-		t.Run("it should give no two rows of a column one key", func(t *testing.T) {
-			for _, column := range menuTable {
-				seen := map[string]string{}
-				for _, row := range column.rows {
-					if other, dup := seen[row.key]; dup {
-						assert.Failf(t, "two rows share a key", "%s: %s and %s both show %s", column.title, other, row.kinds[0], row.key)
+		t.Run("it should give no two kinds that can show together in a column one key", func(t *testing.T) {
+			for _, column := range city.VerbColumns {
+				seen := map[string]city.ActionKind{}
+				for _, kind := range column.Kinds {
+					key := menuKeys[kind]
+					if other, dup := seen[key]; dup && alternates[kind] != other {
+						assert.Failf(t, "two rows share a key", "%s: %s and %s both show %s", column.Title, other, kind, key)
 					}
-					seen[row.key] = string(row.kinds[0])
+					seen[key] = kind
 				}
+			}
+		})
+
+		t.Run("it should key nothing that no column shows", func(t *testing.T) {
+			shown := map[city.ActionKind]bool{}
+			for _, column := range city.VerbColumns {
+				for _, kind := range column.Kinds {
+					shown[kind] = true
+				}
+			}
+			for kind := range menuKeys {
+				assert.True(t, shown[kind], string(kind))
 			}
 		})
 	})
