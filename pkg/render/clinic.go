@@ -64,11 +64,17 @@ func (g *Game) openClinic() {
 }
 
 // clinicStatus is the menu's line under its title.
-func clinicStatus(rows []city.ClinicRow) string {
-	if len(rows) == 0 {
+func clinicStatus(count int) string {
+	if count == 0 {
 		return "nobody needs you and nothing is in trouble"
 	}
-	return fmt.Sprintf("%d to see to   1-9 or ↑ ↓ enter jumps to it, esc closes", len(rows))
+	return fmt.Sprintf("%d to see to   1-9 or ↑ ↓ enter jumps to it, esc closes", count)
+}
+
+// status is the line under the title. It counts every row, filtered
+// or not: a filter that matches nothing does not mean nobody needs you.
+func (c *clinic) status(g *Game) string {
+	return clinicStatus(len(g.scene.Clinic()))
 }
 
 // clinicPlate is the clinic's name with its count, and the tone it
@@ -146,7 +152,7 @@ func (c *clinic) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	x, y := panel.Min.X+grid*2, panel.Min.Y+grid*2
 	g.text(screen, city.Point{X: x, Y: y}, "Clinic · needs you, then in trouble", ui.Title, th.Palette.Text)
 	y += title
-	g.text(screen, city.Point{X: x, Y: y}, clinicStatus(rows), ui.Small, th.Palette.Dim)
+	g.text(screen, city.Point{X: x, Y: y}, c.status(g), ui.Small, th.Palette.Dim)
 	y += small + grid
 	y += g.drawFilter(screen, &c.filter, city.Point{X: x, Y: y}, ui.Small)
 	first := max(0, min(selected-shown+1, len(rows)-shown))

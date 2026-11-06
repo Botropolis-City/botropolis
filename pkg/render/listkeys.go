@@ -57,6 +57,9 @@ type listShape struct {
 type listFilter struct {
 	on   bool
 	text []rune
+	// none is whether the last rows it was asked about left none, so
+	// its line can say nothing matches rather than show an empty list.
+	none bool
 }
 
 // visible is the rows a filter leaves, by index: every row whose label
@@ -73,15 +76,22 @@ func (f *listFilter) visible(labels []string) []int {
 			rows = append(rows, i)
 		}
 	}
+	if f != nil {
+		f.none = on && len(rows) == 0
+	}
 	return rows
 }
 
-// shown is the filter as its line reads, or "" when it is off.
+// shown is the filter as its line reads, its caret after what is typed,
+// or "" when it is off.
 func (f *listFilter) shown() string {
 	if f == nil || !f.on {
 		return ""
 	}
-	return "/" + string(f.text)
+	if f.none {
+		return "/" + string(f.text) + ui.Caret + "   nothing matches"
+	}
+	return "/" + string(f.text) + ui.Caret
 }
 
 // left is the rows a filter leaves, as a set, for a panel drawing its
@@ -102,7 +112,7 @@ func (g *Game) drawFilter(screen *ebiten.Image, f *listFilter, at city.Point, si
 		return 0
 	}
 	_, h := g.faces.Measure(line, size)
-	g.text(screen, at, line+ui.Caret, size, g.theme.Palette.Accent)
+	g.text(screen, at, line, size, g.theme.Palette.Accent)
 	return h + g.theme.Grid()/2
 }
 

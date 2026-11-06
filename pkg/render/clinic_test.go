@@ -139,7 +139,16 @@ func TestClinicMenu(t *testing.T) {
 
 	t.Run("when nothing needs you and nothing is in trouble", func(t *testing.T) {
 		t.Run("the menu should say so", func(t *testing.T) {
-			assert.Equal(t, "nobody needs you and nothing is in trouble", clinicStatus(nil))
+			assert.Equal(t, "nobody needs you and nothing is in trouble", clinicStatus(0))
+		})
+	})
+
+	t.Run("when the filter leaves no row", func(t *testing.T) {
+		g := opened(t)
+		g.clinicMenu().filter = listFilter{on: true, text: []rune("zzz")}
+
+		t.Run("the menu should still count every row, not say nobody needs you", func(t *testing.T) {
+			assert.Equal(t, clinicStatus(len(g.scene.Clinic())), g.clinicMenu().status(g))
 		})
 	})
 

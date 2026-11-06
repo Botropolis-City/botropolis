@@ -551,7 +551,7 @@ func (w *walk) draw(g *Game, screen *ebiten.Image, width, height float64) {
 			line(fmt.Sprintf("%s · %s", row.Name, plural(len(row.Members), "session")), th.Palette.Text)
 			line(row.Reason, th.Palette.Dim)
 			if filtered := w.filter.shown(); filtered != "" {
-				line(filtered+ui.Caret, th.Palette.Accent)
+				line(filtered, th.Palette.Accent)
 			}
 			left := w.filter.left(w.memberTitles())
 			for k, t := range w.memberTitles() {

@@ -5,6 +5,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
+
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // Item 350, slice 6a: every list answers one vocabulary, from one
@@ -129,6 +131,20 @@ func TestListKeys(t *testing.T) {
 
 			t.Run("it should choose nothing", func(t *testing.T) {
 				assert.Equal(t, listNone, intent)
+			})
+
+			t.Run("its line should say nothing matches", func(t *testing.T) {
+				f.visible(labels)
+				assert.Equal(t, "/zzz"+ui.Caret+"   nothing matches", f.shown())
+			})
+		})
+
+		t.Run("and a row matches", func(t *testing.T) {
+			_, f, _ := typed(t, "kil")
+			f.visible(labels)
+
+			t.Run("its line should be the filter alone", func(t *testing.T) {
+				assert.Equal(t, "/kil"+ui.Caret, f.shown())
 			})
 		})
 
