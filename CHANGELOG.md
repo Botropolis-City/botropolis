@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **What the city dims, it now dims clearly.**
   Pointing at something, focusing a group or filtering the finder used to leave everything else faintly pale, which barely read at the fitted view.
   Everything outside the answer now goes dark grey.
+- **Deleting and closing ask in a dialog.**
+  Demolishing a session and closing a group used to arm on the first key and say "press again" in the footer.
+  Each now opens a dialog in the middle of the window, as Quit does, saying what it will do, with the keys that answer each button under it.
+  `d d` still demolishes and `Delete Delete` on the board still closes a group: the first press asks and the second confirms.
+- **The top bar's needs-you count is a button.**
+  The line at the bottom naming who has waited longest is gone.
+  Clicking the count in the top bar now attaches that session in one click, as the line did, and hovering it lists who needs you, longest-waiting first.
+  `tab` still walks them one at a time.
+- **A button says what it is doing.**
+  While stop, resume, fork or remove runs, its button on the session's card reads *stopping…*, *resuming…* and so on until it is done, and *Pack up everything quiet* reads *packing up…*.
+  When nothing on screen carries it, such as a new session started from its panel, one message under the top bar says what was started.
+  A failure says what went wrong there; a success needs no message, since the building changes.
 
 ## [0.4.1] - 2026-11-06
 
@@ -34,19 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every one is also the stream's newest line, so a message that passed can still be read, and clicking it there flies to its session as the stream's other lines do.
   A lens change, a camera turn, a change of light and showing or hiding a panel no longer make one.
   Triage says which step of how many in the header of the session's card instead of on the footer.
-- **Deleting and closing ask in a dialog.**
-  Demolishing a session and closing a group used to arm on the first key and say "press again" in the footer.
-  Each now opens a dialog in the middle of the window, as Quit does, saying what it will do, with the keys that answer each button under it.
-  `d d` still demolishes and `Delete Delete` on the board still closes a group: the first press asks and the second confirms.
-- **The top bar's needs-you count is a button.**
-  The line at the bottom naming who has waited longest is gone.
-  Clicking the count in the top bar now attaches that session in one click, as the line did, and hovering it lists who needs you, longest-waiting first.
-  `tab` still walks them one at a time.
-- **A button says what it is doing.**
-  While stop, resume, fork or remove runs, its button on the session's card reads *stopping…*, *resuming…* and so on until it is done, and *Pack up everything quiet* reads *packing up…*.
-  When nothing on screen carries it, such as a new session started from its panel, one message under the top bar says what was started.
-  A failure says what went wrong there; a success needs no message, since the building changes.
-
 ### Fixed
 
 - **A teammate is in its lead's group, always, and moves with it.**
