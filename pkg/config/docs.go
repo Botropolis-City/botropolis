@@ -42,6 +42,9 @@ func Docs() []KeyDoc {
 	var docs []KeyDoc
 	for _, key := range Keys(v) {
 		help, value := unflagged[key], ""
+		if name, ok := strings.CutPrefix(key, KeySettings+"."); ok {
+			help = bindingHelp(name)
+		}
 		if d := v.Get(key); d != nil {
 			value = fmt.Sprint(d)
 		}

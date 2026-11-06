@@ -194,7 +194,9 @@ type Config struct {
 	CityPlanKey string
 	// LabelsKey turns every label off and on (item 102).
 	LabelsKey string
-	File      string
+	// Keys rebinds any binding by its name in Bindings (item 350).
+	Keys map[string]string
+	File string
 	// GroupLines draws each group as a line across its districts (item 87).
 	GroupLines bool
 	// Labels shows the map's labels; signs on posts stay either way
@@ -305,6 +307,9 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyLight, LightLive)
 	v.SetDefault(KeyTowerLines, TowerLinesBuildings)
 	v.SetDefault(KeyGroupLineForm, GroupLineDistricts)
+	for _, b := range Bindings {
+		v.SetDefault(KeySettings+"."+b.Name, b.Default)
+	}
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -414,6 +419,7 @@ func New(v *viper.Viper) (*Config, error) {
 		StreamKey:      v.GetString(KeyStream),
 		CityPlanKey:    v.GetString(KeyCityPlan),
 		LabelsKey:      v.GetString(KeyLabelsToggle),
+		Keys:           v.GetStringMapString(KeySettings),
 		GroupLines:     v.GetBool(KeyGroupLines),
 		Labels:         v.GetBool(KeyLabels),
 		GoneSessions:   v.GetBool(KeyGoneSessions),

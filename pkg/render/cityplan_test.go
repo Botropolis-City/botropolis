@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -187,8 +188,8 @@ func TestCityPlanKey(t *testing.T) {
 	})
 
 	t.Run("when the plan's key is rebound to y", func(t *testing.T) {
-		chords := defaultChords()
-		chords.Plan = config.Chord{Key: "y"}
+		chords, err := config.FindChords(config.Config{Keys: map[string]string{"city_plan": "y"}}, runtime.GOOS, KnownKey)
+		require.NoError(t, err)
 
 		t.Run("and y is pressed", func(t *testing.T) {
 			g := newGame(t)

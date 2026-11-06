@@ -2,7 +2,6 @@ package render
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestHelpKeys(t *testing.T) {
 		{"Plan", "the City Plan: every district on one screen; click a badge to fly in", "m", ""},
 		{"Labels", "labels off and on", "z", ""},
 	}
+	bindingOf := map[string]string{"Triage": "triage", "Journal": "journal", "Stream": "stream", "New": "new_session", "Explain": "explain", "Plan": "city_plan", "Labels": "labels"}
 
 	t.Run("when nothing is set", func(t *testing.T) {
 		keys := (&Game{}).helpKeys()
@@ -40,29 +40,30 @@ func TestHelpKeys(t *testing.T) {
 		}
 	})
 
-	t.Run("when every configurable key is rebound", func(t *testing.T) {
-		var chords config.Chords
-		value := reflect.ValueOf(&chords).Elem()
-		for i := 0; i < value.NumField(); i++ {
-			value.Field(i).Set(reflect.ValueOf(config.Chord{Alt: true, Key: fmt.Sprintf("f%d", i+1)}))
+	t.Run("when every binding the reference lists is rebound", func(t *testing.T) {
+		chords := config.Chords{Bound: map[string]config.Chord{}}
+		for i, b := range config.Bindings {
+			chords.Bound[b.Name] = config.Chord{Ctrl: true, Alt: true, Key: fmt.Sprintf("f%d", i+1)}
 		}
 		keys := (&Game{chords: &chords}).helpKeys()
 
-		for i := 0; i < value.NumField(); i++ {
-			name := value.Type().Field(i).Name
-			chord := value.Field(i).Interface().(config.Chord).String()
+		for _, b := range config.Bindings {
+			if b.Scope != config.ScopeMap && b.Scope != config.ScopeEverywhere && b.Scope != config.ScopeFinder {
+				continue
+			}
+			chord := chords.Bound[b.Name].Label()
 
-			t.Run("it should name "+name+"'s chord, "+chord+", in the reference", func(t *testing.T) {
+			t.Run("it should name "+b.Name+"'s chord, "+chord+", in the reference", func(t *testing.T) {
 				var named bool
 				for _, k := range keys {
-					named = named || k.Key == chord || strings.HasSuffix(k.Key, " "+chord)
+					named = named || k.Key == chord || strings.HasSuffix(k.Key, " "+chord) || strings.HasPrefix(k.Key, chord+" ") || strings.Contains(k.Key, " "+chord+" ")
 				}
 				assert.True(t, named, "%v", keys)
 			})
 		}
 
 		for _, r := range rows {
-			chord := value.FieldByName(r.field).Interface().(config.Chord).String()
+			chord := chords.Bound[bindingOf[r.field]].Label()
 
 			t.Run("it should name "+r.prefix+chord+" for "+r.field, func(t *testing.T) {
 				assert.Contains(t, keys, ui.Key{Key: r.prefix + chord, Action: r.action})

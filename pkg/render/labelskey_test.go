@@ -59,7 +59,7 @@ func TestLabelsKey(t *testing.T) {
 		key    string
 	}{
 		{"nothing is set", nil, "z"},
-		{"labels_key is shift+l", &config.Chords{Labels: config.Chord{Shift: true, Key: "l"}}, "shift+l"},
+		{"labels_key is shift+l", configured(config.Config{LabelsKey: "shift+l"}), "shift+l"},
 	} {
 		t.Run("when "+c.name+", and the help lists the keys", func(t *testing.T) {
 			g, _ := game()

@@ -1,11 +1,10 @@
 package render
 
 import (
-	"strings"
-
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -15,85 +14,93 @@ import (
 // right-click, and the same table gives each row the key it shows and
 // the key it answers, so the two cannot disagree.
 
-// menuColumnKeys is the key that chooses each of city.VerbColumns, in
-// the same order.
-var menuColumnKeys = []string{"s", "p", "g"}
+// menuColumnKeys is the binding that chooses each of city.VerbColumns,
+// in the same order.
+var menuColumnKeys = []string{"menu_session", "menu_project", "menu_group"}
 
-// menuKeys is the key each verb's row shows and answers, the one table
-// (rules/two-things-that-must-agree.md): the menu reads a row's key from
-// here to draw it and from here to answer it. Letters are unique within
-// a column among the kinds that can show together, and mnemonic where
-// they can be; "d d" is demolish's, whose second press confirms at the
-// map. The columns themselves are city.VerbColumns, which the card's
-// face reads too.
+// menuKeys is the binding in config.Bindings each verb's row shows and
+// answers, the one table (rules/two-things-that-must-agree.md): the menu
+// reads a row's chord from it to draw it and to answer it, so a rebound
+// letter moves both. Kinds that never show together share a binding:
+// attach or resume, pack up or unpack, star or unstar. Demolish shows
+// its key twice, since its second press confirms at the map. The
+// columns themselves are city.VerbColumns, which the card's face reads.
 var menuKeys = map[city.ActionKind]string{
-	city.ActionAttach:    "a",
-	city.ActionResume:    "a",
-	city.ActionStop:      "s",
-	city.ActionRead:      "r",
-	city.ActionGenerate:  "g",
-	city.ActionFork:      "f",
-	city.ActionPack:      "p",
-	city.ActionUnpack:    "p",
-	city.ActionBreakdown: "b",
-	city.ActionOpenPR:    "o",
-	city.ActionDemolish:  "d d",
+	city.ActionAttach:    "menu_attach",
+	city.ActionResume:    "menu_attach",
+	city.ActionStop:      "menu_stop",
+	city.ActionRead:      "menu_read",
+	city.ActionGenerate:  "menu_generate",
+	city.ActionFork:      "menu_fork",
+	city.ActionPack:      "menu_pack",
+	city.ActionUnpack:    "menu_pack",
+	city.ActionBreakdown: "menu_breakdown",
+	city.ActionOpenPR:    "menu_open_pr",
+	city.ActionDemolish:  "menu_demolish",
 
-	city.ActionNew:          "n",
-	city.ActionReveal:       "f",
-	city.ActionCopyPath:     "c",
-	city.ActionStar:         "s",
-	city.ActionUnstar:       "s",
-	city.ActionHide:         "h",
-	city.ActionDistrictType: "d",
-	city.ActionShowRoad:     "r",
+	city.ActionNew:          "menu_new_here",
+	city.ActionReveal:       "menu_reveal",
+	city.ActionCopyPath:     "menu_copy_path",
+	city.ActionStar:         "menu_star",
+	city.ActionUnstar:       "menu_star",
+	city.ActionHide:         "menu_hide",
+	city.ActionDistrictType: "menu_district_type",
+	city.ActionShowRoad:     "menu_show_road",
 
-	city.ActionMoveToGroup:   "m",
-	city.ActionJoinSuggested: "a",
-	city.ActionTakeOut:       "t",
-	city.ActionRenameGroup:   "n",
-	city.ActionCloseGroup:    "c",
-	city.ActionCopyStandup:   "s",
-	city.ActionMuteWord:      "w",
-	city.ActionFocusLine:     "f",
+	city.ActionMoveToGroup:   "menu_move",
+	city.ActionJoinSuggested: "menu_join",
+	city.ActionTakeOut:       "menu_take_out",
+	city.ActionRenameGroup:   "menu_rename_group",
+	city.ActionCloseGroup:    "menu_close_group",
+	city.ActionCopyStandup:   "menu_standup",
+	city.ActionMuteWord:      "menu_mute",
+	city.ActionFocusLine:     "menu_focus",
 }
 
 // menuColumns is city.VerbColumns cut down to the kinds offered, in
 // their order: the columns for the layout, and beside them the kind
-// each row runs.
-func menuColumns(offered []city.ActionKind, describe func(city.ActionKind) string) ([]ui.MenuColumn, [][]city.ActionKind) {
+// each row runs and the chord that runs it, with each column's own.
+func menuColumns(offered []city.ActionKind, describe func(city.ActionKind) string, chords config.Chords) ([]ui.MenuColumn, [][]city.ActionKind, [][]config.Chord, []config.Chord) {
 	has := map[city.ActionKind]bool{}
 	for _, k := range offered {
 		has[k] = true
 	}
 	var columns []ui.MenuColumn
 	var kinds [][]city.ActionKind
+	var rowChords [][]config.Chord
+	var colChords []config.Chord
 	for i, col := range city.VerbColumns {
 		column := ui.MenuColumn{Title: col.Title}
+		var colChord config.Chord
 		if i < len(menuColumnKeys) {
-			column.Key = menuColumnKeys[i]
+			colChord = chords.Bound[menuColumnKeys[i]]
+			column.Key = colChord.Label()
 		}
 		var runs []city.ActionKind
+		var keys []config.Chord
 		for _, kind := range col.Kinds {
 			if has[kind] {
-				column.Rows = append(column.Rows, ui.MenuRow{Label: string(kind), Key: menuKeys[kind], Describe: describe(kind)})
+				chord := chords.Bound[menuKeys[kind]]
+				shown := chord.Label()
+				if kind == city.ActionDemolish {
+					shown += " " + shown
+				}
+				column.Rows = append(column.Rows, ui.MenuRow{Label: string(kind), Key: shown, Describe: describe(kind)})
 				runs = append(runs, kind)
+				keys = append(keys, chord)
 			}
 		}
 		columns = append(columns, column)
 		kinds = append(kinds, runs)
+		rowChords = append(rowChords, keys)
+		colChords = append(colChords, colChord)
 	}
-	return columns, kinds
+	return columns, kinds, rowChords, colChords
 }
 
-// menuKey is the key a row or a column shows, as the keyboard presses
-// it: the first key of what is shown, so "d d" answers to d.
-func menuKey(shown string) (ebiten.Key, bool) {
-	fields := strings.Fields(shown)
-	if len(fields) == 0 {
-		return -1, false
-	}
-	return keyByName(fields[0])
+// pressedChord is a chord pressed this frame with exactly its modifiers.
+func (g *Game) pressedChord(c config.Chord) bool {
+	return c.Key != "" && g.chordPressed(c) && g.onlyHeld(c) && c.Shift == g.shifted()
 }
 
 // menuPanel is the menu as an overlay: it takes the keys and the pointer
@@ -101,7 +108,11 @@ func menuKey(shown string) (ebiten.Key, bool) {
 type menuPanel struct {
 	columns []ui.MenuColumn
 	kinds   [][]city.ActionKind
-	at      city.Point
+	// rowChords and colChords are the chords the rows and the columns
+	// show, which are the chords they answer.
+	rowChords [][]config.Chord
+	colChords []config.Chord
+	at        city.Point
 	// focus is the column the keyboard is in and the row in it, -1 for
 	// none; armed is whether a row's letter alone answers, which it does
 	// once a column was chosen, by its letter, a button or the arrows.
@@ -129,7 +140,7 @@ func (g *Game) openMenuWith(offered []city.ActionKind, at city.Point, column int
 	if g.menu() != nil {
 		return
 	}
-	columns, kinds := menuColumns(offered, g.scene.DescribeVerb)
+	columns, kinds, rowChords, colChords := menuColumns(offered, g.scene.DescribeVerb, g.findChords())
 	if column == menuFirstRows {
 		column = 0
 		for i, k := range kinds {
@@ -139,7 +150,7 @@ func (g *Game) openMenuWith(offered []city.ActionKind, at city.Point, column int
 			}
 		}
 	}
-	p := &menuPanel{columns: columns, kinds: kinds, at: at, focus: ui.MenuFocus{Column: 0, Row: -1}, choose: choose}
+	p := &menuPanel{columns: columns, kinds: kinds, rowChords: rowChords, colChords: colChords, at: at, focus: ui.MenuFocus{Column: 0, Row: -1}, choose: choose}
 	if column >= 0 && column < len(columns) {
 		p.focus, p.armed = ui.MenuFocus{Column: column, Row: 0}, true
 	}
@@ -244,8 +255,8 @@ func (p *menuPanel) keys(g *Game) bool {
 		return true
 	}
 	if !p.armed {
-		for i, col := range p.columns {
-			if key, ok := menuKey(col.Key); ok && g.just(key) {
+		for i, c := range p.colChords {
+			if g.pressedChord(c) {
 				p.focus, p.armed = ui.MenuFocus{Column: i, Row: 0}, true
 				p.clampFocus()
 				return true
@@ -253,9 +264,9 @@ func (p *menuPanel) keys(g *Game) bool {
 		}
 		return true
 	}
-	if p.focus.Column >= 0 && p.focus.Column < len(p.columns) {
-		for r, row := range p.columns[p.focus.Column].Rows {
-			if key, ok := menuKey(row.Key); ok && g.just(key) {
+	if p.focus.Column >= 0 && p.focus.Column < len(p.rowChords) {
+		for r, c := range p.rowChords[p.focus.Column] {
+			if g.pressedChord(c) {
 				return p.run(g, ui.MenuFocus{Column: p.focus.Column, Row: r})
 			}
 		}

@@ -70,7 +70,12 @@ func (c Chord) String() string {
 
 // Chords are the finder's: the one that opens it, the one that copies
 // how to resume a session, and the one that shows it on the map.
-type Chords struct{ Open, Copy, Show, New, Explain, Triage, Stream, Journal, Plan, Labels Chord }
+// Bound is every binding in Bindings by name, these among them
+// (item 350).
+type Chords struct {
+	Open, Copy, Show, New, Explain, Triage, Stream, Journal, Plan, Labels Chord
+	Bound                                                                 map[string]Chord
+}
 
 // macOSKeeps is what macOS does with the ⌘ chords it takes for itself
 // before an application sees them.
@@ -119,31 +124,13 @@ func ParseChord(setting, value, goos string, known func(string) bool) (Chord, er
 // FindChords reads the finder's chords from the configuration, with the
 // defaults for anything not set.
 func FindChords(cfg Config, goos string, known func(string) bool) (Chords, error) {
-	var chords Chords
-	for _, s := range []struct {
-		setting, value, fallback string
-		into                     *Chord
-	}{
-		{KeyFind, cfg.FindKey, DefaultFind, &chords.Open},
-		{KeyFindCopy, cfg.FindCopyKey, DefaultFindCopy, &chords.Copy},
-		{KeyFindShow, cfg.FindShowKey, DefaultFindShow, &chords.Show},
-		{KeyNewSession, cfg.NewSessionKey, DefaultNewSession, &chords.New},
-		{KeyExplain, cfg.ExplainKey, DefaultExplain, &chords.Explain},
-		{KeyTriage, cfg.TriageKey, DefaultTriage, &chords.Triage},
-		{KeyStream, cfg.StreamKey, DefaultStream, &chords.Stream},
-		{KeyJournal, cfg.JournalKey, DefaultJournal, &chords.Journal},
-		{KeyCityPlan, cfg.CityPlanKey, DefaultCityPlan, &chords.Plan},
-		{KeyLabelsToggle, cfg.LabelsKey, DefaultLabelsToggle, &chords.Labels},
-	} {
-		value := s.value
-		if value == "" {
-			value = s.fallback
-		}
-		c, err := ParseChord(s.setting, value, goos, known)
-		if err != nil {
-			return Chords{}, err
-		}
-		*s.into = c
+	bound, err := LoadBindings(cfg, goos, known)
+	if err != nil {
+		return Chords{}, err
 	}
-	return chords, nil
+	return Chords{
+		Open: bound["find"], Copy: bound["find_copy"], Show: bound["find_show"], New: bound["new_session"],
+		Explain: bound["explain"], Triage: bound["triage"], Stream: bound["stream"], Journal: bound["journal"],
+		Plan: bound["city_plan"], Labels: bound["labels"], Bound: bound,
+	}, nil
 }

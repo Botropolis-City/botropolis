@@ -181,6 +181,13 @@ func (g *Game) chordPressed(c config.Chord) bool {
 	return true
 }
 
+// bound reports a binding of config.Bindings pressed this frame, with
+// exactly its modifiers: q is not answered by shift+q (item 350).
+func (g *Game) bound(name string) bool {
+	c, ok := g.findChords().Bound[name]
+	return ok && g.chordPressed(c) && g.onlyHeld(c) && c.Shift == g.shifted()
+}
+
 // onlyHeld reports that no Ctrl, Alt or Cmd is held beyond what a chord
 // asks for, so a bare key does not answer its modified chords too.
 func (g *Game) onlyHeld(c config.Chord) bool {

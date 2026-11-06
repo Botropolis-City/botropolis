@@ -81,6 +81,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The journal is `j`, and packing up moved into the menu.**
   `shift+w` no longer opens the journal, and `shift+p` no longer packs a session up; `space` `s` `p` does.
   A `journal_key` already set in the settings keeps its key.
+- **Every key can be rebound in the config file.**
+  A `[keys]` table names any of the map's keys, the menu's column and row letters, or the finder's, such as `timeline = "y"`, and `--set keys.timeline=y` does the same; botropolis-config(5) lists them all, and `?` shows each key as it is bound.
+  The settings you already have, such as `journal_key`, still work.
+  A key now answers only with exactly its modifiers: shift with a letter no longer does what the letter does, so `shift+t` no longer opens the timeline.
+  The city refuses to start, saying why, if two keys would answer together, if a key is one that stays fixed, such as `d` or `tab` at the map or `j` and `k` in the menu, or if a `*_key` setting and `[keys]` disagree.
 
 ### Fixed
 

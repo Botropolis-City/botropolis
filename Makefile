@@ -202,7 +202,7 @@ test-unit ::
 	cp -R ${HOSTILE_HOME}/. "$$home"; \
 	export HOME="$$home" XDG_CONFIG_HOME="$$home/.config"; \
 	export BOTROPOLIS_CONFIG="$$XDG_CONFIG_HOME/botropolis/config.toml"; \
-	eval "$$(awk -F' = ' '/^[a-z_]+ = / { gsub(/"/, "", $$2); print "export BOTROPOLIS_" toupper($$1) "='\''" $$2 "'\''" }' "$$BOTROPOLIS_CONFIG")"; \
+	eval "$$(awk -F' = ' '/^\[/ { table = 1 } !table && /^[a-z_]+ = / { gsub(/"/, "", $$2); print "export BOTROPOLIS_" toupper($$1) "='\''" $$2 "'\''" }' "$$BOTROPOLIS_CONFIG")"; \
 	go test -timeout ${TEST_TIMEOUT} ./cmd/... ./pkg/... ./tools/...; \
 	go test -timeout ${TEST_TIMEOUT} ${DEV_TAGS} ./pkg/cli/... ./pkg/memlog/...
 

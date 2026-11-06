@@ -72,8 +72,9 @@ func TestParseChord(t *testing.T) {
 		{"linux", config.Chord{Ctrl: true, Key: "k"}, config.Chord{Ctrl: true, Key: "y"}, config.Chord{Ctrl: true, Key: "m"}, config.Chord{Shift: true, Key: "n"}},
 	} {
 		t.Run("when nothing is set, on "+tc.goos, func(t *testing.T) {
-			chords, err := config.FindChords(config.Config{}, tc.goos, known)
+			chords, err := config.FindChords(config.Config{}, tc.goos, anyKey)
 			require.NoError(t, err)
+			chords.Bound = nil
 
 			t.Run("it should open the finder on mod+k, copy on mod+y, show on ctrl+m, open New session on shift+n, explain while e is held, start triage on w, hide the stream on l, bring the journal back on j, open the City Plan on m, and turn the labels off and on with z", func(t *testing.T) {
 				assert.Equal(t, config.Chords{Open: tc.open, Copy: tc.copy, Show: tc.show, New: tc.new, Explain: config.Chord{Key: "e"}, Triage: config.Chord{Key: "w"}, Stream: config.Chord{Key: "l"}, Journal: config.Chord{Key: "j"}, Plan: config.Chord{Key: "m"}, Labels: config.Chord{Key: "z"}}, chords)

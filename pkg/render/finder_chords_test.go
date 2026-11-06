@@ -15,11 +15,7 @@ import (
 
 func TestFinderChords(t *testing.T) {
 	stopped := find.Hit{SessionID: "stopped", Dir: "/src/kiln", State: state.Resting}
-	altS := config.Chords{
-		Open: config.Chord{Ctrl: true, Key: "k"},
-		Copy: config.Chord{Ctrl: true, Key: "y"},
-		Show: config.Chord{Alt: true, Key: "s"},
-	}
+	altS := *configured(config.Config{FindKey: "ctrl+k", FindCopyKey: "ctrl+y", FindShowKey: "alt+s"})
 
 	t.Run("when show is set to another chord", func(t *testing.T) {
 		t.Run("and that chord is pressed", func(t *testing.T) {

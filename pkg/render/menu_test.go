@@ -1,6 +1,9 @@
 package render
 
 import (
+	"fmt"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/claude"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
@@ -282,11 +286,11 @@ func TestMenuTable(t *testing.T) {
 				var chosen []city.ActionKind
 				g.menu().choose = func(k city.ActionKind) { chosen = append(chosen, k) }
 				shown := g.menu().layout(g, 1280, 800).Rows[c][0].Cap.Label.Text
-				key, ok := menuKey(shown)
-				require.True(t, ok, "the row shows %q, which is no key", shown)
-				g.scripted = key
+				fields := strings.Fields(shown)
+				require.NotEmpty(t, fields, "the row shows no key")
+				g.pressScripted(fields[0])
 				require.NoError(t, g.handleKeys())
-				g.scripted = -1
+				g.scripted, g.scriptedShift = -1, false
 
 				t.Run("it should run that row's action", func(t *testing.T) {
 					assert.Equal(t, []city.ActionKind{kind}, chosen)
@@ -295,7 +299,55 @@ func TestMenuTable(t *testing.T) {
 		}
 	}
 
+	t.Run("when a row's letter is rebound", func(t *testing.T) {
+		chords, err := config.FindChords(config.Config{Keys: map[string]string{"menu_stop": "x"}}, runtime.GOOS, KnownKey)
+		require.NoError(t, err)
+		open := func(t *testing.T) (*Game, *[]city.ActionKind) {
+			t.Helper()
+			scene := city.NewScene(city.NewLayout())
+			scene.Resize(1280, 800)
+			scene.SetSnapshot(state.Snapshot{At: at, Sessions: []state.Session{live}})
+			require.True(t, scene.Select("live"))
+			g := &Game{scene: scene, actor: &recorder{}, scripted: -1, clicked: -1, chords: &chords}
+			g.openMenu([]city.ActionKind{city.ActionStop}, city.Point{X: 300, Y: 300}, 0)
+			var chosen []city.ActionKind
+			g.menu().choose = func(k city.ActionKind) { chosen = append(chosen, k) }
+			return g, &chosen
+		}
+
+		t.Run("it should show the new letter", func(t *testing.T) {
+			g, _ := open(t)
+			assert.Equal(t, "x", g.menu().layout(g, 1280, 800).Rows[0][0].Cap.Label.Text)
+		})
+
+		for key, runs := range map[ebiten.Key]bool{ebiten.KeyX: true, ebiten.KeyS: false} {
+			t.Run(fmt.Sprintf("and %s is pressed", key), func(t *testing.T) {
+				g, chosen := open(t)
+				g.scripted = key
+				require.NoError(t, g.handleKeys())
+				g.scripted = -1
+
+				t.Run(fmt.Sprintf("it should run stop only on the new letter (%v)", runs), func(t *testing.T) {
+					assert.Equal(t, runs, len(*chosen) == 1)
+				})
+			})
+		}
+	})
+
 	t.Run("when the table is read as a whole", func(t *testing.T) {
+		t.Run("it should name each row's binding in its column's scope", func(t *testing.T) {
+			scopes := []config.Scope{config.ScopeMenuSession, config.ScopeMenuProject, config.ScopeMenuGroup}
+			scopeOf := map[string]config.Scope{}
+			for _, b := range config.Bindings {
+				scopeOf[b.Name] = b.Scope
+			}
+			for c, column := range city.VerbColumns {
+				for _, kind := range column.Kinds {
+					assert.Equal(t, scopes[c], scopeOf[menuKeys[kind]], string(kind))
+				}
+			}
+		})
+
 		// alternates never show together, so they may share a key.
 		alternates := map[city.ActionKind]city.ActionKind{
 			city.ActionAttach: city.ActionResume, city.ActionResume: city.ActionAttach,

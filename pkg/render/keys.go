@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -70,41 +72,94 @@ var bindings = []ui.Key{
 	{Key: "q", Action: "quit (asks; y or enter confirms)"},
 }
 
-// helpKeys is bindings with every rebindable key as configured.
+// helpKeys is bindings with every row that reads from config.Bindings
+// spelled as configured (items 102, 172 and 350).
 func (g *Game) helpKeys() []ui.Key {
 	chords := g.findChords()
 	var keys []ui.Key
 	for _, k := range bindings {
-		if r, ok := rebindable[k.Key]; ok {
-			keys = append(keys, ui.Key{Key: r.prefix + r.chord(chords).String(), Action: k.Action})
+		if k.Key == findBinding {
+			keys = append(keys,
+				ui.Key{Key: spell(chords, boundRows[findBinding]), Action: k.Action},
+				ui.Key{Key: chords.Bound["find_copy"].Label(), Action: "in the finder: copy how to resume the session"},
+				ui.Key{Key: chords.Bound["find_show"].Label(), Action: "in the finder: show the session on the map"})
 			continue
 		}
-		if k.Key != findBinding {
-			keys = append(keys, k)
+		if row, ok := boundRows[k.Key]; ok {
+			keys = append(keys, ui.Key{Key: spell(chords, row), Action: k.Action})
 			continue
 		}
-		keys = append(keys,
-			ui.Key{Key: "/ or " + chords.Open.String(), Action: k.Action},
-			ui.Key{Key: chords.Copy.String(), Action: "in the finder: copy how to resume the session"},
-			ui.Key{Key: chords.Show.String(), Action: "in the finder: show the session on the map"})
+		keys = append(keys, k)
 	}
 	return keys
 }
 
-// rebindable is each help row whose key can be configured, by the key
-// bindings lists it under, and the chord helpKeys spells it with
-// (items 102 and 172).
-var rebindable = map[string]struct {
-	prefix string
-	chord  func(config.Chords) config.Chord
-}{
-	planBinding:   {"", func(c config.Chords) config.Chord { return c.Plan }},
-	labelsBinding: {"", func(c config.Chords) config.Chord { return c.Labels }},
-	"w":           {"", func(c config.Chords) config.Chord { return c.Triage }},
-	"j":           {"", func(c config.Chords) config.Chord { return c.Journal }},
-	"l":           {"", func(c config.Chords) config.Chord { return c.Stream }},
-	"shift+n":     {"", func(c config.Chords) config.Chord { return c.New }},
-	"hold e":      {"hold ", func(c config.Chords) config.Chord { return c.Explain }},
+// boundRow is a reference row that reads its key from config.Bindings:
+// the bindings it names, and how their keys join.
+type boundRow struct {
+	names        []string
+	join, prefix string
+}
+
+// boundRows is each reference row whose key comes from the table, by
+// the key bindings lists it under. TestReferenceNamesEveryBinding holds
+// the two to each other (item 350).
+var boundRows = map[string]boundRow{
+	"space":       {names: []string{"action_menu"}},
+	"i":           {names: []string{"details"}},
+	"o":           {names: []string{"read"}},
+	"w":           {names: []string{"triage"}},
+	"a":           {names: []string{"clinic"}},
+	"j":           {names: []string{"journal"}},
+	"l":           {names: []string{"stream"}},
+	"v":           {names: []string{"lenses"}},
+	"1-6":         {names: []string{"lens_1", "lens_2", "lens_3", "lens_4", "lens_5", "lens_6"}, join: " "},
+	"c":           {names: []string{"new_here"}},
+	"f or 0":      {names: []string{"fit", "fit_zero"}, join: " or "},
+	planBinding:   {names: []string{"city_plan"}},
+	labelsBinding: {names: []string{"labels"}},
+	"r":           {names: []string{"turn"}},
+	"n":           {names: []string{"light"}},
+	"[ ]":         {names: []string{"clock_back", "clock_on"}, join: " "},
+	"s":           {names: []string{"settings"}},
+	"x":           {names: []string{"breakdown"}},
+	"u":           {names: []string{"usage"}},
+	"g":           {names: []string{"board"}},
+	"shift+n":     {names: []string{"new_session"}},
+	"t":           {names: []string{"timeline"}},
+	"b":           {names: []string{"sidebar"}},
+	"h":           {names: []string{"hide"}},
+	"p":           {names: []string{"screenshot"}},
+	shareBinding:  {names: []string{"share"}},
+	"shift+q":     {names: []string{"close_up"}},
+	findBinding:   {names: []string{"finder_slash", "find"}, join: " or "},
+	"?":           {names: []string{"reference"}},
+	"hold e":      {names: []string{"explain"}, prefix: "hold "},
+	"q":           {names: []string{"quit"}},
+}
+
+// spell is a row's key as configured. The lens digits read 1-6 while
+// they are a run.
+func spell(chords config.Chords, row boundRow) string {
+	var labels []string
+	for _, name := range row.names {
+		labels = append(labels, chords.Bound[name].Label())
+	}
+	if strings.Join(labels, "") == "123456" {
+		return row.prefix + "1-6"
+	}
+	return row.prefix + strings.Join(labels, row.join)
+}
+
+// referenceLists is whether some row of the reference reads its key
+// from a binding.
+func referenceLists(_ *Game, name string) bool {
+	for _, row := range boundRows {
+		if slices.Contains(row.names, name) {
+			return true
+		}
+	}
+	return name == "find_copy" || name == "find_show"
 }
 
 // findBinding is the help's row for the finder, which helpKeys spells
@@ -192,7 +247,7 @@ func (g *Game) answerKeys() error {
 		g.openFinder()
 		return nil
 	}
-	if just(ebiten.KeyS) && g.shifted() && g.shareReachable() {
+	if g.bound("share") && g.shareReachable() {
 		g.toggleSharing()
 		return nil
 	}
@@ -214,22 +269,22 @@ func (g *Game) answerKeys() error {
 		g.timeline = g.timelineKeys()
 		return nil
 	}
-	if just(ebiten.KeySlash) && !g.shifted() {
+	if g.bound("finder_slash") {
 		g.openFinder()
 		return nil
 	}
-	if just(ebiten.KeyT) {
+	if g.bound("timeline") {
 		g.timeline, g.away, g.cursor = true, nil, 0
 		return nil
 	}
-	if just(ebiten.KeyX) {
+	if g.bound("breakdown") {
 		g.breakdown, g.window = true, city.LastDay
 		return nil
 	}
 	// u asks the CLI for the real usage again. It costs about four
 	// seconds, so it runs off the frame and the boats keep their last
 	// reading until it lands. Item 49.
-	if just(ebiten.KeyU) {
+	if g.bound("usage") {
 		// Say which of the two happened. A key that silently does
 		// nothing reads as a broken key.
 		if g.refreshUsage() {
@@ -248,12 +303,12 @@ func (g *Game) answerKeys() error {
 			g.Notify("just asked; the figures do not move that fast", ui.ToneNone, "")
 		}
 	}
-	if just(ebiten.KeyS) {
+	if g.bound("settings") {
 		g.settingsOpen = true
 		return nil
 	}
 	// Shift+Q closes up: optional, and one step from quitting (item 86).
-	if just(ebiten.KeyQ) && g.shifted() {
+	if g.bound("close_up") {
 		g.openCloseUp()
 		return nil
 	}
@@ -311,11 +366,11 @@ func (g *Game) answerKeys() error {
 		g.settingsOpen = true
 		return nil
 	}
-	if just(ebiten.KeyQ) {
+	if g.bound("quit") {
 		g.openQuit()
 		return nil
 	}
-	if (just(ebiten.KeySlash) && g.shifted()) || just(ebiten.KeyF1) {
+	if g.bound("reference") || just(ebiten.KeyF1) {
 		g.openReference()
 	}
 	// v opens the key to the views; 1 to 9 jump to one; Escape leaves for
@@ -326,28 +381,28 @@ func (g *Game) answerKeys() error {
 	// in. The key says what there is, marks where you are, and takes a
 	// click — and the numbers still work whether it is open or not, so
 	// nothing is slower once you know them.
-	if just(ebiten.KeyV) {
+	if g.bound("lenses") {
 		g.viewKey = !g.viewKey
 		g.scene.ShowLensPanel()
 	}
-	for i, key := range lensKeys {
-		if just(key) {
+	for i := range city.Lenses {
+		if g.bound(fmt.Sprintf("lens_%d", i+1)) {
 			g.selectLens(city.Lenses[i])
 			g.viewKey = false
 		}
 	}
-	if just(ebiten.KeyH) {
+	if g.bound("hide") {
 		g.hidden = !g.hidden
 	}
-	if just(ebiten.KeyG) {
+	if g.bound("board") {
 		g.openBoard()
 		return nil
 	}
-	if just(ebiten.KeyA) {
+	if g.bound("clinic") {
 		g.openClinic()
 		return nil
 	}
-	if just(ebiten.KeyB) {
+	if g.bound("sidebar") {
 		g.sidebar = !g.sidebar
 		g.mu.Lock()
 		g.sidebarFollowed = ""
@@ -358,16 +413,16 @@ func (g *Game) answerKeys() error {
 	}
 	// P saves a frame. Packing up, which was Shift+P, is space s p, a
 	// verb on the selection in the action menu (item 350).
-	if just(ebiten.KeyP) && !g.shifted() {
+	if g.bound("screenshot") {
 		g.snap = screenshotPath(time.Now())
 	}
 	// Space opens the action menu for the selection, or for the district
 	// under the pointer (item 350).
-	if just(ebiten.KeySpace) {
+	if g.bound("action_menu") {
 		g.openSpaceMenu()
 		return nil
 	}
-	if just(ebiten.KeyF) || just(ebiten.KeyDigit0) || just(ebiten.KeyKP0) {
+	if g.bound("fit") || g.bound("fit_zero") || just(ebiten.KeyKP0) {
 		g.scene.Fit()
 	}
 	if just(ebiten.KeyTab) {
@@ -378,56 +433,56 @@ func (g *Game) answerKeys() error {
 	if just(ebiten.KeyEnter) && g.scene.Selected() != nil {
 		g.runVerb(g.scene.Verbs().Direct)
 	}
-	if just(ebiten.KeyO) {
+	if g.bound("read") {
 		g.openReader()
 	}
-	if just(ebiten.KeyI) {
+	if g.bound("details") {
 		if _, note := g.scene.ToggleDetails(); note != "" {
 			g.Notify(note, ui.ToneNone, "")
 		}
 	}
-	if just(ebiten.KeyBracketLeft) || just(ebiten.KeyBracketRight) {
+	if back := g.bound("clock_back"); back || g.bound("clock_on") {
 		by := time.Hour
-		if just(ebiten.KeyBracketLeft) {
+		if back {
 			by = -time.Hour
 		}
 		shift := g.scene.Scrub(by)
 		g.Notify(fmt.Sprintf("clock %s (%+.0fh) · go live", g.scene.Clock().Format("15:04"), shift.Hours()), ui.ToneNone, "n")
 	}
-	if just(ebiten.KeyR) {
+	if g.bound("turn") {
 		// A camera turn is routine and makes no notice (item 352).
 		g.scene.Turn()
 	}
-	if just(ebiten.KeyC) {
+	if g.bound("new_here") {
 		action, note := g.scene.NewHere()
 		g.Notify(note, ui.ToneNone, "")
 		g.act(action)
 	}
-	if g.chordPressed(g.findChords().New) {
+	if g.bound("new_session") {
 		g.openNewSession()
 		return nil
 	}
-	if g.chordPressed(g.findChords().Journal) {
+	if g.bound("journal") {
 		g.openJournal()
 		return nil
 	}
-	if g.chordPressed(g.findChords().Triage) {
+	if g.bound("triage") {
 		g.startTriage()
 		return nil
 	}
-	if g.chordPressed(g.findChords().Stream) {
+	if g.bound("stream") {
 		g.toggleStream()
 		return nil
 	}
-	if plan := g.findChords().Plan; g.chordPressed(plan) && g.onlyHeld(plan) {
+	if g.bound("city_plan") {
 		g.scene.ToggleCityPlan()
 		return nil
 	}
-	if labels := g.findChords().Labels; g.chordPressed(labels) && g.onlyHeld(labels) {
+	if g.bound("labels") {
 		g.toggleLabels()
 		return nil
 	}
-	if just(ebiten.KeyN) {
+	if g.bound("light") {
 		g.cycleLight()
 	}
 	if just(ebiten.KeyD) || just(ebiten.KeyDelete) {
