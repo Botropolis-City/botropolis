@@ -67,6 +67,13 @@ func TestTriage(t *testing.T) {
 			assert.Equal(t, "b", s.Selected().Session.ID)
 		})
 
+		// Item 352: the walk's place is the header of the session's own
+		// card, where the tidy-up walk already puts its count.
+		t.Run("it should head the card with which step of how many", func(t *testing.T) {
+			step, _ := s.TriageStep()
+			assert.Equal(t, "Triage · 1 of 2", step.Header())
+		})
+
 		t.Run("it should centre the camera on it", func(t *testing.T) {
 			in, size := s.Insets(), s.Size()
 			want := city.Point{X: in.Left + (size.X-in.Left-in.Right)/2, Y: in.Top + (size.Y-in.Top-in.Bottom)/2}

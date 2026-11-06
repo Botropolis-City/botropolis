@@ -2,6 +2,7 @@ package city
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -17,6 +18,13 @@ import (
 type TriageStep struct {
 	Building     *Building
 	Index, Count int
+}
+
+// Header is the walk's place, for the header of the session's card: a
+// mode lives on the surface it owns, as the tidy-up walk's count does
+// (item 352).
+func (s TriageStep) Header() string {
+	return fmt.Sprintf("Triage · %d of %d", s.Index+1, s.Count)
 }
 
 // triageDone is what d asks the actor to do beside leaving the walk: it

@@ -60,7 +60,7 @@ func (g *Game) openCloseUp() {
 	g.standQuitDown()
 	rows := g.scene.OpenSessions()
 	if len(rows) == 0 {
-		g.closeUpWith(city.Action{Kind: city.ActionCloseUp}, func(err error) { g.SetStatus(err.Error()) })
+		g.closeUpWith(city.Action{Kind: city.ActionCloseUp}, g.failed)
 		return
 	}
 	g.overlays.push(&closeUp{rows: rows, pinned: map[string]bool{}, paused: map[string]bool{}})

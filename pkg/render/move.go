@@ -160,7 +160,7 @@ func (g *Game) refusal(name string) string {
 func (p *picker) nameKeys(g *Game) bool {
 	if p.ime != nil {
 		if handled, err := p.ime.Update(); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 		} else if handled {
 			return true
 		}
@@ -180,7 +180,7 @@ func (p *picker) nameKeys(g *Game) bool {
 			return false
 		}
 		g.act(city.Action{Kind: city.ActionRename, Group: p.renaming, GroupName: name})
-		g.SetStatus("renamed the group " + name)
+		g.Notify("renamed the group "+name, ui.ToneNone, "")
 		return false
 	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
 		name := strings.TrimSpace(p.name.query())
@@ -189,7 +189,7 @@ func (p *picker) nameKeys(g *Game) bool {
 		}
 		p.stopNaming()
 		g.act(city.Action{Kind: city.ActionMove, SessionID: p.session, GroupName: name})
-		g.SetStatus("moved to " + name + ", a new group")
+		g.Notify("moved to "+name+", a new group", ui.ToneNone, "")
 		return false
 	case g.just(ebiten.KeyBackspace):
 		p.name.backspace()
@@ -290,7 +290,7 @@ func (g *Game) move(session, to string) {
 			where = gr.Name
 		}
 	}
-	g.SetStatus("moved to " + where)
+	g.Notify("moved to "+where, ui.ToneNone, "")
 }
 
 // carries reports whether a drag that starts on hit carries the selected

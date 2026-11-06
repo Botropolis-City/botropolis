@@ -28,7 +28,7 @@ func (g *Game) reading() bool {
 func (g *Game) openReader() {
 	b := g.scene.Selected()
 	if b == nil {
-		g.SetStatus("select a building first")
+		g.Notify("select a building first", ui.ToneNone, "")
 		return
 	}
 	if g.reading() {
@@ -178,7 +178,7 @@ func (r *reader) click(g *Game, at city.Point) bool {
 		r.mu.Unlock()
 		if text != "" {
 			g.act(city.Action{Kind: city.ActionCopy, Text: text})
-			g.SetStatus("copied the prompt")
+			g.Notify("copied the prompt", ui.ToneNone, "")
 		}
 	}
 	return true

@@ -95,12 +95,12 @@ func (g *Game) startGIF() {
 func (g *Game) startClip() {
 	bin, err := g.ffmpegPath()
 	if err != nil {
-		g.SetStatus("a clip needs ffmpeg, which is not installed; install it and press c again")
+		g.Notify("a clip needs ffmpeg, which is not installed · install it and try again", ui.ToneError, "c")
 		return
 	}
 	format, ok := pickClipFormat(clipEncoders(bin))
 	if !ok {
-		g.SetStatus("a clip needs ffmpeg with libx264 or libvpx-vp9, and this ffmpeg has neither")
+		g.Notify("a clip needs ffmpeg with libx264 or libvpx-vp9, and this ffmpeg has neither", ui.ToneError, "")
 		return
 	}
 	length := g.share.clipLength()
@@ -158,10 +158,10 @@ func (g *Game) recordFrame(screen *ebiten.Image) {
 	go func() {
 		defer share.encoding.Done()
 		if err := <-done; err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
-		g.SetStatus("saved " + rec.path + "; o opens the folder")
+		g.Notify("saved "+rec.path+" · open the folder", ui.ToneNone, "o")
 	}()
 }
 
@@ -221,17 +221,17 @@ func (g *Game) shareKeys() error {
 		g.startClip()
 	case just(ebiten.KeyL) && g.share.rec == nil:
 		g.share.clipStep++
-		g.SetStatus(fmt.Sprintf("clips are %d s", g.share.clipLength()))
+		g.Notify(fmt.Sprintf("clips are %d s", g.share.clipLength()), ui.ToneNone, "")
 	case just(ebiten.KeyO):
 		dir := g.share.saved
 		if dir == "" {
 			dir = g.captureDir(picturesDir)
 		}
 		if err := g.openDir(dir); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 		}
 	case just(ebiten.KeyR) && !g.shifted():
-		g.SetStatus(fmt.Sprintf("heading %d°", g.scene.Turn()))
+		g.scene.Turn()
 	case just(ebiten.KeyN) && !g.shifted():
 		g.cycleLight()
 	case just(ebiten.KeyF), just(ebiten.KeyDigit0), just(ebiten.KeyKP0):
@@ -303,11 +303,11 @@ func (g *Game) shareCapture(screen *ebiten.Image) {
 	path := g.share.snap
 	g.share.snap = ""
 	if err := writePNG(path, g.grabFrame(screen)); err != nil {
-		g.SetStatus(err.Error())
+		g.failed(err)
 		return
 	}
 	g.share.saved = filepath.Dir(path)
-	g.SetStatus("saved " + path + "; o opens the folder")
+	g.Notify("saved "+path+" · open the folder", ui.ToneNone, "o")
 }
 
 // shareBar is what the sharing bar says.

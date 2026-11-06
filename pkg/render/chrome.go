@@ -18,13 +18,16 @@ var colorScrim = color.NRGBA{0x00, 0x00, 0x00, 0x80}
 func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	g.mu.Lock()
-	status := g.notice.Text(timeNow())
+	message, _ := g.notice.Current(timeNow())
 	g.mu.Unlock()
-	footer := ui.LayoutFooter(th, width, height, status, footerKeys, g.faces.Measure)
+	footer := ui.LayoutFooter(th, width, height, footerKeys, g.faces.Measure)
 	waitingID := ""
-	if step, ok := g.scene.TriageStep(); ok && g.triage() != nil {
-		footer = ui.LayoutTriageBar(th, width, height, step.Index, step.Count, step.Building.Card(g.scene.Now()).Title, g.faces.Measure)
-	} else if walk := g.scene.TriageWalk(); len(walk) > 0 {
+	// Triage's place is its card's header (item 352), not the footer.
+	triaging := g.triage() != nil
+	if _, ok := g.scene.TriageStep(); !ok {
+		triaging = false
+	}
+	if walk := g.scene.TriageWalk(); len(walk) > 0 && !triaging {
 		// The needs-you line names what has waited longest, in the order
 		// triage walks, and a click on it attaches that session. Item 91.
 		line := city.JumpedTo(state.NeedsYou, walk[0].Card(g.scene.Now()).Title)
@@ -86,6 +89,9 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	}
 	if card, b, ok := g.scene.SelectedCard(); ok && !g.sidebar {
 		card.Hint = hint
+		if step, ok := g.scene.TriageStep(); ok && triaging {
+			card.Kind = step.Header()
+		}
 		beside := g.buildingOnScreen(b)
 		pinned := ui.LayoutCard(th, card, bounds, g.faces.Measure).PinTo(beside, bounds, th.Grid())
 		g.card(screen, pinned)
@@ -102,6 +108,42 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	g.drawSearch(screen, top, width)
 	g.footer(screen, footer)
 	g.legend(screen, legend)
+	g.drawNotice(screen, message, width, top)
+}
+
+// drawNotice draws the notice on its plate, centred under the strip, and
+// keeps the layout for the frame's probe (item 352).
+func (g *Game) drawNotice(screen *ebiten.Image, m ui.Message, width, top float64) {
+	th := g.theme
+	plate := ui.LayoutNotice(th, m, width, top, g.faces.Measure)
+	g.mu.Lock()
+	g.noticePlate = plate
+	g.mu.Unlock()
+	if plate.Rect.Area() == 0 {
+		return
+	}
+	backing := th.Palette.Panel
+	backing.A = 0xff
+	g.roundRect(screen, plate.Rect, th.Radius(), backing)
+	g.roundStroke(screen, plate.Rect, th.Radius(), th.Hairline(), th.Palette.Hairline)
+	if plate.Dot.Area() > 0 {
+		centre := plate.Dot.Center()
+		g.fillCircle(screen, float32(centre.X), float32(centre.Y), float32(plate.Dot.Width()/2), th.Color(plate.Tone))
+	}
+	for _, line := range plate.Lines {
+		g.run(screen, line, th.Palette.Text)
+	}
+	g.keyCap(screen, plate.Cap)
+}
+
+// keyCap draws a key's cap: the one look for a key wherever it shows.
+func (g *Game) keyCap(screen *ebiten.Image, c ui.KeyCap) {
+	if c.Rect.Area() == 0 {
+		return
+	}
+	th := g.theme
+	g.roundRect(screen, c.Rect, th.Radius()/2, th.Palette.Hairline)
+	g.run(screen, c.Label, th.Palette.Text)
 }
 
 // buildingOnScreen is the screen rect a building's footprint covers, in
@@ -226,9 +268,6 @@ func (g *Game) sparkline(screen *ebiten.Image, sp ui.Sparkline) {
 
 func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
 	g.bar(screen, f.Rect, f.Rect.Min.Y)
-	for _, line := range f.Lines {
-		g.run(screen, line, g.theme.Palette.Dim)
-	}
 	g.waitingHovered = false
 	if f.Waiting.Text != "" {
 		g.waitingHovered = f.WaitingRect.Contains(g.pointer())

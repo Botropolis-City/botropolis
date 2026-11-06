@@ -152,7 +152,7 @@ func (g *Game) diveKeys() bool {
 	case (g.just(ebiten.KeyMinus) || g.just(ebiten.KeyKPSubtract)) && g.diveLead() != "":
 		lead := g.diveLead()
 		g.act(city.Action{Kind: city.ActionTakeOut, SessionID: lead, Group: g.scene.FocusedGroup()})
-		g.SetStatus("took " + state.TitleOf(g.scene.Snapshot().Sessions)(lead) + " out of the group")
+		g.Notify("took "+state.TitleOf(g.scene.Snapshot().Sessions)(lead)+" out of the group", ui.ToneNone, "")
 	case g.just(ebiten.KeyEscape):
 		g.scene.LeaveDive()
 		g.scene.Fit()

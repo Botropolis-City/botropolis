@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // quietIDs is what Pack up everything quiet would pack: the sessions
@@ -41,7 +42,7 @@ func quietLabel(n int) string {
 func (g *Game) sweepQuiet() {
 	ids, quietFor := g.quietIDs(), g.quietDays()
 	if len(ids) == 0 {
-		g.SetStatus(fmt.Sprintf("nothing in no group has been quiet for %s", daysPhrase(quietFor)))
+		g.Notify(fmt.Sprintf("nothing in no group has been quiet for %s", daysPhrase(quietFor)), ui.ToneNone, "")
 		return
 	}
 	g.sweepIDs(ids, quietFor)
@@ -53,7 +54,7 @@ func (g *Game) sweepIDs(ids []string, quietFor time.Duration) {
 		return
 	}
 	if g.sweep == nil {
-		g.SetStatus("packing up needs the daemon, which keeps the ledger of what is packed; start botropolisd")
+		g.Notify("packing up needs the daemon, which keeps the ledger of what is packed; start botropolisd", ui.ToneError, "")
 		return
 	}
 	sweep := g.sweep
@@ -63,10 +64,10 @@ func (g *Game) sweepIDs(ids []string, quietFor time.Duration) {
 		defer g.acting.Done()
 		packed, err := sweep(ids, quietFor)
 		if err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
-		g.SetStatus(fmt.Sprintf("packed up %s; unpack any from the depot", quietCount(packed)))
+		g.Notify(fmt.Sprintf("packed up %s; unpack any from the depot", quietCount(packed)), ui.ToneNone, "")
 	}()
 }
 

@@ -87,7 +87,7 @@ func TestFooterWithReading(t *testing.T) {
 	keys := []ui.Key{{"drag", "pan"}}
 
 	t.Run("when the history is being read and a session waits", func(t *testing.T) {
-		plain := ui.LayoutFooter(th, 800, 600, "", keys, measure7)
+		plain := ui.LayoutFooter(th, 800, 600, keys, measure7)
 		waiting := plain.WithWaiting(th, 800, "needs-you: Sea conditions", measure7)
 		f := waiting.WithReading(th, 800, "Reading your history · 42%", 0.42, measure7)
 
@@ -117,7 +117,7 @@ func TestFooterWithReading(t *testing.T) {
 	})
 
 	t.Run("when nothing is being read", func(t *testing.T) {
-		plain := ui.LayoutFooter(th, 800, 600, "", keys, measure7)
+		plain := ui.LayoutFooter(th, 800, 600, keys, measure7)
 
 		t.Run("it should leave the footer alone", func(t *testing.T) {
 			assert.Equal(t, plain, plain.WithReading(th, 800, "", 0, measure7))

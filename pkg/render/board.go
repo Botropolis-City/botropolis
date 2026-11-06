@@ -103,7 +103,7 @@ func (b *board) keys(g *Game) bool {
 	case g.just(ebiten.KeyC):
 		if b.selected < len(groups) {
 			line := g.scene.Standup(groups[b.selected].ID)
-			g.SetStatus("copied stand-up: " + line)
+			g.Notify("copied stand-up: "+line, ui.ToneNone, "")
 			g.act(city.Action{Kind: city.ActionCopy, Text: line})
 		}
 	case g.just(ebiten.KeyP):
@@ -132,7 +132,7 @@ func (b *board) tidyUp(g *Game) {
 	g.overlays.remove(b)
 	if !g.openWalk() {
 		g.overlays.push(b)
-		g.SetStatus("nothing to tidy: every group was settled and nothing in no group is quiet")
+		g.Notify("nothing to tidy: every group was settled and nothing in no group is quiet", ui.ToneNone, "")
 	}
 }
 

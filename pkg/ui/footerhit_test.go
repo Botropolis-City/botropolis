@@ -12,7 +12,7 @@ import (
 
 func footerFixture() Footer {
 	keys := []Key{{Key: "tab", Action: "next needs-you"}, {Key: "v", Action: "views"}, {Key: "q", Action: "quit"}}
-	return LayoutFooter(NewTheme(1), 800, 600, "", keys, measureFixed)
+	return LayoutFooter(NewTheme(1), 800, 600, keys, measureFixed)
 }
 
 func TestFooterHit(t *testing.T) {

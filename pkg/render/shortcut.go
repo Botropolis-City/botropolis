@@ -134,7 +134,7 @@ func (g *Game) saveShortcut(c config.Chord) {
 func (g *Game) clearShortcut() {
 	if g.shortcut != nil {
 		if err := g.shortcut.Release(); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 		}
 	}
 	g.setShortcutRow(shortcutOff)
@@ -179,7 +179,7 @@ func (g *Game) useShortcut(value string) {
 	}
 	if note != "" {
 		g.settings.Note = "global shortcut: " + note
-		g.SetStatus(g.settings.Note)
+		g.Notify(g.settings.Note, ui.ToneNone, "")
 	}
 }
 

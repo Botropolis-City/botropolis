@@ -63,6 +63,31 @@ func TestLayoutStream(t *testing.T) {
 			assert.True(t, ok && e.SessionID == "c")
 		})
 	})
+
+	// Item 352: a notice is the stream's newest line, a client-side kind
+	// beside the daemon's, muted as a line of its tone is.
+	t.Run("when a notice is in the list", func(t *testing.T) {
+		for tone, muted := range map[ui.Tone]bool{ui.ToneNone: true, ui.ToneWorking: true, ui.ToneNeedsYou: false, ui.ToneError: false} {
+			t.Run("and its tone is "+tone.String(), func(t *testing.T) {
+				notice := ui.NoticeEvent(ui.Message{Text: "packed up Sea conditions", Tone: tone}, at)
+				laid := ui.LayoutStream(th, append([]events.Event{notice}, list...), area, measure7, 0)
+				require.NotEmpty(t, laid.Rows)
+				require.NotEmpty(t, laid.Rows[0].Lines)
+
+				t.Run("it should be the newest line", func(t *testing.T) {
+					assert.Equal(t, events.Notice, laid.Rows[0].Event.Kind)
+				})
+
+				t.Run("it should show its text without a kind prefix", func(t *testing.T) {
+					assert.Equal(t, "packed up Sea conditions", laid.Rows[0].Lines[0].Text)
+				})
+
+				t.Run("it should be muted as a line of its tone is", func(t *testing.T) {
+					assert.Equal(t, muted, laid.Rows[0].Muted)
+				})
+			})
+		}
+	})
 }
 
 func TestStreamArea(t *testing.T) {

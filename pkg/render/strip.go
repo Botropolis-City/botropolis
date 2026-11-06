@@ -60,8 +60,8 @@ func (g *Game) stripClick(at city.Point) bool {
 
 func (g *Game) jump(st state.State) {
 	if b := g.scene.JumpTo(st); b != nil {
-		g.SetStatus(city.JumpedTo(st, b.Card(g.scene.City().Time).Title))
+		g.notify(ui.Message{Text: city.JumpedTo(st, b.Card(g.scene.City().Time).Title), Tone: ui.StateTone(st), SessionID: b.Session.ID})
 	} else {
-		g.SetStatus(city.NothingToJumpTo(st))
+		g.Notify(city.NothingToJumpTo(st), ui.ToneNone, "")
 	}
 }

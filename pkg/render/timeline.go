@@ -73,7 +73,7 @@ func (g *Game) jumpToEvent() {
 	}
 	if g.cursor < len(list) && list[g.cursor].SessionID != "" {
 		if !g.scene.Select(list[g.cursor].SessionID) {
-			g.SetStatus("that session is no longer on the map")
+			g.Notify("that session is no longer on the map", ui.ToneNone, "")
 		}
 	}
 }
@@ -89,7 +89,7 @@ func (g *Game) clickTimeline(at city.Point) bool {
 	g.mu.Unlock()
 	if row, ok := tl.Hit(at); ok && row.SessionID != "" {
 		if !g.scene.Select(row.SessionID) {
-			g.SetStatus("that session is no longer on the map")
+			g.Notify("that session is no longer on the map", ui.ToneNone, "")
 		}
 	}
 	g.timeline, g.away = false, nil

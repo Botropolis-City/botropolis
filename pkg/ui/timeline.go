@@ -64,6 +64,8 @@ func eventWords(e events.Event) string {
 		return "started " + e.Detail
 	case events.Ended:
 		return "ended (" + e.Detail + ")"
+	case events.Notice:
+		return ""
 	}
 	return string(e.Kind)
 }

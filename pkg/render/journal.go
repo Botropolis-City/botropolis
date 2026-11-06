@@ -158,7 +158,7 @@ func (j *journal) keys(g *Game) bool {
 		g.overlays.remove(j)
 		if !g.openWalk() {
 			g.overlays.push(j)
-			g.SetStatus("nothing to tidy")
+			g.Notify("nothing to tidy", ui.ToneNone, "")
 		}
 	case g.just(ebiten.KeyEnter) || g.just(ebiten.KeyKPEnter):
 		if len(j.entries) > 0 {

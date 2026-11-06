@@ -1,27 +1,6 @@
 package ui
 
-import (
-	"fmt"
-
-	"botropolis.city/botropolis/pkg/city"
-)
-
-// TriageKeys are triage's own keys, a mode of their own (item 88).
-var TriageKeys = []Key{
-	{Key: "enter", Action: "act"},
-	{Key: "p", Action: "rest"},
-	{Key: "d", Action: "pack up"},
-	{Key: "s", Action: "snooze"},
-	{Key: "n", Action: "next"},
-	{Key: "esc", Action: "leave triage"},
-}
-
-// LayoutTriageBar is the footer while triage walks: which step of how
-// many and the session's name, over triage's keys.
-func LayoutTriageBar(th Theme, width, height float64, index, count int, title string, measure Measure) Footer {
-	status := fmt.Sprintf("triage %d of %d · %s", index+1, count, title)
-	return LayoutFooter(th, width, height, status, TriageKeys, measure)
-}
+import "botropolis.city/botropolis/pkg/city"
 
 // SnoozePicker is the snooze's choices: the ready times, then a line to
 // type one, with why a typed time was refused under it.

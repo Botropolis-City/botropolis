@@ -30,7 +30,7 @@ func (g *Game) openMutePicker(session string) {
 			return
 		}
 	}
-	g.SetStatus("no word joined this session to its group")
+	g.Notify("no word joined this session to its group", ui.ToneNone, "")
 }
 
 func (p *mutePicker) keys(g *Game) bool {
@@ -41,11 +41,11 @@ func (p *mutePicker) keys(g *Game) bool {
 		word := p.words[p.selected]
 		if g.actor != nil {
 			if err := g.actor.Do(city.Action{Kind: city.ActionMute, Text: word}); err != nil {
-				g.SetStatus(err.Error())
+				g.failed(err)
 				return false
 			}
 		}
-		g.SetStatus("muted “" + word + "”: groups again without it")
+		g.Notify("muted “"+word+"”: groups again without it", ui.ToneNone, "")
 		return false
 	case g.just(ebiten.KeyArrowDown):
 		p.selected = min(p.selected+1, len(p.words)-1)

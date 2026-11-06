@@ -27,7 +27,8 @@ func (g *Game) streamShown() bool {
 	return v.Shown(fits)
 }
 
-// toggleStream hides or shows the column and says which.
+// toggleStream hides or shows the column. Showing or hiding a place is
+// routine, so it makes no notice (item 352).
 func (g *Game) toggleStream() {
 	l := g.scene.Layout()
 	if l == nil {
@@ -36,11 +37,6 @@ func (g *Game) toggleStream() {
 	v, fits := g.streamView()
 	v = v.Toggle(fits)
 	l.StreamHidden, g.streamAsked = v.Hidden, v.Asked
-	if v.Shown(fits) {
-		g.SetStatus("stream shown")
-	} else {
-		g.SetStatus("stream hidden; " + g.findChords().Stream.String() + " shows it")
-	}
 }
 
 // drawStream lays the panel in its corner and reserves its room, so the
@@ -86,6 +82,10 @@ func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float
 			tone = th.Palette.NeedsYou
 		case events.Error:
 			tone = th.Palette.Error
+		case events.Notice:
+			if nt := ui.NoticeTone(r.Event); nt != ui.ToneNone {
+				tone = th.Color(nt)
+			}
 		}
 		g.run(screen, r.Time, th.Palette.Dim)
 		for _, line := range r.Lines {
@@ -120,8 +120,9 @@ func (g *Game) clickStream(cursor city.Point) bool {
 		g.mu.Unlock()
 		return true
 	}
-	if e, ok := s.Hit(cursor); ok && !g.scene.FlyToEvent(e) {
-		g.SetStatus(e.Title + " is no longer on the map")
+	// A notice about nothing in particular has no session to fly to.
+	if e, ok := s.Hit(cursor); ok && e.SessionID != "" && !g.scene.FlyToEvent(e) {
+		g.Notify(e.Title+" is no longer on the map", ui.ToneNone, "")
 	}
 	return true
 }

@@ -36,7 +36,7 @@ func (g *Game) startTriage() {
 		return
 	}
 	if !g.scene.StartTriage() {
-		g.SetStatus("nothing waits on you")
+		g.Notify("nothing waits on you", ui.ToneNone, "")
 		return
 	}
 	g.overlays.push(&triage{})
@@ -81,7 +81,7 @@ func (g *Game) stillWalking() bool {
 	if _, ok := g.scene.TriageStep(); ok {
 		return true
 	}
-	g.SetStatus("nothing else waits on you")
+	g.Notify("nothing else waits on you", ui.ToneNone, "")
 	return false
 }
 
@@ -115,7 +115,7 @@ func (t *triage) snoozeKeys(g *Game) {
 			return
 		}
 		t.snoozing = nil
-		g.SetStatus("snoozed until " + until.Format("Mon 15:04"))
+		g.Notify("snoozed until "+until.Format("Mon 15:04"), ui.ToneNone, "")
 		if !g.stillWalking() {
 			g.overlays.pop()
 		}

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **What just happened shows under the top bar and in the stream.**
+  A passing message used to be a small line at the bottom-left, above the key row.
+  It is now one plate top-centre, just under the top bar, in body type, with a dot in its state's colour and, when a key acts on it, that key as a cap.
+  One shows at a time, for four seconds or until the next.
+  Every one is also the stream's newest line, so a message that passed can still be read, and clicking it there flies to its session as the stream's other lines do.
+  A lens change, a camera turn, a change of light and showing or hiding a panel no longer make one.
+  Triage says which step of how many in the header of the session's card instead of on the footer.
+
 ### Fixed
 
 - **`c` with nothing under the pointer asks where.**

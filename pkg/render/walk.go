@@ -324,7 +324,7 @@ func (w *walk) keys(g *Game) bool {
 			w.doneForNow(g)
 			return true
 		}
-		g.SetStatus("tidy up later: nothing was changed")
+		g.Notify("tidy up later: nothing was changed", ui.ToneNone, "")
 		w.leave(g, w.journal)
 	case g.just(ebiten.KeyJ):
 		w.member++
@@ -352,7 +352,7 @@ func (w *walk) press(g *Game, key ebiten.Key) bool {
 		case ebiten.KeyEnter:
 			w.step(g, 1)
 		case ebiten.KeyL:
-			g.SetStatus("tidy up later: nothing was changed")
+			g.Notify("tidy up later: nothing was changed", ui.ToneNone, "")
 			w.leave(g, w.journal)
 		}
 		return true
@@ -418,7 +418,7 @@ func (w *walk) confirm(g *Game) {
 	if w.answered && w.pack {
 		g.sweepIDs(w.quietIDs(), w.quietFor)
 	}
-	g.SetStatus("tidied up")
+	g.Notify("tidied up", ui.ToneNone, "")
 	w.leave(g, true)
 }
 
@@ -429,7 +429,7 @@ func (w *walk) doneForNow(g *Game) {
 	if w.answered && w.pack {
 		g.sweepIDs(w.quietIDs(), w.quietFor)
 	}
-	g.SetStatus("done for now: what you decided is kept, the rest stays as guesses")
+	g.Notify("done for now: what you decided is kept, the rest stays as guesses", ui.ToneNone, "")
 	w.leave(g, w.journal)
 }
 

@@ -86,7 +86,7 @@ func TestFinderActs(t *testing.T) {
 			pressKey(t, g, ebiten.KeyEnter, false)
 
 			t.Run("it should say Enter again starts a new session in its directory", func(t *testing.T) {
-				assert.Equal(t, [2]any{0, "its conversation was deleted; enter again starts a new session in /src/orchard"}, [2]any{len(actor.done), status(g)})
+				assert.Equal(t, [2]any{0, "its conversation was deleted · enter again starts a new session in /src/orchard"}, [2]any{len(actor.done), status(g)})
 			})
 
 			t.Run("and Enter is pressed again", func(t *testing.T) {

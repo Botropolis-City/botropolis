@@ -187,7 +187,10 @@ func LayoutStream(th Theme, list []events.Event, area city.Rect, measure Measure
 		if text == "" {
 			text = e.SessionID
 		}
-		wrapped[i] = wrapAt(string(e.Kind)+" · "+text, inner, streamRows, Small, measure)
+		if e.Kind != events.Notice {
+			text = string(e.Kind) + " · " + text
+		}
+		wrapped[i] = wrapAt(text, inner, streamRows, Small, measure)
 		heights[i] = float64(len(wrapped[i]))*lineH + grid
 	}
 	mark := lineH + grid
@@ -222,7 +225,7 @@ func LayoutStream(th Theme, list []events.Event, area city.Rect, measure Measure
 			Event: e,
 			Rect:  city.RectAt(area.Min.X+grid, y-grid/2, area.Width()-2*grid, rowH),
 			Time:  Text{Text: e.At.Local().Format("15:04"), At: city.Point{X: x, Y: y}, Size: Small},
-			Muted: !city.Flagged(e.Kind),
+			Muted: !city.Flagged(noticeKind(e)),
 		}
 		for j, line := range wrapped[i] {
 			row.Lines = append(row.Lines, Text{Text: line, At: city.Point{X: x + timeW + grid, Y: y + float64(j)*lineH}, Size: Small})

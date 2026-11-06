@@ -152,7 +152,6 @@ func (g *Game) clickSidebar(at city.Point) bool {
 		g.scene.CenterOnProject(row.Root)
 	case ui.RowHidden:
 		g.scene.Unhide(row.Root)
-		g.SetStatus("showing " + row.Root)
 	}
 	return true
 }

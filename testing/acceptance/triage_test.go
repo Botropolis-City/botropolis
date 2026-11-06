@@ -13,6 +13,8 @@ func TestTriageWalk(t *testing.T) {
 
 	t.Run("when w is pressed", func(t *testing.T) {
 		d := newDrive(t, home)
+		require.NoError(t, d.Run(1))
+		before := d.Shown()
 		require.NoError(t, d.Press("w"))
 		require.NoError(t, d.Run(1))
 
@@ -22,6 +24,15 @@ func TestTriageWalk(t *testing.T) {
 
 		t.Run("it should select the session it is on", func(t *testing.T) {
 			assert.Equal(t, d.Shown().Triage, d.Shown().Selected)
+		})
+
+		// Item 352: the walk's place is the card's header, not a footer line.
+		t.Run("it should head the card with which step of how many", func(t *testing.T) {
+			assert.Contains(t, d.Shown().CardHeader, "1 of ")
+		})
+
+		t.Run("it should put no line on the footer", func(t *testing.T) {
+			assert.GreaterOrEqual(t, d.Shown().FooterTop, before.FooterTop)
 		})
 
 		t.Run("and esc is pressed", func(t *testing.T) {

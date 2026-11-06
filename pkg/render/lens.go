@@ -97,11 +97,10 @@ func lensBounds(th ui.Theme, top, width, height float64, sidebar bool, plate cit
 // that takes the keyboard, such as the finder, is open over the map.
 func (g *Game) lensPanelShown() bool { return g.overlays.top() == nil }
 
-// selectLens is a lens's key, and says which lens and view are up,
-// because a mode you entered is a mode you can forget you are in.
+// selectLens is a lens's key. The lens panel says which lens and view
+// are up; a lens change is routine and makes no notice (item 352).
 func (g *Game) selectLens(l city.Lens) {
 	g.scene.SelectLens(l)
-	g.SetStatus(l.Name() + " — " + g.scene.View().Name() + ": " + g.scene.View().Question())
 }
 
 // lensKeys are the keys that select each lens, in city.Lenses' order.

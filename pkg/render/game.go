@@ -277,6 +277,11 @@ type Game struct {
 	// for this frame: the click runs the keyboard's path rather than a
 	// second copy of it, which is what "one code path, not two" means.
 	footerBar ui.Footer
+	// noticePlate is the notice as last drawn, for the frame's probe, and
+	// pendingNotices the lines set since the last tick, for the stream;
+	// a notice can be set beside the loop (item 352).
+	noticePlate    ui.NoticePlate
+	pendingNotices []events.Event
 	// waitingID is the session the footer's needs-you line names, as
 	// last drawn. Item 91.
 	waitingID string
@@ -688,11 +693,47 @@ func (g *Game) AddEvents(fresh []events.Event) {
 	g.pendingBatches++
 }
 
-// SetStatus puts a line above the key row for a few seconds.
+// SetStatus is the plain notice: no tone, no key. Its callers become a
+// Notify, a dialog or feedback at the point of action as item 352
+// lands, and then it goes.
 func (g *Game) SetStatus(status string) {
+	g.Notify(status, ui.ToneNone, "")
+}
+
+// Notify says what just happened: one plate under the strip for a few
+// seconds, and the stream's newest line for good. A notice tells and
+// never asks; tone colours its dot and key, when there is one, is the
+// key that acts on it, shown as a cap (item 352).
+func (g *Game) Notify(text string, tone ui.Tone, key string) {
+	g.notify(ui.Message{Text: text, Tone: tone, Key: key})
+}
+
+func (g *Game) notify(m ui.Message) {
+	if m.Text == "" {
+		return
+	}
+	now := timeNow()
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.notice.Set(status, timeNow())
+	g.notice.Set(m, now)
+	g.pendingNotices = append(g.pendingNotices, ui.NoticeEvent(m, now))
+}
+
+// failed is a failure's notice, in the error tone.
+func (g *Game) failed(err error) {
+	g.Notify(err.Error(), ui.ToneError, "")
+}
+
+// takeNotices moves the notices set since the last tick into the
+// scene's log, on the loop, where the stream reads them.
+func (g *Game) takeNotices() {
+	g.mu.Lock()
+	lines := g.pendingNotices
+	g.pendingNotices = nil
+	g.mu.Unlock()
+	if len(lines) > 0 {
+		g.scene.AddEvents(lines)
+	}
 }
 
 // Stop ends the loop at its next update, from any goroutine.
@@ -732,6 +773,7 @@ func (g *Game) Update() error {
 	g.pendingEvents, g.pendingBatches = nil, 0
 	g.mu.Unlock()
 	g.takeSync()
+	g.takeNotices()
 	for _, done := range g.takeGenerated() {
 		g.scene.SetGenerated(done.id, done.generated)
 	}
@@ -1111,9 +1153,9 @@ func (g *Game) capture(screen *ebiten.Image) {
 	}
 	if g.snap != "" {
 		if err := writePNG(g.snap, frame(screen)); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 		} else {
-			g.SetStatus("saved " + g.snap)
+			g.Notify("saved "+g.snap, ui.ToneNone, "")
 		}
 		g.snap = ""
 	}

@@ -22,6 +22,9 @@ const (
 	Compaction Kind = "compaction"
 	Started    Kind = "started"
 	Ended      Kind = "ended"
+	// Notice is the map's own line: what the map just did, said where
+	// the daemon's events are read. The daemon never logs one (item 352).
+	Notice Kind = "notice"
 )
 
 // Event is one thing that happened, as the daemon saw it happen.

@@ -32,6 +32,7 @@ var bindings = []ui.Key{
 	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
 	{Key: "w", Action: "triage: walk what waits on you, longest-waiting first"},
+	{Key: "enter · p · d · s · n · esc while triaging", Action: "act, rest, pack up, snooze, next, leave triage"},
 	{Key: "a", Action: "the clinic: who needs you, then who is in trouble; 1-9 jumps (also click the clinic)"},
 	{Key: "shift+w", Action: "the journal: where you were, and what is next"},
 	{Key: "l", Action: "the stream: what is happening, newest first"},
@@ -244,7 +245,7 @@ func (g *Game) answerKeys() error {
 			if g.usageEvery <= 0 {
 				g.scene.VisitGauges()
 			}
-			g.SetStatus("just asked; the figures do not move that fast")
+			g.Notify("just asked; the figures do not move that fast", ui.ToneNone, "")
 		}
 	}
 	if just(ebiten.KeyS) {
@@ -359,7 +360,7 @@ func (g *Game) answerKeys() error {
 	// 86); P alone saves a frame.
 	if just(ebiten.KeyP) && g.shifted() {
 		if action, note := g.scene.Act(city.ActionPack); action.Kind != city.ActionNone {
-			g.SetStatus(note)
+			g.Notify(note, ui.ToneNone, "")
 			g.act(action)
 		}
 	} else if just(ebiten.KeyP) {
@@ -379,7 +380,7 @@ func (g *Game) answerKeys() error {
 	}
 	if just(ebiten.KeyI) {
 		if _, note := g.scene.ToggleDetails(); note != "" {
-			g.SetStatus(note)
+			g.Notify(note, ui.ToneNone, "")
 		}
 	}
 	if just(ebiten.KeyBracketLeft) || just(ebiten.KeyBracketRight) {
@@ -388,14 +389,15 @@ func (g *Game) answerKeys() error {
 			by = -time.Hour
 		}
 		shift := g.scene.Scrub(by)
-		g.SetStatus(fmt.Sprintf("clock %s (%+.0fh; n to go live)", g.scene.Clock().Format("15:04"), shift.Hours()))
+		g.Notify(fmt.Sprintf("clock %s (%+.0fh) · go live", g.scene.Clock().Format("15:04"), shift.Hours()), ui.ToneNone, "n")
 	}
 	if just(ebiten.KeyR) {
-		g.SetStatus(fmt.Sprintf("heading %d°", g.scene.Turn()))
+		// A camera turn is routine and makes no notice (item 352).
+		g.scene.Turn()
 	}
 	if just(ebiten.KeyC) {
 		action, note := g.scene.NewHere()
-		g.SetStatus(note)
+		g.Notify(note, ui.ToneNone, "")
 		g.act(action)
 	}
 	if g.chordPressed(g.findChords().New) {
@@ -452,16 +454,11 @@ func (g *Game) viewKeys() {
 	}
 }
 
-// cycleLight steps the light through night, day and live, and says so.
+// cycleLight steps the light through night, day and live. The sky says
+// which; the change is routine and makes no notice (item 352).
 func (g *Game) cycleLight() {
-	switch g.scene.CycleLight() {
-	case city.LightNight:
-		g.SetStatus("light: night (n again for day)")
-	case city.LightDay:
-		g.SetStatus("light: day (n again to follow the clock)")
-	default:
+	if g.scene.CycleLight() == city.LightAuto {
 		g.scene.Scrub(0)
-		g.SetStatus("light: live")
 	}
 }
 
@@ -524,13 +521,13 @@ func (g *Game) act(action city.Action) {
 		go func() {
 			defer g.acting.Done()
 			if err := actor.Do(action); err != nil {
-				g.SetStatus(err.Error())
+				g.failed(err)
 			}
 		}()
 		return
 	}
 	if err := g.actor.Do(action); err != nil {
-		g.SetStatus(err.Error())
+		g.failed(err)
 	}
 }
 

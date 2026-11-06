@@ -336,7 +336,7 @@ func (f *finder) open(g *Game, h find.Hit) bool {
 	switch {
 	case h.Gone && f.armed != h.SessionID:
 		f.armed = h.SessionID
-		g.SetStatus("its conversation was deleted; enter again starts a new session in " + h.Dir)
+		g.Notify("its conversation was deleted · enter again starts a new session in "+h.Dir, ui.ToneNone, "enter")
 		return true
 	case h.Gone:
 		g.act(city.Action{Kind: city.ActionNew, Dir: h.Dir})
@@ -394,7 +394,7 @@ func (f *finder) follow(g *Game, atOnce bool) {
 	dispatch(func() {
 		hits, err := search(find.Query{Words: query, Limit: findLimit})
 		if err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
 		f.deliver(query, onMapHits(hits, scripted))
@@ -523,7 +523,7 @@ func (f *finder) keys(g *Game) bool {
 	just := g.just
 	if f.ime != nil {
 		if handled, err := f.ime.Update(); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 		} else if handled {
 			f.follow(g, false)
 			f.provisional(g)
@@ -543,13 +543,13 @@ func (f *finder) keys(g *Game) bool {
 		return false
 	case chosen && g.chordPressed(g.findChords().Copy):
 		line := resumeLine(h)
-		g.SetStatus("copied: " + line)
+		g.Notify("copied: "+line, ui.ToneNone, "")
 		g.act(city.Action{Kind: city.ActionCopy, Text: line})
 		return true
 	case chosen && g.chordPressed(g.findChords().Show):
 		f.end()
 		if !g.scene.Select(h.SessionID) {
-			g.SetStatus("that session is not on the map")
+			g.Notify("that session is not on the map", ui.ToneNone, "")
 		}
 		return false
 	case just(ebiten.KeyEnter), just(ebiten.KeyKPEnter):
@@ -571,7 +571,7 @@ func (f *finder) keys(g *Game) bool {
 			f.end()
 			g.filterOn("")
 			if !g.scene.FocusGroup(gr.ID) {
-				g.SetStatus(gr.Name + " has no session on the map")
+				g.Notify(gr.Name+" has no session on the map", ui.ToneNone, "")
 			}
 			return false
 		}

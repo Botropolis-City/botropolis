@@ -59,7 +59,7 @@ func (g *Game) applySetting(s ui.Setting) {
 	case config.KeyRenderScale:
 		scale, _ := strconv.ParseFloat(s.Value, 64)
 		if err := g.setScale(scale); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
 	case config.KeyDetail:
@@ -93,7 +93,7 @@ func (g *Game) applySetting(s ui.Setting) {
 			ladder.Overgrown = time.Duration(days) * 24 * time.Hour
 		}
 		if ladder.Overgrown <= ladder.Shuttered {
-			g.SetStatus("overgrown days must be more than shuttered days")
+			g.Notify("overgrown days must be more than shuttered days", ui.ToneError, "")
 			return
 		}
 		g.scene.SetLadder(ladder)
@@ -103,7 +103,7 @@ func (g *Game) applySetting(s ui.Setting) {
 	case config.KeyUsageRefresh:
 		every, err := config.ParseUsageRefresh(s.Value)
 		if err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
 		g.usageEvery = every
@@ -111,11 +111,11 @@ func (g *Game) applySetting(s ui.Setting) {
 	}
 	if g.apply != nil {
 		if err := g.apply(s); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
 	}
-	g.SetStatus(note)
+	g.Notify(note, ui.ToneNone, "")
 }
 
 // setScale rebuilds the theme and faces for a new scale; 0 follows the

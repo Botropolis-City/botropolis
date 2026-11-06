@@ -119,7 +119,7 @@ func (n *newSession) choice() city.Action {
 func (n *newSession) keys(g *Game) bool {
 	if n.ime != nil {
 		if handled, err := n.ime.Update(); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 		} else if handled {
 			return true
 		}
@@ -136,7 +136,7 @@ func (n *newSession) keys(g *Game) bool {
 		}
 		dir := strings.TrimSpace(n.fields[fieldDir].query())
 		if dir == "" {
-			g.SetStatus("New session needs a directory")
+			g.Notify("New session needs a directory", ui.ToneError, "")
 			return true
 		}
 		action := n.choice()

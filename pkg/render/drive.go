@@ -133,6 +133,14 @@ type Shown struct {
 	WaitingRect city.Rect
 	// WaitingHovered is whether the line was drawn hovered.
 	WaitingHovered bool
+	// Notice is the notice drawn under the strip and NoticeRect its
+	// plate, empty when none; StreamNewest is the text of the stream's
+	// newest line, and CardHeader the header line of the selection's
+	// card, each empty when not drawn (item 352).
+	Notice       string
+	NoticeRect   city.Rect
+	StreamNewest string
+	CardHeader   string
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -652,6 +660,13 @@ func (g *Game) noteShown() {
 	g.mu.Lock()
 	if !g.hidden {
 		s.Waiting, s.WaitingRect, s.WaitingHovered = g.footerBar.Waiting.Text, g.footerBar.WaitingRect, g.waitingHovered
+		if m, ok := g.notice.Current(timeNow()); ok {
+			s.Notice, s.NoticeRect = m.Text, g.noticePlate.Rect
+		}
+		if rows := g.streamLaid.Rows; len(rows) > 0 {
+			s.StreamNewest = rows[0].Event.Title
+		}
+		s.CardHeader = g.pinned.Kind.Text
 	}
 	for _, h := range g.hits {
 		if h.hit.Building != nil && !slices.Contains(s.Buildings, h.hit.Building.Session.ID) {

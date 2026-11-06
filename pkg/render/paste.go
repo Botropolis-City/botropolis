@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"botropolis.city/botropolis/pkg/config"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // pasting is a paste on its way: who asked for it, whether the
@@ -61,7 +62,7 @@ func (g *Game) pasted(holder any) (string, bool) {
 	}
 	if g.paste == nil {
 		p.mu.Unlock()
-		g.SetStatus("pasting is not available here")
+		g.Notify("pasting is not available here", ui.ToneError, "")
 		return "", false
 	}
 	p.asking, p.holder = true, holder
@@ -80,7 +81,7 @@ func (g *Game) pasted(holder any) (string, bool) {
 		}
 		p.mu.Unlock()
 		if err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 		}
 	}()
 	return "", false

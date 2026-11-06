@@ -127,13 +127,13 @@ func (g *Game) statsRow(s ui.Setting) {
 	}
 	if g.apply != nil {
 		if err := g.apply(s); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
 	}
 	g.setStatsOn(true)
 	g.setRow(config.KeyStats, "on")
-	g.SetStatus("statistics: on")
+	g.Notify("statistics: on", ui.ToneNone, "")
 }
 
 func (g *Game) setRow(key, value string) {
@@ -168,13 +168,13 @@ func (p *statsPrompt) keys(g *Game) bool {
 func (p *statsPrompt) answer(g *Game, keep bool) {
 	if g.stats.choose != nil {
 		if err := g.stats.choose(p.kind, keep); err != nil {
-			g.SetStatus(err.Error())
+			g.failed(err)
 			return
 		}
 	}
 	g.setStatsOn(p.kind == stats.OnPrompt)
 	g.setRow(config.KeyStats, onOff(g.stats.on))
-	g.SetStatus("statistics: " + onOff(g.stats.on))
+	g.Notify("statistics: "+onOff(g.stats.on), ui.ToneNone, "")
 }
 
 func (p *statsPrompt) click(g *Game, at city.Point) bool { return true }
