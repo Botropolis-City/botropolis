@@ -299,3 +299,31 @@ func TestGroupLineFormSettingsRow(t *testing.T) {
 		})
 	})
 }
+
+// Item 350, slice 5b: a key recorded in the settings' Keys panel is saved
+// under keys, and one put back to its default leaves the file.
+func TestBindingSetting(t *testing.T) {
+	load := func(t *testing.T) *config.Config {
+		t.Helper()
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		return cfg
+	}
+
+	t.Run("when the timeline is rebound to y in the panel", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		require.NoError(t, saveSetting("", ui.Setting{Key: config.KeySettings + ".timeline", Value: "y"}))
+
+		t.Run("it should load as y", func(t *testing.T) {
+			assert.Equal(t, "y", load(t).Keys["timeline"])
+		})
+
+		t.Run("and it is put back to its default", func(t *testing.T) {
+			require.NoError(t, saveSetting("", ui.Setting{Key: config.KeySettings + ".timeline", Value: ""}))
+
+			t.Run("it should load as its default", func(t *testing.T) {
+				assert.Equal(t, "t", load(t).Keys["timeline"])
+			})
+		})
+	})
+}

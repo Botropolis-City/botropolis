@@ -85,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A `[keys]` table names any of the map's keys, the menu's column and row letters, or the finder's, such as `timeline = "y"`, and `--set keys.timeline=y` does the same; botropolis-config(5) lists them all, and `?` shows each key as it is bound.
   The settings you already have, such as `journal_key`, still work.
   A key now answers only with exactly its modifiers: shift with a letter no longer does what the letter does, so `shift+t` no longer opens the timeline.
+- **Keys can be changed from the settings too.**
+  The settings' last row, *keys*, opens a panel of every key under where it answers, at the map, in the action menu and in the finder.
+  Enter on a row records the next key pressed, which takes effect at once and is saved; one already taken or fixed is refused on the row, saying what holds it, and Backspace puts a row back to its default.
   The city refuses to start, saying why, if two keys would answer together, if a key is one that stays fixed, such as `d` or `tab` at the map or `j` and `k` in the menu, or if a `*_key` setting and `[keys]` disagree.
 
 ### Fixed

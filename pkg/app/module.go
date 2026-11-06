@@ -818,6 +818,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyUsageRefresh, Label: "usage refresh", Options: withValue([]string{config.UsageManual, "15m", "30m", "1h"}, cfg.UsageRefresh), Value: cfg.UsageRefresh},
 		{Key: config.KeyOnClose, Label: "closing the window", Options: []string{config.OnCloseAsk, config.OnCloseTray}, Value: cfg.OnClose},
 		{Key: config.KeyGlobalShortcut, Label: "global shortcut", Value: shortcut},
+		render.KeysRow,
 	})
 }
 
@@ -845,6 +846,11 @@ func withValue(options []string, value string) []string {
 // motion, which would otherwise hold the city still whatever the row
 // said: the row is the newer choice. Item 89.
 func saveSetting(file string, s ui.Setting) error {
+	// A binding from the settings' Keys panel: an empty value puts it
+	// back to its default (item 350).
+	if name, ok := strings.CutPrefix(s.Key, config.KeySettings+"."); ok {
+		return config.SaveBinding(file, name, s.Value)
+	}
 	key, value := settingValue(s)
 	if key == config.KeyLiveliness {
 		if err := config.Save(file, config.KeyReducedMotion, false); err != nil {

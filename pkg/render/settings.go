@@ -25,6 +25,15 @@ func (g *Game) settingsKeys() bool {
 	if g.onShortcutRow() && g.shortcutRowKeys() {
 		return true
 	}
+	// The keys row opens the Keys panel over the settings, and holds no
+	// value to step or save (item 350).
+	if g.onKeysRow() && (just(ebiten.KeyEnter) || just(ebiten.KeySpace) || just(ebiten.KeyArrowRight) || just(ebiten.KeyL)) {
+		g.openKeysPanel()
+		return true
+	}
+	if g.onKeysRow() && (just(ebiten.KeyArrowLeft) || just(ebiten.KeyH)) {
+		return true
+	}
 	if just(ebiten.KeyArrowDown) || just(ebiten.KeyJ) {
 		g.settings.Move(1)
 	}

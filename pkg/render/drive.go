@@ -60,6 +60,10 @@ type DriveOptions struct {
 	// Straight draws every frame whole, as before the standing city was
 	// composed and kept, for a benchmark to compare (item 193).
 	Straight bool
+	// Settings are the settings panel's rows, and Apply saves a changed
+	// one, as the app gives a city them; zero is no rows and no saving.
+	Settings ui.Settings
+	Apply    func(ui.Setting) error
 }
 
 // Shown is what the last frame drew.
@@ -245,6 +249,9 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	g.driven = true
 	g.noStill = opts.Straight
 	g.journalHours = config.DefaultJournalHours
+	// The settings panel's rows, and where a changed row is saved, as the
+	// app hands them to a real city (item 350).
+	g.settings, g.apply = opts.Settings, opts.Apply
 	// No window to type into: typing reaches the finder the way --keys
 	// does.
 	g.ime = false
@@ -384,6 +391,15 @@ func (d *Drive) ClickAt(at city.Point) error {
 	d.queue = append(d.queue, driveInput{at: &at, press: true}, driveInput{at: &at, release: true})
 	d.steps++
 	return nil
+}
+
+// FocusedBinding is the binding the settings' Keys panel is on, or ""
+// when it is not open (item 350).
+func (d *Drive) FocusedBinding() string {
+	if p, ok := d.game.overlays.top().(*keysPanel); ok && p.focus < len(p.rows) {
+		return p.rows[p.focus].name
+	}
+	return ""
 }
 
 // Where is the window point a target resolves to, as Click aims: a

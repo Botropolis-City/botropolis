@@ -128,9 +128,44 @@ func FindChords(cfg Config, goos string, known func(string) bool) (Chords, error
 	if err != nil {
 		return Chords{}, err
 	}
+	return chordsOf(bound), nil
+}
+
+// chordsOf is the chords read from the one map of bindings, so the
+// named ones cannot drift from it (item 350).
+func chordsOf(bound map[string]Chord) Chords {
 	return Chords{
 		Open: bound["find"], Copy: bound["find_copy"], Show: bound["find_show"], New: bound["new_session"],
 		Explain: bound["explain"], Triage: bound["triage"], Stream: bound["stream"], Journal: bound["journal"],
 		Plan: bound["city_plan"], Labels: bound["labels"], Bound: bound,
-	}, nil
+	}
+}
+
+// With is the chords with one binding rebound, the rest as they were;
+// the chords it is made from are left alone.
+func (c Chords) With(name string, chord Chord) Chords {
+	bound := make(map[string]Chord, len(c.Bound)+1)
+	for k, v := range c.Bound {
+		bound[k] = v
+	}
+	bound[name] = chord
+	return chordsOf(bound)
+}
+
+// Rebind checks a chord for a binding as a config file's would be: a
+// chord macOS keeps, a key that stays fixed where the binding answers,
+// and a chord another binding answers together with it are refused,
+// each saying why.
+func Rebind(c Chords, name string, chord Chord, goos string) error {
+	known := false
+	for _, b := range Bindings {
+		known = known || b.Name == name
+	}
+	if !known {
+		return fmt.Errorf("no binding is called %s", name)
+	}
+	if does, kept := macOSKeeps[chord.Key]; kept && goos == "darwin" && chord.Cmd && !chord.Ctrl && !chord.Alt {
+		return fmt.Errorf("%s %s on macOS before the city sees it", chord.Label(), does)
+	}
+	return clashes(c.With(name, chord).Bound)
 }

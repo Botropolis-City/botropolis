@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -522,6 +523,49 @@ func Save(path, key string, value any) error {
 	}
 	raw.Set(key, value)
 	return raw.WriteConfigAs(path)
+}
+
+// Delete takes one key out of the config file at path (or the default
+// file), keeping whatever else it holds, and a table it leaves empty
+// goes too; a key or a file that is not there is no error (item 350).
+func Delete(path, key string) error {
+	if path == "" {
+		path = DefaultFile()
+	}
+	raw := viper.New()
+	raw.SetConfigFile(path)
+	if err := raw.ReadInConfig(); err != nil {
+		if _, missing := err.(*os.PathError); missing || errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	settings := raw.AllSettings()
+	parts := strings.Split(strings.ToLower(key), ".")
+	tables := []map[string]any{settings}
+	for _, part := range parts[:len(parts)-1] {
+		next, ok := tables[len(tables)-1][part].(map[string]any)
+		if !ok {
+			return nil
+		}
+		tables = append(tables, next)
+	}
+	last := tables[len(tables)-1]
+	if _, ok := last[parts[len(parts)-1]]; !ok {
+		return nil
+	}
+	delete(last, parts[len(parts)-1])
+	for i := len(tables) - 1; i > 0; i-- {
+		if len(tables[i]) == 0 {
+			delete(tables[i-1], parts[i-1])
+		}
+	}
+	fresh := viper.New()
+	fresh.SetConfigFile(path)
+	if err := fresh.MergeConfigMap(settings); err != nil {
+		return err
+	}
+	return fresh.WriteConfigAs(path)
 }
 
 func configHome() string {

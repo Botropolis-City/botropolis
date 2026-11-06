@@ -300,3 +300,24 @@ func bindingHelp(name string) string {
 	}
 	return ""
 }
+
+// SaveBinding writes one binding into the config file at path: under
+// keys, dropping the older *_key it replaces, or with chord empty, back
+// to its default, which is no line at all (item 350).
+func SaveBinding(path, name, chord string) error {
+	for _, b := range Bindings {
+		if b.Name != name {
+			continue
+		}
+		if b.Legacy != "" {
+			if err := Delete(path, b.Legacy); err != nil {
+				return err
+			}
+		}
+		if chord == "" {
+			return Delete(path, KeySettings+"."+name)
+		}
+		return Save(path, KeySettings+"."+name, chord)
+	}
+	return fmt.Errorf("no binding is called %s", name)
+}
