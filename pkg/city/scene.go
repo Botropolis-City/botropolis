@@ -159,6 +159,9 @@ type Scene struct {
 	// depotBeams is whether the tower_lines setting runs the towers'
 	// beams to the crates in the depot too (item 347).
 	depotBeams bool
+	// hoodLook is how a neighbourhood is marked on the ground, the
+	// treatments tried on frames (item 348).
+	hoodLook NeighbourhoodLook
 	// labelsHidden is whether the setting, or its key, hides every label
 	// on the map (item 102).
 	labelsHidden bool

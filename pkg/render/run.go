@@ -91,6 +91,9 @@ type Options struct {
 	DepotBeams bool
 	// HideLabels starts the city with every label off (item 102).
 	HideLabels bool
+	// Neighbourhoods is how neighbourhoods are marked on the ground, the
+	// treatments tried on frames until Aria picks (item 348).
+	Neighbourhoods city.NeighbourhoodLook
 	// ShowGone keeps sessions whose transcript is gone on the map
 	// (item 274).
 	ShowGone bool
@@ -249,6 +252,7 @@ func Run(ctx context.Context, opts Options) error {
 	scene.SetGroupLines(!opts.HideGroupLines)
 	scene.SetDepotBeams(opts.DepotBeams)
 	scene.SetLabels(!opts.HideLabels)
+	scene.SetNeighbourhoodLook(opts.Neighbourhoods)
 	scene.SetShown(city.Shown{Gone: opts.ShowGone, Scripted: opts.ShowScripted})
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
 	game.quietFor, game.sweep = opts.QuietFor, opts.Sweep

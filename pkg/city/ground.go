@@ -35,6 +35,17 @@ type ground struct {
 	pads      []Rect
 	buildings []groundLot
 	calls     []groundCall
+	// hoods are each neighbourhood's ground, its gate and its group's
+	// short name, laid end to end: hoodEnds says where each ends
+	// (item 348).
+	hoods    []Rect
+	hoodEnds []int
+	gates    []groundGate
+}
+
+type groundGate struct {
+	at    Point
+	short string
 }
 
 type groundBand struct {
@@ -117,6 +128,11 @@ func groundOf(c *City) ground {
 			calls := g.calls[start:]
 			sort.Slice(calls, func(i, j int) bool { return calls[i].server < calls[j].server })
 		}
+		for _, n := range c.Neighbourhoods(d) {
+			g.hoods = append(g.hoods, n.Ground...)
+			g.hoodEnds = append(g.hoodEnds, len(g.hoods))
+			g.gates = append(g.gates, groundGate{at: n.Gate, short: n.Group.Short})
+		}
 	}
 	return g
 }
@@ -136,7 +152,8 @@ func (a ground) equal(b ground) bool {
 		slices.Equal(a.roads, b.roads) && slices.Equal(a.towers, b.towers) &&
 		slices.Equal(a.camps, b.camps) && slices.Equal(a.campEnds, b.campEnds) &&
 		slices.Equal(a.districts, b.districts) && slices.Equal(a.pads, b.pads) &&
-		slices.Equal(a.buildings, b.buildings) && slices.Equal(a.calls, b.calls)
+		slices.Equal(a.buildings, b.buildings) && slices.Equal(a.calls, b.calls) &&
+		slices.Equal(a.hoods, b.hoods) && slices.Equal(a.hoodEnds, b.hoodEnds) && slices.Equal(a.gates, b.gates)
 }
 
 // noteGround moves the ground's generation if what the standing layer

@@ -62,6 +62,8 @@ type layerKey struct {
 	// aged is what the aged lots painted here are drawn from, or 0 when
 	// they are noted with the standing city instead (item 212).
 	aged uint64
+	// hoods is how the neighbourhoods painted here are marked (item 348).
+	hoods city.NeighbourhoodLook
 }
 
 // staticLayer is the composed image and the key it was composed for.
@@ -105,6 +107,7 @@ func (g *Game) keyFor(cam *city.Camera, hover city.Hit, width, height int) layer
 		hoverCar:      carRoad(hover),
 		roads:         g.scene.RoadsShown(),
 		lit:           g.litOnGround(g.scene.City()),
+		hoods:         g.scene.NeighbourhoodLook(),
 	}
 	if hover.Beam != nil {
 		key.hoverBeamFrom, key.hoverBeamTo = hover.Beam.Building, hover.Beam.Tower
@@ -280,6 +283,7 @@ func (g *Game) composeStatic(dst *ebiten.Image, c *city.City, cam *city.Camera, 
 	for _, d := range c.Districts {
 		g.isoDistrict(dst, cam, d, hover.District == d)
 	}
+	g.neighbourhoods(dst, c, cam)
 	g.drivewayPads(dst, c, cam)
 	g.fadeAll(&dst, func() { g.isoPlaza(dst, cam, c) })
 	g.camps(dst, c, cam)
