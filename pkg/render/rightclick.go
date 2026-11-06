@@ -60,14 +60,37 @@ func (g *Game) rightClick(at city.Point) {
 		}
 		g.openMenuWith(g.scene.Verbs().All(), at, menuFirstRows, g.runVerb)
 	case hit.District != nil && !hit.District.Depot:
-		d := hit.District
-		g.openMenuWith(g.scene.DistrictVerbs(d), at, menuFirstRows, func(kind city.ActionKind) {
-			action, note := g.scene.ActOnDistrict(d, kind)
-			if note != "" && !runsClaude[action.Kind] {
-				g.Notify(note, ui.ToneNone, "")
-			}
-			g.act(action)
-		})
+		g.openMenuWith(g.scene.DistrictVerbs(hit.District), at, menuFirstRows, g.districtVerb(hit.District))
+	}
+}
+
+// openSpaceMenu opens the menu from the keyboard, on its first column
+// with nothing chosen, so a column's letter and then a row's runs a
+// verb: the selection's, under its card, or with nothing selected the
+// district's under the pointer, there (item 350).
+func (g *Game) openSpaceMenu() {
+	if g.scene.Selected() != nil {
+		at := g.scene.Size().Scale(0.5)
+		if g.pinned.Rect.Area() > 0 {
+			at = city.Point{X: g.pinned.Rect.Min.X, Y: g.pinned.Rect.Max.Y + g.theme.Grid()}
+		}
+		g.openMenuWith(g.scene.Verbs().All(), at, -1, g.runVerb)
+		return
+	}
+	if d := g.scene.Hover().District; d != nil && !d.Depot && g.scene.Hover().Building == nil {
+		g.openMenuWith(g.scene.DistrictVerbs(d), g.pointer(), -1, g.districtVerb(d))
+	}
+}
+
+// districtVerb is what a district's menu row does: act on the district
+// and say so.
+func (g *Game) districtVerb(d *city.District) func(city.ActionKind) {
+	return func(kind city.ActionKind) {
+		action, note := g.scene.ActOnDistrict(d, kind)
+		if note != "" && !runsClaude[action.Kind] {
+			g.Notify(note, ui.ToneNone, "")
+		}
+		g.act(action)
 	}
 }
 

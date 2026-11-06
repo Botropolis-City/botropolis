@@ -28,13 +28,14 @@ var bindings = []ui.Key{
 	{Key: "ctrl+click", Action: "select a district to move with others, or unselect it (cmd on a Mac)"},
 	{Key: "ctrl+drag", Action: "select every district in a box; esc clears the selection"},
 	{Key: "enter", Action: "run the card's first button: attach, or the lens's own verb"},
+	{Key: "space", Action: "the action menu for the selection, or the district under the pointer: a column's letter, then a row's"},
 	{Key: "i", Action: "the selection's details"},
 	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
 	{Key: "w", Action: "triage: walk what waits on you, longest-waiting first"},
 	{Key: "enter · p · d · s · n · esc while triaging", Action: "act, rest, pack up, snooze, next, leave triage"},
 	{Key: "a", Action: "the clinic: who needs you, then who is in trouble; 1-9 jumps (also click the clinic)"},
-	{Key: "shift+w", Action: "the journal: where you were, and what is next"},
+	{Key: "j", Action: "the journal: where you were, and what is next"},
 	{Key: "l", Action: "the stream: what is happening, newest first"},
 	{Key: "v", Action: "the lenses, and the lens's panel in full"},
 	{Key: "1-6", Action: "a lens; press again for its next view"},
@@ -62,7 +63,6 @@ var bindings = []ui.Key{
 	{Key: "h", Action: "hide the UI"},
 	{Key: "p", Action: "save a screenshot"},
 	{Key: shareBinding, Action: "share: the city with names and figures hidden, as a picture (p), a GIF (g) or a clip (c)"},
-	{Key: "shift+p", Action: "pack the selected session up, or unpack a crate"},
 	{Key: "shift+q", Action: "close up: note what is open and what to start with next time; pause only what you choose"},
 	{Key: "/ or ctrl+k", Action: "find a session by what was said; the map dims the rest"},
 	{Key: "?", Action: "the reference: what everything on the map is"},
@@ -101,7 +101,7 @@ var rebindable = map[string]struct {
 	planBinding:   {"", func(c config.Chords) config.Chord { return c.Plan }},
 	labelsBinding: {"", func(c config.Chords) config.Chord { return c.Labels }},
 	"w":           {"", func(c config.Chords) config.Chord { return c.Triage }},
-	"shift+w":     {"", func(c config.Chords) config.Chord { return c.Journal }},
+	"j":           {"", func(c config.Chords) config.Chord { return c.Journal }},
 	"l":           {"", func(c config.Chords) config.Chord { return c.Stream }},
 	"shift+n":     {"", func(c config.Chords) config.Chord { return c.New }},
 	"hold e":      {"hold ", func(c config.Chords) config.Chord { return c.Explain }},
@@ -356,15 +356,16 @@ func (g *Game) answerKeys() error {
 	if g.pageSidebar() {
 		return nil
 	}
-	// Shift+P packs the selected session up, or unpacks a crate (item
-	// 86); P alone saves a frame.
-	if just(ebiten.KeyP) && g.shifted() {
-		if action, note := g.scene.Act(city.ActionPack); action.Kind != city.ActionNone {
-			g.Notify(note, ui.ToneNone, "")
-			g.act(action)
-		}
-	} else if just(ebiten.KeyP) {
+	// P saves a frame. Packing up, which was Shift+P, is space s p, a
+	// verb on the selection in the action menu (item 350).
+	if just(ebiten.KeyP) && !g.shifted() {
 		g.snap = screenshotPath(time.Now())
+	}
+	// Space opens the action menu for the selection, or for the district
+	// under the pointer (item 350).
+	if just(ebiten.KeySpace) {
+		g.openSpaceMenu()
+		return nil
 	}
 	if just(ebiten.KeyF) || just(ebiten.KeyDigit0) || just(ebiten.KeyKP0) {
 		g.scene.Fit()

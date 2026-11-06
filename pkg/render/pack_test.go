@@ -11,8 +11,9 @@ import (
 	"botropolis.city/botropolis/testing/helpers"
 )
 
-// Item 278: packing reaches the actor from the card's button and from
-// Shift+P, through the city's own clicks and keys.
+// Item 278: packing reaches the actor from the card and from the
+// keyboard, through the city's own clicks and keys. Item 350 moved both
+// into the action menu.
 func TestPackFromTheCity(t *testing.T) {
 	const id = "00000000-0000-4000-8000-000000000278"
 	now := time.Date(2026, 10, 26, 10, 0, 0, 0, time.Local)
@@ -44,9 +45,13 @@ func TestPackFromTheCity(t *testing.T) {
 			})
 		})
 
-		t.Run("and Shift+P is pressed", func(t *testing.T) {
+		t.Run("and space, then s, then p is pressed", func(t *testing.T) {
 			d := selected(t)
-			require.NoError(t, d.Press("shift+p"))
+			require.NoError(t, d.Press("Space"))
+			require.NoError(t, d.Run(2))
+			require.NoError(t, d.Press("s"))
+			require.NoError(t, d.Run(2))
+			require.NoError(t, d.Press("p"))
 			require.NoError(t, d.Run(5))
 
 			t.Run("it should ask the actor to pack it", func(t *testing.T) {

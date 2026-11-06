@@ -110,8 +110,8 @@ func TestConfig(t *testing.T) {
 			assert.Equal(t, 8, cfg.JournalHours)
 		})
 
-		t.Run("it should come back on shift+w", func(t *testing.T) {
-			assert.Equal(t, "shift+w", cfg.JournalKey)
+		t.Run("it should come back on j", func(t *testing.T) {
+			assert.Equal(t, "j", cfg.JournalKey)
 		})
 	})
 

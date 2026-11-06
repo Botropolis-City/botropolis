@@ -186,14 +186,14 @@ func TestCityPlanKey(t *testing.T) {
 		})
 	})
 
-	t.Run("when the plan's key is rebound to j", func(t *testing.T) {
+	t.Run("when the plan's key is rebound to y", func(t *testing.T) {
 		chords := defaultChords()
-		chords.Plan = config.Chord{Key: "j"}
+		chords.Plan = config.Chord{Key: "y"}
 
-		t.Run("and j is pressed", func(t *testing.T) {
+		t.Run("and y is pressed", func(t *testing.T) {
 			g := newGame(t)
 			g.chords = &chords
-			press(t, g, ebiten.KeyJ)
+			press(t, g, ebiten.KeyY)
 
 			t.Run("it should open the plan", func(t *testing.T) {
 				assert.True(t, g.scene.CityPlanOpen())
@@ -210,7 +210,7 @@ func TestCityPlanKey(t *testing.T) {
 			})
 		})
 
-		t.Run("the help should name j for the City Plan", func(t *testing.T) {
+		t.Run("the help should name y for the City Plan", func(t *testing.T) {
 			g := newGame(t)
 			g.chords = &chords
 			var keys []string
@@ -219,7 +219,7 @@ func TestCityPlanKey(t *testing.T) {
 					keys = append(keys, k.Key)
 				}
 			}
-			assert.Contains(t, keys, "j")
+			assert.Contains(t, keys, "y")
 		})
 	})
 

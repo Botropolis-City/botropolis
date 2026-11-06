@@ -39,8 +39,9 @@ const (
 	DefaultTriage = "w"
 	// DefaultStream is l, for log.
 	DefaultStream = "l"
-	// DefaultJournal is shift+w, for where was I: w alone is triage.
-	DefaultJournal = "shift+w"
+	// DefaultJournal is j: a place takes a bare letter, and j was free
+	// at the map (item 350). It was shift+w, for where was I.
+	DefaultJournal = "j"
 	// DefaultCityPlan is m, for map.
 	DefaultCityPlan = "m"
 	// DefaultLabelsToggle is z, the one letter left free.

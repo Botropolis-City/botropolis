@@ -294,7 +294,7 @@ func TestSharing(t *testing.T) {
 		{"d", ebiten.KeyD, false},
 		{"enter", ebiten.KeyEnter, false},
 		{"c", ebiten.KeyC, false},
-		{"shift+p", ebiten.KeyP, true},
+		{"space", ebiten.KeySpace, false},
 		{"s", ebiten.KeyS, false},
 		{"t", ebiten.KeyT, false},
 		{"x", ebiten.KeyX, false},

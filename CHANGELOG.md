@@ -75,6 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Right-click opens the same menu at the pointer.**
   On a building or a crate it selects it and shows its verbs; on a district's ground or sign it shows that project's verbs, acting on the district without changing the selection; on a row of the groups board it shows that group's verbs.
   A right drag still pans the map.
+- **`space` opens the menu from the keyboard.**
+  With a session selected it opens on the *Session* column: a column's letter, `s`, `p` or `g`, then a row's letter runs a verb, so `space` `s` `p` packs the session up.
+  With nothing selected it opens the verbs of the district under the pointer.
+- **The journal is `j`, and packing up moved into the menu.**
+  `shift+w` no longer opens the journal, and `shift+p` no longer packs a session up; `space` `s` `p` does.
+  A `journal_key` already set in the settings keeps its key.
 
 ### Fixed
 

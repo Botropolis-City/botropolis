@@ -89,7 +89,8 @@ func TestComingBack(t *testing.T) {
 			shift  bool
 			opened bool
 		}{
-			{"and Shift+W is pressed", ebiten.KeyW, true, true},
+			{"and j is pressed", ebiten.KeyJ, false, true},
+			{"and Shift+W, its old key, is pressed", ebiten.KeyW, true, false},
 			{"and w is pressed", ebiten.KeyW, false, false},
 		} {
 			t.Run(c.name, func(t *testing.T) {

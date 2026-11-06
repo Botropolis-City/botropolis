@@ -48,7 +48,7 @@ func TestEveryPanelClosesOnEscape(t *testing.T) {
 		{key: "g", panel: "the groups board", open: overlay},
 		{key: "Slash", panel: "the finder", open: func(s render.Shown) bool { return s.Search }},
 		{key: "w", panel: "triage", flies: true, leaves: []string{"card"}, open: func(s render.Shown) bool { return s.Triage != "" }},
-		{key: "shift+w", panel: "the journal", open: func(s render.Shown) bool { return s.Journal != nil }},
+		{key: "j", panel: "the journal", open: func(s render.Shown) bool { return s.Journal != nil }},
 		{key: "v", panel: "the lens key", open: func(s render.Shown) bool { return s.Views }},
 		{key: "shift+n", panel: "New session", open: overlay},
 		{key: "shift+q", panel: "close up", open: overlay},
