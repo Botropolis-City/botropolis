@@ -16,6 +16,10 @@ type SnoozePicker struct {
 // SnoozePrompt is the typed line's prompt.
 const SnoozePrompt = "or type a time: "
 
+// Caret ends the text in a field that is being typed into: a character
+// the city's font can draw (item 350).
+const Caret = "|"
+
 // LayoutSnoozePicker centres the picker in the window.
 func LayoutSnoozePicker(th Theme, width, height float64, choices []string, cursor int, typed, refused string, measure Measure) SnoozePicker {
 	grid := th.Grid()
@@ -23,7 +27,7 @@ func LayoutSnoozePicker(th Theme, width, height float64, choices []string, curso
 	_, titleH := measure("", Title)
 	_, bodyH := measure("", Body)
 	_, smallH := measure("", Small)
-	rows := append(append([]string{}, choices...), SnoozePrompt+typed+"▏")
+	rows := append(append([]string{}, choices...), SnoozePrompt+typed+Caret)
 	w := 0.0
 	for _, r := range append(rows, refused) {
 		rw, _ := measure(r, Body)

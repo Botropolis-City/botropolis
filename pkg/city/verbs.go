@@ -25,6 +25,10 @@ var VerbColumns = []VerbColumn{
 	{"Group", []ActionKind{ActionMoveToGroup, ActionJoinSuggested, ActionTakeOut, ActionRenameGroup, ActionCloseGroup, ActionCopyStandup, ActionMuteWord, ActionFocusLine}},
 }
 
+// MenuMark follows a button's label when it opens a menu: a down
+// chevron, one the city's font can draw.
+const MenuMark = "⌄"
+
 // Verbs is what the selection's face offers: the direct verb, which is
 // also what Enter does, and the three columns.
 type Verbs struct {
@@ -74,7 +78,7 @@ func (s *Scene) Verbs() Verbs {
 func (v Verbs) faceButtons() []string {
 	labels := []string{string(v.Direct)}
 	for _, col := range VerbColumns {
-		labels = append(labels, col.Title+" ▾")
+		labels = append(labels, col.Title+" "+MenuMark)
 	}
 	return labels
 }

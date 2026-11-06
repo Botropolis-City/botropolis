@@ -205,7 +205,7 @@ func TestVerbs(t *testing.T) {
 		require.True(t, ok)
 
 		t.Run("it should carry four buttons, the direct verb then the three columns", func(t *testing.T) {
-			assert.Equal(t, []string{"attach", "Session ▾", "Project ▾", "Group ▾"}, card.Actions)
+			assert.Equal(t, []string{"attach", "Session ⌄", "Project ⌄", "Group ⌄"}, card.Actions)
 		})
 
 		t.Run("it should hint the direct verb with its description", func(t *testing.T) {

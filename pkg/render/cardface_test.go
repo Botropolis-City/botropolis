@@ -45,7 +45,7 @@ func TestCardFace(t *testing.T) {
 		shown := d.Shown()
 
 		t.Run("it should show four buttons, the direct verb first", func(t *testing.T) {
-			assert.Equal(t, []string{"resume", "Session ▾", "Project ▾", "Group ▾"}, labels(shown))
+			assert.Equal(t, []string{"resume", "Session ⌄", "Project ⌄", "Group ⌄"}, labels(shown))
 		})
 
 		t.Run("and the direct button is clicked", func(t *testing.T) {
@@ -58,10 +58,10 @@ func TestCardFace(t *testing.T) {
 		})
 	})
 
-	t.Run("when Session ▾ is clicked", func(t *testing.T) {
+	t.Run("when Session ⌄ is clicked", func(t *testing.T) {
 		d := selected(t)
 		button := d.Shown().CardButtons[1].Rect
-		require.NoError(t, d.Click("button:Session ▾"))
+		require.NoError(t, d.Click("button:Session ⌄"))
 		require.NoError(t, d.Run(3))
 		shown := d.Shown()
 
@@ -89,7 +89,7 @@ func TestCardFace(t *testing.T) {
 
 	t.Run("when a menu row is clicked", func(t *testing.T) {
 		d := selected(t)
-		require.NoError(t, d.Click("button:Project ▾"))
+		require.NoError(t, d.Click("button:Project ⌄"))
 		require.NoError(t, d.Run(3))
 		require.NoError(t, d.Click("menu:copy path"))
 		require.NoError(t, d.Run(5))
@@ -99,9 +99,9 @@ func TestCardFace(t *testing.T) {
 		})
 	})
 
-	t.Run("when Session ▾ is hovered", func(t *testing.T) {
+	t.Run("when Session ⌄ is hovered", func(t *testing.T) {
 		d := selected(t)
-		require.NoError(t, d.PointAt("button:Session ▾"))
+		require.NoError(t, d.PointAt("button:Session ⌄"))
 		require.NoError(t, d.Run(3))
 
 		t.Run("the card's hint should list the column's rows", func(t *testing.T) {

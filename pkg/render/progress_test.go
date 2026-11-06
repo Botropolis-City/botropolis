@@ -58,7 +58,7 @@ func TestCardProgress(t *testing.T) {
 		<-actor.reached
 
 		t.Run("its stop button should say what it is doing, and fork keep its label", func(t *testing.T) {
-			assert.Equal(t, []string{"attach", "stopping…", "Project ▾", "Group ▾"}, labels(g))
+			assert.Equal(t, []string{"attach", "stopping…", "Project ⌄", "Group ⌄"}, labels(g))
 		})
 
 		t.Run("it should show no notice, since the button says it", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestCardProgress(t *testing.T) {
 			g.settle()
 
 			t.Run("the button should read Session again", func(t *testing.T) {
-				assert.Equal(t, []string{"attach", "Session ▾", "Project ▾", "Group ▾"}, labels(g))
+				assert.Equal(t, []string{"attach", "Session ⌄", "Project ⌄", "Group ⌄"}, labels(g))
 			})
 		})
 	})
@@ -82,7 +82,7 @@ func TestCardProgress(t *testing.T) {
 		<-actor.reached
 
 		t.Run("the selected card's buttons should keep their labels", func(t *testing.T) {
-			assert.Equal(t, []string{"attach", "Session ▾", "Project ▾", "Group ▾"}, labels(g))
+			assert.Equal(t, []string{"attach", "Session ⌄", "Project ⌄", "Group ⌄"}, labels(g))
 		})
 
 		t.Run("it should say what it started, since no button on screen does", func(t *testing.T) {

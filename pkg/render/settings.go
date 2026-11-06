@@ -238,7 +238,7 @@ func (g *Game) shownSettings() ui.Settings {
 		s.Items = append(s.Items, g.settings.Items[i])
 	}
 	if line := g.settingsFilter.shown(); line != "" {
-		s.Note = line + "▏"
+		s.Note = line + ui.Caret
 	}
 	return s
 }

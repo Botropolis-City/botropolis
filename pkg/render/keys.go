@@ -693,7 +693,7 @@ func (g *Game) progressLabels(v city.Verbs, b *city.Building) []string {
 		labels[0] = p
 	}
 	for i, col := range city.VerbColumns {
-		label := col.Title + " ▾"
+		label := col.Title + " " + city.MenuMark
 		for _, kind := range v.Columns()[i] {
 			if p, ok := running(kind); ok {
 				label = p

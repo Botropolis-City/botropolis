@@ -21,7 +21,7 @@ func TestLayoutCardFaceButtons(t *testing.T) {
 		Group:    "Rate-limit headers — station 2 of 3",
 		Sentence: "Finished Friday 16:40. Tests pass; draft PR #882 is open and waiting for you to mark it ready for review.",
 		Numbers:  []city.Number{{Label: "context", Value: "41%"}, {Label: "spent", Value: "$3.20"}, {Label: "idle", Value: "2d"}},
-		Actions:  []string{"attach", "Session ▾", "Project ▾", "Group ▾"},
+		Actions:  []string{"attach", "Session ⌄", "Project ⌄", "Group ⌄"},
 	}
 
 	t.Run("when a card has a face of four buttons in a 960 px window", func(t *testing.T) {

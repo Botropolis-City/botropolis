@@ -294,7 +294,7 @@ func (n *newSession) draw(g *Game, screen *ebiten.Image, width, height float64) 
 			n.caret = city.RectAt(x+grid*12+w, y, 1, body)
 			g.mu.Unlock()
 			if i != fieldGroup {
-				value += "▏"
+				value += ui.Caret
 			}
 		}
 		g.text(screen, city.Point{X: x + grid*12, Y: y}, value, ui.Body, ink)

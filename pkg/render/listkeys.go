@@ -102,7 +102,7 @@ func (g *Game) drawFilter(screen *ebiten.Image, f *listFilter, at city.Point, si
 		return 0
 	}
 	_, h := g.faces.Measure(line, size)
-	g.text(screen, at, line+"▏", size, g.theme.Palette.Accent)
+	g.text(screen, at, line+ui.Caret, size, g.theme.Palette.Accent)
 	return h + g.theme.Grid()/2
 }
 

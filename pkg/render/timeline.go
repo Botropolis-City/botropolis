@@ -44,7 +44,7 @@ func (g *Game) drawTimeline(screen *ebiten.Image, width, height float64) {
 		shown = append(shown, list[i])
 	}
 	if line := g.timelineFilter.shown(); line != "" {
-		title += "   " + line + "▏"
+		title += "   " + line + ui.Caret
 	}
 	tl := ui.LayoutTimeline(th, width, height, title, shown, cursor, g.faces.Measure)
 	g.roundPanel(screen, tl.Rect)

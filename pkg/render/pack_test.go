@@ -35,7 +35,7 @@ func TestPackFromTheCity(t *testing.T) {
 	t.Run("when a shuttered building is selected", func(t *testing.T) {
 		t.Run("and its card's Session menu is opened and p pressed", func(t *testing.T) {
 			d := selected(t)
-			require.NoError(t, d.Click("button:Session ▾"))
+			require.NoError(t, d.Click("button:Session ⌄"))
 			require.NoError(t, d.Run(3))
 			require.NoError(t, d.Press("p"))
 			require.NoError(t, d.Run(5))

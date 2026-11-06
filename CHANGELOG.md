@@ -68,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Triage says which step of how many in the header of the session's card instead of on the footer.
 - **The card's actions are one direct verb and three menus.**
   A selected session's card used to carry every verb as its own button, thirteen or more in a row that wrapped.
-  It now carries the lens's first verb, which is what Enter runs, and three buttons, *Session ▾*, *Project ▾* and *Group ▾*, each opening one menu on its column.
+  It now carries the lens's first verb, which is what Enter runs, and three buttons, *Session ⌄*, *Project ⌄* and *Group ⌄*, each opening one menu on its column.
   The menu lists each row with the key that runs it and says what the hovered or focused row does; a column's letter then a row's letter runs a verb from the keyboard, the arrows or `j` and `k` move, Enter runs the focused row, and Escape closes the menu before it deselects.
   A verb that does not apply is absent rather than greyed, and demolish has a row, which arms as `d d` does.
   The numbers row folds the details out and back, and `i` still does.
