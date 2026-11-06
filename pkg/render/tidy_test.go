@@ -226,8 +226,10 @@ func TestCorrectGroups(t *testing.T) {
 			assert.Empty(t, actor.done)
 		})
 
-		t.Run("it should ask for Delete again, saying what closing does", func(t *testing.T) {
-			assert.Equal(t, "press Delete again to close PROJ-9 · limiter: "+city.ActionCloseGroup.Describe(), g.notice.Text(timeNow()))
+		// Item 352: the question is a dialog, and Delete again answers it.
+		t.Run("it should open the dialog naming the group, saying what closing does", func(t *testing.T) {
+			require.NotNil(t, g.dialog())
+			assert.Equal(t, []string{"Close PROJ-9 · limiter?", city.ActionCloseGroup.Describe()}, append([]string{g.dialog().title}, g.dialog().lines...))
 		})
 
 		t.Run("and Delete is pressed again", func(t *testing.T) {
@@ -237,15 +239,18 @@ func TestCorrectGroups(t *testing.T) {
 			t.Run("it should close the group, packing every member", func(t *testing.T) {
 				assert.Equal(t, []city.Action{{Kind: city.ActionCloseGroup, Group: "g1", Sessions: []string{"a", "b", "c"}}}, actor.done)
 			})
+
+			t.Run("it should close the dialog and keep the board", func(t *testing.T) {
+				assert.True(t, g.dialog() == nil && g.board() != nil)
+			})
 		})
 
-		t.Run("and another row is chosen before Delete is pressed again", func(t *testing.T) {
+		t.Run("and esc is pressed", func(t *testing.T) {
 			g, actor := armed(t)
-			press(t, g, ebiten.KeyArrowDown)
-			press(t, g, ebiten.KeyDelete)
+			press(t, g, ebiten.KeyEscape)
 
-			t.Run("it should close neither", func(t *testing.T) {
-				assert.Empty(t, actor.done)
+			t.Run("it should close the dialog and nothing else", func(t *testing.T) {
+				assert.True(t, g.dialog() == nil && g.board() != nil && len(actor.done) == 0, "dialog %v, board %v, done %v", g.dialog(), g.board(), actor.done)
 			})
 		})
 	})

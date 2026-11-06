@@ -48,10 +48,7 @@ func TestCloseWindow(t *testing.T) {
 		r.err = r.g.handleKeys()
 		return r
 	}
-	quitOpen := func(g *Game) bool {
-		_, ok := g.overlays.top().(*quitPanel)
-		return ok
-	}
+	quitOpen := func(g *Game) bool { return g.quitPanel() != nil }
 
 	t.Run("when the window manager asks to close the window", func(t *testing.T) {
 		t.Run("and on_close is ask", func(t *testing.T) {

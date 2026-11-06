@@ -1160,61 +1160,6 @@ func TestMinimap(t *testing.T) {
 	})
 }
 
-func TestDemolish(t *testing.T) {
-	t.Run("when nothing is selected", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Resting))
-		action, note := s.Demolish(now)
-
-		t.Run("it should do nothing and say why", func(t *testing.T) {
-			assert.Equal(t, city.Action{}, action)
-			assert.Contains(t, note, "select")
-		})
-	})
-
-	t.Run("when d is pressed once on a selected building", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Resting))
-		s.Click(centreOf(t, s, "a"))
-		action, note := s.Demolish(now)
-
-		t.Run("it should only arm", func(t *testing.T) {
-			assert.Equal(t, city.Action{}, action)
-			assert.Contains(t, note, "press d again")
-		})
-
-		t.Run("and d is pressed again in time", func(t *testing.T) {
-			action, _ := s.Demolish(now.Add(2 * time.Second))
-
-			t.Run("it should demolish", func(t *testing.T) {
-				assert.Equal(t, city.Action{Kind: city.ActionDemolish, SessionID: "a"}, action)
-			})
-		})
-	})
-
-	t.Run("when the second press comes too late", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Resting))
-		s.Click(centreOf(t, s, "a"))
-		s.Demolish(now)
-		action, note := s.Demolish(now.Add(10 * time.Second))
-
-		t.Run("it should re-arm instead", func(t *testing.T) {
-			assert.Equal(t, city.Action{}, action)
-			assert.Contains(t, note, "press d again")
-		})
-	})
-
-	t.Run("when the selection changes between presses", func(t *testing.T) {
-		s := scene(t, session("a", cinders, state.Resting), session("b", cinders, state.Resting))
-		s.Click(centreOf(t, s, "a"))
-		s.Demolish(now)
-		s.Click(centreOf(t, s, "b"))
-		action, _ := s.Demolish(now.Add(time.Second))
-
-		t.Run("it should not demolish the new selection on the first press", func(t *testing.T) {
-			assert.Equal(t, city.Action{}, action)
-		})
-	})
-}
-
 func TestSceneInsets(t *testing.T) {
 	t.Run("when the city has towers", func(t *testing.T) {
 		s := city.NewScene(city.NewLayout())

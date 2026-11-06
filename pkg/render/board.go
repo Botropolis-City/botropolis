@@ -24,10 +24,6 @@ type board struct {
 	quietButton city.Rect
 	// tidyButton opens the tidy-up walk (item 333).
 	tidyButton city.Rect
-	// closing is the group Delete was pressed on, and closingAt when:
-	// a second press within the arming time closes it (item 333).
-	closing   string
-	closingAt time.Time
 }
 
 type boardRow struct {
@@ -136,20 +132,10 @@ func (b *board) tidyUp(g *Game) {
 	}
 }
 
-// closeKey closes the chosen group on a second Delete, on the same row
-// and within the arming time, so one key never packs a group up
-// (item 333).
+// closeKey asks before the chosen group is closed, so one key never
+// packs a group up; Delete again answers (items 333, 352).
 func (b *board) closeKey(g *Game, gr state.Group) {
-	now := g.now()
-	if b.closing == gr.ID && now.Sub(b.closingAt) <= city.DemolishArmFor {
-		b.closing = ""
-		action, note := g.scene.CloseGroup(gr.ID)
-		g.act(action)
-		g.SetStatus(note)
-		return
-	}
-	b.closing, b.closingAt = gr.ID, now
-	g.SetStatus("press Delete again to close " + gr.Name + ": " + city.ActionCloseGroup.Describe())
+	g.overlays.push(closeGroupDialog(gr.Name, gr.ID))
 }
 
 // closeOffer is what a group's row says when closing it is the next

@@ -87,8 +87,6 @@ const (
 	ActionNewSession ActionKind = "start a session"
 )
 
-const DemolishArmFor = 3 * time.Second
-
 // Action is something the actor does through the claude CLI; Dir is the
 // project directory for the actions that need one.
 type Action struct {
@@ -225,8 +223,6 @@ type Scene struct {
 	width   float64
 	height  float64
 	touched bool
-	armed   string
-	armedAt time.Time
 	// zoomTarget is where the wheel is taking the zoom; Animate eases the
 	// camera there about zoomAnchor, or Instant snaps it.
 	zoomTarget float64
@@ -1547,19 +1543,6 @@ func (s *Scene) Activate() Action {
 		return Action{Kind: ActionResume, SessionID: s.selected.Session.ID}
 	}
 	return Action{Kind: ActionAttach, SessionID: s.selected.Session.ID, Dir: s.selected.Session.CWD}
-}
-
-func (s *Scene) Demolish(now time.Time) (Action, string) {
-	if s.selected == nil {
-		return Action{}, "select a building first"
-	}
-	id := s.selected.Session.ID
-	if s.armed == id && now.Sub(s.armedAt) <= DemolishArmFor {
-		s.armed = ""
-		return Action{Kind: ActionDemolish, SessionID: id}, "demolished " + s.selected.Card(now).Title
-	}
-	s.armed, s.armedAt = id, now
-	return Action{}, "press d again within 3s to demolish " + s.selected.Card(now).Title
 }
 
 func (s *Scene) Card() (Card, bool) { return s.CardFor(s.hover) }

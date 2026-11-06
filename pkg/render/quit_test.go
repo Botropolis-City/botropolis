@@ -45,10 +45,7 @@ func TestQuitPanel(t *testing.T) {
 		require.NoError(t, press(r.g, ebiten.KeyQ))
 		return r
 	}
-	quitOpen := func(g *Game) bool {
-		_, ok := g.overlays.top().(*quitPanel)
-		return ok
-	}
+	quitOpen := func(g *Game) bool { return g.quitPanel() != nil }
 	button := func(t *testing.T, g *Game, label string) city.Point {
 		t.Helper()
 		for _, b := range g.quitPanel().layout(g, width, height).Buttons {

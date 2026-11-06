@@ -39,7 +39,7 @@ var bindings = []ui.Key{
 	{Key: "v", Action: "the lenses, and the lens's panel in full"},
 	{Key: "1-6", Action: "a lens; press again for its next view"},
 	{Key: "c", Action: "new session here, or New session with nothing under the pointer"},
-	{Key: "d d", Action: "demolish the selection"},
+	{Key: "d d", Action: "demolish the selection: the first d asks, the second confirms"},
 	{Key: "f or 0", Action: "Skyline, the whole city"},
 	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel to zoom it, and in past its closest to return"},
 	{Key: planBinding, Action: "the City Plan: every district on one screen; click a badge to fly in"},
@@ -428,9 +428,7 @@ func (g *Game) answerKeys() error {
 		g.cycleLight()
 	}
 	if just(ebiten.KeyD) || just(ebiten.KeyDelete) {
-		action, note := g.scene.Demolish(time.Now())
-		g.SetStatus(note)
-		g.act(action)
+		g.askDemolish()
 	}
 	g.viewKeys()
 	return nil

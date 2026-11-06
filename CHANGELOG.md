@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every one is also the stream's newest line, so a message that passed can still be read, and clicking it there flies to its session as the stream's other lines do.
   A lens change, a camera turn, a change of light and showing or hiding a panel no longer make one.
   Triage says which step of how many in the header of the session's card instead of on the footer.
+- **Deleting and closing ask in a dialog.**
+  Demolishing a session and closing a group used to arm on the first key and say "press again" in the footer.
+  Each now opens a dialog in the middle of the window, as Quit does, saying what it will do, with the keys that answer each button under it.
+  `d d` still demolishes and `Delete Delete` on the board still closes a group: the first press asks and the second confirms.
 
 ### Fixed
 

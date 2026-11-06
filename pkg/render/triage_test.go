@@ -2,7 +2,6 @@ package render
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -84,9 +83,7 @@ func TestTriageKeys(t *testing.T) {
 				func(g *Game, _ *recordingActor, _ city.Light) bool { return g.snap != "" }},
 			{ebiten.KeyD, "d marks it done rather than demolishing it",
 				func(g *Game, _ *recordingActor) bool { return len(g.scene.TriageWalk()) == 2 },
-				func(g *Game, _ *recordingActor, _ city.Light) bool {
-					return strings.Contains(g.notice.Text(timeNow()), "press d again")
-				}},
+				func(g *Game, _ *recordingActor, _ city.Light) bool { return g.dialog() != nil }},
 			{ebiten.KeyS, "s opens the snooze rather than the settings",
 				func(g *Game, _ *recordingActor) bool { return g.triage() != nil && g.triage().snoozing != nil },
 				func(g *Game, _ *recordingActor, _ city.Light) bool { return g.settingsOpen }},

@@ -141,6 +141,10 @@ type Shown struct {
 	NoticeRect   city.Rect
 	StreamNewest string
 	CardHeader   string
+	// Dialog is the title of the dialog on top, and DialogRect its
+	// plate, empty when none is up (item 352).
+	Dialog     string
+	DialogRect city.Rect
 	// Settled is whether the frame was drawn with nothing an input set
 	// going still on its way: a panel that slides or a camera that eases
 	// is not shown until it arrives.
@@ -667,6 +671,9 @@ func (g *Game) noteShown() {
 			s.StreamNewest = rows[0].Event.Title
 		}
 		s.CardHeader = g.pinned.Kind.Text
+		if d := g.dialog(); d != nil {
+			s.Dialog, s.DialogRect = d.title, d.plate
+		}
 	}
 	for _, h := range g.hits {
 		if h.hit.Building != nil && !slices.Contains(s.Buildings, h.hit.Building.Session.ID) {
