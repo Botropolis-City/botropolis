@@ -164,14 +164,13 @@ func uniqueSorted(vs []float64) []float64 {
 }
 
 // Kerbs is how a neighbourhood's kerb is drawn: a low wall raised on
-// the ground, the mark Aria chose of the three tried (2026-11-06, item
-// 348), the same drawn over the city so the buildings in front do not
-// hide it, still on trial, or none, for comparison frames.
+// the ground, the mark Aria chose of the three tried, partly hidden by
+// the buildings in front as anything on the ground is ("On the ground",
+// 2026-11-07, item 348), or none, for comparison frames.
 type Kerbs int
 
 const (
 	KerbsRaised Kerbs = iota
-	KerbsOnTop
 	KerbsOff
 )
 

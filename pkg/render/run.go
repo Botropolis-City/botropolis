@@ -97,6 +97,10 @@ type Options struct {
 	// LineForm is how the groups' lines are drawn: as stations, the
 	// default, or one of the forms tried on frames (item 348).
 	LineForm city.LineForm
+	// Focus, beside a screenshot or a recording, is a group to shoot
+	// focused, its buildings lit and the rest receded, from where the
+	// camera stands (item 348).
+	Focus string
 	// ShowGone keeps sessions whose transcript is gone on the map
 	// (item 274).
 	ShowGone bool
@@ -237,6 +241,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.anchorsPath = opts.Anchors
 	game.script = opts.Keys
 	game.hover, game.hoverSet = opts.Hover, opts.HoverSet
+	game.focusFor = opts.Focus
 	game.record = opts.Record
 	if len(opts.Script) > 0 {
 		game.player = newPlayer(opts.Script, city.Point{X: float64(width) * theme.Scale * 0.5, Y: float64(height) * theme.Scale * 0.5})

@@ -22,12 +22,11 @@ func kerbWall(cam *city.Camera, edge [2]city.Point) [4]city.Point {
 	return [4]city.Point{a, b, {X: b.X, Y: b.Y - rise}, {X: a.X, Y: a.Y - rise}}
 }
 
-// neighbourhoods paints every district's neighbourhood kerbs: a low wall
-// in the lines' light ink, cased in their dark, along each block's
-// outline. Raised, they go in the ground layer; on top, over the city as
-// the lines do. No new colour.
-func (g *Game) neighbourhoods(screen *ebiten.Image, c *city.City, cam *city.Camera, onTop bool) {
-	if (g.scene.Kerbs() == city.KerbsOnTop) != onTop || g.scene.Kerbs() == city.KerbsOff {
+// neighbourhoods paints every district's neighbourhood kerbs into the
+// ground layer: a low wall in the lines' light ink, cased in their dark,
+// along each block's outline. No new colour.
+func (g *Game) neighbourhoods(screen *ebiten.Image, c *city.City, cam *city.Camera) {
+	if g.scene.Kerbs() == city.KerbsOff {
 		return
 	}
 	var walls [][4]city.Point
@@ -42,17 +41,9 @@ func (g *Game) neighbourhoods(screen *ebiten.Image, c *city.City, cam *city.Came
 		return
 	}
 	casing := float32(math.Max(1, cam.Zoom))
-	draw := func() {
-		for _, w := range walls {
-			g.paint.Fill(screen, w[:], colorLineInk)
-			g.strokeLine(screen, float32(w[2].X), float32(w[2].Y), float32(w[3].X), float32(w[3].Y), casing, colorLineCasing)
-			g.strokeLine(screen, float32(w[0].X), float32(w[0].Y), float32(w[1].X), float32(w[1].Y), casing, colorLineCasing)
-		}
+	for _, w := range walls {
+		g.paint.Fill(screen, w[:], colorLineInk)
+		g.strokeLine(screen, float32(w[2].X), float32(w[2].Y), float32(w[3].X), float32(w[3].Y), casing, colorLineCasing)
+		g.strokeLine(screen, float32(w[0].X), float32(w[0].Y), float32(w[1].X), float32(w[1].Y), casing, colorLineCasing)
 	}
-	if onTop {
-		// Over the city its strokes are kept as the lines' are (item 212).
-		g.keepOverlay(kindLines, valueHash(walls), draw)
-		return
-	}
-	draw()
 }

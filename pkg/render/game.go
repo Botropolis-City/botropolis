@@ -108,9 +108,14 @@ type Game struct {
 	// hover parks the pointer for a scripted frame; see Options.Hover.
 	hover    city.Point
 	hoverSet bool
-	actor    Actor
-	theme    ui.Theme
-	faces    *faces
+	// focusFor is the group a scripted frame is shot focused on, once
+	// it is on the map, and focusDone whether it has been; see
+	// Options.Focus (item 348).
+	focusFor  string
+	focusDone bool
+	actor     Actor
+	theme     ui.Theme
+	faces     *faces
 	// clips remembers clipped text, for the faces it was measured in.
 	clips     *clipper
 	clipsIn   *faces
@@ -758,6 +763,7 @@ func (g *Game) Update() error {
 	if held, err := g.holdUnopened(timeNow()); err != nil || held {
 		return err
 	}
+	g.applyFrameFocus()
 	if !g.startTick() {
 		return nil
 	}
