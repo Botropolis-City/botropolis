@@ -159,8 +159,10 @@ type Scene struct {
 	// depotBeams is whether the tower_lines setting runs the towers'
 	// beams to the crates in the depot too (item 347).
 	depotBeams bool
-	// kerbs is how a neighbourhood's kerb is drawn (item 348).
-	kerbs Kerbs
+	// kerbs is how a neighbourhood's kerb is drawn, and lineForm how a
+	// group's line is (item 348).
+	kerbs    Kerbs
+	lineForm LineForm
 	// labelsHidden is whether the setting, or its key, hides every label
 	// on the map (item 102).
 	labelsHidden bool

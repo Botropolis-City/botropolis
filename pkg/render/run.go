@@ -94,6 +94,9 @@ type Options struct {
 	// Kerbs is how neighbourhoods' kerbs are drawn: raised, the default,
 	// or the trial forms for comparison frames (item 348).
 	Kerbs city.Kerbs
+	// LineForm is how the groups' lines are drawn: as stations, the
+	// default, or one of the forms tried on frames (item 348).
+	LineForm city.LineForm
 	// ShowGone keeps sessions whose transcript is gone on the map
 	// (item 274).
 	ShowGone bool
@@ -253,6 +256,7 @@ func Run(ctx context.Context, opts Options) error {
 	scene.SetDepotBeams(opts.DepotBeams)
 	scene.SetLabels(!opts.HideLabels)
 	scene.SetKerbs(opts.Kerbs)
+	scene.SetLineForm(opts.LineForm)
 	scene.SetShown(city.Shown{Gone: opts.ShowGone, Scripted: opts.ShowScripted})
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply
 	game.quietFor, game.sweep = opts.QuietFor, opts.Sweep

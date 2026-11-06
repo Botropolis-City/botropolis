@@ -55,6 +55,12 @@ func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
 	if !lit {
 		g.neighbourhoods(screen, g.scene.City(), cam, true)
 	}
+	if g.scene.LineForm() != city.FormStations {
+		if !lit {
+			g.lineShapes(screen, cam)
+		}
+		return
+	}
 	lines := g.scene.Lines()
 	focus := g.scene.FocusedGroup()
 	width := math.Max(2, 3*cam.Zoom)
