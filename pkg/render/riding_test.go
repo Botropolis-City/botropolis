@@ -45,9 +45,12 @@ func TestHaulPieces(t *testing.T) {
 			assert.Equal(t, 1.0, building.shrink)
 		})
 
-		t.Run("it should draw the truck beside it", func(t *testing.T) {
-			_, truck := named(pieces, kitTruck)
-			assert.True(t, truck)
+		t.Run("it should draw the truck after it, so the building does not hide it", func(t *testing.T) {
+			var names []string
+			for _, p := range pieces {
+				names = append(names, p.name)
+			}
+			assert.Equal(t, []string{buildingPiece(b), kitTruck}, names)
 		})
 
 		t.Run("it should draw no crate", func(t *testing.T) {

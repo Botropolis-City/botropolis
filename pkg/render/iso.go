@@ -2210,12 +2210,14 @@ type haulPiece struct {
 func haulPieces(h city.Haul, b *city.Building, now time.Time) []haulPiece {
 	at, dir := haulPlace(h, now)
 	turn := vehicleTurn(dir)
-	pieces := []haulPiece{{name: kitTruck, turn: turn, at: at, shrink: 1}}
+	truck := haulPiece{name: kitTruck, turn: turn, at: at, shrink: 1}
 	if h.Kind == city.HaulMove {
-		if b != nil {
-			pieces = append(pieces, haulPiece{name: buildingPiece(b), at: h.At(now), shrink: 1})
+		if b == nil {
+			return []haulPiece{truck}
 		}
-		return pieces
+		// The truck is drawn after the building, so a tall one does not
+		// hide it.
+		return []haulPiece{{name: buildingPiece(b), at: h.At(now), shrink: 1}, truck}
 	}
-	return append(pieces, haulPiece{name: crates[h.Hue%len(crates)], turn: turn, at: at, shrink: 0.4})
+	return []haulPiece{truck, {name: crates[h.Hue%len(crates)], turn: turn, at: at, shrink: 0.4}}
 }
