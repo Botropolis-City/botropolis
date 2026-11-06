@@ -373,6 +373,18 @@ docs/screenshots/r1279-item-359-dim-filter.png
 docs/screenshots/r1279-item-359-dim-focus.png
 docs/screenshots/r1279-item-359-dim-group.png
 docs/screenshots/r1279-item-359-dim-tower.png
+docs/screenshots/r1314-item-350-board-filter.png
+docs/screenshots/r1314-item-350-board-row-menu.png
+docs/screenshots/r1314-item-350-clinic-filter.png
+docs/screenshots/r1314-item-350-clinic-nothing-matches.png
+docs/screenshots/r1314-item-350-face-lenses.png
+docs/screenshots/r1314-item-350-keys-in-settings.png
+docs/screenshots/r1314-item-350-keys-recording.png
+docs/screenshots/r1314-item-350-keys-refused.png
+docs/screenshots/r1314-item-350-menu-button.png
+docs/screenshots/r1314-item-350-menu-pointer.png
+docs/screenshots/r1314-item-350-menu-space.png
+docs/screenshots/r1314-item-350-picker-slash.png
 LIST
 )
 while read -r img; do
