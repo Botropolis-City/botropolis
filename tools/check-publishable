@@ -362,6 +362,8 @@ docs/screenshots/r1218-item-255-road-full-zoom-day.png
 docs/screenshots/r1218-item-255-road-full-zoom-night.png
 docs/screenshots/r1218-item-255-team-line.png
 docs/screenshots/r1218-item-255-team-vans.png
+docs/screenshots/r1264-item-344-badge.png
+docs/screenshots/r1264-item-344-board.png
 LIST
 )
 while read -r img; do
