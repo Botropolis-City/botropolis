@@ -45,7 +45,7 @@ func TestLineForms(t *testing.T) {
 
 	// Item 348, slice 4: a link says which site it leads into, and what
 	// the site's station said of it: unlit while it waits on another,
-	// dashed when it joined on a guess (Aria, 2026-11-07).
+	// dashed when it joined on a guess (Aria, 2026-11-06).
 	t.Run("when the line is drawn in any form", func(t *testing.T) {
 		c := city.Build(withGroups(spread), city.NewLayout())
 		require.Len(t, c.Lines, 1)

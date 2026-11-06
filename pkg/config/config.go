@@ -71,7 +71,7 @@ const (
 	TowerLinesAll       = "all"
 	// KeyGroupLineForm is how a group's line is drawn: between its
 	// districts, as its neighbourhoods' outlines and the links between
-	// them, or session to session (Aria, 2026-11-07, item 348).
+	// them, or session to session (Aria, 2026-11-06, item 348).
 	KeyGroupLineForm        = "group_line_form"
 	GroupLineDistricts      = "districts"
 	GroupLineNeighbourhoods = "neighbourhoods"

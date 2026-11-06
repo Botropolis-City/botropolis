@@ -2,7 +2,7 @@ package city
 
 // LineForm is how a group's line is drawn, the group_line_form setting:
 // between its districts, the default, as its neighbourhoods' outlines
-// and the links between them, or session to session (Aria, 2026-11-07,
+// and the links between them, or session to session (Aria, 2026-11-06,
 // item 348). Stations are not drawn in any of them.
 type LineForm int
 

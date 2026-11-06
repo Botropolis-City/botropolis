@@ -10,7 +10,7 @@ import (
 
 // Item 348: a group's line runs between its districts by default, or
 // outlines its neighbourhoods and links them, or runs session to session
-// (Aria, 2026-11-07).
+// (Aria, 2026-11-06).
 func TestGroupLineFormKey(t *testing.T) {
 	forms := []string{config.GroupLineDistricts, config.GroupLineNeighbourhoods, config.GroupLineSessions}
 
