@@ -10,6 +10,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 type recordingActor struct{ done []city.Action }
@@ -277,6 +278,16 @@ func TestMoveToGroup(t *testing.T) {
 			t.Run("it should do nothing", func(t *testing.T) {
 				assert.Equal(t, city.Action{}, dropAction(a, city.Hit{}))
 			})
+		})
+	})
+}
+
+// Item 350: F2 on City Hall's board opens the picker over the board, and
+// the board's rows read through its plate.
+func TestPickerPlate(t *testing.T) {
+	t.Run("when the picker is drawn", func(t *testing.T) {
+		t.Run("its plate should be opaque", func(t *testing.T) {
+			assert.Equal(t, uint8(0xff), (&picker{}).plate(ui.NewTheme(1)).A)
 		})
 	})
 }

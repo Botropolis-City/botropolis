@@ -2,6 +2,7 @@ package render
 
 import (
 	"image"
+	"image/color"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -254,7 +255,7 @@ func (p *picker) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.mu.Lock()
 	p.rect = panel
 	g.mu.Unlock()
-	g.roundRect(screen, panel, th.Radius(), th.Palette.Panel)
+	g.roundRect(screen, panel, th.Radius(), p.plate(th))
 	x, y := panel.Min.X+grid*2, panel.Min.Y+grid*2
 	g.text(screen, city.Point{X: x, Y: y}, g.clip(p.title(), panelWidth-grid*4, ui.Title), ui.Title, th.Palette.Text)
 	y += title + grid
@@ -326,4 +327,12 @@ func (g *Game) drawCarry(screen *ebiten.Image, cam *city.Camera, cursor city.Poi
 	from := cam.WorldToScreen(g.carrying.Rect.Center())
 	g.dashed(screen, from, cursor, 2, 6, colorLineInk)
 	g.fillCircle(screen, float32(cursor.X), float32(cursor.Y), 4, colorLineInk)
+}
+
+// plate is the picker's fill: opaque, since F2 opens it over City Hall's
+// board and the board's rows read through it (item 350).
+func (p *picker) plate(th ui.Theme) color.NRGBA {
+	fill := th.Palette.Panel
+	fill.A = 0xff
+	return fill
 }
