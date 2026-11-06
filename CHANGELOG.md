@@ -29,9 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A building's card says which site of the line it is and what the site waits on.
   Dropping a carried building on a link, or on any building in a group, moves it into that group.
   Pull requests opened outside a group, and districts only a coordinator's subagents worked in, are no longer drawn on the map; the dive and the stand-up still list them.
-
-### Changed
-
 - **Pointing at a session in a group lights the whole group.**
   The rest of the city fades, as it does when a group is focused, and in the Connections lens the towers that session calls stay lit with only its own lines to them.
   A session in no group, or alone on the map in its group, lights as before, and a selected session with the pointer elsewhere still lights only itself.
