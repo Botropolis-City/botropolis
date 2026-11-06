@@ -150,6 +150,17 @@ func (g *Game) litOnGround(c *city.City) uint64 {
 	for _, d := range c.Districts {
 		put(g.lit.FadesDistrict(d))
 	}
+	// A beam is lit when its tower and its building both are (item
+	// 347), so the lit towers and buildings decide every beam's look. A
+	// bare building under the pointer puts nothing else in the key, so
+	// without these, pointing from one session calling servers to another
+	// kept the first one's beams lit (items 347, 343).
+	for _, t := range c.Towers {
+		put(g.lit.HasTower(t))
+	}
+	for _, b := range c.Buildings() {
+		put(g.lit.HasBuilding(b))
+	}
 	return h.Sum64() | 1
 }
 

@@ -280,6 +280,38 @@ func TestTheGroundKey(t *testing.T) {
 		})
 	})
 
+	// Item 347 made the beams read what the highlight lights, so the key
+	// has to read it too (items 347, 343).
+	t.Run("when the pointer moves from one session calling servers to another in the servers view", func(t *testing.T) {
+		// Its own city: the subtests before this one move the shared
+		// snapshot, and this one reads which sessions call which servers.
+		gc := newGroundCity(t)
+		gc.scene.SetView(city.ViewServers)
+		building := func(id string) *city.Building {
+			for _, b := range gc.c.Buildings() {
+				if b.Session.ID == id {
+					return b
+				}
+			}
+			t.Fatalf("no building %s", id)
+			return nil
+		}
+		g := &Game{scene: gc.scene, theme: ui.NewTheme(1)}
+		gc.ground(g, city.Hit{Building: building("a")})
+		var lit int
+		for _, b := range gc.c.Beams() {
+			if g.lit.HasBeam(b) {
+				lit++
+			}
+		}
+		require.Equal(t, 2, lit, "precondition: the pointed-at session's two beams are lit")
+		kept := gc.ground(g, city.Hit{Building: building("c")})
+
+		t.Run("it should keep the ground composed afresh, with the other session's beams lit", func(t *testing.T) {
+			assert.Equal(t, gc.fresh(g, city.Hit{Building: building("c")}), kept)
+		})
+	})
+
 	// Whatever composeStatic comes to read, a walk of the pointer, the
 	// view and the selection through the city should never leave the
 	// ground kept where the ground composed fresh differs. The seed is
