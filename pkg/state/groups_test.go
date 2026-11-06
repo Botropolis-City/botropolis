@@ -200,4 +200,39 @@ func TestLoaderGroups(t *testing.T) {
 			})
 		})
 	})
+
+	// Item 343: a teammate is in its lead's group, whatever its own
+	// prompts say.
+	t.Run("when a session in a group leads a team whose teammate shares nothing with it", func(t *testing.T) {
+		const sidT = "3333aaaa-0000-0000-0000-000000000000"
+		const infraDir = "/home/avesta/workspaces/github/acme/infra"
+		teamLine := func(sessionID, cwd, ts, agent string) string {
+			return `{"type":"user","isSidechain":false,"timestamp":"` + ts + `","sessionId":"` + sessionID + `","cwd":"` + cwd +
+				`","teamName":"crew","agentName":"` + agent + `","message":{"role":"user","content":"hi"}}`
+		}
+		home := groupedHome(t)
+		home.Transcript(sidA, libDir,
+			teamLine(sidA, libDir, "2026-09-16T10:00:00.000Z", ""),
+			helpers.AssistantReply(sidA, "msg_01", "2026-09-16T10:00:10.000Z"))
+		home.Transcript(sidT, infraDir,
+			teamLine(sidT, infraDir, "2026-09-16T10:05:00.000Z", "worker"),
+			helpers.AssistantReply(sidT, "msg_03", "2026-09-16T10:05:10.000Z"))
+		home.Prompt(sidT, infraDir, "open the gateway", time.Date(2026, 9, 16, 10, 5, 0, 0, time.UTC))
+		snapshot, err := state.NewLoader(home.Path, dead).Load(now)
+		require.NoError(t, err)
+		lead, mate := sessionByID(t, snapshot, sidA), sessionByID(t, snapshot, sidT)
+
+		t.Run("it should name the lead on the teammate", func(t *testing.T) {
+			assert.Equal(t, sidA, mate.Lead)
+		})
+
+		t.Run("it should put the teammate in the lead's group", func(t *testing.T) {
+			require.NotEmpty(t, lead.Group)
+			assert.Equal(t, lead.Group, mate.Group)
+		})
+
+		t.Run("it should say the teammate follows its lead", func(t *testing.T) {
+			assert.Equal(t, "follows its lead "+lead.Title, mate.GroupJoined)
+		})
+	})
 }

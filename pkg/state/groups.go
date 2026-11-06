@@ -114,6 +114,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 		return err
 	}
 	resolveMessaged(snapshot.Sessions)
+	resolveLeads(snapshot.Sessions, snapshot.Teams)
 	c := &l.groups
 	signature := c.parts.signature(snapshot.Sessions)
 	var storeKey fileKey
@@ -303,7 +304,7 @@ func signatureLine(s Session) string {
 	if s.Packed {
 		packed = "packed"
 	}
-	return strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Job, ended, packed,
+	return strings.Join([]string{s.ID, s.CWD, s.Branch, s.Team, s.Lead, s.Job, ended, packed,
 		strings.Join(visits, "\x02"), strings.Join(s.Messaged, "\x02")}, "\x00")
 }
 
@@ -363,7 +364,7 @@ func enrich(m *group.Member, s *Session) {
 	if s.CWD != "" {
 		m.Dir = s.CWD
 	}
-	m.Branch, m.Team, m.Job = s.Branch, s.Team, s.Job
+	m.Branch, m.Team, m.Lead, m.Job = s.Branch, s.Team, s.Lead, s.Job
 	if s.State == Resting {
 		m.Ended = s.LastActivity
 	}
@@ -377,6 +378,44 @@ func enrich(m *group.Member, s *Session) {
 	}
 	sort.Slice(m.Visited, func(i, j int) bool { return m.Visited[i].Dir < m.Visited[j].Dir })
 	m.Messaged = s.Messaged
+}
+
+// resolveLeads names each teammate's lead, the way placeCamps finds a
+// camp's: the roster's lead for the team, else the team's first-started
+// session with no agent. A team whose sessions all carry an agent has
+// no lead, and a lead names none (item 343).
+func resolveLeads(sessions []Session, teams []claude.Team) {
+	lead := map[string]string{}
+	for i := range sessions {
+		s := &sessions[i]
+		if s.Team == "" || s.Agent != "" {
+			continue
+		}
+		if at, ok := lead[s.Team]; !ok || s.StartedAt.Before(sessions[sessionIndex(sessions, at)].StartedAt) {
+			lead[s.Team] = s.ID
+		}
+	}
+	for _, t := range teams {
+		if t.LeadSessionID != "" {
+			lead[t.Name] = t.LeadSessionID
+		}
+	}
+	for i := range sessions {
+		s := &sessions[i]
+		s.Lead = ""
+		if l, ok := lead[s.Team]; ok && l != s.ID {
+			s.Lead = l
+		}
+	}
+}
+
+func sessionIndex(sessions []Session, id string) int {
+	for i := range sessions {
+		if sessions[i].ID == id {
+			return i
+		}
+	}
+	return -1
 }
 
 // resolveMessaged names the sessions each session messaged, from the

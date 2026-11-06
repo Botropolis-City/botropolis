@@ -118,8 +118,12 @@ type Session struct {
 	// GroupLikely is whether it joined on a guess, drawn as a dashed tie.
 	GroupLikely bool   `json:"groupLikely,omitempty"`
 	Agent       string `json:"agent,omitempty"`
-	// Leads is the team the session leads (item 253).
+	// Leads is the team the session leads (item 253), and Lead the
+	// session leading this one's team when it is a teammate: the
+	// roster's lead, else the team's session with no agent, as the camp
+	// has it. Grouping keeps a teammate with its lead (item 343).
 	Leads    string         `json:"leads,omitempty"`
+	Lead     string         `json:"lead,omitempty"`
 	Messages map[string]int `json:"messages,omitempty"`
 	// ToolCalls counts the main thread's tool calls, for the pulses up
 	// its building (item 89).

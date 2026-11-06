@@ -67,6 +67,7 @@ var VeilTable = map[string]VeilKind{
 	"Session.SubagentDirs":                VeilPath,
 	"Session.Team":                        VeilTeam,
 	"Session.Leads":                       VeilTeam,
+	"Session.Lead":                        VeilKeep,
 	"Session.Group":                       VeilKeep,
 	"Session.GroupJoined":                 VeilText,
 	"Session.Suggested":                   VeilKeep,

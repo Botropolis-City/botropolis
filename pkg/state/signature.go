@@ -17,13 +17,13 @@ type signatureParts struct {
 }
 
 type signaturePart struct {
-	cwd, branch, team, job string
-	resting, packed        bool
-	ended                  time.Time
-	visits                 map[string]int
-	messaged               []string
-	sum                    [sha256.Size]byte
-	gen                    int
+	cwd, branch, team, lead, job string
+	resting, packed              bool
+	ended                        time.Time
+	visits                       map[string]int
+	messaged                     []string
+	sum                          [sha256.Size]byte
+	gen                          int
 }
 
 // signature is groupSignature's, in a form that changes whenever it
@@ -42,7 +42,7 @@ func (p *signatureParts) signature(sessions []Session) [sha256.Size]byte {
 			if part != nil && part.gen == p.gen {
 				return groupSignature(sessions)
 			}
-			part = &signaturePart{cwd: s.CWD, branch: s.Branch, team: s.Team, job: s.Job, resting: s.State == Resting, packed: s.Packed,
+			part = &signaturePart{cwd: s.CWD, branch: s.Branch, team: s.Team, lead: s.Lead, job: s.Job, resting: s.State == Resting, packed: s.Packed,
 				ended: endedAt(s), visits: s.Visits, messaged: s.Messaged, sum: sha256.Sum256([]byte(signatureLine(*s)))}
 			p.parts[s.ID] = part
 		}
@@ -58,7 +58,7 @@ func (p *signatureParts) signature(sessions []Session) [sha256.Size]byte {
 }
 
 func (part *signaturePart) same(s *Session) bool {
-	return part.cwd == s.CWD && part.branch == s.Branch && part.team == s.Team && part.job == s.Job &&
+	return part.cwd == s.CWD && part.branch == s.Branch && part.team == s.Team && part.lead == s.Lead && part.job == s.Job &&
 		part.resting == (s.State == Resting) && part.packed == s.Packed && part.ended.Equal(endedAt(s)) && maps.Equal(part.visits, s.Visits) && slices.Equal(part.messaged, s.Messaged)
 }
 
