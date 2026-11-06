@@ -7,136 +7,107 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
-	"botropolis.city/botropolis/pkg/state"
-	"botropolis.city/botropolis/pkg/ui"
 )
 
-// Each group is a line in neutral ink across its districts, labelled
-// with its short name; its stations carry the tones of whose move each
-// site is, so identity comes from the label and the route and status
-// from colour (item 87).
+// Each group is a line in neutral ink, drawn in the form group_line_form
+// says: between its districts, as its neighbourhoods' outlines and the
+// links between them, or session to session (item 348). Stations are no
+// longer drawn; whose move a site is shows on its buildings and its
+// district's sign, and what a site waits on on its buildings' cards.
 var (
 	colorLineInk    = color.NRGBA{0xe8, 0xe6, 0xdf, 0xff}
 	colorLineCasing = color.NRGBA{0x1d, 0x20, 0x28, 0xff}
-	// colorTeammate is a pull request opened outside the group's
-	// sessions (item 90): grey, because whose move it is there is known
-	// only as far as the group's own sessions saw it.
-	colorTeammate = color.NRGBA{0x8a, 0x8d, 0x96, 0xff}
 )
 
 // lineFaded is how much of a line is left while another group has the
 // focus.
 const lineFaded = 0x40
 
-// officeBox is a line's site office on screen: a square a little larger
-// than a station of the given radius, so the head of the line reads as
-// the place the work is run from (item 90).
-func officeBox(at city.Point, radius float64) city.Rect {
-	half := radius * 1.4
-	return city.RectAt(at.X-half, at.Y-half, half*2, half*2)
-}
-
-// stationTone is a station's centre: its move's tone, or the line's own
-// dark ink while it waits on another (item 90).
-func stationTone(th ui.Theme, st city.Station) color.NRGBA {
-	if st.Unlit {
-		return colorLineCasing
-	}
-	if st.Teammate != nil {
-		return colorTeammate
-	}
-	return th.Color(ui.MoveTone(st.Move))
-}
-
-// groupLines draws the groups' lines and their stations. With lit set
-// it draws only the stations a hovered car keeps lit, to go over the
-// faded rest, which a call without it draws (item 108).
+// groupLines draws the groups' lines in the scene's form. With lit set
+// it draws only the links a hovered car keeps lit, at full strength over
+// the faded rest, which a call without it draws and leaves them out of
+// (item 108).
 func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
-	if g.scene.LineForm() != city.FormStations {
-		if !lit {
-			g.lineShapes(screen, cam)
-		}
-		return
-	}
-	lines := g.scene.Lines()
-	focus := g.scene.FocusedGroup()
+	c := g.scene.City()
 	width := math.Max(2, 3*cam.Zoom)
-	radius := math.Max(4, 6*cam.Zoom)
-	for li := range lines {
-		l := &lines[li]
+	dash := 6 * cam.Zoom
+	focus := g.scene.FocusedGroup()
+	form := g.scene.LineForm()
+	for _, s := range g.scene.Shapes() {
 		ink, casing := colorLineInk, colorLineCasing
-		if focus != "" && l.Group.ID != focus {
+		if focus != "" && s.Group != focus {
 			ink.A, casing.A = lineFaded, lineFaded
 		}
-		points := make([]city.Point, len(l.Stations))
-		for i, st := range l.Stations {
-			points[i] = cam.WorldToScreen(st.At)
-		}
-		if lit {
-			for i, st := range l.Stations {
-				if g.stationLit(st.District) {
-					g.station(screen, l, i, points[i], radius, ink, casing, stationTone(g.theme, st))
-				}
-			}
-			continue
-		}
-		var office city.Point
-		if l.Office != nil && len(points) > 0 {
-			office = cam.WorldToScreen(l.Office.At)
-		}
-		// Its strokes are kept while they are drawn from the same
-		// (item 212); its stations, office and label are drawn after.
-		dash := 6 * cam.Zoom
-		key := g.lineKey(l, points, office, width, dash, [4]uint8{ink.R, ink.G, ink.B, ink.A}, [4]uint8{casing.R, casing.G, casing.B, casing.A})
-		g.keepOverlay(kindLines, key, func() {
-			if l.Office != nil && len(points) > 0 {
-				g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width+2), casing)
-				g.strokeLine(screen, float32(office.X), float32(office.Y), float32(points[0].X), float32(points[0].Y), float32(width), ink)
-			}
-			for i := 1; i < len(points); i++ {
-				a, b := points[i-1], points[i]
-				if l.Stations[i].Dashed {
-					g.dashed(screen, a, b, width+2, dash, casing)
-					g.dashed(screen, a, b, width, dash, ink)
-					continue
-				}
-				g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width+2), casing)
-				g.strokeLine(screen, float32(a.X), float32(a.Y), float32(b.X), float32(b.Y), float32(width), ink)
-			}
-		})
-		for i, st := range l.Stations {
-			if g.stationLit(st.District) {
+		var strokes []lineStroke
+		for i, l := range s.Links {
+			if g.linkLit(c, l) != lit {
 				continue
 			}
-			tone := stationTone(g.theme, st)
-			if focus != "" && l.Group.ID != focus {
-				tone.A = lineFaded
+			site := s.LinkSites[i]
+			strokes = append(strokes, lineStroke{a: cam.WorldToScreen(l[0]), b: cam.WorldToScreen(l[1]), unlit: site.Unlit, dashed: site.Dashed})
+		}
+		if !lit {
+			for _, o := range s.Outlines {
+				for _, e := range o {
+					strokes = append(strokes, lineStroke{a: cam.WorldToScreen(e[0]), b: cam.WorldToScreen(e[1])})
+				}
 			}
-			g.station(screen, l, i, points[i], radius, ink, casing, tone)
 		}
-		if l.Office != nil && len(points) > 0 {
-			box := officeBox(office, radius)
-			move, _ := state.GroupMove([]state.Session{l.Office.Building.Session})
-			tone := g.theme.Color(ui.MoveTone(move))
-			if focus != "" && l.Group.ID != focus {
-				tone.A = lineFaded
-			}
-			g.fillRect(screen, float32(box.Min.X-1.5), float32(box.Min.Y-1.5), float32(box.Width()+3), float32(box.Height()+3), casing)
-			g.fillRect(screen, float32(box.Min.X), float32(box.Min.Y), float32(box.Width()), float32(box.Height()), ink)
-			inner := box.Inset(box.Width() * 0.22)
-			g.fillRect(screen, float32(inner.Min.X), float32(inner.Min.Y), float32(inner.Width()), float32(inner.Height()), tone)
+		if len(strokes) == 0 {
+			continue
 		}
-		if len(points) > 0 && g.labelsVisible() && l.Group.Short != "" {
-			g.queueStationLabel(l.Stations[0].District, points[0], radius, l.Group.Short, ink, casing)
+		draw := func() { g.strokeLines(screen, strokes, width, dash, ink, casing) }
+		if lit {
+			draw()
+			continue
 		}
+		// Its strokes are kept while they are drawn from the same
+		// (item 212).
+		g.keepOverlay(kindLines, g.lineKey(form, strokes, width, dash, ink, casing), draw)
 	}
 }
 
-// station draws one station of a line and notes it under the pointer.
-func (g *Game) station(screen *ebiten.Image, l *city.Line, i int, p city.Point, radius float64, ink, casing, tone color.NRGBA) {
-	g.fillCircle(screen, float32(p.X), float32(p.Y), float32(radius+1.5), casing)
-	g.fillCircle(screen, float32(p.X), float32(p.Y), float32(radius), ink)
-	g.fillCircle(screen, float32(p.X), float32(p.Y), float32(radius*0.6), tone)
-	g.noteHit(city.RectAt(p.X-radius, p.Y-radius, radius*2, radius*2),
-		city.Hit{Station: &city.StationHit{Line: l, Index: i}})
+// lineStroke is one stroke of a line on screen: a link, unlit while the
+// site it leads into waits on another and dashed when it joined on a
+// guess, or an edge of a neighbourhood's outline.
+type lineStroke struct {
+	a, b          city.Point
+	unlit, dashed bool
+}
+
+// strokeLines draws a line's strokes, cased: an unlit one in the casing
+// alone, as an unlit station's centre was.
+func (g *Game) strokeLines(screen *ebiten.Image, strokes []lineStroke, width, dash float64, ink, casing color.NRGBA) {
+	for _, s := range strokes {
+		if s.dashed {
+			g.dashed(screen, s.a, s.b, width+2, dash, casing)
+			continue
+		}
+		g.strokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), float32(width+2), casing)
+	}
+	for _, s := range strokes {
+		fill := ink
+		if s.unlit {
+			fill = casing
+		}
+		if s.dashed {
+			g.dashed(screen, s.a, s.b, width, dash, fill)
+			continue
+		}
+		g.strokeLine(screen, float32(s.a.X), float32(s.a.Y), float32(s.b.X), float32(s.b.Y), float32(width), fill)
+	}
+}
+
+// linkLit is whether a link touches a district a hovered car keeps lit,
+// so it is drawn over the fade rather than in it (item 108's rule for
+// stations).
+func (g *Game) linkLit(c *city.City, l [2]city.Point) bool {
+	for _, p := range l {
+		for _, d := range c.Districts {
+			if d.Rect.Contains(p) && g.stationLit(d) {
+				return true
+			}
+		}
+	}
+	return false
 }

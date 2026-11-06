@@ -34,7 +34,7 @@ func (b *Building) face(now time.Time, v View, generated string) Card {
 	if g := b.Group; g != nil {
 		card.Group = g.Name
 		if b.Station > 0 {
-			card.Group += fmt.Sprintf(" — station %d of %d", b.Station, b.Stations)
+			card.Group += fmt.Sprintf(" — site %d of %d", b.Station, b.Stations)
 		}
 	} else if g := b.Suggested; g != nil {
 		card.Group = "perhaps " + g.Name + ", " + s.SuggestedWhy
@@ -117,7 +117,7 @@ func (b *Building) numbers(v View, now time.Time) []Number {
 				station = fmt.Sprintf("%d of %d", b.Station, b.Stations)
 			}
 		}
-		return []Number{{Label: "station", Value: station}, {Label: "in group", Value: members}, idle}
+		return []Number{{Label: "site", Value: station}, {Label: "in group", Value: members}, idle}
 	}
 	return []Number{context, spent, idle}
 }

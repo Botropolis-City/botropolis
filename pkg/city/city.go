@@ -60,8 +60,11 @@ type Building struct {
 	// on the map (item 333).
 	Suggested *state.Group
 	// Station is where the building's project stands on its group's
-	// line, counting from 1, of Stations.
+	// line, counting from 1, of Stations: its site. Waits is what the
+	// site waits on, or what unblocked it, which its station said before
+	// stations stopped being drawn (item 348).
 	Station, Stations int
+	Waits             []string
 	// Packed is a crate in the depot; Hue is its district's colour, an
 	// index into ContainerHues (item 86).
 	Packed bool
@@ -764,6 +767,8 @@ func (b *Building) table(now time.Time) []string {
 		if len(g.MemberTitles) > 0 {
 			lines = append(lines, "members  "+MemberList(g.MemberTitles, 6))
 		}
+		// What its site waits on, or what unblocked it (item 348).
+		lines = append(lines, b.Waits...)
 	}
 	if b.Vacant {
 		lines = append(lines, "empty    nothing typed yet; prune clears it after an hour")

@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Moving a session into a group, out of one, or taking it out carries its building to its new lot, and the move is drawn: the building fades out where it stood, a truck carries its crate across, as packing does, and it fades in where it lands.
   A team moves as a convoy.
   Groups the city guesses move nothing, so no building moves unless you moved it.
+- **How a group's line is drawn is a setting.**
+  `group_line_form`, in the settings panel beside group lines, draws a group's line between its districts, the default, as outlines round its buildings in each district with links between them, or from building to building.
+  It changes the map at once.
+
+### Changed
+
+- **A group's line has no stations.**
+  The line runs between buildings, not to dots floating beside them.
+  A link into a site that waits on another is drawn dark, and one into a site joined on a guess is dashed.
+  Pointing at a link shows what its station showed: the group, the site and the route.
+  A building's card says which site of the line it is and what the site waits on.
+  Dropping a carried building on a link, or on any building in a group, moves it into that group.
+  Pull requests opened outside a group, and districts only a coordinator's subagents worked in, are no longer drawn on the map; the dive and the stand-up still list them.
 
 ### Changed
 

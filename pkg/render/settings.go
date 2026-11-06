@@ -70,6 +70,10 @@ func (g *Game) applySetting(s ui.Setting) {
 		g.scene.SetGroupLines(s.Value == "on")
 	case config.KeyTowerLines:
 		g.scene.SetDepotBeams(s.Value == config.TowerLinesAll)
+	case config.KeyGroupLineForm:
+		if f, ok := city.ParseLineForm(s.Value); ok {
+			g.scene.SetLineForm(f)
+		}
 	case config.KeyLabels:
 		g.scene.SetLabels(s.Value == config.LabelsShown)
 	case config.KeyGoneSessions:

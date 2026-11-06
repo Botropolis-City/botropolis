@@ -24,14 +24,6 @@ func TestLineFormStations(t *testing.T) {
 		return n
 	}
 
-	t.Run("when the form is stations", func(t *testing.T) {
-		rc := newRecordCity(t)
-
-		t.Run("it should draw the stations", func(t *testing.T) {
-			assert.Positive(t, stations(rc))
-		})
-	})
-
 	for _, form := range []city.LineForm{city.FormSessions, city.FormDistricts, city.FormNeighbourhoods} {
 		t.Run("when the form is "+form.String(), func(t *testing.T) {
 			rc := newRecordCity(t)

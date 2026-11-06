@@ -90,6 +90,9 @@ func TestKeepingTheGroupLines(t *testing.T) {
 		{"the camera pans by part of a pixel", func(rc *recordCity) { rc.scene.Pan(city.Point{X: 0.4}) }},
 		{"the camera pans by whole pixels", func(rc *recordCity) { rc.scene.Pan(city.Point{X: 9, Y: -7}) }},
 		{"a group is focused", func(rc *recordCity) { rc.scene.FocusGroup(rc.scene.Lines()[0].Group.ID) }},
+		// Item 348: group_line_form re-shapes the lines at once, from
+		// the city already built, and their key names the form.
+		{"the line form changes", func(rc *recordCity) { rc.scene.SetLineForm(city.FormSessions) }},
 	} {
 		t.Run("when "+c.name, func(t *testing.T) {
 			rc := settled(t)

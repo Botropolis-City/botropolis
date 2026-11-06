@@ -69,6 +69,13 @@ const (
 	// TowerLinesBuildings and TowerLinesAll are its two values.
 	TowerLinesBuildings = "buildings"
 	TowerLinesAll       = "all"
+	// KeyGroupLineForm is how a group's line is drawn: between its
+	// districts, as its neighbourhoods' outlines and the links between
+	// them, or session to session (Aria, 2026-11-07, item 348).
+	KeyGroupLineForm        = "group_line_form"
+	GroupLineDistricts      = "districts"
+	GroupLineNeighbourhoods = "neighbourhoods"
+	GroupLineSessions       = "sessions"
 	// KeyDistrictType is how a new district's type is chosen: random,
 	// guess, or one type for all. Item 109.
 	KeyDistrictType = "district_type"
@@ -204,6 +211,8 @@ type Config struct {
 	Light string
 	// TowerLines is which sessions a tower's lines run to (item 347).
 	TowerLines string
+	// GroupLineForm is how a group's line is drawn (item 348).
+	GroupLineForm string
 }
 
 // ParseScriptedRuns reads scripted_runs: hidden or shown, true for
@@ -243,6 +252,16 @@ func ParseTowerLines(value string) (string, error) {
 		return value, nil
 	}
 	return "", fmt.Errorf("unknown %s %q: use %s or %s", KeyTowerLines, value, TowerLinesBuildings, TowerLinesAll)
+}
+
+// ParseGroupLineForm reads group_line_form: districts, neighbourhoods or
+// sessions. Item 348.
+func ParseGroupLineForm(value string) (string, error) {
+	switch value {
+	case GroupLineDistricts, GroupLineNeighbourhoods, GroupLineSessions:
+		return value, nil
+	}
+	return "", fmt.Errorf("unknown %s %q: use %s, %s or %s", KeyGroupLineForm, value, GroupLineDistricts, GroupLineNeighbourhoods, GroupLineSessions)
 }
 
 func NewViper() *viper.Viper {
@@ -285,6 +304,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyOnClose, OnCloseAsk)
 	v.SetDefault(KeyLight, LightLive)
 	v.SetDefault(KeyTowerLines, TowerLinesBuildings)
+	v.SetDefault(KeyGroupLineForm, GroupLineDistricts)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -418,6 +438,9 @@ func New(v *viper.Viper) (*Config, error) {
 		return nil, err
 	}
 	if cfg.TowerLines, err = ParseTowerLines(v.GetString(KeyTowerLines)); err != nil {
+		return nil, err
+	}
+	if cfg.GroupLineForm, err = ParseGroupLineForm(v.GetString(KeyGroupLineForm)); err != nil {
 		return nil, err
 	}
 	if err := checkLadder(cfg.ShutteredDays, cfg.OvergrownDays); err != nil {

@@ -6,12 +6,13 @@ package config
 // acceptance test holds each list to the parser that reads it, so the
 // list cannot promise a value the parser has stopped accepting.
 var Values = map[string][]string{
-	KeyLiveliness:   {"still", "calm", "steady", "lively"},
-	KeyDetail:       {"full", "plain"},
-	KeyDistrictType: {"random", "guess", "residential", "shopping", "office", "industrial"},
-	KeyUsageRefresh: {UsageManual},
-	KeyScriptedRuns: {ScriptedHidden, ScriptedShown},
-	KeyOnClose:      {OnCloseAsk, OnCloseTray},
-	KeyLight:        {LightLive, LightNight, LightDay},
-	KeyTowerLines:   {TowerLinesBuildings, TowerLinesAll},
+	KeyLiveliness:    {"still", "calm", "steady", "lively"},
+	KeyDetail:        {"full", "plain"},
+	KeyDistrictType:  {"random", "guess", "residential", "shopping", "office", "industrial"},
+	KeyUsageRefresh:  {UsageManual},
+	KeyScriptedRuns:  {ScriptedHidden, ScriptedShown},
+	KeyOnClose:       {OnCloseAsk, OnCloseTray},
+	KeyLight:         {LightLive, LightNight, LightDay},
+	KeyTowerLines:    {TowerLinesBuildings, TowerLinesAll},
+	KeyGroupLineForm: {GroupLineDistricts, GroupLineNeighbourhoods, GroupLineSessions},
 }

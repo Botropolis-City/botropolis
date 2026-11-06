@@ -618,6 +618,7 @@ func (c *cityRunner) Run(cmd *cobra.Command) error {
 		DailyBudget:    c.config.DailyBudget,
 		Detail:         detail,
 		HideGroupLines: !c.config.GroupLines,
+		LineForm:       lineForm(c.config.GroupLineForm),
 		DepotBeams:     c.config.TowerLines == config.TowerLinesAll,
 		HideLabels:     !c.config.Labels,
 		ShowGone:       c.config.GoneSessions,
@@ -807,6 +808,7 @@ func settingsFor(cfg *config.Config) ui.Settings {
 		{Key: config.KeyTidyDays, Label: "tidy-up after days away", Options: withValue([]string{"2", "3", "7", "14", "30"}, strconv.Itoa(cfg.TidyDays)), Value: strconv.Itoa(cfg.TidyDays)},
 		{Key: config.KeyTerminal, Label: "terminal", Options: withValue(append([]string{autoValue}, control.Native().KnownTerminals()...), terminal), Value: terminal},
 		{Key: config.KeyGroupLines, Label: "group lines", Options: []string{"on", "off"}, Value: lines},
+		{Key: config.KeyGroupLineForm, Label: "group line form", Options: []string{config.GroupLineDistricts, config.GroupLineNeighbourhoods, config.GroupLineSessions}, Value: cfg.GroupLineForm},
 		{Key: config.KeyTowerLines, Label: "tower lines", Options: []string{config.TowerLinesBuildings, config.TowerLinesAll}, Value: cfg.TowerLines},
 		{Key: config.KeyLabels, Label: "labels", Options: []string{config.LabelsShown, config.LabelsHidden}, Value: labels},
 		{Key: config.KeyGoneSessions, Label: "deleted transcripts", Options: []string{config.LabelsHidden, config.LabelsShown}, Value: gone},
@@ -897,6 +899,13 @@ func groupSource(cfg *config.Config) func([]state.Session, time.Time) (*group.Gu
 		}
 		return group.NewGuesser(state.GuessMembers(history, sessions, now), memory), state.RecentDirs(history)
 	}
+}
+
+// lineForm is the form group_line_form names, or the districts form for
+// a value config would have refused (item 348).
+func lineForm(value string) city.LineForm {
+	f, _ := city.ParseLineForm(value)
+	return f
 }
 
 func statsValue(on bool) string {

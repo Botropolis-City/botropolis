@@ -26,15 +26,15 @@ func fitted(t *testing.T, demo string) *render.Drive {
 	return d
 }
 
-// Item 102: in a fitted view of a demo, no group badge, station label,
+// Item 102: in a fitted view of a demo, no group badge,
 // district sign, first sighting's caption or road tag covers another.
 func TestLabelsDoNotOverlap(t *testing.T) {
 	for _, c := range []struct {
 		demo  string
 		kinds []string
 	}{
-		{"workday", []string{"sign", "station label", "badge", "caption"}},
-		{"workshop", []string{"station label", "badge", "tag"}},
+		{"workday", []string{"sign", "badge", "caption"}},
+		{"workshop", []string{"badge", "tag"}},
 	} {
 		t.Run("when the "+c.demo+" demo is fitted at 1600 by 900", func(t *testing.T) {
 			labels := fitted(t, c.demo).Shown().Labels

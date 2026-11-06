@@ -103,8 +103,8 @@ func TestBuildingCardFace(t *testing.T) {
 		s.PointerMove(centreOf(t, s, "b"))
 		card, _ := s.Card()
 
-		t.Run("it should name the group and its station, one per project in the order the group reached it", func(t *testing.T) {
-			assert.Equal(t, "Rate-limit headers — station 2 of 3", card.Group)
+		t.Run("it should name the group and its site, one per project in the order the group reached it", func(t *testing.T) {
+			assert.Equal(t, "Rate-limit headers — site 2 of 3", card.Group)
 		})
 	})
 
@@ -127,7 +127,7 @@ func TestBuildingCardFace(t *testing.T) {
 			city.ViewModels:    "model",
 			city.ViewFanout:    "in flight",
 			city.ViewHealth:    "errors",
-			city.ViewGroups:    "station",
+			city.ViewGroups:    "site",
 		}
 		for _, v := range city.Views {
 			t.Run("when it is "+v.Name(), func(t *testing.T) {

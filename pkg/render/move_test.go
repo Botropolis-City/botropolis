@@ -241,10 +241,35 @@ func TestMoveToGroup(t *testing.T) {
 		a := g.scene.City().Buildings()[0]
 		line := &city.Line{Group: &groups[1]}
 
-		t.Run("and it lands on a line's station", func(t *testing.T) {
+		// Item 348: a link of a line answers the pointer as the site it
+		// leads into, so landing on one is landing on that site.
+		t.Run("and it lands on a line's link", func(t *testing.T) {
 			t.Run("it should move the session to that line's group", func(t *testing.T) {
 				assert.Equal(t, city.Action{Kind: city.ActionMove, SessionID: a.Session.ID, Group: "g2"},
 					dropAction(a, city.Hit{Station: &city.StationHit{Line: line}}))
+			})
+		})
+
+		t.Run("and it lands on a building in a group", func(t *testing.T) {
+			grouped := &city.Building{Session: state.Session{ID: "other"}, Group: &groups[1]}
+
+			t.Run("it should move the session to that group", func(t *testing.T) {
+				assert.Equal(t, city.Action{Kind: city.ActionMove, SessionID: a.Session.ID, Group: "g2"},
+					dropAction(a, city.Hit{Building: grouped}))
+			})
+		})
+
+		t.Run("and it lands on a building in no group", func(t *testing.T) {
+			loose := &city.Building{Session: state.Session{ID: "other"}}
+
+			t.Run("it should do nothing", func(t *testing.T) {
+				assert.Equal(t, city.Action{}, dropAction(a, city.Hit{Building: loose}))
+			})
+		})
+
+		t.Run("and it lands on itself", func(t *testing.T) {
+			t.Run("it should do nothing", func(t *testing.T) {
+				assert.Equal(t, city.Action{}, dropAction(a, city.Hit{Building: a}))
 			})
 		})
 

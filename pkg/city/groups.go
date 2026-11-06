@@ -23,7 +23,7 @@ func (c *City) placeGroups(groups []state.Group) {
 		if b.Group == nil && b.Session.Suggested != "" {
 			b.Suggested = byID[b.Session.Suggested]
 		}
-		b.Station, b.Stations = 0, 0
+		b.Station, b.Stations, b.Waits = 0, 0, nil
 	}
 	c.placeLines()
 	for _, line := range c.Lines {
@@ -36,7 +36,7 @@ func (c *City) placeGroups(groups []state.Group) {
 			}
 			for _, b := range st.District.Buildings {
 				if b.Group == line.Group {
-					b.Station, b.Stations = i+1, len(line.Stations)
+					b.Station, b.Stations, b.Waits = i+1, len(line.Stations), st.Waits
 				}
 			}
 		}

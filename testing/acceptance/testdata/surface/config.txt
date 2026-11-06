@@ -17,6 +17,10 @@ find_key	string
 find_show_key	string
 global_shortcut	string
 gone_sessions	bool
+group_line_form	string
+group_line_form=districts
+group_line_form=neighbourhoods
+group_line_form=sessions
 group_lines	bool
 home	string
 hook_command	string

@@ -79,7 +79,7 @@ func TestLenses(t *testing.T) {
 	t.Run("for every lens", func(t *testing.T) {
 		leads := map[city.Lens]string{
 			city.LensAttention:   "context",
-			city.LensWork:        "station",
+			city.LensWork:        "site",
 			city.LensCost:        "spent",
 			city.LensCapacity:    "context",
 			city.LensHealth:      "errors",

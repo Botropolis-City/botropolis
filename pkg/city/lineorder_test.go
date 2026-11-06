@@ -57,6 +57,18 @@ func TestLineOrder(t *testing.T) {
 			assert.False(t, line.Stations[0].Unlit)
 		})
 
+		// Item 348: stations are not drawn, so a waiting site's own
+		// buildings say what it waits on.
+		t.Run("its buildings' cards should say what it waits on", func(t *testing.T) {
+			card := buildingIn(t, s.City(), "b").Card(now)
+			assert.Contains(t, card.Details, "waits on cinders until PR #41 merged")
+		})
+
+		t.Run("the cards of the site it waits on should say nothing of waiting", func(t *testing.T) {
+			card := buildingIn(t, s.City(), "a").Card(now)
+			assert.NotContains(t, card.Details, "waits on cinders until PR #41 merged")
+		})
+
 		t.Run("and the group is focused, the dive should follow the order", func(t *testing.T) {
 			require.True(t, s.FocusGroup("g1"))
 			assert.Equal(t, "cinders", s.Dive()[0].Site)
@@ -166,7 +178,12 @@ func TestLineOrder(t *testing.T) {
 	})
 
 	t.Run("when its wait is done", func(t *testing.T) {
-		line := grouped(t, claude.PRMerged).City().Lines[0]
+		s := grouped(t, claude.PRMerged)
+		line := s.City().Lines[0]
+
+		t.Run("its buildings' cards should say what unblocked it", func(t *testing.T) {
+			assert.Contains(t, buildingIn(t, s.City(), "b").Card(now).Details, "unblocked: cinders PR #41 merged")
+		})
 
 		t.Run("it should be lit", func(t *testing.T) {
 			assert.False(t, line.Stations[1].Unlit)

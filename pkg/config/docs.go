@@ -29,6 +29,7 @@ var unflagged = map[string]string{
 	KeyOnClose:        "ask or tray: what closing the window does; ask shows the quit prompt, and tray hides the city in the desktop's tray, where it keeps running, and asks instead where no tray is found",
 	KeyLight:          "live, night or day: the light the city starts in; live follows the clock, night 21:00 to 06:00, and night or day holds whatever it says, as n does, so a measurement's light does not depend on when it was taken",
 	KeyTowerLines:     "buildings or all: which sessions a water tower's lines run to; buildings leaves out the sessions packed in the depot, and all draws those too, as the Connections lens's panel switches",
+	KeyGroupLineForm:  "districts, neighbourhoods or sessions: how a group's line is drawn when group_lines is on; districts joins the nearest buildings of each district the group works in to the next, neighbourhoods outlines the group's buildings in each district and links the outlines, and sessions runs from building to building",
 }
 
 // Docs are every config key, sorted, with its help, default and

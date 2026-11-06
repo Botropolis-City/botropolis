@@ -95,6 +95,16 @@ func TestKeepsUnderACar(t *testing.T) {
 		t.Run("it should fade a station on another district", func(t *testing.T) {
 			assert.False(t, g.stationLit(district("c")))
 		})
+
+		// Item 348: stations are not drawn; a link touching one of the
+		// car's districts is drawn lit in their place.
+		t.Run("it should draw a link touching one of the car's districts lit", func(t *testing.T) {
+			assert.True(t, g.linkLit(c, [2]city.Point{district("a").Rect.Center(), district("c").Rect.Center()}))
+		})
+
+		t.Run("it should fade a link touching neither", func(t *testing.T) {
+			assert.False(t, g.linkLit(c, [2]city.Point{district("c").Rect.Center(), district("c").Rect.Center()}))
+		})
 	})
 
 	t.Run("when the pointer is on nothing", func(t *testing.T) {

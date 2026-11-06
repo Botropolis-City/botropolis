@@ -893,6 +893,14 @@ func (s *Scene) PointerMove(screen Point) {
 	world := s.camera.ScreenToWorld(screen)
 	s.spriteHover = false
 	s.hover = s.city.At(world)
+	// A group's line is drawn over the ground and the districts' floors,
+	// so off a building it answers the pointer first (item 348).
+	if s.hover.Building == nil && (s.hover.ground() || s.hover.District != nil) {
+		if link, ok := s.linkAt(world, LineHoverPixels/s.camera.Zoom); ok {
+			s.hover = link
+			return
+		}
+	}
 	if s.hover.ground() {
 		if near := s.city.Near(world, LineHoverPixels/s.camera.Zoom); near != (Hit{}) {
 			s.hover = near

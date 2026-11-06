@@ -2,6 +2,7 @@ package render
 
 import (
 	"image"
+	"image/color"
 	"math"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -55,18 +56,18 @@ func (g *Game) keepOverlay(kind recordKind, key uint64, draw func()) {
 	}
 }
 
-// lineKey is what a line's strokes are drawn from: its stations' and its
-// office's points on the screen, which of its legs are dashed, and its
-// width, dash and colours. The faulty key leaves the colours out, for the
-// net's test to find a line stale.
-func (g *Game) lineKey(l *city.Line, points []city.Point, office city.Point, width, dash float64, ink, casing [4]uint8) uint64 {
-	key := keyMix(math.Float64bits(width), math.Float64bits(dash), math.Float64bits(office.X), math.Float64bits(office.Y), boolBits(l.Office != nil))
+// lineKey is what a line's strokes are drawn from: the form it is drawn
+// in, each stroke's ends on the screen and whether it is unlit or
+// dashed, and its width, dash and colours (item 348). The faulty key
+// leaves the colours out, for the net's test to find a line stale.
+func (g *Game) lineKey(form city.LineForm, strokes []lineStroke, width, dash float64, ink, casing color.NRGBA) uint64 {
+	key := keyMix(uint64(form)+1, math.Float64bits(width), math.Float64bits(dash))
 	if !g.faultyKeys {
-		key = keyMix(key, uint64(ink[0])<<24|uint64(ink[1])<<16|uint64(ink[2])<<8|uint64(ink[3]),
-			uint64(casing[0])<<24|uint64(casing[1])<<16|uint64(casing[2])<<8|uint64(casing[3]))
+		key = keyMix(key, uint64(ink.R)<<24|uint64(ink.G)<<16|uint64(ink.B)<<8|uint64(ink.A),
+			uint64(casing.R)<<24|uint64(casing.G)<<16|uint64(casing.B)<<8|uint64(casing.A))
 	}
-	for i, p := range points {
-		key = keyMix(key, math.Float64bits(p.X), math.Float64bits(p.Y), boolBits(l.Stations[i].Dashed))
+	for _, s := range strokes {
+		key = keyMix(key, math.Float64bits(s.a.X), math.Float64bits(s.a.Y), math.Float64bits(s.b.X), math.Float64bits(s.b.Y), boolBits(s.unlit), boolBits(s.dashed))
 	}
 	return key
 }

@@ -532,6 +532,18 @@ func TestCityPlan(t *testing.T) {
 			assert.Equal(t, want, plan.Lines[0].Points)
 		})
 
+		// Item 348: the plan has no buildings, so its line runs badge to
+		// badge whatever form the map's lines are drawn in.
+		t.Run("and the map's lines are drawn session to session", func(t *testing.T) {
+			before := plan.Lines
+			s.SetLineForm(city.FormSessions)
+			defer s.SetLineForm(city.FormDistricts)
+
+			t.Run("it should draw the plan's line as before", func(t *testing.T) {
+				assert.Equal(t, before, s.CityPlan().Lines)
+			})
+		})
+
 		t.Run("and group lines are switched off", func(t *testing.T) {
 			s.SetGroupLines(false)
 

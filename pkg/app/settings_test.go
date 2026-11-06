@@ -270,3 +270,32 @@ func TestDistrictTypeSettingsRow(t *testing.T) {
 		})
 	})
 }
+
+// Item 348: the settings panel offers how a group's line is drawn,
+// beside whether it is drawn.
+func TestGroupLineFormSettingsRow(t *testing.T) {
+	t.Run("when the settings panel is open", func(t *testing.T) {
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+		cfg, err := config.New(config.NewViper())
+		require.NoError(t, err)
+		items := settingsFor(cfg).Items
+		at := map[string]int{}
+		for i, s := range items {
+			at[s.Key] = i
+		}
+		i, ok := at[config.KeyGroupLineForm]
+		require.True(t, ok, "the panel should carry group_line_form")
+
+		t.Run("it should offer the three forms, districts first", func(t *testing.T) {
+			assert.Equal(t, []string{config.GroupLineDistricts, config.GroupLineNeighbourhoods, config.GroupLineSessions}, items[i].Options)
+		})
+
+		t.Run("it should show the form the config holds", func(t *testing.T) {
+			assert.Equal(t, config.GroupLineDistricts, items[i].Value)
+		})
+
+		t.Run("it should stand just after group lines", func(t *testing.T) {
+			assert.Equal(t, at[config.KeyGroupLines]+1, i)
+		})
+	})
+}

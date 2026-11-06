@@ -43,11 +43,51 @@ func TestLineForms(t *testing.T) {
 		return ""
 	}
 
-	t.Run("when the form is stations", func(t *testing.T) {
-		_, shape := shapeOf(t, spread, city.FormStations)
+	// Item 348, slice 4: a link says which site it leads into, and what
+	// the site's station said of it: unlit while it waits on another,
+	// dashed when it joined on a guess (Aria, 2026-11-07).
+	t.Run("when the line is drawn in any form", func(t *testing.T) {
+		c := city.Build(withGroups(spread), city.NewLayout())
+		require.Len(t, c.Lines, 1)
+		require.Len(t, c.Lines[0].Stations, 2)
+		marked := func(unlit, dashed bool) city.Line {
+			l := c.Lines[0]
+			l.Stations = append([]city.Station(nil), l.Stations...)
+			l.Stations[1].Unlit, l.Stations[1].Dashed = unlit, dashed
+			return l
+		}
+		for _, form := range []city.LineForm{city.FormDistricts, city.FormNeighbourhoods, city.FormSessions} {
+			t.Run("and it is "+form.String(), func(t *testing.T) {
+				plain := c.Shape(c.Lines[0], form)
+				last := len(plain.LinkSites) - 1
+				require.GreaterOrEqual(t, last, 0)
 
-		t.Run("it should give no segments, leaving today's line as it is", func(t *testing.T) {
-			assert.Empty(t, shape.Links)
+				t.Run("it should name the site each link leads into", func(t *testing.T) {
+					assert.Equal(t, 1, plain.LinkSites[last].Site)
+				})
+
+				t.Run("and the second site waits on the first", func(t *testing.T) {
+					t.Run("it should draw the link into it unlit", func(t *testing.T) {
+						assert.True(t, c.Shape(marked(true, false), form).LinkSites[last].Unlit)
+					})
+				})
+
+				t.Run("and the second site joined on a guess", func(t *testing.T) {
+					t.Run("it should draw the link into it dashed", func(t *testing.T) {
+						assert.True(t, c.Shape(marked(false, true), form).LinkSites[last].Dashed)
+					})
+				})
+			})
+		}
+
+		t.Run("and the form is sessions, and the group has a coordinator", func(t *testing.T) {
+			l := c.Lines[0]
+			l.Office = &city.Office{Building: buildingIn(t, c, "d")}
+			shape := c.Shape(l, city.FormSessions)
+
+			t.Run("it should start the chain at the coordinator's building", func(t *testing.T) {
+				assert.Equal(t, buildingIn(t, c, "d").Rect.Center(), shape.Links[0][0])
+			})
 		})
 	})
 

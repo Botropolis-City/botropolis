@@ -300,12 +300,16 @@ func carries(hit city.Hit, selected *city.Building) bool {
 }
 
 // dropAction is what dropping a carried building on hit does: on a
-// line's station it joins that line's group, anywhere else nothing.
+// line's link, or on another building in a group, it joins that group;
+// anywhere else nothing (item 348).
 func dropAction(b *city.Building, hit city.Hit) city.Action {
-	if hit.Station == nil || hit.Station.Line == nil || hit.Station.Line.Group == nil {
-		return city.Action{}
+	switch {
+	case hit.Station != nil && hit.Station.Line != nil && hit.Station.Line.Group != nil:
+		return city.Action{Kind: city.ActionMove, SessionID: b.Session.ID, Group: hit.Station.Line.Group.ID}
+	case hit.Building != nil && hit.Building != b && hit.Building.Group != nil:
+		return city.Action{Kind: city.ActionMove, SessionID: b.Session.ID, Group: hit.Building.Group.ID}
 	}
-	return city.Action{Kind: city.ActionMove, SessionID: b.Session.ID, Group: hit.Station.Line.Group.ID}
+	return city.Action{}
 }
 
 // drawCarry is the tie from a carried building to the pointer.
