@@ -190,13 +190,15 @@ func (p *closeUp) layout(g *Game, width, height float64) []closeUpRow {
 }
 
 func (p *closeUp) keys(g *Game) bool {
-	switch {
-	case g.just(ebiten.KeyEscape):
+	// Enter is the panel's own verb, closing up, so 1-9 only focus a row.
+	intent := g.listKeys(&p.selected, len(p.rows), listShape{digitsFocus: true})
+	switch intent {
+	case listBack:
 		return false
-	case g.just(ebiten.KeyArrowDown) || g.just(ebiten.KeyJ):
-		p.selected = min(len(p.rows)-1, p.selected+1)
-	case g.just(ebiten.KeyArrowUp) || g.just(ebiten.KeyK):
-		p.selected = max(0, p.selected-1)
+	case listMoved:
+		return true
+	}
+	switch {
 	case g.just(ebiten.KeySpace):
 		id := p.rows[p.selected].ID
 		p.pinned[id] = !p.pinned[id]

@@ -142,22 +142,48 @@ func (g *Game) diveKeys() bool {
 	if g.scene.FocusedGroup() == "" {
 		return false
 	}
+	// The list vocabulary (item 350): the stations are the dive's rows,
+	// so the up and down arrows step them as j and k do; left and right
+	// still pan the camera, and 1-6 stay the lenses'.
+	step := g.scene.DiveStep()
+	focus := step
+	switch g.listKeys(&focus, len(g.scene.Dive()), listShape{noDigits: true}) {
+	case listMoved:
+		g.diveTo(step, focus)
+		return true
+	case listChoose:
+		g.diveTo(step, focus)
+		if g.scene.DiveStep() >= 0 {
+			g.openReader()
+		}
+		return true
+	case listBack:
+		g.scene.LeaveDive()
+		g.scene.Fit()
+		return true
+	}
 	switch {
-	case g.just(ebiten.KeyJ):
-		g.scene.StepDive(1)
-	case g.just(ebiten.KeyK):
-		g.scene.StepDive(-1)
-	case (g.just(ebiten.KeyEnter) || g.just(ebiten.KeyKPEnter)) && g.scene.DiveStep() >= 0:
-		g.openReader()
 	case (g.just(ebiten.KeyMinus) || g.just(ebiten.KeyKPSubtract)) && g.diveLead() != "":
 		lead := g.diveLead()
 		g.act(city.Action{Kind: city.ActionTakeOut, SessionID: lead, Group: g.scene.FocusedGroup()})
 		g.Notify("took "+state.TitleOf(g.scene.Snapshot().Sessions)(lead)+" out of the group", ui.ToneNone, "")
-	case g.just(ebiten.KeyEscape):
-		g.scene.LeaveDive()
-		g.scene.Fit()
 	default:
 		return false
 	}
 	return true
+}
+
+// diveTo steps the dive from one station to another: from none, the
+// first step lands on the first station.
+func (g *Game) diveTo(from, to int) {
+	if to == from {
+		return
+	}
+	if from < 0 {
+		g.scene.StepDive(1)
+		from = 0
+	}
+	if to != from {
+		g.scene.StepDive(to - from)
+	}
 }

@@ -55,25 +55,17 @@ func clinicPlate(count int) (string, ui.Tone) {
 
 func (c *clinic) keys(g *Game) bool {
 	rows := g.scene.Clinic()
-	for i, key := range clinicDigits {
-		if g.just(key) {
-			if i < len(rows) {
-				return c.jump(g, rows[i])
-			}
-			return true
+	var starts []int
+	for i, r := range rows {
+		if i == 0 || r.Section != rows[i-1].Section {
+			starts = append(starts, i)
 		}
 	}
-	switch {
-	case g.just(ebiten.KeyEscape):
+	switch g.listKeys(&c.selected, len(rows), listShape{starts: starts}) {
+	case listBack:
 		return false
-	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
-		if c.selected < len(rows) {
-			return c.jump(g, rows[c.selected])
-		}
-	case g.just(ebiten.KeyArrowDown):
-		c.selected = max(0, min(c.selected+1, len(rows)-1))
-	case g.just(ebiten.KeyArrowUp):
-		c.selected = max(0, c.selected-1)
+	case listChoose:
+		return c.jump(g, rows[c.selected])
 	}
 	return true
 }

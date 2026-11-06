@@ -85,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A `[keys]` table names any of the map's keys, the menu's column and row letters, or the finder's, such as `timeline = "y"`, and `--set keys.timeline=y` does the same; botropolis-config(5) lists them all, and `?` shows each key as it is bound.
   The settings you already have, such as `journal_key`, still work.
   A key now answers only with exactly its modifiers: shift with a letter no longer does what the letter does, so `shift+t` no longer opens the timeline.
+- **Every list answers the same keys.**
+  In the move-to-group picker, the clinic, the groups board, the timeline, the settings, the journal, the Keys panel, a group's dive, close-up and the tidy-up walk, the arrows or `j` and `k` move, `tab` goes on to the next section, `1`–`9` choose a row, Enter chooses and Esc goes back.
+  In the tidy-up walk and close-up, where Enter is the panel's own, `1`–`9` pick a row without acting; in a group's dive, the up and down arrows step its stations, and `1`–`6` stay the lenses.
 - **Keys can be changed from the settings too.**
   The settings' last row, *keys*, opens a panel of every key under where it answers, at the map, in the action menu and in the finder.
   Enter on a row records the next key pressed, which takes effect at once and is saved; one already taken or fixed is refused on the row, saying what holds it, and Backspace puts a row back to its default.

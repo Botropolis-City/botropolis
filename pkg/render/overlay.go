@@ -586,7 +586,9 @@ func (f *finder) keys(g *Game) bool {
 		return false
 	case just(ebiten.KeyBackspace):
 		f.field.backspace()
-	case just(ebiten.KeyArrowDown):
+	// The finder's words have the focus, so letters and digits type, and
+	// of the list vocabulary the arrows and tab move (item 350).
+	case just(ebiten.KeyArrowDown), just(ebiten.KeyTab):
 		f.move(1, len(f.groups(g)))
 	case just(ebiten.KeyArrowUp):
 		f.move(-1, len(f.groups(g)))

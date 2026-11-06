@@ -2,12 +2,32 @@ package ui_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/ui"
 )
+
+// Item 350: clipping counted bytes where it shortened by runes, so text
+// starting with a character of more than one byte, such as an arrow,
+// never finished clipping to a width narrower than that character.
+func TestFitWideRunes(t *testing.T) {
+	done := make(chan string, 1)
+	go func() { done <- ui.Fit("↑↓ or j k move", 1, ui.Small, measure7) }()
+
+	t.Run("when text that starts with an arrow is fitted to one pixel", func(t *testing.T) {
+		t.Run("it should finish, with one character and the ellipsis", func(t *testing.T) {
+			select {
+			case got := <-done:
+				assert.Equal(t, "↑…", got)
+			case <-time.After(2 * time.Second):
+				t.Fatal("Fit did not finish")
+			}
+		})
+	})
+}
 
 // Item 102: a plate the label layout stepped aside keeps its text where
 // it was on the plate.

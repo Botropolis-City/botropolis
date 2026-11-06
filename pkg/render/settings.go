@@ -34,13 +34,25 @@ func (g *Game) settingsKeys() bool {
 	if g.onKeysRow() && (just(ebiten.KeyArrowLeft) || just(ebiten.KeyH)) {
 		return true
 	}
-	if just(ebiten.KeyArrowDown) || just(ebiten.KeyJ) {
-		g.settings.Move(1)
+	// The list vocabulary (item 350): choosing a row steps it, as Enter
+	// always has, and a digit chooses its row.
+	switch g.listKeys(&g.settings.Cursor, len(g.settings.Items), listShape{}) {
+	case listBack:
+		return false
+	case listChoose:
+		switch {
+		case g.onKeysRow():
+			g.openKeysPanel()
+		case g.onShortcutRow():
+			g.beginShortcut()
+		default:
+			g.applySetting(g.settings.Adjust(1))
+		}
+		return true
+	case listMoved:
+		return true
 	}
-	if just(ebiten.KeyArrowUp) || just(ebiten.KeyK) {
-		g.settings.Move(-1)
-	}
-	if just(ebiten.KeyArrowRight) || just(ebiten.KeyL) || just(ebiten.KeyEnter) || just(ebiten.KeySpace) {
+	if just(ebiten.KeyArrowRight) || just(ebiten.KeyL) || just(ebiten.KeySpace) {
 		g.applySetting(g.settings.Adjust(1))
 	}
 	if just(ebiten.KeyArrowLeft) || just(ebiten.KeyH) {

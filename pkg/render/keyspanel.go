@@ -143,17 +143,23 @@ func (p *keysPanel) keys(g *Game) bool {
 		p.record(g)
 		return true
 	}
-	switch {
-	case g.just(ebiten.KeyEscape):
+	var starts []int
+	for i, r := range p.rows {
+		if i == 0 || r.section != p.rows[i-1].section {
+			starts = append(starts, i)
+		}
+	}
+	switch g.listKeys(&p.focus, len(p.rows), listShape{starts: starts}) {
+	case listBack:
 		return false
-	case g.just(ebiten.KeyArrowDown), g.just(ebiten.KeyJ):
-		p.focus = min(p.focus+1, len(p.rows)-1)
-	case g.just(ebiten.KeyArrowUp), g.just(ebiten.KeyK):
-		p.focus = max(p.focus-1, 0)
-	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
+	case listChoose:
 		p.recording = true
 		delete(p.refused, p.focus)
-	case g.just(ebiten.KeyBackspace), g.just(ebiten.KeyDelete):
+		return true
+	case listMoved:
+		return true
+	}
+	if g.just(ebiten.KeyBackspace) || g.just(ebiten.KeyDelete) {
 		p.reset(g)
 	}
 	return true

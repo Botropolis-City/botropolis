@@ -38,17 +38,23 @@ func (g *Game) shortcutRowKeys() bool {
 	case just(ebiten.KeyBackspace) || just(ebiten.KeyDelete):
 		g.clearShortcut()
 	case just(ebiten.KeyEnter) || just(ebiten.KeySpace) || just(ebiten.KeyArrowRight) || just(ebiten.KeyL):
-		if g.shortcut == nil {
-			g.settings.Note = g.unsupported()
-			return true
-		}
-		g.recordingShortcut = true
-		g.settings.Note = shortcutAsking
+		g.beginShortcut()
 	case just(ebiten.KeyArrowLeft) || just(ebiten.KeyH):
 	default:
 		return false
 	}
 	return true
+}
+
+// beginShortcut starts recording the global shortcut, or says why this
+// system cannot have one.
+func (g *Game) beginShortcut() {
+	if g.shortcut == nil {
+		g.settings.Note = g.unsupported()
+		return
+	}
+	g.recordingShortcut = true
+	g.settings.Note = shortcutAsking
 }
 
 // recordShortcutKeys takes every key while the row records or waits to

@@ -142,15 +142,17 @@ func (j *journal) restore(g *Game) {
 }
 
 func (j *journal) keys(g *Game) bool {
-	switch {
-	case g.just(ebiten.KeyEscape):
+	switch g.listKeys(&j.selected, len(j.entries), listShape{}) {
+	case listBack:
 		return false
-	case g.just(ebiten.KeyArrowDown) || g.just(ebiten.KeyJ):
-		j.selected = min(len(j.entries)-1, j.selected+1)
+	case listChoose:
+		g.scene.Select(j.entries[j.selected].Fly)
+		return false
+	case listMoved:
 		j.fill(j.selected)
-	case g.just(ebiten.KeyArrowUp) || g.just(ebiten.KeyK):
-		j.selected = max(0, j.selected-1)
-		j.fill(j.selected)
+		return true
+	}
+	switch {
 	case g.just(ebiten.KeyR):
 		j.restore(g)
 	case g.just(ebiten.KeyT):
@@ -160,11 +162,6 @@ func (j *journal) keys(g *Game) bool {
 			g.overlays.push(j)
 			g.Notify("nothing to tidy", ui.ToneNone, "")
 		}
-	case g.just(ebiten.KeyEnter) || g.just(ebiten.KeyKPEnter):
-		if len(j.entries) > 0 {
-			g.scene.Select(j.entries[j.selected].Fly)
-		}
-		return false
 	}
 	return true
 }

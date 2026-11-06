@@ -316,6 +316,11 @@ func (w *walk) keys(g *Game) bool {
 			return w.press(g, b.key)
 		}
 	}
+	// The members are the card's list (item 350): they move as every
+	// list does, and 1-9 pick one, since Enter is the card's own verb.
+	if g.listKeys(&w.member, len(w.memberTitles()), listShape{digitsFocus: true}) == listMoved {
+		return true
+	}
 	switch {
 	case g.just(ebiten.KeyKPEnter):
 		return w.press(g, ebiten.KeyEnter)
@@ -326,13 +331,6 @@ func (w *walk) keys(g *Game) bool {
 		}
 		g.Notify("tidy up later: nothing was changed", ui.ToneNone, "")
 		w.leave(g, w.journal)
-	case g.just(ebiten.KeyJ):
-		w.member++
-		if n := len(w.memberTitles()); w.member >= n {
-			w.member = max(0, n-1)
-		}
-	case g.just(ebiten.KeyK):
-		w.member = max(0, w.member-1)
 	case w.card() == cardQuiet && g.just(ebiten.KeyBracketLeft):
 		w.turn(g, -1)
 	case w.card() == cardQuiet && g.just(ebiten.KeyBracketRight):

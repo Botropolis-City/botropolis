@@ -47,16 +47,23 @@ func (g *Game) drawTimeline(screen *ebiten.Image, width, height float64) {
 // reports whether it stays open.
 func (g *Game) timelineKeys() bool {
 	just := g.just
-	switch {
-	case just(ebiten.KeyEscape), just(ebiten.KeyT), just(ebiten.KeyQ):
+	list := g.scene.Events()
+	if g.away != nil {
+		list = g.away
+	}
+	switch g.listKeys(&g.cursor, len(list), listShape{}) {
+	case listBack:
 		g.away = nil
 		return false
-	case just(ebiten.KeyArrowDown), just(ebiten.KeyJ):
-		g.cursor++
-	case just(ebiten.KeyArrowUp), just(ebiten.KeyK):
-		g.cursor = max(0, g.cursor-1)
-	case just(ebiten.KeyEnter):
+	case listChoose:
 		g.jumpToEvent()
+		g.away = nil
+		return false
+	case listMoved:
+		return true
+	}
+	switch {
+	case just(ebiten.KeyT), just(ebiten.KeyQ):
 		g.away = nil
 		return false
 	case just(ebiten.KeyP):

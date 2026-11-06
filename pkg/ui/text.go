@@ -1,6 +1,10 @@
 package ui
 
-import "botropolis.city/botropolis/pkg/city"
+import (
+	"unicode/utf8"
+
+	"botropolis.city/botropolis/pkg/city"
+)
 
 // Text is one run of text placed on screen: what to draw, where its
 // top-left corner goes, and at which of the four sizes.
@@ -52,9 +56,11 @@ func Fit(s string, width float64, size Size, measure Measure) string {
 	return clipTo(s, width-ellipsis, size, measure) + "…"
 }
 
-// clipTo shortens s until it measures within width.
+// clipTo shortens s until it measures within width, or is one
+// character; it counts characters, not bytes, so an arrow clips (item
+// 350).
 func clipTo(s string, width float64, size Size, measure Measure) string {
-	for w, _ := measure(s, size); w > width && len(s) > 1; w, _ = measure(s, size) {
+	for w, _ := measure(s, size); w > width && utf8.RuneCountInString(s) > 1; w, _ = measure(s, size) {
 		runes := []rune(s)
 		keep := int(float64(len(runes)) * width / w)
 		if keep >= len(runes) {

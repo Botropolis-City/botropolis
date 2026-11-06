@@ -92,14 +92,16 @@ func (g *Game) clickLandmark(l city.Landmark) {
 
 func (b *board) keys(g *Game) bool {
 	groups := g.scene.Groups()
+	switch g.listKeys(&b.selected, len(groups), listShape{}) {
+	case listBack:
+		return false
+	case listChoose:
+		g.scene.FocusGroup(groups[b.selected].ID)
+		return false
+	case listMoved:
+		return true
+	}
 	switch {
-	case g.just(ebiten.KeyEscape):
-		return false
-	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
-		if b.selected < len(groups) {
-			g.scene.FocusGroup(groups[b.selected].ID)
-		}
-		return false
 	case g.just(ebiten.KeyC):
 		if b.selected < len(groups) {
 			line := g.scene.Standup(groups[b.selected].ID)
@@ -118,10 +120,6 @@ func (b *board) keys(g *Game) bool {
 		if b.selected < len(groups) {
 			g.openRenamer(groups[b.selected].ID, groups[b.selected].Name)
 		}
-	case g.just(ebiten.KeyArrowDown):
-		b.selected = max(0, min(b.selected+1, len(groups)-1))
-	case g.just(ebiten.KeyArrowUp):
-		b.selected = max(0, b.selected-1)
 	}
 	return true
 }

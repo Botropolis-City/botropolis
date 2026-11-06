@@ -208,20 +208,16 @@ func (p *picker) keys(g *Game) bool {
 	if p.naming {
 		return p.nameKeys(g)
 	}
-	switch {
-	case g.just(ebiten.KeyEscape):
+	switch g.listKeys(&p.selected, len(p.ids), listShape{}) {
+	case listBack:
 		return false
-	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
+	case listChoose:
 		if p.selected == 0 {
 			g.startNaming(p)
 			return true
 		}
 		g.move(p.session, p.ids[p.selected])
 		return false
-	case g.just(ebiten.KeyArrowDown):
-		p.selected = min(p.selected+1, len(p.ids)-1)
-	case g.just(ebiten.KeyArrowUp):
-		p.selected = max(0, p.selected-1)
 	}
 	return true
 }

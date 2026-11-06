@@ -34,6 +34,7 @@ var bindings = []ui.Key{
 	{Key: "i", Action: "the selection's details"},
 	{Key: "o", Action: "read the selection's conversation"},
 	{Key: "tab", Action: "next needs-you"},
+	{Key: "in any list", Action: "↑↓ or j k move, tab goes on, 1-9 choose a row, enter chooses, esc goes back; in the tidy-up walk and close-up, 1-9 pick a row"},
 	{Key: "w", Action: "triage: walk what waits on you, longest-waiting first"},
 	{Key: "enter · p · d · s · n · esc while triaging", Action: "act, rest, pack up, snooze, next, leave triage"},
 	{Key: "a", Action: "the clinic: who needs you, then who is in trouble; 1-9 jumps (also click the clinic)"},
