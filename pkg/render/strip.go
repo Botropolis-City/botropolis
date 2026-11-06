@@ -21,18 +21,13 @@ func (g *Game) strip(screen *ebiten.Image, width float64) float64 {
 	// Every dot, then every label: they never overlap, and drawn apart
 	// the dots go down together and the labels together, where taking
 	// them chip by chip made a draw of each (item 193).
-	for _, chip := range strip.Chips {
-		if chip.Tone != ui.ToneNone {
-			centre := chip.Dot.Center()
-			g.fillCircle(screen, float32(centre.X), float32(centre.Y), float32(chip.Dot.Width()/2), th.Color(chip.Tone))
-		}
-	}
 	pointer := g.pointer()
 	waitingHovered := false
 	for _, chip := range strip.Chips {
 		if chip.Button {
 			// The needs-you count is a button: a plate under it, brighter
-			// under the pointer, as the footer's needs-you line was.
+			// under the pointer, as the footer's needs-you line was. The
+			// plate goes down first, so its dot keeps its state's tone.
 			waitingHovered = chip.Rect.Contains(pointer)
 			fill := th.Palette.Hairline
 			if waitingHovered {
@@ -40,6 +35,12 @@ func (g *Game) strip(screen *ebiten.Image, width float64) float64 {
 			}
 			plate := city.RectAt(chip.Rect.Min.X, chip.Rect.Min.Y+th.Grid()/2, chip.Rect.Width(), chip.Rect.Height()-th.Grid())
 			g.roundRect(screen, plate, th.Radius()/2, fill)
+		}
+	}
+	for _, chip := range strip.Chips {
+		if chip.Tone != ui.ToneNone {
+			centre := chip.Dot.Center()
+			g.fillCircle(screen, float32(centre.X), float32(centre.Y), float32(chip.Dot.Width()/2), th.Color(chip.Tone))
 		}
 	}
 	for _, chip := range strip.Chips {
