@@ -79,10 +79,18 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 	}
 	g.text(screen, city.Point{X: x, Y: y}, g.clip(name, inner, ui.Title), ui.Title, th.Palette.Text)
 	y += title
-	g.text(screen, city.Point{X: x, Y: y}, g.clip(g.diveHint(), inner, ui.Small), ui.Small, th.Palette.Dim)
+	if g.diveFilter.on {
+		g.drawFilter(screen, &g.diveFilter, city.Point{X: x, Y: y}, ui.Small)
+	} else {
+		g.text(screen, city.Point{X: x, Y: y}, g.clip(g.diveHint(), inner, ui.Small), ui.Small, th.Palette.Dim)
+	}
 	y += small + grid
 	rowHeight := body + small*2 + grid
+	left := g.diveFilter.left(diveLabels(g.scene.Dive()))
 	for i, row := range g.scene.Dive() {
+		if !left[i] {
+			continue
+		}
 		if y+rowHeight > dock.Max.Y {
 			break
 		}
@@ -147,7 +155,7 @@ func (g *Game) diveKeys() bool {
 	// still pan the camera, and 1-6 stay the lenses'.
 	step := g.scene.DiveStep()
 	focus := step
-	switch g.listKeys(&focus, len(g.scene.Dive()), listShape{noDigits: true}) {
+	switch g.listKeys(&focus, len(g.scene.Dive()), listShape{noDigits: true, labels: diveLabels(g.scene.Dive()), filter: &g.diveFilter}) {
 	case listMoved:
 		g.diveTo(step, focus)
 		return true
@@ -158,6 +166,7 @@ func (g *Game) diveKeys() bool {
 		}
 		return true
 	case listBack:
+		g.diveFilter = listFilter{}
 		g.scene.LeaveDive()
 		g.scene.Fit()
 		return true
@@ -171,6 +180,16 @@ func (g *Game) diveKeys() bool {
 		return false
 	}
 	return true
+}
+
+// diveLabels are what a filter matches the dive's stations by: each
+// one's site and what it says (item 350).
+func diveLabels(rows []city.DiveRow) []string {
+	labels := make([]string, len(rows))
+	for i, r := range rows {
+		labels[i] = r.Site + " " + r.Sentence
+	}
+	return labels
 }
 
 // diveTo steps the dive from one station to another: from none, the

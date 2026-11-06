@@ -493,7 +493,12 @@ type Game struct {
 
 	// timeline is the event list on t; away is the list shown when the
 	// window comes back into focus, or nil for the whole log.
-	timeline       bool
+	timeline bool
+	// timelineFilter and settingsFilter narrow those lists while / is on
+	// (item 350).
+	timelineFilter listFilter
+	settingsFilter listFilter
+	diveFilter     listFilter
 	away           []events.Event
 	cursor         int
 	timelineLayout ui.Timeline
@@ -617,6 +622,9 @@ type Game struct {
 	buttonPanning bool
 	buttonPanWith ebiten.MouseButton
 	buttonPanFrom city.Point
+	// filterTyping is whether a list's / filter is taking what is typed
+	// (item 350).
+	filterTyping bool
 	// rightPressAt is where the right button went down, while
 	// rightPressed: let go there, it is a right-click (item 350).
 	rightPressAt city.Point
@@ -1143,7 +1151,7 @@ func (g *Game) pressScripted(name string) {
 // typeScripted types a one-character key name into the field that is
 // open, for --keys and a clip's script alike.
 func (g *Game) typeScripted(name string) {
-	typing := g.finding() || g.newSession() != nil || (g.picker() != nil && g.picker().naming) || (g.triage() != nil && g.triage().snoozing != nil)
+	typing := g.finding() || g.newSession() != nil || (g.picker() != nil && g.picker().naming) || (g.triage() != nil && g.triage().snoozing != nil) || g.filterTyping
 	if r := []rune(name); len(r) == 1 && typing && !g.scriptedCtrl && !g.scriptedAlt && !g.scriptedCmd {
 		g.scriptedRune = r[0]
 	}

@@ -1,6 +1,7 @@
 package render
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -59,28 +60,48 @@ func TestEveryListSpeaksTheVocabulary(t *testing.T) {
 		verb bool
 		// docked is a list on the map, where 1-6 stay the lenses'.
 		docked bool
+		// filterTo is what / and the letters after it narrow the list
+		// to: one row, which filtered says Enter, or the focus, landed on.
+		filterTo string
+		filtered func(g *Game) bool
+	}
+	actedOn := func(g *Game, kind city.ActionKind, group string) bool {
+		for _, a := range g.actor.(*recordingActor).done {
+			if a.Kind == kind && a.Group == group {
+				return true
+			}
+		}
+		return false
+	}
+	selected := func(g *Game, id string) bool {
+		b := g.scene.Selected()
+		return b != nil && b.Session.ID == id
 	}
 	panels := []panel{
 		{name: "the group picker",
-			open:   func(t *testing.T, g *Game) { g.openPicker("a") },
-			focus:  func(g *Game) int { return g.picker().selected },
-			chosen: func(g *Game) bool { return g.picker() == nil || g.picker().naming },
-			closed: func(g *Game) bool { _, ok := top(g).(*picker); return !ok }},
+			open:     func(t *testing.T, g *Game) { g.openPicker("a") },
+			focus:    func(g *Game) int { return g.picker().selected },
+			chosen:   func(g *Game) bool { return g.picker() == nil || g.picker().naming },
+			closed:   func(g *Game) bool { _, ok := top(g).(*picker); return !ok },
+			filterTo: "ops", filtered: func(g *Game) bool { return actedOn(g, city.ActionMove, "g3") }},
 		{name: "the clinic",
-			open:   func(t *testing.T, g *Game) { g.openClinic() },
-			focus:  func(g *Game) int { return top(g).(*clinic).selected },
-			chosen: func(g *Game) bool { _, open := top(g).(*clinic); return !open && g.scene.Selected() != nil },
-			closed: func(g *Game) bool { _, ok := top(g).(*clinic); return !ok }},
+			open:     func(t *testing.T, g *Game) { g.openClinic() },
+			focus:    func(g *Game) int { return top(g).(*clinic).selected },
+			chosen:   func(g *Game) bool { _, open := top(g).(*clinic); return !open && g.scene.Selected() != nil },
+			closed:   func(g *Game) bool { _, ok := top(g).(*clinic); return !ok },
+			filterTo: "title c", filtered: func(g *Game) bool { return selected(g, "c") }},
 		{name: "the groups board",
-			open:   func(t *testing.T, g *Game) { g.openBoard() },
-			focus:  func(g *Game) int { return g.board().selected },
-			chosen: func(g *Game) bool { return g.scene.FocusedGroup() != "" },
-			closed: func(g *Game) bool { return g.board() == nil }},
+			open:     func(t *testing.T, g *Game) { g.openBoard() },
+			focus:    func(g *Game) int { return g.board().selected },
+			chosen:   func(g *Game) bool { return g.scene.FocusedGroup() != "" },
+			closed:   func(g *Game) bool { return g.board() == nil },
+			filterTo: "ops", filtered: func(g *Game) bool { return g.scene.FocusedGroup() == "g3" }},
 		{name: "the timeline",
-			open:   func(t *testing.T, g *Game) { g.timeline = true },
-			focus:  func(g *Game) int { return g.cursor },
-			chosen: func(g *Game) bool { return !g.timeline && g.scene.Selected() != nil },
-			closed: func(g *Game) bool { return !g.timeline }},
+			open:     func(t *testing.T, g *Game) { g.timeline = true },
+			focus:    func(g *Game) int { return g.cursor },
+			chosen:   func(g *Game) bool { return !g.timeline && g.scene.Selected() != nil },
+			closed:   func(g *Game) bool { return !g.timeline },
+			filterTo: "title b", filtered: func(g *Game) bool { return selected(g, "b") }},
 		{name: "the settings",
 			open: func(t *testing.T, g *Game) {
 				g.settings = ui.Settings{Items: []ui.Setting{
@@ -90,49 +111,66 @@ func TestEveryListSpeaksTheVocabulary(t *testing.T) {
 				}}
 				g.settingsOpen = true
 			},
-			focus:  func(g *Game) int { return g.settings.Cursor },
-			chosen: func(g *Game) bool { return g.settings.Items[g.settings.Cursor].Value == "y" },
-			closed: func(g *Game) bool { return !g.settingsOpen }},
+			focus:    func(g *Game) int { return g.settings.Cursor },
+			chosen:   func(g *Game) bool { return g.settings.Items[g.settings.Cursor].Value == "y" },
+			closed:   func(g *Game) bool { return !g.settingsOpen },
+			filterTo: "three", filtered: func(g *Game) bool { return g.settings.Items[2].Value == "y" && g.settings.Items[0].Value == "x" }},
 		{name: "the journal",
 			open: func(t *testing.T, g *Game) {
 				entries := []city.JournalEntry{{Title: "one", Fly: "a"}, {Title: "two", Fly: "b"}, {Title: "three", Fly: "c"}}
 				g.overlays.push(&journal{entries: entries, filled: make([]bool, len(entries))})
 			},
-			focus:  func(g *Game) int { return top(g).(*journal).selected },
-			chosen: func(g *Game) bool { _, open := top(g).(*journal); return !open && g.scene.Selected() != nil },
-			closed: func(g *Game) bool { _, ok := top(g).(*journal); return !ok }},
+			focus:    func(g *Game) int { return top(g).(*journal).selected },
+			chosen:   func(g *Game) bool { _, open := top(g).(*journal); return !open && g.scene.Selected() != nil },
+			closed:   func(g *Game) bool { _, ok := top(g).(*journal); return !ok },
+			filterTo: "three", filtered: func(g *Game) bool { return selected(g, "c") }},
 		{name: "the Keys panel",
-			open:   func(t *testing.T, g *Game) { g.openKeysPanel() },
-			focus:  func(g *Game) int { return top(g).(*keysPanel).focus },
-			chosen: func(g *Game) bool { return top(g).(*keysPanel).recording },
-			closed: func(g *Game) bool { _, ok := top(g).(*keysPanel); return !ok }},
+			open:     func(t *testing.T, g *Game) { g.openKeysPanel() },
+			focus:    func(g *Game) int { return top(g).(*keysPanel).focus },
+			chosen:   func(g *Game) bool { return top(g).(*keysPanel).recording },
+			closed:   func(g *Game) bool { _, ok := top(g).(*keysPanel); return !ok },
+			filterTo: "timeline", filtered: func(g *Game) bool {
+				p := top(g).(*keysPanel)
+				return p.recording && p.rows[p.focus].name == "timeline"
+			}},
 		{name: "the dive",
 			open: func(t *testing.T, g *Game) {
 				require.True(t, g.scene.FocusGroup("g1"))
 				g.scene.StepDive(1)
 				require.GreaterOrEqual(t, len(g.scene.Dive()), 3)
 			},
-			focus:  func(g *Game) int { return g.scene.DiveStep() },
-			chosen: func(g *Game) bool { _, ok := top(g).(*reader); return ok },
-			closed: func(g *Game) bool { return g.scene.FocusedGroup() == "" },
-			docked: true},
+			focus:    func(g *Game) int { return g.scene.DiveStep() },
+			chosen:   func(g *Game) bool { _, ok := top(g).(*reader); return ok },
+			closed:   func(g *Game) bool { return g.scene.FocusedGroup() == "" },
+			docked:   true,
+			filterTo: "web", filtered: func(g *Game) bool {
+				rows := g.scene.Dive()
+				step := g.scene.DiveStep()
+				_, reading := top(g).(*reader)
+				return reading && step >= 0 && step < len(rows) && strings.Contains(rows[step].Site, "web")
+			}},
 		{name: "close-up",
 			open: func(t *testing.T, g *Game) {
 				pressShift(t, g, ebiten.KeyQ)
 				_, ok := top(g).(*closeUp)
 				require.True(t, ok)
 			},
-			focus:  func(g *Game) int { return top(g).(*closeUp).selected },
-			closed: func(g *Game) bool { _, ok := top(g).(*closeUp); return !ok },
-			verb:   true},
+			focus:    func(g *Game) int { return top(g).(*closeUp).selected },
+			closed:   func(g *Game) bool { _, ok := top(g).(*closeUp); return !ok },
+			verb:     true,
+			filterTo: "title c", filtered: func(g *Game) bool {
+				p := top(g).(*closeUp)
+				return p.rows[p.selected].ID == "c"
+			}},
 		{name: "the tidy-up walk",
 			open: func(t *testing.T, g *Game) {
 				g.overlays.push(&walk{cards: []string{"g1"}, review: group.Review{Rows: []group.ReviewRow{{ID: "g1", Name: "Lib, api and web",
 					Members: []group.ReviewMember{{Session: "a", Title: "Title a"}, {Session: "b", Title: "Title b"}, {Session: "c", Title: "Title c"}}}}}})
 			},
-			focus:  func(g *Game) int { return top(g).(*walk).member },
-			closed: func(g *Game) bool { _, ok := top(g).(*walk); return !ok },
-			verb:   true},
+			focus:    func(g *Game) int { return top(g).(*walk).member },
+			closed:   func(g *Game) bool { _, ok := top(g).(*walk); return !ok },
+			verb:     true,
+			filterTo: "title c", filtered: func(g *Game) bool { return top(g).(*walk).member == 2 }},
 	}
 	opened := func(t *testing.T, p panel) *Game {
 		t.Helper()
@@ -193,6 +231,36 @@ func TestEveryListSpeaksTheVocabulary(t *testing.T) {
 				})
 			})
 
+			t.Run("and / then "+p.filterTo+" is typed, then enter is pressed", func(t *testing.T) {
+				g := opened(t, p)
+				press(t, g, ebiten.KeySlash)
+				for _, r := range p.filterTo {
+					g.scriptedRune = r
+					require.NoError(t, g.handleKeys())
+					g.scriptedRune = 0
+				}
+				if !p.verb {
+					press(t, g, ebiten.KeyEnter)
+				}
+
+				t.Run("it should answer on the one row the filter leaves", func(t *testing.T) {
+					assert.True(t, p.filtered(g))
+				})
+			})
+
+			t.Run("and / then a letter is typed, then esc is pressed", func(t *testing.T) {
+				g := opened(t, p)
+				press(t, g, ebiten.KeySlash)
+				g.scriptedRune = 'o'
+				require.NoError(t, g.handleKeys())
+				g.scriptedRune = 0
+				press(t, g, ebiten.KeyEscape)
+
+				t.Run("it should clear the filter and stay open", func(t *testing.T) {
+					assert.False(t, p.closed(g))
+				})
+			})
+
 			if p.verb {
 				t.Run("and 2 is pressed", func(t *testing.T) {
 					g := opened(t, p)
@@ -237,6 +305,20 @@ func TestEveryListSpeaksTheVocabulary(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("when the picker is naming a new group, and / is typed", func(t *testing.T) {
+		g := newGame(t)
+		g.openPicker("a")
+		press(t, g, ebiten.KeyEnter)
+		require.True(t, g.picker().naming)
+		g.scripted, g.scriptedRune = ebiten.KeySlash, '/'
+		require.NoError(t, g.handleKeys())
+		g.scripted, g.scriptedRune = -1, 0
+
+		t.Run("it should type the slash into the name, not filter", func(t *testing.T) {
+			assert.True(t, g.picker().name.query() == "/" && !g.picker().filter.on)
+		})
+	})
 
 	t.Run("when diving, and left or right is pressed", func(t *testing.T) {
 		g := newGame(t)

@@ -227,6 +227,8 @@ func (g *Game) handleKeys() error {
 func (g *Game) answerKeys() error {
 	defer g.showOpenPanels()
 	just := g.just
+	// A list's / filter says so again this frame if it is still on.
+	g.filterTyping = false
 	g.answerRequests()
 	g.answerTray()
 	g.answerClose()
@@ -266,6 +268,12 @@ func (g *Game) answerKeys() error {
 	}
 	if g.timeline {
 		g.timeline = g.timelineKeys()
+		return nil
+	}
+	// While diving, / filters the dive's stations rather than opening
+	// the finder, and what is typed then is the filter's, ahead of the
+	// map's letters (item 350).
+	if g.scene.FocusedGroup() != "" && (g.diveFilter.on || (just(ebiten.KeySlash) && !g.shifted())) && g.diveKeys() {
 		return nil
 	}
 	if g.bound("finder_slash") {

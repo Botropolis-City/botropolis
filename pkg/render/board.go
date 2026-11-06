@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -11,6 +12,16 @@ import (
 	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
+
+// groupLabels are what a filter matches the board's rows by: each
+// group's name (item 350).
+func groupLabels(groups []state.Group) []string {
+	labels := make([]string, len(groups))
+	for i, gr := range groups {
+		labels[i] = gr.Name
+	}
+	return labels
+}
 
 // board is City Hall's board of groups, a panel on the overlay stack:
 // one row per group, and enter focuses the map on the one chosen
@@ -24,6 +35,8 @@ type board struct {
 	quietButton city.Rect
 	// tidyButton opens the tidy-up walk (item 333).
 	tidyButton city.Rect
+	// filter narrows the rows while / is on (item 350).
+	filter listFilter
 	// rowRects is where each group's row was drawn, by its index in the
 	// groups, empty for a row scrolled out, so a right-click finds the
 	// row that was drawn (item 350).
@@ -92,7 +105,7 @@ func (g *Game) clickLandmark(l city.Landmark) {
 
 func (b *board) keys(g *Game) bool {
 	groups := g.scene.Groups()
-	switch g.listKeys(&b.selected, len(groups), listShape{}) {
+	switch g.listKeys(&b.selected, len(groups), listShape{labels: groupLabels(groups), filter: &b.filter}) {
 	case listBack:
 		return false
 	case listChoose:
@@ -181,8 +194,14 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	_, small := g.faces.Measure("", ui.Small)
 	rowHeight := body + small*3 + grid
 	panelWidth := min(width-grid*8, grid*120)
-	shown := min(len(rows), max(1, int((height-grid*16-title-small)/rowHeight)))
-	panel := city.RectAt((width-panelWidth)/2, grid*6, panelWidth, grid*4+title+small+grid+float64(shown)*rowHeight)
+	// The rows the filter leaves, by group index (item 350).
+	left := b.filter.visible(groupLabels(g.scene.Groups()))
+	filterH := 0.0
+	if b.filter.on {
+		filterH = small + grid/2
+	}
+	shown := min(len(left), max(1, int((height-grid*16-title-small-filterH)/rowHeight)))
+	panel := city.RectAt((width-panelWidth)/2, grid*6, panelWidth, grid*4+title+small+grid+filterH+float64(shown)*rowHeight)
 	g.mu.Lock()
 	b.rect = panel
 	g.mu.Unlock()
@@ -218,9 +237,12 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	status := boardStatus(rows)
 	g.text(screen, city.Point{X: x, Y: y}, status, ui.Small, th.Palette.Dim)
 	y += small + grid
-	first := max(0, min(b.selected-shown+1, len(rows)-shown))
+	y += g.drawFilter(screen, &b.filter, city.Point{X: x, Y: y}, ui.Small)
+	at := max(0, slices.Index(left, b.selected))
+	first := max(0, min(at-shown+1, len(left)-shown))
 	rowRects := make([]city.Rect, len(rows))
-	for i := first; i < first+shown && i < len(rows); i++ {
+	for p := first; p < first+shown && p < len(left); p++ {
+		i := left[p]
 		row := rows[i]
 		rowRects[i] = city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2)
 		if i == b.selected {

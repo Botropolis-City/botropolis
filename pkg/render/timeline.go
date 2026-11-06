@@ -6,8 +6,19 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/events"
 	"botropolis.city/botropolis/pkg/ui"
 )
+
+// eventLabels are what a filter matches the timeline's rows by: each
+// event's title and detail (item 350).
+func eventLabels(list []events.Event) []string {
+	labels := make([]string, len(list))
+	for i, e := range list {
+		labels[i] = e.Title + " " + e.Detail
+	}
+	return labels
+}
 
 // drawTimeline lists what the map has seen happen (or, after the window
 // comes back, what needed you while it was away), with a cursor to jump
@@ -22,7 +33,20 @@ func (g *Game) drawTimeline(screen *ebiten.Image, width, height float64) {
 	if g.cursor >= len(list) {
 		g.cursor = max(0, len(list)-1)
 	}
-	tl := ui.LayoutTimeline(th, width, height, title, list, g.cursor, g.faces.Measure)
+	// The rows the filter leaves, the cursor among them, and the filter
+	// beside the title (item 350).
+	var shown []events.Event
+	cursor := 0
+	for _, i := range g.timelineFilter.visible(eventLabels(list)) {
+		if i == g.cursor {
+			cursor = len(shown)
+		}
+		shown = append(shown, list[i])
+	}
+	if line := g.timelineFilter.shown(); line != "" {
+		title += "   " + line + "▏"
+	}
+	tl := ui.LayoutTimeline(th, width, height, title, shown, cursor, g.faces.Measure)
 	g.roundPanel(screen, tl.Rect)
 	g.run(screen, tl.Title, th.Palette.Text)
 	g.run(screen, tl.Subtitle, th.Palette.Dim)
@@ -51,13 +75,13 @@ func (g *Game) timelineKeys() bool {
 	if g.away != nil {
 		list = g.away
 	}
-	switch g.listKeys(&g.cursor, len(list), listShape{}) {
+	switch g.listKeys(&g.cursor, len(list), listShape{labels: eventLabels(list), filter: &g.timelineFilter}) {
 	case listBack:
-		g.away = nil
+		g.away, g.timelineFilter = nil, listFilter{}
 		return false
 	case listChoose:
 		g.jumpToEvent()
-		g.away = nil
+		g.away, g.timelineFilter = nil, listFilter{}
 		return false
 	case listMoved:
 		return true

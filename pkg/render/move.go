@@ -28,6 +28,8 @@ type picker struct {
 	names    []string
 	selected int
 	rect     city.Rect
+	// filter narrows the rows while / is on (item 350).
+	filter listFilter
 
 	// naming is set once new group… is chosen: the picker asks for the
 	// new group's name in name, and refused says why enter did nothing
@@ -208,7 +210,7 @@ func (p *picker) keys(g *Game) bool {
 	if p.naming {
 		return p.nameKeys(g)
 	}
-	switch g.listKeys(&p.selected, len(p.ids), listShape{}) {
+	switch g.listKeys(&p.selected, len(p.ids), listShape{labels: p.names, filter: &p.filter}) {
 	case listBack:
 		return false
 	case listChoose:
@@ -240,7 +242,11 @@ func (p *picker) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	_, title := g.faces.Measure("", ui.Title)
 	_, body := g.faces.Measure("", ui.Body)
 	panelWidth := min(width-grid*8, grid*80)
-	rows := len(labels)
+	left := p.filter.left(labels)
+	rows := len(left)
+	if p.filter.on {
+		rows++
+	}
 	if p.naming {
 		rows = 2
 	}
@@ -268,7 +274,11 @@ func (p *picker) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		}
 		return
 	}
+	y += g.drawFilter(screen, &p.filter, city.Point{X: x, Y: y}, ui.Body)
 	for i, label := range labels {
+		if !left[i] {
+			continue
+		}
 		if i == p.selected {
 			g.roundRect(screen, city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, body+grid/2), 0, th.Palette.Hairline)
 		}

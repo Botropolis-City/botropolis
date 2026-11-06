@@ -21,6 +21,127 @@ func TestListKeys(t *testing.T) {
 		return result{intent, focus}
 	}
 
+	t.Run("when a list filters with /", func(t *testing.T) {
+		labels := []string{"kiln reader", "tidepool lead", "kiln sampling", "beacon"}
+		frame := func(g *Game, f *listFilter, focus *int, key ebiten.Key, r rune) listIntent {
+			g.scripted, g.scriptedRune = key, r
+			defer func() { g.scripted, g.scriptedRune = -1, 0 }()
+			return g.listKeys(focus, len(labels), listShape{labels: labels, filter: f})
+		}
+		typed := func(t *testing.T, text string) (*Game, *listFilter, *int) {
+			t.Helper()
+			g, f, focus := &Game{scripted: -1, clicked: -1}, &listFilter{}, new(int)
+			frame(g, f, focus, ebiten.KeySlash, 0)
+			for _, r := range text {
+				frame(g, f, focus, -1, r)
+			}
+			return g, f, focus
+		}
+
+		t.Run("and / is pressed", func(t *testing.T) {
+			_, f, _ := typed(t, "")
+
+			t.Run("it should start a filter", func(t *testing.T) {
+				assert.True(t, f.on)
+			})
+		})
+
+		t.Run("and kiln is typed", func(t *testing.T) {
+			_, f, _ := typed(t, "kiln")
+
+			t.Run("it should leave only the rows that hold it", func(t *testing.T) {
+				assert.Equal(t, []int{0, 2}, f.visible(labels))
+			})
+		})
+
+		t.Run("and KILN is typed", func(t *testing.T) {
+			_, f, _ := typed(t, "KILN")
+
+			t.Run("it should match whatever the case", func(t *testing.T) {
+				assert.Equal(t, []int{0, 2}, f.visible(labels))
+			})
+		})
+
+		t.Run("and tide is typed", func(t *testing.T) {
+			_, _, focus := typed(t, "tide")
+
+			t.Run("it should move the focus onto the row left", func(t *testing.T) {
+				assert.Equal(t, 1, *focus)
+			})
+		})
+
+		t.Run("and kiln is typed, then down is pressed", func(t *testing.T) {
+			g, f, focus := typed(t, "kiln")
+			frame(g, f, focus, ebiten.KeyArrowDown, 0)
+
+			t.Run("it should move to the next row left, past the ones filtered out", func(t *testing.T) {
+				assert.Equal(t, 2, *focus)
+			})
+		})
+
+		t.Run("and kiln is typed, then j", func(t *testing.T) {
+			_, f, _ := typed(t, "kilnj")
+
+			t.Run("it should type j into the filter, not move", func(t *testing.T) {
+				assert.Equal(t, "kilnj", string(f.text))
+			})
+		})
+
+		t.Run("and kiln is typed, then enter is pressed", func(t *testing.T) {
+			g, f, focus := typed(t, "kiln")
+			frame(g, f, focus, ebiten.KeyArrowDown, 0)
+			intent := frame(g, f, focus, ebiten.KeyEnter, 0)
+
+			t.Run("it should choose the focused row left", func(t *testing.T) {
+				assert.Equal(t, result{listChoose, 2}, result{intent, *focus})
+			})
+		})
+
+		t.Run("and backspace is pressed", func(t *testing.T) {
+			g, f, focus := typed(t, "kiln")
+			frame(g, f, focus, ebiten.KeyBackspace, 0)
+
+			t.Run("it should take the last letter off", func(t *testing.T) {
+				assert.Equal(t, "kil", string(f.text))
+			})
+		})
+
+		t.Run("and esc is pressed", func(t *testing.T) {
+			g, f, focus := typed(t, "kiln")
+			intent := frame(g, f, focus, ebiten.KeyEscape, 0)
+
+			t.Run("it should clear the filter rather than go back", func(t *testing.T) {
+				assert.True(t, !f.on && len(f.text) == 0 && intent != listBack)
+			})
+
+			t.Run("and esc is pressed again", func(t *testing.T) {
+				intent := frame(g, f, focus, ebiten.KeyEscape, 0)
+
+				t.Run("it should go back", func(t *testing.T) {
+					assert.Equal(t, listBack, intent)
+				})
+			})
+		})
+
+		t.Run("and nothing matches, and enter is pressed", func(t *testing.T) {
+			g, f, focus := typed(t, "zzz")
+			intent := frame(g, f, focus, ebiten.KeyEnter, 0)
+
+			t.Run("it should choose nothing", func(t *testing.T) {
+				assert.Equal(t, listNone, intent)
+			})
+		})
+
+		t.Run("and a text field has the focus, and / is pressed", func(t *testing.T) {
+			g, f, focus := &Game{scripted: ebiten.KeySlash, clicked: -1}, &listFilter{}, new(int)
+			g.listKeys(focus, len(labels), listShape{labels: labels, filter: f, typing: true})
+
+			t.Run("it should leave the slash to the field", func(t *testing.T) {
+				assert.False(t, f.on)
+			})
+		})
+	})
+
 	t.Run("when 3 is pressed in a list whose enter is the panel's own verb", func(t *testing.T) {
 		g := &Game{scripted: ebiten.KeyDigit3, clicked: -1}
 		focus := 0

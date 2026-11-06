@@ -32,6 +32,18 @@ type journal struct {
 	filled   []bool
 	sessions map[string]state.Session
 	reply    func(string) string
+	// filter narrows the entries while / is on (item 350).
+	filter listFilter
+}
+
+// labels are what a filter matches the journal's entries by: each one's
+// title and where it is.
+func (j *journal) labels() []string {
+	labels := make([]string, len(j.entries))
+	for i, e := range j.entries {
+		labels[i] = e.Title + " " + strings.Join(e.Where, " ")
+	}
+	return labels
 }
 
 const restoreLabel = "Restore the desk"
@@ -142,7 +154,7 @@ func (j *journal) restore(g *Game) {
 }
 
 func (j *journal) keys(g *Game) bool {
-	switch g.listKeys(&j.selected, len(j.entries), listShape{}) {
+	switch g.listKeys(&j.selected, len(j.entries), listShape{labels: j.labels(), filter: &j.filter}) {
 	case listBack:
 		return false
 	case listChoose:
@@ -218,8 +230,13 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.text(screen, city.Point{X: x, Y: y}, offer, ui.Small, th.Palette.Accent)
 	}
 	y += lineH + 2*grid
+	y += g.drawFilter(screen, &j.filter, city.Point{X: x, Y: y - grid}, ui.Small)
+	left := j.filter.left(j.labels())
 	j.drawn = 0
 	for i := range j.entries {
+		if !left[i] {
+			continue
+		}
 		if y+3*lineH > plate.Max.Y-2*lineH {
 			break
 		}

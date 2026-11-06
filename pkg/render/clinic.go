@@ -16,6 +16,33 @@ import (
 type clinic struct {
 	selected int
 	rect     city.Rect
+	// filter narrows the rows while / is on (item 350).
+	filter listFilter
+}
+
+// clinicLabels are what a filter matches a clinic row by: its title and
+// why it is listed.
+func clinicLabels(g *Game, rows []city.ClinicRow) []string {
+	labels := make([]string, len(rows))
+	for i, r := range rows {
+		labels[i] = r.Building.Card(g.now()).Title + " " + r.Reason
+	}
+	return labels
+}
+
+// shownRows is the rows the filter leaves, and where the selection is
+// among them.
+func (c *clinic) shownRows(g *Game) ([]city.ClinicRow, int) {
+	all := g.scene.Clinic()
+	var rows []city.ClinicRow
+	selected := 0
+	for _, i := range c.filter.visible(clinicLabels(g, all)) {
+		if i == c.selected {
+			selected = len(rows)
+		}
+		rows = append(rows, all[i])
+	}
+	return rows, selected
 }
 
 // clinicDigits are the keys that jump to the first nine rows.
@@ -61,7 +88,7 @@ func (c *clinic) keys(g *Game) bool {
 			starts = append(starts, i)
 		}
 	}
-	switch g.listKeys(&c.selected, len(rows), listShape{starts: starts}) {
+	switch g.listKeys(&c.selected, len(rows), listShape{starts: starts, labels: clinicLabels(g, rows), filter: &c.filter}) {
 	case listBack:
 		return false
 	case listChoose:
@@ -90,7 +117,7 @@ func (c *clinic) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	scrim := th.Palette.Panel
 	scrim.A = 0x60
 	g.roundRect(screen, city.RectAt(0, 0, width, height), 0, scrim)
-	rows := g.scene.Clinic()
+	rows, selected := c.shownRows(g)
 	grid := th.Grid()
 	_, title := g.faces.Measure("", ui.Title)
 	_, body := g.faces.Measure("", ui.Body)
@@ -105,8 +132,12 @@ func (c *clinic) draw(g *Game, screen *ebiten.Image, width, height float64) {
 			sections++
 		}
 	}
+	filterH := 0.0
+	if c.filter.on {
+		filterH = small + grid/2
+	}
 	panel := city.RectAt((width-panelWidth)/2, grid*6, panelWidth,
-		grid*4+title+small+grid+float64(sections)*heading+float64(shown)*rowHeight)
+		grid*4+title+small+grid+filterH+float64(sections)*heading+float64(shown)*rowHeight)
 	g.mu.Lock()
 	c.rect = panel
 	g.mu.Unlock()
@@ -117,7 +148,8 @@ func (c *clinic) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	y += title
 	g.text(screen, city.Point{X: x, Y: y}, clinicStatus(rows), ui.Small, th.Palette.Dim)
 	y += small + grid
-	first := max(0, min(c.selected-shown+1, len(rows)-shown))
+	y += g.drawFilter(screen, &c.filter, city.Point{X: x, Y: y}, ui.Small)
+	first := max(0, min(selected-shown+1, len(rows)-shown))
 	for i := first; i < first+shown && i < len(rows); i++ {
 		row := rows[i]
 		tone := ui.ToneNeedsYou
@@ -128,7 +160,7 @@ func (c *clinic) draw(g *Game, screen *ebiten.Image, width, height float64) {
 			g.text(screen, city.Point{X: x, Y: y}, string(row.Section), ui.Small, th.Color(tone))
 			y += heading
 		}
-		if i == c.selected {
+		if i == selected {
 			g.roundRect(screen, city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2), 0, th.Palette.Hairline)
 		}
 		key := "  "

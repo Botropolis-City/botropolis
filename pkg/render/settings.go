@@ -16,6 +16,12 @@ import (
 // it reports whether the panel is still open.
 func (g *Game) settingsKeys() bool {
 	just := g.just
+	shape := listShape{labels: settingLabels(g.settings.Items), filter: &g.settingsFilter}
+	// While / filters the rows, what is typed is the filter's, so the
+	// list answers before the settings' own letters (item 350).
+	if g.settingsFilter.on {
+		return g.settingsChoose(g.listKeys(&g.settings.Cursor, len(g.settings.Items), shape))
+	}
 	if just(ebiten.KeyEscape) || just(ebiten.KeyS) || just(ebiten.KeyQ) {
 		return false
 	}
@@ -36,21 +42,8 @@ func (g *Game) settingsKeys() bool {
 	}
 	// The list vocabulary (item 350): choosing a row steps it, as Enter
 	// always has, and a digit chooses its row.
-	switch g.listKeys(&g.settings.Cursor, len(g.settings.Items), listShape{}) {
-	case listBack:
-		return false
-	case listChoose:
-		switch {
-		case g.onKeysRow():
-			g.openKeysPanel()
-		case g.onShortcutRow():
-			g.beginShortcut()
-		default:
-			g.applySetting(g.settings.Adjust(1))
-		}
-		return true
-	case listMoved:
-		return true
+	if intent := g.listKeys(&g.settings.Cursor, len(g.settings.Items), shape); intent != listNone {
+		return g.settingsChoose(intent)
 	}
 	if just(ebiten.KeyArrowRight) || just(ebiten.KeyL) || just(ebiten.KeySpace) {
 		g.applySetting(g.settings.Adjust(1))
@@ -163,7 +156,7 @@ func (g *Game) setScale(scale float64) error {
 func (g *Game) drawSettings(screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
-	p := ui.LayoutSettings(th, width, height, g.settings, g.faces.Measure)
+	p := ui.LayoutSettings(th, width, height, g.shownSettings(), g.faces.Measure)
 	// Kept so a click lands on the row that was drawn. Bug 43.
 	g.mu.Lock()
 	g.settingsPanel = p
@@ -201,9 +194,61 @@ func (g *Game) clickSettings(cursor city.Point) bool {
 		g.recordingShortcut, g.pendingShortcut = false, nil
 		return true
 	}
-	if i, ok := panel.Hit(cursor); ok {
-		g.settings.Cursor = i
+	if i, ok := panel.Hit(cursor); ok && i < len(panel.Rows) {
+		// The rows drawn may be a filter's few, so the row is found by
+		// its key (item 350).
+		for j, item := range g.settings.Items {
+			if item.Key == panel.Rows[i].Key {
+				g.settings.Cursor = j
+			}
+		}
 		g.clicked = ebiten.KeyEnter
 	}
 	return true
+}
+
+// settingsChoose does what the list asked of the settings, and reports
+// whether they stay open: choosing a row steps it, as Enter always has.
+func (g *Game) settingsChoose(intent listIntent) bool {
+	switch intent {
+	case listBack:
+		g.settingsFilter = listFilter{}
+		return false
+	case listChoose:
+		switch {
+		case g.onKeysRow():
+			g.openKeysPanel()
+		case g.onShortcutRow():
+			g.beginShortcut()
+		default:
+			g.applySetting(g.settings.Adjust(1))
+		}
+	}
+	return true
+}
+
+// shownSettings is the settings as a filter leaves them: the rows it
+// keeps, the cursor among them, and the filter in the note's place.
+func (g *Game) shownSettings() ui.Settings {
+	s := ui.Settings{Note: g.settings.Note}
+	for _, i := range g.settingsFilter.visible(settingLabels(g.settings.Items)) {
+		if i == g.settings.Cursor {
+			s.Cursor = len(s.Items)
+		}
+		s.Items = append(s.Items, g.settings.Items[i])
+	}
+	if line := g.settingsFilter.shown(); line != "" {
+		s.Note = line + "▏"
+	}
+	return s
+}
+
+// settingLabels are what a filter matches the settings' rows by: each
+// row's name and value.
+func settingLabels(items []ui.Setting) []string {
+	labels := make([]string, len(items))
+	for i, item := range items {
+		labels[i] = item.Label + " " + item.Value
+	}
+	return labels
 }

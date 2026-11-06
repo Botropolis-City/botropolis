@@ -51,6 +51,8 @@ type walk struct {
 	journal bool
 	rect    city.Rect
 	buttons []walkButton
+	// filter narrows the card's members while / is on (item 350).
+	filter listFilter
 }
 
 type walkButton struct {
@@ -308,6 +310,14 @@ func (w *walk) next(g *Game) {
 }
 
 func (w *walk) keys(g *Game) bool {
+	shape := listShape{digitsFocus: true, labels: w.memberTitles(), filter: &w.filter}
+	// While / filters the members, what is typed is the filter's, so the
+	// list answers before the card's letters (item 350).
+	if w.filter.on {
+		if g.listKeys(&w.member, len(w.memberTitles()), shape) != listBack {
+			return true
+		}
+	}
 	for _, b := range w.buttonDefs() {
 		if b.key == ebiten.KeyBracketRight {
 			continue
@@ -318,7 +328,7 @@ func (w *walk) keys(g *Game) bool {
 	}
 	// The members are the card's list (item 350): they move as every
 	// list does, and 1-9 pick one, since Enter is the card's own verb.
-	if g.listKeys(&w.member, len(w.memberTitles()), listShape{digitsFocus: true}) == listMoved {
+	if g.listKeys(&w.member, len(w.memberTitles()), shape) == listMoved {
 		return true
 	}
 	switch {
@@ -481,6 +491,9 @@ func (w *walk) layout(th ui.Theme, width, height float64, measure ui.Measure) {
 	_, body := measure("", ui.Body)
 	_, small := measure("", ui.Small)
 	lines := max(3, len(w.memberTitles())+2)
+	if w.filter.on {
+		lines++
+	}
 	if w.card() == cardQuiet && w.districts {
 		lines += len(w.quietDistricts())
 	}
@@ -537,7 +550,14 @@ func (w *walk) draw(g *Game, screen *ebiten.Image, width, height float64) {
 			row := w.review.Rows[i]
 			line(fmt.Sprintf("%s · %s", row.Name, plural(len(row.Members), "session")), th.Palette.Text)
 			line(row.Reason, th.Palette.Dim)
+			if filtered := w.filter.shown(); filtered != "" {
+				line(filtered+"▏", th.Palette.Accent)
+			}
+			left := w.filter.left(w.memberTitles())
 			for k, t := range w.memberTitles() {
+				if !left[k] {
+					continue
+				}
 				mark := "   "
 				if k == w.member {
 					mark = " › "

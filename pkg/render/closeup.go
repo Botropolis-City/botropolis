@@ -35,6 +35,18 @@ type closeUp struct {
 	mu      sync.Mutex
 	err     string
 	working bool
+	// filter narrows the rows while / is on (item 350).
+	filter listFilter
+}
+
+// labels are what a filter matches the close-up's rows by: each
+// session's title and directory.
+func (p *closeUp) labels() []string {
+	labels := make([]string, len(p.rows))
+	for i, s := range p.rows {
+		labels[i] = s.Title + " " + s.CWD
+	}
+	return labels
 }
 
 // said is the panel's line about the close-up: running, or why it failed.
@@ -172,7 +184,14 @@ func (p *closeUp) layout(g *Game, width, height float64) []closeUpRow {
 	pinW, _ := measure("pin", ui.Small)
 	pinW = max(pinW, box)
 	rows := make([]closeUpRow, 0, len(p.rows))
+	// A row the filter leaves out is an empty one, drawn nowhere, so the
+	// rows stay one per session (item 350).
+	left := p.filter.left(p.labels())
 	for i, s := range p.rows {
+		if !left[i] {
+			rows = append(rows, closeUpRow{})
+			continue
+		}
 		r := closeUpRow{
 			Rect:    city.RectAt(plate.Min.X+grid, y-grid/2, plate.Width()-2*grid, lineH+grid),
 			Box:     city.RectAt(x, y+(lineH-box)/2, box, box),
@@ -191,7 +210,7 @@ func (p *closeUp) layout(g *Game, width, height float64) []closeUpRow {
 
 func (p *closeUp) keys(g *Game) bool {
 	// Enter is the panel's own verb, closing up, so 1-9 only focus a row.
-	intent := g.listKeys(&p.selected, len(p.rows), listShape{digitsFocus: true})
+	intent := g.listKeys(&p.selected, len(p.rows), listShape{digitsFocus: true, labels: p.labels(), filter: &p.filter})
 	switch intent {
 	case listBack:
 		return false
@@ -255,8 +274,12 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.text(screen, city.Point{X: x, Y: y}, ui.Fit(city.ActionCloseUp.Describe(), room, ui.Small, g.faces.Measure), ui.Small, th.Palette.Dim)
 	y += lineH
 	g.text(screen, city.Point{X: x, Y: y}, ui.Fit("pause stops a session for now and keeps its conversation; pin marks what to start with next time", room, ui.Small, g.faces.Measure), ui.Small, th.Palette.Dim)
+	g.drawFilter(screen, &p.filter, city.Point{X: x, Y: y + lineH + grid}, ui.Small)
 	rows := p.layout(g, width, height)
 	for i, r := range rows {
+		if r.Rect.Area() == 0 {
+			continue
+		}
 		if i == p.selected {
 			g.roundRect(screen, r.Rect, 0, th.Palette.Hairline)
 		}

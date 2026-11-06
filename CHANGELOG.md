@@ -91,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Every list answers the same keys.**
   In the move-to-group picker, the clinic, the groups board, the timeline, the settings, the journal, the Keys panel, a group's dive, close-up and the tidy-up walk, the arrows or `j` and `k` move, `tab` goes on to the next section, `1`–`9` choose a row, Enter chooses and Esc goes back.
   In the tidy-up walk and close-up, where Enter is the panel's own, `1`–`9` pick a row without acting; in a group's dive, the up and down arrows step its stations, and `1`–`6` stay the lenses.
+  Every list filters with `/`: what you type narrows it to the rows that hold it, the keys above act on what is left, and Esc clears the filter before it goes back. Where you are typing into a field, such as a new group's name, `/` types a slash.
 - **Keys can be changed from the settings too.**
   The settings' last row, *keys*, opens a panel of every key under where it answers, at the map, in the action menu and in the finder.
   Enter on a row records the next key pressed, which takes effect at once and is saved; one already taken or fixed is refused on the row, saying what holds it, and Backspace puts a row back to its default.

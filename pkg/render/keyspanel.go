@@ -42,6 +42,35 @@ type keysPanel struct {
 	// refused is why the key last pressed for a row was not taken, by
 	// its index.
 	refused map[int]string
+	// filter narrows the rows while / is on.
+	filter listFilter
+}
+
+// labels are what a filter matches the panel's rows by: what each does,
+// where, and its key.
+func (p *keysPanel) labels(g *Game) []string {
+	rows := p.keyRows(g)
+	labels := make([]string, len(rows))
+	for i, r := range rows {
+		labels[i] = r.Label + " " + r.Section + " " + r.Key
+	}
+	return labels
+}
+
+// shown is the rows the filter leaves, each row's index in the whole
+// list, and the focus among them.
+func (p *keysPanel) shown(g *Game) ([]ui.KeyRow, []int, int) {
+	all := p.keyRows(g)
+	left := p.filter.visible(p.labels(g))
+	rows := make([]ui.KeyRow, 0, len(left))
+	focus := 0
+	for at, i := range left {
+		if i == p.focus {
+			focus = at
+		}
+		rows = append(rows, all[i])
+	}
+	return rows, left, focus
 }
 
 // openKeysPanel puts the panel over the settings, on its first row.
@@ -135,7 +164,14 @@ func (p *keysPanel) keyRows(g *Game) []ui.KeyRow {
 
 func (p *keysPanel) layout(g *Game, width, height float64) ui.KeysPanel {
 	_, _, measure := g.metrics()
-	return ui.LayoutKeysPanel(g.theme, width, height, p.keyRows(g), p.focus, measure)
+	rows, left, focus := p.shown(g)
+	laid := ui.LayoutKeysPanel(g.theme, width, height, rows, focus, measure)
+	// The laid rows count among the filter's few; each takes back its
+	// index in the whole list.
+	for i := range laid.Rows {
+		laid.Rows[i].Index = left[laid.Rows[i].Index]
+	}
+	return laid
 }
 
 func (p *keysPanel) keys(g *Game) bool {
@@ -149,7 +185,7 @@ func (p *keysPanel) keys(g *Game) bool {
 			starts = append(starts, i)
 		}
 	}
-	switch g.listKeys(&p.focus, len(p.rows), listShape{starts: starts}) {
+	switch g.listKeys(&p.focus, len(p.rows), listShape{starts: starts, labels: p.labels(g), filter: &p.filter}) {
 	case listBack:
 		return false
 	case listChoose:
@@ -242,6 +278,9 @@ func (p *keysPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	laid := p.layout(g, width, height)
 	g.roundPanel(screen, laid.Rect)
 	g.run(screen, laid.Title, th.Palette.Text)
+	if tw, _ := g.faces.Measure(laid.Title.Text, laid.Title.Size); p.filter.on {
+		g.drawFilter(screen, &p.filter, laid.Title.At.Add(city.Point{X: tw + 2*th.Grid()}), ui.Body)
+	}
 	for _, h := range laid.Headings {
 		g.run(screen, h, th.Palette.Dim)
 	}
