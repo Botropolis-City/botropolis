@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Pointing at a session in a group lights the whole group.**
+  The rest of the city fades, as it does when a group is focused, and in the Connections lens the towers that session calls stay lit with only its own lines to them.
+  A session in no group, or alone on the map in its group, lights as before, and a selected session with the pointer elsewhere still lights only itself.
+- **What the city dims, it now dims clearly.**
+  Pointing at something, focusing a group or filtering the finder used to leave everything else faintly pale, which barely read at the fitted view.
+  Everything outside the answer now goes dark grey.
+
 ## [0.4.1] - 2026-11-06
 
 ### Added
