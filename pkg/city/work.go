@@ -39,6 +39,10 @@ func (s *Scene) Scaffold(b *Building) float64 {
 	if b == nil || b.Blinds || b.Stall() {
 		return 0
 	}
+	// A building on the move is not on its lot to scaffold (item 348).
+	if s.Hauling(b.Session.ID) {
+		return 0
+	}
 	// A building still going up has its site's scaffolding; the roof's
 	// waits until it stands (item 109).
 	if s.Rising(b.Session.ID) < 1 {

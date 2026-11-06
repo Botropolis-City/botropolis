@@ -95,6 +95,12 @@ func TestMoves(t *testing.T) {
 			t.Run("it should not show the building on its new lot yet", func(t *testing.T) {
 				assert.Zero(t, s.HaulProgress("d"))
 			})
+
+			// A working building's roof scaffolding is the building's,
+			// so it does not stand on an empty lot while the crate rides.
+			t.Run("it should put up no scaffolding", func(t *testing.T) {
+				assert.Zero(t, s.Scaffold(s.City().BuildingOf("d")))
+			})
 		})
 
 		t.Run("and the clock passes its span", func(t *testing.T) {

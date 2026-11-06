@@ -48,8 +48,10 @@ Below a detail zoom the map view draws flat state-coloured blocks, the way Facto
 above it, buildings are stacked from the pack's ground floors, storeys and roofs.
 Stopped sessions sat in a yard inside each district, then in one storage district along the south; since item 86 a stopped session keeps its own lot in its district and climbs the ladder there, and a district stays while it has any session.
 A group's sessions in a district sit together, a neighbourhood (item 348): a session with no lot yet takes the free one nearest its group's buildings, and keeps it.
+A session in no group takes the first free lot that borders no group, and any lot only when the grid has none left, so groups keep room to grow.
+A low kerb in the lines' light ink, cased in their dark, runs round each neighbourhood of two or more buildings; Aria chose it over a shared paving and a gate (2026-11-06).
 A guess by the detector moves nothing.
-When Aria moves a session into a group, out of one, or takes it out, its building is carried to a lot beside its new group, or clear of the one it left, and the move is drawn as the building riding beside a truck, a convoy when a team moves; under reduced motion it fades in where it lands.
+When Aria moves a session into a group, out of one, or takes it out, its building is carried to a lot beside its new group, or clear of the one it left: it fades out where it stood, a truck carries its crate across as packing does, and it fades in where it lands, a convoy when a team moves.
 The layout records the group each lot was chosen beside, so a moved building sits still once it is where she put it.
 A stopped building's windows go dark and, once it is shuttered, two planks are nailed across each pane: `tools/render-sprites` finds every window pane in each rendered building sprite, where the glass is the kit's one clearly blue surface, and writes its corners into the atlas manifest, so the planks sit on the windows the sprite shows from every heading (`pkg/render/facade.go`).
 Our own kinds' windows are found by their lit glass, by a colour rule the manifest carries so the map's tests tell glass the same way; each pane is a patch of that glass split at the building's near corner, at the projection's slope, and pushed out until it covers every pixel of it, and planks are held to the building's own pixels row by row (item 166).

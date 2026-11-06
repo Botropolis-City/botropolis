@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A group's sessions sit together.**
+- **A group's sessions sit together, inside a kerb.**
   A new session takes the free lot nearest the rest of its group in its district, so a group reads as a neighbourhood.
-  Moving a session into a group, out of one, or taking it out carries its building to its new lot, and the move is drawn: the building rides beside a truck, and a team moves as a convoy.
-  Under reduced motion it fades in where it lands.
+  A session in no group leaves the lots beside a group free while it can.
+  A low light kerb runs round each neighbourhood of two or more buildings, so a group is found without reading a badge.
+  Moving a session into a group, out of one, or taking it out carries its building to its new lot, and the move is drawn: the building fades out where it stood, a truck carries its crate across, as packing does, and it fades in where it lands.
+  A team moves as a convoy.
   Groups the city guesses move nothing, so no building moves unless you moved it.
 
 ### Changed
