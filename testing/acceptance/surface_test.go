@@ -93,14 +93,15 @@ func TestSurface(t *testing.T) {
 
 	t.Run("when each config key with a closed set of values is read", func(t *testing.T) {
 		parsers := map[string]func(string) bool{
-			config.KeyLiveliness:   func(v string) bool { _, ok := city.ParseLiveliness(v); return ok },
-			config.KeyDetail:       func(v string) bool { _, ok := city.ParseDetail(v); return ok },
-			config.KeyDistrictType: func(v string) bool { _, ok := city.ParseTyping(v); return ok },
-			config.KeyUsageRefresh: func(v string) bool { _, err := config.ParseUsageRefresh(v); return err == nil },
-			config.KeyScriptedRuns: func(v string) bool { _, err := config.ParseScriptedRuns(v); return err == nil },
-			config.KeyOnClose:      func(v string) bool { _, err := config.ParseOnClose(v); return err == nil },
-			config.KeyLight:        func(v string) bool { _, err := config.ParseLight(v); return err == nil },
-			config.KeyTowerLines:   func(v string) bool { _, err := config.ParseTowerLines(v); return err == nil },
+			config.KeyLiveliness:    func(v string) bool { _, ok := city.ParseLiveliness(v); return ok },
+			config.KeyDetail:        func(v string) bool { _, ok := city.ParseDetail(v); return ok },
+			config.KeyDistrictType:  func(v string) bool { _, ok := city.ParseTyping(v); return ok },
+			config.KeyUsageRefresh:  func(v string) bool { _, err := config.ParseUsageRefresh(v); return err == nil },
+			config.KeyScriptedRuns:  func(v string) bool { _, err := config.ParseScriptedRuns(v); return err == nil },
+			config.KeyOnClose:       func(v string) bool { _, err := config.ParseOnClose(v); return err == nil },
+			config.KeyLight:         func(v string) bool { _, err := config.ParseLight(v); return err == nil },
+			config.KeyTowerLines:    func(v string) bool { _, err := config.ParseTowerLines(v); return err == nil },
+			config.KeyGroupLineForm: func(v string) bool { _, err := config.ParseGroupLineForm(v); return err == nil },
 		}
 		for key, values := range config.Values {
 			parse, ok := parsers[key]
