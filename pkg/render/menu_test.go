@@ -264,6 +264,21 @@ func TestMenuPanel(t *testing.T) {
 			}
 			assert.Equal(t, []string{"attach", "stop", "read"}, labels)
 		})
+
+		t.Run("it should be opaque, so nothing under it reads through its rows", func(t *testing.T) {
+			assert.Equal(t, uint8(0xff), laid(r.g).Fill.A)
+		})
+	})
+
+	t.Run("when the menu opens near the window's foot", func(t *testing.T) {
+		r := newRig(t)
+		r.g.openMenu(kinds, city.Point{X: 300, Y: height - 20}, -1)
+		_, _, measure := r.g.metrics()
+		footer := ui.LayoutFooter(r.g.theme, width, height, footerKeys, measure)
+
+		t.Run("it should stay above the footer", func(t *testing.T) {
+			assert.LessOrEqual(t, laid(r.g).Rect.Max.Y, footer.Rect.Min.Y)
+		})
 	})
 }
 

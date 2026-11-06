@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image/color"
 	"math"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -49,6 +50,9 @@ type Menu struct {
 	Rows        [][]MenuItem
 	Description []Text
 	Focus       MenuFocus
+	// Fill is the plate's colour: opaque, since a menu opens over the
+	// card, and the card's text showed through its rows.
+	Fill color.NRGBA
 }
 
 // LayoutMenu lays the columns out with their top-left corner at a point,
@@ -62,7 +66,8 @@ func LayoutMenu(th Theme, columns []MenuColumn, focus MenuFocus, hover, at city.
 	_, lineH := measure("", Body)
 	_, smallH := measure("", Small)
 	rowH := lineH + grid
-	m := Menu{Focus: focus}
+	m := Menu{Focus: focus, Fill: th.Palette.Panel}
+	m.Fill.A = 0xff
 	x, top := pad, pad
 	rowsTop := top + smallH + grid
 	bottom := rowsTop
@@ -146,7 +151,7 @@ func (m Menu) Hit(at city.Point) (MenuFocus, bool) {
 // on it.
 func (m Menu) MoveTo(at city.Point) Menu {
 	by := at.Sub(m.Rect.Min)
-	moved := Menu{Rect: city.Rect{Min: at, Max: m.Rect.Max.Add(by)}, Focus: m.Focus}
+	moved := Menu{Rect: city.Rect{Min: at, Max: m.Rect.Max.Add(by)}, Focus: m.Focus, Fill: m.Fill}
 	for _, h := range m.Headings {
 		moved.Headings = append(moved.Headings, MenuHeading{Title: h.Title.moved(by), Cap: h.Cap.Moved(h.Cap.Rect.Min.Add(by))})
 	}

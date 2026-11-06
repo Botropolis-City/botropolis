@@ -179,7 +179,8 @@ func (g *Game) runVerb(kind city.ActionKind) {
 
 func (p *menuPanel) layout(g *Game, width, height float64) ui.Menu {
 	_, _, measure := g.metrics()
-	return ui.LayoutMenu(g.theme, p.columns, p.focus, g.pointer(), p.at, city.RectAt(0, 0, width, height), measure)
+	footer := ui.LayoutFooter(g.theme, width, height, footerKeys, measure)
+	return ui.LayoutMenu(g.theme, p.columns, p.focus, g.pointer(), p.at, city.RectAt(0, 0, width, footer.Rect.Min.Y), measure)
 }
 
 // rows is how many rows the focused column has.
@@ -288,7 +289,8 @@ func (p *menuPanel) click(g *Game, at city.Point) bool {
 func (p *menuPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	m := p.layout(g, width, height)
-	g.roundPanel(screen, m.Rect)
+	g.roundRect(screen, m.Rect, th.Radius(), m.Fill)
+	g.roundStroke(screen, m.Rect, th.Radius(), th.Hairline(), th.Palette.Hairline)
 	pointer := g.pointer()
 	for c, heading := range m.Headings {
 		tone := th.Palette.Dim
