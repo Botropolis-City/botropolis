@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,10 +83,10 @@ func TestGroupsOnTheMap(t *testing.T) {
 		})
 	})
 
-	t.Run("when fewer than two of a group's members are on the map", func(t *testing.T) {
+	t.Run("when none of a group's members are on the map", func(t *testing.T) {
 		s := scene([]state.Session{
-			member("a", "/w/a", "g1"), scripted(member("c", "/w/c", "g1")), member("x", "/w/x", ""),
-		}, groupOf("g1", "a", "c", "e"))
+			scripted(member("c", "/w/c", "g1")), gone(member("d", "/w/d", "g1")), member("x", "/w/x", ""),
+		}, groupOf("g1", "c", "d", "e"))
 		_, ok := shown(s, "g1")
 
 		t.Run("it should not offer the group", func(t *testing.T) {
@@ -96,12 +97,52 @@ func TestGroupsOnTheMap(t *testing.T) {
 			assert.Empty(t, s.City().Lines)
 		})
 
-		t.Run("it should leave its member in no group, so no badge", func(t *testing.T) {
-			assert.Nil(t, building(s, "a").Group)
+		t.Run("it should leave the snapshot it was given as it was", func(t *testing.T) {
+			assert.Equal(t, 3, len(s.RealSnapshot().Groups[0].Members))
+		})
+	})
+
+	// Item 344: a group with one session on the map is shown, not hidden.
+	t.Run("when one of a group's members is on the map", func(t *testing.T) {
+		s := scene([]state.Session{
+			member("a", "/w/a", "g1"), scripted(member("c", "/w/c", "g1")), member("x", "/w/x", ""),
+		}, groupOf("g1", "a", "c", "e"))
+		g, ok := shown(s, "g1")
+
+		t.Run("it should offer the group, with that member alone", func(t *testing.T) {
+			require.True(t, ok)
+			assert.Equal(t, []string{"a"}, g.Members)
+		})
+
+		t.Run("it should give that member its badge", func(t *testing.T) {
+			require.NotNil(t, building(s, "a").Group)
+			assert.Equal(t, "g1", building(s, "a").Group.ID)
+		})
+
+		t.Run("its card should name the group", func(t *testing.T) {
+			assert.Contains(t, building(s, "a").Card(now).Details, "members  Title a")
+		})
+
+		t.Run("it should draw no line for it, its one station leading nowhere", func(t *testing.T) {
+			assert.Empty(t, s.Lines())
 		})
 
 		t.Run("it should leave the snapshot it was given as it was", func(t *testing.T) {
 			assert.Equal(t, 3, len(s.RealSnapshot().Groups[0].Members))
+		})
+	})
+
+	t.Run("when a resting session is alone in its group on the map", func(t *testing.T) {
+		alone := member("a", "/w/a", "g1")
+		alone.State, alone.Alive, alone.LastActivity = state.Resting, false, now.Add(-30*24*time.Hour)
+		s := scene([]state.Session{alone, member("x", "/w/x", "")}, groupOf("g1", "a", "c"))
+		var sessions []state.Session
+		for _, b := range s.City().Buildings() {
+			sessions = append(sessions, b.Session)
+		}
+
+		t.Run("the quiet sweep should leave it", func(t *testing.T) {
+			assert.NotContains(t, state.Quiet(sessions, now, 7*24*time.Hour), "a")
 		})
 	})
 

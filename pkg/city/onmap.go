@@ -1,10 +1,6 @@
 package city
 
-import (
-	"slices"
-
-	"botropolis.city/botropolis/pkg/state"
-)
+import "botropolis.city/botropolis/pkg/state"
 
 // Shown is which sessions the map draws that it leaves off by default.
 // Leaving one off takes only its building: the snapshot, the ledger and
@@ -56,17 +52,17 @@ func (sh Shown) onMap(snapshot state.Snapshot) (state.Snapshot, []state.Session)
 		}
 		snapshot.Sessions = kept
 	}
-	snapshot.Groups, snapshot.Sessions = groupsOnMap(snapshot.Groups, snapshot.Sessions)
+	snapshot.Groups = groupsOnMap(snapshot.Groups, snapshot.Sessions)
 	return snapshot, off
 }
 
 // groupsOnMap is each group with only the members the map draws, and
-// without the groups fewer than two of whose sessions it draws, whose
-// sessions it leaves in no group (item 333). What it changes, it
-// copies, so the snapshot it was given stays as it was.
-func groupsOnMap(groups []state.Group, sessions []state.Session) ([]state.Group, []state.Session) {
+// without the groups none of whose sessions it draws (item 333). A group
+// with one session on the map is shown, not hidden (item 344). What it
+// changes, it copies, so the snapshot it was given stays as it was.
+func groupsOnMap(groups []state.Group, sessions []state.Session) []state.Group {
 	if len(groups) == 0 {
-		return groups, sessions
+		return groups
 	}
 	on := make(map[string]bool, len(sessions))
 	carrying := map[string]int{}
@@ -77,30 +73,16 @@ func groupsOnMap(groups []state.Group, sessions []state.Session) ([]state.Group,
 		}
 	}
 	kept := make([]state.Group, 0, len(groups))
-	var dropped map[string]bool
 	for _, g := range groups {
-		if carrying[g.ID] >= 2 {
-			if !every(g.Members, on) {
-				g = membersOn(g, on)
-			}
-			kept = append(kept, g)
+		if carrying[g.ID] == 0 {
 			continue
 		}
-		if dropped == nil {
-			dropped = map[string]bool{}
+		if !every(g.Members, on) {
+			g = membersOn(g, on)
 		}
-		dropped[g.ID] = true
+		kept = append(kept, g)
 	}
-	if dropped == nil {
-		return kept, sessions
-	}
-	loose := slices.Clone(sessions)
-	for i := range loose {
-		if dropped[loose[i].Group] {
-			loose[i].Group, loose[i].GroupJoined, loose[i].GroupLikely, loose[i].GroupWords = "", "", false, nil
-		}
-	}
-	return kept, loose
+	return kept
 }
 
 func every(ids []string, on map[string]bool) bool {
