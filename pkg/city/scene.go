@@ -1161,7 +1161,7 @@ func (s *Scene) Actions() []ActionKind {
 	kinds = append(kinds, ActionDistrictType)
 	if s.selected.Suggested != nil {
 		kinds = append(kinds, ActionJoinSuggested, ActionMoveToGroup)
-	} else if s.selected.Session.State != state.Resting {
+	} else if _, inTeam := s.teamLead(s.selected.Session); s.selected.Session.State != state.Resting || inTeam {
 		kinds = append(kinds, ActionMoveToGroup)
 	}
 	if s.selected.Group != nil {
@@ -1294,17 +1294,21 @@ func (s *Scene) Act(kind ActionKind) (Action, string) {
 	case ActionGenerate:
 		return Action{Kind: ActionGenerate, SessionID: b.Session.ID}, "summarising " + b.Card(s.city.Time).Title
 	case ActionMoveToGroup:
-		return Action{Kind: ActionMoveToGroup, SessionID: b.Session.ID}, ""
+		return s.ForTeam(Action{Kind: ActionMoveToGroup, SessionID: b.Session.ID}), ""
 	case ActionJoinSuggested:
 		if b.Suggested == nil {
 			return Action{}, "no group suggested"
 		}
-		return Action{Kind: ActionMove, SessionID: b.Session.ID, Group: b.Suggested.ID}, "moved into " + b.Suggested.Name
+		return s.ForTeam(Action{Kind: ActionMove, SessionID: b.Session.ID, Group: b.Suggested.ID}), "moved into " + b.Suggested.Name
 	case ActionTakeOut:
 		if b.Group == nil {
 			return Action{}, "not in a group"
 		}
-		return Action{Kind: ActionTakeOut, SessionID: b.Session.ID, Group: b.Group.ID}, "took " + b.Card(s.city.Time).Title + " out of " + b.Group.Name
+		who := b.Card(s.city.Time).Title
+		if _, inTeam := s.teamLead(b.Session); inTeam {
+			who += " and its team"
+		}
+		return s.ForTeam(Action{Kind: ActionTakeOut, SessionID: b.Session.ID, Group: b.Group.ID}), "took " + who + " out of " + b.Group.Name
 	case ActionCloseGroup:
 		if b.Group == nil {
 			return Action{}, "not in a group"
@@ -1486,11 +1490,48 @@ func (s *Scene) SelectedCard() (Card, *Building, bool) {
 	}
 	card := s.buildingCard(s.selected)
 	card.Open = s.detailsOpen()
+	_, inTeam := s.teamLead(s.selected.Session)
 	for _, kind := range s.Actions() {
 		card.Actions = append(card.Actions, string(kind))
-		card.Hints = append(card.Hints, kind.Describe())
+		card.Hints = append(card.Hints, kind.describeFor(inTeam))
 	}
 	return card, s.selected, true
+}
+
+// teamLead is the session leading the team of session, and whether it is
+// in a team at all: a teammate names its lead, and a lead is named by
+// one, on the map or not (item 343).
+func (s *Scene) teamLead(session state.Session) (string, bool) {
+	if session.Lead != "" {
+		return session.Lead, true
+	}
+	for _, other := range s.snapshot.Sessions {
+		if other.Lead == session.ID {
+			return session.ID, true
+		}
+	}
+	return "", false
+}
+
+// ForTeam is action as it acts on a team: a move or a take-out of a
+// teammate is its team's, so it is handed on as its lead's, which
+// grouping then follows for the whole team; every other action, and
+// one on a session in no team, is returned as it came. Every path that
+// moves a session — the card, the picker, a drop on a line, the dive —
+// goes through it (item 343).
+func (s *Scene) ForTeam(action Action) Action {
+	switch action.Kind {
+	case ActionMove, ActionMoveToGroup, ActionTakeOut:
+	default:
+		return action
+	}
+	for _, session := range s.snapshot.Sessions {
+		if session.ID == action.SessionID && session.Lead != "" {
+			action.SessionID = session.Lead
+			return action
+		}
+	}
+	return action
 }
 
 // Activate is what a click or Enter does to the selected building: attach

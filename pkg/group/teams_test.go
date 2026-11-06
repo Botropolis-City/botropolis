@@ -2,6 +2,7 @@ package group_test
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -164,6 +165,16 @@ func TestTeams(t *testing.T) {
 		t.Run("it should leave the team in a group of its own", func(t *testing.T) {
 			ids := groupIDs(result, "a", "b", "e")
 			assert.True(t, ids[0] != "" && ids[0] != "g-proj" && ids[1] == ids[0] && ids[2] == ids[0], "%v", ids)
+		})
+
+		t.Run("and the group's other members then stand alone", func(t *testing.T) {
+			ms := slices.DeleteFunc(crew(), func(m group.Member) bool { return m.ID == "y" })
+			result := detect(group.Memory{Groups: stored}.WithTakenOut("b", "g-proj"), ms...)
+
+			t.Run("it should not form the team again under the group it left", func(t *testing.T) {
+				ids := groupIDs(result, "a", "b", "e")
+				assert.True(t, ids[0] != "" && ids[0] != "g-proj" && ids[1] == ids[0] && ids[2] == ids[0], "%v", ids)
+			})
 		})
 	})
 

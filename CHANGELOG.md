@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A teammate is in its lead's group, always, and moves with it.**
+  A team was only evidence that its sessions were related, so a team too large to be evidence, a pair marked not related, or a move of the lead alone could leave a teammate in another group, or in none, with no way to move the resting ones.
+  Now a teammate follows its lead: into the lead's group, out of it, or into none, and a team on its own is one group.
+  Moving or taking out any session in a team, resting or not, acts on the whole team, and the card says so.
+  Closing a group still packs every member, teammates included.
 - **`c` with nothing under the pointer asks where.**
   With no building selected and no district under the pointer, `c` used to refuse with a footer note.
   It now opens New session on its directory field, so a session can start anywhere from the map.

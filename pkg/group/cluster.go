@@ -575,7 +575,7 @@ func (d *detection) teamGroup(groups []Group, memory Memory, lead string) ([]Gro
 		if mv, ok := d.moveOf(lead); ok && mv.Group == "" {
 			return groups, nil
 		}
-		if id, ok := storedHolding(memory, lead, groups); ok {
+		if id, ok := d.storedHolding(memory, lead, groups); ok {
 			return groupFrom(groups, memory, id)
 		}
 		groups = append(groups, Group{ID: newID(lead)})
@@ -587,19 +587,26 @@ func (d *detection) teamGroup(groups []Group, memory Memory, lead string) ([]Gro
 		}
 		return groupFrom(groups, memory, mv.Group)
 	}
-	if id, ok := storedHolding(memory, lead, nil); ok {
+	if id, ok := d.storedHolding(memory, lead, nil); ok {
 		return groupFrom(groups, memory, id)
 	}
 	return groups, nil
 }
 
-// storedHolding is the first stored group holding session that is not
-// among groups already, if any.
-func storedHolding(memory Memory, session string, groups []Group) (string, bool) {
+// storedHolding is the first stored group holding lead that is not among
+// groups already and that lead was not taken out of — one holding no
+// member lead is marked not related to — if any. Without the last, a team
+// taken out of a group whose other members then stand alone would form
+// again under that group's id.
+func (d *detection) storedHolding(memory Memory, lead string, groups []Group) (string, bool) {
 	for _, s := range memory.Groups {
-		if slices.Contains(s.Members, session) && groupByID(groups, s.ID) == nil {
-			return s.ID, true
+		if !slices.Contains(s.Members, lead) || groupByID(groups, s.ID) != nil {
+			continue
 		}
+		if slices.ContainsFunc(s.Members, func(m string) bool { return d.blocked[[2]string{lead, d.leadOf(m)}] }) {
+			continue
+		}
+		return s.ID, true
 	}
 	return "", false
 }

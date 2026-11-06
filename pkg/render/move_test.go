@@ -50,6 +50,25 @@ func TestMoveToGroup(t *testing.T) {
 		return g, actor
 	}
 
+	// Item 343: a teammate's move is its team's, so it is the lead's.
+	t.Run("when move to group is chosen on a teammate's card", func(t *testing.T) {
+		g, actor := newGame()
+		mate := state.Session{ID: "w", CWD: "/w/mate", State: state.Resting, Team: "crew", Agent: "worker", Lead: "a"}
+		g.scene.SetSnapshot(state.Snapshot{At: now, Groups: groups, Sessions: []state.Session{
+			{ID: "a", CWD: "/w/lib", State: state.Working, Group: "g1", Team: "crew"}, mate,
+			{ID: "b", CWD: "/w/api", State: state.Working, Group: "g2"},
+		}})
+		g.act(city.Action{Kind: city.ActionMoveToGroup, SessionID: "w"})
+		require.NotNil(t, g.picker(), "the picker should be open")
+		press(t, g, ebiten.KeyArrowDown)
+		press(t, g, ebiten.KeyArrowDown)
+		press(t, g, ebiten.KeyEnter)
+
+		t.Run("it should move the lead, and so the team, there", func(t *testing.T) {
+			assert.Equal(t, []city.Action{{Kind: city.ActionMove, SessionID: "a", Group: "g2"}}, actor.done)
+		})
+	})
+
 	t.Run("when move to group is chosen on a card", func(t *testing.T) {
 		g, _ := picking(t)
 

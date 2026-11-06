@@ -43,5 +43,22 @@ var actionText = map[ActionKind]string{
 	ActionNewSession:    "Starts a session in the directory you chose, in the group you chose.",
 }
 
+// teamActionText is what the actions that act on a whole team do, said
+// on the card of a session in one (item 343).
+var teamActionText = map[ActionKind]string{
+	ActionMoveToGroup:   "Moves this session and its team into a group, or into a new one you name.",
+	ActionJoinSuggested: "Moves this session and its team into the group it seems to belong to.",
+	ActionTakeOut:       "Takes this session and its team out of their group, and keeps them out.",
+}
+
 // Describe is what the action does, in one line.
 func (k ActionKind) Describe() string { return actionText[k] }
+
+// describeFor is what the action does for the selection: on a session in
+// a team, a move or a take-out acts on the team.
+func (k ActionKind) describeFor(inTeam bool) string {
+	if text, ok := teamActionText[k]; ok && inTeam {
+		return text
+	}
+	return actionText[k]
+}
