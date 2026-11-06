@@ -1427,32 +1427,55 @@ func (g *Game) beams(screen *ebiten.Image, c *city.City, cam *city.Camera, hover
 		if t := g.scene.BeamTint(beam, beams); t.Known {
 			col = ui.Sequential.At(t.Value)
 		}
-		col, highlighted := beamLook(g.lit, hover, beam, col)
+		col, stroke := beamLook(g.lit, hover, beam, col)
 		g.line(screen, cam, beam.From, beam.To, lineWidth(float64(beam.Calls)*20_000, 1, 3), col)
-		if highlighted {
-			g.line(screen, cam, beam.From, beam.To, 2, colorHighlight)
+		if stroke.Width > 0 {
+			a, b := cam.WorldToScreen(beam.From), cam.WorldToScreen(beam.To)
+			g.paint.Line(screen, a.X, a.Y, b.X, b.Y, max(float64(stroke.Width)*cam.Zoom, litBeamMinPx), stroke.Col)
 		}
 	}
 }
 
+// A lit beam has to read against the faded ones at the fit zoom, where
+// Aria judged the first frame's too thin and faint to pick out (item
+// 347): it is drawn over in an opaque white wider than the pointed-at
+// line used to be, and never under litBeamMinPx on screen however far
+// out the camera is.
+const (
+	litBeamWidth = 4
+	litBeamMinPx = 3
+)
+
+var colorBeamLit = color.NRGBA{0xff, 0xff, 0xff, 0xf0}
+
+// beamStroke is the line drawn over a lit beam: its width in world
+// units, scaled by the zoom and floored on screen, and its colour. A
+// width of 0 is no line.
+type beamStroke struct {
+	Width float32
+	Col   color.NRGBA
+}
+
+var litStroke = beamStroke{Width: litBeamWidth, Col: colorBeamLit}
+
 // beamLook is how a beam draws under the pointer (item 347): the colour
-// to draw it in, and whether the highlight line goes over it. A beam
-// under the pointer is highlighted on its own; while the contextual
-// highlight is up, the beams in it are highlighted and the rest fade as
-// the ground does. A car's highlight fades everything at once through
-// the fader, so nothing is faded here twice.
-func beamLook(lit city.Highlight, hover city.Hit, beam city.Beam, col color.NRGBA) (color.NRGBA, bool) {
+// to draw it in, and the line drawn over it when it is lit. A beam
+// under the pointer is lit on its own; while the contextual highlight
+// is up, the beams in it are lit and the rest fade as the ground does.
+// A car's highlight fades everything at once through the fader, so
+// nothing is faded here twice.
+func beamLook(lit city.Highlight, hover city.Hit, beam city.Beam, col color.NRGBA) (color.NRGBA, beamStroke) {
 	if hover.Beam != nil && hover.Beam.Building == beam.Building && hover.Beam.Tower == beam.Tower {
-		return col, true
+		return col, litStroke
 	}
 	if !lit.Active || lit.RecedesGround() {
-		return col, false
+		return col, beamStroke{}
 	}
 	if lit.HasBeam(beam) {
-		return col, true
+		return col, litStroke
 	}
 	col.A = uint8(float64(col.A) * recededAlpha)
-	return col, false
+	return col, beamStroke{}
 }
 
 // districtLabelAt is where a district's name plate sits for this face.

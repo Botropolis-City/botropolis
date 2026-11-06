@@ -29,22 +29,23 @@ func TestBeamLook(t *testing.T) {
 	base := color.NRGBA{0x10, 0x20, 0x30, 0xff}
 	alpha := float64(0xff) * recededAlpha
 	faded := color.NRGBA{0x10, 0x20, 0x30, uint8(alpha)}
+	none := beamStroke{}
 
 	t.Run("when the highlight is up on a tower", func(t *testing.T) {
 		gc.scene.SetHover(city.Hit{Tower: files.Tower})
 		lit := gc.scene.Highlight()
 		require.True(t, lit.Active)
 
-		t.Run("its beam should draw in the highlight colour", func(t *testing.T) {
-			col, highlighted := beamLook(lit, city.Hit{}, files, base)
+		t.Run("its beam should keep its colour and draw the lit line over it", func(t *testing.T) {
+			col, stroke := beamLook(lit, city.Hit{}, files, base)
 			assert.Equal(t, base, col)
-			assert.True(t, highlighted)
+			assert.Equal(t, litStroke, stroke)
 		})
 
-		t.Run("another tower's beam should draw at the faded alpha", func(t *testing.T) {
-			col, highlighted := beamLook(lit, city.Hit{}, search, base)
+		t.Run("another tower's beam should draw at the faded alpha, with no line over it", func(t *testing.T) {
+			col, stroke := beamLook(lit, city.Hit{}, search, base)
 			assert.Equal(t, faded, col)
-			assert.False(t, highlighted)
+			assert.Equal(t, none, stroke)
 		})
 	})
 
@@ -53,16 +54,16 @@ func TestBeamLook(t *testing.T) {
 		lit := gc.scene.Highlight()
 		require.False(t, lit.Active)
 
-		t.Run("that beam should draw in the highlight colour", func(t *testing.T) {
-			col, highlighted := beamLook(lit, city.Hit{Beam: &files}, files, base)
+		t.Run("that beam should draw the lit line over it", func(t *testing.T) {
+			col, stroke := beamLook(lit, city.Hit{Beam: &files}, files, base)
 			assert.Equal(t, base, col)
-			assert.True(t, highlighted)
+			assert.Equal(t, litStroke, stroke)
 		})
 
 		t.Run("the other beams should keep their colour", func(t *testing.T) {
-			col, highlighted := beamLook(lit, city.Hit{Beam: &files}, search, base)
+			col, stroke := beamLook(lit, city.Hit{Beam: &files}, search, base)
 			assert.Equal(t, base, col)
-			assert.False(t, highlighted)
+			assert.Equal(t, none, stroke)
 		})
 	})
 
@@ -72,9 +73,25 @@ func TestBeamLook(t *testing.T) {
 		require.True(t, lit.RecedesGround())
 
 		t.Run("no beam should be faded here, since the fader fades everything at once", func(t *testing.T) {
-			col, highlighted := beamLook(lit, city.Hit{}, search, base)
+			col, stroke := beamLook(lit, city.Hit{}, search, base)
 			assert.Equal(t, base, col)
-			assert.False(t, highlighted)
+			assert.Equal(t, none, stroke)
+		})
+	})
+
+	// Aria, on the first frame: the lit lines were too thin and faint to
+	// pick out from the faded ones at the fit zoom.
+	t.Run("when a lit beam is drawn", func(t *testing.T) {
+		t.Run("its line should be wider than the pointed-at line used to be", func(t *testing.T) {
+			assert.Greater(t, litStroke.Width, float32(2))
+		})
+
+		t.Run("its line should be brighter than the highlight colour", func(t *testing.T) {
+			assert.Greater(t, litStroke.Col.A, colorHighlight.A)
+		})
+
+		t.Run("its line should keep a width on screen at any zoom", func(t *testing.T) {
+			assert.GreaterOrEqual(t, float64(litBeamMinPx), 3.0)
 		})
 	})
 }
