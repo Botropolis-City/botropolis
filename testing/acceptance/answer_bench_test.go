@@ -8,7 +8,7 @@ import (
 )
 
 // The wall time of answering a session, from opening the map to the
-// attach being handed over by a click on the needs-you line. It reports
+// attach being handed over by a click on the needs-you count. It reports
 // and never gates: the test beside it gates on steps, ticks and work.
 // Item 91.
 //

@@ -86,10 +86,9 @@ func TestFooterWithReading(t *testing.T) {
 	th := ui.NewTheme(1)
 	keys := []ui.Key{{"drag", "pan"}}
 
-	t.Run("when the history is being read and a session waits", func(t *testing.T) {
+	t.Run("when the history is being read", func(t *testing.T) {
 		plain := ui.LayoutFooter(th, 800, 600, keys, measure7)
-		waiting := plain.WithWaiting(th, 800, "needs-you: Sea conditions", measure7)
-		f := waiting.WithReading(th, 800, "Reading your history · 42%", 0.42, measure7)
+		f := plain.WithReading(th, 800, "Reading your history · 42%", 0.42, measure7)
 
 		t.Run("it should show the line", func(t *testing.T) {
 			assert.Equal(t, "Reading your history · 42%", f.Reading.Text)
@@ -101,10 +100,6 @@ func TestFooterWithReading(t *testing.T) {
 
 		t.Run("it should start the fill where the bar starts", func(t *testing.T) {
 			assert.Equal(t, f.ReadingBar.Min, f.ReadingFill.Min)
-		})
-
-		t.Run("it should sit above the needs-you line", func(t *testing.T) {
-			assert.LessOrEqual(t, f.ReadingBar.Max.Y, f.WaitingRect.Min.Y)
 		})
 
 		t.Run("it should grow the footer to hold it", func(t *testing.T) {

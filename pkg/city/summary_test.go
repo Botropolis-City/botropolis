@@ -2,6 +2,7 @@ package city_test
 
 import (
 	"testing"
+	"time"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
@@ -126,6 +127,20 @@ func TestSummary(t *testing.T) {
 		t.Run("it should list the sessions in that state with what they are doing", func(t *testing.T) {
 			assert.Equal(t, "needs-you", card.Title)
 			assert.Equal(t, []string{"Fix the CI queue  Bash make test"}, card.Lines)
+		})
+	})
+
+	// Item 352: the needs-you line's two facts, how many and which has
+	// waited longest, stay one hover away on the strip.
+	t.Run("when two sessions need you and the needs-you chip is hovered", func(t *testing.T) {
+		newer := session("a", cinders, state.NeedsYou)
+		newer.Title, newer.LastActivity = "Newer", now.Add(-time.Minute)
+		older := session("b", botropolis, state.NeedsYou)
+		older.Title, older.LastActivity = "Older", now.Add(-time.Hour)
+		card := city.Build(snapshot(newer, older), city.NewLayout()).StateCard(state.NeedsYou)
+
+		t.Run("it should name the longest-waiting first, then the other", func(t *testing.T) {
+			assert.Equal(t, []string{"Older", "Newer"}, card.Lines)
 		})
 	})
 

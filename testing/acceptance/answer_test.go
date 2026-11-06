@@ -14,8 +14,9 @@ import (
 )
 
 // Answering a session and getting back to the map: one click there and
-// one key back. The click is on the needs-you line in the footer, which
-// attaches the session that has waited longest; the key back is pressed
+// one key back. The click is on the needs-you count on the strip (item
+// 352; the needs-you line in the footer until then), which attaches the
+// session that has waited longest; the key back is pressed
 // in the terminal, outside the city, so only the click is measured here.
 // The reading pane's route is recorded beside it. Item 91.
 
@@ -23,7 +24,7 @@ const (
 	answerSteps   = 1
 	answerTicks   = 1
 	readingSteps  = 3
-	waitingLine   = "needs-you line"
+	waitingLine   = "needs-you chip"
 	longestTitle  = "Tide table in station time"
 	hamletWaiting = "Sea conditions in the daily report"
 )
@@ -43,7 +44,7 @@ func drive(t testing.TB, home string) *render.Drive {
 	return d
 }
 
-// runAnswer clicks the needs-you line and waits for the attach.
+// runAnswer clicks the needs-you chip and waits for the attach.
 func runAnswer(t testing.TB, home string) answered {
 	t.Helper()
 	d := drive(t, home)
@@ -61,7 +62,7 @@ func runAnswer(t testing.TB, home string) answered {
 }
 
 func TestAnswerAndComeBack(t *testing.T) {
-	t.Run("when the needs-you line is clicked", func(t *testing.T) {
+	t.Run("when the needs-you chip is clicked", func(t *testing.T) {
 		home := stage(t, filepath.Join("..", "..", "demo", "scenarios", "hamlet.yaml"), monday)
 		a := runAnswer(t, home)
 		d := drive(t, home)
@@ -88,16 +89,27 @@ func TestAnswerAndComeBack(t *testing.T) {
 		a := runAnswer(t, home)
 		d := drive(t, home)
 
-		t.Run("it should name the one that has waited longest", func(t *testing.T) {
-			assert.Equal(t, "needs you: "+longestTitle+" (+1 more)", a.shown.Waiting)
+		t.Run("it should act on the one that has waited longest", func(t *testing.T) {
+			assert.Equal(t, longestTitle, a.shown.Waiting)
 		})
 
-		t.Run("it should attach the one the line names", func(t *testing.T) {
+		t.Run("and the pointer is over the chip", func(t *testing.T) {
+			d := drive(t, home)
+			require.NoError(t, d.PointAt(waitingLine))
+			require.NoError(t, d.Run(1))
+
+			t.Run("its card should name the one that has waited longest first", func(t *testing.T) {
+				require.NotEmpty(t, d.Shown().StripCard)
+				assert.Equal(t, longestTitle, d.Shown().StripCard[0])
+			})
+		})
+
+		t.Run("it should attach the one the chip names", func(t *testing.T) {
 			assert.Equal(t, longestTitle, d.Title(a.acted[len(a.acted)-1].SessionID))
 		})
 	})
 
-	t.Run("when the pointer is over the needs-you line", func(t *testing.T) {
+	t.Run("when the pointer is over the needs-you chip", func(t *testing.T) {
 		d := drive(t, stage(t, filepath.Join("..", "..", "demo", "scenarios", "hamlet.yaml"), monday))
 		require.NoError(t, d.PointAt(waitingLine))
 		require.NoError(t, d.Run(1))
@@ -118,16 +130,16 @@ func TestAnswerAndComeBack(t *testing.T) {
 
 	t.Run("when nothing needs you", func(t *testing.T) {
 		where := drive(t, stage(t, filepath.Join("..", "..", "demo", "scenarios", "hamlet.yaml"), monday)).Shown().WaitingRect
-		require.Positive(t, where.Area(), "the line was not drawn where something waits, so there is nowhere to click")
+		require.Positive(t, where.Area(), "the chip was not drawn where something waits, so there is nowhere to click")
 		d := drive(t, stage(t, filepath.Join("testdata", "week.yaml"), monday))
 		require.NoError(t, d.ClickAt(where.Center()))
 		require.NoError(t, d.Run(settleTicks))
 
-		t.Run("it should not draw the line", func(t *testing.T) {
+		t.Run("it should draw no needs-you chip", func(t *testing.T) {
 			assert.Empty(t, d.Shown().Waiting)
 		})
 
-		t.Run("it should attach nothing when clicked where the line would be", func(t *testing.T) {
+		t.Run("it should attach nothing when clicked where the chip would be", func(t *testing.T) {
 			for _, c := range d.Acted() {
 				assert.NotEqual(t, city.ActionAttach, c.Kind)
 			}
@@ -141,7 +153,7 @@ func TestAnswerAndComeBack(t *testing.T) {
 		ticks, err := d.Until(func(s render.Shown) bool { return s.Waiting != "" }, findLimit)
 		require.NoError(t, err)
 
-		t.Run("it should draw the line within one tick of the news", func(t *testing.T) {
+		t.Run("it should draw the chip within one tick of the news", func(t *testing.T) {
 			assert.LessOrEqual(t, ticks, 1)
 		})
 	})

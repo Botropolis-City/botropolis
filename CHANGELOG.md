@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Demolishing a session and closing a group used to arm on the first key and say "press again" in the footer.
   Each now opens a dialog in the middle of the window, as Quit does, saying what it will do, with the keys that answer each button under it.
   `d d` still demolishes and `Delete Delete` on the board still closes a group: the first press asks and the second confirms.
+- **The top bar's needs-you count is a button.**
+  The line at the bottom naming who has waited longest is gone.
+  Clicking the count in the top bar now attaches that session in one click, as the line did, and hovering it lists who needs you, longest-waiting first.
+  `tab` still walks them one at a time.
 
 ### Fixed
 

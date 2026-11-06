@@ -1,14 +1,12 @@
 package render
 
 import (
-	"fmt"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/shapes"
-	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -21,21 +19,10 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	message, _ := g.notice.Current(timeNow())
 	g.mu.Unlock()
 	footer := ui.LayoutFooter(th, width, height, footerKeys, g.faces.Measure)
-	waitingID := ""
 	// Triage's place is its card's header (item 352), not the footer.
 	triaging := g.triage() != nil
 	if _, ok := g.scene.TriageStep(); !ok {
 		triaging = false
-	}
-	if walk := g.scene.TriageWalk(); len(walk) > 0 && !triaging {
-		// The needs-you line names what has waited longest, in the order
-		// triage walks, and a click on it attaches that session. Item 91.
-		line := city.JumpedTo(state.NeedsYou, walk[0].Card(g.scene.Now()).Title)
-		if len(walk) > 1 {
-			line += fmt.Sprintf(" (+%d more)", len(walk)-1)
-		}
-		footer = footer.WithWaiting(th, width, line, g.faces.Measure)
-		waitingID = walk[0].Session.ID
 	}
 	if scan := g.scene.Snapshot().Scan; scan != nil && scan.Known > 0 {
 		g.scanRate.Observe(timeNow(), scan.Done)
@@ -46,7 +33,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	// Kept so a click hit-tests the bar that was actually drawn, the
 	// same way the view key does. Bug 43.
 	g.mu.Lock()
-	g.footerBar, g.waitingID = footer, waitingID
+	g.footerBar = footer
 	g.mu.Unlock()
 	legend := ui.LayoutLegend(th, width, footer.Rect.Min.Y, g.scene.Legend(), g.faces.Measure)
 	var top float64
@@ -98,8 +85,11 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		g.pinned = pinned
 		g.pinnedKinds = g.scene.Actions()
 	}
+	g.stripCard = nil
 	if st, ok := g.stripHover(pointer); ok {
-		g.card(screen, ui.LayoutCard(th, g.scene.StateCard(st), bounds, g.faces.Measure))
+		card := g.scene.StateCard(st)
+		g.stripCard = card.Lines
+		g.card(screen, ui.LayoutCard(th, card, bounds, g.faces.Measure))
 	} else if hover := g.scene.Hover(); hover.Building == nil || hover.Building != g.scene.Selected() {
 		if card, ok := g.scene.Card(); ok {
 			g.card(screen, g.raisedCard(card, bounds))
@@ -213,7 +203,7 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 
 // button draws a plate with its label, brighter under the pointer, the
 // one look for anything a click acts on: the card's buttons and the
-// footer's needs-you line. Item 91.
+// strip's needs-you count. Items 91, 352.
 func (g *Game) button(screen *ebiten.Image, plate city.Rect, label ui.Text, tone color.NRGBA, hovered bool) {
 	fill := g.theme.Palette.Hairline
 	if hovered {
@@ -268,11 +258,6 @@ func (g *Game) sparkline(screen *ebiten.Image, sp ui.Sparkline) {
 
 func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
 	g.bar(screen, f.Rect, f.Rect.Min.Y)
-	g.waitingHovered = false
-	if f.Waiting.Text != "" {
-		g.waitingHovered = f.WaitingRect.Contains(g.pointer())
-		g.button(screen, f.WaitingRect, f.Waiting, g.theme.Palette.NeedsYou, g.waitingHovered)
-	}
 	if f.Reading.Text != "" {
 		g.run(screen, f.Reading, g.theme.Palette.Dim)
 		g.roundRect(screen, f.ReadingBar, f.ReadingBar.Height()/2, g.theme.Palette.Hairline)

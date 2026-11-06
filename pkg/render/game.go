@@ -282,11 +282,11 @@ type Game struct {
 	// a notice can be set beside the loop (item 352).
 	noticePlate    ui.NoticePlate
 	pendingNotices []events.Event
-	// waitingID is the session the footer's needs-you line names, as
-	// last drawn. Item 91.
-	waitingID string
-	// waitingHovered is whether the line was drawn under the pointer.
+	// waitingHovered is whether the strip's needs-you count was drawn
+	// under the pointer, and stripCard the lines of the strip's card the
+	// pointer opened, nil when none (items 91, 352).
 	waitingHovered bool
+	stripCard      []string
 	// scanRate watches a first launch's read, for the time it has left.
 	// Item 159.
 	scanRate ui.ScanRate
@@ -931,11 +931,9 @@ func (g *Game) resolveTarget(target string) (city.Point, bool) {
 		}
 		return city.Point{}, false
 	}
-	if target == "needs-you line" {
-		g.mu.Lock()
-		line := g.footerBar.WaitingRect
-		g.mu.Unlock()
-		return line.Center(), line.Area() > 0
+	if target == "needs-you chip" {
+		chip, _ := g.waitingChip()
+		return chip.Center(), chip.Area() > 0
 	}
 	if id, ok := strings.CutPrefix(target, "term:"); ok {
 		r := g.referenceOpen()

@@ -121,18 +121,21 @@ type Shown struct {
 	// each empty when it was not (item 140).
 	SidebarRows        int
 	CardRect, LensRect city.Rect
-	// StripBottom is where the strip along the top ends, and FooterTop
-	// where the footer begins, needs-you line and all.
-	StripBottom, FooterTop float64
+	// StripBottom is where the strip along the top ends, FooterTop where
+	// the footer begins, and KeyRowTop where its key row does.
+	StripBottom, FooterTop, KeyRowTop float64
 	// Found is the finder's results, by session id, best first, while it
 	// is open.
 	Found []string
-	// Waiting is the footer's needs-you line and WaitingRect where it was
-	// drawn; empty when nothing waits.
+	// Waiting is the title of the session the strip's needs-you count
+	// attaches, and WaitingRect where the count was drawn; empty when
+	// nothing waits (items 91, 352).
 	Waiting     string
 	WaitingRect city.Rect
-	// WaitingHovered is whether the line was drawn hovered.
+	// WaitingHovered is whether the count was drawn hovered, and
+	// StripCard the lines of the strip's card the pointer opened.
 	WaitingHovered bool
+	StripCard      []string
 	// Notice is the notice drawn under the strip and NoticeRect its
 	// plate, empty when none; StreamNewest is the text of the stream's
 	// newest line, and CardHeader the header line of the selection's
@@ -663,7 +666,7 @@ func (g *Game) noteShown() {
 	}
 	g.mu.Lock()
 	if !g.hidden {
-		s.Waiting, s.WaitingRect, s.WaitingHovered = g.footerBar.Waiting.Text, g.footerBar.WaitingRect, g.waitingHovered
+		s.WaitingHovered, s.StripCard = g.waitingHovered, slices.Clone(g.stripCard)
 		if m, ok := g.notice.Current(timeNow()); ok {
 			s.Notice, s.NoticeRect = m.Text, g.noticePlate.Rect
 		}
@@ -692,8 +695,13 @@ func (g *Game) noteShown() {
 		slices.Sort(s.Lit)
 	}
 	s.StripBottom = g.scene.TopChrome()
+	if !g.hidden {
+		if rect, b := g.waitingChip(); b != nil {
+			s.Waiting, s.WaitingRect = b.Card(g.scene.Now()).Title, rect
+		}
+	}
 	g.mu.Lock()
-	s.FooterTop = g.footerBar.Rect.Min.Y
+	s.FooterTop, s.KeyRowTop = g.footerBar.Rect.Min.Y, g.footerBar.KeyRow.Min.Y
 	g.mu.Unlock()
 	if r := g.referenceOpen(); r != nil && r.ref.Current().ID == ui.KeysEntry {
 		g.mu.Lock()

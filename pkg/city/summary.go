@@ -2,6 +2,7 @@ package city
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"botropolis.city/botropolis/pkg/format"
@@ -133,6 +134,11 @@ func (c *City) stateCard(st state.State, keep func(*Building) bool) Card {
 		if b.Session.State == st && keep(b) {
 			matching = append(matching, b)
 		}
+	}
+	// Who has waited longest leads, in the order triage walks, so the
+	// needs-you line's two facts stay one hover away (item 352).
+	if st == state.NeedsYou {
+		slices.SortStableFunc(matching, func(a, b *Building) int { return state.LongestWaiting(a.Session, b.Session) })
 	}
 	var lines []string
 	for _, b := range matching {

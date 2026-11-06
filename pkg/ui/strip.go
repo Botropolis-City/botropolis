@@ -14,11 +14,15 @@ import (
 type Measure func(s string, size Size) (width, height float64)
 
 // Chip is one tally on the resource strip. A tone gives it a coloured dot;
-// a state makes clicking it jump to the next session in that state.
+// a state makes clicking it jump to the next session in that state. The
+// needs-you count is a Button: drawn on a plate, it attaches the session
+// that has waited longest, as the footer's needs-you line did (items 91,
+// 352).
 type Chip struct {
-	Text  string
-	Tone  Tone
-	State state.State
+	Text   string
+	Tone   Tone
+	State  state.State
+	Button bool
 }
 
 // StripChips is the summary as a row of chips: sessions by state in
@@ -26,7 +30,7 @@ type Chip struct {
 func StripChips(s city.Summary) []Chip {
 	var chips []Chip
 	for _, c := range state.Nonzero(s.Counts()) {
-		chips = append(chips, Chip{city.CountLabel(c), StateTone(c.State), c.State})
+		chips = append(chips, Chip{Text: city.CountLabel(c), Tone: StateTone(c.State), State: c.State, Button: c.State == state.NeedsYou})
 	}
 	if s.SetAside > 0 {
 		chips = append(chips, Chip{Text: fmt.Sprintf("%d set aside", s.SetAside)})

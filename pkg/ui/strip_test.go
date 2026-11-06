@@ -193,6 +193,36 @@ func measure7(s string, _ ui.Size) (float64, float64) {
 	return float64(len([]rune(s))) * 7, 16
 }
 
+// Item 352: the needs-you count is the button the footer's needs-you
+// line was, and no other chip is one.
+func TestStripChipsNeedsYouButton(t *testing.T) {
+	buttons := func(chips []ui.Chip) []string {
+		var out []string
+		for _, c := range chips {
+			if c.Button {
+				out = append(out, c.Text)
+			}
+		}
+		return out
+	}
+
+	t.Run("when sessions need you", func(t *testing.T) {
+		chips := ui.StripChips(city.Summary{NeedsYou: 2, Working: 1})
+
+		t.Run("it should make the needs-you chip a button, and no other", func(t *testing.T) {
+			assert.Equal(t, []string{"2 need you"}, buttons(chips))
+		})
+	})
+
+	t.Run("when nothing needs you", func(t *testing.T) {
+		chips := ui.StripChips(city.Summary{Working: 1})
+
+		t.Run("it should make no chip a button", func(t *testing.T) {
+			assert.Empty(t, buttons(chips))
+		})
+	})
+}
+
 func TestLayoutStrip(t *testing.T) {
 	th := ui.NewTheme(1)
 	chips := []ui.Chip{

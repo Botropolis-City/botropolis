@@ -77,7 +77,7 @@ func (r *ScanRate) Remaining(done, known int64) (time.Duration, bool) {
 }
 
 // WithReading puts the reading line and its bar on top of the footer,
-// filled to fraction, so they never draw over the needs-you line or a
+// filled to fraction, so they never draw over the key row or a
 // status. An empty line leaves the footer alone.
 func (f Footer) WithReading(th Theme, width float64, line string, fraction float64, measure Measure) Footer {
 	if line == "" {
