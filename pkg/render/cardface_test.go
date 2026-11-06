@@ -107,6 +107,15 @@ func TestCardFace(t *testing.T) {
 		t.Run("the card's hint should list the column's rows", func(t *testing.T) {
 			assert.Equal(t, "Session: resume, read, generate summary, pack, demolish", d.Shown().CardHint)
 		})
+
+		t.Run("and it is clicked open", func(t *testing.T) {
+			require.NoError(t, d.Click("button:Session ⌄"))
+			require.NoError(t, d.Run(3))
+
+			t.Run("the card should drop the hint, which the menu would cover", func(t *testing.T) {
+				assert.Empty(t, d.Shown().CardHint)
+			})
+		})
 	})
 
 	t.Run("when Enter is pressed in Attention", func(t *testing.T) {

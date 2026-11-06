@@ -238,7 +238,11 @@ func buttonHover(c color.NRGBA) color.NRGBA {
 
 // buttonHint is what the pinned card's button under the pointer does,
 // from the card as last drawn (item 88), or what its numbers row does.
+// An open menu hangs over the hint's line, so then there is none.
 func (g *Game) buttonHint(at city.Point) string {
+	if g.menu() != nil {
+		return ""
+	}
 	for i, b := range g.pinned.Buttons {
 		if b.Rect.Contains(at) && i < len(g.pinnedHints) {
 			return g.pinnedHints[i]
