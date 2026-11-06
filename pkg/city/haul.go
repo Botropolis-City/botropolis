@@ -5,12 +5,14 @@ import "time"
 // A haul is a truck carrying a packed-up session's crate from its lot to
 // the depot, or back to its old lot when it is unpacked: the departure is
 // drawn, as every departure is. Under reduced motion it is a short
-// cross-fade. Item 86, slice 3.
+// cross-fade. Item 86, slice 3. A move carries a building from one lot to
+// another when Aria changes its session's group (item 348).
 type HaulKind int
 
 const (
 	HaulPack HaulKind = iota
 	HaulUnpack
+	HaulMove
 )
 
 const (
@@ -72,17 +74,29 @@ type spot struct {
 
 // noteHauls compares where each session stood at the last snapshot with
 // where it stands now, and starts a haul for each that was packed up or
-// unpacked between them. Several packed up together leave as a convoy,
-// one after another; under reduced motion they cross-fade at once.
+// unpacked between them, and a move for each whose lot the layout
+// changed by hand. Several leaving together go as a convoy, one after
+// another; under reduced motion they cross-fade at once.
 func (s *Scene) noteHauls(now time.Time) {
 	first := len(s.hauls)
 	defer func() { s.convoy(first, now) }()
+	moved := map[string]bool{}
+	for _, id := range s.city.Moved {
+		moved[id] = true
+	}
 	spots := map[string]spot{}
 	for _, b := range s.city.Buildings() {
 		id := b.Session.ID
 		spots[id] = spot{at: b.Rect.Center(), packed: b.Packed}
 		was, known := s.spots[id]
-		if !known || was.packed == b.Packed {
+		if !known {
+			continue
+		}
+		if was.packed == b.Packed {
+			if moved[id] && !b.Packed && was.at != b.Rect.Center() {
+				span := HaulFor(was.at, b.Rect.Center(), s.reduced)
+				s.hauls = append(s.hauls, Haul{SessionID: id, Kind: HaulMove, From: was.at, To: b.Rect.Center(), Since: now, For: span, Hue: projectHue(SessionRoot(b.Session))})
+			}
 			continue
 		}
 		kind := HaulPack
@@ -95,14 +109,20 @@ func (s *Scene) noteHauls(now time.Time) {
 	s.spots = spots
 }
 
-// convoy staggers the pack hauls started from index first on.
+// convoy staggers the pack hauls, and the moves, started from index
+// first on, each kind as a convoy of its own.
 func (s *Scene) convoy(first int, now time.Time) {
 	if s.reduced {
 		return
 	}
+	s.stagger(first, HaulPack, now)
+	s.stagger(first, HaulMove, now)
+}
+
+func (s *Scene) stagger(first int, kind HaulKind, now time.Time) {
 	var packs []int
 	for i := first; i < len(s.hauls); i++ {
-		if s.hauls[i].Kind == HaulPack {
+		if s.hauls[i].Kind == kind {
 			packs = append(packs, i)
 		}
 	}

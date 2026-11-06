@@ -143,6 +143,15 @@ type Result struct {
 	// such as "reference PROJ-42" or "branch feat/x", sorted: none of
 	// them ties sessions together (item 271).
 	Common []string
+	// Moved are the sessions whose group, or none, is a move by hand:
+	// each session moved, and every teammate following a moved lead,
+	// sorted. The city moves only these buildings (item 348).
+	Moved []string
+	// TakenOut is, by member, the stored groups it was taken out of by
+	// hand and is not in: those with a member it is marked not related
+	// to. The city moves its building out of that neighbourhood once
+	// (item 348). Nil when there are none.
+	TakenOut map[string][]string
 }
 
 // Capped is a session left out of a group that was already as large as

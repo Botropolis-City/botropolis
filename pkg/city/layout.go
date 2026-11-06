@@ -3,8 +3,10 @@ package city
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -25,6 +27,10 @@ const (
 
 type districtLayout struct {
 	Slots map[string]int `json:"slots"`
+	// Placed is the group each session's slot was chosen beside, so a
+	// session Aria moved sits still once it is where she put it, and
+	// moves again only when she changes its group (item 348).
+	Placed map[string]string `json:"placed,omitempty"`
 	// Type is the district's type, chosen the first time it appeared and
 	// kept, or set by hand (item 109).
 	Type DistrictType `json:"type,omitempty"`
@@ -108,6 +114,9 @@ type Layout struct {
 	// typing chooses a type for a district that has none yet; it is
 	// the district_type setting, never written here (item 109).
 	typing Typing
+	// moved is every session whose slot was changed by hand since the
+	// scene last asked (item 348).
+	moved []string
 }
 
 // SetTyping is how districts that have no type yet are given one.
@@ -222,21 +231,141 @@ func (l *Layout) Save(path string) error {
 
 // Slots gives every session a sticky slot in the district's grid. A
 // session that stops keeps its slot: it rests on its own lot (item 86).
+// A session with no slot yet takes the free one nearest its group's,
+// and a session whose group Aria changed moves beside its new group, or
+// out of the one it left; the ids of those moved are kept for the
+// scene, which draws the move (item 348).
 func (l *Layout) Slots(root string, sessions []state.Session) map[string]int {
-	return assign(l.district(root).Slots, sessions)
+	slots, moved := assign(l.district(root), sessions)
+	l.moved = append(l.moved, moved...)
+	return slots
 }
 
-func assign(sticky map[string]int, sessions []state.Session) map[string]int {
+// Moved is every session whose slot the layout changed by Aria's hand
+// since it was last asked, and forgets them.
+func (l *Layout) Moved() []string {
+	moved := l.moved
+	l.moved = nil
+	return moved
+}
+
+// changedByHand is whether Aria changed a session's group since its slot
+// was chosen: a move to a group other than the one it was placed beside,
+// or a take-out of that group (item 348).
+func changedByHand(d *districtLayout, s state.Session) bool {
+	placed := d.Placed[s.ID]
+	if s.GroupMoved && placed != s.Group {
+		return true
+	}
+	return placed != "" && slices.Contains(s.GroupLeft, placed)
+}
+
+// assign gives sessions, in arrival order, their slots, and says which
+// it moved by hand. The grid's width depends on the highest slot, so
+// when placing raised it the pending ones are placed again at the new
+// width.
+func assign(d *districtLayout, sessions []state.Session) (map[string]int, []string) {
+	sticky := d.Slots
+	if d.Placed == nil {
+		d.Placed = map[string]string{}
+	}
 	slots := map[string]int{}
+	var pending []state.Session
+	var moved []string
 	for _, s := range sessions {
 		slot, ok := sticky[s.ID]
-		if !ok {
-			slot = freeSlot(sticky)
-			sticky[s.ID] = slot
+		if ok && !changedByHand(d, s) {
+			slots[s.ID] = slot
+			continue
 		}
-		slots[s.ID] = slot
+		if ok {
+			delete(sticky, s.ID)
+			moved = append(moved, s.ID)
+		}
+		pending = append(pending, s)
 	}
-	return slots
+	if len(pending) == 0 {
+		return slots, nil
+	}
+	groupOf := map[string]string{}
+	for _, s := range sessions {
+		groupOf[s.ID] = s.Group
+	}
+	width := buildingColumns(max(maxOf(slots)+1, len(sessions)))
+	for range 4 {
+		for _, s := range pending {
+			var near, clear []int
+			left := d.Placed[s.ID]
+			for id, slot := range slots {
+				switch {
+				case s.Group != "" && groupOf[id] == s.Group:
+					near = append(near, slot)
+				case left != "" && left != s.Group && groupOf[id] == left:
+					clear = append(clear, slot)
+				}
+			}
+			slot := chooseSlot(sticky, near, clear, width)
+			sticky[s.ID], slots[s.ID] = slot, slot
+		}
+		again := buildingColumns(maxOf(slots) + 1)
+		if again == width {
+			break
+		}
+		width = again
+		for _, s := range pending {
+			delete(sticky, s.ID)
+			delete(slots, s.ID)
+		}
+	}
+	for _, s := range pending {
+		d.Placed[s.ID] = s.Group
+	}
+	return slots, moved
+}
+
+// chooseSlot is the free slot nearest the slots near, by lots walked in
+// a grid of the width, the lowest on a tie; with nothing near, the
+// lowest free slot not beside any of clear.
+func chooseSlot(sticky map[string]int, near, clear []int, width int) int {
+	taken := map[int]bool{}
+	bound := width
+	for _, slot := range sticky {
+		taken[slot] = true
+		bound = max(bound, slot+1)
+	}
+	best, bestDist := -1, math.MaxInt
+	for slot := 0; slot <= bound+2*width; slot++ {
+		if taken[slot] {
+			continue
+		}
+		if len(near) == 0 {
+			if gridDistance(slot, clear, width) > 1 {
+				return slot
+			}
+			continue
+		}
+		if dist := gridDistance(slot, near, width); dist < bestDist {
+			best, bestDist = slot, dist
+		}
+	}
+	return best
+}
+
+// gridDistance is how many lots a slot is from the nearest of others in
+// a grid of the width, or MaxInt with none.
+func gridDistance(slot int, others []int, width int) int {
+	dist := math.MaxInt
+	for _, o := range others {
+		dist = min(dist, abs(slot%width-o%width)+abs(slot/width-o/width))
+	}
+	return dist
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 func (l *Layout) district(root string) *districtLayout {
@@ -256,18 +385,6 @@ func (l *Layout) memory() *plan.Memory {
 		l.Plan = plan.NewMemory()
 	}
 	return l.Plan
-}
-
-func freeSlot(slots map[string]int) int {
-	taken := map[int]bool{}
-	for _, slot := range slots {
-		taken[slot] = true
-	}
-	for slot := 0; ; slot++ {
-		if !taken[slot] {
-			return slot
-		}
-	}
 }
 
 // SetAside reports whether triage has put a session down: marked done

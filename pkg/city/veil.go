@@ -69,6 +69,7 @@ var VeilTable = map[string]VeilKind{
 	"Session.Leads":                       VeilTeam,
 	"Session.Lead":                        VeilKeep,
 	"Session.Group":                       VeilKeep,
+	"Session.GroupLeft":                   VeilKeep,
 	"Session.GroupJoined":                 VeilText,
 	"Session.Suggested":                   VeilKeep,
 	"Session.SuggestedWhy":                VeilText,

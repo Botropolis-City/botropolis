@@ -29,9 +29,47 @@ func (d *detection) detect(memory Memory, edges []edge) Result {
 	comps := d.cluster(edges)
 	groups := d.groups(comps, edges, memory)
 	groups = d.place(groups, memory)
-	result := Result{Groups: groups, Capped: d.capped, Common: d.commonNames()}
+	result := Result{Groups: groups, Capped: d.capped, Common: d.commonNames(), Moved: d.movedByHand(), TakenOut: d.takenOut(groups, memory)}
 	result.Suggestions = d.suggest(groups, edges)
 	return result
+}
+
+// movedByHand is every member moved by hand, and every teammate whose
+// lead was, sorted (item 348).
+func (d *detection) movedByHand() []string {
+	var out []string
+	for _, m := range d.members {
+		if d.moved[m.ID] || d.moved[d.follows[m.ID]] {
+			out = append(out, m.ID)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// takenOut is, by member, the groups it was taken out of by hand and
+// is not in: a take-out writes the session first in a pair with each
+// member of the group, so a pair whose second session is still in a
+// group its first is not in names one, sorted (item 348).
+func (d *detection) takenOut(groups []Group, memory Memory) map[string][]string {
+	var out map[string][]string
+	for _, p := range memory.NotRelated {
+		if _, ok := d.index[p[0]]; !ok {
+			continue
+		}
+		g, found := (Result{Groups: groups}).GroupOf(p[1])
+		if !found || g.Member(p[0]).Session != "" || slices.Contains(out[p[0]], g.ID) {
+			continue
+		}
+		if out == nil {
+			out = map[string][]string{}
+		}
+		out[p[0]] = append(out[p[0]], g.ID)
+	}
+	for id := range out {
+		sort.Strings(out[id])
+	}
+	return out
 }
 
 // place adds to the detected groups the sessions that sit out detection,

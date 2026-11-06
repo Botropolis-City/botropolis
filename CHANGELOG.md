@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A group's sessions sit together.**
+  A new session takes the free lot nearest the rest of its group in its district, so a group reads as a neighbourhood.
+  Moving a session into a group, out of one, or taking it out carries its building to its new lot, and the move is drawn: the building rides beside a truck, and a team moves as a convoy.
+  Under reduced motion it fades in where it lands.
+  Groups the city guesses move nothing, so no building moves unless you moved it.
+
 ### Changed
 
 - **Pointing at a session in a group lights the whole group.**

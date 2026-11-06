@@ -132,6 +132,9 @@ type City struct {
 	// snapshot's groups they are drawn from (item 87).
 	Lines  []Line
 	groups []*state.Group
+	// Moved is every session whose lot the layout changed by Aria's hand
+	// in this build, whose move the scene draws (item 348).
+	Moved []string
 	// names is every known root's district name (item 139).
 	names map[string]string
 	// folderless is the sessions with no known folder: on no district,
@@ -454,6 +457,7 @@ func build(snapshot state.Snapshot, layout *Layout, ladder state.Thresholds, kee
 	city.placeStreets()
 	city.placeCamps(snapshot.Teams)
 	city.placeGroups(snapshot.Groups)
+	city.Moved = layout.Moved()
 	if m != nil {
 		m.orders.Sweep()
 	}
@@ -579,6 +583,16 @@ func (c *City) Buildings() []*Building {
 		buildings = append(buildings, d.Buildings...)
 	}
 	return buildings
+}
+
+// BuildingOf is the building of a session, by id, or nil.
+func (c *City) BuildingOf(id string) *Building {
+	for _, b := range c.Buildings() {
+		if b.Session.ID == id {
+			return b
+		}
+	}
+	return nil
 }
 
 // indexBuildings lists the city's buildings once its districts are

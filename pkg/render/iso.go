@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"math"
 	"sort"
+	"time"
 	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -2175,10 +2176,46 @@ var blinds = func() ebiten.ColorScale {
 const kitTruck = "car-kit/truck"
 
 // drawHaul draws a truck carrying a packed-up session's crate between its
-// lot and the depot, facing the way it drives (item 86).
+// lot and the depot, facing the way it drives (item 86), or a building on
+// the move beside its truck (item 348).
 func (g *Game) drawHaul(screen *ebiten.Image, cam *city.Camera, h city.Haul) {
-	at, dir := haulPlace(h, g.scene.Clock())
+	now := g.scene.Clock()
+	var b *city.Building
+	if h.Kind == city.HaulMove {
+		b = g.scene.City().BuildingOf(h.SessionID)
+	}
+	for _, p := range haulPieces(h, b, now) {
+		if p.shrink == 1 {
+			g.kit(screen, cam, p.name, p.turn, p.at, nil)
+		} else {
+			g.kitScaled(screen, cam, p.name, p.turn, p.at, p.shrink, nil)
+		}
+	}
+}
+
+// haulPiece is one sprite a haul draws: a truck, a crate riding it, or a
+// building on the move.
+type haulPiece struct {
+	name   string
+	turn   int
+	at     city.Point
+	shrink float64
+}
+
+// haulPieces is what a haul draws at a moment: the truck in its lane
+// and, packing or unpacking, the session's crate on it; moving, the
+// building itself on the haul's own way, drawn as it stands on a lot so
+// it stays the building it was (item 348). The building is nil but for
+// a move.
+func haulPieces(h city.Haul, b *city.Building, now time.Time) []haulPiece {
+	at, dir := haulPlace(h, now)
 	turn := vehicleTurn(dir)
-	g.kit(screen, cam, kitTruck, turn, at, nil)
-	g.kitScaled(screen, cam, crates[h.Hue%len(crates)], turn, at, 0.4, nil)
+	pieces := []haulPiece{{name: kitTruck, turn: turn, at: at, shrink: 1}}
+	if h.Kind == city.HaulMove {
+		if b != nil {
+			pieces = append(pieces, haulPiece{name: buildingPiece(b), at: h.At(now), shrink: 1})
+		}
+		return pieces
+	}
+	return append(pieces, haulPiece{name: crates[h.Hue%len(crates)], turn: turn, at: at, shrink: 0.4})
 }

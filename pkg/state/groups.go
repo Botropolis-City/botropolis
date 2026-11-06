@@ -476,6 +476,13 @@ func groupViews(result group.Result, sessions []Session) []Group {
 	for i, s := range sessions {
 		index[s.ID] = i
 		sessions[i].Suggested, sessions[i].SuggestedWhy = "", ""
+		sessions[i].GroupMoved = false
+		sessions[i].GroupLeft = result.TakenOut[s.ID]
+	}
+	for _, id := range result.Moved {
+		if i, ok := index[id]; ok {
+			sessions[i].GroupMoved = true
+		}
 	}
 	titleOf := TitleOf(sessions)
 	views := make([]Group, 0, len(result.Groups))

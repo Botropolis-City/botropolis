@@ -116,8 +116,14 @@ type Session struct {
 	Group       string `json:"group,omitempty"`
 	GroupJoined string `json:"groupJoined,omitempty"`
 	// GroupLikely is whether it joined on a guess, drawn as a dashed tie.
-	GroupLikely bool   `json:"groupLikely,omitempty"`
-	Agent       string `json:"agent,omitempty"`
+	GroupLikely bool `json:"groupLikely,omitempty"`
+	// GroupMoved is whether its group, or none, is a move by hand: its
+	// own, or its lead's. The city moves only these buildings (item 348).
+	GroupMoved bool `json:"groupMoved,omitempty"`
+	// GroupLeft is the groups it was taken out of by hand and is not in,
+	// so the city moves it out of that neighbourhood once (item 348).
+	GroupLeft []string `json:"groupLeft,omitempty"`
+	Agent     string   `json:"agent,omitempty"`
 	// Leads is the team the session leads (item 253), and Lead the
 	// session leading this one's team when it is a teammate: the
 	// roster's lead, else the team's session with no agent, as the camp
