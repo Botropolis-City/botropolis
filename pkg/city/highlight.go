@@ -28,6 +28,12 @@ func (h Highlight) HasBuilding(b *Building) bool { return h.buildings[b] }
 func (h Highlight) HasTower(t *Tower) bool       { return h.towers[t] }
 func (h Highlight) HasRoad(r *RoadLine) bool     { return h.roads[r] }
 
+// HasBeam is whether a tower's line to a session is part of the answer:
+// both its ends are. Pointing at a tower lights its lines, pointing at a
+// session lights the lines to the servers it calls, and a district or a
+// group lights none, so the lines fade with the towers. Item 347.
+func (h Highlight) HasBeam(b Beam) bool { return h.towers[b.Tower] && h.buildings[b.Building] }
+
 // Highlight is what the pointer, or failing that the selection, ties
 // together. Hover wins over selection: the pointer is the live question
 // and the selection is the one you parked.

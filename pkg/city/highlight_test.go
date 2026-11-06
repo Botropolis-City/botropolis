@@ -151,3 +151,82 @@ func TestHighlightStaysOutOfTheWay(t *testing.T) {
 		})
 	})
 }
+
+// beamsOf are the beams from the named tower, and the rest.
+func beamsOf(t *testing.T, s *city.Scene, name string) (own, others []city.Beam) {
+	t.Helper()
+	for _, b := range s.City().Beams() {
+		if b.Tower.Server.Name == name {
+			own = append(own, b)
+		} else {
+			others = append(others, b)
+		}
+	}
+	require.NotEmpty(t, own, "no beams from %s", name)
+	require.NotEmpty(t, others, "no beams from any other tower")
+	return own, others
+}
+
+// Item 347: the lines light with the thing pointed at, not only the
+// buildings at their ends.
+func TestHighlightBeams(t *testing.T) {
+	both := caller("both", cinders, map[string]int{"playwright": 9, "atlassian": 2})
+	only := caller("only", botropolis, map[string]int{"atlassian": 5})
+
+	t.Run("when a server's tower is under the pointer", func(t *testing.T) {
+		s := served(t, both, only)
+		s.SetHover(city.Hit{Tower: towerNamed(t, s, "atlassian")})
+		h := s.Highlight()
+		own, others := beamsOf(t, s, "atlassian")
+
+		t.Run("it should put each of that tower's beams in the highlight", func(t *testing.T) {
+			for _, b := range own {
+				assert.True(t, h.HasBeam(b), "beam to %s", b.Building.Session.ID)
+			}
+		})
+
+		t.Run("it should leave out a beam from another tower", func(t *testing.T) {
+			for _, b := range others {
+				assert.False(t, h.HasBeam(b), "beam from %s to %s", b.Tower.Server.Name, b.Building.Session.ID)
+			}
+		})
+	})
+
+	t.Run("when a session's building is under the pointer", func(t *testing.T) {
+		s := served(t, both, only)
+		s.SetHover(city.Hit{Building: buildingOf(t, s, "only")})
+		h := s.Highlight()
+		own, _ := beamsOf(t, s, "atlassian")
+		var ours, theirs *city.Beam
+		for i := range own {
+			if own[i].Building.Session.ID == "only" {
+				ours = &own[i]
+			} else {
+				theirs = &own[i]
+			}
+		}
+		require.NotNil(t, ours)
+		require.NotNil(t, theirs)
+
+		t.Run("it should put its beam to a tower it calls in the highlight", func(t *testing.T) {
+			assert.True(t, h.HasBeam(*ours))
+		})
+
+		t.Run("it should leave out that tower's beam to another session", func(t *testing.T) {
+			assert.False(t, h.HasBeam(*theirs))
+		})
+	})
+
+	t.Run("when a district is under the pointer", func(t *testing.T) {
+		s := served(t, both, only)
+		s.SetHover(city.Hit{District: s.City().DistrictOf(buildingOf(t, s, "both"))})
+		h := s.Highlight()
+		require.True(t, h.Active)
+
+		t.Run("it should put no beam in the highlight, so the lines fade with the towers", func(t *testing.T) {
+			for _, b := range s.City().Beams() {
+				assert.False(t, h.HasBeam(b), "beam from %s to %s", b.Tower.Server.Name, b.Building.Session.ID)
+			}
+		})
+	})
+}

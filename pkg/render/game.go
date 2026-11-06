@@ -1385,11 +1385,32 @@ func (g *Game) beams(screen *ebiten.Image, c *city.City, cam *city.Camera, hover
 		if t := g.scene.BeamTint(beam, beams); t.Known {
 			col = ui.Sequential.At(t.Value)
 		}
+		col, highlighted := beamLook(g.lit, hover, beam, col)
 		g.line(screen, cam, beam.From, beam.To, lineWidth(float64(beam.Calls)*20_000, 1, 3), col)
-		if hover.Beam != nil && hover.Beam.Building == beam.Building && hover.Beam.Tower == beam.Tower {
+		if highlighted {
 			g.line(screen, cam, beam.From, beam.To, 2, colorHighlight)
 		}
 	}
+}
+
+// beamLook is how a beam draws under the pointer (item 347): the colour
+// to draw it in, and whether the highlight line goes over it. A beam
+// under the pointer is highlighted on its own; while the contextual
+// highlight is up, the beams in it are highlighted and the rest fade as
+// the ground does. A car's highlight fades everything at once through
+// the fader, so nothing is faded here twice.
+func beamLook(lit city.Highlight, hover city.Hit, beam city.Beam, col color.NRGBA) (color.NRGBA, bool) {
+	if hover.Beam != nil && hover.Beam.Building == beam.Building && hover.Beam.Tower == beam.Tower {
+		return col, true
+	}
+	if !lit.Active || lit.RecedesGround() {
+		return col, false
+	}
+	if lit.HasBeam(beam) {
+		return col, true
+	}
+	col.A = uint8(float64(col.A) * recededAlpha)
+	return col, false
 }
 
 // districtLabelAt is where a district's name plate sits for this face.

@@ -86,6 +86,8 @@ One setting, not a checkbox per kind — three boxes would be three ways to ask 
 
 Contextual highlight is the other half of how a view stays legible, and the half that does not need colour at all.
 Put the pointer on a water tower and the sessions that call that server stay lit while the rest of the city fades.
+Its lines light with it, and every other tower's lines fade with the city, so the lines that explain the lit set are the ones you can see (item 347);
+a pointed-at session lights its own lines the same way, from the other end.
 That is what makes Servers readable with three colours and thirteen servers: colour carries the top three, and the pointer carries the rest.
 The lit set fades its complement rather than receding it, using the same treatment as search, so "not what you asked about" always looks the same.
 It stays down when there is nothing to tie — a session that calls no servers ties nothing, and fading the map to say so is worse than saying nothing.
