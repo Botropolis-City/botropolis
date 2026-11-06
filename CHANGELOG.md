@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`c` with nothing under the pointer asks where.**
+  With no building selected and no district under the pointer, `c` used to refuse with a footer note.
+  It now opens New session on its directory field, so a session can start anywhere from the map.
+  A selection or a hovered district still starts a session there at once.
+
 ## [0.4.0] - 2026-11-03
 
 ### Added

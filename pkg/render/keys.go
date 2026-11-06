@@ -37,7 +37,7 @@ var bindings = []ui.Key{
 	{Key: "l", Action: "the stream: what is happening, newest first"},
 	{Key: "v", Action: "the lenses, and the lens's panel in full"},
 	{Key: "1-6", Action: "a lens; press again for its next view"},
-	{Key: "c", Action: "new session here"},
+	{Key: "c", Action: "new session here, or New session with nothing under the pointer"},
 	{Key: "d d", Action: "demolish the selection"},
 	{Key: "f or 0", Action: "Skyline, the whole city"},
 	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel to zoom it, and in past its closest to return"},
@@ -485,6 +485,10 @@ func (g *Game) leave() error {
 func (g *Game) act(action city.Action) {
 	if action.Kind == city.ActionMoveToGroup {
 		g.openPicker(action.SessionID)
+		return
+	}
+	if action.Kind == city.ActionAskWhere {
+		g.openNewSession()
 		return
 	}
 	if action.Kind == city.ActionRenameGroup {

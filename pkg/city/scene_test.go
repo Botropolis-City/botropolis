@@ -680,11 +680,30 @@ func TestSelectionActions(t *testing.T) {
 
 	t.Run("when c is pressed over nothing", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working))
-		action, note := s.NewHere()
+		action, _ := s.NewHere()
 
-		t.Run("it should do nothing and say why", func(t *testing.T) {
-			assert.Equal(t, city.Action{}, action)
-			assert.Contains(t, note, "select")
+		t.Run("it should ask where", func(t *testing.T) {
+			assert.Equal(t, city.Action{Kind: city.ActionAskWhere}, action)
+		})
+	})
+
+	t.Run("when c is pressed over the depot with nothing selected", func(t *testing.T) {
+		packed := session("b", cinders, state.Resting)
+		packed.Packed, packed.PackedAt = true, now.Add(-time.Hour)
+		s := scene(t, session("a", cinders, state.Working), packed)
+		var depot *city.District
+		for _, d := range s.City().Districts {
+			if d.Depot {
+				depot = d
+			}
+		}
+		require.NotNil(t, depot, "the city should have a depot")
+		s.PointerMove(s.Camera().WorldToScreen(depot.Rect.Min.Add(city.Point{X: 2, Y: 2})))
+		require.Same(t, depot, s.Hover().District, "the depot should be under the pointer")
+		action, _ := s.NewHere()
+
+		t.Run("it should ask where", func(t *testing.T) {
+			assert.Equal(t, city.Action{Kind: city.ActionAskWhere}, action)
 		})
 	})
 }

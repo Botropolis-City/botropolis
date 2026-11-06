@@ -131,6 +131,43 @@ func TestNewSession(t *testing.T) {
 		})
 	})
 
+	t.Run("when c is pressed with nothing under the pointer", func(t *testing.T) {
+		g, actor := newGame(t)
+		press(t, g, ebiten.KeyC, false)
+
+		t.Run("it should open New session", func(t *testing.T) {
+			assert.NotNil(t, g.newSession())
+		})
+
+		t.Run("it should focus the directory field", func(t *testing.T) {
+			require.NotNil(t, g.newSession())
+			assert.Equal(t, fieldDir, g.newSession().focus)
+		})
+
+		t.Run("it should leave the directory empty", func(t *testing.T) {
+			require.NotNil(t, g.newSession())
+			assert.Empty(t, g.newSession().fields[fieldDir].query())
+		})
+
+		t.Run("it should start nothing", func(t *testing.T) {
+			assert.Empty(t, actor.done)
+		})
+	})
+
+	t.Run("when c is pressed with a building selected", func(t *testing.T) {
+		g, actor := newGame(t)
+		b := g.scene.City().Buildings()[0]
+		g.scene.Click(g.scene.Camera().WorldToScreen(b.Rect.Center()))
+		require.NotNil(t, g.scene.Selected())
+		press(t, g, ebiten.KeyC, false)
+		g.settle()
+
+		t.Run("it should start a session there with no question", func(t *testing.T) {
+			assert.Nil(t, g.newSession())
+			assert.Equal(t, []city.Action{{Kind: city.ActionNew, Dir: "/w/site"}}, actor.done)
+		})
+	})
+
 	t.Run("when New session is open", func(t *testing.T) {
 		t.Run("and a prompt naming a group's reference is typed", func(t *testing.T) {
 			g, _ := opened(t)

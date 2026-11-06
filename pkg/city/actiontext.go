@@ -39,6 +39,7 @@ var actionText = map[ActionKind]string{
 	ActionOpenPR:        "Opens this session's pull request in your browser.",
 	ActionShowRoad:      "Lights the roads from this project to the projects it works with.",
 	ActionFork:          "Starts a fresh session from a copy of this conversation. This one stays as it is.",
+	ActionAskWhere:      "Asks which directory to start a session in.",
 	ActionNewSession:    "Starts a session in the directory you chose, in the group you chose.",
 }
 

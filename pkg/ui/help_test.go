@@ -28,7 +28,7 @@ var everyKey = []ui.Key{
 	{"l", "the stream: what is happening, newest first"},
 	{"v", "the lenses, and the lens's panel in full"},
 	{"1-6", "a lens; press again for its next view"},
-	{"c", "new session here"},
+	{"c", "new session here, or New session with nothing under the pointer"},
 	{"d d", "demolish the selection"},
 	{"f or 0", "Skyline, the whole city"},
 	{"wheel out past Skyline", "the City Plan: every district at a glance; wheel to zoom it, and in past its closest to return"},

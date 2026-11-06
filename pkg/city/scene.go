@@ -78,6 +78,10 @@ const (
 	ActionOpenPR    ActionKind = "open pull request"
 	ActionShowRoad  ActionKind = "show the road"
 	ActionFork      ActionKind = "fork a fresh session"
+	// ActionAskWhere asks which directory to start a session in, by
+	// opening New session on its directory field: c with nothing
+	// selected and no district under the pointer (item 345).
+	ActionAskWhere ActionKind = "ask where"
 	// ActionNewSession starts a session from New session, in Group or a
 	// new group named GroupName, or in none (item 87).
 	ActionNewSession ActionKind = "start a session"
@@ -1458,7 +1462,8 @@ func (s *Scene) Unhide(root string) {
 }
 
 // NewHere is the c key: a new session in the selected building's
-// directory, else the hovered district's root.
+// directory, else the hovered district's root, else it asks where
+// (item 345).
 func (s *Scene) NewHere() (Action, string) {
 	dir := ""
 	switch {
@@ -1468,7 +1473,7 @@ func (s *Scene) NewHere() (Action, string) {
 		dir = s.hover.District.Root
 	}
 	if dir == "" {
-		return Action{}, "select a building or hover a district first"
+		return Action{Kind: ActionAskWhere}, ""
 	}
 	return Action{Kind: ActionNew, Dir: dir}, "new session in " + dir
 }
