@@ -306,6 +306,74 @@ func TestEveryListSpeaksTheVocabulary(t *testing.T) {
 		})
 	}
 
+	t.Run("when the groups board is open", func(t *testing.T) {
+		opened := func(t *testing.T) *Game {
+			t.Helper()
+			g := newGame(t)
+			g.openBoard()
+			press(t, g, ebiten.KeyArrowDown)
+			return g
+		}
+		focused := func(g *Game) state.Group { return g.scene.Groups()[g.board().selected] }
+
+		t.Run("and F2 is pressed", func(t *testing.T) {
+			g := opened(t)
+			want := focused(g)
+			press(t, g, ebiten.KeyF2)
+
+			t.Run("it should rename the focused group", func(t *testing.T) {
+				require.NotNil(t, g.picker())
+				assert.Equal(t, want.ID, g.picker().renaming)
+			})
+		})
+
+		t.Run("and Delete is pressed", func(t *testing.T) {
+			g := opened(t)
+			want := focused(g)
+			press(t, g, ebiten.KeyDelete)
+
+			t.Run("it should ask before closing the focused group", func(t *testing.T) {
+				require.NotNil(t, g.dialog())
+				assert.Equal(t, "Close "+want.Name+"?", g.dialog().title)
+			})
+
+			t.Run("and Delete is pressed again", func(t *testing.T) {
+				g := opened(t)
+				press(t, g, ebiten.KeyDelete)
+				press(t, g, ebiten.KeyDelete)
+
+				t.Run("it should close it", func(t *testing.T) {
+					assert.True(t, actedOn(g, city.ActionCloseGroup, want.ID))
+				})
+			})
+
+			t.Run("and esc is pressed", func(t *testing.T) {
+				g := opened(t)
+				press(t, g, ebiten.KeyDelete)
+				press(t, g, ebiten.KeyEscape)
+
+				t.Run("it should close nothing, and leave the board", func(t *testing.T) {
+					assert.True(t, !actedOn(g, city.ActionCloseGroup, want.ID) && g.board() != nil)
+				})
+			})
+		})
+	})
+
+	t.Run("when the clinic, which renames and removes nothing, is open", func(t *testing.T) {
+		for name, key := range map[string]ebiten.Key{"F2": ebiten.KeyF2, "Delete": ebiten.KeyDelete} {
+			t.Run("and "+name+" is pressed", func(t *testing.T) {
+				g := newGame(t)
+				g.openClinic()
+				press(t, g, key)
+
+				t.Run("it should leave the clinic as it was", func(t *testing.T) {
+					_, open := top(g).(*clinic)
+					assert.True(t, open)
+				})
+			})
+		}
+	})
+
 	t.Run("when the picker is naming a new group, and / is typed", func(t *testing.T) {
 		g := newGame(t)
 		g.openPicker("a")

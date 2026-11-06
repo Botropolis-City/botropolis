@@ -142,6 +142,46 @@ func TestListKeys(t *testing.T) {
 		})
 	})
 
+	t.Run("when a list renames and removes its rows", func(t *testing.T) {
+		pressed := func(key ebiten.Key, opted bool) (renamed, removed []int) {
+			g := &Game{scripted: key, clicked: -1}
+			focus := 2
+			shape := listShape{}
+			if opted {
+				shape.rename = func(row int) { renamed = append(renamed, row) }
+				shape.remove = func(row int) { removed = append(removed, row) }
+			}
+			g.listKeys(&focus, 5, shape)
+			return renamed, removed
+		}
+
+		t.Run("and F2 is pressed", func(t *testing.T) {
+			renamed, _ := pressed(ebiten.KeyF2, true)
+
+			t.Run("it should rename the focused row", func(t *testing.T) {
+				assert.Equal(t, []int{2}, renamed)
+			})
+		})
+
+		t.Run("and Delete is pressed", func(t *testing.T) {
+			_, removed := pressed(ebiten.KeyDelete, true)
+
+			t.Run("it should ask to remove the focused row", func(t *testing.T) {
+				assert.Equal(t, []int{2}, removed)
+			})
+		})
+
+		for name, key := range map[string]ebiten.Key{"F2": ebiten.KeyF2, "Delete": ebiten.KeyDelete} {
+			t.Run("and "+name+" is pressed in a list that does not opt in", func(t *testing.T) {
+				renamed, removed := pressed(key, false)
+
+				t.Run("it should do nothing", func(t *testing.T) {
+					assert.Empty(t, append(renamed, removed...))
+				})
+			})
+		}
+	})
+
 	t.Run("when 3 is pressed in a list whose enter is the panel's own verb", func(t *testing.T) {
 		g := &Game{scripted: ebiten.KeyDigit3, clicked: -1}
 		focus := 0

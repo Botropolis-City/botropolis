@@ -105,7 +105,11 @@ func (g *Game) clickLandmark(l city.Landmark) {
 
 func (b *board) keys(g *Game) bool {
 	groups := g.scene.Groups()
-	switch g.listKeys(&b.selected, len(groups), listShape{labels: groupLabels(groups), filter: &b.filter}) {
+	shape := listShape{labels: groupLabels(groups), filter: &b.filter,
+		rename: func(row int) { g.openRenamer(groups[row].ID, groups[row].Name) },
+		remove: func(row int) { b.closeKey(g, groups[row]) },
+	}
+	switch g.listKeys(&b.selected, len(groups), shape) {
 	case listBack:
 		return false
 	case listChoose:
@@ -125,14 +129,6 @@ func (b *board) keys(g *Game) bool {
 		g.sweepQuiet()
 	case g.just(ebiten.KeyT):
 		b.tidyUp(g)
-	case g.just(ebiten.KeyDelete):
-		if b.selected < len(groups) {
-			b.closeKey(g, groups[b.selected])
-		}
-	case g.just(ebiten.KeyF2):
-		if b.selected < len(groups) {
-			g.openRenamer(groups[b.selected].ID, groups[b.selected].Name)
-		}
 	}
 	return true
 }

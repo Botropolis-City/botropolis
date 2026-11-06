@@ -38,6 +38,10 @@ const (
 //
 // labels and filter, when the list has them, are what each row is
 // called and the filter / types into.
+//
+// rename and remove, in a list whose rows can be renamed or removed, are
+// what F2 and Delete do to the focused row; remove asks first, through
+// the one dialog for destroying things, whose own Delete confirms.
 type listShape struct {
 	starts      []int
 	typing      bool
@@ -45,6 +49,8 @@ type listShape struct {
 	noDigits    bool
 	labels      []string
 	filter      *listFilter
+	rename      func(row int)
+	remove      func(row int)
 }
 
 // listFilter is the text a list is narrowed by while / is on.
@@ -158,6 +164,12 @@ func (g *Game) listKeys(focus *int, n int, shape listShape) listIntent {
 		return listMoved
 	case just(ebiten.KeyArrowUp), letters && just(ebiten.KeyK):
 		to(at - 1)
+		return listMoved
+	case just(ebiten.KeyF2) && shape.rename != nil && at >= 0:
+		shape.rename(*focus)
+		return listMoved
+	case just(ebiten.KeyDelete) && shape.remove != nil && at >= 0:
+		shape.remove(*focus)
 		return listMoved
 	case just(ebiten.KeyTab):
 		next := at + 1
