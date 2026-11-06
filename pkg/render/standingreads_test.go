@@ -506,6 +506,7 @@ var standingReasons = map[string]string{
 	"g.linePairs":       "scratch: a buffer of segments",
 	"g.lightsOn":        "on exactly while a lit city is drawn, which the standing key folds as city.Night",
 	"scene.Lines":       "the groups' lines: each line's key is what its strokes are drawn from, its points on the screen and its colours",
+	"scene.Shapes":      "the groups' lines in a trial form (item 348): each shape's key is its points on the screen, its colours and its width",
 	"g.theme":           "house-wide: worked out once a frame into g.houseWide, which the standing key folds",
 	"g.faces":           "house-wide: worked out once a frame into g.houseWide, which the standing key folds",
 	"g.signage":         "house-wide: worked out once a frame into g.houseWide, which the standing key folds",
@@ -531,7 +532,7 @@ var standingReasons = map[string]string{
 
 	"scene.Celebration":   "stirring: celebrating, which the standing key folds",
 	"scene.CompactionJob": "stirring: pouring, which the standing key folds",
-	"scene.Hauling":       "stirring: hauled, which the standing key folds",
+	"scene.Riding":        "stirring: hauled, which the standing key folds; a crate on a truck is always hauled",
 	"scene.HaulProgress":  "stirring: hauled, which the standing key folds",
 	"scene.Loads":         "stirring: loads, which the standing key folds",
 	"scene.Settling":      "stirring: settling, which the standing key folds",

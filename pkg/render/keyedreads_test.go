@@ -183,7 +183,7 @@ var quietReads = map[string]string{
 	"scene.View":          "in the quiet key: the view's tint, when a view is up",
 	"scene.Tint":          "in the quiet key: the view's tint, when a view is up",
 	"scene.Dimmed":        "in the quiet key",
-	"scene.Hauling":       "stirring: hauled",
+	"scene.Riding":        "stirring: hauled",
 	"scene.HaulProgress":  "stirring: hauled",
 	"scene.Rising":        "stirring: arriving",
 	"scene.Construction":  "stirring: arriving",
