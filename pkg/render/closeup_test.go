@@ -58,9 +58,7 @@ func TestCloseUpPanel(t *testing.T) {
 	t.Run("when nothing is live", func(t *testing.T) {
 		actor := &recorder{}
 		g := game(t, actor)
-		require.NoError(t, pressingShift(g, ebiten.KeyQ))
-		g.settle()
-		err := pressing(g, -1)
+		err := closingUp(g, pressingShift(g, ebiten.KeyQ))
 
 		t.Run("Shift+Q should record the close-up without asking", func(t *testing.T) {
 			assert.Equal(t, []city.Action{{Kind: city.ActionCloseUp}}, actor.done)
@@ -69,6 +67,19 @@ func TestCloseUpPanel(t *testing.T) {
 		t.Run("it should open no panel", func(t *testing.T) {
 			assert.Nil(t, g.overlays.top())
 		})
+
+		t.Run("it should quit the city", func(t *testing.T) {
+			assert.Equal(t, ebiten.Termination, err)
+		})
+	})
+
+	// Item 356: the actor runs beside the loop, so a close-up can finish
+	// before the press that started it is answered, and the press itself
+	// then quits. Finished before the press is that race, won.
+	t.Run("when the close-up has finished before the press is answered", func(t *testing.T) {
+		g := game(t, &recorder{})
+		g.closedUp.Store(true)
+		err := closingUp(g, pressingShift(g, ebiten.KeyQ))
 
 		t.Run("it should quit the city", func(t *testing.T) {
 			assert.Equal(t, ebiten.Termination, err)
@@ -232,9 +243,7 @@ func TestCloseUpPanel(t *testing.T) {
 		pressKey(t, g, ebiten.KeyArrowDown, false)
 		pressKey(t, g, ebiten.KeyArrowDown, false)
 		pressKey(t, g, ebiten.KeySpace, false)
-		require.NoError(t, pressing(g, ebiten.KeyEnter))
-		g.settle()
-		err := pressing(g, -1)
+		err := closingUp(g, pressing(g, ebiten.KeyEnter))
 
 		t.Run("it should ask the actor to close up with the open, pinned and paused sessions", func(t *testing.T) {
 			assert.Equal(t, []city.Action{{Kind: city.ActionCloseUp, Open: []string{"bg", "busy", "term"}, Pinned: []string{"term"}, Pause: []string{"bg"}}}, actor.done)
@@ -378,11 +387,10 @@ func TestCloseUpPanel(t *testing.T) {
 			})
 
 			t.Run("and Enter is pressed", func(t *testing.T) {
-				require.NoError(t, pressing(g, ebiten.KeyEnter))
-				g.settle()
+				err := closingUp(g, pressing(g, ebiten.KeyEnter))
 
 				t.Run("it should quit the city once it has closed up", func(t *testing.T) {
-					assert.Equal(t, ebiten.Termination, pressing(g, -1))
+					assert.Equal(t, ebiten.Termination, err)
 				})
 			})
 		})
@@ -403,6 +411,17 @@ func pressing(g *Game, key ebiten.Key) error {
 	g.scripted = key
 	defer func() { g.scripted = -1 }()
 	return g.handleKeys()
+}
+
+// closingUp is what a press that starts a close-up comes to: the close-up
+// runs beside the loop, so the city leaves on whichever frame sees it
+// finished, the press's own or the next once it has (item 356).
+func closingUp(g *Game, onPress error) error {
+	g.settle()
+	if onPress != nil {
+		return onPress
+	}
+	return pressing(g, -1)
 }
 
 func pressingShift(g *Game, key ebiten.Key) error {
