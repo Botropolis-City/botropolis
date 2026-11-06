@@ -28,6 +28,9 @@ type player struct {
 	holds   []hold
 	wheels  []wheel
 	release float64
+	// rightRelease is when a right-click's button comes up, -1 for none
+	// (item 350).
+	rightRelease float64
 }
 
 type glide struct {
@@ -76,7 +79,7 @@ type playFrame struct {
 }
 
 func newPlayer(cues []script.Cue, start city.Point) *player {
-	return &player{cues: script.Sorted(cues), pointer: start, centre: start, release: -1}
+	return &player{cues: script.Sorted(cues), pointer: start, centre: start, release: -1, rightRelease: -1}
 }
 
 func (p *player) step(t float64, resolve func(string) (city.Point, bool)) playFrame {
@@ -102,6 +105,10 @@ func (p *player) step(t float64, resolve func(string) (city.Point, bool)) playFr
 			f.press = true
 			p.release = c.At + clickHold
 			p.shown = true
+		case c.RightClick:
+			f.rightPress = true
+			p.rightRelease = c.At + clickHold
+			p.shown = true
 		case c.Wheel != 0:
 			if c.Over <= 0 {
 				f.wheel += c.Wheel
@@ -113,6 +120,10 @@ func (p *player) step(t float64, resolve func(string) (city.Point, bool)) playFr
 	if p.release >= 0 && t+1e-9 >= p.release {
 		f.release = true
 		p.release = -1
+	}
+	if p.rightRelease >= 0 && t+1e-9 >= p.rightRelease {
+		f.rightRelease = true
+		p.rightRelease = -1
 	}
 	for _, h := range p.holds {
 		if t < h.until-1e-9 {

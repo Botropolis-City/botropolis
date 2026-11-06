@@ -67,6 +67,25 @@ func TestPlayer(t *testing.T) {
 		})
 	})
 
+	// Item 350: a right-click opens the action menu, so a clip can show it.
+	t.Run("when a right-click is cued", func(t *testing.T) {
+		got := frames([]script.Cue{{At: 1, RightClick: true}}, 2)
+
+		t.Run("it should press the right button on its frame, not the left", func(t *testing.T) {
+			assert.True(t, got[30].rightPress && !got[30].press)
+		})
+
+		t.Run("it should release it a few frames later, as a hand would", func(t *testing.T) {
+			var released int
+			for i, f := range got {
+				if f.rightRelease {
+					released = i
+				}
+			}
+			assert.Equal(t, 33, released)
+		})
+	})
+
 	t.Run("when an arrow is held for half a second", func(t *testing.T) {
 		got := frames([]script.Cue{{At: 1, Hold: "ArrowRight", For: 0.5}}, 2)
 		held := 0

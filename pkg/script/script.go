@@ -33,8 +33,10 @@ type Cue struct {
 	// arrow held down, it cannot carry the camera off the city. "home"
 	// is wherever the camera stood when the clip began.
 	PanTo string `json:"pan_to,omitempty" yaml:"pan_to,omitempty"`
-	// Click clicks where the pointer is.
-	Click bool `json:"click,omitempty" yaml:"click,omitempty"`
+	// Click clicks where the pointer is, and RightClick right-clicks
+	// there, which opens the action menu (item 350).
+	Click      bool `json:"click,omitempty" yaml:"click,omitempty"`
+	RightClick bool `json:"right_click,omitempty" yaml:"right_click,omitempty"`
 	// Wheel turns the scroll wheel at the pointer by this many notches,
 	// spread over Over seconds: a smooth zoom toward what it points at.
 	Wheel float64 `json:"wheel,omitempty" yaml:"wheel,omitempty"`
@@ -49,7 +51,7 @@ type Cue struct {
 
 func (c Cue) verbs() int {
 	n := 0
-	for _, set := range []bool{c.Key != "", c.Hold != "", len(c.Point) > 0, c.PointAt != "", c.PanTo != "", c.Click, c.Wheel != 0, c.ShowStatsPrompt != "", c.ShowStoreNotice != ""} {
+	for _, set := range []bool{c.Key != "", c.Hold != "", len(c.Point) > 0, c.PointAt != "", c.PanTo != "", c.Click, c.RightClick, c.Wheel != 0, c.ShowStatsPrompt != "", c.ShowStoreNotice != ""} {
 		if set {
 			n++
 		}
@@ -64,7 +66,7 @@ func Validate(cues []Cue) error {
 	for i, c := range cues {
 		switch {
 		case c.verbs() != 1:
-			return fmt.Errorf("cue %d at %gs: want exactly one of key, hold, point, point_at, pan_to, click, wheel, show_stats_prompt, show_store_notice", i, c.At)
+			return fmt.Errorf("cue %d at %gs: want exactly one of key, hold, point, point_at, pan_to, click, right_click, wheel, show_stats_prompt, show_store_notice", i, c.At)
 		case len(c.Point) != 0 && len(c.Point) != 2:
 			return fmt.Errorf("cue %d at %gs: point wants [x, y]", i, c.At)
 		case c.Hold != "" && c.For <= 0:

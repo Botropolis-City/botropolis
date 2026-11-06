@@ -16,6 +16,7 @@ func TestValidate(t *testing.T) {
 		"a target":            {At: 1, PointAt: "plant"},
 		"a pan":               {At: 1, PanTo: "district:kiln", Over: 2},
 		"a click":             {At: 1, Click: true},
+		"a right-click":       {At: 1, RightClick: true},
 		"a turn of wheel":     {At: 1, Wheel: 2, Over: 1},
 		"a statistics prompt": {At: 1, ShowStatsPrompt: "off"},
 		"a store notice":      {At: 1, ShowStoreNotice: "damaged"},
@@ -28,11 +29,12 @@ func TestValidate(t *testing.T) {
 	}
 
 	for name, cue := range map[string]Cue{
-		"empty":                  {At: 1},
-		"two things at once":     {At: 1, Key: "Tab", Click: true},
-		"a point that is not xy": {At: 1, Point: []float64{10}},
-		"a hold with no length":  {At: 1, Hold: "ArrowLeft"},
-		"before the clip":        {At: -1, Click: true},
+		"empty":                             {At: 1},
+		"two things at once":                {At: 1, Key: "Tab", Click: true},
+		"a click and a right-click at once": {At: 1, Click: true, RightClick: true},
+		"a point that is not xy":            {At: 1, Point: []float64{10}},
+		"a hold with no length":             {At: 1, Hold: "ArrowLeft"},
+		"before the clip":                   {At: -1, Click: true},
 		"a statistics prompt that is neither off nor on":   {At: 1, ShowStatsPrompt: "maybe"},
 		"a store notice that is neither newer nor damaged": {At: 1, ShowStoreNotice: "broken"},
 		"a store notice and a click at once":               {At: 1, ShowStoreNotice: "newer", Click: true},
