@@ -62,6 +62,13 @@ const (
 	LightLive  = "live"
 	LightNight = "night"
 	LightDay   = "day"
+	// KeyTowerLines is which sessions a water tower's lines run to:
+	// the buildings on the map, or the crates in the depot as well.
+	// Item 347.
+	KeyTowerLines = "tower_lines"
+	// TowerLinesBuildings and TowerLinesAll are its two values.
+	TowerLinesBuildings = "buildings"
+	TowerLinesAll       = "all"
 	// KeyDistrictType is how a new district's type is chosen: random,
 	// guess, or one type for all. Item 109.
 	KeyDistrictType = "district_type"
@@ -195,6 +202,8 @@ type Config struct {
 	OnClose string
 	// Light is the light the city starts in (item 308).
 	Light string
+	// TowerLines is which sessions a tower's lines run to (item 347).
+	TowerLines string
 }
 
 // ParseScriptedRuns reads scripted_runs: hidden or shown, true for
@@ -225,6 +234,15 @@ func ParseLight(value string) (string, error) {
 		return value, nil
 	}
 	return "", fmt.Errorf("unknown %s %q: use %s, %s or %s", KeyLight, value, LightLive, LightNight, LightDay)
+}
+
+// ParseTowerLines reads tower_lines: buildings or all. Item 347.
+func ParseTowerLines(value string) (string, error) {
+	switch value {
+	case TowerLinesBuildings, TowerLinesAll:
+		return value, nil
+	}
+	return "", fmt.Errorf("unknown %s %q: use %s or %s", KeyTowerLines, value, TowerLinesBuildings, TowerLinesAll)
 }
 
 func NewViper() *viper.Viper {
@@ -266,6 +284,7 @@ func NewViper() *viper.Viper {
 	v.SetDefault(KeyScriptedRuns, ScriptedHidden)
 	v.SetDefault(KeyOnClose, OnCloseAsk)
 	v.SetDefault(KeyLight, LightLive)
+	v.SetDefault(KeyTowerLines, TowerLinesBuildings)
 	v.SetConfigName(configName)
 	v.AddConfigPath(filepath.Join(configHome(), appDir))
 	return v
@@ -396,6 +415,9 @@ func New(v *viper.Viper) (*Config, error) {
 		return nil, err
 	}
 	if cfg.Light, err = ParseLight(v.GetString(KeyLight)); err != nil {
+		return nil, err
+	}
+	if cfg.TowerLines, err = ParseTowerLines(v.GetString(KeyTowerLines)); err != nil {
 		return nil, err
 	}
 	if err := checkLadder(cfg.ShutteredDays, cfg.OvergrownDays); err != nil {

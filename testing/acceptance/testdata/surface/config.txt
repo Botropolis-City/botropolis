@@ -50,6 +50,9 @@ stats	bool
 stream_key	string
 terminal	string
 tidy_days	int
+tower_lines	string
+tower_lines=all
+tower_lines=buildings
 triage_key	string
 usage_refresh	string
 usage_refresh=manual

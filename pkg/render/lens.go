@@ -4,6 +4,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/config"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -22,7 +23,28 @@ func (p *lensPanel) click(g *Game, at city.Point) bool {
 	if p.laid.Chip {
 		g.scene.ShowLensPanel()
 	}
+	if p.laid.SwitchRect.Area() > 0 && p.laid.SwitchRect.Contains(at) {
+		g.toggleDepotBeams()
+	}
 	return true
+}
+
+// toggleDepotBeams flips where the towers' lines run, through the same
+// settings row and the same save as the settings panel, so --set, the
+// row and the panel's switch cannot disagree (item 347).
+func (g *Game) toggleDepotBeams() {
+	value := config.TowerLinesAll
+	if g.scene.DepotBeams() {
+		value = config.TowerLinesBuildings
+	}
+	row := ui.Setting{Key: config.KeyTowerLines, Label: "tower lines", Options: []string{config.TowerLinesBuildings, config.TowerLinesAll}, Value: value}
+	for i, s := range g.settings.Items {
+		if s.Key == config.KeyTowerLines {
+			g.settings.Items[i].Value = value
+			row = g.settings.Items[i]
+		}
+	}
+	g.applySetting(row)
 }
 
 func (p *lensPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
@@ -58,6 +80,7 @@ func (p *lensPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	}
 	g.run(screen, l.Note, th.Palette.Dim)
 	g.run(screen, l.Aggregate, th.Palette.Text)
+	g.run(screen, l.Switch, th.Palette.Accent)
 	for _, t := range l.Do {
 		g.run(screen, t, th.Palette.Dim)
 	}

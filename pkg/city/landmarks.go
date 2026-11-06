@@ -311,6 +311,9 @@ func (c *City) Beams() []Beam {
 	}
 	var beams []Beam
 	for _, b := range c.Buildings() {
+		if b.Packed && !c.depotBeams {
+			continue
+		}
 		names := make([]string, 0, len(b.Session.MCPCalls))
 		for name := range b.Session.MCPCalls {
 			names = append(names, name)

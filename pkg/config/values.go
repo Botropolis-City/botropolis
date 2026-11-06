@@ -13,4 +13,5 @@ var Values = map[string][]string{
 	KeyScriptedRuns: {ScriptedHidden, ScriptedShown},
 	KeyOnClose:      {OnCloseAsk, OnCloseTray},
 	KeyLight:        {LightLive, LightNight, LightDay},
+	KeyTowerLines:   {TowerLinesBuildings, TowerLinesAll},
 }

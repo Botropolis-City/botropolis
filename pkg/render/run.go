@@ -86,6 +86,9 @@ type Options struct {
 	// HideGroupLines hides the line each group draws across its
 	// districts, which are on unless the settings say otherwise.
 	HideGroupLines bool
+	// DepotBeams runs the towers' lines to the crates in the depot as
+	// well as to the buildings on the map: tower_lines=all (item 347).
+	DepotBeams bool
 	// HideLabels starts the city with every label off (item 102).
 	HideLabels bool
 	// ShowGone keeps sessions whose transcript is gone on the map
@@ -244,6 +247,7 @@ func Run(ctx context.Context, opts Options) error {
 	game.setLiveliness(opts.Liveliness)
 	scene.SetDetail(opts.Detail)
 	scene.SetGroupLines(!opts.HideGroupLines)
+	scene.SetDepotBeams(opts.DepotBeams)
 	scene.SetLabels(!opts.HideLabels)
 	scene.SetShown(city.Shown{Gone: opts.ShowGone, Scripted: opts.ShowScripted})
 	game.journalHours, game.lastCloseUp, game.lastReply = opts.JournalHours, opts.LastCloseUp, opts.LastReply

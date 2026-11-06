@@ -42,6 +42,17 @@ func TestCityArgs(t *testing.T) {
 		})
 	})
 
+	// Item 347: a shot can set any other key, so a frame can show a
+	// setting's other value.
+	t.Run("when a still sets keys of its own", func(t *testing.T) {
+		shot := Shot{Name: "s", Set: map[string]string{"tower_lines": "all", "light": "night"}}
+
+		t.Run("it should pass each through --set, in key order", func(t *testing.T) {
+			assert.Equal(t, append(base, "--window", "1920x1080", "--set", "light=night", "--set", "tower_lines=all", "--screenshot", "/o/s.png"),
+				cityArgs(shot, "/h", "/o/s.png", ""))
+		})
+	})
+
 	// Item 109: a shot can film every district as one type.
 	t.Run("when a still names a district type", func(t *testing.T) {
 		t.Run("it should pass it through", func(t *testing.T) {

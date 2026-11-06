@@ -166,6 +166,9 @@ type LensPanel struct {
 	Legend    Legend
 	Aggregate string
 	Do        string
+	// Switch is the panel's one setting, in the words that flip it, or
+	// "": on the servers view, where the towers' lines run (item 347).
+	Switch string
 	// Chip is the panel shrunk to its name, once it has been seen.
 	Chip bool
 }
@@ -183,8 +186,42 @@ func (s *Scene) LensPanel() LensPanel {
 		Legend:    s.Legend(),
 		Aggregate: s.aggregate(l),
 		Do:        s.do(l),
+		Switch:    s.lensSwitch(),
 		Chip:      seen > LensPanelViewings && !s.lensExpanded,
 	}
+}
+
+// lensSwitch is the panel's setting on the servers view: where the
+// towers' lines run, in the words that flip it (item 347).
+func (s *Scene) lensSwitch() string {
+	if s.view != ViewServers {
+		return ""
+	}
+	if s.depotBeams {
+		return "lines to buildings only"
+	}
+	return "show lines to the depot too"
+}
+
+// beamCount is the servers view's aggregate: the lines, the towers they
+// run from and the sessions they run to, saying whether the depot's
+// crates are among them (item 347).
+func (s *Scene) beamCount() string {
+	towers, sessions, crates := map[*Tower]bool{}, map[*Building]bool{}, map[*Building]bool{}
+	beams := s.city.Beams()
+	for _, b := range beams {
+		towers[b.Tower] = true
+		if b.Building.Packed {
+			crates[b.Building] = true
+		} else {
+			sessions[b.Building] = true
+		}
+	}
+	out := fmt.Sprintf("%s from %s to %s", plural(len(beams), "line"), plural(len(towers), "tower"), plural(len(sessions), "session"))
+	if !s.depotBeams {
+		return out + " on the map"
+	}
+	return out + " and " + plural(len(crates), "crate")
 }
 
 // aggregate is the lens's one number for the whole city.
@@ -237,6 +274,9 @@ func (s *Scene) aggregate(l Lens) string {
 	case LensHealth:
 		return plural(count(func(s state.Session) bool { return s.APIErrors > 0 }), "session") + " with errors"
 	case LensConnections:
+		if s.view == ViewServers {
+			return s.beamCount()
+		}
 		return plural(len(s.city.Roads), "road") + " between projects"
 	}
 	n := s.needingYou()

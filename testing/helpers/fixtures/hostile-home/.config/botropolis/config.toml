@@ -23,6 +23,7 @@ on_close = "tray"
 overgrown_days = 11
 quiet_days = 5
 tidy_days = 3
+tower_lines = "all"
 reduced_motion = true
 render_scale = 3
 scripted_runs = "shown"

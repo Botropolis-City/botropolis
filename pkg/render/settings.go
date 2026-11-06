@@ -68,6 +68,8 @@ func (g *Game) applySetting(s ui.Setting) {
 		}
 	case config.KeyGroupLines:
 		g.scene.SetGroupLines(s.Value == "on")
+	case config.KeyTowerLines:
+		g.scene.SetDepotBeams(s.Value == config.TowerLinesAll)
 	case config.KeyLabels:
 		g.scene.SetLabels(s.Value == config.LabelsShown)
 	case config.KeyGoneSessions:

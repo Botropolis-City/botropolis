@@ -16,7 +16,13 @@ import (
 // calls imply, which is how the daemon builds it.
 func served(t *testing.T, sessions ...state.Session) *city.Scene {
 	t.Helper()
-	s := city.NewScene(city.NewLayout())
+	return servedOn(t, city.NewScene(city.NewLayout()), sessions...)
+}
+
+// servedOn hands a scene the snapshot served would, so a setting can
+// be made before the city is built.
+func servedOn(t *testing.T, s *city.Scene, sessions ...state.Session) *city.Scene {
+	t.Helper()
 	s.SetClock(func() time.Time { return now }, time.UTC)
 	s.Resize(800, 600)
 	s.SetSnapshot(state.Snapshot{At: now, Sessions: sessions, Servers: state.Servers(sessions, claude.MCPConfig{})})

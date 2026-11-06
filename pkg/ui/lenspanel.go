@@ -18,7 +18,12 @@ type LensPanel struct {
 	Note      Text
 	Aggregate Text
 	Do        []Text
-	Chip      bool
+	// Switch is the panel's one setting, drawn as a link under the
+	// aggregate, and SwitchRect is where a click flips it; both are
+	// empty when the lens has none (item 347).
+	Switch     Text
+	SwitchRect city.Rect
+	Chip       bool
 }
 
 // LayoutLensPanel places the panel in the top-left corner of bounds.
@@ -77,6 +82,13 @@ func LayoutLensPanel(th Theme, p city.LensPanel, bounds city.Rect, measure Measu
 		y += grid
 		l.Aggregate = Text{Text: p.Aggregate, At: city.Point{X: x, Y: y}, Size: Body}
 		y += bodyH
+	}
+	if p.Switch != "" {
+		y += grid / 2
+		w, _ := measure(p.Switch, Small)
+		l.Switch = Text{Text: p.Switch, At: city.Point{X: x, Y: y}, Size: Small}
+		l.SwitchRect = city.RectAt(x-grid/2, y-grid/4, w+grid, smallH+grid/2)
+		y += smallH
 	}
 	if p.Do != "" {
 		y += grid / 2

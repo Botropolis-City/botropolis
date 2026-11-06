@@ -158,6 +158,9 @@ type Scene struct {
 	ladder   state.Thresholds
 	// linesHidden is whether the setting hides the groups' lines.
 	linesHidden bool
+	// depotBeams is whether the tower_lines setting runs the towers'
+	// beams to the crates in the depot too (item 347).
+	depotBeams bool
 	// labelsHidden is whether the setting, or its key, hides every label
 	// on the map (item 102).
 	labelsHidden bool
@@ -837,7 +840,7 @@ func (s *Scene) apply(snapshot state.Snapshot) {
 	s.generation++
 	s.viewTop, s.viewCats = nil, nil
 	was := s.city.StreetCells
-	s.city = build(snapshot, s.layout, s.ladder, false, s.ledger, s.memo, s.offMap)
+	s.city = s.adopt(build(snapshot, s.layout, s.ladder, false, s.ledger, s.memo, s.offMap))
 	if s.veil != nil {
 		s.veil.name(s.city)
 	}

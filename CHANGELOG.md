@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A water tower's lines run to the buildings on the map, or to the depot too.**
+  A packed session kept its line from every tower it ever called, so a depot of ninety crates had thin lines across the whole empty south of the map.
+  The lines now run to the buildings on the map, and the Connections lens's panel says what they cover and switches the depot's crates in and out.
+  The switch is the `tower_lines` setting, `buildings` or `all`, which the settings panel carries too.
+
 ### Changed
 
 - **What just happened shows under the top bar and in the stream.**

@@ -118,8 +118,12 @@ type City struct {
 	Districts []*District
 	Plant     Plant
 	Towers    []*Tower
-	Library   Library
-	Hall      Hall
+	// depotBeams runs the towers' beams to the crates in the depot as
+	// well as to the buildings on the map; the scene sets it from the
+	// tower_lines setting when it adopts a city (item 347).
+	depotBeams bool
+	Library    Library
+	Hall       Hall
 	// Clinic is where what needs you stands (item 280).
 	Clinic  Clinic
 	Roads   []RoadLine

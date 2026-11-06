@@ -7,10 +7,12 @@ import (
 	"image"
 	_ "image/png"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +44,9 @@ type Shot struct {
 	// ScriptedRuns shows or hides the scripted runs for this shot; unset,
 	// the city's default stands (item 273).
 	ScriptedRuns *bool `yaml:"scripted_runs"`
+	// Set is any other config key the shot sets for its run, as --set
+	// does, so a frame can show a setting's other value (item 347).
+	Set map[string]string `yaml:"set"`
 	// Clock overrides the scenario's time of day for this shot.
 	Clock string `yaml:"clock"`
 	// Scale is the render scale; 0 follows the virtual display, which
@@ -160,6 +165,9 @@ func cityArgs(shot Shot, home, still, frames string, opts ...cityOption) []strin
 			value = config.ScriptedShown
 		}
 		args = append(args, "--set", config.KeyScriptedRuns+"="+value)
+	}
+	for _, key := range slices.Sorted(maps.Keys(shot.Set)) {
+		args = append(args, "--set", key+"="+shot.Set[key])
 	}
 	if shot.Scale > 0 {
 		args = append(args, "--render_scale", strconv.FormatFloat(shot.Scale, 'g', -1, 64))
