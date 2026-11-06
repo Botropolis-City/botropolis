@@ -366,6 +366,8 @@ docs/screenshots/r1264-item-344-badge.png
 docs/screenshots/r1264-item-344-board.png
 docs/screenshots/r1267-item-347-servers-tower-buildings.png
 docs/screenshots/r1267-item-347-servers-tower-depot.png
+docs/screenshots/r1277-item-359-attention-group-hover.png
+docs/screenshots/r1277-item-359-servers-group-hover.png
 LIST
 )
 while read -r img; do
