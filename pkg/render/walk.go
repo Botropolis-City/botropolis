@@ -133,7 +133,9 @@ func (g *Game) tidyOffer(since time.Time) string {
 // walkGroups are the groups the walk asks about, strongest first: those
 // with a session at work, then the larger, then those held by more sure
 // ties. A pair joined by a likely tie is never asked about; it stays a
-// guess on the map.
+// guess on the map. Nor is a group with one session on the map (item
+// 344): it is on the board, in the picker and on its card, but a card
+// here has to earn its place, and a question about one building does not.
 func (g *Game) walkGroups() []state.Group {
 	byID := map[string]state.Session{}
 	for _, b := range g.scene.City().Buildings() {
@@ -158,7 +160,7 @@ func (g *Game) walkGroups() []state.Group {
 				w.sure++
 			}
 		}
-		if w.size == 2 && w.sure < 2 {
+		if w.size < 2 || (w.size == 2 && w.sure < 2) {
 			continue
 		}
 		ws = append(ws, w)

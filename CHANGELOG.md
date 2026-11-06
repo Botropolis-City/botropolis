@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   With no building selected and no district under the pointer, `c` used to refuse with a footer note.
   It now opens New session on its directory field, so a session can start anywhere from the map.
   A selection or a hovered district still starts a session there at once.
+- **A group with one session on the map is shown.**
+  A group was hidden until two of its sessions were on the map, so a group just made from *move to group* vanished from the board, the picker and its member's card, and two such sessions could not be put together.
+  Now every group with a session on the map is on the board, in the picker and on its member's card, with a badge and no line.
+  A group with none on the map stays off, and the tidy-up walk still asks only about groups with two or more.
 
 ## [0.4.0] - 2026-11-03
 

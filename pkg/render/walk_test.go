@@ -138,6 +138,22 @@ func TestTidyWalk(t *testing.T) {
 		})
 	})
 
+	// Item 344: a group with one session on the map is shown everywhere and
+	// asked about nowhere, since a card has to earn its place (item 333).
+	t.Run("when a group has one session on the map", func(t *testing.T) {
+		g, _, _ := newGame(t, time.Time{})
+		alone := resting("alone", "solo")
+		snap := g.scene.RealSnapshot()
+		snap.Sessions = append(append([]state.Session(nil), snap.Sessions...), alone)
+		snap.Groups = append(append([]state.Group(nil), snap.Groups...), groupOf("solo", []state.Session{alone}))
+		g.scene.SetSnapshot(snap)
+		require.True(t, g.openWalk(), "the walk should open")
+
+		t.Run("the walk should not ask about it", func(t *testing.T) {
+			assert.NotContains(t, g.walk().cardKeys(), "solo")
+		})
+	})
+
 	t.Run("when the walk moves onto a group's card", func(t *testing.T) {
 		g, _, _ := through(t)
 

@@ -21,7 +21,7 @@ func (a *recordingActor) Do(action city.Action) error {
 
 func TestMoveToGroup(t *testing.T) {
 	now := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
-	groups := []state.Group{{ID: "g1", Name: "PROJ-123 · headers"}, {ID: "g2", Name: "LOG-88 · buffer"}}
+	groups := []state.Group{{ID: "g1", Name: "PROJ-123 · headers"}, {ID: "g2", Name: "LOG-88 · buffer"}, {ID: "g3", Name: "SOLO-1 · alone", Members: []string{"c"}}}
 	newGame := func() (*Game, *recordingActor) {
 		s := city.NewScene(city.NewLayout())
 		s.SetClock(func() time.Time { return now }, time.UTC)
@@ -31,6 +31,7 @@ func TestMoveToGroup(t *testing.T) {
 			{ID: "b", CWD: "/w/api", State: state.Working, Group: "g2"},
 			{ID: "a2", CWD: "/w/lib", State: state.Working, Group: "g1"},
 			{ID: "b2", CWD: "/w/api", State: state.Working, Group: "g2"},
+			{ID: "c", CWD: "/w/one", State: state.Working, Group: "g3"},
 		}})
 		actor := &recordingActor{}
 		return &Game{scene: s, actor: actor, scripted: -1, clicked: -1}, actor
@@ -53,7 +54,7 @@ func TestMoveToGroup(t *testing.T) {
 		g, _ := picking(t)
 
 		t.Run("it should offer new group…, then every group, then no group", func(t *testing.T) {
-			assert.Equal(t, []string{"new group…", "PROJ-123 · headers", "LOG-88 · buffer", "no group"}, g.picker().labels())
+			assert.Equal(t, []string{"new group…", "PROJ-123 · headers", "LOG-88 · buffer", "SOLO-1 · alone", "no group"}, g.picker().labels())
 		})
 
 		t.Run("it should say in the title that new group… makes one", func(t *testing.T) {
@@ -77,9 +78,9 @@ func TestMoveToGroup(t *testing.T) {
 
 		t.Run("and no group is chosen", func(t *testing.T) {
 			g, actor := picking(t)
-			press(t, g, ebiten.KeyArrowDown)
-			press(t, g, ebiten.KeyArrowDown)
-			press(t, g, ebiten.KeyArrowDown)
+			for range 4 {
+				press(t, g, ebiten.KeyArrowDown)
+			}
 			press(t, g, ebiten.KeyEnter)
 
 			t.Run("it should take the session out of every group", func(t *testing.T) {
@@ -161,6 +162,33 @@ func TestMoveToGroup(t *testing.T) {
 				t.Run("it should do nothing", func(t *testing.T) {
 					assert.Empty(t, actor.done)
 				})
+			})
+		})
+	})
+
+	// Item 344: a group with one session on the map is in the picker, and
+	// its name is taken.
+	t.Run("when a group has one session on the map", func(t *testing.T) {
+		t.Run("and move to group opens on another session", func(t *testing.T) {
+			g, _ := picking(t)
+
+			t.Run("it should list that group", func(t *testing.T) {
+				assert.Contains(t, g.picker().labels(), "SOLO-1 · alone")
+			})
+		})
+
+		t.Run("and a new group is named like it", func(t *testing.T) {
+			g, _ := picking(t)
+			press(t, g, ebiten.KeyEnter)
+			for _, r := range "solo-1 · alone" {
+				g.scriptedRune = r
+				require.NoError(t, g.handleKeys())
+				g.scriptedRune = 0
+			}
+			press(t, g, ebiten.KeyEnter)
+
+			t.Run("it should refuse the name", func(t *testing.T) {
+				assert.Equal(t, "SOLO-1 · alone is already a group", g.picker().refused)
 			})
 		})
 	})
