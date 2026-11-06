@@ -80,7 +80,6 @@ keys.menu_standup	string
 keys.menu_star	string
 keys.menu_stop	string
 keys.menu_take_out	string
-keys.new_here	string
 keys.new_session	string
 keys.quit	string
 keys.read	string

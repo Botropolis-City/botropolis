@@ -58,7 +58,6 @@ var Bindings = []Binding{
 	{"lens_4", ScopeMap, "digit4", ""},
 	{"lens_5", ScopeMap, "digit5", ""},
 	{"lens_6", ScopeMap, "digit6", ""},
-	{"new_here", ScopeMap, "c", ""},
 	{"fit", ScopeMap, "f", ""},
 	{"fit_zero", ScopeMap, "digit0", ""},
 	{"city_plan", ScopeMap, DefaultCityPlan, KeyCityPlan},

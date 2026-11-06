@@ -131,9 +131,11 @@ func TestNewSession(t *testing.T) {
 		})
 	})
 
-	t.Run("when c is pressed with nothing under the pointer", func(t *testing.T) {
+	// Item 350: c retired, and shift+n is the one key for a new session,
+	// filled from what is under the pointer (Aria, 2026-11-07).
+	t.Run("when shift+n is pressed with nothing under the pointer", func(t *testing.T) {
 		g, actor := newGame(t)
-		press(t, g, ebiten.KeyC, false)
+		press(t, g, ebiten.KeyN, true)
 
 		t.Run("it should open New session", func(t *testing.T) {
 			assert.NotNil(t, g.newSession())
@@ -154,17 +156,35 @@ func TestNewSession(t *testing.T) {
 		})
 	})
 
-	t.Run("when c is pressed with a building selected", func(t *testing.T) {
+	t.Run("when shift+n is pressed with a building selected", func(t *testing.T) {
 		g, actor := newGame(t)
 		b := g.scene.City().Buildings()[0]
 		g.scene.Click(g.scene.Camera().WorldToScreen(b.Rect.Center()))
 		require.NotNil(t, g.scene.Selected())
-		press(t, g, ebiten.KeyC, false)
+		press(t, g, ebiten.KeyN, true)
 		g.settle()
 
-		t.Run("it should start a session there with no question", func(t *testing.T) {
-			assert.Nil(t, g.newSession())
-			assert.Equal(t, []city.Action{{Kind: city.ActionNew, Dir: "/w/site"}}, actor.done)
+		t.Run("it should open New session with the building's directory filled", func(t *testing.T) {
+			require.NotNil(t, g.newSession())
+			assert.Equal(t, "/w/site", g.newSession().fields[fieldDir].query())
+		})
+
+		t.Run("it should start nothing until asked", func(t *testing.T) {
+			assert.Empty(t, actor.done)
+		})
+	})
+
+	t.Run("when shift+n is pressed with a district under the pointer and nothing selected", func(t *testing.T) {
+		g, _ := newGame(t)
+		d := g.scene.City().Districts[0]
+		g.scene.PointerMove(g.scene.Camera().WorldToScreen(city.Point{X: d.Rect.Min.X + 1, Y: d.Rect.Min.Y + 1}))
+		require.NotNil(t, g.scene.Hover().District)
+		require.Nil(t, g.scene.Selected())
+		press(t, g, ebiten.KeyN, true)
+
+		t.Run("it should open New session with the district's directory filled", func(t *testing.T) {
+			require.NotNil(t, g.newSession())
+			assert.Equal(t, g.scene.Hover().District.Root, g.newSession().fields[fieldDir].query())
 		})
 	})
 

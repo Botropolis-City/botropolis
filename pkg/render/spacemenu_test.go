@@ -139,6 +139,22 @@ func TestRetiredKeys(t *testing.T) {
 		})
 	})
 
+	// c retired (Aria, 2026-11-07): shift+n opens New session, filled
+	// from what is under the pointer, and the menu's p n starts one here.
+	t.Run("when c is pressed with a session selected", func(t *testing.T) {
+		r := newButtonPanRig(t)
+		press(t, r.g, ebiten.KeyC, false)
+		r.g.settle()
+
+		t.Run("it should start nothing", func(t *testing.T) {
+			assert.Empty(t, r.actor.done)
+		})
+
+		t.Run("it should open nothing", func(t *testing.T) {
+			assert.Nil(t, r.g.overlays.top())
+		})
+	})
+
 	t.Run("when p is pressed alone", func(t *testing.T) {
 		r := newButtonPanRig(t)
 		press(t, r.g, ebiten.KeyP, false)

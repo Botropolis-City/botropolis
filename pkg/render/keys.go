@@ -42,7 +42,6 @@ var bindings = []ui.Key{
 	{Key: "l", Action: "the stream: what is happening, newest first"},
 	{Key: "v", Action: "the lenses, and the lens's panel in full"},
 	{Key: "1-6", Action: "a lens; press again for its next view"},
-	{Key: "c", Action: "new session here, or New session with nothing under the pointer"},
 	{Key: "d d", Action: "demolish the selection: the first d asks, the second confirms"},
 	{Key: "f or 0", Action: "Skyline, the whole city"},
 	{Key: "wheel out past Skyline", Action: "the City Plan: every district at a glance; wheel to zoom it, and in past its closest to return"},
@@ -59,7 +58,7 @@ var bindings = []ui.Key{
 	{Key: "t on the groups board", Action: "tidy up: walk the groups and the quiet sessions, one card each"},
 	{Key: "delete delete", Action: "on the groups board: close the chosen group, packing its sessions into the depot"},
 	{Key: "- in a group's list", Action: "take the stepped site's session out of the group"},
-	{Key: "shift+n", Action: "New session, in any directory (also on the board)"},
+	{Key: "shift+n", Action: "New session, filled from what is under the pointer (also on the board)"},
 	{Key: "t", Action: "timeline; enter jumps to the session"},
 	{Key: "b", Action: "sidebar"},
 	{Key: "pgup pgdn home end", Action: "scroll the sidebar"},
@@ -115,7 +114,6 @@ var boundRows = map[string]boundRow{
 	"l":           {names: []string{"stream"}},
 	"v":           {names: []string{"lenses"}},
 	"1-6":         {names: []string{"lens_1", "lens_2", "lens_3", "lens_4", "lens_5", "lens_6"}, join: " "},
-	"c":           {names: []string{"new_here"}},
 	"f or 0":      {names: []string{"fit", "fit_zero"}, join: " or "},
 	planBinding:   {names: []string{"city_plan"}},
 	labelsBinding: {names: []string{"labels"}},
@@ -453,11 +451,6 @@ func (g *Game) answerKeys() error {
 	if g.bound("turn") {
 		// A camera turn is routine and makes no notice (item 352).
 		g.scene.Turn()
-	}
-	if g.bound("new_here") {
-		action, note := g.scene.NewHere()
-		g.Notify(note, ui.ToneNone, "")
-		g.act(action)
 	}
 	if g.bound("new_session") {
 		g.openNewSession()

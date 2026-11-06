@@ -72,7 +72,7 @@ That is the only thing on the map that spends tokens, and only when you press it
 it runs Haiku with no tools, no MCP servers and no hooks, writes no transcript, and never appears in the city as a session.
 
 Keys: right- or middle-drag to pan from anywhere (a left drag pans too, but picks up a district it starts on); `ctrl`+click or `ctrl`+drag selects several districts to move together, wheel to zoom (one notch out past Skyline is the City Plan, a flat map of every district; `m` opens it from anywhere), `r` to turn, `f` for Skyline, `tab` for the next session that needs you, `enter` to attach it, `i` its summary,
-`c` for a new session here (with nothing under the pointer it asks where), `d d` to demolish, `b` sidebar, `x` breakdown, `t` timeline, `/` or `ctrl+k` find, `s` settings, `n` night/day/live, `[` `]` scrub the clock,
+`shift+n` for a new session (filled from what is under the pointer), `d d` to demolish, `b` sidebar, `x` breakdown, `t` timeline, `/` or `ctrl+k` find, `s` settings, `n` night/day/live, `[` `]` scrub the clock,
 `h` hide the UI, `p` save a frame, `?` all of them.
 
 ## Installing

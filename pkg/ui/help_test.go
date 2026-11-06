@@ -41,7 +41,7 @@ var everyKey = []ui.Key{
 	{"s", "settings"},
 	{"x", "power breakdown (also click the plant)"},
 	{"g", "groups board (also click City Hall)"},
-	{"shift+n", "New session, in any directory (also on the board)"},
+	{"shift+n", "New session, filled from what is under the pointer (also on the board)"},
 	{"t", "timeline; enter jumps to the session"},
 	{"b", "sidebar"},
 	{"h", "hide the UI"},

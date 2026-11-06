@@ -81,6 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The journal is `j`, and packing up moved into the menu.**
   `shift+w` no longer opens the journal, and `shift+p` no longer packs a session up; `space` `s` `p` does.
   A `journal_key` already set in the settings keeps its key.
+- **`c` retired; `shift+n` opens New session, filled from what's under the pointer.**
+  With a building selected its directory is filled in, with a district under the pointer that district's, and over nothing the field is empty; nothing starts until you say so.
+  `space` `p` `n` still starts a session in the selection's project at once.
 - **Every key can be rebound in the config file.**
   A `[keys]` table names any of the map's keys, the menu's column and row letters, or the finder's, such as `timeline = "y"`, and `--set keys.timeline=y` does the same; botropolis-config(5) lists them all, and `?` shows each key as it is bound.
   The settings you already have, such as `journal_key`, still work.

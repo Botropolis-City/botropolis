@@ -64,8 +64,13 @@ func (g *Game) openNewSession() {
 	if g.groupSource != nil {
 		n.guesser, n.recent = g.groupSource()
 	}
+	// Filled from what is under the pointer: the selection, else the
+	// district hovered, else nothing to start from (item 350).
 	if b := g.scene.Selected(); b != nil {
 		n.fields[fieldDir].insert(city.SessionRoot(b.Session))
+		n.focus = fieldPrompt
+	} else if d := g.scene.Hover().District; d != nil && !d.Depot {
+		n.fields[fieldDir].insert(d.Root)
 		n.focus = fieldPrompt
 	}
 	if g.ime {

@@ -19,7 +19,7 @@ func TestHelpKeys(t *testing.T) {
 		{"Triage", "triage: walk what waits on you, longest-waiting first", "w", ""},
 		{"Journal", "the journal: where you were, and what is next", "j", ""},
 		{"Stream", "the stream: what is happening, newest first", "l", ""},
-		{"New", "New session, in any directory (also on the board)", "shift+n", ""},
+		{"New", "New session, filled from what is under the pointer (also on the board)", "shift+n", ""},
 		{"Explain", "caption everything on the map", "e", "hold "},
 		{"Plan", "the City Plan: every district on one screen; click a badge to fly in", "m", ""},
 		{"Labels", "labels off and on", "z", ""},
