@@ -7,13 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **A water tower's lines run to the buildings on the map, or to the depot too.**
-  A packed session kept its line from every tower it ever called, so a depot of ninety crates had thin lines across the whole empty south of the map.
-  The lines now run to the buildings on the map, and the Connections lens's panel says what they cover and switches the depot's crates in and out.
-  The switch is the `tower_lines` setting, `buildings` or `all`, which the settings panel carries too.
-
 ### Changed
 
 - **What just happened shows under the top bar and in the stream.**
@@ -23,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every one is also the stream's newest line, so a message that passed can still be read, and clicking it there flies to its session as the stream's other lines do.
   A lens change, a camera turn, a change of light and showing or hiding a panel no longer make one.
   Triage says which step of how many in the header of the session's card instead of on the footer.
+
+## [0.4.1] - 2026-11-06
+
+### Added
+
+- **A water tower's lines run to the buildings on the map, or to the depot too.**
+  A packed session kept its line from every tower it ever called, so a depot of ninety crates had thin lines across the whole empty south of the map.
+  The lines now run to the buildings on the map, and the Connections lens's panel says what they cover and switches the depot's crates in and out.
+  The switch is the `tower_lines` setting, `buildings` or `all`, which the settings panel carries too.
 
 ### Fixed
 
@@ -1132,7 +1134,8 @@ Botropolis draws every Claude Code session on the machine as a city, and starts,
 
 - The usage probe runs inside a fenced directory the session loader skips, and prunes its own transcripts, so reading usage cannot make Botropolis see itself as a session.
 
-[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Botropolis-City/botropolis/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Botropolis-City/botropolis/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Botropolis-City/botropolis/compare/v0.3.5...v0.4.0
 [0.3.5]: https://github.com/Botropolis-City/botropolis/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/Botropolis-City/botropolis/compare/v0.3.3...v0.3.4
