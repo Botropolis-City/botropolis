@@ -97,3 +97,62 @@ func (v Verbs) faceHints(describe func(ActionKind) string) []string {
 	}
 	return hints
 }
+
+// DistrictVerbs is what a right-click on a district offers: its
+// project's verbs, which need no session, in the columns' order. The
+// depot is every project's and offers nothing (item 350).
+func (s *Scene) DistrictVerbs(d *District) []ActionKind {
+	if d == nil || d.Depot {
+		return nil
+	}
+	star := ActionStar
+	if s.layout.IsStarred(d.Root) {
+		star = ActionUnstar
+	}
+	offered := map[ActionKind]bool{ActionNew: true, ActionReveal: true, ActionCopyPath: true, star: true, ActionHide: true, ActionDistrictType: true}
+	var kinds []ActionKind
+	for _, col := range VerbColumns {
+		for _, k := range col.Kinds {
+			if offered[k] {
+				kinds = append(kinds, k)
+			}
+		}
+	}
+	return kinds
+}
+
+// ActOnDistrict performs one of a district's verbs on its directory,
+// as Act does for the selection's, and says what happened.
+func (s *Scene) ActOnDistrict(d *District, kind ActionKind) (Action, string) {
+	if d == nil || d.Depot {
+		return Action{}, ""
+	}
+	root, name := d.Root, d.Name
+	switch kind {
+	case ActionNew:
+		return Action{Kind: ActionNew, Dir: root}, "new session in " + root
+	case ActionReveal:
+		return Action{Kind: ActionReveal, Dir: root}, "revealed " + root
+	case ActionCopyPath:
+		return Action{Kind: ActionCopyPath, Dir: root}, "copied " + root
+	case ActionHide:
+		s.layout.SetHidden(root, true)
+		if s.selected != nil && SessionRoot(s.selected.Session) == root {
+			s.selected = nil
+		}
+		s.restate()
+		return Action{}, "hid " + name + " (unhide it from the sidebar)"
+	case ActionStar:
+		s.layout.SetStarred(root, true)
+		return Action{}, "starred " + name
+	case ActionUnstar:
+		s.layout.SetStarred(root, false)
+		return Action{}, "unstarred " + name
+	case ActionDistrictType:
+		next := NextDistrictType(s.layout.DistrictType(root))
+		s.layout.SetDistrictType(root, next)
+		s.restate()
+		return Action{}, name + " is now " + string(next)
+	}
+	return Action{}, ""
+}

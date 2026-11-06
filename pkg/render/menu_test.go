@@ -206,6 +206,23 @@ func TestMenuPanel(t *testing.T) {
 		})
 	})
 
+	t.Run("when a chosen row opens a panel of its own", func(t *testing.T) {
+		r := newRig(t)
+		r.g.openMenu(kinds, city.Point{X: 300, Y: 300}, 2)
+		press(r.g, ebiten.KeyM)
+
+		t.Run("it should leave that panel on top", func(t *testing.T) {
+			assert.NotNil(t, r.g.picker())
+		})
+
+		t.Run("it should take the menu away", func(t *testing.T) {
+			for _, o := range r.g.overlays {
+				_, isMenu := o.(*menuPanel)
+				assert.False(t, isMenu)
+			}
+		})
+	})
+
 	t.Run("when a click lands outside", func(t *testing.T) {
 		r := open(t, -1)
 		taken := r.g.clickOverlay(city.Point{X: 10, Y: 10})

@@ -61,8 +61,11 @@ type playFrame struct {
 	pointer        city.Point
 	shown          bool
 	press, release bool
-	key, hold      string
-	wheel          float64
+	// rightPress and rightRelease are a scripted right-click's halves
+	// (item 350).
+	rightPress, rightRelease bool
+	key, hold                string
+	wheel                    float64
 	// pan moves the camera this far on screen this frame.
 	pan city.Point
 	// statsPrompt is a statistics prompt to show, off or on (item 110).

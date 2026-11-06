@@ -72,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The menu lists each row with the key that runs it and says what the hovered or focused row does; a column's letter then a row's letter runs a verb from the keyboard, the arrows or `j` and `k` move, Enter runs the focused row, and Escape closes the menu before it deselects.
   A verb that does not apply is absent rather than greyed, and demolish has a row, which arms as `d d` does.
   The numbers row folds the details out and back, and `i` still does.
+- **Right-click opens the same menu at the pointer.**
+  On a building or a crate it selects it and shows its verbs; on a district's ground or sign it shows that project's verbs, acting on the district without changing the selection; on a row of the groups board it shows that group's verbs.
+  A right drag still pans the map.
 
 ### Fixed
 

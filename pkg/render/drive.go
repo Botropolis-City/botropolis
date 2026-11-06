@@ -204,7 +204,9 @@ type driveInput struct {
 	pointer        string
 	at             *city.Point
 	press, release bool
-	wheel          float64
+	// right makes the press and release the right button's (item 350).
+	right bool
+	wheel float64
 }
 
 // keys the harness refuses: each reaches outside the city, p to the
@@ -380,6 +382,20 @@ func (d *Drive) Click(target string) error {
 // It is one step.
 func (d *Drive) ClickAt(at city.Point) error {
 	d.queue = append(d.queue, driveInput{at: &at, press: true}, driveInput{at: &at, release: true})
+	d.steps++
+	return nil
+}
+
+// Where is the window point a target resolves to, as Click aims: a
+// session's building by id or title, among the rest.
+func (d *Drive) Where(target string) (city.Point, bool) {
+	return d.game.resolveTarget(target)
+}
+
+// RightClickAt queues a right-click on a point of the window, whatever is
+// there (item 350). It is one step.
+func (d *Drive) RightClickAt(at city.Point) error {
+	d.queue = append(d.queue, driveInput{at: &at, press: true, right: true}, driveInput{at: &at, release: true, right: true})
 	d.steps++
 	return nil
 }
@@ -610,7 +626,11 @@ func (g *Game) injectInput() {
 		} else if at, ok := g.resolveTarget(in.pointer); ok {
 			g.play.shown, g.play.pointer = true, at
 		}
-		g.play.press, g.play.release = in.press, in.release
+		if in.right {
+			g.play.rightPress, g.play.rightRelease = in.press, in.release
+		} else {
+			g.play.press, g.play.release = in.press, in.release
+		}
 		g.play.wheel = in.wheel
 	}
 }

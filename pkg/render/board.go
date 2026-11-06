@@ -24,6 +24,10 @@ type board struct {
 	quietButton city.Rect
 	// tidyButton opens the tidy-up walk (item 333).
 	tidyButton city.Rect
+	// rowRects is where each group's row was drawn, by its index in the
+	// groups, empty for a row scrolled out, so a right-click finds the
+	// row that was drawn (item 350).
+	rowRects []city.Rect
 }
 
 type boardRow struct {
@@ -217,10 +221,12 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.text(screen, city.Point{X: x, Y: y}, status, ui.Small, th.Palette.Dim)
 	y += small + grid
 	first := max(0, min(b.selected-shown+1, len(rows)-shown))
+	rowRects := make([]city.Rect, len(rows))
 	for i := first; i < first+shown && i < len(rows); i++ {
 		row := rows[i]
+		rowRects[i] = city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2)
 		if i == b.selected {
-			g.roundRect(screen, city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2), 0, th.Palette.Hairline)
+			g.roundRect(screen, rowRects[i], 0, th.Palette.Hairline)
 		}
 		head := g.clip(row.Name+"  · "+row.Count, inner*0.45, ui.Body)
 		g.text(screen, city.Point{X: x, Y: y}, head, ui.Body, th.Palette.Text)
@@ -236,6 +242,9 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.text(screen, city.Point{X: x, Y: y + body + small*2}, g.clip("next       "+row.Next, inner, ui.Small), ui.Small, th.Palette.Dim)
 		y += rowHeight
 	}
+	g.mu.Lock()
+	b.rowRects = rowRects
+	g.mu.Unlock()
 }
 
 // clip cuts text to a width, ending it with an ellipsis when it is cut.

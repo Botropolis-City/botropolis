@@ -617,6 +617,10 @@ type Game struct {
 	buttonPanning bool
 	buttonPanWith ebiten.MouseButton
 	buttonPanFrom city.Point
+	// rightPressAt is where the right button went down, while
+	// rightPressed: let go there, it is a right-click (item 350).
+	rightPressAt city.Point
+	rightPressed bool
 	// moving is a district being dragged to another slot, and boxing a
 	// box being drawn to select districts, both from pressAt, where
 	// every left press starts; a press that never leaves its spot is a
@@ -851,6 +855,9 @@ func (g *Game) Update() error {
 	}
 	cursor := g.notePointer()
 	g.buttonPan(cursor, ebitenMouse{})
+	if g.share == nil {
+		g.rightButton(cursor, scriptedMouse{g})
+	}
 	if g.share != nil {
 		_, wheel := ebiten.Wheel()
 		left := ebiten.MouseButtonLeft

@@ -116,11 +116,30 @@ type menuPanel struct {
 // window: on a column, focused on its first row, or with column -1 on
 // the first column with nothing chosen, as the keyboard opens it.
 func (g *Game) openMenu(offered []city.ActionKind, at city.Point, column int) {
+	g.openMenuWith(offered, at, column, g.runVerb)
+}
+
+// menuFirstRows opens the menu armed on its first column that has rows,
+// as a right-click does (item 350).
+const menuFirstRows = -2
+
+// openMenuWith opens the menu with what a chosen row does: the
+// selection's verbs, or a district's, or a group's on the board.
+func (g *Game) openMenuWith(offered []city.ActionKind, at city.Point, column int, choose func(city.ActionKind)) {
 	if g.menu() != nil {
 		return
 	}
 	columns, kinds := menuColumns(offered, g.scene.DescribeVerb)
-	p := &menuPanel{columns: columns, kinds: kinds, at: at, focus: ui.MenuFocus{Column: 0, Row: -1}, choose: g.runVerb}
+	if column == menuFirstRows {
+		column = 0
+		for i, k := range kinds {
+			if len(k) > 0 {
+				column = i
+				break
+			}
+		}
+	}
+	p := &menuPanel{columns: columns, kinds: kinds, at: at, focus: ui.MenuFocus{Column: 0, Row: -1}, choose: choose}
 	if column >= 0 && column < len(columns) {
 		p.focus, p.armed = ui.MenuFocus{Column: column, Row: 0}, true
 	}
@@ -193,13 +212,16 @@ func (p *menuPanel) turn(by int) {
 	p.clampFocus()
 }
 
-// run chooses a row and reports that the menu closes.
-func (p *menuPanel) run(focus ui.MenuFocus) bool {
+// run chooses a row. The menu takes itself off the stack first, so a
+// row that opens a panel of its own, such as move to group, leaves that
+// panel on top; it reports true, since there is nothing left to pop.
+func (p *menuPanel) run(g *Game, focus ui.MenuFocus) bool {
 	if focus.Column < 0 || focus.Column >= len(p.kinds) || focus.Row < 0 || focus.Row >= len(p.kinds[focus.Column]) {
 		return true
 	}
+	g.overlays.remove(p)
 	p.choose(p.kinds[focus.Column][focus.Row])
-	return false
+	return true
 }
 
 func (p *menuPanel) keys(g *Game) bool {
@@ -207,7 +229,7 @@ func (p *menuPanel) keys(g *Game) bool {
 	case g.just(ebiten.KeyEscape):
 		return false
 	case g.just(ebiten.KeyEnter), g.just(ebiten.KeyKPEnter):
-		return p.run(p.focus)
+		return p.run(g, p.focus)
 	case g.just(ebiten.KeyArrowDown), g.just(ebiten.KeyJ):
 		p.step(1)
 		return true
@@ -234,7 +256,7 @@ func (p *menuPanel) keys(g *Game) bool {
 	if p.focus.Column >= 0 && p.focus.Column < len(p.columns) {
 		for r, row := range p.columns[p.focus.Column].Rows {
 			if key, ok := menuKey(row.Key); ok && g.just(key) {
-				return p.run(ui.MenuFocus{Column: p.focus.Column, Row: r})
+				return p.run(g, ui.MenuFocus{Column: p.focus.Column, Row: r})
 			}
 		}
 	}
@@ -247,7 +269,7 @@ func (p *menuPanel) click(g *Game, at city.Point) bool {
 	size := g.scene.Size()
 	m := p.layout(g, size.X, size.Y)
 	if hit, ok := m.Hit(at); ok {
-		return p.run(hit)
+		return p.run(g, hit)
 	}
 	return m.Rect.Contains(at)
 }
