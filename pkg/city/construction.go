@@ -97,7 +97,7 @@ func (s *Scene) finishBuilds(now time.Time) {
 // which floors those are), and fading in with it under reduced motion.
 func (s *Scene) Lights(id string) float64 {
 	if s.Hauling(id) {
-		if s.reduced {
+		if s.reduced || !s.Riding(id) {
 			return s.HaulProgress(id)
 		}
 		return 0

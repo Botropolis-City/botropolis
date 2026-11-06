@@ -30,32 +30,42 @@ func TestHaulPieces(t *testing.T) {
 		return haulPiece{}, false
 	}
 
+	// Aria, 2026-11-06: "Use a crate, as packing does."
 	t.Run("when a building is on the move", func(t *testing.T) {
 		h := haul(city.HaulMove)
-		now := at.Add(2 * time.Second)
-		pieces := haulPieces(h, b, now)
-		building, found := named(pieces, buildingPiece(b))
-		require.True(t, found, "the building should be drawn")
 
-		t.Run("it should draw the building on the haul's way, between the lots", func(t *testing.T) {
-			assert.Equal(t, h.At(now), building.at)
+		t.Run("and it has just left", func(t *testing.T) {
+			pieces := haulPieces(h, b, at)
+			building, found := named(pieces, buildingPiece(b))
+			require.True(t, found, "the building should still stand at its old lot")
+
+			t.Run("it should draw the building at its old lot", func(t *testing.T) {
+				assert.Equal(t, from, building.at)
+			})
+
+			t.Run("it should draw it whole", func(t *testing.T) {
+				assert.Equal(t, 1.0, building.alpha)
+			})
+
+			t.Run("it should draw the truck and its crate after it", func(t *testing.T) {
+				var names []string
+				for _, p := range pieces {
+					names = append(names, p.name)
+				}
+				assert.Equal(t, []string{buildingPiece(b), kitTruck, crates[1]}, names)
+			})
 		})
 
-		t.Run("it should draw it full size", func(t *testing.T) {
-			assert.Equal(t, 1.0, building.shrink)
-		})
+		t.Run("and it is half way", func(t *testing.T) {
+			pieces := haulPieces(h, b, at.Add(2*time.Second))
 
-		t.Run("it should draw the truck after it, so the building does not hide it", func(t *testing.T) {
-			var names []string
-			for _, p := range pieces {
-				names = append(names, p.name)
-			}
-			assert.Equal(t, []string{buildingPiece(b), kitTruck}, names)
-		})
-
-		t.Run("it should draw no crate", func(t *testing.T) {
-			_, crate := named(pieces, crates[h.Hue%len(crates)])
-			assert.False(t, crate)
+			t.Run("it should draw the truck and its crate, and no building", func(t *testing.T) {
+				var names []string
+				for _, p := range pieces {
+					names = append(names, p.name)
+				}
+				assert.Equal(t, []string{kitTruck, crates[1]}, names)
+			})
 		})
 	})
 

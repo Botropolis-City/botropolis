@@ -296,15 +296,25 @@ func assign(d *districtLayout, sessions []state.Session) (map[string]int, []stri
 		for _, s := range pending {
 			var near, clear []int
 			left := d.Placed[s.ID]
+			leaving := left != "" && left != s.Group
+			// A loose newcomer keeps room for every group, within the
+			// lots the grid needs (Aria, 2026-11-06); one leaving a group
+			// keeps clear of it whatever it takes.
+			limit := -1
+			if s.Group == "" && !leaving {
+				limit = width * ((len(sessions) + width - 1) / width)
+			}
 			for id, slot := range slots {
 				switch {
 				case s.Group != "" && groupOf[id] == s.Group:
 					near = append(near, slot)
-				case left != "" && left != s.Group && groupOf[id] == left:
+				case leaving && groupOf[id] == left:
+					clear = append(clear, slot)
+				case limit >= 0 && groupOf[id] != "":
 					clear = append(clear, slot)
 				}
 			}
-			slot := chooseSlot(sticky, near, clear, width)
+			slot := chooseSlot(sticky, near, clear, width, limit)
 			sticky[s.ID], slots[s.ID] = slot, slot
 		}
 		again := buildingColumns(maxOf(slots) + 1)
@@ -325,8 +335,9 @@ func assign(d *districtLayout, sessions []state.Session) (map[string]int, []stri
 
 // chooseSlot is the free slot nearest the slots near, by lots walked in
 // a grid of the width, the lowest on a tie; with nothing near, the
-// lowest free slot not beside any of clear.
-func chooseSlot(sticky map[string]int, near, clear []int, width int) int {
+// lowest free slot not beside any of clear, below limit when it is not
+// negative, and the lowest free slot when there is none below it.
+func chooseSlot(sticky map[string]int, near, clear []int, width, limit int) int {
 	taken := map[int]bool{}
 	bound := width
 	for _, slot := range sticky {
@@ -334,11 +345,20 @@ func chooseSlot(sticky map[string]int, near, clear []int, width int) int {
 		bound = max(bound, slot+1)
 	}
 	best, bestDist := -1, math.MaxInt
+	if len(near) > 0 {
+		bestDist = math.MaxInt
+	}
 	for slot := 0; slot <= bound+2*width; slot++ {
 		if taken[slot] {
 			continue
 		}
 		if len(near) == 0 {
+			if best < 0 {
+				best = slot
+			}
+			if limit >= 0 && slot >= limit {
+				return best
+			}
 			if gridDistance(slot, clear, width) > 1 {
 				return slot
 			}

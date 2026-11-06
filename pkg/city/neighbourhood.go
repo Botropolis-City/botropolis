@@ -163,16 +163,20 @@ func uniqueSorted(vs []float64) []float64 {
 	return out
 }
 
-// NeighbourhoodLook is how a neighbourhood is marked on the ground: its
-// block paved as one, a kerb round it, a gate at its corner, and the
-// group's short name on the gate. These are the treatments tried on
-// frames for Aria (item 348, slice 2); none is on until she picks.
-type NeighbourhoodLook struct {
-	Ground, Kerb, Gate, Name bool
-}
+// Kerbs is how a neighbourhood's kerb is drawn: a low wall raised on
+// the ground, the mark Aria chose of the three tried (2026-11-06, item
+// 348), the same drawn over the city so the buildings in front do not
+// hide it, still on trial, or none, for comparison frames.
+type Kerbs int
 
-// SetNeighbourhoodLook sets how neighbourhoods are marked.
-func (s *Scene) SetNeighbourhoodLook(look NeighbourhoodLook) { s.hoodLook = look }
+const (
+	KerbsRaised Kerbs = iota
+	KerbsOnTop
+	KerbsOff
+)
 
-// NeighbourhoodLook is how neighbourhoods are marked.
-func (s *Scene) NeighbourhoodLook() NeighbourhoodLook { return s.hoodLook }
+// SetKerbs sets how neighbourhoods' kerbs are drawn.
+func (s *Scene) SetKerbs(k Kerbs) { s.kerbs = k }
+
+// Kerbs is how neighbourhoods' kerbs are drawn.
+func (s *Scene) Kerbs() Kerbs { return s.kerbs }

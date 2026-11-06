@@ -58,8 +58,43 @@ func TestMoves(t *testing.T) {
 			assert.Equal(t, city.HaulFor(from, to, false), hauls[0].For)
 		})
 
-		t.Run("it should keep the building off its new lot until it arrives", func(t *testing.T) {
-			assert.True(t, s.Hauling("d"))
+		// Aria, 2026-11-06: "Use a crate, as packing does." The truck
+		// carries a crate, and the building fades out where it stood and
+		// in where it lands.
+		t.Run("it should carry a crate, not the building", func(t *testing.T) {
+			assert.False(t, s.Riding("d"))
+		})
+
+		fades := []struct {
+			name     string
+			after    time.Duration
+			old, new float64
+		}{
+			{"it has just left", 0, 1, 0},
+			{"its old lot has faded", city.PackFadeFor, 0, 0},
+			{"it is half way", hauls[0].For / 2, 0, 0},
+			{"it has arrived", hauls[0].For, 0, 1},
+		}
+		for _, f := range fades {
+			t.Run("and "+f.name, func(t *testing.T) {
+				old, new := hauls[0].Fades(now.Add(f.after))
+
+				t.Run("it should show the building at its old lot as much as the fade says", func(t *testing.T) {
+					assert.InDelta(t, f.old, old, 1e-9)
+				})
+
+				t.Run("it should show it at its new lot as much as the fade says", func(t *testing.T) {
+					assert.InDelta(t, f.new, new, 1e-9)
+				})
+			})
+		}
+
+		t.Run("and it is half way", func(t *testing.T) {
+			at = now.Add(hauls[0].For / 2)
+
+			t.Run("it should not show the building on its new lot yet", func(t *testing.T) {
+				assert.Zero(t, s.HaulProgress("d"))
+			})
 		})
 
 		t.Run("and the clock passes its span", func(t *testing.T) {

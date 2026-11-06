@@ -52,6 +52,9 @@ func stationTone(th ui.Theme, st city.Station) color.NRGBA {
 // it draws only the stations a hovered car keeps lit, to go over the
 // faded rest, which a call without it draws (item 108).
 func (g *Game) groupLines(screen *ebiten.Image, cam *city.Camera, lit bool) {
+	if !lit {
+		g.neighbourhoods(screen, g.scene.City(), cam, true)
+	}
 	lines := g.scene.Lines()
 	focus := g.scene.FocusedGroup()
 	width := math.Max(2, 3*cam.Zoom)

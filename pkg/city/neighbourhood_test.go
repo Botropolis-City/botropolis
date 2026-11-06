@@ -1,6 +1,7 @@
 package city_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -47,6 +48,20 @@ func withGroups(sessions []state.Session) state.Snapshot {
 		}
 	}
 	return snapshot
+}
+
+// withSlots is a layout that already gave cinders' sessions these lots,
+// as one read from disk.
+func withSlots(t *testing.T, slots map[string]int) *city.Layout {
+	t.Helper()
+	data, err := json.Marshal(map[string]any{"version": 1, "readableFrom": 1,
+		"districts": map[string]any{cinders: map[string]any{"slots": slots}}})
+	require.NoError(t, err)
+	path := filepath.Join(t.TempDir(), "layout.json")
+	require.NoError(t, os.WriteFile(path, data, 0o600))
+	layout, err := city.LoadLayout(path)
+	require.NoError(t, err)
+	return layout
 }
 
 func TestNeighbourhoods(t *testing.T) {
@@ -106,19 +121,34 @@ func TestNeighbourhoods(t *testing.T) {
 		}
 	})
 
+	// Aria, 2026-11-06: newcomers keep room for groups.
 	t.Run("when a session in no group arrives", func(t *testing.T) {
-		layout := city.NewLayout()
-		build(t, layout, inOrder(in("a", "g1"), in("b", "g1")))
-		c := build(t, layout, inOrder(in("a", "g1"), in("b", "g1"), loose("n")))
+		t.Run("and a free lot borders no group", func(t *testing.T) {
+			// a in g1, x and y stand at (0,0), (2,0) and (1,1), so the
+			// first free lots, (1,0) and (0,1), border a, and (2,1) does
+			// not.
+			layout := withSlots(t, map[string]int{"a": 0, "x": 2, "y": 4})
+			c := build(t, layout, inOrder(in("a", "g1"), loose("x"), loose("y"), loose("n")))
 
-		t.Run("it should take the first free lot", func(t *testing.T) {
-			assert.Equal(t, slotAt(2, 0), lot(t, c, "n"))
+			t.Run("it should take the lot that borders no group", func(t *testing.T) {
+				assert.Equal(t, slotAt(2, 1), lot(t, c, "n"))
+			})
+		})
+
+		t.Run("and every free lot in the grid borders a group", func(t *testing.T) {
+			layout := city.NewLayout()
+			build(t, layout, inOrder(in("a", "g1"), in("b", "g1")))
+			c := build(t, layout, inOrder(in("a", "g1"), in("b", "g1"), loose("n")))
+
+			t.Run("it should take the first free lot", func(t *testing.T) {
+				assert.Equal(t, slotAt(2, 0), lot(t, c, "n"))
+			})
 		})
 	})
 
 	t.Run("when every lot beside the group is taken", func(t *testing.T) {
-		layout := city.NewLayout()
-		build(t, layout, inOrder(in("a", "g1"), loose("b"), loose("c"), loose("d")))
+		// a stands at (0,0), with b and c on both lots beside it.
+		layout := withSlots(t, map[string]int{"a": 0, "b": 1, "c": 3, "d": 2})
 		c := build(t, layout, inOrder(in("a", "g1"), loose("b"), loose("c"), loose("d"), in("e", "g1")))
 
 		t.Run("it should take the nearest free lot", func(t *testing.T) {

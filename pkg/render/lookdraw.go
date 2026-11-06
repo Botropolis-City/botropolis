@@ -149,7 +149,7 @@ func (g *Game) buildingFrame(cam *city.Camera, b *city.Building, selected, detai
 	if !detailed || g.kits == nil {
 		return buildingFrame{}, false
 	}
-	if g.scene.Hauling(b.Session.ID) && !g.reduced {
+	if g.scene.Riding(b.Session.ID) && !g.reduced {
 		return buildingFrame{}, false
 	}
 	f := buildingFrame{b: b, selected: selected, detailed: detailed, seconds: seconds, name: buildingPiece(b)}

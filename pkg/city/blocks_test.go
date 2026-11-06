@@ -87,11 +87,11 @@ func TestNeighbourhoodBlocks(t *testing.T) {
 	})
 
 	t.Run("when a group's buildings in a district are not adjacent", func(t *testing.T) {
-		// a and c sit at either end of the first row, x between them:
-		// c, a guess on a lot it already had, does not move.
+		// a stands at (0,0) and c, loose when it came, at (1,1), clear
+		// of it: a guess on a lot it already had does not move it.
 		layout := city.NewLayout()
-		city.Build(withGroups(inOrder(in("a", "g1"), loose("x"), loose("c"))), layout)
-		c := city.Build(withGroups(inOrder(in("a", "g1"), loose("x"), in("c", "g1"))), layout)
+		city.Build(withGroups(inOrder(in("a", "g1"), loose("x"), loose("c"), loose("d"))), layout)
+		c := city.Build(withGroups(inOrder(in("a", "g1"), loose("x"), in("c", "g1"), loose("d"))), layout)
 		hoods := c.Neighbourhoods(districtOf(t, c, cinders))
 
 		t.Run("it should make no neighbourhood of buildings that touch none of their own", func(t *testing.T) {

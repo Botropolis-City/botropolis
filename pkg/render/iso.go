@@ -345,7 +345,7 @@ func (g *Game) isoBuilding(screen *ebiten.Image, cam *city.Camera, b *city.Build
 	}
 	// A session on a truck is drawn on the truck, not where it is going;
 	// under reduced motion it fades in there instead (item 86).
-	if g.scene.Hauling(b.Session.ID) && !g.reduced {
+	if g.scene.Riding(b.Session.ID) && !g.reduced {
 		return
 	}
 	site, building := g.scene.Construction(b.Session.ID)
@@ -2175,49 +2175,52 @@ var blinds = func() ebiten.ColorScale {
 
 const kitTruck = "car-kit/truck"
 
-// drawHaul draws a truck carrying a packed-up session's crate between its
-// lot and the depot, facing the way it drives (item 86), or a building on
-// the move beside its truck (item 348).
+// drawHaul draws a truck carrying a session's crate: between its lot and
+// the depot when it is packed up or unpacked (item 86), or between two
+// lots when Aria moves it, its building fading out where it stood
+// (item 348).
 func (g *Game) drawHaul(screen *ebiten.Image, cam *city.Camera, h city.Haul) {
-	now := g.scene.Clock()
 	var b *city.Building
 	if h.Kind == city.HaulMove {
 		b = g.scene.City().BuildingOf(h.SessionID)
 	}
-	for _, p := range haulPieces(h, b, now) {
+	for _, p := range haulPieces(h, b, g.scene.Clock()) {
+		var tint *ebiten.ColorScale
+		if p.alpha < 1 {
+			tint = &ebiten.ColorScale{}
+			tint.ScaleAlpha(float32(p.alpha))
+		}
 		if p.shrink == 1 {
-			g.kit(screen, cam, p.name, p.turn, p.at, nil)
+			g.kit(screen, cam, p.name, p.turn, p.at, tint)
 		} else {
-			g.kitScaled(screen, cam, p.name, p.turn, p.at, p.shrink, nil)
+			g.kitScaled(screen, cam, p.name, p.turn, p.at, p.shrink, tint)
 		}
 	}
 }
 
-// haulPiece is one sprite a haul draws: a truck, a crate riding it, or a
-// building on the move.
+// haulPiece is one sprite a haul draws: a truck, the crate it carries, or
+// a moving building fading from its old lot.
 type haulPiece struct {
 	name   string
 	turn   int
 	at     city.Point
 	shrink float64
+	alpha  float64
 }
 
-// haulPieces is what a haul draws at a moment: the truck in its lane
-// and, packing or unpacking, the session's crate on it; moving, the
-// building itself on the haul's own way, drawn as it stands on a lot so
-// it stays the building it was (item 348). The building is nil but for
-// a move.
+// haulPieces is what a haul draws at a moment: the truck in its lane with
+// the session's crate on it, and, for a move, the building at its old lot
+// while it fades (Aria, 2026-11-06: "Use a crate, as packing does"). The
+// building is nil but for a move.
 func haulPieces(h city.Haul, b *city.Building, now time.Time) []haulPiece {
 	at, dir := haulPlace(h, now)
 	turn := vehicleTurn(dir)
-	truck := haulPiece{name: kitTruck, turn: turn, at: at, shrink: 1}
-	if h.Kind == city.HaulMove {
-		if b == nil {
-			return []haulPiece{truck}
-		}
-		// The truck is drawn after the building, so a tall one does not
-		// hide it.
-		return []haulPiece{{name: buildingPiece(b), at: h.At(now), shrink: 1}, truck}
+	pieces := []haulPiece{
+		{name: kitTruck, turn: turn, at: at, shrink: 1, alpha: 1},
+		{name: crates[h.Hue%len(crates)], turn: turn, at: at, shrink: 0.4, alpha: 1},
 	}
-	return []haulPiece{truck, {name: crates[h.Hue%len(crates)], turn: turn, at: at, shrink: 0.4}}
+	if old, _ := h.Fades(now); b != nil && h.Kind == city.HaulMove && old > 0 {
+		pieces = append([]haulPiece{{name: buildingPiece(b), at: h.From, shrink: 1, alpha: old}}, pieces...)
+	}
+	return pieces
 }

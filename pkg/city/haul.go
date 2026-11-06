@@ -60,6 +60,21 @@ func (h Haul) Progress(now time.Time) float64 {
 	return min(1, max(0, float64(now.Sub(h.Since))/float64(h.For)))
 }
 
+// Fades is how much of a moving building shows at a time: at its old
+// lot, fading out over the move's first PackFadeFor, and at its new one,
+// fading in over its last, while the truck carries its crate between
+// (Aria, 2026-11-06, item 348). A haul that is not a move fades neither.
+func (h Haul) Fades(now time.Time) (old, new float64) {
+	if h.Kind != HaulMove {
+		return 0, 1
+	}
+	since := now.Sub(h.Since)
+	fade := min(PackFadeFor, h.For)
+	old = 1 - min(1, max(0, float64(since)/float64(fade)))
+	new = min(1, max(0, float64(since-(h.For-fade))/float64(fade)))
+	return old, new
+}
+
 // At is where the truck is at a time, eased out on arrival.
 func (h Haul) At(now time.Time) Point {
 	p := h.Progress(now)
@@ -191,15 +206,34 @@ func (s *Scene) hauling() bool {
 
 // HaulProgress is how far a session's haul has got, from 0 to 1, or 1
 // when it is on no truck: under reduced motion the map fades a session in
-// at its destination by it.
+// at its destination by it. A moving building fades in at its new lot by
+// its move's fade (item 348).
 func (s *Scene) HaulProgress(id string) float64 {
 	now := s.now()
 	for _, h := range s.hauls {
 		if h.SessionID == id && now.Sub(h.Since) < h.For {
+			if h.Kind == HaulMove {
+				_, in := h.Fades(now)
+				return in
+			}
 			return h.Progress(now)
 		}
 	}
 	return 1
+}
+
+// Riding is whether a session's crate is on a truck for packing or
+// unpacking, so the map draws it on the truck and not on a lot. A moving
+// building is not riding: it fades out at one lot and in at the other
+// (item 348).
+func (s *Scene) Riding(id string) bool {
+	now := s.now()
+	for _, h := range s.hauls {
+		if h.SessionID == id && h.Kind != HaulMove && now.Sub(h.Since) < h.For {
+			return true
+		}
+	}
+	return false
 }
 
 // unpacking is whether a truck is still leaving the depot with a crate.
