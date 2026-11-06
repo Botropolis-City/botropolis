@@ -79,6 +79,18 @@ func (gc *groundCity) ground(g *Game, hover city.Hit) map[uint64]stillMark {
 	return maps.Clone(g.static.set.marks)
 }
 
+// building is the named session's building in the city as built now.
+func (gc *groundCity) building(t testing.TB, id string) *city.Building {
+	t.Helper()
+	for _, b := range gc.c.Buildings() {
+		if b.Session.ID == id {
+			return b
+		}
+	}
+	t.Fatalf("no building %s", id)
+	return nil
+}
+
 // fresh is the same ground composed again with nothing kept.
 func (gc *groundCity) fresh(g *Game, hover city.Hit) map[uint64]stillMark {
 	g.static.ok = false
@@ -312,6 +324,25 @@ func TestTheGroundKey(t *testing.T) {
 		})
 	})
 
+	// Item 359: pointing at a grouped building lights its group, so the
+	// key has to follow the group too.
+	t.Run("when the pointer moves from a grouped building to an ungrouped one in the servers view", func(t *testing.T) {
+		gc := newGroundCity(t)
+		gc.snap(t, func(s *state.Snapshot) {
+			session(s, "a").Group, session(s, "b").Group = "g1", "g1"
+			s.Groups = []state.Group{{ID: "g1", Members: []string{"a", "b"}}}
+		})
+		gc.scene.SetView(city.ViewServers)
+		g := &Game{scene: gc.scene, theme: ui.NewTheme(1)}
+		gc.ground(g, city.Hit{Building: gc.building(t, "a")})
+		require.True(t, g.lit.HasBuilding(gc.building(t, "b")), "precondition: the pointed-at building's group is lit")
+		kept := gc.ground(g, city.Hit{Building: gc.building(t, "c")})
+
+		t.Run("it should keep the ground composed afresh for where it is", func(t *testing.T) {
+			assert.Equal(t, gc.fresh(g, city.Hit{Building: gc.building(t, "c")}), kept)
+		})
+	})
+
 	// Whatever composeStatic comes to read, a walk of the pointer, the
 	// view and the selection through the city should never leave the
 	// ground kept where the ground composed fresh differs. The seed is
@@ -374,6 +405,23 @@ func TestTheGroundKey(t *testing.T) {
 				lead, member := &s.Sessions[rnd.IntN(len(s.Sessions))], &s.Sessions[rnd.IntN(len(s.Sessions))]
 				lead.Team, member.Team = name, name
 				s.Teams = append(s.Teams, claude.Team{Name: name, LeadSessionID: lead.ID})
+			},
+			func(s *state.Snapshot) {
+				// A session joins or leaves the one group, so pointing at
+				// a building lights a group of a changing size (item 359).
+				sess := &s.Sessions[rnd.IntN(len(s.Sessions))]
+				if sess.Group == "" {
+					sess.Group = "g1"
+				} else {
+					sess.Group = ""
+				}
+				g := state.Group{ID: "g1"}
+				for _, m := range s.Sessions {
+					if m.Group == "g1" {
+						g.Members = append(g.Members, m.ID)
+					}
+				}
+				s.Groups = []state.Group{g}
 			},
 			func(s *state.Snapshot) {
 				// A session rests for some days, which ages its lot, or

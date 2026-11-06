@@ -22,6 +22,9 @@ type Highlight struct {
 	roads     map[*RoadLine]bool
 	// districts are the lots kept lit when the ground recedes too.
 	districts map[*District]bool
+	// beamsTo, when set, is the one building whose lines are lit, so a
+	// group lit around it does not light its own lines too. Item 359.
+	beamsTo *Building
 }
 
 func (h Highlight) HasBuilding(b *Building) bool { return h.buildings[b] }
@@ -32,7 +35,12 @@ func (h Highlight) HasRoad(r *RoadLine) bool     { return h.roads[r] }
 // both its ends are. Pointing at a tower lights its lines, pointing at a
 // session lights the lines to the servers it calls, and a district or a
 // group lights none, so the lines fade with the towers. Item 347.
-func (h Highlight) HasBeam(b Beam) bool { return h.towers[b.Tower] && h.buildings[b.Building] }
+func (h Highlight) HasBeam(b Beam) bool {
+	if h.beamsTo != nil && b.Building != h.beamsTo {
+		return false
+	}
+	return h.towers[b.Tower] && h.buildings[b.Building]
+}
 
 // Highlight is what the pointer, or failing that the selection, ties
 // together. Hover wins over selection: the pointer is the live question
@@ -65,6 +73,7 @@ func (s *Scene) Highlight() Highlight {
 		}
 	case hit.Building != nil:
 		s.tieBuilding(&h, hit.Building)
+		s.tieGroup(&h, hit.Building)
 	case hit.District != nil:
 		h.Active = true
 		for _, b := range s.city.Buildings() {
@@ -97,6 +106,30 @@ func (s *Scene) tieBuilding(h *Highlight, b *Building) {
 	}
 	h.Active = true
 	h.buildings[b] = true
+}
+
+// tieGroup lights the rest of a pointed-at building's group, and keeps
+// the lines to the one pointed at. A group of one is no group: a lone
+// building must never fade the city. Hover only, so an open card does
+// not hold the city faded. Item 359.
+func (s *Scene) tieGroup(h *Highlight, b *Building) {
+	if b.Group == nil {
+		return
+	}
+	var members []*Building
+	for _, m := range s.city.Buildings() {
+		if m.Group != nil && m.Group.ID == b.Group.ID {
+			members = append(members, m)
+		}
+	}
+	if len(members) < 2 {
+		return
+	}
+	h.Active = true
+	h.beamsTo = b
+	for _, m := range members {
+		h.buildings[m] = true
+	}
 }
 
 // RecedesGround is whether the roads and lots outside the lit set step
