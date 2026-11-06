@@ -2,12 +2,14 @@ package render
 
 import (
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 )
 
 type escapeCheck struct {
@@ -51,6 +53,17 @@ func TestEscapeLadder(t *testing.T) {
 			[]escapeCheck{
 				{"it should show the interface", func(g *Game) bool { return !g.hidden }},
 				{"it should leave the sidebar open", func(g *Game) bool { return g.sidebar }},
+			}},
+		{"when the action menu is open over a selection, and Escape is pressed",
+			func(g *Game) {
+				g.scene.Resize(1280, 800)
+				g.scene.SetSnapshot(state.Snapshot{At: time.Now(), Sessions: []state.Session{{ID: "a", CWD: "/src/kiln", State: state.Working, LastActivity: time.Now()}}})
+				g.scene.Select("a")
+				g.openMenu([]city.ActionKind{city.ActionAttach}, city.Point{X: 300, Y: 300}, -1)
+			},
+			[]escapeCheck{
+				{"it should close the menu", func(g *Game) bool { return g.menu() == nil }},
+				{"it should keep the selection", func(g *Game) bool { return g.scene.Selected() != nil }},
 			}},
 		{"when nothing is open, and Escape is pressed",
 			func(*Game) {},

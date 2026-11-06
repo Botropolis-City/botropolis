@@ -60,6 +60,7 @@ func TestCoveredCityTakesNoHover(t *testing.T) {
 		{"the board", func(g *Game) { g.overlays.push(&board{}) }},
 		{"the close-up", func(g *Game) { g.overlays.push(&closeUp{}) }},
 		{"the quit panel", func(g *Game) { g.openQuit() }},
+		{"the action menu", func(g *Game) { g.openMenu([]city.ActionKind{city.ActionAttach}, city.Point{X: 300, Y: 300}, -1) }},
 		{"the statistics prompt", func(g *Game) { g.overlays.push(&statsPrompt{}) }},
 		{"the reference", func(g *Game) { g.overlays.push(&reference{}) }},
 		{"triage", func(g *Game) { g.overlays.push(&triage{}) }},
