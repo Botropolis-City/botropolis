@@ -34,6 +34,10 @@ type Scenario struct {
 	Pace  Duration `yaml:"pace"`
 	Shots []Shot   `yaml:"shots"`
 	// Usage floats the boats; UsageChanges moves them during a clip.
+	// Stats writes the home's stats-cache.json from what was staged, so
+	// City Hall stands (item 362).
+	Stats bool `yaml:"stats"`
+
 	Usage        *Usage        `yaml:"usage"`
 	UsageChanges []UsageChange `yaml:"usage_changes"`
 }

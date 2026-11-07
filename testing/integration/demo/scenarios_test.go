@@ -140,3 +140,30 @@ func TestStagedMetropolisKeepsItsTeam(t *testing.T) {
 		})
 	})
 }
+
+// City Hall stands only on a snapshot that carries statistics (item 362).
+func TestStagedScenariosWithStatisticsStandCityHall(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join(scenariosDir, "*.yaml"))
+	require.NoError(t, err)
+	for _, path := range paths {
+		scenario, err := demo.LoadScenario(path)
+		require.NoError(t, err)
+		if !scenario.Stats {
+			continue
+		}
+
+		t.Run("when the "+scenario.Name+" scenario sets stats, and it is staged and loaded", func(t *testing.T) {
+			home := t.TempDir()
+			now := time.Now()
+			_, err := demo.NewDirector(demo.Corpus{Dir: corpusDir}, scenario, home, now, demo.Sleepers(home, 10*time.Minute))
+			t.Cleanup(func() { _ = demo.Unstage(home) })
+			require.NoError(t, err)
+			snapshot, err := state.NewLoader(home, probes).Load(now)
+			require.NoError(t, err)
+
+			t.Run("it should carry the statistics City Hall stands on", func(t *testing.T) {
+				assert.NotNil(t, snapshot.Stats)
+			})
+		})
+	}
+}

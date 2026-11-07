@@ -183,6 +183,15 @@ A resting lead's team has no config, because Claude Code removes it when the lea
 A lead cannot be cloned into another project, because the clone would lead its recording's team too.
 `scenarios/team.yaml` films one: its messages as vans with the group lines off, and as carriages along the team's line with them on.
 
+## City Hall
+
+City Hall stands only when the home has Claude Code's `stats-cache.json`.
+`stats: true` writes one from the transcripts staged, as Claude Code would compute it, so the hall's card reads what this city did and nothing made up (item 362):
+
+```yaml
+stats: true
+```
+
 ## Usage on the river
 
 `usage:` floats the plan-usage boats, and `usage_changes:` moves them during a clip:

@@ -67,6 +67,17 @@ func NewDirector(corpus Corpus, scenario Scenario, dir string, now time.Time, sp
 	if err := writeTeams(dir, d.placed, now); err != nil {
 		return nil, err
 	}
+	if scenario.Stats {
+		var transcripts []string
+		for i := range scenario.Sessions {
+			if t := d.placed[i].transcript; t != "" {
+				transcripts = append(transcripts, t)
+			}
+		}
+		if err := writeStats(dir, transcripts, now); err != nil {
+			return nil, err
+		}
+	}
 	return d, nil
 }
 
