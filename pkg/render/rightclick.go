@@ -70,11 +70,11 @@ func (g *Game) rightClick(at city.Point) {
 // district's under the pointer, there (item 350).
 func (g *Game) openSpaceMenu() {
 	if g.scene.Selected() != nil {
-		at := g.scene.Size().Scale(0.5)
-		if g.pinned.Rect.Area() > 0 {
-			at = city.Point{X: g.pinned.Rect.Min.X, Y: g.pinned.Rect.Max.Y + g.theme.Grid()}
+		if len(g.pinned.Buttons) > 1 {
+			g.openMenuUnder(g.scene.Verbs().All(), g.pinned.Buttons[1].Rect, -1)
+			return
 		}
-		g.openMenu(g.scene.Verbs().All(), at, -1)
+		g.openMenu(g.scene.Verbs().All(), g.scene.Size().Scale(0.5), -1)
 		return
 	}
 	if d := g.scene.Hover().District; d != nil && !d.Depot && g.scene.Hover().Building == nil {

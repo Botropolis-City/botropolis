@@ -465,12 +465,15 @@ type Game struct {
 	// heldRows, heldStream and heldSidebar are where this frame drew
 	// what the hold caps; holdCaps and keysSighting what it drew for
 	// it, for the probe (item 351).
-	heldRows         []heldRow
-	keysSightingRect city.Rect
-	heldStream       city.Rect
-	heldSidebar      city.Rect
-	holdCaps         []ui.HeldCaps
-	keysSighting     string
+	heldRows []heldRow
+	// cardPressed is the button g.card draws pressed, and pinnedPressed
+	// the pinned card's, for the probe; -1 for none (item 351).
+	cardPressed, pinnedPressed int
+	keysSightingRect           city.Rect
+	heldStream                 city.Rect
+	heldSidebar                city.Rect
+	holdCaps                   []ui.HeldCaps
+	keysSighting               string
 
 	sidebar       bool
 	sidebarLayout ui.Sidebar

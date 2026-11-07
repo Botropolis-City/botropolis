@@ -57,9 +57,18 @@ type Menu struct {
 	DescriptionDot  Text
 	DescriptionCaps []KeyCap
 	Focus           MenuFocus
-	// Fill is the plate's colour: opaque, since a menu opens over the
-	// card, and the card's text showed through its rows.
+	// Fill is the plate's colour: the raised surface, opaque, since a
+	// menu opens over the card, and the card's text showed through its
+	// rows (item 351).
 	Fill color.NRGBA
+	// Shadow is where the plate's shadow falls, a little down from it,
+	// which with Fill lifts it over the card (item 351).
+	Shadow city.Rect
+	// Notch, when HasNotch, is a small triangle on the edge facing the
+	// button the menu was opened from — base, tip, base — its tip
+	// pointing at the button (item 351).
+	Notch    [3]city.Point
+	HasNotch bool
 }
 
 // LayoutMenu lays the columns out with their top-left corner at a point,
@@ -73,7 +82,7 @@ func LayoutMenu(th Theme, columns []MenuColumn, focus MenuFocus, hover, at city.
 	_, lineH := measure("", Body)
 	_, smallH := measure("", Small)
 	rowH := lineH + grid
-	m := Menu{Focus: focus, Fill: th.Palette.Panel}
+	m := Menu{Focus: focus, Fill: th.Palette.Raised}
 	m.Fill.A = 0xff
 	x, top := pad, pad
 	rowsTop := top + smallH + grid
@@ -120,6 +129,7 @@ func LayoutMenu(th Theme, columns []MenuColumn, focus MenuFocus, hover, at city.
 		height = bottom + pad
 	}
 	m.Rect = city.RectAt(0, 0, width, height)
+	m.Shadow = city.Rect{Min: city.Point{X: -grid / 4, Y: grid / 2}, Max: city.Point{X: width + grid/4, Y: height + grid}}
 
 	// Place it, then read the hover against where it landed.
 	to := at
@@ -165,7 +175,10 @@ func (m Menu) Hit(at city.Point) (MenuFocus, bool) {
 // on it.
 func (m Menu) MoveTo(at city.Point) Menu {
 	by := at.Sub(m.Rect.Min)
-	moved := Menu{Rect: city.Rect{Min: at, Max: m.Rect.Max.Add(by)}, Focus: m.Focus, Fill: m.Fill}
+	moved := Menu{Rect: city.Rect{Min: at, Max: m.Rect.Max.Add(by)}, Focus: m.Focus, Fill: m.Fill, Shadow: shifted(m.Shadow, by), HasNotch: m.HasNotch}
+	for i, p := range m.Notch {
+		moved.Notch[i] = p.Add(by)
+	}
 	for _, h := range m.Headings {
 		moved.Headings = append(moved.Headings, MenuHeading{Title: h.Title.moved(by), Cap: h.Cap.Moved(h.Cap.Rect.Min.Add(by))})
 	}
@@ -191,4 +204,30 @@ func (m Menu) MoveTo(at city.Point) Menu {
 // shifted is a rect moved by an offset.
 func shifted(r city.Rect, by city.Point) city.Rect {
 	return city.Rect{Min: r.Min.Add(by), Max: r.Max.Add(by)}
+}
+
+// LayoutMenuUnder lays the menu out as its button's own (item 351):
+// under the button, its left edge on the button's, a grid below,
+// or above it when there is no room below, moved left as far as it
+// takes to stay inside bounds, with a notch on the edge facing the
+// button, its tip pointing at the button's middle.
+func LayoutMenuUnder(th Theme, columns []MenuColumn, focus MenuFocus, hover city.Point, button, bounds city.Rect, measure Measure) Menu {
+	grid := th.Grid()
+	gap := grid
+	h := LayoutMenu(th, columns, focus, hover, city.Point{}, bounds, measure).Rect.Height()
+	at := city.Point{X: button.Min.X, Y: button.Max.Y + gap}
+	below := at.Y+h <= bounds.Max.Y
+	if !below {
+		at.Y = button.Min.Y - gap - h
+	}
+	m := LayoutMenu(th, columns, focus, hover, at, bounds, measure)
+	half := grid
+	tipX := math.Max(m.Rect.Min.X+th.Radius()+half, math.Min(button.Center().X, m.Rect.Max.X-th.Radius()-half))
+	edge, tipY := m.Rect.Min.Y, m.Rect.Min.Y-gap
+	if !below {
+		edge, tipY = m.Rect.Max.Y, m.Rect.Max.Y+gap
+	}
+	m.Notch = [3]city.Point{{X: tipX - half, Y: edge}, {X: tipX, Y: tipY}, {X: tipX + half, Y: edge}}
+	m.HasNotch = true
+	return m
 }

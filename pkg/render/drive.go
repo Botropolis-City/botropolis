@@ -137,7 +137,11 @@ type Shown struct {
 	CardHint    string
 	// CardHintKeys and MenuDescriptionKeys are the caps that end the
 	// card's line and the menu's (item 351).
-	CardHintKeys        []string
+	CardHintKeys []string
+	// MenuNotch is whether the menu points at a button, and MenuLit the
+	// column whose heading is lit, -1 for none (item 351).
+	MenuNotch           bool
+	MenuLit             int
 	MenuDescriptionKeys []string
 	// HoldCaps is the hold's caps as drawn, a control each, and
 	// KeysSighting the keys' first-time caption (item 351).
@@ -201,8 +205,9 @@ type Shown struct {
 
 // ShownButton is one of the card's buttons as drawn: its label and where.
 type ShownButton struct {
-	Label string
-	Rect  city.Rect
+	Label   string
+	Rect    city.Rect
+	Pressed bool
 }
 
 // ShownLabel is one drawn label: its kind, "sign", "plate", "caption",
@@ -740,8 +745,8 @@ func (g *Game) noteShown() {
 	}
 	if !g.hidden {
 		s.CardRect = g.pinned.Rect
-		for _, b := range g.pinned.Buttons {
-			s.CardButtons = append(s.CardButtons, ShownButton{Label: b.Label.Text, Rect: b.Rect})
+		for i, b := range g.pinned.Buttons {
+			s.CardButtons = append(s.CardButtons, ShownButton{Label: b.Label.Text, Rect: b.Rect, Pressed: i == g.pinnedPressed})
 		}
 		var hint []string
 		for _, line := range g.pinned.Hint {
@@ -760,6 +765,7 @@ func (g *Game) noteShown() {
 			size := g.scene.Size()
 			laid := m.layout(g, size.X, size.Y)
 			s.Menu, s.MenuRect, s.MenuFocus = true, laid.Rect, m.focus
+			s.MenuNotch, s.MenuLit = laid.HasNotch, m.litHeading()
 			for _, c := range laid.DescriptionCaps {
 				s.MenuDescriptionKeys = append(s.MenuDescriptionKeys, c.Label.Text)
 			}

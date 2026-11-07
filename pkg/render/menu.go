@@ -1,6 +1,7 @@
 package render
 
 import (
+	"image/color"
 	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -123,6 +124,12 @@ type menuPanel struct {
 	// choose runs the chosen verb; it is the verb's path, swapped out
 	// under test.
 	choose func(kind city.ActionKind)
+	// opener is the card's button the menu hangs from, zero when it was
+	// opened at a point; attached is whether it hangs from the card,
+	// whose button for the focused column then shows pressed and whose
+	// heading lights (item 351).
+	opener   city.Rect
+	attached bool
 	// fromMap is whether the menu holds the selection's verbs, which
 	// the action menu's key opens at the map; each row's line then ends
 	// with the presses from the map, and otherwise with those that
@@ -162,6 +169,32 @@ func (g *Game) openMenu(offered []city.ActionKind, at city.Point, column int) {
 	if p := g.openMenuWith(offered, at, column, g.runVerb); p != nil {
 		p.fromMap = true
 	}
+}
+
+// openMenuUnder opens the selection's menu hanging from one of the
+// card's buttons, as that button's own (item 351).
+func (g *Game) openMenuUnder(offered []city.ActionKind, button city.Rect, column int) {
+	if p := g.openMenuWith(offered, city.Point{X: button.Min.X, Y: button.Max.Y}, column, g.runVerb); p != nil {
+		p.fromMap, p.opener, p.attached = true, button, true
+	}
+}
+
+// pressedButton is the card's button the open menu hangs from, the
+// focused column's, or -1 when no menu hangs from the card.
+func (g *Game) pressedButton() int {
+	if p := g.menu(); p != nil && p.attached && p.focus.Column >= 0 {
+		return p.focus.Column + 1
+	}
+	return -1
+}
+
+// litHeading is the menu's column whose heading is lit, the pressed
+// button's, or -1.
+func (p *menuPanel) litHeading() int {
+	if p.attached && p.focus.Column >= 0 {
+		return p.focus.Column
+	}
+	return -1
 }
 
 // menuFirstRows opens the menu armed on its first column that has rows,
@@ -215,6 +248,9 @@ func (g *Game) runVerb(kind city.ActionKind) {
 func (p *menuPanel) layout(g *Game, width, height float64) ui.Menu {
 	_, _, measure := g.metrics()
 	footer := ui.LayoutFooter(g.theme, width, height, footerKeys, measure)
+	if p.opener.Area() > 0 {
+		return ui.LayoutMenuUnder(g.theme, p.paths(g), p.focus, g.pointer(), p.opener, city.RectAt(0, 0, width, footer.Rect.Min.Y), measure)
+	}
 	return ui.LayoutMenu(g.theme, p.paths(g), p.focus, g.pointer(), p.at, city.RectAt(0, 0, width, footer.Rect.Min.Y), measure)
 }
 
@@ -324,12 +360,21 @@ func (p *menuPanel) click(g *Game, at city.Point) bool {
 func (p *menuPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	m := p.layout(g, width, height)
+	shadow := color.NRGBA{A: 0x30}
+	g.roundRect(screen, m.Shadow, th.Radius()*1.5, shadow)
+	g.roundRect(screen, m.Shadow.Inset(th.Grid()/4), th.Radius(), shadow)
 	g.roundRect(screen, m.Rect, th.Radius(), m.Fill)
 	g.roundStroke(screen, m.Rect, th.Radius(), th.Hairline(), th.Palette.Hairline)
+	if m.HasNotch {
+		g.fillPoints(screen, append(g.paint.Points(), m.Notch[:]...), m.Fill)
+		g.strokePoints(screen, append(g.paint.Points(), m.Notch[:]...), float32(th.Hairline()), th.Palette.Hairline)
+	}
 	pointer := g.pointer()
 	for c, heading := range m.Headings {
 		tone := th.Palette.Dim
-		if c == p.focus.Column {
+		if c == p.litHeading() {
+			tone = th.Palette.Accent
+		} else if c == p.focus.Column {
 			tone = th.Palette.Text
 		}
 		g.run(screen, heading.Title, tone)

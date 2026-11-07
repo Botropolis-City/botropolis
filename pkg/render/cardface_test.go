@@ -69,8 +69,9 @@ func TestCardFace(t *testing.T) {
 			assert.Equal(t, []any{true, ui.MenuFocus{Column: 0, Row: 0}}, []any{shown.Menu, shown.MenuFocus})
 		})
 
-		t.Run("it should open it under the button", func(t *testing.T) {
-			assert.True(t, shown.MenuRect.Min.Y >= button.Max.Y && shown.MenuRect.Area() > 0)
+		t.Run("it should open it from the button: under it, or above it where there is no room under it (item 351)", func(t *testing.T) {
+			gap := ui.NewTheme(1).Grid()
+			assert.True(t, shown.MenuRect.Area() > 0 && (shown.MenuRect.Min.Y == button.Max.Y+gap || shown.MenuRect.Max.Y == button.Min.Y-gap), "menu %v, button %v", shown.MenuRect, button)
 		})
 
 		t.Run("and p is then pressed", func(t *testing.T) {

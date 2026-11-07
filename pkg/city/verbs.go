@@ -29,6 +29,10 @@ var VerbColumns = []VerbColumn{
 // chevron, one the city's font can draw.
 const MenuMark = "⌄"
 
+// MenuMarkOpen follows the label while its menu is open: the chevron
+// turned up (item 351).
+const MenuMarkOpen = "⌃"
+
 // Verbs is what the selection's face offers: the direct verb, which is
 // also what Enter does, and the three columns.
 type Verbs struct {

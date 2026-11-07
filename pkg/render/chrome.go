@@ -2,6 +2,7 @@ package render
 
 import (
 	"image/color"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -81,13 +82,19 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		card.Hint, card.HintKey = hint, hintKey
 		card.HintKeys = g.faceKeys()
 		card.Actions = g.progressLabels(g.scene.Verbs(), b)
+		pressed := g.pressedButton()
+		if pressed > 0 && pressed < len(card.Actions) {
+			card.Actions[pressed] = strings.Replace(card.Actions[pressed], city.MenuMark, city.MenuMarkOpen, 1)
+		}
 		if step, ok := g.scene.TriageStep(); ok && triaging {
 			card.Kind = step.Header()
 		}
 		beside := g.buildingOnScreen(b)
 		pinned := ui.LayoutCard(th, card, bounds, g.faces.Measure).PinTo(beside, bounds, th.Grid())
+		g.cardPressed = pressed
 		g.card(screen, pinned)
-		g.pinned = pinned
+		g.cardPressed = -1
+		g.pinned, g.pinnedPressed = pinned, pressed
 		g.pinnedVerbs, g.pinnedHints = g.scene.Verbs(), card.Hints
 	}
 	g.stripCard = nil
@@ -179,7 +186,7 @@ func (g *Game) clickCard(at city.Point) bool {
 			if i == 0 {
 				g.runVerb(g.pinnedVerbs.Direct)
 			} else {
-				g.openMenu(g.pinnedVerbs.All(), city.Point{X: b.Rect.Min.X, Y: b.Rect.Max.Y + g.theme.Grid()}, i-1)
+				g.openMenuUnder(g.pinnedVerbs.All(), b.Rect, i-1)
 			}
 			break
 		}
@@ -220,8 +227,8 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 		g.run(screen, line, th.Palette.Text)
 	}
 	g.sparkline(screen, c.Spark)
-	for _, b := range c.Buttons {
-		g.button(screen, b.Rect, b.Label, th.Palette.Accent, b.Rect.Contains(at))
+	for i, b := range c.Buttons {
+		g.button(screen, b.Rect, b.Label, th.Palette.Accent, b.Rect.Contains(at) || i == g.cardPressed)
 	}
 	for _, line := range c.Hint {
 		g.run(screen, line, th.Palette.Dim)

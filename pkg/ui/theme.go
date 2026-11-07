@@ -101,7 +101,11 @@ func MoveTone(m state.Move) Tone {
 }
 
 type Palette struct {
-	Panel    color.NRGBA
+	Panel color.NRGBA
+	// Raised is the panel's tone a step lighter, for a surface that sits
+	// on top of a panel, such as the action menu over the card (item
+	// 351).
+	Raised   color.NRGBA
 	Hairline color.NRGBA
 	Text     color.NRGBA
 	Dim      color.NRGBA
@@ -129,6 +133,7 @@ var amber = color.NRGBA{0xe8, 0xa0, 0x3c, 0xff}
 // DefaultPalette is the one state palette and the one accent.
 var DefaultPalette = Palette{
 	Panel:      color.NRGBA{0x0c, 0x0e, 0x14, 0xe6},
+	Raised:     color.NRGBA{0x1a, 0x1c, 0x22, 0xff},
 	Hairline:   color.NRGBA{0xff, 0xff, 0xff, 0x18},
 	Text:       color.NRGBA{0xe6, 0xe9, 0xef, 0xff},
 	Dim:        color.NRGBA{0x8a, 0x93, 0xa5, 0xff},

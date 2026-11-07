@@ -34,7 +34,7 @@ func TestTheFontDrawsTheChrome(t *testing.T) {
 		}
 		return out
 	}
-	texts := map[string]string{"the menu mark": city.MenuMark, "a field's caret": ui.Caret}
+	texts := map[string]string{"the menu mark": city.MenuMark, "the open menu's mark": city.MenuMarkOpen, "a field's caret": ui.Caret}
 	for _, col := range city.VerbColumns {
 		texts["the "+col.Title+" button"] = col.Title + " " + city.MenuMark
 	}

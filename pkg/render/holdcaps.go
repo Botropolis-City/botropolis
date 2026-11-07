@@ -1,7 +1,9 @@
 package render
 
 import (
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -83,7 +85,8 @@ func (g *Game) heldControls() []ui.Control {
 	face := g.faceKeys()
 	for i, b := range g.pinned.Buttons {
 		if i < len(face)-1 {
-			controls = append(controls, ui.Control{Name: "button:" + b.Label.Text, Rect: b.Rect, Keys: face[i]})
+			name := strings.Replace(b.Label.Text, city.MenuMarkOpen, city.MenuMark, 1)
+			controls = append(controls, ui.Control{Name: "button:" + name, Rect: b.Rect, Keys: face[i]})
 		}
 	}
 	if g.pinned.NumbersRect.Area() > 0 {
@@ -102,6 +105,11 @@ func (g *Game) heldControls() []ui.Control {
 	}
 	if g.heldSidebar.Area() > 0 {
 		controls = append(controls, ui.Control{Name: "sidebar", Rect: g.heldSidebar, Keys: []string{chords.Bound["sidebar"].Label()}})
+	}
+	if p := g.menu(); p != nil {
+		size := g.scene.Size()
+		covered := p.layout(g, size.X, size.Y).Rect
+		controls = slices.DeleteFunc(controls, func(c ui.Control) bool { return covered.Contains(c.Rect.Center()) })
 	}
 	return controls
 }
