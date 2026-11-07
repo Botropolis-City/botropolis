@@ -394,6 +394,11 @@ docs/screenshots/r1324-item-351-menu-project.png
 docs/screenshots/r1324-item-351-menu-rightclick.png
 docs/screenshots/r1324-item-351-menu-session.png
 docs/screenshots/r1324-item-351-menu-space.png
+docs/screenshots/r1326-item-353-1600-day.png
+docs/screenshots/r1326-item-353-1600-night.png
+docs/screenshots/r1326-item-353-960-day.png
+docs/screenshots/r1326-item-353-960-night.png
+docs/screenshots/r1326-item-353-strip-hover.png
 LIST
 )
 while read -r img; do
