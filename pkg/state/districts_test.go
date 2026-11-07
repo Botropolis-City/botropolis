@@ -1,6 +1,7 @@
 package state_test
 
 import (
+	"fmt"
 	"testing"
 
 	"botropolis.city/botropolis/pkg/claude"
@@ -126,4 +127,28 @@ func TestTemporary(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("when TMPDIR names a directory", func(t *testing.T) {
+		t.Setenv("TMPDIR", "/home/u/scratch-root")
+
+		t.Run("it should count a session under it as temporary", func(t *testing.T) {
+			assert.True(t, state.Temporary("/home/u/scratch-root/run-3"))
+		})
+	})
+}
+
+// Item 340: districts are assigned on every rescan, so asking whether
+// each session is temporary must not cost a session apiece.
+func TestAssignDistrictsCost(t *testing.T) {
+	t.Run("when none of 2,000 sessions is in a temporary directory", func(t *testing.T) {
+		sessions := make([]state.Session, 2000)
+		for i := range sessions {
+			sessions[i] = state.Session{ID: fmt.Sprintf("aaaaaaaa-0000-4340-8000-%012d", i), CWD: fmt.Sprintf("/home/u/src/p%d", i%40)}
+		}
+		allocs := testing.AllocsPerRun(5, func() { state.AssignDistricts(sessions) })
+
+		t.Run("it should allocate a fixed amount however many sessions there are", func(t *testing.T) {
+			assert.LessOrEqual(t, allocs, float64(16))
+		})
+	})
 }

@@ -14,10 +14,14 @@ var temporaryRoots = []string{"/tmp", "/var/tmp", "/var/folders", "/private/var/
 // Temporary is whether dir lies under a temporary root, matched on
 // whole path segments, so /home/u/tmp-project is not (item 272).
 func Temporary(dir string) bool {
-	if dir == "" {
-		return false
-	}
-	dir = filepath.Clean(dir)
+	return temporaryUnder(dir, temporaryRootsNow())
+}
+
+// temporaryRootsNow is the temporary roots, cleaned, as the environment
+// names them now. AssignDistricts reads them once a pass rather than
+// once a session, which was a quarter of a rescan (item 340).
+func temporaryRootsNow() []string {
+	var roots []string
 	for _, root := range append([]string{os.TempDir(), os.Getenv("TMPDIR")}, temporaryRoots...) {
 		if root == "" {
 			continue
@@ -26,7 +30,18 @@ func Temporary(dir string) bool {
 		if root == "/" {
 			continue
 		}
-		if dir == root || strings.HasPrefix(dir, root+"/") {
+		roots = append(roots, root)
+	}
+	return roots
+}
+
+func temporaryUnder(dir string, roots []string) bool {
+	if dir == "" {
+		return false
+	}
+	dir = filepath.Clean(dir)
+	for _, root := range roots {
+		if dir == root || (len(dir) > len(root) && dir[len(root)] == '/' && strings.HasPrefix(dir, root)) {
 			return true
 		}
 	}
@@ -62,9 +77,10 @@ func encodeProject(dir string) string {
 func AssignDistricts(sessions []Session) {
 	temporary := make([]bool, len(sessions))
 	some := false
+	tempRoots := temporaryRootsNow()
 	for i := range sessions {
 		sessions[i].District = ""
-		temporary[i] = Temporary(sessions[i].CWD)
+		temporary[i] = temporaryUnder(sessions[i].CWD, tempRoots)
 		some = some || temporary[i]
 	}
 	if !some {
