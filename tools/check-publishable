@@ -389,6 +389,11 @@ docs/screenshots/r1316-item-351-dialog-caps.png
 docs/screenshots/r1316-item-351-hover-cap.png
 docs/screenshots/r1316-item-351-menu-row-cap.png
 docs/screenshots/r1320-item-351-hold.png
+docs/screenshots/r1324-item-351-menu-group.png
+docs/screenshots/r1324-item-351-menu-project.png
+docs/screenshots/r1324-item-351-menu-rightclick.png
+docs/screenshots/r1324-item-351-menu-session.png
+docs/screenshots/r1324-item-351-menu-space.png
 LIST
 )
 while read -r img; do
