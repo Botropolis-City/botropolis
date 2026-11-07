@@ -50,12 +50,8 @@ func TestLayoutReader(t *testing.T) {
 			assert.Equal(t, look{th.Palette.Panel, th.Radius(), 2 * th.Grid()}, look{p.Fill, p.Radius, p.Pad})
 		})
 
-		t.Run("it should name its keys", func(t *testing.T) {
-			for _, key := range []string{"PgUp", "PgDn", "enter to reply", "esc to close"} {
-				t.Run(key, func(t *testing.T) {
-					assert.Contains(t, p.Keys.Text, key)
-				})
-			}
+		t.Run("it should spell no keys at its foot; they are in the reference (item 351)", func(t *testing.T) {
+			assert.Empty(t, p.Keys.Text)
 		})
 	})
 
@@ -187,8 +183,8 @@ func TestLayoutReader(t *testing.T) {
 			assert.Equal(t, []string{"why does the kiln overheat", "tighten it"}, yours)
 		})
 
-		t.Run("it should name enter as a new session here", func(t *testing.T) {
-			assert.Contains(t, p.Keys.Text, "enter for a new session here")
+		t.Run("it should say the conversation was deleted", func(t *testing.T) {
+			assert.Equal(t, "the conversation was deleted", p.Keys.Text)
 		})
 	})
 

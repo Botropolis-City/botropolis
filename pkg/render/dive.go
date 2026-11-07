@@ -81,8 +81,6 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 	y += title
 	if g.diveFilter.on {
 		g.drawFilter(screen, &g.diveFilter, city.Point{X: x, Y: y}, ui.Small)
-	} else {
-		g.text(screen, city.Point{X: x, Y: y}, g.clip(g.diveHint(), inner, ui.Small), ui.Small, th.Palette.Dim)
 	}
 	y += small + grid
 	rowHeight := body + small*2 + grid
@@ -95,7 +93,9 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 			break
 		}
 		if i == g.scene.DiveStep() {
-			g.roundRect(screen, city.RectAt(dock.Min.X+grid/2, y-grid/4, dock.Width()-grid, rowHeight-grid/2), 0, th.Palette.Hairline)
+			band := city.RectAt(dock.Min.X+grid/2, y-grid/4, dock.Width()-grid, rowHeight-grid/2)
+			g.roundRect(screen, band, 0, th.Palette.Hairline)
+			g.heldExtra = append(g.heldExtra, diveControls(band, g.diveLead())...)
 		}
 		site, move := diveColumns(row, inner, g.faces.Measure)
 		mw, _ := g.faces.Measure(move, ui.Small)
@@ -108,16 +108,6 @@ func (g *Game) drawDive(screen *ebiten.Image, width, height float64) city.Rect {
 		y += rowHeight
 	}
 	return dock
-}
-
-// diveHint is the dive's keys, naming the session - would take out of
-// the group while a row is stepped (item 333).
-func (g *Game) diveHint() string {
-	hint := "j k step   enter reads   esc leaves"
-	if lead := g.diveLead(); lead != "" {
-		hint += "   - takes " + state.TitleOf(g.scene.Snapshot().Sessions)(lead) + " out"
-	}
-	return hint
 }
 
 // diveLead is the stepped row's session, or none.
@@ -205,4 +195,13 @@ func (g *Game) diveTo(from, to int) {
 	if to != from {
 		g.scene.StepDive(to - from)
 	}
+}
+
+// diveControls is the stepped row's key for the hold: - takes its
+// session out of the group, when there is one to take (items 333, 351).
+func diveControls(row city.Rect, lead string) []ui.Control {
+	if lead == "" {
+		return nil
+	}
+	return []ui.Control{{Name: "take out", Rect: row, Keys: []string{"-"}}}
 }

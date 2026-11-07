@@ -310,9 +310,18 @@ func (g *Game) shareCapture(screen *ebiten.Image) {
 	g.Notify("saved "+path+" · open the folder", ui.ToneNone, "o")
 }
 
-// shareBar is what the sharing bar says.
-func (s *shareMode) bar() string {
-	return fmt.Sprintf("Sharing: names and figures hidden    p picture    g GIF    c clip, %d s    l length    o open folder    esc leave", s.clipLength())
+// shareTitle is what the sharing bar says above its keys.
+const shareTitle = "Sharing: names and figures hidden"
+
+// keys is the sharing bar's legend: share mode hides every other piece
+// of chrome, so the hold cannot reach it and its keys stay on the bar,
+// each as a cap (item 351).
+func (s *shareMode) keys() []ui.Key {
+	return []ui.Key{
+		{Key: "p", Action: "picture"}, {Key: "g", Action: "GIF"},
+		{Key: "c", Action: fmt.Sprintf("clip, %d s", s.clipLength())}, {Key: "l", Action: "length"},
+		{Key: "o", Action: "open folder"}, {Key: "esc", Action: "leave"},
+	}
 }
 
 // drawShareBar draws the sharing bar and the last notice over the frame,
@@ -324,7 +333,7 @@ func (g *Game) drawShareBar(screen *ebiten.Image) {
 	th := g.theme
 	bounds := screen.Bounds()
 	width, height := float64(bounds.Dx()), float64(bounds.Dy())
-	lines := []string{g.share.bar()}
+	lines := []string{shareTitle}
 	if note := g.notice.Text(timeNow()); note != "" {
 		lines = append([]string{note}, lines...)
 	}
@@ -333,7 +342,8 @@ func (g *Game) drawShareBar(screen *ebiten.Image) {
 			float64(rec.draws)/liveTPS, float64(rec.frames*rec.every)/liveTPS)}, lines...)
 	}
 	pad := th.Px(8)
-	var w, h float64
+	legend := ui.LayoutKeyLegend(th, g.share.keys(), city.Point{}, width-4*pad, g.faces.Measure)
+	w, h := legend.Rect.Width(), legend.Rect.Height()+th.Grid()/2
 	for _, l := range lines {
 		lw, lh := g.faces.Measure(l, ui.Body)
 		w, h = max(w, lw), h+lh
@@ -351,6 +361,7 @@ func (g *Game) drawShareBar(screen *ebiten.Image) {
 		g.text(screen, city.Point{X: (width - lw) / 2, Y: y}, l, ui.Body, th.Palette.Text)
 		y += lh
 	}
+	g.keyLegend(screen, legend.Moved(city.Point{X: (width - legend.Rect.Width()) / 2, Y: y + th.Grid()/2}))
 }
 
 // shareAllows is whether a string may be drawn: anything while not

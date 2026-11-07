@@ -465,6 +465,9 @@ type Game struct {
 	// what the hold caps; holdCaps and keysSighting what it drew for
 	// it, for the probe (item 351).
 	heldRows []heldRow
+	// heldPanel is a full-window panel's controls, which replace the
+	// map's under the hold, and heldExtra a panel's beside its rows.
+	heldPanel, heldExtra []ui.Control
 	// cardPressed is the button g.card draws pressed, and pinnedPressed
 	// the pinned card's, for the probe; -1 for none (item 351).
 	cardPressed, pinnedPressed int
@@ -1315,7 +1318,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 // overlay is the chrome and, over it, the help; h hides the lot.
 func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	g.panels.stats = panelStats{}
-	g.heldRows = nil
+	g.heldRows, g.heldPanel, g.heldExtra = nil, nil, nil
 	g.heldStream, g.heldSidebar = city.Rect{}, city.Rect{}
 	g.prunePanels()
 	// Sharing draws none of it: every panel, card and figure stays open

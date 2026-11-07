@@ -58,7 +58,19 @@ type walk struct {
 type walkButton struct {
 	label string
 	key   ebiten.Key
-	rect  city.Rect
+	// cap is the key as its cap shows it, beside the label (item 351).
+	cap  string
+	rect city.Rect
+}
+
+// walkButtonSets are the walk card's buttons: the start card's, the
+// quiet card's and every other card's.
+var walkButtonSets = [][]walkButton{
+	{{label: "Start clean", key: ebiten.KeyC, cap: "c"}, {label: "Walk through it", key: ebiten.KeyEnter, cap: "enter"}, {label: "Later", key: ebiten.KeyL, cap: "l"}},
+	{{label: "pack them up", key: ebiten.KeyEnter, cap: "enter"}, {label: "leave them", key: ebiten.KeyX, cap: "x"},
+		{label: "show me", key: ebiten.KeyV, cap: "v"}, {label: "threshold", key: ebiten.KeyBracketRight, cap: "[ ]"}, {label: "back", key: ebiten.KeyP, cap: "p"}},
+	{{label: "keep", key: ebiten.KeyEnter, cap: "enter"}, {label: "rename", key: ebiten.KeyR, cap: "r"}, {label: "drop", key: ebiten.KeyX, cap: "x"},
+		{label: "split", key: ebiten.KeyS, cap: "s"}, {label: "take one out", key: ebiten.KeyMinus, cap: "-"}, {label: "next", key: ebiten.KeyN, cap: "n"}, {label: "back", key: ebiten.KeyP, cap: "p"}},
 }
 
 func (g *Game) walk() *walk {
@@ -231,13 +243,11 @@ func (w *walk) memberTitles() []string {
 func (w *walk) buttonDefs() []walkButton {
 	switch w.card() {
 	case cardStart:
-		return []walkButton{{label: "c  Start clean", key: ebiten.KeyC}, {label: "enter  Walk through it", key: ebiten.KeyEnter}, {label: "l  Later", key: ebiten.KeyL}}
+		return slices.Clone(walkButtonSets[0])
 	case cardQuiet:
-		return []walkButton{{label: "enter  pack them up", key: ebiten.KeyEnter}, {label: "x  leave them", key: ebiten.KeyX},
-			{label: "v  show me", key: ebiten.KeyV}, {label: "[ ]  threshold", key: ebiten.KeyBracketRight}, {label: "p  back", key: ebiten.KeyP}}
+		return slices.Clone(walkButtonSets[1])
 	}
-	return []walkButton{{label: "enter  keep", key: ebiten.KeyEnter}, {label: "r  rename", key: ebiten.KeyR}, {label: "x  drop", key: ebiten.KeyX},
-		{label: "s  split", key: ebiten.KeyS}, {label: "-  take one out", key: ebiten.KeyMinus}, {label: "n  next", key: ebiten.KeyN}, {label: "p  back", key: ebiten.KeyP}}
+	return slices.Clone(walkButtonSets[2])
 }
 
 func (w *walk) buttonLabels() []string {
@@ -505,6 +515,7 @@ func (w *walk) layout(th ui.Theme, width, height float64, measure ui.Measure) {
 	w.buttons = w.buttons[:0]
 	for _, b := range w.buttonDefs() {
 		bw, _ := measure(b.label, ui.Small)
+		bw += ui.LayoutKeyCap(th, b.cap, city.Point{}, measure).Rect.Width() + grid
 		if x+bw+grid*2 > w.rect.Max.X-grid*2 {
 			break
 		}
@@ -571,6 +582,9 @@ func (w *walk) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.mu.Unlock()
 	for _, b := range buttons {
 		g.roundRect(screen, b.rect, th.Radius()/2, th.Palette.Hairline)
-		g.text(screen, city.Point{X: b.rect.Min.X + grid, Y: b.rect.Min.Y + grid/4}, b.label, ui.Small, th.Palette.Accent)
+		cap := ui.LayoutKeyCap(th, b.cap, city.Point{}, g.faces.Measure)
+		cap = cap.Moved(city.Point{X: b.rect.Min.X + grid/2, Y: b.rect.Center().Y - cap.Rect.Height()/2})
+		g.keyCap(screen, cap)
+		g.text(screen, city.Point{X: cap.Rect.Max.X + grid, Y: b.rect.Min.Y + grid/4}, b.label, ui.Small, th.Palette.Accent)
 	}
 }

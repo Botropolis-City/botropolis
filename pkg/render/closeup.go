@@ -306,7 +306,24 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	if said := p.said(); said != "" {
 		g.text(screen, city.Point{X: x, Y: y - lineH}, said, ui.Small, th.Palette.NeedsYou)
 	}
-	g.text(screen, city.Point{X: x, Y: y}, "click a box, or p, to pause  ·  a all  ·  n none  ·  space or click pin  ·  enter close up and quit  ·  esc back", ui.Small, th.Palette.Dim)
+	g.heldExtra = append(g.heldExtra, closeUpControls(rows, p.selected)...)
+}
+
+// closeUpControls is the focused row's keys for the hold: p pauses it
+// by its box, and space pins it (item 351).
+func closeUpControls(rows []closeUpRow, selected int) []ui.Control {
+	if selected < 0 || selected >= len(rows) {
+		return nil
+	}
+	r := rows[selected]
+	var controls []ui.Control
+	if r.HasBox {
+		controls = append(controls, ui.Control{Name: "pause", Rect: r.Box, Keys: []string{"p"}})
+	}
+	if r.Pin.Area() > 0 {
+		controls = append(controls, ui.Control{Name: "pin", Rect: r.Pin, Keys: []string{"space"}})
+	}
+	return controls
 }
 
 // checkbox is a box, ticked when checked.

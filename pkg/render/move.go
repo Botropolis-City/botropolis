@@ -99,12 +99,12 @@ func (p *picker) labels() []string {
 
 func (p *picker) title() string {
 	if p.renaming != "" {
-		return "rename group   type a name, enter keeps it, esc cancels"
+		return "rename group"
 	}
 	if p.naming {
-		return "new group   type a name, enter makes it, esc goes back"
+		return "new group"
 	}
-	return "move to group   ↑ ↓ choose, enter moves, new group… makes one, esc cancels"
+	return "move to group"
 }
 
 // commit and compose are where typing reaches the name, from the input

@@ -17,7 +17,7 @@ func TestHelpKeys(t *testing.T) {
 		field, action, fallback, prefix string
 	}{
 		{"Triage", "triage: walk what waits on you, longest-waiting first", "w", ""},
-		{"Journal", "the journal: where you were, and what is next", "j", ""},
+		{"Journal", "the journal: where you were, and what is next; r restores an entry's desk", "j", ""},
 		{"Stream", "the stream: what is happening, newest first", "l", ""},
 		{"New", "New session, filled from what is under the pointer (also on the board)", "shift+n", ""},
 		{"Explain", "caption everything on the map", "e", "hold "},

@@ -21,7 +21,7 @@ import (
 // KeysRow is the settings' row that opens the panel, which the app
 // lists last. It holds no value:
 // choosing it opens the panel, and nothing of it is saved.
-var KeysRow = ui.Setting{Key: config.KeySettings, Label: "keys", Value: "every key; enter changes them"}
+var KeysRow = ui.Setting{Key: config.KeySettings, Label: "keys", Value: "every key, and what each does"}
 
 // keyBinding is one row of the panel: the binding and what it does.
 type keyBinding struct {

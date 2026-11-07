@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The map runs to the window's bottom edge, and a fitted view uses the room.
   Hovering a count on the top strip names the key that opens the reference, as it is bound.
   While a first launch reads your history, its progress line is a band along the bottom until it is done.
+- **Panel headers are shorter, and say no keys.**
+  A panel's header and its buttons say what they are; hold `e` to see their keys, or open the reference with `?`.
+  City Hall's board, the clinic, the group picker, close-up, the journal, the dive, the long-range panel, the walk's buttons and the statistics prompts all moved their keys to caps.
+  Share mode and the New session panel, where holding `e` cannot help, keep their keys on a line of caps.
+  City Hall's board says "1 group", not "1 groups".
 - **A group's line has no stations.**
   The line runs between buildings, not to dots floating beside them.
   A link into a site that waits on another is drawn dark, and one into a site joined on a guess is dashed.

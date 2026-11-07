@@ -82,7 +82,7 @@ func TestStatsPrompt(t *testing.T) {
 				"While statistics are off, Botropolis records nothing.",
 				"Messages in any transcript Claude Code deletes in that time are lost to statistics for good, so turning statistics back on later leaves a gap that may not be accurate.",
 			},
-			Keys: "k  keep what is stored    d  delete it    esc  leave statistics on",
+			Keys: []ui.Key{{Key: "k", Action: "keep what is stored"}, {Key: "d", Action: "delete it"}, {Key: "esc", Action: "leave statistics on"}},
 		}},
 		{"the off prompt at open", statsPrompt{kind: stats.OffPrompt, atOpen: true}, statsWording{
 			Title: "Statistics were turned off",
@@ -90,7 +90,7 @@ func TestStatsPrompt(t *testing.T) {
 				"While statistics are off, Botropolis records nothing.",
 				"Messages in any transcript Claude Code deletes in that time are lost to statistics for good, so turning statistics back on later leaves a gap that may not be accurate.",
 			},
-			Keys: "k  keep what is stored    d  delete it    esc  ask me next time",
+			Keys: []ui.Key{{Key: "k", Action: "keep what is stored"}, {Key: "d", Action: "delete it"}, {Key: "esc", Action: "ask me next time"}},
 		}},
 		{"the on prompt from the settings row", statsPrompt{kind: stats.OnPrompt, since: since}, statsWording{
 			Title: "Turn statistics back on",
@@ -98,7 +98,7 @@ func TestStatsPrompt(t *testing.T) {
 				"Statistics were off from Oct 18 until now, and what was stored before was kept.",
 				"Messages from transcripts Claude Code deleted in that time are missing, so anything that spans the gap may not be accurate.",
 			},
-			Keys: "k  keep it and mark the gap    f  delete it and start fresh    esc  leave statistics off",
+			Keys: []ui.Key{{Key: "k", Action: "keep it and mark the gap"}, {Key: "f", Action: "delete it and start fresh"}, {Key: "esc", Action: "leave statistics off"}},
 		}},
 		{"the on prompt at open", statsPrompt{kind: stats.OnPrompt, atOpen: true, since: since}, statsWording{
 			Title: "Statistics are back on",
@@ -106,7 +106,7 @@ func TestStatsPrompt(t *testing.T) {
 				"Statistics were off from Oct 18 until now, and what was stored before was kept.",
 				"Messages from transcripts Claude Code deleted in that time are missing, so anything that spans the gap may not be accurate.",
 			},
-			Keys: "k  keep it and mark the gap    f  delete it and start fresh    esc  ask me next time",
+			Keys: []ui.Key{{Key: "k", Action: "keep it and mark the gap"}, {Key: "f", Action: "delete it and start fresh"}, {Key: "esc", Action: "ask me next time"}},
 		}},
 	} {
 		t.Run("when it is "+c.name, func(t *testing.T) {

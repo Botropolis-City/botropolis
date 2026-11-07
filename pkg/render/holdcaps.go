@@ -30,6 +30,7 @@ func (j *journal) holdsCaps() bool   { return !j.filter.on }
 func (p *closeUp) holdsCaps() bool   { return !p.filter.on }
 func (p *picker) holdsCaps() bool    { return !p.filter.on && !p.naming }
 func (p *keysPanel) holdsCaps() bool { return !p.recording }
+func (r *reader) holdsCaps() bool    { return true }
 
 // heldRow is a list panel's row as it was drawn, for the hold to cap
 // with its digit.
@@ -74,10 +75,13 @@ func (g *Game) capsHeld() bool {
 // the lens panel, the stream and the sidebar; over a list panel, its
 // first nine rows.
 func (g *Game) heldControls() []ui.Control {
+	if len(g.heldPanel) > 0 {
+		return g.heldPanel
+	}
 	top := g.overlays.top()
 	if top != nil {
 		if _, menu := top.(*menuPanel); !menu {
-			return g.heldRowControls(top)
+			return append(g.heldRowControls(top), g.heldExtra...)
 		}
 	}
 	chords := g.findChords()
@@ -106,6 +110,7 @@ func (g *Game) heldControls() []ui.Control {
 	if g.heldSidebar.Area() > 0 {
 		controls = append(controls, ui.Control{Name: "sidebar", Rect: g.heldSidebar, Keys: []string{chords.Bound["sidebar"].Label()}})
 	}
+	controls = append(controls, g.heldExtra...)
 	if p := g.menu(); p != nil {
 		size := g.scene.Size()
 		covered := p.layout(g, size.X, size.Y).Rect

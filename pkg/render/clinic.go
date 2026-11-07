@@ -45,12 +45,6 @@ func (c *clinic) shownRows(g *Game) ([]city.ClinicRow, int) {
 	return rows, selected
 }
 
-// clinicDigits are the keys that jump to the first nine rows.
-var clinicDigits = []ebiten.Key{
-	ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5,
-	ebiten.KeyDigit6, ebiten.KeyDigit7, ebiten.KeyDigit8, ebiten.KeyDigit9,
-}
-
 func (g *Game) clinicMenu() *clinic {
 	c, _ := g.overlays.top().(*clinic)
 	return c
@@ -68,7 +62,7 @@ func clinicStatus(count int) string {
 	if count == 0 {
 		return "nobody needs you and nothing is in trouble"
 	}
-	return fmt.Sprintf("%d to see to   1-9 or ↑ ↓ enter jumps to it, esc closes", count)
+	return fmt.Sprintf("%d to see to", count)
 }
 
 // status is the line under the title. It counts every row, filtered
@@ -171,13 +165,8 @@ func (c *clinic) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		if i == selected {
 			g.roundRect(screen, band, 0, th.Palette.Hairline)
 		}
-		key := "  "
-		if i < len(clinicDigits) {
-			key = strconv.Itoa(i + 1)
-		}
-		g.text(screen, city.Point{X: x, Y: y}, key, ui.Body, th.Palette.Accent)
 		name := g.clip(row.Building.Card(g.now()).Title, inner*0.45, ui.Body)
-		g.text(screen, city.Point{X: x + grid*3, Y: y}, name, ui.Body, th.Palette.Text)
+		g.text(screen, city.Point{X: x, Y: y}, name, ui.Body, th.Palette.Text)
 		reason := g.clip(row.Reason, inner*0.5, ui.Small)
 		rw, _ := g.faces.Measure(reason, ui.Small)
 		g.text(screen, city.Point{X: x + inner - rw, Y: y + (body-small)/2}, reason, ui.Small, th.Color(tone))

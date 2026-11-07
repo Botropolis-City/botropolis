@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"slices"
 	"time"
 
@@ -75,7 +74,7 @@ func boardStatus(rows []boardRow) string {
 	if len(rows) == 0 {
 		return "no groups yet: sessions join one when they share a ticket, a link or their wording"
 	}
-	return fmt.Sprintf("%d groups   ↑ ↓ choose, enter focuses it on the map, c copies its stand-up, F2 renames it, Delete closes it, esc closes", len(rows))
+	return plural(len(rows), "group")
 }
 
 func (g *Game) board() *board {
@@ -205,7 +204,7 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	inner := panelWidth - grid*4
 	x, y := panel.Min.X+grid*2, panel.Min.Y+grid*2
 	g.text(screen, city.Point{X: x, Y: y}, "City Hall · groups", ui.Title, th.Palette.Text)
-	label := "New session  " + g.findChords().New.String()
+	label := boardNewLabel
 	lw, lh := g.faces.Measure(label, ui.Small)
 	button := city.RectAt(panel.Max.X-grid*2-lw-grid*2, y, lw+grid*2, lh+grid/2)
 	g.mu.Lock()
@@ -213,13 +212,13 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.mu.Unlock()
 	g.roundRect(screen, button, th.Radius()/2, th.Palette.Hairline)
 	g.text(screen, city.Point{X: button.Min.X + grid, Y: button.Min.Y + grid/4}, label, ui.Small, th.Palette.Accent)
-	quietText := g.quietButtonLabel(len(g.quietIDs())) + "  p"
+	quietText := g.quietButtonLabel(len(g.quietIDs()))
 	qw, qh := g.faces.Measure(quietText, ui.Small)
 	quiet := city.RectAt(button.Min.X-grid-qw-grid*2, y, qw+grid*2, qh+grid/2)
 	g.mu.Lock()
 	b.quietButton = quiet
 	g.mu.Unlock()
-	tidyText := "Tidy up  t"
+	tidyText := boardTidyLabel
 	tw, th2 := g.faces.Measure(tidyText, ui.Small)
 	tidy := city.RectAt(quiet.Min.X-grid-tw-grid*2, y, tw+grid*2, th2+grid/2)
 	g.mu.Lock()
@@ -229,6 +228,7 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	g.text(screen, city.Point{X: tidy.Min.X + grid, Y: tidy.Min.Y + grid/4}, tidyText, ui.Small, th.Palette.Accent)
 	g.roundRect(screen, quiet, th.Radius()/2, th.Palette.Hairline)
 	g.text(screen, city.Point{X: quiet.Min.X + grid, Y: quiet.Min.Y + grid/4}, quietText, ui.Small, th.Palette.Accent)
+	g.heldExtra = append(g.heldExtra, boardControls(tidy, quiet, button, g.findChords().New.Label())...)
 	y += title
 	status := boardStatus(rows)
 	g.text(screen, city.Point{X: x, Y: y}, status, ui.Small, th.Palette.Dim)
@@ -358,4 +358,21 @@ func (c *clipper) clip(s string, width float64, size ui.Size) string {
 	out := clipTo(s, width, size, c.measure)
 	c.memo[key] = out
 	return out
+}
+
+// City Hall's buttons say what they do; their keys are the hold's
+// (item 351).
+const (
+	boardTidyLabel = "Tidy up"
+	boardNewLabel  = "New session"
+)
+
+// boardControls is City Hall's buttons for the hold: t tidies up, p
+// packs up what is quiet, and the new-session key starts one.
+func boardControls(tidy, quiet, fresh city.Rect, newKey string) []ui.Control {
+	return []ui.Control{
+		{Name: "tidy up", Rect: tidy, Keys: []string{"t"}},
+		{Name: "pack up quiet", Rect: quiet, Keys: []string{"p"}},
+		{Name: "new session", Rect: fresh, Keys: []string{newKey}},
+	}
 }

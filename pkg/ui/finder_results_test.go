@@ -141,8 +141,8 @@ func TestLayoutFinderResults(t *testing.T) {
 		p := layout([]ui.FinderResult{packed}, 0, 800)
 		require.Len(t, p.Rows, 1)
 
-		t.Run("it should say it is packed up and that enter unpacks it (item 86)", func(t *testing.T) {
-			assert.Contains(t, p.Rows[0].Where.Text, "packed up, enter unpacks")
+		t.Run("it should say it is packed up (item 86), spelling no key (item 351)", func(t *testing.T) {
+			assert.Contains(t, p.Rows[0].Where.Text, "packed up")
 		})
 	})
 

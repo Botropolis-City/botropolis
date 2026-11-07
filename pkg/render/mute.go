@@ -74,7 +74,7 @@ func (p *mutePicker) draw(g *Game, screen *ebiten.Image, width, height float64) 
 	g.mu.Unlock()
 	g.roundRect(screen, panel, th.Radius(), th.Palette.Panel)
 	x, y := panel.Min.X+grid*2, panel.Min.Y+grid*2
-	g.text(screen, city.Point{X: x, Y: y}, g.clip("mute a word   ↑ ↓ choose, enter mutes, esc cancels", panelWidth-grid*4, ui.Title), ui.Title, th.Palette.Text)
+	g.text(screen, city.Point{X: x, Y: y}, g.clip(muteTitle, panelWidth-grid*4, ui.Title), ui.Title, th.Palette.Text)
 	y += title + grid
 	for i, w := range p.words {
 		if i == p.selected {
@@ -84,3 +84,6 @@ func (p *mutePicker) draw(g *Game, screen *ebiten.Image, width, height float64) 
 		y += body + grid/2
 	}
 }
+
+// muteTitle is the mute picker's title.
+const muteTitle = "mute a word"

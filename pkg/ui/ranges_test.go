@@ -667,8 +667,8 @@ func TestLayoutRanges(t *testing.T) {
 			assert.Equal(t, "1 Sep – [30 Sep]", cp.Row.Long[6].Label.Text)
 		})
 
-		t.Run("it should say how to move the days", func(t *testing.T) {
-			assert.Contains(t, cp.Footer.Text, "tab switches ends   ↑ ↓ a day   shift a month")
+		t.Run("it should spell no keys at its foot; they are in the reference (item 351)", func(t *testing.T) {
+			assert.Empty(t, cp.Footer.Text)
 		})
 	})
 }

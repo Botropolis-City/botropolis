@@ -185,7 +185,7 @@ func (p *FinderPanel) layoutResults(th Theme, height float64, in FinderInput, me
 			where = append(where, "conversation deleted")
 		}
 		if r.Packed {
-			where = append(where, "packed up, enter unpacks")
+			where = append(where, PackedWhere)
 		}
 		row.Where = Text{Text: Fit(strings.Join(where, "  "), width, Small, measure), At: city.Point{X: x, Y: row.Head.At.Y + bodyH}, Size: Small}
 		row.Marks = marks(row.Head, in.Words, measure)
@@ -269,3 +269,6 @@ func marks(line Text, words []string, measure Measure) []Mark {
 	}
 	return out
 }
+
+// PackedWhere is what a packed result says of where it is.
+const PackedWhere = "packed up"

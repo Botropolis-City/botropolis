@@ -127,12 +127,9 @@ type ReaderPanel struct {
 // readerGrids is the pane's width when the window has room for it.
 const readerGrids = 100
 
-// readerKeys names the pane's keys along its foot.
-const readerKeys = "PgUp PgDn older and newer   enter to reply   esc to close"
-
-// readerGoneKeys are the keys when the conversation has been deleted:
-// there is nothing to reply to, so Enter starts again where it was.
-const readerGoneKeys = "enter for a new session here   esc to close"
+// readerGone is the pane's foot when the conversation has been
+// deleted, so there is nothing to reply to.
+const readerGone = "the conversation was deleted"
 
 // LayoutReader centres the reading pane across a width×height window,
 // most of its height tall.
@@ -208,11 +205,10 @@ func LayoutReaderStyled(th Theme, width, height float64, in ReaderInput, measure
 	}
 
 	keysY := p.Rect.Max.Y - pad - smallH
-	keys := readerKeys
+	p.Keys = Text{At: city.Point{X: x, Y: keysY}, Size: Small}
 	if in.Gone {
-		keys = readerGoneKeys
+		p.Keys.Text = clipTo(readerGone, inner, Small, measure)
 	}
-	p.Keys = Text{Text: clipTo(keys, inner, Small, measure), At: city.Point{X: x, Y: keysY}, Size: Small}
 	startY := y
 	top := y + smallH + grid/2
 	bottom := keysY - grid

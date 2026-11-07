@@ -304,6 +304,7 @@ func (g *Game) drawRanges(screen *ebiten.Image, width, height float64) {
 	pal := th.Palette
 	g.paint.Box(screen, 0, 0, float32(width), float32(height), colorScrim)
 	p := ui.LayoutRanges(th, width, height, g.rangeData(), g.rangeSel, g.rangeChooser, g.faces.Measure)
+	g.heldPanel = rangesControls(p, g.faces.Measure)
 	g.roundPanel(screen, p.Rect)
 	g.run(screen, p.Title, pal.Text)
 	g.run(screen, p.Counters, pal.Dim)
@@ -358,7 +359,6 @@ func (g *Game) drawRanges(screen *ebiten.Image, width, height float64) {
 		}
 		g.run(screen, t, colour)
 	}
-	g.run(screen, p.Footer, pal.Dim)
 
 	if len(p.Chooser) > 0 {
 		g.roundPanel(screen, p.ChooserBox)
@@ -469,4 +469,30 @@ func (g *Game) rangeKeys() bool {
 		g.rangeSel = g.rangeSel.Nudge(month-1, -month, g.rangeToday())
 	}
 	return true
+}
+
+// rangesControls is the long-range panel's keys for the hold (item
+// 351): the arrows choose a range from its row, d the districts it is
+// filtered to, and s the same-day comparison.
+func rangesControls(p ui.RangesPanel, measure ui.Measure) []ui.Control {
+	var row city.Rect
+	for _, b := range append(append([]ui.Button(nil), p.Row.Short...), p.Row.Long...) {
+		if row.Area() == 0 {
+			row = b.Rect
+		} else {
+			row = row.Union(b.Rect)
+		}
+	}
+	var controls []ui.Control
+	if row.Area() > 0 {
+		controls = append(controls, ui.Control{Name: "ranges", Rect: row, Keys: []string{"←", "→"}})
+	}
+	if p.FilterRect.Area() > 0 {
+		controls = append(controls, ui.Control{Name: "districts", Rect: p.FilterRect, Keys: []string{"d"}})
+	}
+	if p.CompareHead.Text != "" {
+		w, h := measure(p.CompareHead.Text, p.CompareHead.Size)
+		controls = append(controls, ui.Control{Name: "same day", Rect: city.RectAt(p.CompareHead.At.X, p.CompareHead.At.Y, w, h), Keys: []string{"s"}})
+	}
+	return controls
 }

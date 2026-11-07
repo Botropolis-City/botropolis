@@ -180,8 +180,13 @@ func TestCorrectGroups(t *testing.T) {
 		g, _ := diving(t)
 		lead := g.scene.Dive()[g.scene.DiveStep()].Session
 
-		t.Run("its hint should name the session - takes out", func(t *testing.T) {
-			assert.Contains(t, g.diveHint(), "- takes Title "+lead+" out")
+		t.Run("the hold should cap the stepped row, whose session - takes out, with - (item 351)", func(t *testing.T) {
+			row := city.RectAt(0, 0, 200, 40)
+			assert.Equal(t, []ui.Control{{Name: "take out", Rect: row, Keys: []string{"-"}}}, diveControls(row, lead))
+		})
+
+		t.Run("and no session would be taken out, the hold should cap nothing there", func(t *testing.T) {
+			assert.Empty(t, diveControls(city.RectAt(0, 0, 200, 40), ""))
 		})
 
 		t.Run("and - is pressed", func(t *testing.T) {

@@ -304,9 +304,20 @@ func (n *newSession) draw(g *Game, screen *ebiten.Image, width, height float64) 
 		g.text(screen, city.Point{X: x + grid*12, Y: y}, g.clip(why, inner-grid*12, ui.Small), ui.Small, th.Palette.Dim)
 	}
 	y += small + grid/2
-	g.text(screen, city.Point{X: x + grid*12, Y: y}, g.clip("Tab: "+strings.Join(n.alternatives(g), " · "), inner-grid*12, ui.Small), ui.Small, th.Palette.Dim)
+	tab := ui.LayoutKeyCap(th, "tab", city.Point{X: x + grid*12, Y: y - grid/2}, g.faces.Measure)
+	g.keyCap(screen, tab)
+	g.text(screen, city.Point{X: tab.Rect.Max.X + grid, Y: y}, g.clip(strings.Join(n.alternatives(g), " · "), inner-grid*13-tab.Rect.Width(), ui.Small), ui.Small, th.Palette.Dim)
 	y += small + grid
-	g.text(screen, city.Point{X: x, Y: y}, "↑ ↓ field   Tab completes the directory, or walks the groups   type a name for a new group   enter starts   esc cancels", ui.Small, th.Palette.Accent)
+	g.keyLegend(screen, ui.LayoutKeyLegend(th, newSessionKeys, city.Point{X: x, Y: y - grid/2}, inner, g.faces.Measure))
+}
+
+// newSessionKeys is the panel's legend: its field has the keyboard, so
+// the hold cannot reach it and its keys stay, each as a cap (item 351).
+var newSessionKeys = []ui.Key{
+	{Key: "↑ ↓", Action: "field"},
+	{Key: "tab", Action: "completes the directory, or walks the groups"},
+	{Key: "enter", Action: "starts"},
+	{Key: "esc", Action: "cancels"},
 }
 
 // groupLine is the group the session will start in, by name.

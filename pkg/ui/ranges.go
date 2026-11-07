@@ -577,14 +577,6 @@ func LayoutRanges(th Theme, width, height float64, d RangeData, sel RangeSelecti
 			p.Compare = append(p.Compare, Text{Text: clipTo(l, colW, Small, measure), At: city.Point{X: x0 + colW, Y: y + float64(i)*smallH}, Size: Small})
 		}
 	}
-	y += float64(sideRows)*smallH + 2*grid
-
-	foot := "← → choose a range   d chooses districts   s toggles the same day   esc closes"
-	if sel.Kind == CustomRange {
-		foot = "tab switches ends   ↑ ↓ a day   shift a month   " + foot
-	}
-	p.Footer = Text{Text: clipTo(foot, inner, Small, measure), At: city.Point{X: x0, Y: y}, Size: Small}
-
 	if ch.Open {
 		p.layChooser(th, d.All, sel.Only, ch.Focus, filterY+smallH+grid, measure)
 		p.NoData = Text{}

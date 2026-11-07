@@ -5,6 +5,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // exampleStorePath is the file a scripted notice names, since a
@@ -22,7 +23,7 @@ type storeWording = statsWording
 
 func (n *storeNotice) wording() storeWording {
 	s := n.store
-	w := storeWording{Title: "Statistics are not being kept", Keys: "esc  close"}
+	w := storeWording{Title: "Statistics are not being kept", Keys: []ui.Key{{Key: "esc", Action: "close"}}}
 	switch s.Why {
 	case state.WhyNewer:
 		w.Lines = []string{

@@ -510,13 +510,17 @@ func (f *finder) status(g *Game) string {
 	f.mu.Lock()
 	found := len(f.results)
 	f.mu.Unlock()
-	chords := g.findChords()
-	counted := fmt.Sprintf("%d sessions found", found)
-	if groups := len(f.groups(g)); groups > 0 {
+	return finderCount(found, len(f.groups(g)), g.scene.Matching())
+}
+
+// finderCount is the finder's line once something is typed: what was
+// found and how much of it is on the map.
+func finderCount(found, groups, onMap int) string {
+	counted := plural(found, "session") + " found"
+	if groups > 0 {
 		counted = plural(found, "session") + " and " + plural(groups, "group") + " found"
 	}
-	return fmt.Sprintf("%s, %d on the map   ↑ ↓ choose, enter opens, %s copies how to resume, %s shows it, esc clears",
-		counted, g.scene.Matching(), chords.Copy, chords.Show)
+	return fmt.Sprintf("%s, %d on the map", counted, onMap)
 }
 
 func plural(n int, noun string) string {

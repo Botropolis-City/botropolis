@@ -35,17 +35,19 @@ type statsPrompt struct {
 type statsWording struct {
 	Title string
 	Lines []string
-	Keys  string
+	// Keys are the choices: each key, as a cap, beside what it does
+	// (item 351).
+	Keys []ui.Key
 }
 
 func (p *statsPrompt) wording() statsWording {
-	later := "esc  ask me next time"
+	later := ui.Key{Key: "esc", Action: "ask me next time"}
 	if p.kind == stats.OffPrompt {
 		title := "Turn statistics off"
 		if p.atOpen {
 			title = "Statistics were turned off"
 		} else {
-			later = "esc  leave statistics on"
+			later = ui.Key{Key: "esc", Action: "leave statistics on"}
 		}
 		return statsWording{
 			Title: title,
@@ -53,14 +55,14 @@ func (p *statsPrompt) wording() statsWording {
 				"While statistics are off, Botropolis records nothing.",
 				"Messages in any transcript Claude Code deletes in that time are lost to statistics for good, so turning statistics back on later leaves a gap that may not be accurate.",
 			},
-			Keys: "k  keep what is stored    d  delete it    " + later,
+			Keys: []ui.Key{{Key: "k", Action: "keep what is stored"}, {Key: "d", Action: "delete it"}, later},
 		}
 	}
 	title := "Turn statistics back on"
 	if p.atOpen {
 		title = "Statistics are back on"
 	} else {
-		later = "esc  leave statistics off"
+		later = ui.Key{Key: "esc", Action: "leave statistics off"}
 	}
 	return statsWording{
 		Title: title,
@@ -68,7 +70,7 @@ func (p *statsPrompt) wording() statsWording {
 			"Statistics were off from " + p.since.Format("Jan 2") + " until now, and what was stored before was kept.",
 			"Messages from transcripts Claude Code deleted in that time are missing, so anything that spans the gap may not be accurate.",
 		},
-		Keys: "k  keep it and mark the gap    f  delete it and start fresh    " + later,
+		Keys: []ui.Key{{Key: "k", Action: "keep it and mark the gap"}, {Key: "f", Action: "delete it and start fresh"}, later},
 	}
 }
 
@@ -217,7 +219,7 @@ func (g *Game) drawPrompt(screen *ebiten.Image, width, height float64, w statsWo
 		y += grid / 2
 	}
 	y += grid
-	g.text(screen, city.Point{X: x, Y: y}, w.Keys, ui.Small, th.Palette.Accent)
+	g.keyLegend(screen, ui.LayoutKeyLegend(th, w.Keys, city.Point{X: x, Y: y}, panel.Max.X-grid*2-x, g.faces.Measure))
 }
 
 // wrapWords breaks text into lines no wider than width.

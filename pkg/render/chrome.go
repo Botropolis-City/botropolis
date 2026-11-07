@@ -382,3 +382,11 @@ func (g *Game) roundStroke(screen *ebiten.Image, r city.Rect, radius, width floa
 	g.paint.Stroke(screen, pts, width, true, c)
 	g.paint.Keep(pts)
 }
+
+// keyLegend draws a legend's caps and the words beside them (item 351).
+func (g *Game) keyLegend(screen *ebiten.Image, l ui.KeyLegend) {
+	for _, k := range l.Keys {
+		g.keyCap(screen, k.Cap)
+		g.text(screen, k.LabelAt, k.Action, ui.Small, g.theme.Palette.Dim)
+	}
+}

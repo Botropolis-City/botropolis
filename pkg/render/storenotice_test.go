@@ -10,6 +10,7 @@ import (
 
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
+	"botropolis.city/botropolis/pkg/ui"
 )
 
 // Item 190: a statistics store the daemon refused is said on the map,
@@ -46,7 +47,7 @@ func TestStoreNotice(t *testing.T) {
 				"Statistics are on, but the daemon would not open its store: " + path + " was written by a newer Botropolis, which this one cannot read.",
 				"Update Botropolis to keep statistics again. The file is left as it is.",
 			},
-			Keys: "esc  close",
+			Keys: []ui.Key{{Key: "esc", Action: "close"}},
 		}},
 		{"the damaged notice", refused(state.WhyDamaged), storeWording{
 			Title: "Statistics are not being kept",
@@ -54,14 +55,14 @@ func TestStoreNotice(t *testing.T) {
 				"Statistics are on, but the daemon would not open its store: " + path + " is damaged.",
 				"Move it aside and restart the daemon, and Botropolis starts a new store. Nothing in the file was changed.",
 			},
-			Keys: "esc  close",
+			Keys: []ui.Key{{Key: "esc", Action: "close"}},
 		}},
 		{"the notice for another refusal", refused(""), storeWording{
 			Title: "Statistics are not being kept",
 			Lines: []string{
 				"Statistics are on, but the daemon could not open its store, " + path + ": it could not be opened: disk I/O error.",
 			},
-			Keys: "esc  close",
+			Keys: []ui.Key{{Key: "esc", Action: "close"}},
 		}},
 	} {
 		t.Run("when it is "+c.name, func(t *testing.T) {

@@ -134,7 +134,7 @@ func TestTidyWalk(t *testing.T) {
 		})
 
 		t.Run("its first card should offer Start clean, Walk through it and Later", func(t *testing.T) {
-			assert.Equal(t, []string{"c  Start clean", "enter  Walk through it", "l  Later"}, g.walk().buttonLabels())
+			assert.Equal(t, []string{"Start clean", "Walk through it", "Later"}, g.walk().buttonLabels())
 		})
 	})
 
@@ -166,7 +166,7 @@ func TestTidyWalk(t *testing.T) {
 		})
 
 		t.Run("it should offer a button for every key", func(t *testing.T) {
-			assert.Equal(t, []string{"enter  keep", "r  rename", "x  drop", "s  split", "-  take one out", "n  next", "p  back"},
+			assert.Equal(t, []string{"keep", "rename", "drop", "split", "take one out", "next", "back"},
 				g.walk().buttonLabels())
 		})
 

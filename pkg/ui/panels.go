@@ -14,9 +14,9 @@ const (
 
 // PanelAbout is each panel's line.
 var PanelAbout = map[string]string{
-	PanelLenses:   "what the map can show you; press a number to switch",
+	PanelLenses:   "what the map can show you",
 	PanelPower:    "where the tokens and the money went, by model, project and session",
-	PanelTimeline: "what has happened, newest first; enter goes to the session",
+	PanelTimeline: "what has happened, newest first",
 	PanelSettings: "how the city looks and behaves; changes are kept",
 	PanelReader:   "the conversation, to read without leaving the city",
 }

@@ -246,6 +246,7 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		band := city.RectAt(plate.Min.X+grid, y-grid/2, plate.Width()-2*grid, 3*lineH+grid)
 		g.rowShown(j, i, band)
 		if i == j.selected {
+			g.heldExtra = append(g.heldExtra, journalControls(band)...)
 			g.roundRect(screen, band, 0, th.Palette.Hairline)
 		}
 		title := e.Title
@@ -259,11 +260,9 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		g.text(screen, city.Point{X: x, Y: y + 2*lineH}, ui.Fit("Next: "+oneLine(e.Next), room, ui.Small, g.faces.Measure), ui.Small, th.Palette.Text)
 		y += 3*lineH + grid
 	}
-	footer := "enter goes there  ·  r restores the desk  ·  esc to the map  ·  " + g.findChords().Journal.String() + " brings this back"
-	if j.note != "" {
-		footer = j.note + "  ·  " + footer
+	if footer := journalFoot(j.note); footer != "" {
+		g.text(screen, city.Point{X: x, Y: plate.Max.Y - lineH - grid}, footer, ui.Small, th.Palette.Dim)
 	}
-	g.text(screen, city.Point{X: x, Y: plate.Max.Y - lineH - grid}, footer, ui.Small, th.Palette.Dim)
 }
 
 func oneLine(s string) string {
@@ -330,4 +329,14 @@ func resetPhrase(n int) string {
 		return "usage window reset"
 	}
 	return "usage windows reset"
+}
+
+// journalFoot is the journal's foot: what the last restore said, if
+// anything; its keys are the hold's (item 351).
+func journalFoot(note string) string { return note }
+
+// journalControls is the focused entry's key for the hold: r restores
+// its desk.
+func journalControls(row city.Rect) []ui.Control {
+	return []ui.Control{{Name: "restore", Rect: row, Keys: []string{"r"}}}
 }

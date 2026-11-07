@@ -1,6 +1,7 @@
 package render
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -77,8 +78,8 @@ func TestMoveToGroup(t *testing.T) {
 			assert.Equal(t, []string{"new group…", "PROJ-123 · headers", "LOG-88 · buffer", "SOLO-1 · alone", "no group"}, g.picker().labels())
 		})
 
-		t.Run("it should say in the title that new group… makes one", func(t *testing.T) {
-			assert.Contains(t, g.picker().title(), "new group… makes one")
+		t.Run("it should offer new group… as a row of its own, its title spelling no keys (item 351)", func(t *testing.T) {
+			assert.Equal(t, []any{"move to group", true}, []any{g.picker().title(), slices.Contains(g.picker().labels(), "new group…")})
 		})
 
 		t.Run("and a group is chosen", func(t *testing.T) {
