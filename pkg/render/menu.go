@@ -247,11 +247,11 @@ func (g *Game) runVerb(kind city.ActionKind) {
 
 func (p *menuPanel) layout(g *Game, width, height float64) ui.Menu {
 	_, _, measure := g.metrics()
-	footer := ui.LayoutFooter(g.theme, width, height, footerKeys, measure)
+	room := city.RectAt(0, 0, width, height)
 	if p.opener.Area() > 0 {
-		return ui.LayoutMenuUnder(g.theme, p.paths(g), p.focus, g.pointer(), p.opener, city.RectAt(0, 0, width, footer.Rect.Min.Y), measure)
+		return ui.LayoutMenuUnder(g.theme, p.paths(g), p.focus, g.pointer(), p.opener, room, measure)
 	}
-	return ui.LayoutMenu(g.theme, p.paths(g), p.focus, g.pointer(), p.at, city.RectAt(0, 0, width, footer.Rect.Min.Y), measure)
+	return ui.LayoutMenu(g.theme, p.paths(g), p.focus, g.pointer(), p.at, room, measure)
 }
 
 // rows is how many rows the focused column has.

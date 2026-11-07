@@ -61,9 +61,9 @@ func TestSidebarScrolls(t *testing.T) {
 			})
 		})
 
-		t.Run("it should keep the sidebar clear of the footer", func(t *testing.T) {
+		t.Run("it should keep the sidebar inside the map", func(t *testing.T) {
 			s := openSidebar(t).Shown()
-			assert.LessOrEqual(t, s.SidebarRect.Max.Y, s.FooterTop)
+			assert.LessOrEqual(t, s.SidebarRect.Max.Y, s.MapBottom)
 		})
 
 		t.Run("and end is pressed", func(t *testing.T) {
@@ -160,7 +160,7 @@ func TestSidebarCard(t *testing.T) {
 			require.NoError(t, d.Run(3))
 			s := d.Shown()
 			require.NotEmpty(t, s.Selected)
-			screen := city.Rect{Max: city.Point{X: 1024, Y: s.FooterTop}}
+			screen := city.Rect{Max: city.Point{X: 1024, Y: s.MapBottom}}
 
 			t.Run("it should show at least four rows", func(t *testing.T) {
 				assert.GreaterOrEqual(t, s.SidebarRows, 4)
@@ -170,7 +170,7 @@ func TestSidebarCard(t *testing.T) {
 				assert.Contains(t, s.SidebarSessions, s.Selected)
 			})
 
-			t.Run("it should keep the card whole on screen, above the footer", func(t *testing.T) {
+			t.Run("it should keep the card whole on screen", func(t *testing.T) {
 				assert.True(t, s.CardRect.Area() > 0 && s.CardRect.Min.X >= screen.Min.X && s.CardRect.Min.Y >= screen.Min.Y && s.CardRect.Max.X <= screen.Max.X && s.CardRect.Max.Y <= screen.Max.Y)
 			})
 
@@ -198,8 +198,8 @@ func TestSidebarCard(t *testing.T) {
 						assert.Greater(t, opened.CardRect.Height(), s.CardRect.Height())
 					})
 
-					t.Run("it should keep the card between the strip and the footer", func(t *testing.T) {
-						assert.True(t, opened.CardRect.Min.Y >= opened.StripBottom && opened.CardRect.Max.Y <= opened.FooterTop)
+					t.Run("it should keep the card between the strip and the window's bottom", func(t *testing.T) {
+						assert.True(t, opened.CardRect.Min.Y >= opened.StripBottom && opened.CardRect.Max.Y <= opened.MapBottom)
 					})
 
 					t.Run("it should still keep the card clear of the list", func(t *testing.T) {

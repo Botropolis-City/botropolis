@@ -19,7 +19,7 @@ func TestLayoutMinimap(t *testing.T) {
 			assert.True(t, ok)
 		})
 
-		t.Run("it should sit in the bottom-right corner above the footer", func(t *testing.T) {
+		t.Run("it should sit in the bottom-right corner above the bottom chrome", func(t *testing.T) {
 			assert.Equal(t, city.Point{X: 800 - 16, Y: 600 - 32 - 16}, box.Max)
 		})
 

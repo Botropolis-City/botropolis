@@ -151,9 +151,10 @@ type Shown struct {
 	Menu             bool
 	MenuRect         city.Rect
 	MenuFocus        ui.MenuFocus
-	// StripBottom is where the strip along the top ends, FooterTop where
-	// the footer begins, and KeyRowTop where its key row does.
-	StripBottom, FooterTop, KeyRowTop float64
+	// StripBottom is where the strip along the top ends, and MapBottom
+	// where the map's room does: the window's bottom, less the legend
+	// when one is up (item 353).
+	StripBottom, MapBottom float64
 	// Found is the finder's results, by session id, best first, while it
 	// is open.
 	Found []string
@@ -808,7 +809,7 @@ func (g *Game) noteShown() {
 		}
 	}
 	g.mu.Lock()
-	s.FooterTop, s.KeyRowTop = g.footerBar.Rect.Min.Y, g.footerBar.KeyRow.Min.Y
+	s.MapBottom = g.mapBottom
 	g.mu.Unlock()
 	if r := g.referenceOpen(); r != nil && r.ref.Current().ID == ui.KeysEntry {
 		g.mu.Lock()

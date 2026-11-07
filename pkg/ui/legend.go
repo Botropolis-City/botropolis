@@ -43,8 +43,8 @@ type Legend struct {
 const barWidth = 12
 
 // LayoutLegend places the legend as one row directly above bottom, which
-// is the top of whatever the footer laid out. Stacking it against the
-// footer rather than against the window is what keeps a passing status
+// is the top of the reading band while one is up, else the window's
+// bottom. Stacking it against the band is what keeps the band
 // from landing on top of it.
 func LayoutLegend(th Theme, width, bottom float64, spec city.Legend, measure Measure) Legend {
 	if !spec.Shown {

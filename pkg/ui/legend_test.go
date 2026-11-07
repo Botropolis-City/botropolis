@@ -65,7 +65,7 @@ func TestLayoutLegend(t *testing.T) {
 		})
 	})
 
-	t.Run("when the footer has already taken its room", func(t *testing.T) {
+	t.Run("when the reading band has already taken its room", func(t *testing.T) {
 		spec := city.Legend{Shown: true, Title: "spend", Ramp: true, Low: "0", High: "$12.50"}
 		l := ui.LayoutLegend(th, width, bottom, spec, measure7)
 

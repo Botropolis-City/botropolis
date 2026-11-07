@@ -95,7 +95,7 @@ func (g *Game) districtVerb(d *city.District) func(city.ActionKind) {
 }
 
 // onChrome is whether a point is on something drawn over the map: the
-// card, the strip and the footer, the sidebar, the stream, the minimap
+// card, the strip, the sidebar, the stream, the minimap
 // or the lens panel.
 func (g *Game) onChrome(at city.Point) bool {
 	if g.pinned.Rect.Contains(at) {

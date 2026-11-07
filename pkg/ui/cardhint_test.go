@@ -120,6 +120,27 @@ func TestCardHintCap(t *testing.T) {
 		})
 	})
 
+	// Item 353: the strip's hover card has no buttons, and still ends
+	// with the reference's key.
+	t.Run("when a card with no buttons has a hint and a key", func(t *testing.T) {
+		card := city.Card{Title: "resting", Lines: []string{"Explain the build"}, Hint: "every key", HintKey: []string{"?"}}
+		c := laid(card)
+
+		t.Run("it should show the hint", func(t *testing.T) {
+			require.NotEmpty(t, c.Hint)
+			assert.Equal(t, "every key", c.Hint[0].Text)
+		})
+
+		t.Run("it should end the line with the key's cap", func(t *testing.T) {
+			assert.Equal(t, []string{"?"}, labels(c.HintCaps))
+		})
+
+		t.Run("it should keep the cap inside the card", func(t *testing.T) {
+			require.NotEmpty(t, c.HintCaps)
+			assert.Equal(t, c.Rect, c.Rect.Union(c.HintCaps[0].Rect))
+		})
+	})
+
 	t.Run("when the card is moved", func(t *testing.T) {
 		c := laid(hovering(base, 1))
 		moved := c.MoveTo(c.Rect.Min.Add(city.Point{X: 30, Y: 40}))

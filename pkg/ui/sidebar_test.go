@@ -62,7 +62,7 @@ func TestLayoutSidebar(t *testing.T) {
 	t.Run("when the sidebar is laid out", func(t *testing.T) {
 		sb := ui.LayoutSidebar(th, 32, 568, someProjects(), []city.ProjectRow{{Root: "/p/old", Name: "p/old"}}, "d", 0, false, measure7)
 
-		t.Run("it should run from the strip to the footer down the left", func(t *testing.T) {
+		t.Run("it should run from the strip to the bottom down the left", func(t *testing.T) {
 			assert.Equal(t, city.RectAt(0, 32, 288, 536), sb.Rect)
 		})
 

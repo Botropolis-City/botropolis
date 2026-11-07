@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Opened from a card's button, it hangs just under that button, raised over the card with a shadow and a lighter surface and a notch pointing at the button; space opens it under the Session button.
   The button stays pressed with its chevron turned up while the menu is open, and the column it opened lights.
   A right-click still opens it at the pointer.
+- **The bottom bar is gone and the map is taller; hold `e` for every key.**
+  The map runs to the window's bottom edge, and a fitted view uses the room.
+  Hovering a count on the top strip names the key that opens the reference, as it is bound.
+  While a first launch reads your history, its progress line is a band along the bottom until it is done.
 - **A group's line has no stations.**
   The line runs between buildings, not to dots floating beside them.
   A link into a site that waits on another is drawn dark, and one into a site joined on a guess is dashed.

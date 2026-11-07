@@ -10,7 +10,7 @@ import (
 )
 
 // Item 352: what just happened shows on one plate top-centre under the
-// strip, and as the stream's newest line, never on the footer.
+// strip, and as the stream's newest line.
 func TestNoticePlate(t *testing.T) {
 	home := stageDemo(t, "hamlet")
 	const width, height = 1600, 900
@@ -40,14 +40,8 @@ func TestNoticePlate(t *testing.T) {
 			assert.Equal(t, s.Notice, s.StreamNewest)
 		})
 
-		t.Run("it should not grow the footer", func(t *testing.T) {
-			assert.Equal(t, before.FooterTop, s.FooterTop)
-		})
-
-		// Item 352: with a session needing you, the footer is the key row
-		// alone; the needs-you line is the strip's chip.
-		t.Run("it should leave the footer the key row alone while a session needs you", func(t *testing.T) {
-			assert.Equal(t, s.KeyRowTop, s.FooterTop)
+		t.Run("it should not move the map's bottom", func(t *testing.T) {
+			assert.Equal(t, before.MapBottom, s.MapBottom)
 		})
 	})
 }

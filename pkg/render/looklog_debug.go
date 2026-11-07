@@ -61,7 +61,7 @@ func (g *Game) logMiss(id string, run step, key lookKey) {
 	fmt.Printf("look-miss: frame=%d tick=%d id=%s run=%d changed=%s\n", g.lookFrame, g.ticks, state.ShortID(id), run, changed)
 }
 
-// logReading writes the footer's reading line, for item 159's first
+// logReading writes the reading band's line, for item 159's first
 // launch test.
 func (g *Game) logReading(line string) {
 	if line != "" {

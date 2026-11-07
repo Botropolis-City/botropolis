@@ -26,10 +26,20 @@ func fullZoom(t testing.TB, opts DriveOptions) *Drive {
 	d, err := NewDrive(opts)
 	require.NoError(t, err)
 	require.NoError(t, d.Run(30))
+	// The zoom point is pinned to what this framed at slice 3: the fit
+	// moved when the footer went (item 353), and a fit 40 px taller
+	// lands the zoom on a denser patch. Refitting with the footer's old
+	// margin, then zooming, frames the same world point; once zoomed,
+	// a change to the bottom reserve does not move the view.
+	d.game.scene.SetBottomChrome(footerFitMargin)
 	d.game.scene.Wheel(city.Point{X: 960, Y: 600}, 40)
 	require.NoError(t, d.Run(240))
 	return d
 }
+
+// footerFitMargin is the room the fit kept at the bottom for the footer
+// until item 353.
+const footerFitMargin = 40.0
 
 func TestFullZoomDrawsWhatIsOnScreen(t *testing.T) {
 	t.Run("when a city of 217 sessions has settled at full zoom", func(t *testing.T) {

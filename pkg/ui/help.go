@@ -48,7 +48,7 @@ func (h Help) Hit(at city.Point) (Key, bool) {
 }
 
 // Moved is the list shifted by a distance, so it can be laid out in the
-// room between the strip and the footer and then put there.
+// room under the strip and then put there.
 func (h Help) Moved(by city.Point) Help {
 	shift := func(r city.Rect) city.Rect { return city.Rect{Min: r.Min.Add(by), Max: r.Max.Add(by)} }
 	h.Rect = shift(h.Rect)

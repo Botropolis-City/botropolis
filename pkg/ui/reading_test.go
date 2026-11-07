@@ -11,7 +11,7 @@ import (
 	"botropolis.city/botropolis/pkg/ui"
 )
 
-// Item 159: while a first launch reads the history, the footer says how
+// Item 159: while a first launch reads the history, the city says how
 // far it has got, on a bar.
 func TestReadingLine(t *testing.T) {
 	scan := state.ScanProgress{Done: 42, Known: 100}
@@ -82,40 +82,38 @@ func TestScanRate(t *testing.T) {
 	})
 }
 
-func TestFooterWithReading(t *testing.T) {
+// Item 353: with the footer gone, the reading line is a band of its own
+// along the window's bottom, there only while the history is read.
+func TestLayoutReading(t *testing.T) {
 	th := ui.NewTheme(1)
-	keys := []ui.Key{{"drag", "pan"}}
 
 	t.Run("when the history is being read", func(t *testing.T) {
-		plain := ui.LayoutFooter(th, 800, 600, keys, measure7)
-		f := plain.WithReading(th, 800, "Reading your history · 42%", 0.42, measure7)
+		r := ui.LayoutReading(th, 800, 600, "Reading your history · 42%", 0.42, measure7)
 
 		t.Run("it should show the line", func(t *testing.T) {
-			assert.Equal(t, "Reading your history · 42%", f.Reading.Text)
+			assert.Equal(t, "Reading your history · 42%", r.Line.Text)
+		})
+
+		t.Run("it should end at the window's bottom", func(t *testing.T) {
+			assert.Equal(t, 600.0, r.Rect.Max.Y)
+		})
+
+		t.Run("it should put the bar under the line", func(t *testing.T) {
+			assert.Greater(t, r.Bar.Min.Y, r.Line.At.Y)
 		})
 
 		t.Run("it should fill the bar to the fraction read", func(t *testing.T) {
-			assert.InDelta(t, 0.42*f.ReadingBar.Width(), f.ReadingFill.Width(), 0.001)
+			assert.InDelta(t, 0.42*r.Bar.Width(), r.Fill.Width(), 0.001)
 		})
 
 		t.Run("it should start the fill where the bar starts", func(t *testing.T) {
-			assert.Equal(t, f.ReadingBar.Min, f.ReadingFill.Min)
-		})
-
-		t.Run("it should grow the footer to hold it", func(t *testing.T) {
-			assert.LessOrEqual(t, f.Rect.Min.Y, f.Reading.At.Y)
-		})
-
-		t.Run("it should leave the key row where it was", func(t *testing.T) {
-			assert.Equal(t, plain.KeyRow, f.KeyRow)
+			assert.Equal(t, r.Bar.Min, r.Fill.Min)
 		})
 	})
 
 	t.Run("when nothing is being read", func(t *testing.T) {
-		plain := ui.LayoutFooter(th, 800, 600, keys, measure7)
-
-		t.Run("it should leave the footer alone", func(t *testing.T) {
-			assert.Equal(t, plain, plain.WithReading(th, 800, "", 0, measure7))
+		t.Run("it should lay out nothing", func(t *testing.T) {
+			assert.Equal(t, ui.Reading{}, ui.LayoutReading(th, 800, 600, "", 0, measure7))
 		})
 	})
 }

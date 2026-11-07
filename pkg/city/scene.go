@@ -707,7 +707,7 @@ func (s *Scene) SetTopChrome(px float64) {
 func (s *Scene) TopChrome() float64 { return s.topChrome }
 
 // SetBottomChrome reserves screen room for chrome along the bottom, such
-// as the footer; the fit margin still applies when it is shorter.
+// as the legend.
 func (s *Scene) SetBottomChrome(px float64) {
 	s.reserve(&s.bottom, px, Point{})
 }
@@ -737,9 +737,9 @@ func (s *Scene) reserve(inset *float64, px float64, axis Point) {
 }
 
 // chromeInsets is the room the window's own chrome takes: the strip,
-// the footer, the sidebar and the stream's corner, whatever the zoom.
+// the legend, the sidebar and the stream's corner, whatever the zoom.
 func (s *Scene) chromeInsets() Insets {
-	return s.cornerInsets(Insets{Bottom: math.Max(FitFooter, s.bottom), Top: s.topChrome, Left: s.left})
+	return s.cornerInsets(Insets{Bottom: s.bottom, Top: s.topChrome, Left: s.left})
 }
 
 func (s *Scene) Insets() Insets {

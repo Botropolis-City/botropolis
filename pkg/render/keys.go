@@ -17,7 +17,7 @@ import (
 )
 
 // bindings is every key the city answers to, in the order the help lists
-// them; the footer shows the few that matter most.
+// them.
 var bindings = []ui.Key{
 	{Key: "right or middle drag", Action: "pan, from anywhere"},
 	{Key: "drag", Action: "pan; on a district, pick it up"},
@@ -172,18 +172,6 @@ const planBinding = "m"
 // labelsBinding is the help's row for turning the labels off and on,
 // which helpKeys spells with the key as configured (item 102).
 const labelsBinding = "z"
-
-var footerKeys = []ui.Key{
-	{Key: "right drag", Action: "pan"},
-	{Key: "wheel", Action: "zoom"},
-	{Key: "click", Action: "select"},
-	{Key: "tab", Action: "next needs-you"},
-	{Key: "v", Action: "lenses"},
-	{Key: "b", Action: "sidebar"},
-	{Key: "f", Action: "Skyline"},
-	{Key: "?", Action: "help"},
-	{Key: "q", Action: "quit (asks; y or enter confirms)"},
-}
 
 const (
 	keyPanStep = 12.0
@@ -369,7 +357,7 @@ func (g *Game) answerKeys() error {
 		// Escape is back, and the last rung back is settings, not the
 		// door. Bug 43: it used to arm the quit prompt here, so the key
 		// people press to get out of something asked them to leave.
-		// Quit is q, which is what the footer has always said.
+		// Quit is q.
 		g.settingsOpen = true
 		return nil
 	}
@@ -536,7 +524,7 @@ func (g *Game) leave() error {
 	return ebiten.Termination
 }
 
-// act hands an action to the actor and reports a failure in the footer.
+// act hands an action to the actor and reports a failure as a notice.
 func (g *Game) act(action city.Action) {
 	action = g.scene.ForTeam(action)
 	if action.Kind == city.ActionMoveToGroup {

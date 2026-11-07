@@ -30,6 +30,6 @@ Rather than restate the hull sizes beside the river, `TestRiverFitsThreeHullsAbr
 It failed on the two-cell river with the exact overlap worked out by hand beforehand, which is the first time this shape was caught by a test rather than by Aria looking at a frame.
 A stale derivation is worth as much attention as a stale number: when a constant's reason changes, the comment explaining it becomes the thing that is wrong.
 
-**The honest gap.** `labels_test.go` ties the footer's verbs, the view key's nine questions and Enter's promise. It does not tie the five mover cards or the legend's aggregate, and those are the likeliest to drift, because a card's sentence is assembled from several fields and any one of them can change meaning while the sentence stays the same. The class is not closed.
+**The honest gap.** `labels_test.go` ties the help's verbs, the view key's nine questions and Enter's promise. It does not tie the five mover cards or the legend's aggregate, and those are the likeliest to drift, because a card's sentence is assembled from several fields and any one of them can change meaning while the sentence stays the same. The class is not closed.
 
 Not every wrong claim in this project has been this shape, and the next section is one that is not — a single number, correctly measured, that meant nothing because of the set it was compared against.

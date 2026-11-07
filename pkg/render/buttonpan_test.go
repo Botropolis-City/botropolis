@@ -229,10 +229,10 @@ func TestPanningHelp(t *testing.T) {
 		})
 	})
 
-	t.Run("when the footer lists its keys", func(t *testing.T) {
-		t.Run("it should offer the right drag to pan", func(t *testing.T) {
-			verb, _ := action(footerKeys, "right drag")
-			assert.Equal(t, "pan", verb)
+	t.Run("when the help lists the right drag", func(t *testing.T) {
+		t.Run("it should offer it to pan", func(t *testing.T) {
+			verb, _ := action(bindings, "right or middle drag")
+			assert.Contains(t, verb, "pan")
 		})
 	})
 }

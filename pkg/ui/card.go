@@ -146,7 +146,7 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 		}
 		c.Buttons = row
 	}
-	if rows := hintRows(th, card, c.Rect.Width()-2*pad, measure); rows > 0 && len(c.Buttons) > 0 {
+	if rows := hintRows(th, card, c.Rect.Width()-2*pad, measure); rows > 0 && (len(c.Buttons) > 0 || len(card.Hints) == 0) {
 		top := c.Rect.Max.Y - pad + grid/2
 		lines, keyRow, keyX := keyedLines(th, card.Hint, card.HintKey, c.Rect.Width()-2*pad, rows, measure)
 		for i, line := range lines {

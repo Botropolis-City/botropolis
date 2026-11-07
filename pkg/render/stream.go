@@ -42,7 +42,7 @@ func (g *Game) toggleStream() {
 // drawStream lays the panel in its corner and reserves its room, so the
 // map is never under it (item 100). It reports the panel's left edge,
 // where the cards must stop.
-func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float64) float64 {
+func (g *Game) drawStream(screen *ebiten.Image, width, height, top, reserved float64) float64 {
 	if !g.streamShown() {
 		g.scene.SetCornerChrome(city.Rect{})
 		g.mu.Lock()
@@ -51,7 +51,7 @@ func (g *Game) drawStream(screen *ebiten.Image, width, height, top, footer float
 		return width
 	}
 	th := g.theme
-	area := ui.StreamArea(th, ui.StreamCorner, width, height, top, footer)
+	area := ui.StreamArea(th, ui.StreamCorner, width, height, top, reserved)
 	g.scene.SetCornerChrome(area)
 	list := g.scene.Events()
 	g.mu.Lock()

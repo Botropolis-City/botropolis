@@ -31,8 +31,8 @@ func TestTriageWalk(t *testing.T) {
 			assert.Contains(t, d.Shown().CardHeader, "1 of ")
 		})
 
-		t.Run("it should put no line on the footer", func(t *testing.T) {
-			assert.GreaterOrEqual(t, d.Shown().FooterTop, before.FooterTop)
+		t.Run("it should not move the map's bottom", func(t *testing.T) {
+			assert.GreaterOrEqual(t, d.Shown().MapBottom, before.MapBottom)
 		})
 
 		t.Run("and esc is pressed", func(t *testing.T) {

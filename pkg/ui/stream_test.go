@@ -16,14 +16,14 @@ import (
 
 func TestLayoutStream(t *testing.T) {
 	th := ui.NewTheme(1)
-	const width, height, top, footer = 1600.0, 1000.0, 32.0, 40.0
+	const width, height, top, bottom = 1600.0, 1000.0, 32.0, 40.0
 	at := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
 	list := []events.Event{
 		{At: at.Add(-3 * time.Minute), Kind: events.Started, SessionID: "a", Title: "Add reset headers"},
 		{At: at.Add(-time.Minute), Kind: events.NeedsYou, SessionID: "b", Title: "Allow the headers through"},
 		{At: at.Add(-2 * time.Minute), Kind: events.Error, SessionID: "c", Title: "Cap the log buffer"},
 	}
-	area := ui.StreamArea(th, ui.TopRight, width, height, top, footer)
+	area := ui.StreamArea(th, ui.TopRight, width, height, top, bottom)
 	s := ui.LayoutStream(th, list, area, measure7, 0)
 
 	t.Run("it should put the newest first", func(t *testing.T) {
@@ -92,11 +92,11 @@ func TestLayoutStream(t *testing.T) {
 
 func TestStreamArea(t *testing.T) {
 	th := ui.NewTheme(1)
-	const height, top, footer = 800.0, 32.0, 40.0
+	const height, top, bottom = 800.0, 32.0, 40.0
 	for _, corner := range []ui.Corner{ui.TopRight, ui.BottomRight} {
 		for _, width := range []float64{600, 700, 768, 960, 1280, 1600, 2560} {
 			t.Run(fmt.Sprintf("when the panel is in the %v corner, and the window is %v wide", corner, width), func(t *testing.T) {
-				area := ui.StreamArea(th, corner, width, height, top, footer)
+				area := ui.StreamArea(th, corner, width, height, top, bottom)
 				streamWidthRules(t, th, area, width)
 
 				t.Run("it should be its panel's height", func(t *testing.T) {
@@ -112,8 +112,8 @@ func TestStreamArea(t *testing.T) {
 						assert.Equal(t, top, area.Min.Y)
 					})
 				} else {
-					t.Run("it should sit on the footer", func(t *testing.T) {
-						assert.Equal(t, height-footer, area.Max.Y)
+					t.Run("it should sit on the bottom chrome", func(t *testing.T) {
+						assert.Equal(t, height-bottom, area.Max.Y)
 					})
 				}
 			})
@@ -121,10 +121,10 @@ func TestStreamArea(t *testing.T) {
 
 		t.Run(fmt.Sprintf("when the panel is in the %v corner, and the window is too short for it", corner), func(t *testing.T) {
 			const short = 180.0
-			area := ui.StreamArea(th, corner, 1600, short, top, footer)
+			area := ui.StreamArea(th, corner, 1600, short, top, bottom)
 
-			t.Run("it should fit between the strip and the footer", func(t *testing.T) {
-				assert.True(t, area.Min.Y >= top && area.Max.Y <= short-footer && area.Height() > 0, "panel %v", area)
+			t.Run("it should fit between the strip and the bottom chrome", func(t *testing.T) {
+				assert.True(t, area.Min.Y >= top && area.Max.Y <= short-bottom && area.Height() > 0, "panel %v", area)
 			})
 		})
 	}
@@ -249,12 +249,12 @@ func TestLayoutStreamWraps(t *testing.T) {
 
 func TestMinimapBesideStream(t *testing.T) {
 	th := ui.NewTheme(1)
-	const width, height, top, footer = 1600.0, 900.0, 32.0, 40.0
-	mini, ok := ui.LayoutMinimap(th, width, height, footer)
+	const width, height, top, bottom = 1600.0, 900.0, 32.0, 40.0
+	mini, ok := ui.LayoutMinimap(th, width, height, bottom)
 	require.True(t, ok)
 
 	t.Run("when the panel is in the bottom right and the minimap is drawn", func(t *testing.T) {
-		panel := ui.StreamArea(th, ui.BottomRight, width, height, top, footer)
+		panel := ui.StreamArea(th, ui.BottomRight, width, height, top, bottom)
 		moved := ui.MinimapBesideStream(th, mini, panel, ui.BottomRight)
 
 		t.Run("it should sit above the panel, clear of it", func(t *testing.T) {
@@ -267,7 +267,7 @@ func TestMinimapBesideStream(t *testing.T) {
 	})
 
 	t.Run("when the panel is in the top right", func(t *testing.T) {
-		panel := ui.StreamArea(th, ui.TopRight, width, height, top, footer)
+		panel := ui.StreamArea(th, ui.TopRight, width, height, top, bottom)
 
 		t.Run("it should not move", func(t *testing.T) {
 			assert.Equal(t, mini, ui.MinimapBesideStream(th, mini, panel, ui.TopRight))

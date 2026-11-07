@@ -299,7 +299,7 @@ func TestScene(t *testing.T) {
 		t.Run("it should refit the city to the new size", func(t *testing.T) {
 			centre := s.Camera().WorldToScreen(s.City().Bounds().Center())
 			assert.InDelta(t, (1024-city.LibraryLabelWidth)/2, centre.X, 1e-6)
-			assert.InDelta(t, city.LabelHeight+(768-city.LabelHeight-city.FitFooter)/2, centre.Y, 1e-6)
+			assert.InDelta(t, city.LabelHeight+(768-city.LabelHeight)/2, centre.Y, 1e-6)
 		})
 	})
 
@@ -331,7 +331,7 @@ func TestScene(t *testing.T) {
 		t.Run("it should fit the city to the new size", func(t *testing.T) {
 			centre := s.Camera().WorldToScreen(s.City().Bounds().Center())
 			assert.InDelta(t, (1024-city.LibraryLabelWidth)/2, centre.X, 1e-6)
-			assert.InDelta(t, city.LabelHeight+(768-city.LabelHeight-city.FitFooter)/2, centre.Y, 1e-6)
+			assert.InDelta(t, city.LabelHeight+(768-city.LabelHeight)/2, centre.Y, 1e-6)
 		})
 	})
 }
@@ -1065,21 +1065,22 @@ func TestSceneSize(t *testing.T) {
 }
 
 func TestBottomChrome(t *testing.T) {
-	t.Run("when the window has a footer taller than the fit margin", func(t *testing.T) {
+	// Item 353: the footer's fit margin went with the footer.
+	t.Run("when the legend reserves room at the bottom", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working))
-		s.SetBottomChrome(city.FitFooter + 30)
+		s.SetBottomChrome(30)
 
-		t.Run("it should reserve the footer at the bottom", func(t *testing.T) {
-			assert.InDelta(t, city.FitFooter+30, s.Insets().Bottom, 1e-9)
+		t.Run("it should reserve exactly that", func(t *testing.T) {
+			assert.InDelta(t, 30, s.Insets().Bottom, 1e-9)
 		})
 	})
 
-	t.Run("when the footer is shorter than the fit margin", func(t *testing.T) {
+	t.Run("when nothing is reserved at the bottom", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working))
-		s.SetBottomChrome(10)
+		s.SetBottomChrome(0)
 
-		t.Run("it should keep the fit margin", func(t *testing.T) {
-			assert.InDelta(t, city.FitFooter, s.Insets().Bottom, 1e-9)
+		t.Run("it should reserve nothing there", func(t *testing.T) {
+			assert.Zero(t, s.Insets().Bottom)
 		})
 	})
 }
@@ -1163,7 +1164,7 @@ func TestSceneInsets(t *testing.T) {
 		s.SetSnapshot(richSnapshot())
 
 		t.Run("it should reserve label room on the left and top", func(t *testing.T) {
-			assert.Equal(t, city.Insets{Left: float64(len("datadog-mcp"))*city.LabelCharWidth + city.TowerLabelMargin, Right: city.LibraryLabelWidth, Top: city.LabelHeight, Bottom: city.FitFooter}, s.Insets())
+			assert.Equal(t, city.Insets{Left: float64(len("datadog-mcp"))*city.LabelCharWidth + city.TowerLabelMargin, Right: city.LibraryLabelWidth, Top: city.LabelHeight}, s.Insets())
 		})
 
 		t.Run("it should keep the first tower clear of the label column", func(t *testing.T) {
@@ -1188,7 +1189,7 @@ func TestSceneInsets(t *testing.T) {
 
 		t.Run("it should fit without the label room", func(t *testing.T) {
 			plain := city.NewCamera()
-			plain.FitWithInsets(s.City().Extent(), 500, 300, city.Insets{Bottom: city.FitFooter})
+			plain.FitWithInsets(s.City().Extent(), 500, 300, city.Insets{})
 			assert.InDelta(t, plain.Zoom, s.Camera().Zoom, 1e-9)
 			assert.GreaterOrEqual(t, s.Camera().WorldToScreen(s.City().Bounds().Min).X, 0.0)
 		})
@@ -1259,11 +1260,11 @@ func TestSidebarRoom(t *testing.T) {
 
 	t.Run("when the strip's height arrives after the first fit", func(t *testing.T) {
 		s := scene(t, session("a", cinders, state.Working))
-		before := centreOf(t, s, "a")
 		s.SetTopChrome(26)
 
 		t.Run("it should refit the city below it", func(t *testing.T) {
-			assert.InDelta(t, before.Y+13, centreOf(t, s, "a").Y, 1e-6)
+			top := s.Insets().Top
+			assert.InDelta(t, top+(600-top)/2, s.Camera().WorldToScreen(s.City().Extent().Center()).Y, 1e-6)
 		})
 	})
 }

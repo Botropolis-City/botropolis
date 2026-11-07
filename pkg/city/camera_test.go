@@ -124,14 +124,14 @@ func TestCamera(t *testing.T) {
 		t.Run("it should centre it", func(t *testing.T) {
 			centre := cam.WorldToScreen(c.Bounds().Center())
 			assert.InDelta(t, 400, centre.X, 1e-6)
-			assert.InDelta(t, (600-city.FitFooter)/2, centre.Y, 1e-6)
+			assert.InDelta(t, 600.0/2, centre.Y, 1e-6)
 		})
 	})
 
 	t.Run("when the camera is fitted with a left inset", func(t *testing.T) {
 		c := build(t, city.NewLayout(), session("a", cinders, state.Working))
 		cam := city.NewCamera()
-		cam.FitWithInsets(c.Bounds(), 800, 600, city.Insets{Left: 150, Bottom: city.FitFooter})
+		cam.FitWithInsets(c.Bounds(), 800, 600, city.Insets{Left: 150})
 
 		t.Run("it should keep the city right of the inset", func(t *testing.T) {
 			assert.GreaterOrEqual(t, cam.WorldToScreen(c.Bounds().Min).X, 150.0)
@@ -149,11 +149,11 @@ func TestCamera(t *testing.T) {
 		}
 		c := build(t, city.NewLayout(), sessions...)
 		cam := city.NewCamera()
-		cam.FitWithInsets(c.Bounds(), 1200, 300, city.Insets{Bottom: city.FitFooter})
+		cam.FitWithInsets(c.Bounds(), 1200, 300, city.Insets{})
 
 		t.Run("it should zoom out past the wheel floor to fit", func(t *testing.T) {
 			assert.Less(t, cam.Zoom, city.MinZoom)
-			assert.LessOrEqual(t, cam.WorldToScreen(c.Bounds().Max).Y, 300-city.FitFooter)
+			assert.LessOrEqual(t, cam.WorldToScreen(c.Bounds().Max).Y, 300.0)
 			assert.GreaterOrEqual(t, cam.WorldToScreen(c.Bounds().Min).Y, 0.0)
 		})
 	})

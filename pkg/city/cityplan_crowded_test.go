@@ -19,7 +19,7 @@ func TestCityPlanCrowded(t *testing.T) {
 		compact   bool
 	}{
 		{10, false},
-		{40, true},
+		{50, true},
 		{100, true},
 	} {
 		t.Run(fmt.Sprintf("when the city has %d districts", c.districts), func(t *testing.T) {

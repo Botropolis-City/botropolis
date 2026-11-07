@@ -10,7 +10,7 @@ import (
 )
 
 // drawSidebar lists the projects down the left between the strip and
-// the footer, with the selection's card docked at its foot, and keeps
+// the window's bottom, with the selection's card docked at its foot, and keeps
 // the layout for clicks.
 func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	th := g.theme

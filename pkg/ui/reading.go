@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/state"
 )
 
-// rateSettles is how long a scan's rate is watched before the footer
+// rateSettles is how long a scan's rate is watched before the band
 // estimates the time left, and rateWindow how far back it looks: the
 // paced read starts and stops, so a few seconds say little (item 159).
 const (
@@ -16,7 +15,7 @@ const (
 	rateWindow  = time.Minute
 )
 
-// ReadingLine is the footer's line while the history is read: how far,
+// ReadingLine is the reading band's line while the history is read: how far,
 // how long is left once the rate has settled, and what fills in.
 func ReadingLine(scan state.ScanProgress, left time.Duration, settled bool) string {
 	percent := int64(0)
@@ -74,22 +73,4 @@ func (r *ScanRate) Remaining(done, known int64) (time.Duration, bool) {
 		return 0, false
 	}
 	return time.Duration(float64(max(known-done, 0)) / float64(read) * float64(span)), true
-}
-
-// WithReading puts the reading line and its bar on top of the footer,
-// filled to fraction, so they never draw over the key row or a
-// status. An empty line leaves the footer alone.
-func (f Footer) WithReading(th Theme, width float64, line string, fraction float64, measure Measure) Footer {
-	if line == "" {
-		return f
-	}
-	grid := th.Grid()
-	_, lineH := measure("", f.Size)
-	barH := grid / 2
-	top := f.Rect.Min.Y - (lineH + barH + 2*grid)
-	f.Reading = Text{Text: line, At: city.Point{X: 2 * grid, Y: top + grid/2}, Size: f.Size}
-	f.ReadingBar = city.RectAt(2*grid, top+grid/2+lineH+grid/2, width-4*grid, barH)
-	f.ReadingFill = city.RectAt(f.ReadingBar.Min.X, f.ReadingBar.Min.Y, f.ReadingBar.Width()*min(max(fraction, 0), 1), barH)
-	f.Rect = city.RectAt(0, top, f.Rect.Width(), f.Rect.Max.Y-top)
-	return f
 }

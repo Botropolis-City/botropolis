@@ -25,8 +25,6 @@ const (
 	// does" is a draw-up below assets.KitDrawUpMost, not a cut at 2.
 	MaxZoom = 2.0
 	fitPad  = 40.0
-	// FitFooter keeps the bottom strip, where the footer draws, clear of the city.
-	FitFooter = 40.0
 )
 
 // ZoomSteps is the wheel's ladder: 16 px tiles land on whole screen
@@ -246,11 +244,11 @@ func snapDown(zoom float64) float64 {
 }
 
 func (c *Camera) Fit(bounds Rect, width, height float64) {
-	c.FitWithInsets(bounds, width, height, Insets{Bottom: FitFooter})
+	c.FitWithInsets(bounds, width, height, Insets{})
 }
 
 // Insets are screen-space margins kept clear of the city when fitting: the
-// footer at the bottom, tower labels on the left, landmark labels on top.
+// legend at the bottom, tower labels on the left, landmark labels on top.
 type Insets struct {
 	Left, Top, Right, Bottom float64
 }

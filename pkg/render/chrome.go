@@ -13,36 +13,40 @@ import (
 
 var colorScrim = color.NRGBA{0x00, 0x00, 0x00, 0x80}
 
-// chrome is everything fixed to the window: strip, minimap, card, footer.
+// chrome is everything fixed to the window: strip, minimap, card, and
+// the reading band while a first launch reads the history. There is no
+// bar along the bottom; the map runs to the window's edge (item 353).
 func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	th := g.theme
 	g.mu.Lock()
 	message, _ := g.notice.Current(timeNow())
 	g.mu.Unlock()
-	footer := ui.LayoutFooter(th, width, height, footerKeys, g.faces.Measure)
-	// Triage's place is its card's header (item 352), not the footer.
+	// Triage's place is its card's header (item 352).
 	triaging := g.triage() != nil
 	if _, ok := g.scene.TriageStep(); !ok {
 		triaging = false
 	}
+	var reading ui.Reading
 	if scan := g.scene.Snapshot().Scan; scan != nil && scan.Known > 0 {
 		g.scanRate.Observe(timeNow(), scan.Done)
 		left, settled := g.scanRate.Remaining(scan.Done, scan.Known)
-		footer = footer.WithReading(th, width, ui.ReadingLine(*scan, left, settled), float64(scan.Done)/float64(scan.Known), g.faces.Measure)
-		g.logReading(footer.Reading.Text)
+		reading = ui.LayoutReading(th, width, height, ui.ReadingLine(*scan, left, settled), float64(scan.Done)/float64(scan.Known), g.faces.Measure)
+		g.logReading(reading.Line.Text)
 	}
-	// Kept so a click hit-tests the bar that was actually drawn, the
-	// same way the view key does. Bug 43.
-	g.mu.Lock()
-	g.footerBar = footer
-	g.mu.Unlock()
-	legend := ui.LayoutLegend(th, width, footer.Rect.Min.Y, g.scene.Legend(), g.faces.Measure)
+	floor := height
+	if reading.Rect.Area() > 0 {
+		floor = reading.Rect.Min.Y
+	}
+	legend := ui.LayoutLegend(th, width, floor, g.scene.Legend(), g.faces.Measure)
 	var top float64
 	g.baked(bakeStrip, screen, func(dst *ebiten.Image) { top = g.strip(dst, width) })
 	g.scene.SetTopChrome(top)
-	bottom := footer.KeyRow.Height() + legend.Rect.Height()
+	bottom := legend.Rect.Height()
 	g.scene.SetBottomChrome(bottom)
-	streamFoot := max(bottom, height-footer.Rect.Min.Y)
+	g.mu.Lock()
+	g.mapBottom = height - bottom
+	g.mu.Unlock()
+	streamFoot := max(bottom, height-floor)
 	minimapBox := city.Rect{}
 	if box, ok := ui.LayoutMinimap(th, width, height, bottom); ok && g.minimapAllowed() {
 		if g.streamShown() {
@@ -65,7 +69,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	g.pinnedVerbs, g.pinnedHints = city.Verbs{}, nil
 	g.cardOver = ui.Card{}
 	if g.sidebar {
-		g.drawSidebar(screen, top, min(height-bottom, footer.Rect.Min.Y))
+		g.drawSidebar(screen, top, min(height-bottom, floor))
 		g.scene.SetLeftChrome(ui.SidebarWidth(th))
 		bounds.Min.X = ui.SidebarWidth(th)
 	} else {
@@ -99,7 +103,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	}
 	g.stripCard = nil
 	if st, ok := g.stripHover(pointer); ok {
-		card := g.scene.StateCard(st)
+		card := g.stripHoverCard(st)
 		g.stripCard = card.Lines
 		g.card(screen, ui.LayoutCard(th, card, bounds, g.faces.Measure))
 	} else if hover := g.scene.Hover(); hover.Building == nil || hover.Building != g.scene.Selected() {
@@ -108,7 +112,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		}
 	}
 	g.drawSearch(screen, top, width)
-	g.footer(screen, footer)
+	g.readingBand(screen, reading)
 	g.legend(screen, legend)
 	g.drawNotice(screen, message, width, top)
 }
@@ -324,24 +328,16 @@ func (g *Game) sparkline(screen *ebiten.Image, sp ui.Sparkline) {
 	g.fillCircle(screen, float32(sp.Last.X), float32(sp.Last.Y), float32(th.Px(2.5)), th.Palette.Accent)
 }
 
-func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
-	g.bar(screen, f.Rect, f.Rect.Min.Y)
-	if f.Reading.Text != "" {
-		g.run(screen, f.Reading, g.theme.Palette.Dim)
-		g.roundRect(screen, f.ReadingBar, f.ReadingBar.Height()/2, g.theme.Palette.Hairline)
-		if f.ReadingFill.Width() > 0 {
-			g.roundRect(screen, f.ReadingFill, f.ReadingFill.Height()/2, g.theme.Palette.Accent)
-		}
+// readingBand draws the reading band, when there is one (items 159, 353).
+func (g *Game) readingBand(screen *ebiten.Image, r ui.Reading) {
+	if r.Rect.Area() == 0 {
+		return
 	}
-	g.keyRow(screen, f.Keys, f.Size)
-}
-
-// keyRow draws key chips with their actions beside them.
-func (g *Game) keyRow(screen *ebiten.Image, keys []ui.PlacedKey, size ui.Size) {
-	th := g.theme
-	for _, k := range keys {
-		g.keyCap(screen, k.Cap)
-		g.text(screen, k.LabelAt, k.Action, size, th.Palette.Dim)
+	g.bar(screen, r.Rect, r.Rect.Min.Y)
+	g.run(screen, r.Line, g.theme.Palette.Dim)
+	g.roundRect(screen, r.Bar, r.Bar.Height()/2, g.theme.Palette.Hairline)
+	if r.Fill.Width() > 0 {
+		g.roundRect(screen, r.Fill, r.Fill.Height()/2, g.theme.Palette.Accent)
 	}
 }
 
@@ -357,7 +353,7 @@ func (g *Game) plate(screen *ebiten.Image, p ui.Plate, s string, c color.NRGBA) 
 }
 
 // bar fills a full-width chrome rectangle with the hairline along the
-// edge at y, which is its top for a footer and its bottom for a strip.
+// edge at y, which is its top for a band along the bottom and its bottom for a strip.
 func (g *Game) bar(screen *ebiten.Image, r city.Rect, edge float64) {
 	th := g.theme
 	g.paint.Box(screen, float32(r.Min.X), float32(r.Min.Y), float32(r.Width()), float32(r.Height()), th.Palette.Panel)

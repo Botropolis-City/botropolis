@@ -57,7 +57,7 @@ func TestCityPlanCovers(t *testing.T) {
 			g := newGame(t, c.chip)
 			chrome := g.planCovers(width, height)
 			if c.stream {
-				corner := ui.StreamArea(th, ui.StreamCorner, width, height, g.scene.TopChrome(), city.FitFooter)
+				corner := ui.StreamArea(th, ui.StreamCorner, width, height, g.scene.TopChrome(), 0)
 				g.scene.SetCornerChrome(corner)
 				chrome = append(chrome, corner)
 			}

@@ -116,7 +116,7 @@ func FollowStream(skip, before, after int) int {
 }
 
 // MinimapBesideStream moves the minimap up out of the panel's way when
-// the panel sits on the footer in the bottom right.
+// the panel sits in the bottom right.
 func MinimapBesideStream(th Theme, mini, panel city.Rect, corner Corner) city.Rect {
 	if corner != BottomRight || panel.Area() == 0 || !mini.Overlaps(panel) {
 		return mini
@@ -130,7 +130,7 @@ type Corner int
 const (
 	// TopRight is under the strip.
 	TopRight Corner = iota
-	// BottomRight is on the footer.
+	// BottomRight is on the window's bottom.
 	BottomRight
 )
 
@@ -145,16 +145,16 @@ const StreamCorner = TopRight
 const StreamPanelGrids = 24
 
 // StreamArea is the panel's room: against the right edge, under the
-// strip and above the minimap in the top right, or flush on the footer
+// strip and above the minimap in the top right, or flush on the bottom
 // in the bottom right.
-func StreamArea(th Theme, corner Corner, width, height, top, footer float64) city.Rect {
+func StreamArea(th Theme, corner Corner, width, height, top, reserved float64) city.Rect {
 	w := StreamWidth(th, width)
-	bottom := height - footer
+	bottom := height - reserved
 	if corner == BottomRight {
 		h := min(StreamPanelGrids*th.Grid(), max(bottom-top, 0))
 		return city.RectAt(width-w, bottom-h, w, h)
 	}
-	if mini, ok := LayoutMinimap(th, width, height, footer); ok && mini.Min.Y-th.Grid() > top {
+	if mini, ok := LayoutMinimap(th, width, height, reserved); ok && mini.Min.Y-th.Grid() > top {
 		bottom = mini.Min.Y - th.Grid()
 	}
 	h := min(StreamPanelGrids*th.Grid(), max(bottom-top, 0))

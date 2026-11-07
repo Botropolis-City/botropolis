@@ -48,7 +48,7 @@ func SidebarWidth(th Theme) float64 {
 }
 
 // LayoutSidebar lists projects with their sessions, then the hidden
-// projects, down a panel between the strip and the footer. Rows that do
+// projects, down a panel from the strip to the bottom. Rows that do
 // not fit scroll by whole rows: skip is how many are scrolled past, and
 // the layout keeps it in range and marks how many are above and below.
 // With reveal, it scrolls just far enough to show the selected session.

@@ -37,10 +37,6 @@ func TestSkylineKey(t *testing.T) {
 		assert.Empty(t, zeros)
 	})
 
-	t.Run("the footer's f row should say Skyline", func(t *testing.T) {
-		assert.Equal(t, "f", keyFor(footerKeys, "Skyline"))
-	})
-
 	t.Run("when a drone works on a building at Skyline", func(t *testing.T) {
 		at := time.Date(2026, 10, 17, 18, 0, 0, 0, time.UTC)
 		var sessions []state.Session

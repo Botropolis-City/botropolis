@@ -108,8 +108,8 @@ func (r *reference) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		skip := r.skip
 		top, foot := 0.0, height
 		var covers []city.Rect
-		if !g.hidden && g.footerBar.Rect.Area() > 0 {
-			top, foot = g.scene.TopChrome(), min(g.footerBar.Rect.Min.Y, height)
+		if !g.hidden && g.mapBottom > 0 {
+			top, foot = g.scene.TopChrome(), min(g.mapBottom, height)
 			for _, c := range []city.Rect{g.streamLaid.Rect, g.minimapBox} {
 				if c.Area() > 0 {
 					covers = append(covers, c)

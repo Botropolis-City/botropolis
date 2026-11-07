@@ -277,11 +277,10 @@ type Game struct {
 	// rows the reader can actually see.
 	viewKey     bool
 	viewKeyRows ui.ViewKey
-	// footerBar is the footer as last drawn, so a click lands on the
-	// verb that is there. clicked is the key a clicked verb stands in
-	// for this frame: the click runs the keyboard's path rather than a
-	// second copy of it, which is what "one code path, not two" means.
-	footerBar ui.Footer
+	// mapBottom is where the map's room ended as last drawn: the window's
+	// bottom, less the legend when one is up (item 353); zero before the
+	// chrome is first drawn or while it is hidden.
+	mapBottom float64
 	// noticePlate is the notice as last drawn, for the frame's probe, and
 	// pendingNotices the lines set since the last tick, for the stream;
 	// a notice can be set beside the loop (item 352).
@@ -913,7 +912,7 @@ func (g *Game) Update() error {
 	// becomes able to stop a session.
 	left := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || g.play.press
 	g.leftButton(cursor, leftInput{
-		press:   left && !g.clickOverlay(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickFooter(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickStream(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor),
+		press:   left && !g.clickOverlay(cursor) && !g.clickSettings(cursor) && !g.clickSearch(cursor) && !g.clickViewKey(cursor) && !g.clickTimeline(cursor) && !g.clickBreakdown(cursor) && !g.clickCard(cursor) && !g.clickStream(cursor) && !g.clickSidebar(cursor) && !g.stripClick(cursor),
 		down:    ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || g.play.shown,
 		release: inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) || g.play.release,
 		ctrl:    g.ctrlHeld(),
@@ -1580,7 +1579,7 @@ func (g *Game) measure(s string) (float64, float64) {
 }
 
 // lineHeight is the height of one small line, the unit in-world labels
-// and the footer stack by.
+// and the reading band stack by.
 func (g *Game) lineHeight() float64 {
 	_, h := g.measure("")
 	return h

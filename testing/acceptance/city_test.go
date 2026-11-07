@@ -97,8 +97,9 @@ func TestCityScreenshot(t *testing.T) {
 			assert.True(t, isDark(nrgba(one.At(2, 2))), nrgba(one.At(2, 2)))
 		})
 
-		t.Run("it should draw the footer on a dark panel", func(t *testing.T) {
-			assert.True(t, isDark(nrgba(one.At(2, h-2))), nrgba(one.At(2, h-2)))
+		// Item 353: the strip's panel and the footer's were one colour.
+		t.Run("it should draw no bar along the bottom", func(t *testing.T) {
+			assert.NotEqual(t, nrgba(one.At(2, 2)), nrgba(one.At(2, h-2)))
 		})
 
 		t.Run("it should show the ground somewhere between them", func(t *testing.T) {
