@@ -12,9 +12,12 @@ import (
 // focused row does. It is placed at a point, the pointer or a button,
 // and kept inside the window.
 
-// MenuRow is one verb: its label, the key that runs it, and what it does.
+// MenuRow is one verb: its label, the key that runs it, and what it
+// does. Path is the presses that run it, which end its description
+// (item 351).
 type MenuRow struct {
 	Label, Key, Describe string
+	Path                 []string
 }
 
 // MenuColumn is one column of the menu with the key that chooses it.
@@ -49,7 +52,11 @@ type Menu struct {
 	Headings    []MenuHeading
 	Rows        [][]MenuItem
 	Description []Text
-	Focus       MenuFocus
+	// DescriptionDot and DescriptionCaps end the description with the
+	// described row's path (item 351).
+	DescriptionDot  Text
+	DescriptionCaps []KeyCap
+	Focus           MenuFocus
 	// Fill is the plate's colour: opaque, since a menu opens over the
 	// card, and the card's text showed through its rows.
 	Fill color.NRGBA
@@ -104,7 +111,7 @@ func LayoutMenu(th Theme, columns []MenuColumn, focus MenuFocus, hover, at city.
 	reserved := 0
 	for _, col := range columns {
 		for _, row := range col.Rows {
-			reserved = max(reserved, len(wrapAt(row.Describe, textW, math.MaxInt, Small, measure)))
+			reserved = max(reserved, keyedRows(th, row.Describe, row.Path, textW, measure))
 		}
 	}
 	descTop := bottom + grid
@@ -121,15 +128,22 @@ func LayoutMenu(th Theme, columns []MenuColumn, focus MenuFocus, hover, at city.
 	to.X = math.Max(to.X, bounds.Min.X)
 	to.Y = math.Max(to.Y, bounds.Min.Y)
 	m = m.MoveTo(to)
-	describe := ""
+	var described MenuRow
 	if hit, ok := m.Hit(hover); ok {
-		describe = columns[hit.Column].Rows[hit.Row].Describe
+		described = columns[hit.Column].Rows[hit.Row]
 	} else if focus.Column >= 0 && focus.Column < len(columns) && focus.Row >= 0 && focus.Row < len(columns[focus.Column].Rows) {
-		describe = columns[focus.Column].Rows[focus.Row].Describe
+		described = columns[focus.Column].Rows[focus.Row]
 	}
-	if describe != "" {
-		for i, line := range wrapAt(describe, textW, reserved, Small, measure) {
-			m.Description = append(m.Description, Text{Text: line, At: city.Point{X: m.Rect.Min.X + pad, Y: m.Rect.Min.Y + descTop + float64(i)*smallH}, Size: Small})
+	if described.Describe != "" || len(described.Path) > 0 {
+		lines, keyRow, keyX := keyedLines(th, described.Describe, described.Path, textW, reserved, measure)
+		row := func(i int) city.Point {
+			return city.Point{X: m.Rect.Min.X + pad, Y: m.Rect.Min.Y + descTop + float64(i)*smallH}
+		}
+		for i, line := range lines {
+			m.Description = append(m.Description, Text{Text: line, At: row(i), Size: Small})
+		}
+		if keyRow >= 0 && keyRow < reserved {
+			m.DescriptionDot, m.DescriptionCaps = layKey(th, described.Path, row(keyRow), keyX, measure)
 		}
 	}
 	return m
@@ -164,6 +178,12 @@ func (m Menu) MoveTo(at city.Point) Menu {
 	}
 	for _, line := range m.Description {
 		moved.Description = append(moved.Description, line.moved(by))
+	}
+	if m.DescriptionDot.Text != "" {
+		moved.DescriptionDot = m.DescriptionDot.moved(by)
+	}
+	for _, c := range m.DescriptionCaps {
+		moved.DescriptionCaps = append(moved.DescriptionCaps, c.Moved(c.Rect.Min.Add(by)))
 	}
 	return moved
 }

@@ -58,7 +58,7 @@ func (g *Game) rightClick(at city.Point) {
 		if g.scene.Selected() == nil {
 			return
 		}
-		g.openMenuWith(g.scene.Verbs().All(), at, menuFirstRows, g.runVerb)
+		g.openMenu(g.scene.Verbs().All(), at, menuFirstRows)
 	case hit.District != nil && !hit.District.Depot:
 		g.openMenuWith(g.scene.DistrictVerbs(hit.District), at, menuFirstRows, g.districtVerb(hit.District))
 	}
@@ -74,7 +74,7 @@ func (g *Game) openSpaceMenu() {
 		if g.pinned.Rect.Area() > 0 {
 			at = city.Point{X: g.pinned.Rect.Min.X, Y: g.pinned.Rect.Max.Y + g.theme.Grid()}
 		}
-		g.openMenuWith(g.scene.Verbs().All(), at, -1, g.runVerb)
+		g.openMenu(g.scene.Verbs().All(), at, -1)
 		return
 	}
 	if d := g.scene.Hover().District; d != nil && !d.Depot && g.scene.Hover().Building == nil {

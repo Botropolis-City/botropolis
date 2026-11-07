@@ -23,10 +23,14 @@ type Card struct {
 	NumbersRect city.Rect
 	Details     []Text
 	Hint        []Text
-	Lines       []Text
-	Para        []Text
-	Spark       Sparkline
-	Buttons     []Button
+	// HintDot and HintCaps end the hint with the key that does what it
+	// says (item 351).
+	HintDot  Text
+	HintCaps []KeyCap
+	Lines    []Text
+	Para     []Text
+	Spark    Sparkline
+	Buttons  []Button
 }
 
 // LayoutCard sizes a card to its content and parks it in the top-right
@@ -142,10 +146,14 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 		}
 		c.Buttons = row
 	}
-	if rows := hintRows(card, c.Rect.Width()-2*pad, measure); rows > 0 && len(c.Buttons) > 0 {
+	if rows := hintRows(th, card, c.Rect.Width()-2*pad, measure); rows > 0 && len(c.Buttons) > 0 {
 		top := c.Rect.Max.Y - pad + grid/2
-		for i, line := range wrapAt(card.Hint, c.Rect.Width()-2*pad, rows, Small, measure) {
+		lines, keyRow, keyX := keyedLines(th, card.Hint, card.HintKey, c.Rect.Width()-2*pad, rows, measure)
+		for i, line := range lines {
 			c.Hint = append(c.Hint, Text{Text: line, At: city.Point{X: pad, Y: top + smallH*float64(i)}, Size: Small})
+		}
+		if keyRow >= 0 && keyRow < rows {
+			c.HintDot, c.HintCaps = layKey(th, card.HintKey, city.Point{X: pad, Y: top + smallH*float64(keyRow)}, keyX, measure)
 		}
 		c.Rect.Max.Y = top + smallH*float64(rows) + pad
 	}
@@ -175,10 +183,20 @@ func LayoutCard(th Theme, card city.Card, bounds city.Rect, measure Measure) Car
 // hintRows is how many small lines the card keeps for its hint: the
 // most any hint it can show wraps to at its own width, so the card stays
 // one size whichever button the pointer is on (item 287).
-func hintRows(card city.Card, width float64, measure Measure) int {
+func hintRows(th Theme, card city.Card, width float64, measure Measure) int {
 	rows := 0
-	for _, hint := range append(slices.Clone(card.Hints), card.Hint) {
-		rows = max(rows, len(wrapAt(hint, width, math.MaxInt, Small, measure)))
+	for i, hint := range append(slices.Clone(card.Hints), card.Hint) {
+		keys := card.HintKey
+		if i < len(card.Hints) {
+			keys = nil
+			if i < len(card.HintKeys) {
+				keys = card.HintKeys[i]
+			}
+		}
+		if hint == "" && len(keys) == 0 {
+			continue
+		}
+		rows = max(rows, keyedRows(th, hint, keys, width, measure))
 	}
 	return rows
 }
@@ -238,6 +256,12 @@ func (c Card) MoveTo(at city.Point) Card {
 	}
 	for _, line := range c.Hint {
 		moved.Hint = append(moved.Hint, line.moved(by))
+	}
+	if c.HintDot.Text != "" {
+		moved.HintDot = c.HintDot.moved(by)
+	}
+	for _, cap := range c.HintCaps {
+		moved.HintCaps = append(moved.HintCaps, cap.Moved(cap.Rect.Min.Add(by)))
 	}
 	for _, line := range c.Details {
 		moved.Details = append(moved.Details, line.moved(by))

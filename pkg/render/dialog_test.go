@@ -1,7 +1,6 @@
 package render
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -24,12 +23,16 @@ func TestEveryDialogButtonHasAKeyOnScreen(t *testing.T) {
 			laid := d.layout(g, width, height)
 			require.Len(t, laid.Keys, len(d.choices))
 			for i, c := range d.choices {
+				var shown []string
+				for _, cap := range laid.Keys[i] {
+					shown = append(shown, cap.Label.Text)
+				}
 				t.Run("its button "+c.label+" should show at least one key", func(t *testing.T) {
-					assert.NotEmpty(t, laid.Keys[i].Text)
+					assert.NotEmpty(t, shown)
 				})
 
 				t.Run("every key its button "+c.label+" shows should be one its handler answers", func(t *testing.T) {
-					for _, name := range strings.Split(laid.Keys[i].Text, " · ") {
+					for _, name := range shown {
 						key, ok := press(name)
 						assert.True(t, ok && c.answers(key), "%q", name)
 					}
@@ -40,7 +43,7 @@ func TestEveryDialogButtonHasAKeyOnScreen(t *testing.T) {
 						if _, alias := keyAliases[key]; alias {
 							continue
 						}
-						assert.Contains(t, strings.Split(laid.Keys[i].Text, " · "), keyName(key))
+						assert.Contains(t, shown, keyName(key))
 					}
 				})
 			}

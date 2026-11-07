@@ -8,10 +8,11 @@ const dialogLines = 3
 // dialogGrids is the widest a dialog's body grows to before it wraps.
 const dialogGrids = 60
 
-// DialogChoice is one button on a dialog and the keys that press it, as
-// the text under the button spells them.
+// DialogChoice is one button on a dialog and the keys that press it,
+// each drawn as a cap under the button.
 type DialogChoice struct {
-	Label, Keys string
+	Label string
+	Keys  []string
 }
 
 // Dialog is a prompt laid out: a plate in the middle of the window, its
@@ -23,7 +24,7 @@ type Dialog struct {
 	Title   Text
 	Lines   []Text
 	Buttons []Button
-	Keys    []Text
+	Keys    [][]KeyCap
 }
 
 // LayoutDialog centres a dialog in a width×height window.
@@ -36,7 +37,7 @@ func LayoutDialog(th Theme, title string, lines []string, choices []DialogChoice
 	row := 0.0
 	for i, c := range choices {
 		label, _ := measure(c.Label, Body)
-		keys, _ := measure(c.Keys, Small)
+		keys := KeyCapsWidth(th, c.Keys, measure)
 		widths[i] = max(label, keys) + 4*grid
 		row += widths[i]
 	}
@@ -60,7 +61,8 @@ func LayoutDialog(th Theme, title string, lines []string, choices []DialogChoice
 		body += grid
 	}
 	buttonH := lineH + 2*grid
-	h := pad + lineH + 2*grid + body + buttonH + grid + lineH + 2*grid
+	capH := LayoutKeyCap(th, "", city.Point{}, measure).Rect.Height()
+	h := pad + lineH + 2*grid + body + buttonH + grid + capH + 2*grid
 	plate := city.RectAt((width-w)/2, (height-h)/2, w, h)
 	d := Dialog{Plate: plate}
 	x0 := plate.Min.X + pad
@@ -77,12 +79,12 @@ func LayoutDialog(th Theme, title string, lines []string, choices []DialogChoice
 	x := plate.Min.X + (w-row)/2
 	for i, c := range choices {
 		label, _ := measure(c.Label, Body)
-		keys, _ := measure(c.Keys, Small)
+		keys := KeyCapsWidth(th, c.Keys, measure)
 		d.Buttons = append(d.Buttons, Button{
 			Rect:  city.RectAt(x, y, widths[i], buttonH),
 			Label: Text{Text: c.Label, At: city.Point{X: x + (widths[i]-label)/2, Y: y + grid}, Size: Body},
 		})
-		d.Keys = append(d.Keys, Text{Text: c.Keys, At: city.Point{X: x + (widths[i]-keys)/2, Y: y + buttonH + grid}, Size: Small})
+		d.Keys = append(d.Keys, LayoutKeyCaps(th, c.Keys, city.Point{X: x + (widths[i]-keys)/2, Y: y + buttonH + grid}, measure))
 		x += widths[i] + 2*grid
 	}
 	return d

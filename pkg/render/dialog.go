@@ -60,15 +60,15 @@ func keyName(key ebiten.Key) string {
 	return strings.ToLower(key.String())
 }
 
-// keysText spells a choice's keys under its button.
-func (c dialogChoice) keysText() string {
+// keyNames spells a choice's keys, a cap each under its button.
+func (c dialogChoice) keyNames() []string {
 	var names []string
 	for _, k := range c.keys {
 		if _, alias := keyAliases[k]; !alias {
 			names = append(names, keyName(k))
 		}
 	}
-	return strings.Join(names, " · ")
+	return names
 }
 
 const quitTitle = "Quit Botropolis?"
@@ -154,7 +154,7 @@ func (d *dialog) layout(g *Game, width, height float64) ui.Dialog {
 	_, _, measure := g.metrics()
 	choices := make([]ui.DialogChoice, len(d.choices))
 	for i, c := range d.choices {
-		choices[i] = ui.DialogChoice{Label: c.label, Keys: c.keysText()}
+		choices[i] = ui.DialogChoice{Label: c.label, Keys: c.keyNames()}
 	}
 	return ui.LayoutDialog(g.theme, d.title, d.lines, choices, width, height, measure)
 }
@@ -207,6 +207,8 @@ func (d *dialog) draw(g *Game, screen *ebiten.Image, width, height float64) {
 			tone = th.Palette.Accent
 		}
 		g.button(screen, b.Rect, b.Label, tone, b.Rect.Contains(pointer))
-		g.run(screen, l.Keys[i], th.Palette.Dim)
+		for _, cap := range l.Keys[i] {
+			g.keyCap(screen, cap)
+		}
 	}
 }

@@ -131,9 +131,13 @@ type Shown struct {
 	// on (item 350).
 	CardButtons []ShownButton
 	CardHint    string
-	Menu        bool
-	MenuRect    city.Rect
-	MenuFocus   ui.MenuFocus
+	// CardHintKeys and MenuDescriptionKeys are the caps that end the
+	// card's line and the menu's (item 351).
+	CardHintKeys        []string
+	MenuDescriptionKeys []string
+	Menu                bool
+	MenuRect            city.Rect
+	MenuFocus           ui.MenuFocus
 	// StripBottom is where the strip along the top ends, FooterTop where
 	// the footer begins, and KeyRowTop where its key row does.
 	StripBottom, FooterTop, KeyRowTop float64
@@ -719,6 +723,9 @@ func (g *Game) noteShown() {
 			hint = append(hint, line.Text)
 		}
 		s.CardHint = strings.Join(hint, " ")
+		for _, c := range g.pinned.HintCaps {
+			s.CardHintKeys = append(s.CardHintKeys, c.Label.Text)
+		}
 		for _, o := range g.overlays {
 			if p, ok := o.(*lensPanel); ok {
 				s.LensRect = p.laid.Rect
@@ -728,6 +735,9 @@ func (g *Game) noteShown() {
 			size := g.scene.Size()
 			laid := m.layout(g, size.X, size.Y)
 			s.Menu, s.MenuRect, s.MenuFocus = true, laid.Rect, m.focus
+			for _, c := range laid.DescriptionCaps {
+				s.MenuDescriptionKeys = append(s.MenuDescriptionKeys, c.Label.Text)
+			}
 		}
 	}
 	g.mu.Lock()

@@ -9,11 +9,10 @@ type Key struct {
 	Action string
 }
 
-// PlacedKey is a key chip and its label on the footer.
+// PlacedKey is a key's cap and its label on the footer.
 type PlacedKey struct {
 	Key
-	Chip    city.Rect
-	KeyAt   city.Point
+	Cap     KeyCap
 	LabelAt city.Point
 }
 
@@ -45,9 +44,9 @@ func (f Footer) Hit(at city.Point) (Key, bool) {
 	for i, k := range f.Keys {
 		right := f.Rect.Max.X
 		if i+1 < len(f.Keys) {
-			right = f.Keys[i+1].Chip.Min.X
+			right = f.Keys[i+1].Cap.Rect.Min.X
 		}
-		if at.X >= k.Chip.Min.X && at.X < right {
+		if at.X >= k.Cap.Rect.Min.X && at.X < right {
 			return k.Key, true
 		}
 	}
@@ -63,17 +62,15 @@ func LayoutFooter(th Theme, width, height float64, keys []Key, measure Measure) 
 	f.Rect = f.KeyRow
 	x := 2 * grid
 	for _, k := range keys {
-		kw, _ := measure(k.Key, Small)
 		lw, _ := measure(k.Action, Small)
-		chip := city.RectAt(x, f.KeyRow.Min.Y+grid/2, kw+grid, lineH+grid)
-		labelX := chip.Max.X + grid
+		cap := LayoutKeyCap(th, k.Key, city.Point{X: x, Y: f.KeyRow.Min.Y + grid/2}, measure)
+		labelX := cap.Rect.Max.X + grid
 		if labelX+lw > width-2*grid {
 			break
 		}
 		f.Keys = append(f.Keys, PlacedKey{
 			Key:     k,
-			Chip:    chip,
-			KeyAt:   city.Point{X: x + grid/2, Y: f.KeyRow.Min.Y + grid},
+			Cap:     cap,
 			LabelAt: city.Point{X: labelX, Y: f.KeyRow.Min.Y + grid},
 		})
 		x = labelX + lw + 3*grid

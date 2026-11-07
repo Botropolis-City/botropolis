@@ -56,7 +56,7 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	pointer := g.pointer()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
 	g.baked(bakeStream, screen, func(dst *ebiten.Image) { bounds.Max.X = g.drawStream(dst, width, height, top, streamFoot) })
-	hint := g.buttonHint(pointer)
+	hint, hintKey := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
 	g.pinnedVerbs, g.pinnedHints = city.Verbs{}, nil
 	g.cardOver = ui.Card{}
@@ -75,7 +75,8 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 		}
 	}
 	if card, b, ok := g.scene.SelectedCard(); ok && !g.sidebar {
-		card.Hint = hint
+		card.Hint, card.HintKey = hint, hintKey
+		card.HintKeys = g.faceKeys()
 		card.Actions = g.progressLabels(g.scene.Verbs(), b)
 		if step, ok := g.scene.TriageStep(); ok && triaging {
 			card.Kind = step.Header()
@@ -135,6 +136,16 @@ func (g *Game) keyCap(screen *ebiten.Image, c ui.KeyCap) {
 	th := g.theme
 	g.roundRect(screen, c.Rect, th.Radius()/2, th.Palette.Hairline)
 	g.run(screen, c.Label, th.Palette.Text)
+}
+
+// endingKey draws the dot and caps that end a line with its key.
+func (g *Game) endingKey(screen *ebiten.Image, dot ui.Text, caps []ui.KeyCap) {
+	if dot.Text != "" {
+		g.run(screen, dot, g.theme.Palette.Dim)
+	}
+	for _, c := range caps {
+		g.keyCap(screen, c)
+	}
 }
 
 // buildingOnScreen is the screen rect a building's footprint covers, in
@@ -212,6 +223,7 @@ func (g *Game) card(screen *ebiten.Image, c ui.Card) {
 	for _, line := range c.Hint {
 		g.run(screen, line, th.Palette.Dim)
 	}
+	g.endingKey(screen, c.HintDot, c.HintCaps)
 	for _, line := range c.Details {
 		g.run(screen, line, th.Palette.Dim)
 	}
@@ -239,21 +251,42 @@ func buttonHover(c color.NRGBA) color.NRGBA {
 // buttonHint is what the pinned card's button under the pointer does,
 // from the card as last drawn (item 88), or what its numbers row does.
 // An open menu hangs over the hint's line, so then there is none.
-func (g *Game) buttonHint(at city.Point) string {
+func (g *Game) buttonHint(at city.Point) (string, []string) {
 	if g.menu() != nil {
-		return ""
+		return "", nil
+	}
+	keys := g.faceKeys()
+	keyAt := func(i int) []string {
+		if i < len(keys) {
+			return keys[i]
+		}
+		return nil
 	}
 	for i, b := range g.pinned.Buttons {
 		if b.Rect.Contains(at) && i < len(g.pinnedHints) {
-			return g.pinnedHints[i]
+			return g.pinnedHints[i], keyAt(i)
 		}
 	}
 	if g.pinned.NumbersRect.Area() > 0 && g.pinned.NumbersRect.Contains(at) {
 		if _, _, ok := g.scene.SelectedCard(); ok && len(g.pinnedHints) > len(g.pinned.Buttons) {
-			return g.pinnedHints[len(g.pinnedHints)-1]
+			return g.pinnedHints[len(g.pinnedHints)-1], keyAt(len(keys) - 1)
 		}
 	}
-	return ""
+	return "", nil
+}
+
+// faceKeys is the keys that do what each of the card's hints says, in
+// the hints' order: Enter for the direct verb, the menu's key and a
+// column's letter for each column's button, and the details' key for
+// the numbers row, read from the live bindings (item 351).
+func (g *Game) faceKeys() [][]string {
+	chords := g.findChords()
+	open := chords.Bound["action_menu"].Label()
+	keys := [][]string{{keyName(ebiten.KeyEnter)}}
+	for _, name := range menuColumnKeys {
+		keys = append(keys, []string{open, chords.Bound[name].Label()})
+	}
+	return append(keys, []string{chords.Bound["details"].Label()})
 }
 
 // moveTone is the colour a card says whose move it is in: the state
@@ -297,8 +330,7 @@ func (g *Game) footer(screen *ebiten.Image, f ui.Footer) {
 func (g *Game) keyRow(screen *ebiten.Image, keys []ui.PlacedKey, size ui.Size) {
 	th := g.theme
 	for _, k := range keys {
-		g.roundRect(screen, k.Chip, th.Radius()/2, th.Palette.Hairline)
-		g.text(screen, k.KeyAt, k.Key.Key, size, th.Palette.Text)
+		g.keyCap(screen, k.Cap)
 		g.text(screen, k.LabelAt, k.Action, size, th.Palette.Dim)
 	}
 }

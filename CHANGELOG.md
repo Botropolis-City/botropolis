@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A key is drawn one way everywhere, as a key cap.**
+  Hover a button on a session's card to see what it does, and its line ends with the keys that do the same.
+  The action menu's line for the row you are on ends with the keys that run it from the map.
+  A dialog's keys under its buttons are caps too, one per key.
+  A rebound key shows as bound.
 - **A group's line has no stations.**
   The line runs between buildings, not to dots floating beside them.
   A link into a site that waits on another is drawn dark, and one into a site joined on a guess is dashed.

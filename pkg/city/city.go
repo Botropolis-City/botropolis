@@ -324,10 +324,15 @@ type Card struct {
 	// Hint is what the button under the pointer does (item 88), and
 	// Hints every hint the card can show, one per action, so it can be
 	// sized for the longest (item 287).
-	Hint    string
-	Hints   []string
-	Lines   []string
-	Actions []string
+	Hint  string
+	Hints []string
+	// HintKey is the keys that do what Hint says, a press each, and
+	// HintKeys each of Hints' keys, so the card is sized for the
+	// longest with its keys (item 351).
+	HintKey  []string
+	HintKeys [][]string
+	Lines    []string
+	Actions  []string
 	// Para, when set, is prose wrapped under the lines.
 	Para string
 	// Series, when set, is drawn as a sparkline under the lines.

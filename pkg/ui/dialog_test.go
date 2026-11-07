@@ -15,7 +15,7 @@ import (
 // buttons.
 func TestLayoutDialog(t *testing.T) {
 	th := ui.NewTheme(1)
-	choices := []ui.DialogChoice{{"Demolish", "d · enter"}, {"Close up…", "c"}, {"Cancel", "esc · n"}}
+	choices := []ui.DialogChoice{{"Demolish", []string{"d", "enter"}}, {"Close up…", []string{"c"}}, {"Cancel", []string{"esc", "n"}}}
 	lines := []string{"Deletes this session and its worktree.", "Its conversation stays in Claude Code's files."}
 
 	t.Run("when a dialog with a title, two lines and three choices is laid out in 1280×800", func(t *testing.T) {
@@ -40,10 +40,31 @@ func TestLayoutDialog(t *testing.T) {
 			assert.Equal(t, []string{"Demolish", "Close up…", "Cancel"}, labels)
 		})
 
-		t.Run("it should put each button's keys directly under that button", func(t *testing.T) {
+		t.Run("it should give each button one cap per key that presses it", func(t *testing.T) {
+			var got [][]string
+			for _, caps := range d.Keys {
+				var labels []string
+				for _, c := range caps {
+					labels = append(labels, c.Label.Text)
+				}
+				got = append(got, labels)
+			}
+			assert.Equal(t, [][]string{{"d", "enter"}, {"c"}, {"esc", "n"}}, got)
+		})
+
+		t.Run("it should put each button's caps directly under that button", func(t *testing.T) {
 			for i, b := range d.Buttons {
-				k := d.Keys[i]
-				assert.True(t, k.Text == choices[i].Keys && k.At.Y >= b.Rect.Max.Y && k.At.X >= b.Rect.Min.X && k.At.X < b.Rect.Max.X, "button %d at %v, keys %q at %v", i, b.Rect, k.Text, k.At)
+				for _, c := range d.Keys[i] {
+					assert.True(t, c.Rect.Min.Y >= b.Rect.Max.Y && c.Rect.Min.X >= b.Rect.Min.X && c.Rect.Max.X <= b.Rect.Max.X, "button %d at %v, cap %q at %v", i, b.Rect, c.Label.Text, c.Rect)
+				}
+			}
+		})
+
+		t.Run("it should centre each button's caps under it", func(t *testing.T) {
+			for i, b := range d.Buttons {
+				caps := d.Keys[i]
+				mid := (caps[0].Rect.Min.X + caps[len(caps)-1].Rect.Max.X) / 2
+				assert.InDelta(t, b.Rect.Center().X, mid, 0.5, "button %d", i)
 			}
 		})
 
@@ -51,6 +72,11 @@ func TestLayoutDialog(t *testing.T) {
 			all := d.Plate
 			for _, b := range d.Buttons {
 				all = all.Union(b.Rect)
+			}
+			for _, caps := range d.Keys {
+				for _, c := range caps {
+					all = all.Union(c.Rect)
+				}
 			}
 			assert.Equal(t, d.Plate, all)
 		})

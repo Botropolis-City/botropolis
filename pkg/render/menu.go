@@ -1,6 +1,8 @@
 package render
 
 import (
+	"slices"
+
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"botropolis.city/botropolis/pkg/city"
@@ -121,13 +123,45 @@ type menuPanel struct {
 	// choose runs the chosen verb; it is the verb's path, swapped out
 	// under test.
 	choose func(kind city.ActionKind)
+	// fromMap is whether the menu holds the selection's verbs, which
+	// the action menu's key opens at the map; each row's line then ends
+	// with the presses from the map, and otherwise with those that
+	// answer in the menu as it stands (item 351).
+	fromMap bool
+}
+
+// paths is the columns with each row's presses filled in.
+func (p *menuPanel) paths(g *Game) []ui.MenuColumn {
+	open := g.findChords().Bound["action_menu"].Label()
+	columns := make([]ui.MenuColumn, len(p.columns))
+	for c, col := range p.columns {
+		col.Rows = slices.Clone(col.Rows)
+		for r := range col.Rows {
+			row := []string{p.rowChords[c][r].Label()}
+			if p.kinds[c][r] == city.ActionDemolish {
+				row = append(row, row[0])
+			}
+			switch {
+			case p.fromMap:
+				col.Rows[r].Path = append([]string{open, p.colChords[c].Label()}, row...)
+			case !p.armed:
+				col.Rows[r].Path = append([]string{p.colChords[c].Label()}, row...)
+			case c == p.focus.Column:
+				col.Rows[r].Path = row
+			}
+		}
+		columns[c] = col
+	}
+	return columns
 }
 
 // openMenu opens the menu for the kinds offered at a point of the
 // window: on a column, focused on its first row, or with column -1 on
 // the first column with nothing chosen, as the keyboard opens it.
 func (g *Game) openMenu(offered []city.ActionKind, at city.Point, column int) {
-	g.openMenuWith(offered, at, column, g.runVerb)
+	if p := g.openMenuWith(offered, at, column, g.runVerb); p != nil {
+		p.fromMap = true
+	}
 }
 
 // menuFirstRows opens the menu armed on its first column that has rows,
@@ -136,9 +170,9 @@ const menuFirstRows = -2
 
 // openMenuWith opens the menu with what a chosen row does: the
 // selection's verbs, or a district's, or a group's on the board.
-func (g *Game) openMenuWith(offered []city.ActionKind, at city.Point, column int, choose func(city.ActionKind)) {
+func (g *Game) openMenuWith(offered []city.ActionKind, at city.Point, column int, choose func(city.ActionKind)) *menuPanel {
 	if g.menu() != nil {
-		return
+		return nil
 	}
 	columns, kinds, rowChords, colChords := menuColumns(offered, g.scene.DescribeVerb, g.findChords())
 	if column == menuFirstRows {
@@ -156,6 +190,7 @@ func (g *Game) openMenuWith(offered []city.ActionKind, at city.Point, column int
 	}
 	p.clampFocus()
 	g.overlays.push(p)
+	return p
 }
 
 func (g *Game) menu() *menuPanel {
@@ -180,7 +215,7 @@ func (g *Game) runVerb(kind city.ActionKind) {
 func (p *menuPanel) layout(g *Game, width, height float64) ui.Menu {
 	_, _, measure := g.metrics()
 	footer := ui.LayoutFooter(g.theme, width, height, footerKeys, measure)
-	return ui.LayoutMenu(g.theme, p.columns, p.focus, g.pointer(), p.at, city.RectAt(0, 0, width, footer.Rect.Min.Y), measure)
+	return ui.LayoutMenu(g.theme, p.paths(g), p.focus, g.pointer(), p.at, city.RectAt(0, 0, width, footer.Rect.Min.Y), measure)
 }
 
 // rows is how many rows the focused column has.
@@ -317,4 +352,5 @@ func (p *menuPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	for _, line := range m.Description {
 		g.run(screen, line, th.Palette.Dim)
 	}
+	g.endingKey(screen, m.DescriptionDot, m.DescriptionCaps)
 }

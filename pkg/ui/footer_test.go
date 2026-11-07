@@ -33,19 +33,23 @@ func TestLayoutFooter(t *testing.T) {
 	})
 
 	t.Run("it should start the first key chip two grid units in", func(t *testing.T) {
-		assert.Equal(t, 16.0, f.Keys[0].Chip.Min.X)
+		assert.Equal(t, 16.0, f.Keys[0].Cap.Rect.Min.X)
 	})
 
 	t.Run("it should pad the key chip half a grid each side", func(t *testing.T) {
-		assert.Equal(t, 4*7+8.0, f.Keys[0].Chip.Width())
+		assert.Equal(t, 4*7+8.0, f.Keys[0].Cap.Rect.Width())
 	})
 
 	t.Run("it should put the label one grid unit after the chip", func(t *testing.T) {
-		assert.Equal(t, f.Keys[0].Chip.Max.X+8, f.Keys[0].LabelAt.X)
+		assert.Equal(t, f.Keys[0].Cap.Rect.Max.X+8, f.Keys[0].LabelAt.X)
 	})
 
 	t.Run("it should start the next key three grid units after the label", func(t *testing.T) {
-		assert.Equal(t, f.Keys[0].LabelAt.X+3*7+24, f.Keys[1].Chip.Min.X)
+		assert.Equal(t, f.Keys[0].LabelAt.X+3*7+24, f.Keys[1].Cap.Rect.Min.X)
+	})
+
+	t.Run("it should draw each key as a key cap", func(t *testing.T) {
+		assert.Equal(t, ui.LayoutKeyCap(th, "drag", f.Keys[0].Cap.Rect.Min, measure7), f.Keys[0].Cap)
 	})
 
 	t.Run("it should drop keys that do not fit", func(t *testing.T) {

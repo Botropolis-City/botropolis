@@ -21,14 +21,14 @@ func TestFooterHit(t *testing.T) {
 
 	t.Run("when the pointer is on a verb's chip", func(t *testing.T) {
 		t.Run("it should find that verb", func(t *testing.T) {
-			hit, _ := f.Hit(f.Keys[1].Chip.Center())
+			hit, _ := f.Hit(f.Keys[1].Cap.Rect.Center())
 			assert.Equal(t, "v", hit.Key)
 		})
 	})
 
 	t.Run("when the pointer is on the label beside a chip", func(t *testing.T) {
 		t.Run("it should still find that verb, not the next one", func(t *testing.T) {
-			at := city.Point{X: f.Keys[1].LabelAt.X + 1, Y: f.Keys[1].Chip.Center().Y}
+			at := city.Point{X: f.Keys[1].LabelAt.X + 1, Y: f.Keys[1].Cap.Rect.Center().Y}
 			hit, _ := f.Hit(at)
 			assert.Equal(t, "v", hit.Key)
 		})
@@ -36,14 +36,14 @@ func TestFooterHit(t *testing.T) {
 
 	t.Run("when the pointer is above the key row, over the map", func(t *testing.T) {
 		t.Run("it should find nothing, so the click reaches the city", func(t *testing.T) {
-			_, ok := f.Hit(city.Point{X: f.Keys[1].Chip.Center().X, Y: f.KeyRow.Min.Y - 10})
+			_, ok := f.Hit(city.Point{X: f.Keys[1].Cap.Rect.Center().X, Y: f.KeyRow.Min.Y - 10})
 			assert.False(t, ok)
 		})
 	})
 
 	t.Run("when the pointer is left of the first verb", func(t *testing.T) {
 		t.Run("it should find nothing rather than the nearest", func(t *testing.T) {
-			_, ok := f.Hit(city.Point{X: f.Keys[0].Chip.Min.X - 5, Y: f.Keys[0].Chip.Center().Y})
+			_, ok := f.Hit(city.Point{X: f.Keys[0].Cap.Rect.Min.X - 5, Y: f.Keys[0].Cap.Rect.Center().Y})
 			assert.False(t, ok)
 		})
 	})
