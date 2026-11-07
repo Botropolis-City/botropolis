@@ -56,6 +56,9 @@ func (g *Game) chrome(screen *ebiten.Image, width, height float64) {
 	pointer := g.pointer()
 	bounds := city.RectAt(0, top, width, height-top-bottom)
 	g.baked(bakeStream, screen, func(dst *ebiten.Image) { bounds.Max.X = g.drawStream(dst, width, height, top, streamFoot) })
+	if g.streamShown() {
+		g.heldStream = ui.StreamArea(th, ui.StreamCorner, width, height, top, streamFoot)
+	}
 	hint, hintKey := g.buttonHint(pointer)
 	g.pinned = ui.Card{}
 	g.pinnedVerbs, g.pinnedHints = city.Verbs{}, nil

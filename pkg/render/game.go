@@ -462,6 +462,15 @@ type Game struct {
 	// one line per button and one for the numbers row (item 350).
 	pinnedVerbs city.Verbs
 	pinnedHints []string
+	// heldRows, heldStream and heldSidebar are where this frame drew
+	// what the hold caps; holdCaps and keysSighting what it drew for
+	// it, for the probe (item 351).
+	heldRows         []heldRow
+	keysSightingRect city.Rect
+	heldStream       city.Rect
+	heldSidebar      city.Rect
+	holdCaps         []ui.HeldCaps
+	keysSighting     string
 
 	sidebar       bool
 	sidebarLayout ui.Sidebar
@@ -1304,6 +1313,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 // overlay is the chrome and, over it, the help; h hides the lot.
 func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	g.panels.stats = panelStats{}
+	g.heldRows = nil
+	g.heldStream, g.heldSidebar = city.Rect{}, city.Rect{}
 	g.prunePanels()
 	// Sharing draws none of it: every panel, card and figure stays open
 	// underneath, unseen, until sharing ends (item 168).
@@ -1339,7 +1350,9 @@ func (g *Game) overlay(screen *ebiten.Image, width, height float64) {
 	if g.timeline {
 		g.baked(bakeTimeline, screen, func(dst *ebiten.Image) { g.drawTimeline(dst, width, height) })
 	}
+	g.drawKeysSighting(screen, height)
 	g.drawOverlays(screen, width, height, false)
+	g.drawHeldCaps(screen, width, height)
 }
 
 // spriteHit is a drawn sprite's screen rect and what it stands for.

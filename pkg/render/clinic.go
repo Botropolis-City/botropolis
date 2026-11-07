@@ -166,8 +166,10 @@ func (c *clinic) draw(g *Game, screen *ebiten.Image, width, height float64) {
 			g.text(screen, city.Point{X: x, Y: y}, string(row.Section), ui.Small, th.Color(tone))
 			y += heading
 		}
+		band := city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2)
+		g.rowShown(c, i, band)
 		if i == selected {
-			g.roundRect(screen, city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2), 0, th.Palette.Hairline)
+			g.roundRect(screen, band, 0, th.Palette.Hairline)
 		}
 		key := "  "
 		if i < len(clinicDigits) {

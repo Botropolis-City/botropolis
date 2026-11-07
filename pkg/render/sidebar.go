@@ -17,6 +17,7 @@ func (g *Game) drawSidebar(screen *ebiten.Image, top, bottom float64) {
 	c := g.scene.City()
 	width := ui.SidebarWidth(th)
 	g.bar(screen, city.RectAt(0, top, width, bottom-top), top)
+	g.heldSidebar = city.RectAt(0, top, width, bottom-top)
 	g.paint.Box(screen, float32(width-th.Hairline()), float32(top), float32(th.Hairline()), float32(bottom-top), th.Palette.Hairline)
 	foot := bottom
 	g.pinned = ui.Card{}

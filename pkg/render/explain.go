@@ -35,7 +35,7 @@ func (g *Game) explainHeld() bool {
 	if !ok || g.overlays.top() != nil {
 		return false
 	}
-	return g.scriptedHeld[key] || ebiten.IsKeyPressed(key)
+	return g.keyHeld(key)
 }
 
 // explainCaptions is explain mode while its key is held: a caption on

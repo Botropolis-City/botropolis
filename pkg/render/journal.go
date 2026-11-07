@@ -243,8 +243,10 @@ func (j *journal) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		j.fill(i)
 		e := j.entries[i]
 		j.drawn = i + 1
+		band := city.RectAt(plate.Min.X+grid, y-grid/2, plate.Width()-2*grid, 3*lineH+grid)
+		g.rowShown(j, i, band)
 		if i == j.selected {
-			g.roundRect(screen, city.RectAt(plate.Min.X+grid, y-grid/2, plate.Width()-2*grid, 3*lineH+grid), 0, th.Palette.Hairline)
+			g.roundRect(screen, band, 0, th.Palette.Hairline)
 		}
 		title := e.Title
 		if e.Pinned {

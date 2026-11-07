@@ -280,6 +280,7 @@ func (p *closeUp) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		if r.Rect.Area() == 0 {
 			continue
 		}
+		g.rowShown(p, i, r.Rect)
 		if i == p.selected {
 			g.roundRect(screen, r.Rect, 0, th.Palette.Hairline)
 		}

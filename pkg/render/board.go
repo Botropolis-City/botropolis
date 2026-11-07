@@ -241,6 +241,7 @@ func (b *board) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		i := left[p]
 		row := rows[i]
 		rowRects[i] = city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, rowHeight-grid/2)
+		g.rowShown(b, p, rowRects[i])
 		if i == b.selected {
 			g.roundRect(screen, rowRects[i], 0, th.Palette.Hairline)
 		}

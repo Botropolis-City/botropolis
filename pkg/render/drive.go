@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -64,6 +65,9 @@ type DriveOptions struct {
 	// one, as the app gives a city them; zero is no rows and no saving.
 	Settings ui.Settings
 	Apply    func(ui.Setting) error
+	// Keys rebinds keys by binding name, as a config file's [keys]
+	// table does; zero is every default (item 351).
+	Keys map[string]string
 }
 
 // Shown is what the last frame drew.
@@ -135,9 +139,14 @@ type Shown struct {
 	// card's line and the menu's (item 351).
 	CardHintKeys        []string
 	MenuDescriptionKeys []string
-	Menu                bool
-	MenuRect            city.Rect
-	MenuFocus           ui.MenuFocus
+	// HoldCaps is the hold's caps as drawn, a control each, and
+	// KeysSighting the keys' first-time caption (item 351).
+	HoldCaps         []ShownCaps
+	KeysSighting     string
+	KeysSightingRect city.Rect
+	Menu             bool
+	MenuRect         city.Rect
+	MenuFocus        ui.MenuFocus
 	// StripBottom is where the strip along the top ends, FooterTop where
 	// the footer begins, and KeyRowTop where its key row does.
 	StripBottom, FooterTop, KeyRowTop float64
@@ -256,6 +265,13 @@ func NewDrive(opts DriveOptions) (*Drive, error) {
 	// The settings panel's rows, and where a changed row is saved, as the
 	// app hands them to a real city (item 350).
 	g.settings, g.apply = opts.Settings, opts.Apply
+	if len(opts.Keys) > 0 {
+		chords, err := config.FindChords(config.Config{Keys: opts.Keys}, runtime.GOOS, KnownKey)
+		if err != nil {
+			return nil, err
+		}
+		g.chords = &chords
+	}
 	// No window to type into: typing reaches the finder the way --keys
 	// does.
 	g.ime = false
@@ -710,6 +726,15 @@ func (g *Game) noteShown() {
 	s.Sprites, s.WindowDraws, s.LandmarkDraws, s.Punches = g.drawnOrder.n-len(g.drawnOrder.tags), g.windowDraws, g.landmarkDraws, g.punches
 	s.Glows = append([]city.Point(nil), g.glows...)
 	g.mu.Unlock()
+	for _, h := range g.holdCaps {
+		c := ShownCaps{Name: h.Name, Rect: h.Rect}
+		for _, cap := range h.Caps {
+			c.Keys = append(c.Keys, cap.Label.Text)
+			c.Caps = append(c.Caps, cap.Rect)
+		}
+		s.HoldCaps = append(s.HoldCaps, c)
+	}
+	s.KeysSighting, s.KeysSightingRect = g.keysSighting, g.keysSightingRect
 	if b := g.scene.Selected(); b != nil && !g.hidden && (g.sidebar || g.pinned.Rect.Area() > 0) {
 		s.Selected = b.Session.ID
 	}
@@ -806,4 +831,13 @@ func driveSnapshot(home string, now time.Time) (state.Snapshot, error) {
 	}
 	state.NewHeights().Apply(snapshot.Sessions, true, now)
 	return snapshot, nil
+}
+
+// ShownCaps is one control's caps under the hold: which control, where
+// it is, its keys and where each cap was drawn (item 351).
+type ShownCaps struct {
+	Name string
+	Rect city.Rect
+	Keys []string
+	Caps []city.Rect
 }

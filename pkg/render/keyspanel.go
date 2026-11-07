@@ -284,7 +284,8 @@ func (p *keysPanel) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	for _, h := range laid.Headings {
 		g.run(screen, h, th.Palette.Dim)
 	}
-	for _, row := range laid.Rows {
+	for i, row := range laid.Rows {
+		g.rowShown(p, i, row.Row)
 		if row.Focused {
 			g.roundRect(screen, row.Row.Inset(th.Grid()/2), th.Radius()/2, th.Palette.Hairline)
 		}

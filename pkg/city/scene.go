@@ -219,6 +219,8 @@ type Scene struct {
 	clinicLooks int
 	sightings   []Kind
 	sightingAt  time.Time
+	// keysAt is when the keys' first-time caption went up (item 351).
+	keysAt time.Time
 	// sightingsHeldAt is when the city was covered, while it is: the
 	// caption up then waits for it to close (item 268).
 	sightingsHeldAt time.Time

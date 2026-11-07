@@ -81,3 +81,25 @@ func (s *Scene) MarkSighted(kinds []Kind) {
 		}
 	}
 }
+
+// keysSighting is the name the keys' first-time caption is remembered by.
+const keysSighting = "keys"
+
+// SightKeys is told a control with a key is on screen. The first time on
+// this machine, the caption naming the hold key goes up for SightingFor
+// and is remembered, so it never goes up again (item 351).
+func (s *Scene) SightKeys() {
+	if s.layout == nil || s.layout.Sighted[keysSighting] {
+		return
+	}
+	if s.layout.Sighted == nil {
+		s.layout.Sighted = map[string]bool{}
+	}
+	s.layout.Sighted[keysSighting] = true
+	s.keysAt = s.now()
+}
+
+// KeysSighting is whether the keys' first-time caption is up.
+func (s *Scene) KeysSighting() bool {
+	return !s.keysAt.IsZero() && s.now().Sub(s.keysAt) < SightingFor
+}

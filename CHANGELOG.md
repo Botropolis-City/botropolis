@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The action menu's line for the row you are on ends with the keys that run it from the map.
   A dialog's keys under its buttons are caps too, one per key.
   A rebound key shows as bound.
+- **Hold `e` to see every key.**
+  While the explain key is held, every control on screen that a key also does wears that key: the card's buttons and numbers row, the needs-you count, the lens panel, the stream and the sidebar, or a list's first nine rows when one is open.
+  It works over the action menu and dialogs too, and in a list until its filter takes letters.
+  The first card you open says which key to hold, once.
 - **A group's line has no stations.**
   The line runs between buildings, not to dots floating beside them.
   A link into a site that waits on another is drawn dark, and one into a site joined on a guess is dashed.

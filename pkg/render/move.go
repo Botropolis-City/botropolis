@@ -276,12 +276,16 @@ func (p *picker) draw(g *Game, screen *ebiten.Image, width, height float64) {
 		return
 	}
 	y += g.drawFilter(screen, &p.filter, city.Point{X: x, Y: y}, ui.Body)
+	listed := 0
 	for i, label := range labels {
 		if !left[i] {
 			continue
 		}
+		band := city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, body+grid/2)
+		g.rowShown(p, listed, band)
+		listed++
 		if i == p.selected {
-			g.roundRect(screen, city.RectAt(panel.Min.X+grid, y-grid/4, panelWidth-grid*2, body+grid/2), 0, th.Palette.Hairline)
+			g.roundRect(screen, band, 0, th.Palette.Hairline)
 		}
 		g.text(screen, city.Point{X: x, Y: y}, g.clip(label, panelWidth-grid*4, ui.Body), ui.Body, th.Palette.Text)
 		y += body + grid/2
