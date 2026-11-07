@@ -53,6 +53,8 @@ type groupCache struct {
 	// scores again only the pairs it can have changed (item 158).
 	detector *group.Detector
 	result   group.Result
+	// picked is the result's one suggestion a session (item 340).
+	picked []group.Suggestion
 	// lastPrompts is each session's newest prompt in the history, for a
 	// session whose transcript carries no last-prompt record.
 	lastPrompts map[string]string
@@ -142,7 +144,7 @@ func (l *Loader) applyGroups(snapshot *Snapshot, claudeDir string, now time.Time
 			snapshot.Sessions[i].LastPrompt = c.lastPrompts[snapshot.Sessions[i].ID]
 		}
 	}
-	snapshot.Groups = groupViews(c.result, snapshot.Sessions)
+	snapshot.Groups = groupViews(c.result, c.picked, snapshot.Sessions)
 	for i := range snapshot.Groups {
 		snapshot.Groups[i].Reviewed = c.settled[snapshot.Groups[i].ID]
 	}
@@ -165,6 +167,7 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 		c.detector = group.NewDetector()
 	}
 	c.result = c.detector.Detect(members, memory)
+	c.picked = firstSuggestions(c.result.Suggestions)
 	c.detections++
 	c.reportCapped()
 	if c.path == "" {
@@ -173,6 +176,7 @@ func (c *groupCache) detect(members []group.Member, history map[string][]claude.
 	remembered := memory.Remember(c.result)
 	if confirmLikely(&remembered, c.result, history, now) {
 		c.result = c.detector.Detect(members, remembered)
+		c.picked = firstSuggestions(c.result.Suggestions)
 		remembered = remembered.Remember(c.result)
 	}
 	c.reviewed = remembered.Reviewed != nil
@@ -453,9 +457,6 @@ func answering(sessions []Session, name string) (string, bool) {
 	return "", false
 }
 
-// groupViews is each group as the map shows it, with whose move it is
-// among the sessions the snapshot holds, and each of those sessions
-// marked with its group and why it joined.
 // TitleOf names a session as the city does: by its title, or by its
 // short id when it has none or is not among sessions.
 func TitleOf(sessions []Session) func(id string) string {
@@ -463,6 +464,10 @@ func TitleOf(sessions []Session) func(id string) string {
 	for i, s := range sessions {
 		index[s.ID] = i
 	}
+	return titleIn(index, sessions)
+}
+
+func titleIn(index map[string]int, sessions []Session) func(id string) string {
 	return func(id string) string {
 		if i, ok := index[id]; ok {
 			return title(sessions[i])
@@ -471,8 +476,13 @@ func TitleOf(sessions []Session) func(id string) string {
 	}
 }
 
-func groupViews(result group.Result, sessions []Session) []Group {
-	index := map[string]int{}
+// groupViews is each group as the map shows it, with whose move it is
+// among the sessions the snapshot holds, and each of those sessions
+// marked with its group and why it joined, or with picked, its
+// suggestion, when it is loose. It runs on every rescan, so the
+// sessions are indexed once, sized, for it and its titles (item 340).
+func groupViews(result group.Result, picked []group.Suggestion, sessions []Session) []Group {
+	index := make(map[string]int, len(sessions))
 	for i, s := range sessions {
 		index[s.ID] = i
 		sessions[i].Suggested, sessions[i].SuggestedWhy = "", ""
@@ -484,7 +494,7 @@ func groupViews(result group.Result, sessions []Session) []Group {
 			sessions[i].GroupMoved = true
 		}
 	}
-	titleOf := TitleOf(sessions)
+	titleOf := titleIn(index, sessions)
 	views := make([]Group, 0, len(result.Groups))
 	// present is one buffer for every group, since a copy of each member
 	// per group was most of what this allocated (item 205).
@@ -492,18 +502,22 @@ func groupViews(result group.Result, sessions []Session) []Group {
 	for _, g := range result.Groups {
 		view := Group{ID: g.ID, Name: g.Name, Short: group.Short(g), Anchor: g.Anchor}
 		present = present[:0]
+		view.Members = make([]string, 0, len(g.Members))
+		view.MemberDirs = make([]string, 0, len(g.Members))
+		view.MemberTitles = make([]string, 0, len(g.Members))
 		for _, m := range g.Members {
 			view.Members = append(view.Members, m.Session)
 			view.MemberDirs = append(view.MemberDirs, m.Dir)
 			view.MemberTitles = append(view.MemberTitles, titleOf(m.Session))
+			described := m.Reason.Describe(titleOf)
 			if view.Reason == "" && m.Reason.Signal != "" {
-				view.Reason = m.Reason.Describe(titleOf)
+				view.Reason = described
 			}
 			i, ok := index[m.Session]
 			if !ok {
 				continue
 			}
-			joined := m.Reason.Describe(titleOf)
+			joined := described
 			if m.Tier == group.Likely {
 				joined = "likely: " + joined
 			}
@@ -518,7 +532,7 @@ func groupViews(result group.Result, sessions []Session) []Group {
 		view.Journal = GroupJournal(present)
 		views = append(views, view)
 	}
-	for _, sg := range firstSuggestions(result.Suggestions) {
+	for _, sg := range picked {
 		if i, ok := index[sg.Session]; ok && sessions[i].Group == "" {
 			sessions[i].Suggested, sessions[i].SuggestedWhy = sg.Group, sg.Reason.Describe(titleOf)
 		}
@@ -529,14 +543,12 @@ func groupViews(result group.Result, sessions []Session) []Group {
 
 // firstSuggestions is one suggestion per session, the same one however
 // detection ordered them: by group, then signal, then the session it
-// matched.
+// matched, then its detail. It reads only the detection's result, so it
+// runs once a detection rather than on every rescan (item 340).
 func firstSuggestions(all []group.Suggestion) []group.Suggestion {
-	best := map[string]group.Suggestion{}
-	key := func(s group.Suggestion) string {
-		return s.Group + "\x00" + string(s.Reason.Signal) + "\x00" + s.Reason.With + "\x00" + s.Reason.Detail
-	}
+	best := make(map[string]group.Suggestion, len(all))
 	for _, s := range all {
-		if b, ok := best[s.Session]; !ok || key(s) < key(b) {
+		if b, ok := best[s.Session]; !ok || suggestedBefore(s, b) {
 			best[s.Session] = s
 		}
 	}
@@ -545,4 +557,17 @@ func firstSuggestions(all []group.Suggestion) []group.Suggestion {
 		out = append(out, s)
 	}
 	return out
+}
+
+func suggestedBefore(a, b group.Suggestion) bool {
+	if a.Group != b.Group {
+		return a.Group < b.Group
+	}
+	if a.Reason.Signal != b.Reason.Signal {
+		return a.Reason.Signal < b.Reason.Signal
+	}
+	if a.Reason.With != b.Reason.With {
+		return a.Reason.With < b.Reason.With
+	}
+	return a.Reason.Detail < b.Reason.Detail
 }

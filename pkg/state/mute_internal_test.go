@@ -16,7 +16,7 @@ func TestGroupWords(t *testing.T) {
 		groupViews(group.Result{Groups: []group.Group{{ID: "g1", Members: []group.Membership{
 			{Session: "a", Tier: group.Sure},
 			{Session: "b", Tier: group.Likely, Reason: reason},
-		}}}}, sessions)
+		}}}}, nil, sessions)
 		return sessions[1]
 	}
 
