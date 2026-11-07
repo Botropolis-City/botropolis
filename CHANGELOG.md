@@ -52,6 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   While stop, resume, fork or remove runs, its button on the session's card reads *stopping…*, *resuming…* and so on until it is done, and *Pack up everything quiet* reads *packing up…*.
   When nothing on screen carries it, such as a new session started from its panel, one message under the top bar says what was started.
   A failure says what went wrong there; a success needs no message, since the building changes.
+- **On a home with thousands of sessions, the daemon looks again for about a third less CPU.**
+  With 2,000 sessions a look costs about 12 ms of a core, where it had crept up to 17 since 0.3.4.
+  The daemon spends its 1% of a core on looking, so a reply now reaches the map about every 1.2 seconds rather than 1.7.
 
 ## [0.4.1] - 2026-11-06
 
