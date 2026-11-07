@@ -276,7 +276,7 @@ func StationCard(l Line, i int) Card {
 		}, st.Waits...)}
 	}
 	return Card{Title: l.Group.Name, Lines: append([]string{
-		"station  " + st.District.Name + ", " + string(st.Move),
+		"site     " + st.District.Name + ", " + string(st.Move),
 		"line     " + strings.Join(names, " → "),
 	}, st.Waits...)}
 }

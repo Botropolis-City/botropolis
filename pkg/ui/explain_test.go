@@ -64,7 +64,7 @@ func TestLayoutExplain(t *testing.T) {
 	})
 
 	t.Run("when something is at the window's edge", func(t *testing.T) {
-		caps := ui.LayoutExplain(th, []ui.Seen{at(city.KindStation, 1190, 0)}, window, true, measure7)
+		caps := ui.LayoutExplain(th, []ui.Seen{at(city.KindGroup, 1190, 0)}, window, true, measure7)
 		require.Len(t, caps, 1)
 
 		t.Run("it should keep the caption inside the window", func(t *testing.T) {

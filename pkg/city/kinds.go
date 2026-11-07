@@ -27,7 +27,7 @@ const (
 	KindGauge
 	KindCar
 	KindFlag
-	KindStation
+	KindGroup
 	// KindInspector and KindDelivery are a pull request's other two
 	// movers (item 89).
 	KindInspector
@@ -39,11 +39,14 @@ const (
 	// traffic, beside the car and the van (item 255).
 	KindBoxTruck
 	KindMotorbike
+	// KindKerb is the low wall round a neighbourhood, which nothing points
+	// at (item 361).
+	KindKerb
 )
 
 // Kinds is every kind, in the order the reference lists them.
 var Kinds = []Kind{
-	KindSession, KindProject, KindStation, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery,
+	KindSession, KindProject, KindGroup, KindKerb, KindDrone, KindSmoke, KindFlag, KindInspector, KindDelivery,
 	KindPlant, KindWire, KindTrain, KindTower, KindBeam, KindLibrary, KindHall, KindClinic,
 	KindRoad, KindCar, KindVan, KindBoxTruck, KindMotorbike, KindRiver, KindGauge, KindTug, KindLaunch, KindFountain, KindPlaza,
 }
@@ -57,9 +60,11 @@ var kindTexts = map[Kind]kindText{
 	KindSession: {"session", "a Claude Code session", "Each building is one Claude Code session. Its colour says its state: waiting for you, working, or resting. While Claude is mid-turn the roof is scaffolded, and each tool it uses sends a load up the hoist on the building's corner. Select it to read its card; its card leads with what Claude said last.",
 		[]Kind{KindProject, KindDrone, KindSmoke, KindFlag}},
 	KindProject: {"project", "a directory where sessions run", "Each district is a project: a directory on this machine. Its buildings are the sessions started there.",
-		[]Kind{KindSession, KindRoad, KindStation}},
-	KindStation: {"station", "a project on a group's line", "A group of sessions working on one thing is drawn as a line through its projects, with a station at each. A station's colour says whose move it is there.",
-		[]Kind{KindProject, KindSession}},
+		[]Kind{KindSession, KindRoad, KindGroup}},
+	KindGroup: {"group", "the sessions working on one thing", "A group is the sessions working on one thing, however many projects they cross, drawn as a line between their districts by default. The settings can draw it round its buildings in each district instead, or from building to building. Point at the line to see whose move it is in the project it leads into.",
+		[]Kind{KindSession, KindProject, KindKerb, KindHall}},
+	KindKerb: {"kerb", "a group's buildings side by side", "A low kerb runs round a group's buildings where two or more stand side by side in one district, so a group is found without reading a badge.",
+		[]Kind{KindGroup, KindSession}},
 	KindDrone: {"drone", "one subagent in flight", "Each drone working on a building is one subagent the session has running. It flies to the project its subagent works in, and home when it finishes.",
 		[]Kind{KindSession}},
 	KindSmoke: {"smoke", "errors from the API", "Smoke over a roof means the session has had errors from the API. The more smoke, the more errors.",
@@ -89,7 +94,7 @@ var kindTexts = map[Kind]kindText{
 	KindLibrary: {"library", "the skills in use", "The library holds the skills sessions have used, and how often.",
 		[]Kind{KindSession}},
 	KindHall: {"city hall", "the board of groups", "City hall holds the board of groups: each piece of work, whose move it is, and what is next. Move to group on a session's card, then new group…, makes a group.",
-		[]Kind{KindStation}},
+		[]Kind{KindGroup}},
 	KindClinic: {"clinic", "what needs you, and what is in trouble", "The clinic counts the sessions waiting on you and the ones in trouble: one whose last reply was an error from the API, one that stopped mid-turn in the last day, or one whose last three tool calls or more failed. Click it, or press a, for the list: the ones needing you first, then the troubled ones, each a key away.",
 		[]Kind{KindSession, KindSmoke}},
 	KindRoad: {"road", "traffic between two projects", "A road joins two projects that sessions crossed between, by messages, by files or by subagents. Roads appear only where traffic runs, and what drives one says which: a car, a van, a box truck or a motorbike.",
@@ -129,7 +134,7 @@ func (k Kind) Caption() string { return k.Name() + " · " + k.Is() }
 func KindOf(h Hit) Kind {
 	switch {
 	case h.Station != nil:
-		return KindStation
+		return KindGroup
 	case h.Gauge != nil:
 		return KindGauge
 	case h.Car != nil:

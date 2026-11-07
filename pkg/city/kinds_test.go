@@ -30,6 +30,35 @@ func TestKinds(t *testing.T) {
 		})
 	})
 
+	// Item 361: stations are not drawn; the line is the group's.
+	t.Run("when it is a group", func(t *testing.T) {
+		t.Run("it should say what a group is", func(t *testing.T) {
+			assert.Contains(t, city.KindGroup.About(), "A group is the sessions working on one thing, however many projects they cross, drawn as a line between their districts by default.")
+		})
+
+		t.Run("it should not mention a station", func(t *testing.T) {
+			assert.NotContains(t, city.KindGroup.Is()+city.KindGroup.About(), "station")
+		})
+
+		t.Run("it should list the kerb as related", func(t *testing.T) {
+			assert.Contains(t, city.KindGroup.Related(), city.KindKerb)
+		})
+	})
+
+	t.Run("when it is a kerb", func(t *testing.T) {
+		t.Run("it should say it runs round a group's buildings", func(t *testing.T) {
+			assert.Contains(t, city.KindKerb.About(), "runs round a group's buildings")
+		})
+	})
+
+	for _, k := range []city.Kind{city.KindProject, city.KindHall} {
+		t.Run("when it is "+k.Name(), func(t *testing.T) {
+			t.Run("it should name the group as related", func(t *testing.T) {
+				assert.Contains(t, k.Related(), city.KindGroup)
+			})
+		})
+	}
+
 	// Item 255: a group's line carries nothing.
 	t.Run("when it is a van", func(t *testing.T) {
 		t.Run("it should not say a carriage runs a group's line", func(t *testing.T) {
@@ -73,7 +102,7 @@ func TestKinds(t *testing.T) {
 			city.KindGauge:    {Gauge: &city.GaugeHit{}},
 			city.KindCar:      {Car: &city.CarHit{Road: &city.RoadLine{}}},
 			city.KindFlag:     {Flag: &city.FlagHit{PR: a.PRs[0]}},
-			city.KindStation:  {Station: &city.StationHit{Line: &c.Lines[0]}},
+			city.KindGroup:    {Station: &city.StationHit{Line: &c.Lines[0]}},
 			// Item 89.
 			city.KindInspector: {Building: b, Inspector: b},
 			city.KindDelivery:  {Delivery: &city.Delivery{PR: a.PRs[0]}},
@@ -83,8 +112,11 @@ func TestKinds(t *testing.T) {
 			city.KindMotorbike: {Traffic: &city.Traffic{Cargo: city.CargoVisit}},
 		}
 
-		t.Run("it should have a hit for every kind", func(t *testing.T) {
-			assert.Len(t, hits, len(city.Kinds))
+		// Item 361: a kerb cannot be pointed at.
+		unpointable := []city.Kind{city.KindKerb}
+
+		t.Run("it should have a hit for every kind that can be pointed at", func(t *testing.T) {
+			assert.Len(t, hits, len(city.Kinds)-len(unpointable))
 		})
 
 		for k, hit := range hits {

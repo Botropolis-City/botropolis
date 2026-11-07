@@ -87,10 +87,10 @@ func TestLines(t *testing.T) {
 			assert.Equal(t, []bool{false, false, true}, dashed)
 		})
 
-		t.Run("when a station is hovered, its card should name the group, whose move it is and its stations", func(t *testing.T) {
+		t.Run("when a station is hovered, its card should name the group, the site and whose move it is there, and the line", func(t *testing.T) {
 			card := city.StationCard(lines[0], 1)
 			assert.Equal(t, city.Card{Title: "PROJ-1", Lines: []string{
-				"station  botropolis, the agents'",
+				"site     botropolis, the agents'",
 				"line     cinders → botropolis → lanterns",
 			}}, card)
 		})
