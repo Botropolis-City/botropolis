@@ -28,7 +28,7 @@ func TestLayoutCaps(t *testing.T) {
 			{Rect: city.RectAt(100, 100, 120, 30), Keys: []string{"space", "s"}},
 			{Rect: city.RectAt(400, 300, 200, 40), Keys: []string{"v"}},
 		}
-		held := ui.LayoutCaps(th, controls, window, measure7)
+		held := ui.LayoutCaps(th, controls, nil, window, measure7)
 		require.Len(t, held, 2)
 
 		t.Run("it should lay one cap per press for each control", func(t *testing.T) {
@@ -53,7 +53,7 @@ func TestLayoutCaps(t *testing.T) {
 	})
 
 	t.Run("when a control sits in the window's corner", func(t *testing.T) {
-		held := ui.LayoutCaps(th, []ui.Control{{Rect: city.RectAt(0, 0, 10, 10), Keys: []string{"space", "s"}}}, window, measure7)
+		held := ui.LayoutCaps(th, []ui.Control{{Rect: city.RectAt(0, 0, 10, 10), Keys: []string{"space", "s"}}}, nil, window, measure7)
 		require.Len(t, held, 1)
 
 		t.Run("it should keep every cap inside the window", func(t *testing.T) {
@@ -69,7 +69,7 @@ func TestLayoutCaps(t *testing.T) {
 			{Rect: city.RectAt(148, 100, 40, 30), Keys: []string{"space", "s"}},
 			{Rect: city.RectAt(196, 100, 40, 30), Keys: []string{"space", "p"}},
 		}
-		held := ui.LayoutCaps(th, controls, window, measure7)
+		held := ui.LayoutCaps(th, controls, nil, window, measure7)
 		require.Len(t, held, 3)
 
 		t.Run("it should not overlap one button's caps with another's", func(t *testing.T) {
@@ -86,7 +86,7 @@ func TestLayoutCaps(t *testing.T) {
 	})
 
 	t.Run("when a control has no keys", func(t *testing.T) {
-		held := ui.LayoutCaps(th, []ui.Control{{Rect: city.RectAt(100, 100, 40, 30)}}, window, measure7)
+		held := ui.LayoutCaps(th, []ui.Control{{Rect: city.RectAt(100, 100, 40, 30)}}, nil, window, measure7)
 
 		t.Run("it should place nothing for it", func(t *testing.T) {
 			assert.Empty(t, held)

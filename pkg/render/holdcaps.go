@@ -123,7 +123,7 @@ func (g *Game) heldRowControls(owner overlay) []ui.Control {
 func (g *Game) drawHeldCaps(screen *ebiten.Image, width, height float64) {
 	var held []ui.HeldCaps
 	if g.capsHeld() {
-		held = ui.LayoutCaps(g.theme, g.heldControls(), city.RectAt(0, 0, width, height), g.faces.Measure)
+		held = ui.LayoutCaps(g.theme, g.heldControls(), g.pinned.TextRects(g.faces.Measure), city.RectAt(0, 0, width, height), g.faces.Measure)
 	}
 	g.mu.Lock()
 	g.holdCaps = held
