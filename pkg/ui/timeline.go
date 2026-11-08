@@ -1,6 +1,10 @@
 package ui
 
 import (
+	"slices"
+	"strconv"
+	"strings"
+
 	"botropolis.city/botropolis/pkg/city"
 	"botropolis.city/botropolis/pkg/events"
 )
@@ -111,7 +115,11 @@ func LayoutTimeline(th Theme, width, height float64, title string, list []events
 		if i == maxRows {
 			break
 		}
-		detail := clipTo(eventWords(e), w-2*pad-timeW-grid-grid-grid-titleW-grid, Small, measure)
+		words := eventWords(e)
+		if e.Times > 1 {
+			words = strings.Join(slices.DeleteFunc([]string{words, strconv.Itoa(e.Times) + " times"}, func(w string) bool { return w == "" }), "  ·  ")
+		}
+		detail := clipTo(words, w-2*pad-timeW-grid-grid-grid-titleW-grid, Small, measure)
 		tl.Rows = append(tl.Rows, TimelineRow{
 			Rect:      city.RectAt(tl.Rect.Min.X, y, w, rowH),
 			Time:      Text{Text: e.At.Format("15:04"), At: city.Point{X: x0, Y: y + grid/2 + (bodyH-smallH)/2}, Size: Small},

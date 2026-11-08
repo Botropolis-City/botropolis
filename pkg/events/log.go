@@ -34,6 +34,9 @@ type Event struct {
 	SessionID string    `json:"session_id"`
 	Title     string    `json:"title"`
 	Detail    string    `json:"detail,omitempty"`
+	// Times is how many events an away row stands for (item 367); the
+	// log itself never sets it.
+	Times int `json:"times,omitempty"`
 }
 
 // Keep is how many events the log holds.

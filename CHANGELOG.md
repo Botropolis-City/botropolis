@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A move says it moved only once it has.**
   It says "moving to" a group until the map shows the session there, then "moved to" it.
   A move that could not be written says why instead of claiming it moved, and one that has not shown after ten seconds says it has not taken.
+- **"While you were away" lists each session once.**
+  A session that needed you several times while you were gone has one row, its latest, saying how many times.
+  The full timeline still lists every event.
 
 ## [0.5.0] - 2026-11-07
 

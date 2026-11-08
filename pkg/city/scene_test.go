@@ -819,9 +819,110 @@ func TestSceneEvents(t *testing.T) {
 		})
 
 		t.Run("it should say what needed you since you left", func(t *testing.T) {
-			away := s.Away(left)
+			away := s.AwayEvents(left)
 			require.Len(t, away, 1)
 			assert.Equal(t, events.Error, away[0].Kind)
+		})
+	})
+}
+
+// Item 367: the away list is one row per session, not one per time it
+// needed you.
+func TestSceneAway(t *testing.T) {
+	clock := time.Date(2026, 9, 18, 14, 0, 0, 0, time.UTC)
+	left := clock
+
+	// away hands a scene the events, timed a minute apart from left in
+	// the order given, and returns the scene.
+	away := func(t *testing.T, logged ...events.Event) *city.Scene {
+		t.Helper()
+		s := city.NewScene(city.NewLayout())
+		s.Resize(800, 600)
+		s.SetClock(func() time.Time { return clock }, time.UTC)
+		s.SetSnapshot(snapshot(session("a", cinders, state.Working), session("b", cinders, state.Working)))
+		for i, e := range logged {
+			e.At = left.Add(time.Duration(i+1) * time.Minute)
+			s.AddEvents([]events.Event{e})
+		}
+		return s
+	}
+	needs := func(id string) events.Event {
+		return events.Event{Kind: events.NeedsYou, SessionID: id, Title: "Fix the CI queue"}
+	}
+	fails := func(id string) events.Event {
+		return events.Event{Kind: events.Error, SessionID: id, Title: "Fix the CI queue", Detail: "1 api errors"}
+	}
+
+	t.Run("when a session needed you seven times since you left", func(t *testing.T) {
+		var seven []events.Event
+		for range 7 {
+			seven = append(seven, needs("a"))
+		}
+		list := away(t, seven...).Away(left)
+
+		t.Run("it should give one row", func(t *testing.T) {
+			assert.Len(t, list, 1)
+		})
+
+		t.Run("it should count 7", func(t *testing.T) {
+			require.NotEmpty(t, list)
+			assert.Equal(t, 7, list[0].Times)
+		})
+	})
+
+	t.Run("when two sessions needed you", func(t *testing.T) {
+		list := away(t, needs("a"), needs("b"), needs("a"), needs("b")).Away(left)
+
+		t.Run("it should give two rows", func(t *testing.T) {
+			assert.Len(t, list, 2)
+		})
+
+		t.Run("it should list the most recent session first", func(t *testing.T) {
+			require.NotEmpty(t, list)
+			assert.Equal(t, "b", list[0].SessionID)
+		})
+	})
+
+	t.Run("when a session needed you and then failed", func(t *testing.T) {
+		list := away(t, needs("a"), fails("a")).Away(left)
+
+		t.Run("it should give one row", func(t *testing.T) {
+			assert.Len(t, list, 1)
+		})
+
+		t.Run("it should show its newest, the error", func(t *testing.T) {
+			require.NotEmpty(t, list)
+			assert.Equal(t, events.Error, list[0].Kind)
+		})
+
+		t.Run("it should count 2", func(t *testing.T) {
+			require.NotEmpty(t, list)
+			assert.Equal(t, 2, list[0].Times)
+		})
+	})
+
+	t.Run("when events have no session", func(t *testing.T) {
+		list := away(t, needs(""), needs("")).Away(left)
+
+		t.Run("it should keep a row for each", func(t *testing.T) {
+			assert.Len(t, list, 2)
+		})
+	})
+
+	t.Run("when the timeline is opened instead", func(t *testing.T) {
+		s := away(t, needs("a"), needs("a"), fails("a"))
+
+		t.Run("it should still list every event", func(t *testing.T) {
+			assert.Len(t, s.Events(), 3)
+		})
+	})
+
+	t.Run("when the away list has been built", func(t *testing.T) {
+		s := away(t, needs("a"), needs("a"))
+		s.Away(left)
+
+		t.Run("it should not mark the timeline's events with a count", func(t *testing.T) {
+			assert.Zero(t, s.Events()[0].Times)
 		})
 	})
 }

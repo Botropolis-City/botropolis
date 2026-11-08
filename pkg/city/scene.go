@@ -1401,10 +1401,30 @@ func (s *Scene) Events() []events.Event {
 	return s.log.Events()
 }
 
-// Away is what needed you or went wrong after a moment, newest first:
-// the list shown when the window comes back into focus.
-func (s *Scene) Away(since time.Time) []events.Event {
+// AwayEvents is every event that needed you or went wrong after a
+// moment, newest first.
+func (s *Scene) AwayEvents(since time.Time) []events.Event {
 	return s.log.Since(since, events.NeedsYou, events.Error)
+}
+
+// Away is the list shown when the window comes back into focus: one row
+// per session, its newest event counting how many it stands for, newest
+// first (item 367). An event with no session keeps its own row.
+func (s *Scene) Away(since time.Time) []events.Event {
+	var rows []events.Event
+	row := map[string]int{}
+	for _, e := range s.AwayEvents(since) {
+		if i, ok := row[e.SessionID]; ok {
+			rows[i].Times++
+			continue
+		}
+		if e.SessionID != "" {
+			row[e.SessionID] = len(rows)
+		}
+		e.Times = 1
+		rows = append(rows, e)
+	}
+	return rows
 }
 
 // noteMerges starts a celebration for every session whose merged-PR

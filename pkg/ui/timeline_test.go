@@ -71,6 +71,27 @@ func TestLayoutTimeline(t *testing.T) {
 		})
 	})
 
+	// Item 367: an away row stands for every time its session needed you.
+	t.Run("when a row stands for several events", func(t *testing.T) {
+		list := someEvents()
+		list[2].Times = 7
+		p := ui.LayoutTimeline(th, 900, 700, "While you were away", list, 0, measure7)
+
+		t.Run("it should say how many times", func(t *testing.T) {
+			assert.Equal(t, "needs you  ·  7 times", p.Rows[2].Detail.Text)
+		})
+	})
+
+	t.Run("when a row stands for one event", func(t *testing.T) {
+		list := someEvents()
+		list[2].Times = 1
+		p := ui.LayoutTimeline(th, 900, 700, "While you were away", list, 0, measure7)
+
+		t.Run("it should not say a count", func(t *testing.T) {
+			assert.Equal(t, "needs you", p.Rows[2].Detail.Text)
+		})
+	})
+
 	t.Run("when there are no events", func(t *testing.T) {
 		p := ui.LayoutTimeline(th, 900, 700, "Timeline", nil, 0, measure7)
 
