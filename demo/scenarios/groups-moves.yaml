@@ -1,0 +1,58 @@
+name: groups-moves
+description: The groups city again, for moving a session into a group and a team's convoy, which 0.5.0 cannot film (item 365), so this file is filmed apart from groups.yaml, from the release that fixes it (item 362).
+clock: "15:30"
+mcp: [tracker]
+usage: {session: 34, weekly: 52}
+stats: true
+sessions:
+  - {ref: tidepool/units-from-tracker, project: driftwood, state: working, ago: 2m, started: 3h, title: Driftwood ingest, team: harbor, agent: lead, context: 62%}
+  - {ref: kiln/json-report, project: driftwood, state: working, ago: 1m, started: 3h, title: Driftwood schema, team: harbor, agent: schema, context: 90%}
+  - {ref: lanternfish/list-race, project: saltmarsh, state: working, ago: 3m, started: 3h, title: Saltmarsh API, team: harbor, agent: api, context: 44%}
+  - {ref: quillmark/block-handlers, project: driftwood, state: needs-you, ago: 5m, started: 5h40m, title: Driftwood docs, context: 26%}
+  - {ref: tidepool/tide-team, state: working, ago: 1m, started: 2h20m, title: Ask a teammate about kiln's reader, context: 46%}
+  - {ref: tidepool/tide-team@reader, project: lanternfish, state: working, ago: 1m, started: 2h20m, title: Lanternfish reader, context: 38%}
+  - {ref: tidepool/units-from-tracker, state: working, branch: feat/reader-units, ago: 30s, started: 1h15m, title: Tide units, context: 34%}
+  - {ref: kiln/line-numbers-like-tidepool, state: working, branch: feat/reader-units, ago: 1m, started: 1h15m, title: Kiln line numbers, context: 48%}
+  - {ref: tidepool/review-loader-and-docs, state: needs-you, ago: 6m, started: 3h50m, title: Review the loader, context: 72%}
+  - {ref: tidepool/fix-table-timezone, state: resting, ago: 9h, prs: [merged]}
+  - {ref: kiln/hold-time-sampling, state: resting, ago: 30h}
+  - {ref: lanternfish/crash-safe-snapshots, state: needs-you, ago: 8m, started: 6h50m, title: Crash-safe snapshots, context: 21%}
+  - {ref: beacon/conditions-line, state: working, ago: 3m, started: 4h30m, context: 71%}
+groups:
+  - [Driftwood ingest, Driftwood schema, Saltmarsh API]
+  - [Ask a teammate about kiln's reader, Lanternfish reader]
+  - [Tide units, Kiln line numbers]
+shots:
+  - name: move-in
+    title: Moving a session into a group
+    description: Moving a session into a group carries its building to its new lot. It fades out where it stood, a truck carries its crate across, and it fades in where it lands.
+    daemon: true
+    record: {seconds: 16, fps: 15}
+    formats: [mp4, webm]
+    script:
+      - {at: 0, pan_to: "Review the loader", over: 1.5}
+      - {at: 0, wheel: 3, over: 1.5}
+      - {at: 1.5, point_at: "Review the loader", over: 1}
+      - {at: 2.8, click: true}
+      - {at: 3.8, key: space}
+      - {at: 4.8, key: g}
+      - {at: 5.8, key: m}
+      - {at: 6.6, key: ArrowDown}
+      - {at: 7.0, key: Enter}
+      - {at: 7.8, key: escape}
+  - name: convoy
+    title: A team moves as a convoy
+    description: Moving a team's lead into a group brings its teammate with it, the two crates travelling as a convoy.
+    daemon: true
+    record: {seconds: 18, fps: 15}
+    formats: [mp4, webm]
+    script:
+      - {at: 0, wheel: 2, over: 1.5}
+      - {at: 1.5, point_at: "Ask a teammate about kiln's reader", over: 1}
+      - {at: 2.8, click: true}
+      - {at: 3.8, key: space}
+      - {at: 4.8, key: g}
+      - {at: 5.8, key: m}
+      - {at: 6.6, key: ArrowDown}
+      - {at: 7.0, key: Enter}
+      - {at: 7.8, key: escape}

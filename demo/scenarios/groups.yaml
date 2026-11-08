@@ -1,5 +1,5 @@
 name: groups
-description: Groups up close, in a small city in the afternoon. The harbor team works across driftwood and saltmarsh, a second team reads kiln's log from tidepool and lanternfish, two sessions share a branch, and the rest work alone (item 362). Moving a session into a group comes back once item 365 is fixed.
+description: Groups up close, in a small city in the afternoon. The harbor team works across driftwood and saltmarsh, a second team reads kiln's log from tidepool and lanternfish, two sessions share a branch, and the rest work alone (item 362). Moving a session into a group, and a team's convoy, are in groups-moves.yaml.
 clock: "15:30"
 mcp: [tracker]
 usage: {session: 34, weekly: 52}
