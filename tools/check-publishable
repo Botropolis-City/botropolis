@@ -401,6 +401,7 @@ docs/screenshots/r1326-item-353-960-night.png
 docs/screenshots/r1326-item-353-strip-hover.png
 docs/screenshots/r1328-item-351-board-header.png
 docs/screenshots/r1328-item-351-clinic-header.png
+docs/screenshots/r1340-item-367-away-list.png
 LIST
 )
 while read -r img; do
