@@ -102,7 +102,8 @@ func runPublishable(t *testing.T, tokens bool, setup func(other string)) publish
 		require.NoError(t, os.WriteFile(filepath.Join(publisher, ".publishable-tokens"), []byte(publishableToken+"\n"), 0o644))
 	}
 
-	cmd := exec.Command(filepath.Join(publisher, "tools", "check-publishable"))
+	copied := filepath.Join(publisher, "tools", "check-publishable")
+	cmd := exec.Command(copied)
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
 	out, err := cmd.CombinedOutput()
 	run := publishableRun{out: string(out)}
