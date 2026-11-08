@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Moving a session into a group takes at once, even when nothing is working.**
   With the daemon running, a move, a rename, taking a session out or muting a word waited for the next change anywhere in `~/.claude`, so in a quiet city it never took.
   The daemon now watches the groups file itself.
+- **A move says it moved only once it has.**
+  It says "moving to" a group until the map shows the session there, then "moved to" it.
+  A move that could not be written says why instead of claiming it moved, and one that has not shown after ten seconds says it has not taken.
 
 ## [0.5.0] - 2026-11-07
 

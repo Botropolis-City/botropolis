@@ -4,11 +4,13 @@ import (
 	"image"
 	"image/color"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/exp/textinput"
 
 	"botropolis.city/botropolis/pkg/city"
+	"botropolis.city/botropolis/pkg/state"
 	"botropolis.city/botropolis/pkg/ui"
 )
 
@@ -191,8 +193,7 @@ func (p *picker) nameKeys(g *Game) bool {
 			return true
 		}
 		p.stopNaming()
-		g.act(city.Action{Kind: city.ActionMove, SessionID: p.session, GroupName: name})
-		g.Notify("moved to "+name+", a new group", ui.ToneNone, "")
+		g.moveIntoNewAt(p.session, name, timeNow())
 		return false
 	case g.just(ebiten.KeyBackspace):
 		p.name.backspace()
@@ -292,16 +293,94 @@ func (p *picker) draw(g *Game, screen *ebiten.Image, width, height float64) {
 	}
 }
 
-// move hands a session's move to the actor and says where it went.
+// moveWait is how long a move written may take to show before the city
+// says it has not taken (item 365).
+const moveWait = 10 * time.Second
+
+// awaitedMove is a move the actor wrote, which the city says it made
+// only once a snapshot shows it: the write is to a file the daemon reads
+// in its own time (item 365).
+type awaitedMove struct {
+	session, group, where string
+	fresh                 bool
+	since                 time.Time
+}
+
+// taken is whether snapshot shows the move: the session in its group, or
+// for a new group, in a group by its name, whose id the actor made.
+func (m awaitedMove) taken(snapshot state.Snapshot) bool {
+	for _, s := range snapshot.Sessions {
+		if s.ID != m.session {
+			continue
+		}
+		if !m.fresh {
+			return s.Group == m.group
+		}
+		for _, gr := range snapshot.Groups {
+			if gr.ID == s.Group && gr.Name == m.where {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+// move hands a session's move to the actor.
 func (g *Game) move(session, to string) {
-	g.act(city.Action{Kind: city.ActionMove, SessionID: session, Group: to})
+	g.moveAt(session, to, timeNow())
+}
+
+func (g *Game) moveAt(session, to string, now time.Time) {
 	where := noGroup
 	for _, gr := range g.scene.Groups() {
 		if gr.ID == to {
 			where = gr.Name
 		}
 	}
-	g.Notify("moved to "+where, ui.ToneNone, "")
+	g.startMove(city.Action{Kind: city.ActionMove, SessionID: session, Group: to}, where, false, now)
+}
+
+// moveIntoNewAt moves a session into a new group by the name typed.
+func (g *Game) moveIntoNewAt(session, name string, now time.Time) {
+	g.startMove(city.Action{Kind: city.ActionMove, SessionID: session, GroupName: name}, name, true, now)
+}
+
+// startMove writes the move and says it is moving; a failed write says
+// only why, and checkMove says when it has moved.
+func (g *Game) startMove(action city.Action, where string, fresh bool, now time.Time) {
+	action = g.scene.ForTeam(action)
+	if g.actor == nil {
+		return
+	}
+	g.awaiting = nil
+	if err := g.actor.Do(action); err != nil {
+		g.failed(err)
+		return
+	}
+	g.awaiting = &awaitedMove{session: action.SessionID, group: action.Group, where: where, fresh: fresh, since: now}
+	g.Notify("moving to "+where+"…", ui.ToneNone, "")
+}
+
+// checkMove says a move has moved once the scene's snapshot shows it, or
+// that it has not taken once the wait runs out.
+func (g *Game) checkMove(now time.Time) {
+	m := g.awaiting
+	if m == nil {
+		return
+	}
+	switch {
+	case m.taken(g.scene.Snapshot()):
+		g.awaiting = nil
+		text := "moved to " + m.where
+		if m.fresh {
+			text += ", a new group"
+		}
+		g.Notify(text, ui.ToneNone, "")
+	case now.Sub(m.since) >= moveWait:
+		g.awaiting = nil
+		g.Notify("the move to "+m.where+" has not taken", ui.ToneError, "")
+	}
 }
 
 // carries reports whether a drag that starts on hit carries the selected

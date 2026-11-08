@@ -114,8 +114,10 @@ type Game struct {
 	focusFor  string
 	focusDone bool
 	actor     Actor
-	theme     ui.Theme
-	faces     *faces
+	// awaiting is the move written and not yet shown (item 365).
+	awaiting *awaitedMove
+	theme    ui.Theme
+	faces    *faces
 	// clips remembers clipped text, for the faces it was measured in.
 	clips     *clipper
 	clipsIn   *faces
@@ -813,6 +815,7 @@ func (g *Game) Update() error {
 		g.eventsArrived = true
 	}
 	g.takeSnapshot(pending)
+	g.checkMove(timeNow())
 	if err := g.unreadAtCeiling(timeNow()); err != nil {
 		return err
 	}
