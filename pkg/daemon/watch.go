@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -42,6 +45,7 @@ func (d *Daemon) Watch(ctx context.Context) error {
 		defer told.Unwatched()
 	}
 	d.addWatches(watcher)
+	files := d.addFileWatches(watcher)
 	d.markWatching()
 
 	var fire <-chan time.Time
@@ -59,6 +63,16 @@ func (d *Daemon) Watch(ctx context.Context) error {
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return nil
+			}
+			if files.watches(event) {
+				appeared := files.appeared(event)
+				if appeared {
+					files = d.addFileWatches(watcher)
+				}
+				if appeared || files.files[event.Name] {
+					schedule()
+				}
+				continue
 			}
 			if told != nil {
 				told.Changed(event.Name)
@@ -82,6 +96,7 @@ func (d *Daemon) Watch(ctx context.Context) error {
 				continue
 			}
 			d.addWatches(watcher)
+			files = d.addFileWatches(watcher)
 		}
 	}
 }
@@ -135,6 +150,95 @@ func (d *Daemon) addWatches(watcher *fsnotify.Watcher) {
 			log.Printf("botropolisd: cannot watch %s (%v); its transcripts are looked at on every rescan instead", dir, err)
 		}
 	}
+}
+
+// FileWatcher is a loader that also reads files outside the directories
+// it watches, such as the groups file the city writes a move to, which
+// nothing else rescans for on a quiet home (item 365).
+type FileWatcher interface {
+	WatchFiles() []string
+}
+
+// fileWatches is the files the loader named and the directories watched
+// for them: each file's own, or its nearest ancestor that exists, until
+// it does. own are the directories the loader watches anyway, whose
+// every event is the loader's.
+type fileWatches struct {
+	files map[string]bool
+	dirs  map[string]bool
+	own   map[string]bool
+}
+
+// addFileWatches watches the directory of every file the loader names.
+// Only events on those files rescan: the state directory also holds the
+// ledger and the statistics, which the daemon writes itself.
+func (d *Daemon) addFileWatches(watcher *fsnotify.Watcher) fileWatches {
+	fw, ok := d.loader.(FileWatcher)
+	if !ok {
+		return fileWatches{}
+	}
+	d.scanMu.Lock()
+	files, own := fw.WatchFiles(), d.loader.WatchDirs()
+	d.scanMu.Unlock()
+	w := fileWatches{files: map[string]bool{}, dirs: map[string]bool{}, own: map[string]bool{}}
+	for _, dir := range own {
+		w.own[dir] = true
+	}
+	for _, file := range files {
+		w.files[file] = true
+		dir := existing(filepath.Dir(file))
+		if w.dirs[dir] {
+			continue
+		}
+		if err := d.addWatch(watcher, dir); err != nil {
+			if !d.unwatchable[dir] {
+				if d.unwatchable == nil {
+					d.unwatchable = map[string]bool{}
+				}
+				d.unwatchable[dir] = true
+				log.Printf("botropolisd: cannot watch %s (%v); a change to %s is read only on a rescan for something else", dir, err, file)
+			}
+			continue
+		}
+		w.dirs[dir] = true
+	}
+	return w
+}
+
+// existing is dir, or its nearest ancestor that exists.
+func existing(dir string) string {
+	for {
+		if _, err := os.Stat(dir); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return dir
+		}
+		dir = parent
+	}
+}
+
+// watches is whether event is in a directory watched only for files.
+func (w fileWatches) watches(event fsnotify.Event) bool {
+	dir := filepath.Dir(event.Name)
+	return w.dirs[dir] && !w.own[dir]
+}
+
+// appeared is whether event made a directory on the way to a file. It is
+// then watched in its ancestor's place, and read at once, since the file
+// may be in it before the watch is.
+func (w fileWatches) appeared(event fsnotify.Event) bool {
+	if !event.Has(fsnotify.Create) {
+		return false
+	}
+	for file := range w.files {
+		rel, err := filepath.Rel(event.Name, filepath.Dir(file))
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Daemon) markWatching() {

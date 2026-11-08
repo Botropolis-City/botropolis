@@ -116,6 +116,18 @@ func (m *Multi) WatchDirs() []string {
 	return dirs
 }
 
+// WatchFiles is every file a harness reads outside its home, of those
+// that name any (item 365).
+func (m *Multi) WatchFiles() []string {
+	var files []string
+	for _, h := range m.harnesses {
+		if w, ok := h.(interface{ WatchFiles() []string }); ok {
+			files = append(files, w.WatchFiles()...)
+		}
+	}
+	return files
+}
+
 type Claude struct {
 	*state.Loader
 }

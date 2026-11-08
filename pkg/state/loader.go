@@ -182,6 +182,16 @@ func (l *Loader) WatchDirs() []string {
 	return l.dirs
 }
 
+// WatchFiles is the files the loader reads outside the home, which the
+// city writes: the groups file, so a move taken there is read on a quiet
+// home too (item 365).
+func (l *Loader) WatchFiles() []string {
+	if l.groups.path == "" {
+		return nil
+	}
+	return []string{l.groups.path}
+}
+
 func (l *Loader) Load(now time.Time) (Snapshot, error) {
 	defer l.gate.hold()()
 	first := !l.loaded

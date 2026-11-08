@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Moving a session into a team's group, or starting one from it, puts it there.**
   The move said it was done and left the session where it was,
   and a group the team was remembered in could show up twice.
+- **Moving a session into a group takes at once, even when nothing is working.**
+  With the daemon running, a move, a rename, taking a session out or muting a word waited for the next change anywhere in `~/.claude`, so in a quiet city it never took.
+  The daemon now watches the groups file itself.
 
 ## [0.5.0] - 2026-11-07
 
