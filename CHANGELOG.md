@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The reference describes a group as it is drawn now, and has an entry for the kerb.**
   Pointing at a group's line names it as the group, and its card says which site it leads into, not a station.
 
+### Fixed
+
+- **Moving a session into a team's group, or starting one from it, puts it there.**
+  The move said it was done and left the session where it was,
+  and a group the team was remembered in could show up twice.
+
 ## [0.5.0] - 2026-11-07
 
 ### Added

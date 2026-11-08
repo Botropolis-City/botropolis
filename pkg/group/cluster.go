@@ -75,13 +75,27 @@ func (d *detection) takenOut(groups []Group, memory Memory) map[string][]string 
 // place adds to the detected groups the sessions that sit out detection,
 // each where it belongs: the moved where they were put, the started
 // where they were started from, and teammates with their lead; then
-// drops the groups closed by hand.
+// drops the groups closed by hand. Leads are placed first, since their
+// teams follow them, and everyone else after the teams have made their
+// groups, so a move or a start into a team's group finds it (item 364).
 func (d *detection) place(groups []Group, memory Memory) []Group {
-	groups = d.placeMoved(groups, memory)
-	groups = d.joinStarted(groups, memory)
+	groups = d.placeMoved(groups, memory, true)
+	groups = d.joinStarted(groups, memory, true)
 	groups = d.followLeads(groups, memory)
+	groups = d.placeMoved(groups, memory, false)
+	groups = d.joinStarted(groups, memory, false)
 	sortMembers(groups)
 	return withoutClosed(groups, memory)
+}
+
+// leads reports whether id leads a team among the members.
+func (d *detection) leads(id string) bool {
+	for _, lead := range d.follows {
+		if lead == id {
+			return true
+		}
+	}
+	return false
 }
 
 func sortMembers(groups []Group) {
@@ -466,7 +480,7 @@ func (d *detection) groups(comps [][]int, edges []edge, memory Memory) []Group {
 			taken[stored.ID] = true
 			g.ID = stored.ID
 		} else {
-			g.ID = newID(d.members[comp[0]].ID)
+			g.ID = freshID(groups, memory, d.members[comp[0]].ID)
 		}
 		d.names.name(d, &g)
 		if ok && stored.Renamed {
@@ -523,11 +537,12 @@ func (d *detection) membership(i int, e *edge) Membership {
 }
 
 // placeMoved puts each session moved by hand into the group it was put
-// in, made from memory when detection did not find it, or in none.
-func (d *detection) placeMoved(groups []Group, memory Memory) []Group {
+// in, made from memory when detection did not find it, or in none: the
+// leads among them, or the rest.
+func (d *detection) placeMoved(groups []Group, memory Memory, leads bool) []Group {
 	for _, mv := range d.moves {
 		i, ok := d.index[mv.Session]
-		if !ok || mv.Group == "" {
+		if !ok || mv.Group == "" || d.leads(mv.Session) != leads {
 			continue
 		}
 		var g *Group
@@ -616,7 +631,7 @@ func (d *detection) teamGroup(groups []Group, memory Memory, lead string) ([]Gro
 		if id, ok := d.storedHolding(memory, lead, groups); ok {
 			return groupFrom(groups, memory, id)
 		}
-		groups = append(groups, Group{ID: newID(lead)})
+		groups = append(groups, Group{ID: freshID(groups, memory, lead)})
 		return groups, &groups[len(groups)-1]
 	}
 	if mv, ok := d.moveOf(lead); ok {
@@ -706,6 +721,20 @@ func NewGroupID(seed string) string {
 	return newID(seed)
 }
 
+// freshID is an id for a group made rather than remembered, from seed,
+// that no group among groups or in memory has, so a team or a detected
+// group never takes a stored group's id it does not stand for (item 364).
+func freshID(groups []Group, memory Memory, seed string) string {
+	taken := func(id string) bool {
+		return groupByID(groups, id) != nil || slices.ContainsFunc(memory.Groups, func(s Stored) bool { return s.ID == id })
+	}
+	id := newID(seed)
+	for n := 1; taken(id); n++ {
+		id = newID(fmt.Sprintf("%s#%d", seed, n))
+	}
+	return id
+}
+
 func newID(seed string) string {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(seed))
@@ -713,11 +742,12 @@ func newID(seed string) string {
 }
 
 // joinStarted adds the loose sessions that were started from a group,
-// making the group from memory when detection did not find it.
-func (d *detection) joinStarted(groups []Group, memory Memory) []Group {
+// making the group from memory when detection did not find it: the leads
+// among them, or the rest.
+func (d *detection) joinStarted(groups []Group, memory Memory, leads bool) []Group {
 	for i, m := range d.members {
 		from := d.started[m.ID]
-		if from == "" || inAny(groups, m.ID) {
+		if from == "" || d.leads(m.ID) != leads || inAny(groups, m.ID) {
 			continue
 		}
 		var g *Group

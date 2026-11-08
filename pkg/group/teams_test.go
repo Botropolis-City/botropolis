@@ -233,6 +233,81 @@ func TestTeams(t *testing.T) {
 		})
 	})
 
+	t.Run("when an outsider is placed in a team's group", func(t *testing.T) {
+		team := func() []group.Member {
+			return []group.Member{lead("start"), teammate("b", 3*time.Hour), resting(teammate("e", 5*time.Hour)),
+				member("c", "/w/logs", 6*time.Hour, "LOG-4 buffer")}
+		}
+		teamID, _ := detect(group.Memory{}, team()...).GroupOf("a")
+		crewStored := []group.Stored{{ID: teamID.ID, Members: []string{"a", "b", "e"}}}
+		withID := func(result group.Result, id string) int {
+			n := 0
+			for _, g := range result.Groups {
+				if g.ID == id {
+					n++
+				}
+			}
+			return n
+		}
+
+		t.Run("by a move", func(t *testing.T) {
+			moved := []group.Move{{Session: "c", Group: teamID.ID}}
+
+			t.Run("and that group is not stored", func(t *testing.T) {
+				result := detect(group.Memory{Moves: moved}, team()...)
+
+				t.Run("it should be a member of the team's group", func(t *testing.T) {
+					assert.Equal(t, []string{teamID.ID, teamID.ID}, groupIDs(result, "a", "c"))
+				})
+			})
+
+			t.Run("and that group is stored", func(t *testing.T) {
+				result := detect(group.Memory{Groups: crewStored, Moves: moved}, team()...)
+
+				t.Run("it should be a member of the team's group", func(t *testing.T) {
+					assert.Equal(t, []string{"a", "b", "e", "c"}, memberIDs(result, "c"))
+				})
+
+				t.Run("it should leave one group with that id", func(t *testing.T) {
+					assert.Equal(t, 1, withID(result, teamID.ID))
+				})
+			})
+		})
+
+		t.Run("by being started from it", func(t *testing.T) {
+			ms := team()
+			ms[3].StartedFrom = teamID.ID
+
+			t.Run("and that group is not stored", func(t *testing.T) {
+				result := detect(group.Memory{}, ms...)
+
+				t.Run("it should be a member of the team's group", func(t *testing.T) {
+					assert.Equal(t, []string{teamID.ID, teamID.ID}, groupIDs(result, "a", "c"))
+				})
+			})
+
+			t.Run("and that group is stored", func(t *testing.T) {
+				result := detect(group.Memory{Groups: crewStored}, ms...)
+
+				t.Run("it should be a member of the team's group", func(t *testing.T) {
+					assert.Equal(t, []string{"a", "b", "e", "c"}, memberIDs(result, "c"))
+				})
+
+				t.Run("it should leave one group with that id", func(t *testing.T) {
+					assert.Equal(t, 1, withID(result, teamID.ID))
+				})
+			})
+		})
+	})
+
+	t.Run("when the lead is moved to another group and an outsider into the team's", func(t *testing.T) {
+		result := detect(group.Memory{Groups: stored, Moves: []group.Move{{Session: "a", Group: "g-log"}, {Session: "x", Group: "g-proj"}}}, crew()...)
+
+		t.Run("it should move the teammates with the lead", func(t *testing.T) {
+			assert.Equal(t, []string{"g-log", "g-log", "g-log"}, groupIDs(result, "a", "b", "e"))
+		})
+	})
+
 	t.Run("when the team's group is closed", func(t *testing.T) {
 		result := detect(group.Memory{Groups: stored, Closed: []string{"g-proj"}}, crew()...)
 
