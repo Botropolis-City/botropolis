@@ -59,6 +59,11 @@ jobs:
       - run: make test lint
         env:
           ACCEPTANCE_TIMEOUT: 20m
+      # The background passes' goroutines, under the race detector, which
+      # make test does not run: it costs pkg/state 3-7x, too much for every
+      # landing (item 368).
+      - name: The background passes under the race detector
+        run: go test -race -count=1 ./pkg/state/
 
   # Nothing in the working arrangement runs macOS (item 80), so this is the
   # only place the darwin code runs: the netstat attached probe, open, pbcopy

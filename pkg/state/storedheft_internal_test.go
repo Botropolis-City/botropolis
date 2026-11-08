@@ -47,9 +47,16 @@ func TestStoredHeftsPass(t *testing.T) {
 	passOf := func(h *storedHefts) func() {
 		dir := t.TempDir()
 		return func() {
-			h.mu.Lock()
-			h.running = true
-			h.mu.Unlock()
+			for {
+				h.mu.Lock()
+				if !h.running {
+					h.running = true
+					h.mu.Unlock()
+					break
+				}
+				h.mu.Unlock()
+				runtime.Gosched()
+			}
 			h.pass(dir, time.Unix(0, 0), true, nil, false)
 		}
 	}
@@ -88,7 +95,6 @@ func TestStoredHeftsPass(t *testing.T) {
 
 	t.Run("when a load applies the hefts while a pass moves one", func(t *testing.T) {
 		h := newHefts(200)
-		h.running = true
 		sessions := []Session{{ID: moved, Usage: claude.Usage{Partial: true}}}
 		pass := passOf(h)
 		done := make(chan struct{})
