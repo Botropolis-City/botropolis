@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -427,6 +428,77 @@ func TestList(t *testing.T) {
 
 		t.Run("it should say something outside the queue holds it", func(t *testing.T) {
 			assert.Contains(t, r.list(t), "held outside the queue")
+		})
+	})
+}
+
+// Item 355. take once held the queue's own lock from the moment its ticket
+// appeared until it returned, so an arrival stopped in that moment held every
+// later arrival out of the queue. This holds one taker exactly there.
+func TestTake(t *testing.T) {
+	t.Run("when one arrival stops just as its ticket appears, and another arrives", func(t *testing.T) {
+		queue := filepath.Join(t.TempDir(), "land.queue")
+		stopped, resume := make(chan struct{}), make(chan struct{})
+		var held atomic.Bool
+		tookTicket = func() {
+			if held.CompareAndSwap(false, true) {
+				close(stopped)
+				<-resume
+			}
+		}
+		t.Cleanup(func() { tookTicket = func() {} })
+
+		type took struct {
+			name string
+			file *os.File
+			err  error
+		}
+		taking := func(name string) chan took {
+			c := make(chan took, 1)
+			go func() {
+				n, f, err := take(queue, name)
+				c <- took{n, f, err}
+			}()
+			return c
+		}
+
+		firstC := taking("first")
+		<-stopped
+		laterC := taking("later")
+		var later took
+		arrived := false
+		select {
+		case later = <-laterC:
+			arrived = true
+		case <-time.After(10 * time.Second):
+		}
+		ahead := -1
+		if arrived {
+			ahead, _ = clearAhead(queue, later.name)
+		}
+		close(resume)
+		first := <-firstC
+		if !arrived {
+			later = <-laterC
+		}
+		for _, tk := range []took{first, later} {
+			if tk.file != nil {
+				t.Cleanup(func() { _ = tk.file.Close() })
+			}
+		}
+		require.NoError(t, first.err)
+		require.NoError(t, later.err)
+
+		t.Run("it should give the later arrival a ticket", func(t *testing.T) {
+			assert.True(t, arrived, "the later arrival blocked behind the stopped one")
+		})
+
+		t.Run("it should number the later ticket above the stopped one", func(t *testing.T) {
+			assert.Greater(t, later.name, first.name)
+		})
+
+		t.Run("it should count the stopped one's ticket as live and ahead of it", func(t *testing.T) {
+			assert.Equal(t, 1, ahead)
 		})
 	})
 }

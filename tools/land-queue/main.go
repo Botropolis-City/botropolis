@@ -50,6 +50,10 @@ probes and changes nothing.
 
 const poll = 250 * time.Millisecond
 
+// tookTicket runs as soon as a new ticket is visible in the queue. Tests use it
+// to hold an arrival exactly there, as a stopped process would be held.
+var tookTicket = func() {}
+
 func nameHolderAfter() time.Duration {
 	if d, err := time.ParseDuration(os.Getenv("LAND_QUEUE_NAME_HOLDER_AFTER")); err == nil {
 		return d
@@ -216,26 +220,15 @@ func execHolding(command []string) int {
 	}
 }
 
-// take writes and locks a ticket under a temporary name, then renames it into
-// the queue, so no reader ever sees a live ticket unlocked.
+// take writes and locks a ticket under a temporary name, then links it into
+// the queue, so no reader ever sees a live ticket unlocked. A link never
+// replaces, so arrivals that pick the same number find out and take the next,
+// and none waits on another: a lock held across this would let an arrival
+// stopped here hold every later one out of the queue (item 355).
 func take(queue, name string) (string, *os.File, error) {
 	if err := os.MkdirAll(queue, 0o777); err != nil {
 		return "", nil, err
 	}
-	guard, err := os.OpenFile(filepath.Join(queue, ".lock"), os.O_CREATE|os.O_RDWR, 0o666)
-	if err != nil {
-		return "", nil, err
-	}
-	defer func() { _ = guard.Close() }()
-	if err := syscall.Flock(int(guard.Fd()), syscall.LOCK_EX); err != nil {
-		return "", nil, err
-	}
-
-	n, err := next(queue)
-	if err != nil {
-		return "", nil, err
-	}
-	mine := fmt.Sprintf("%09d", n)
 	worktree, _ := os.Getwd()
 	data, err := json.Marshal(ticket{PID: os.Getpid(), Since: time.Now(), Target: name, Worktree: worktree, Head: head()})
 	if err != nil {
@@ -245,9 +238,9 @@ func take(queue, name string) (string, *os.File, error) {
 	if err != nil {
 		return "", nil, err
 	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	fail := func(err error) (string, *os.File, error) {
 		_ = tmp.Close()
-		_ = os.Remove(tmp.Name())
 		return "", nil, err
 	}
 	if err := syscall.Flock(int(tmp.Fd()), syscall.LOCK_EX); err != nil {
@@ -256,13 +249,24 @@ func take(queue, name string) (string, *os.File, error) {
 	if _, err := tmp.Write(data); err != nil {
 		return fail(err)
 	}
-	if err := os.Rename(tmp.Name(), filepath.Join(queue, mine)); err != nil {
+
+	n, err := next(queue)
+	if err != nil {
 		return fail(err)
 	}
-	if err := os.WriteFile(filepath.Join(queue, "next"), []byte(strconv.Itoa(n+1)+"\n"), 0o666); err != nil {
-		_ = os.Remove(filepath.Join(queue, mine))
-		return fail(err)
+	for {
+		err := os.Link(tmp.Name(), filepath.Join(queue, fmt.Sprintf("%09d", n)))
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return fail(err)
+		}
+		n++
 	}
+	mine := fmt.Sprintf("%09d", n)
+	tookTicket()
+	_ = os.WriteFile(filepath.Join(queue, "next"), []byte(strconv.Itoa(n+1)+"\n"), 0o666)
 	return mine, tmp, nil
 }
 
