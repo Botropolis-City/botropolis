@@ -1,0 +1,74 @@
+name: groups
+description: Groups up close, in a small city in the afternoon. The harbor team works across driftwood and saltmarsh, a second team reads kiln's log from tidepool and lanternfish, two sessions share a branch, and the rest work alone (item 362). Moving a session into a group comes back once item 365 is fixed.
+clock: "15:30"
+mcp: [tracker]
+usage: {session: 34, weekly: 52}
+stats: true
+sessions:
+  - {ref: tidepool/units-from-tracker, project: driftwood, state: working, ago: 2m, started: 3h, title: Driftwood ingest, team: harbor, agent: lead, context: 62%}
+  - {ref: kiln/json-report, project: driftwood, state: working, ago: 1m, started: 3h, title: Driftwood schema, team: harbor, agent: schema, context: 90%}
+  - {ref: lanternfish/list-race, project: saltmarsh, state: working, ago: 3m, started: 3h, title: Saltmarsh API, team: harbor, agent: api, context: 44%}
+  - {ref: quillmark/block-handlers, project: driftwood, state: needs-you, ago: 5m, started: 5h40m, title: Driftwood docs, context: 26%}
+  - {ref: tidepool/tide-team, state: working, ago: 1m, started: 2h20m, title: Ask a teammate about kiln's reader, context: 46%}
+  - {ref: tidepool/tide-team@reader, project: lanternfish, state: working, ago: 1m, started: 2h20m, title: Lanternfish reader, context: 38%}
+  - {ref: tidepool/units-from-tracker, state: working, branch: feat/reader-units, ago: 30s, started: 1h15m, title: Tide units, context: 34%}
+  - {ref: kiln/line-numbers-like-tidepool, state: working, branch: feat/reader-units, ago: 1m, started: 1h15m, title: Kiln line numbers, context: 48%}
+  - {ref: tidepool/review-loader-and-docs, state: needs-you, ago: 6m, started: 3h50m, title: Review the loader, context: 72%}
+  - {ref: tidepool/fix-table-timezone, state: resting, ago: 9h, prs: [merged]}
+  - {ref: kiln/hold-time-sampling, state: resting, ago: 30h}
+  - {ref: lanternfish/crash-safe-snapshots, state: needs-you, ago: 8m, started: 6h50m, title: Crash-safe snapshots, context: 21%}
+  - {ref: beacon/conditions-line, state: working, ago: 3m, started: 4h30m, context: 71%}
+groups:
+  - [Driftwood ingest, Driftwood schema, Saltmarsh API]
+  - [Ask a teammate about kiln's reader, Lanternfish reader]
+  - [Tide units, Kiln line numbers]
+shots:
+  - name: kerb
+    title: A group, inside its kerb
+    description: A group's sessions sit together on neighbouring lots, and a low light kerb runs round the neighbourhood, so a group is found without reading a badge.
+    record: {seconds: 5, fps: 15}
+    poster_at: 5
+    formats: [mp4, webm]
+    script:
+      - {at: 0, pan_to: "Driftwood ingest", over: 2}
+      - {at: 1, wheel: 4, over: 2.5}
+  - name: lit
+    title: Pointing at a session lights its group
+    description: Pointing at a session in a group lights the whole group, and the rest of the city goes dark grey.
+    record: {seconds: 8, fps: 15}
+    poster_at: 8
+    formats: [mp4, webm]
+    script:
+      - {at: 0, pan_to: "Driftwood schema", over: 1.5}
+      - {at: 0, wheel: 2, over: 1.5}
+      - {at: 2.0, point: [420, 900], over: 0.8}
+      - {at: 4.5, point_at: "Driftwood schema", over: 1.5}
+  - name: line-districts
+    title: A group's line, between its districts
+    description: The default form of group_line_form draws a group's line between its districts.
+    keys: [equal]
+    set: {group_line_form: districts}
+  - name: line-neighbourhoods
+    title: A group's line, round its neighbourhoods
+    description: group_line_form's neighbourhoods form draws outlines round a group's buildings in each district, with links between them.
+    keys: [equal]
+    set: {group_line_form: neighbourhoods}
+  - name: line-sessions
+    title: A group's line, building to building
+    description: group_line_form's sessions form draws a group's line from building to building.
+    keys: [equal]
+    set: {group_line_form: sessions}
+  - name: close-group
+    title: Closing a group from City Hall's board
+    description: Close group on City Hall's board asks in a dialog, then packs the group's sessions into the depot as a convoy.
+    daemon: true
+    record: {seconds: 18, fps: 15}
+    formats: [mp4, webm]
+    script:
+      - {at: 0, pan_to: hall, over: 1.5}
+      - {at: 0, wheel: 2, over: 1.5}
+      - {at: 2.0, key: g}
+      - {at: 3.5, key: delete}
+      - {at: 5.0, key: delete}
+      - {at: 6.0, key: escape}
+      - {at: 6.5, pan_to: depot, over: 4}

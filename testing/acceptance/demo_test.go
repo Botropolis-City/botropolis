@@ -63,7 +63,7 @@ func TestDemoScenarios(t *testing.T) {
 				assert.Equal(t, want, got)
 			})
 
-			targets := map[string]bool{"plant": true, "home": true}
+			targets := map[string]bool{"plant": true, "home": true, "fountain": true, "library": true, "clinic": true, "depot": true, "hall": snapshot.Stats != nil}
 			for _, s := range snapshot.Sessions {
 				targets[s.Title] = true
 				targets["district:"+filepath.Base(s.CWD)] = true
